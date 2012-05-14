@@ -3,11 +3,9 @@ msaccess-vcs-integration
 
 Synchronize your Access Forms, Macros, Modules, Queries, and Reports with a version control system.
 
-This tool provides functions to export and import all of your Access objects (except Tables) to plain text files so that you can use a version control tool to track changes in these objects. For Access objects which are normally exported in UCS-2-little-endian encoding are automatically converted to and from UTF-8 encoding during export/import; this is to ensure that you don't have trouble branching, merging, and comparing in tools such as Mercurial which treat any file containing 0x00 bytes as a non-mergeable binary file.
+This tool provides functions to export and import all of your Access objects (except Tables) to plain text files so that you can use a version control tool to track changes in these objects. For Access objects which are normally exported in UCS-2-little-endian encoding are automatically converted to and from UTF-8 encoding during export/import; this is to ensure that you don't have trouble branching, merging, and comparing in tools such as Mercurial which treat any file containing 0x00 bytes as a non-diffable binary file.
 
-This document shows how to synchronize all application code objects from an Access application with a source control system such as Kiln or Git. (It is agnostic about the actual source control systemn.)
-
-All Forms, Macros, Modules, Queries, and Reports are synchronized. Tables and table schemas are not.
+This document shows how to synchronize all application code objects (except Tables) from an Access application with a source control system such as Mercurial or Git. (It is agnostic about the actual source control systemn.)
 
 For the purposes of these instructions, assume your database is called `Application.accdb` and it is stored in `~/MyProject`.
 
