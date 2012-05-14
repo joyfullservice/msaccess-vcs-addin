@@ -3,8 +3,8 @@ Option Compare Database
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
-' Brendan Kidwell - Abt Associates, Inc.
-' This code is given to the Public Domain.
+' Brendan Kidwell
+' This code is licensed under BSD-style terms.
 '
 ' This is some code for importing and exporting Access Queries, Forms,
 ' Reports, Macros, and Modules to and from plain text files, for the
@@ -66,7 +66,7 @@ End Type
 
 Private Declare Function WaitForSingleObject Lib "kernel32" (ByVal _
     hHandle As Long, ByVal dwMilliseconds As Long) As Long
-    
+
 Private Declare Function CreateProcessA Lib "kernel32" (ByVal _
     lpApplicationName As Long, ByVal lpCommandLine As String, ByVal _
     lpProcessAttributes As Long, ByVal lpThreadAttributes As Long, _
@@ -74,7 +74,7 @@ Private Declare Function CreateProcessA Lib "kernel32" (ByVal _
     ByVal lpEnvironment As Long, ByVal lpCurrentDirectory As Long, _
     lpStartupInfo As STARTUPINFO, lpProcessInformation As _
     PROCESS_INFORMATION) As Long
-    
+
 Private Declare Function CloseHandle Lib "kernel32" (ByVal _
     hObject As Long) As Long
 
@@ -121,7 +121,7 @@ Set fso = CreateObject("Scripting.FileSystemObject")
 Filename = Dir(path & "\*.txt")
 Do
     obj_name = Mid(Filename, 1, Len(Filename) - 4)
-    
+
     Set infile = fso.OpenTextFile(path & "\" & obj_name & ".txt", ForReading)
     Set outfile = fso.CreateTextFile(path & "\" & obj_name & ".sanitize", True)
     Do Until infile.AtEndOfStream
@@ -146,7 +146,7 @@ Do
     Loop
     outfile.Close
     infile.Close
-    
+
     Filename = Dir()
 Loop Until Len(Filename) = 0
 
