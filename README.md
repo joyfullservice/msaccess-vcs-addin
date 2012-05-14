@@ -37,7 +37,7 @@ Committing New Progress and Pulling Changes from Other Developers
 Committing a New "Release" of Your Project
 ------------------------------------------
 
-1. There may be application changes that aren't covered in the source code for Forms, Macros, Modules, Queries, and Reports. To make sure these changes are recorded, Compact and Repair `Application.accdb` and zip it to `Application.zip` (replacing the old copy) using the Send to Compressed Folder command in Windows Explorer. Commit the new Application.zip to your repository with a commit message like "Full application binary for release [number]".
+1. There may be application changes that aren't covered in the source code for Forms, Macros, Modules, Queries, and Reports. To make sure these changes are recorded, Compact and Repair `Application.accdb` and zip it to `Application.zip` (replacing the old copy) using the Send to Compressed Folder command in Windows Explorer. Commit the new `Application.zip` to your repository with a commit message like "Full application binary for release [number]".
 2. Follow the usual steps in the previous section "Committing New Progress".
 3. Use your repository's "tag" function to tag your last commit with the release number/name.
 
