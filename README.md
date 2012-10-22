@@ -12,6 +12,7 @@ This README shows how to synchronize all application code objects from an Access
 Included in the export/import:
 * Queries
 * Forms
+* Reports
 * Macros
 * Modules
 * Tables
@@ -21,7 +22,7 @@ By default, no Tables are exported. You must specify which tables to include in 
 Not included in the export/import:
 * Customized toolbars, toolbar items, and menu items
 * Any external files
-* Pretty much anything that is not accessible by browsing the design, properties, and code of a Query, Form, Macro, or Module object.
+* Pretty much anything that is not accessible by browsing the design, properties, and code of a Query, Form, Report, Macro, or Module object.
 
 For the purposes of these instructions, assume your database is called `Application.accdb` and it is stored in `~/MyProject`.
 
