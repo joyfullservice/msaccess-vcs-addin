@@ -5,9 +5,23 @@ Synchronize your Access Forms, Macros, Modules, Queries, and Reports with a vers
 
 *This code is built and tested on Microsoft Access 2010. It will probably work in earlier versions, but YMMV.*
 
-This tool provides functions to export and import all of your Access objects (except Tables) to plain text files so that you can use a version control tool to track changes in these objects. For Access objects which are normally exported in UCS-2-little-endian encoding are automatically converted to and from UTF-8 encoding during export/import; this is to ensure that you don't have trouble branching, merging, and comparing in tools such as Mercurial which treat any file containing 0x00 bytes as a non-diffable binary file.
+The Microsoft Access code module in this project provides functions to export and import all of your Access objects to plain text files so that you can use a version control tool to track changes in these objects. For Access objects which are normally exported in UCS-2-little-endian encoding are automatically converted to and from UTF-8 encoding during export/import; this is to ensure that you don't have trouble branching, merging, and comparing in tools such as Mercurial which treat any file containing 0x00 bytes as a non-diffable binary file.
 
-This document shows how to synchronize all application code objects (except Tables) from an Access application with a source control system such as Mercurial or Git. (It is agnostic about the actual source control systemn.)
+This README shows how to synchronize all application code objects from an Access application with a source control system such as Mercurial or Git. (The provided import/export module is agnostic about the actual source control system you use.)
+
+Included in the export/import:
+* Queries
+* Forms
+* Macros
+* Modules
+* Tables
+
+By default, no Tables are exported. You must specify which tables to include in the export/import process. For example you might have "Countries" or "Colors" tables that populate a dropdown list. You shouldn't include regular data tables containing actual records, because this data doesn't belong in version control.
+
+Not included in the export/import:
+* Customized toolbars, toolbar items, and menu items
+* Any external files
+* Pretty much anything that is not accessible by browsing the design, properties, and code of a Query, Form, Macro, or Module object.
 
 For the purposes of these instructions, assume your database is called `Application.accdb` and it is stored in `~/MyProject`.
 
