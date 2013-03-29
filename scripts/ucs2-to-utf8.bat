@@ -8,50 +8,50 @@ set PATH=%~d0%~p0;%PATH%
 
 cd /d "%~d0%~p0"
 cd ..\source
+SET sourcePath=%CD%\
 
 :: process forms, macros, queries, reports, and modules
 
-echo tables
-cd tables
+echo %sourcePath%tables
+cd %sourcePath%tables >NUL 2>&1
 if exist *.data (
-   forfiles /m *.data /c "cmd /c iconv -f UCS-2LE -t UTF-8 @file>@fname.txt">NUL
+   forfiles /m *.data /c "cmd /c iconv -f UCS-2LE -t UTF-8 @file>@fname.txt" >NUL 2>&1
    del *.data
 )
 
-echo forms
-cd ..\forms
+echo %sourcePath%forms
+cd %sourcePath%forms >NUL 2>&1
 if exist *.data (
-   forfiles /m *.data /c "cmd /c iconv -f UCS-2LE -t UTF-8 @file>@fname.txt">NUL
+   forfiles /m *.data /c "cmd /c iconv -f UCS-2LE -t UTF-8 @file>@fname.txt" >NUL 2>&1
    del *.data
 )
 
-echo macros
-cd ..\macros
+echo %sourcePath%macros
+cd %sourcePath%macros >NUL 2>&1
 if exist *.data (
-   forfiles /m *.data /c "cmd /c iconv -f UCS-2LE -t UTF-8 @file>@fname.txt">NUL
+   forfiles /m *.data /c "cmd /c iconv -f UCS-2LE -t UTF-8 @file>@fname.txt" >NUL 2>&1
    del *.data
 )
 
-echo queries
-cd ..\queries
+echo %sourcePath%queries
+cd %sourcePath%queries >NUL 2>&1
 if exist *.data (
-   forfiles /m *.data /c "cmd /c iconv -f UCS-2LE -t UTF-8 @file>@fname.txt">NUL
+   forfiles /m *.data /c "cmd /c iconv -f UCS-2LE -t UTF-8 @file>@fname.txt" >NUL 2>&1
    del *.data
 )
 
-echo reports
-cd ..\reports
+echo %sourcePath%reports
+cd %sourcePath%reports >NUL 2>&1
 if exist *.data (
-   forfiles /m *.data /c "cmd /c iconv -f UCS-2LE -t UTF-8 @file>@fname.txt">NUL
+   forfiles /m *.data /c "cmd /c iconv -f UCS-2LE -t UTF-8 @file>@fname.txt" >NUL 2>&1
    del *.data
 )
 
-echo modules
-cd ..\modules
+echo %sourcePath%modules
+cd %sourcePath%modules >NUL 2>&1
 :: Exported text from Access for 'modules' is not UCS-2; don't convert.
 if exist *.data (
-   forfiles /m *.data /c "cmd /c copy @file @fname.txt">NUL
-   del *.data
+   forfiles /m *.data /c "cmd /c move @file @fname.txt"  >NUL 2>&1
 )
 
 echo Done.
