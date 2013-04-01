@@ -543,7 +543,7 @@ Private Sub ExportTable(tblName As String, obj_path As String)
     Set fso = CreateObject("Scripting.FileSystemObject")
     ' open file for writing with Create=True, Unicode=True (USC-2 Little Endian format)
     MkDirIfNotExist obj_path
-    Set OutFile = fso.CreateTextFile(obj_path & tblName & ".us2", True, True)
+    Set OutFile = fso.CreateTextFile(TempFile(), True, True)
     
     Set rs = CurrentDb.OpenRecordset("export_" & tblName)
     C = 0
@@ -570,7 +570,7 @@ Private Sub ExportTable(tblName As String, obj_path As String)
                 Value = Replace(Value, vbLf, "\n")
                 Value = Replace(Value, vbTab, "\t")
             End If
-            OutFile.write CStr(Nz(rs(fieldObj.Name), ""))
+            OutFile.write Value
         Next
         OutFile.write vbCrLf
         rs.MoveNext
@@ -578,8 +578,7 @@ Private Sub ExportTable(tblName As String, obj_path As String)
     rs.Close
     OutFile.Close
     
-    ConvertUcs2Utf8 obj_path & tblName & ".us2", obj_path & tblName & ".txt"
-    Kill obj_path & tblName & ".us2"
+    ConvertUcs2Utf8 TempFile(), obj_path & tblName & ".txt"
 End Sub
 
 ' Import the lookup table `tblName` from `source\tables`.
