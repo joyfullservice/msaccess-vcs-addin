@@ -1,3 +1,4 @@
+Attribute VB_Name = "AppCodeImportExport"
 Option Compare Database
 Option Explicit
 
@@ -37,7 +38,7 @@ Option Explicit
 ' List of lookup tables that are part of the program rather than the
 ' data, to be exported with source code
 '
-' Provide a comman separated list of table names, or an empty string
+' Provide a comma separated list of table names, or an empty string
 ' ("") if no tables are to be exported with the source code.
 ' --------------------------------
 
@@ -358,7 +359,8 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
             ElseIf InStr(txt, "PrtDevNames = Begin") > 0 Or _
                 InStr(txt, "PrtDevNamesW = Begin") > 0 Or _
                 InStr(txt, "PrtDevModeW = Begin") > 0 Or _
-                InStr(txt, "PrtDevMode = Begin") > 0 Then
+                InStr(txt, "PrtDevMode = Begin") > 0 Or _
+                InStr(txt, "dbLongBinary ""DOL"" = Begin") > 0 Then
     
                 ' skip this block of code
                 Do Until InFile.AtEndOfStream
@@ -410,19 +412,23 @@ Public Sub ExportAllSource()
     
     obj_path = source_path & "queries\"
     ClearTextFilesFromDir obj_path, "bas"
+    If (db.QueryDefs.Count > 0) Then
     Debug.Print "Exporting queries..."
-    For Each qry In db.QueryDefs
-        If Left(qry.Name, 1) <> "~" Then
-            ExportObject acQuery, qry.Name, obj_path & qry.Name & ".bas", UsingUcs2()
-        End If
-    Next
+        For Each qry In db.QueryDefs
+            If Left(qry.Name, 1) <> "~" Then
+                ExportObject acQuery, qry.Name, obj_path & qry.Name & ".bas", UsingUcs2()
+            End If
+        Next
+    End If
     
     obj_path = source_path & "tables\"
     ClearTextFilesFromDir obj_path, "txt"
-    Debug.Print "Exporting tables..."
-    For Each tblName In Split(INCLUDE_TABLES, ",")
-        ExportTable CStr(tblName), obj_path
-    Next
+    If (Len(Replace(INCLUDE_TABLES, " ", "")) > 0) Then
+        Debug.Print "Exporting tables..."
+        For Each tblName In Split(INCLUDE_TABLES, ",")
+            ExportTable CStr(tblName), obj_path
+        Next
+    End If
     
     For Each obj_type In Split( _
         "forms|Forms|" & acForm & "," & _
@@ -437,20 +443,24 @@ Public Sub ExportAllSource()
         obj_type_num = Val(obj_type_split(2))
         obj_path = source_path & obj_type_label & "\"
         ClearTextFilesFromDir obj_path, "bas"
-        Debug.Print "Exporting " & obj_type_label & "..."
-        For Each doc In db.Containers(obj_type_name).Documents
-            If Left(doc.Name, 1) <> "~" Then
-                If obj_type_label = "modules" Then
-                    ucs2 = False
-                Else
-                    ucs2 = UsingUcs2()
+        '
+        '  Export objects (if there are any).
+        If (db.Containers(obj_type_name).Documents.Count > 0) Then
+            Debug.Print "Exporting " & obj_type_label & "..."
+            For Each doc In db.Containers(obj_type_name).Documents
+                If Left(doc.Name, 1) <> "~" Then
+                    If obj_type_label = "modules" Then
+                        ucs2 = False
+                    Else
+                        ucs2 = UsingUcs2()
+                    End If
+                    ExportObject obj_type_num, doc.Name, obj_path & doc.Name & ".bas", ucs2
                 End If
-                ExportObject obj_type_num, doc.Name, obj_path & doc.Name & ".bas", ucs2
+            Next
+            
+            If obj_type_label <> "modules" Then
+                SanitizeTextFiles obj_path, "bas"
             End If
-        Next
-        
-        If obj_type_label <> "modules" Then
-            SanitizeTextFiles obj_path, "bas"
         End If
     Next
     
@@ -463,6 +473,7 @@ End Sub
 ' database's folder.
 Public Sub ImportAllSource()
     Dim db As Object ' DAO.Database
+    Dim fso As Object
     Dim source_path As String
     Dim obj_path As String
     Dim qry As Object ' DAO.QueryDef
@@ -477,15 +488,19 @@ Public Sub ImportAllSource()
     Dim ucs2 As Boolean
     
     Set db = CurrentDb
-    
+    Set fso = CreateObject("Scripting.FileSystemObject")
+
     source_path = ProjectPath() & "source\"
-    MkDirIfNotExist source_path
+    If Not fso.FolderExists(source_path) Then
+        MsgBox "No source found at:" & vbCrLf & source_path, vbExclamation, "Warning"
+        Exit Sub
+    End If
     
     Debug.Print
     
     obj_path = source_path & "queries\"
-    Debug.Print "Importing queries..."
     FileName = Dir(obj_path & "*.bas")
+    If Len(FileName) > 0 Then: Debug.Print "Importing queries..."
     Do Until Len(FileName) = 0
         obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
         ImportObject acQuery, obj_name, obj_path & FileName, UsingUcs2()
@@ -494,8 +509,8 @@ Public Sub ImportAllSource()
     
     '' read in table values
     obj_path = source_path & "tables\"
-    Debug.Print "Importing tables..."
     FileName = Dir(obj_path & "*.txt")
+    If Len(FileName) > 0 Then: Debug.Print "Importing tables..."
     Do Until Len(FileName) = 0
         obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
         ImportTable CStr(obj_name), obj_path
@@ -513,8 +528,8 @@ Public Sub ImportAllSource()
         obj_type_label = obj_type_split(0)
         obj_type_num = Val(obj_type_split(1))
         obj_path = source_path & obj_type_label & "\"
-        Debug.Print "Importing " & obj_type_label & "..."
         FileName = Dir(obj_path & "*.bas")
+        If Len(FileName) > 0 Then: Debug.Print "Importing " & obj_type_label & "..."
         Do Until Len(FileName) = 0
             obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
             If obj_name <> "AppCodeImportExport" Then
