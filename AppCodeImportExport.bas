@@ -140,10 +140,27 @@ Dim objName As String
     OutFile.Close
     Infile.Close
     '
-    '  Delete the old file
-    Kill Path & objName & ".txt"
+    '  Delete the old files
+    Dim retryCount As Integer
+    retryCount = 0
+    On Error GoTo RetryDelete
+RetryDelete:
+    If retryCount < 3 Then
+      retryCount = retryCount + 1
+      Kill Path & objName & ".txt"
+    Else
+      If MsgBox("Error Deleting Files" & vbCrLf & _
+                 "Try again ?", vbYesNo, "Warning") = vbYes Then
+        retryCount = 0
+        GoTo RetryDelete
+      Else
+        GoTo ResumeDelete
+      End If
+    End If
+ResumeDelete:
+  On Error GoTo 0
     '
-    '  Rename Sanitized file
+    '  Rename Sanitized files
     Name Path & objName & ".sanitize" As Path & objName & ".txt"
     
     fileName = Dir()

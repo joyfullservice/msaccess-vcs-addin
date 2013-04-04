@@ -52,7 +52,7 @@ cd %sourcePath%modules >NUL 2>&1
 :: Exported text from Access for 'modules' is not UCS-2; don't convert.
 del *.data >NUL 2>&1
 if exist *.txt (
-   forfiles /m *.txt /c "cmd /c copy @file @fname.data" >NUL 2>&1
+   forfiles /m *.txt /c "cmd /c copy /Y @file @fname.data" >NUL 2>&1
 )
 
 echo Done.

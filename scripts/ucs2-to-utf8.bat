@@ -51,7 +51,7 @@ echo %sourcePath%modules
 cd %sourcePath%modules >NUL 2>&1
 :: Exported text from Access for 'modules' is not UCS-2; don't convert.
 if exist *.data (
-   forfiles /m *.data /c "cmd /c move @file @fname.txt"  >NUL 2>&1
+   forfiles /m *.data /c "cmd /c move /Y @file @fname.txt" >NUL 2>&1
 )
 
 echo Done.
