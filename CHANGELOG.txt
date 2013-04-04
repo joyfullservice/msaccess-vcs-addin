@@ -1,0 +1,3 @@
+2013-Apr-04  BM  Added dbLongBinary "DOL" to SkipList in SanitizeTextFiles
+                 Added Source directory check to ImportAllSource, pops up a message box
+                 if source path isn't found.
