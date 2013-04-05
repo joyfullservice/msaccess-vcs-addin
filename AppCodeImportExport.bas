@@ -61,6 +61,7 @@ End Type
 
 Const ForReading = 1, ForWriting = 2, ForAppending = 8
 Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
+Const AggressiveSanitize = 0
 
 ' --------------------------------
 ' Module variables
@@ -254,7 +255,7 @@ Private Function UsingUcs2() As Boolean
         Exit Function
     End If
     
-    If CurrentDb.QueryDefs.Count > 0 Then
+    If CurrentDb.QueryDefs.count > 0 Then
         obj_type_num = acQuery
         obj_name = CurrentDb.QueryDefs(1).Name
     Else
@@ -267,7 +268,7 @@ Private Function UsingUcs2() As Boolean
             obj_type_split = Split(obj_type, "|")
             obj_type_name = obj_type_split(0)
             obj_type_num = Val(obj_type_split(1))
-            If CurrentDb.Containers(obj_type_name).Documents.Count > 0 Then
+            If CurrentDb.Containers(obj_type_name).Documents.count > 0 Then
                 obj_name = CurrentDb.Containers(obj_type_name).Documents(1).Name
                 Exit For
             End If
@@ -360,7 +361,12 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
                 InStr(txt, "PrtDevNamesW = Begin") > 0 Or _
                 InStr(txt, "PrtDevModeW = Begin") > 0 Or _
                 InStr(txt, "PrtDevMode = Begin") > 0 Or _
-                InStr(txt, "dbLongBinary ""DOL"" = Begin") > 0 Then
+                InStr(txt, "dbLongBinary ""DOL"" = Begin") > 0 Or _
+                (AggressiveSanitize > 0 And _
+                    InStr(txt, "dbLongBinary ""DOL"" = Begin") > 0 Or _
+                    InStr(txt, "NameMap") > 0 Or _
+                    InStr(txt, "GUID") _
+                ) Then
     
                 ' skip this block of code
                 Do Until InFile.AtEndOfStream
@@ -412,22 +418,28 @@ Public Sub ExportAllSource()
     
     obj_path = source_path & "queries\"
     ClearTextFilesFromDir obj_path, "bas"
-    If (db.QueryDefs.Count > 0) Then
-    Debug.Print "Exporting queries..."
+    If (db.QueryDefs.count > 0) Then
+        Debug.Print "Exporting queries "; Tab(20);
         For Each qry In db.QueryDefs
             If Left(qry.Name, 1) <> "~" Then
                 ExportObject acQuery, qry.Name, obj_path & qry.Name & ".bas", UsingUcs2()
+                If (AggressiveSanitize > 0) Then: SanitizeTextFiles obj_path, "bas"
             End If
         Next
+        Debug.Print "[" & db.QueryDefs.count & "]"
     End If
     
     obj_path = source_path & "tables\"
     ClearTextFilesFromDir obj_path, "txt"
     If (Len(Replace(INCLUDE_TABLES, " ", "")) > 0) Then
-        Debug.Print "Exporting tables..."
+        Dim count As Integer
+        count = 0
+        Debug.Print "Exporting tables"; Tab(20);
         For Each tblName In Split(INCLUDE_TABLES, ",")
             ExportTable CStr(tblName), obj_path
+            count = count + 1
         Next
+        Debug.Print "[" & count & "]"
     End If
     
     For Each obj_type In Split( _
@@ -445,8 +457,8 @@ Public Sub ExportAllSource()
         ClearTextFilesFromDir obj_path, "bas"
         '
         '  Export objects (if there are any).
-        If (db.Containers(obj_type_name).Documents.Count > 0) Then
-            Debug.Print "Exporting " & obj_type_label & "..."
+        If (db.Containers(obj_type_name).Documents.count > 0) Then
+            Debug.Print "Exporting " & obj_type_label; Tab(20);
             For Each doc In db.Containers(obj_type_name).Documents
                 If Left(doc.Name, 1) <> "~" Then
                     If obj_type_label = "modules" Then
@@ -457,7 +469,7 @@ Public Sub ExportAllSource()
                     ExportObject obj_type_num, doc.Name, obj_path & doc.Name & ".bas", ucs2
                 End If
             Next
-            
+            Debug.Print "[" & db.Containers(obj_type_name).Documents.count & "]"
             If obj_type_label <> "modules" Then
                 SanitizeTextFiles obj_path, "bas"
             End If

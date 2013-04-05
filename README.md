@@ -46,11 +46,11 @@ First Commit to Your Source Control System
 Committing New Progress and Pulling Changes from Other Developers
 -----------------------------------------------------------------
 
-1. Open the application, hit CTRL-G, and run the following VB code in the Immediate window: "`ExportAllSource`". Dismiss the popup command prompt window when it's done, and wait for the Immediate window to say the export job is "Done."
+1. Open the application, hit CTRL-G, and run the following VB code in the Immediate window: "`ExportAllSource`". Wait for the Immediate window to say the export job is "Done."
 2. Using your repository's tools, commit all the new files that were created in the source folder under `~/MyProject` . Use an appropriate commit message to describe your changes.
 3. Pull new upstream changes (if any exist) from your central sharing location used by all developers. If necessary address any merge conflicts using your repository's merge and conflict resolution tools. If any work was done in this step, commit these changes to your local repository as well.
 4. Push all local and merged changes back to the central sharing location.
-5. Go back into the Access Immediate window (CTRL-G) and run the following VB code: "`ImportAllSource`". Dismiss the popup command prompt window when it's done, and wait for the Immediate window to say the export job is "Done."
+5. Go back into the Access Immediate window (CTRL-G) and run the following VB code: "`ImportAllSource`". Wait for the Immediate window to say the export job is "Done."
 
 Committing a New "Release" of Your Project
 ------------------------------------------
