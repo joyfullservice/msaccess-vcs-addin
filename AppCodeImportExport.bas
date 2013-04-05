@@ -75,7 +75,7 @@ Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 Private UsingUcs2 As Boolean
 
 ' --------------------------------
-' Beginning of main functions of this module
+' Basic functions missing from VB 6: buffered file read/write, string builder
 ' --------------------------------
 
 ' Open a binary file for reading (mode = 'r') or writing (mode = 'w').
@@ -155,6 +155,36 @@ Private Sub BinClose(ByRef f As BinFile)
     End If
     Close f.file_num
 End Sub
+
+' String builder: Init
+Private Function Sb_Init() As String()
+    Dim x(-1 To -1) As String
+    Sb_Init = x
+End Function
+
+' String builder: Clear
+Private Sub Sb_Clear(ByRef sb() As String)
+    ReDim Sb_Init(-1 To -1)
+End Sub
+
+' String builder: Append
+Private Sub Sb_Append(ByRef sb() As String, value As String)
+    If LBound(sb) = -1 Then
+        ReDim sb(0 To 0)
+    Else
+        ReDim Preserve sb(0 To UBound(sb) + 1)
+    End If
+    sb(UBound(sb)) = value
+End Sub
+
+' String builder: Get value
+Private Function Sb_Get(ByRef sb() As String) As String
+    Sb_Get = Join(sb, "")
+End Function
+
+' --------------------------------
+' Beginning of main functions of this module
+' --------------------------------
 
 ' Path of the current database file.
 Private Function ProjectPath() As String
@@ -261,9 +291,9 @@ Private Sub InitUsingUcs2()
     Dim obj_type_split() As String, obj_type_name As String, obj_type_num As Integer
     Dim db As Object ' DAO.Database
     
-    If CurrentDb.QueryDefs.Count > 0 Then
+    If CurrentDb.QueryDefs.count > 0 Then
         obj_type_num = acQuery
-        obj_name = CurrentDb.QueryDefs(1).Name
+        obj_name = CurrentDb.QueryDefs(0).Name
     Else
         For Each obj_type In Split( _
             "Forms|" & acForm & "," & _
@@ -274,7 +304,7 @@ Private Sub InitUsingUcs2()
             obj_type_split = Split(obj_type, "|")
             obj_type_name = obj_type_split(0)
             obj_type_num = Val(obj_type_split(1))
-            If CurrentDb.Containers(obj_type_name).Documents.Count > 0 Then
+            If CurrentDb.Containers(obj_type_name).Documents.count > 0 Then
                 obj_name = CurrentDb.Containers(obj_type_name).Documents(1).Name
                 Exit For
             End If
@@ -411,7 +441,7 @@ Public Sub ExportAllSource()
     Debug.Print "Exporting queries..."
     For Each qry In db.QueryDefs
         If Left(qry.Name, 1) <> "~" Then
-            ExportObject acQuery, qry.Name, obj_path & qry.Name & ".bas", UsingUcs2()
+            ExportObject acQuery, qry.Name, obj_path & qry.Name & ".bas", UsingUcs2
         End If
     Next
     
@@ -532,19 +562,46 @@ Public Sub ImportAllSource()
     Debug.Print "Done."
 End Sub
 
+' Build SQL to export `tbl_name` sorted by each field from first to last
+Public Function TableExportSql(tbl_name As String)
+    Dim rs As Object ' DAO.Recordset
+    Dim fieldObj As Object ' DAO.Field
+    Dim sb() As String, count As Integer
+    
+    Set rs = CurrentDb.OpenRecordset(tbl_name)
+    
+    sb = Sb_Init()
+    Sb_Append sb, "SELECT "
+    count = 0
+    For Each fieldObj In rs.Fields
+        If count > 0 Then Sb_Append sb, ", "
+        Sb_Append sb, "[" & fieldObj.Name & "]"
+        count = count + 1
+    Next
+    Sb_Append sb, " FROM [" & tbl_name & "] ORDER BY "
+    count = 0
+    For Each fieldObj In rs.Fields
+        If count > 0 Then Sb_Append sb, ", "
+        Sb_Append sb, "[" & fieldObj.Name & "]"
+        count = count + 1
+    Next
+    
+    TableExportSql = Sb_Get(sb)
+End Function
+
 ' Export the lookup table `tblName` to `source\tables`.
-Private Sub ExportTable(tblName As String, obj_path As String)
+Private Sub ExportTable(tbl_name As String, obj_path As String)
     Dim fso, OutFile
     Dim rs As Object ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
-    Dim C As Long, Value As Variant
+    Dim C As Long, value As Variant
     
     Set fso = CreateObject("Scripting.FileSystemObject")
     ' open file for writing with Create=True, Unicode=True (USC-2 Little Endian format)
     MkDirIfNotExist obj_path
     Set OutFile = fso.CreateTextFile(TempFile(), True, True)
     
-    Set rs = CurrentDb.OpenRecordset("export_" & tblName)
+    Set rs = CurrentDb.OpenRecordset(TableExportSql(tbl_name))
     C = 0
     For Each fieldObj In rs.Fields
         If C <> 0 Then OutFile.write vbTab
@@ -559,17 +616,17 @@ Private Sub ExportTable(tblName As String, obj_path As String)
         For Each fieldObj In rs.Fields
             If C <> 0 Then OutFile.write vbTab
             C = C + 1
-            Value = rs(fieldObj.Name)
-            If IsNull(Value) Then
-                Value = ""
+            value = rs(fieldObj.Name)
+            If IsNull(value) Then
+                value = ""
             Else
-                Value = Replace(Value, "\", "\\")
-                Value = Replace(Value, vbCrLf, "\n")
-                Value = Replace(Value, vbCr, "\n")
-                Value = Replace(Value, vbLf, "\n")
-                Value = Replace(Value, vbTab, "\t")
+                value = Replace(value, "\", "\\")
+                value = Replace(value, vbCrLf, "\n")
+                value = Replace(value, vbCr, "\n")
+                value = Replace(value, vbLf, "\n")
+                value = Replace(value, vbTab, "\t")
             End If
-            OutFile.write Value
+            OutFile.write value
         Next
         OutFile.write vbCrLf
         rs.MoveNext
@@ -577,7 +634,7 @@ Private Sub ExportTable(tblName As String, obj_path As String)
     rs.Close
     OutFile.Close
     
-    ConvertUcs2Utf8 TempFile(), obj_path & tblName & ".txt"
+    ConvertUcs2Utf8 TempFile(), obj_path & tbl_name & ".txt"
 End Sub
 
 ' Import the lookup table `tblName` from `source\tables`.
@@ -586,7 +643,7 @@ Private Sub ImportTable(tblName As String, obj_path As String)
     Dim rs As Object ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
     Dim fso, InFile As Object
-    Dim C As Long, buf As String, Values() As String, Value As Variant, rsWrite As Recordset
+    Dim C As Long, buf As String, Values() As String, value As Variant
     
     Set fso = CreateObject("Scripting.FileSystemObject")
     ConvertUtf8Ucs2 obj_path & tblName & ".txt", TempFile()
@@ -595,33 +652,32 @@ Private Sub ImportTable(tblName As String, obj_path As String)
     Set db = CurrentDb
     
     db.Execute "DELETE FROM [" & tblName & "]"
-    Set rs = db.OpenRecordset("export_" & tblName)
-    Set rsWrite = db.OpenRecordset(tblName)
+    Set rs = db.OpenRecordset(tblName)
     buf = InFile.ReadLine()
     Do Until InFile.AtEndOfStream
         buf = InFile.ReadLine()
         If Len(Trim(buf)) > 0 Then
             Values = Split(buf, vbTab)
             C = 0
-            rsWrite.AddNew
+            rs.AddNew
             For Each fieldObj In rs.Fields
-                Value = Values(C)
-                If Len(Value) = 0 Then
-                    Value = Null
+                value = Values(C)
+                If Len(value) = 0 Then
+                    value = Null
                 Else
-                    Value = Replace(Value, "\t", vbTab)
-                    Value = Replace(Value, "\n", vbCrLf)
-                    Value = Replace(Value, "\\", "\")
+                    value = Replace(value, "\t", vbTab)
+                    value = Replace(value, "\n", vbCrLf)
+                    value = Replace(value, "\\", "\")
                 End If
-                rsWrite(fieldObj.Name) = Value
+                rs(fieldObj.Name) = value
                 C = C + 1
             Next
-            rsWrite.Update
+            rs.Update
         End If
     Loop
     
-    rsWrite.Close
     rs.Close
     InFile.Close
 End Sub
+
 
