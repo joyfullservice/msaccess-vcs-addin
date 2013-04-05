@@ -61,7 +61,7 @@ End Type
 
 Const ForReading = 1, ForWriting = 2, ForAppending = 8
 Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
-Const AggressiveSanitize = 1
+Const AggressiveSanitize = 0
 
 ' --------------------------------
 ' Module variables
