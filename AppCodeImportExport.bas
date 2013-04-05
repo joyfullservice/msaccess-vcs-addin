@@ -408,6 +408,7 @@ Public Sub ExportAllSource()
     Dim obj_type_num As Integer
     Dim ucs2 As Boolean
     Dim tblName As Variant
+    Dim obj_count As Integer
     
     Set db = CurrentDb
     
@@ -419,27 +420,28 @@ Public Sub ExportAllSource()
     obj_path = source_path & "queries\"
     ClearTextFilesFromDir obj_path, "bas"
     If (db.QueryDefs.count > 0) Then
+        obj_count = 0
         Debug.Print "Exporting queries "; Tab(20);
         For Each qry In db.QueryDefs
             If Left(qry.Name, 1) <> "~" Then
                 ExportObject acQuery, qry.Name, obj_path & qry.Name & ".bas", UsingUcs2()
+                obj_count = obj_count + 1
                 If (AggressiveSanitize > 0) Then: SanitizeTextFiles obj_path, "bas"
             End If
         Next
-        Debug.Print "[" & db.QueryDefs.count & "]"
+        Debug.Print "[" & obj_count & "]"
     End If
     
     obj_path = source_path & "tables\"
     ClearTextFilesFromDir obj_path, "txt"
     If (Len(Replace(INCLUDE_TABLES, " ", "")) > 0) Then
-        Dim count As Integer
-        count = 0
+        obj_count = 0
         Debug.Print "Exporting tables"; Tab(20);
         For Each tblName In Split(INCLUDE_TABLES, ",")
             ExportTable CStr(tblName), obj_path
-            count = count + 1
+            obj_count = obj_count + 1
         Next
-        Debug.Print "[" & count & "]"
+        Debug.Print "[" & obj_count & "]"
     End If
     
     For Each obj_type In Split( _
@@ -459,6 +461,7 @@ Public Sub ExportAllSource()
         '  Export objects (if there are any).
         If (db.Containers(obj_type_name).Documents.count > 0) Then
             Debug.Print "Exporting " & obj_type_label; Tab(20);
+            obj_count = 0
             For Each doc In db.Containers(obj_type_name).Documents
                 If Left(doc.Name, 1) <> "~" Then
                     If obj_type_label = "modules" Then
@@ -467,9 +470,10 @@ Public Sub ExportAllSource()
                         ucs2 = UsingUcs2()
                     End If
                     ExportObject obj_type_num, doc.Name, obj_path & doc.Name & ".bas", ucs2
+                    obj_count = obj_count + 1
                 End If
             Next
-            Debug.Print "[" & db.Containers(obj_type_name).Documents.count & "]"
+            Debug.Print "[" & obj_count & "]"
             If obj_type_label <> "modules" Then
                 SanitizeTextFiles obj_path, "bas"
             End If
@@ -498,6 +502,7 @@ Public Sub ImportAllSource()
     Dim FileName As String
     Dim obj_name As String
     Dim ucs2 As Boolean
+    Dim obj_count As Integer
     
     Set db = CurrentDb
     Set fso = CreateObject("Scripting.FileSystemObject")
@@ -512,23 +517,32 @@ Public Sub ImportAllSource()
     
     obj_path = source_path & "queries\"
     FileName = Dir(obj_path & "*.bas")
-    If Len(FileName) > 0 Then: Debug.Print "Importing queries..."
-    Do Until Len(FileName) = 0
-        obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
-        ImportObject acQuery, obj_name, obj_path & FileName, UsingUcs2()
-        FileName = Dir()
-    Loop
-    
-    '' read in table values
+    If Len(FileName) > 0 Then
+        Debug.Print "Importing queries"; Tab(20)
+        obj_count = 0
+        Do Until Len(FileName) = 0
+            obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+            ImportObject acQuery, obj_name, obj_path & FileName, UsingUcs2()
+            obj_count = obj_count + 1
+            FileName = Dir()
+        Loop
+        Debug.Print "[" & obj_count & "]"
+    End If
+    '
+    ' read in table values
     obj_path = source_path & "tables\"
     FileName = Dir(obj_path & "*.txt")
-    If Len(FileName) > 0 Then: Debug.Print "Importing tables..."
-    Do Until Len(FileName) = 0
-        obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
-        ImportTable CStr(obj_name), obj_path
-        FileName = Dir()
-    Loop
-    
+    If Len(FileName) > 0 Then
+        Debug.Print "Importing tables"; Tab(20)
+        obj_count = 0
+        Do Until Len(FileName) = 0
+            obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+            ImportTable CStr(obj_name), obj_path
+            obj_count = obj_count + 1
+            FileName = Dir()
+        Loop
+        Debug.Print "[" & obj_count & "]"
+    End If
     For Each obj_type In Split( _
         "forms|" & acForm & "," & _
         "reports|" & acReport & "," & _
@@ -541,19 +555,24 @@ Public Sub ImportAllSource()
         obj_type_num = Val(obj_type_split(1))
         obj_path = source_path & obj_type_label & "\"
         FileName = Dir(obj_path & "*.bas")
-        If Len(FileName) > 0 Then: Debug.Print "Importing " & obj_type_label & "..."
-        Do Until Len(FileName) = 0
-            obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
-            If obj_name <> "AppCodeImportExport" Then
-                If obj_type_label = "modules" Then
-                    ucs2 = False
-                Else
-                    ucs2 = UsingUcs2()
+        If Len(FileName) > 0 Then
+            Debug.Print "Importing " & obj_type_label; Tab(20)
+            obj_count = 0
+            Do Until Len(FileName) = 0
+                obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+                If obj_name <> "AppCodeImportExport" Then
+                    If obj_type_label = "modules" Then
+                        ucs2 = False
+                    Else
+                        ucs2 = UsingUcs2()
+                    End If
+                    ImportObject obj_type_num, obj_name, obj_path & FileName, ucs2
+                    obj_count = obj_count + 1
                 End If
-                ImportObject obj_type_num, obj_name, obj_path & FileName, ucs2
-            End If
-            FileName = Dir()
-        Loop
+                FileName = Dir()
+            Loop
+            Debug.Print "[" & obj_count & "]"
+        End If
     Next
     
     DelIfExist TempFile()

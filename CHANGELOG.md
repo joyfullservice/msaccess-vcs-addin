@@ -8,6 +8,7 @@ matonb:
 * Added Skipping for GUID & Namemap in aggressive sanitize mode.
 * If AggressiveSanitize is on, also sanitize query exports.
 * Append [Number] of objects exported to information lines in immediate window.
+* Append [Number] of objects imported to information lines in immediate window.
 * Updated readme (removed references to terminal window).
 
 version 0.2 - 4 Apr 2013
