@@ -1,6 +1,3 @@
-Option Compare Database
-Option Explicit
-
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
@@ -32,6 +29,8 @@ Option Explicit
 ' * Maybe integrate into a dialog box triggered by a menu item.
 ' * Warning of destructive overwrite.
 
+Option Compare Database
+Option Explicit
 
 ' --------------------------------
 ' List of lookup tables that are part of the program rather than the
@@ -43,6 +42,11 @@ Option Explicit
 
 Private Const INCLUDE_TABLES = ""
 
+' --------------------------------
+' Structures
+' --------------------------------
+
+' Structure to track buffered reading or writing of binary files
 Private Type BinFile
     file_num As Integer
     file_len As Long
@@ -58,6 +62,7 @@ End Type
 ' Constants
 ' --------------------------------
 
+' Constants for Scripting.FileSystemObject API
 Const ForReading = 1, ForWriting = 2, ForAppending = 8
 Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 
@@ -65,12 +70,15 @@ Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 ' Module variables
 ' --------------------------------
 
-Private UsingUcs2_Result As String
+' Does the current database file write UCS2-little-endian when exporting
+' Queries, Forms, Reports, Macros
+Private UsingUcs2 As Boolean
 
 ' --------------------------------
 ' Beginning of main functions of this module
 ' --------------------------------
 
+' Open a binary file for reading (mode = 'r') or writing (mode = 'w').
 Private Function BinOpen(file_path As String, mode As String) As BinFile
     Dim f As BinFile
     
@@ -102,6 +110,7 @@ Private Function BinOpen(file_path As String, mode As String) As BinFile
     BinOpen = f
 End Function
 
+' Buffered read one byte at a time from a binary file.
 Private Function BinRead(ByRef f As BinFile) As Integer
     If f.at_eof = True Then
         BinRead = 0
@@ -128,6 +137,7 @@ Private Function BinRead(ByRef f As BinFile) As Integer
     End If
 End Function
 
+' Buffered write one byte at a time from a binary file.
 Private Sub BinWrite(ByRef f As BinFile, b As Integer)
     Mid(f.buffer, f.buffer_pos + 1, 1) = Chr(b)
     f.buffer_pos = f.buffer_pos + 1
@@ -137,6 +147,7 @@ Private Sub BinWrite(ByRef f As BinFile, b As Integer)
     End If
 End Sub
 
+' Close binary file.
 Private Sub BinClose(ByRef f As BinFile)
     If f.mode = "w" And f.buffer_pos > 0 Then
         f.buffer = Left(f.buffer, f.buffer_pos)
@@ -145,15 +156,18 @@ Private Sub BinClose(ByRef f As BinFile)
     Close f.file_num
 End Sub
 
+' Path of the current database file.
 Private Function ProjectPath() As String
     ProjectPath = CurrentProject.Path
     If Right(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
 End Function
 
+' Path of single temp file used by any function in this module.
 Private Function TempFile() As String
     TempFile = ProjectPath() & "AppCodeImportExport.tempdata"
 End Function
 
+' Export a database object with optional UCS2-to-UTF-8 conversion.
 Private Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
     Optional Ucs2Convert As Boolean = False)
         
@@ -166,6 +180,7 @@ Private Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path 
     End If
 End Sub
 
+' Import a database object with optional UTF-8-to-UCS2 conversion.
 Private Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
     Optional Ucs2Convert As Boolean = False)
     
@@ -177,6 +192,7 @@ Private Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path 
     End If
 End Sub
 
+' Binary convert a UCS2-little-endian encoded file to UTF-8.
 Private Sub ConvertUcs2Utf8(source As String, dest As String)
     Dim f_in As BinFile, f_out As BinFile
     Dim in_low As Integer, in_high As Integer
@@ -206,6 +222,7 @@ Private Sub ConvertUcs2Utf8(source As String, dest As String)
     BinClose f_out
 End Sub
 
+' Binary convert a UTF-8 encoded file to UCS2-little-endian.
 Private Sub ConvertUtf8Ucs2(source As String, dest As String)
     Dim f_in As BinFile, f_out As BinFile
     Dim in_1 As Integer, in_2 As Integer, in_3 As Integer
@@ -237,21 +254,12 @@ Private Sub ConvertUtf8Ucs2(source As String, dest As String)
     BinClose f_out
 End Sub
 
-Public Sub TestExportUcs2()
-    ExportObject acForm, "example_form", ProjectPath & "output.txt", True
-    ConvertUtf8Ucs2 ProjectPath & "output.txt", ProjectPath & "output_ucs2.txt"
-End Sub
-
-' Determine if this database imports/exports code as UCS-2-LE
-Private Function UsingUcs2() As Boolean
+' Determine if this database imports/exports code as UCS-2-LE. (Older file
+' formats cause exported objects to use a Windows 8-bit character set.)
+Private Sub InitUsingUcs2()
     Dim obj_name As String, i As Integer, obj_type As Variant, fn As Integer, bytes As String
     Dim obj_type_split() As String, obj_type_name As String, obj_type_num As Integer
     Dim db As Object ' DAO.Database
-
-    If UsingUcs2_Result <> "" Then
-        UsingUcs2 = (UsingUcs2_Result = "1")
-        Exit Function
-    End If
     
     If CurrentDb.QueryDefs.Count > 0 Then
         obj_type_num = acQuery
@@ -275,9 +283,8 @@ Private Function UsingUcs2() As Boolean
     
     If obj_name = "" Then
         ' No objects found that can be used to test UCS2 versus UTF-8
-        UsingUcs2_Result = "1"
         UsingUcs2 = True
-        Exit Function
+        Exit Sub
     End If
 
     Application.SaveAsText obj_type_num, obj_name, TempFile()
@@ -286,18 +293,11 @@ Private Function UsingUcs2() As Boolean
     bytes = "  "
     Get fn, 1, bytes
     If Asc(Mid(bytes, 1, 1)) = &HFF And Asc(Mid(bytes, 2, 1)) = &HFE Then
-        UsingUcs2_Result = "1"
         UsingUcs2 = True
     Else
-        UsingUcs2_Result = "0"
         UsingUcs2 = False
     End If
     Close fn
-End Function
-
-Public Sub TestUsingUcs2()
-    UsingUcs2_Result = ""
-    Debug.Print UsingUcs2()
 End Sub
 
 ' Create folder `Path`. Silently do nothing if it already exists.
@@ -316,7 +316,7 @@ DelIfNotExist_Noop:
     On Error GoTo 0
 End Sub
 
-' Erase all *.data and *.txt files in `Path`.
+' Erase all *.`ext` files in `Path`.
 Private Sub ClearTextFilesFromDir(Path As String, Ext As String)
     Dim fso As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
@@ -324,7 +324,7 @@ Private Sub ClearTextFilesFromDir(Path As String, Ext As String)
     
     On Error GoTo ClearTextFilesFromDir_noop
     If Dir(Path & "*." & Ext) <> "" Then
-        Kill Path & "*.data" & Ext
+        Kill Path & "*." & Ext
     End If
 ClearTextFilesFromDir_noop:
     
@@ -338,9 +338,6 @@ End Sub
 Private Sub SanitizeTextFiles(Path As String, Ext As String)
     Dim fso, InFile, OutFile, FileName As String, txt As String, obj_name As String
     
-    Dim ForReading As Long
-    
-    ForReading = 1
     Set fso = CreateObject("Scripting.FileSystemObject")
     
     FileName = Dir(Path & "*." & Ext)
@@ -402,6 +399,7 @@ Public Sub ExportAllSource()
     Dim tblName As Variant
     
     Set db = CurrentDb
+    InitUsingUcs2
     
     source_path = ProjectPath() & "source\"
     MkDirIfNotExist source_path
@@ -443,7 +441,7 @@ Public Sub ExportAllSource()
                 If obj_type_label = "modules" Then
                     ucs2 = False
                 Else
-                    ucs2 = UsingUcs2()
+                    ucs2 = UsingUcs2
                 End If
                 ExportObject obj_type_num, doc.Name, obj_path & doc.Name & ".bas", ucs2
             End If
@@ -477,6 +475,7 @@ Public Sub ImportAllSource()
     Dim ucs2 As Boolean
     
     Set db = CurrentDb
+    InitUsingUcs2
     
     source_path = ProjectPath() & "source\"
     MkDirIfNotExist source_path
@@ -488,7 +487,7 @@ Public Sub ImportAllSource()
     FileName = Dir(obj_path & "*.bas")
     Do Until Len(FileName) = 0
         obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
-        ImportObject acQuery, obj_name, obj_path & FileName, UsingUcs2()
+        ImportObject acQuery, obj_name, obj_path & FileName, UsingUcs2
         FileName = Dir()
     Loop
     
@@ -521,7 +520,7 @@ Public Sub ImportAllSource()
                 If obj_type_label = "modules" Then
                     ucs2 = False
                 Else
-                    ucs2 = UsingUcs2()
+                    ucs2 = UsingUcs2
                 End If
                 ImportObject obj_type_num, obj_name, obj_path & FileName, ucs2
             End If
@@ -625,3 +624,4 @@ Private Sub ImportTable(tblName As String, obj_path As String)
     rs.Close
     InFile.Close
 End Sub
+
