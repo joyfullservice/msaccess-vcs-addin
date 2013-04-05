@@ -1,9 +1,7 @@
-Attribute VB_Name = "AppCodeImportExport"
-Option Compare Database
-Option Explicit
-
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
+'
+' Version 0.3
 '
 ' https://github.com/bkidwell/msaccess-vcs-integration
 '
@@ -33,6 +31,9 @@ Option Explicit
 ' * Maybe integrate into a dialog box triggered by a menu item.
 ' * Warning of destructive overwrite.
 
+Attribute VB_Name = "AppCodeImportExport"
+Option Compare Database
+Option Explicit
 
 ' --------------------------------
 ' List of lookup tables that are part of the program rather than the
