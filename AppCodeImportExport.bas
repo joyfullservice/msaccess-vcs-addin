@@ -1,6 +1,8 @@
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
+' Version 0.2
+'
 ' https://github.com/bkidwell/msaccess-vcs-integration
 '
 ' Brendan Kidwell
