@@ -6,6 +6,7 @@
 ' https://github.com/bkidwell/msaccess-vcs-integration
 '
 ' Brendan Kidwell
+'
 ' This code is licensed under BSD-style terms.
 '
 ' This is some code for importing and exporting Access Queries, Forms,
@@ -31,20 +32,32 @@
 ' * Maybe integrate into a dialog box triggered by a menu item.
 ' * Warning of destructive overwrite.
 
-Attribute VB_Name = "AppCodeImportExport"
 Option Compare Database
 Option Explicit
 
 ' --------------------------------
+' Configuration
+' --------------------------------
+
 ' List of lookup tables that are part of the program rather than the
 ' data, to be exported with source code
 '
 ' Provide a comma separated list of table names, or an empty string
 ' ("") if no tables are to be exported with the source code.
-' --------------------------------
 
 Private Const INCLUDE_TABLES = ""
 
+' Do more aggressive removal of superfluous blobs from exported MS
+' Access source code?
+
+Const AggressiveSanitize = True
+
+
+' --------------------------------
+' Structures
+' --------------------------------
+
+' Structure to track buffered reading or writing of binary files
 Private Type BinFile
     file_num As Integer
     file_len As Long
@@ -60,40 +73,26 @@ End Type
 ' Constants
 ' --------------------------------
 
+' Constants for Scripting.FileSystemObject API
 Const ForReading = 1, ForWriting = 2, ForAppending = 8
 Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
-Const AggressiveSanitize = 0
 
 ' --------------------------------
 ' Module variables
 ' --------------------------------
 
-Private UsingUcs2_Result As String
+' Does the current database file write UCS2-little-endian when exporting
+' Queries, Forms, Reports, Macros
+Private UsingUcs2 As Boolean
 
 ' --------------------------------
-' Beginning of main functions of this module
+' Basic functions missing from VB 6: buffered file read/write, string builder
 ' --------------------------------
-Private Function CloseFormsReports()
-'
-'Close all open forms
 
-    On Error GoTo ErrorHandler
-    Do While Forms.count > 0
-        DoCmd.Close acForm, Forms(0).Name
-    Loop
-    Do While Reports.count > 0
-        DoCmd.Close acReport, Reports(0).Name
-    Loop
-    
-    Exit Function
-ErrorHandler:
-    Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.description
-
-End Function
-
+' Open a binary file for reading (mode = 'r') or writing (mode = 'w').
 Private Function BinOpen(file_path As String, mode As String) As BinFile
     Dim f As BinFile
-    
+
     f.file_num = FreeFile
     f.mode = LCase(mode)
     If f.mode = "r" Then
@@ -118,18 +117,19 @@ Private Function BinOpen(file_path As String, mode As String) As BinFile
         f.buffer_len = 0
         f.buffer_pos = 0
     End If
-    
+
     BinOpen = f
 End Function
 
+' Buffered read one byte at a time from a binary file.
 Private Function BinRead(ByRef f As BinFile) As Integer
     If f.at_eof = True Then
         BinRead = 0
         Exit Function
     End If
-    
+
     BinRead = Asc(Mid(f.buffer, f.buffer_pos + 1, 1))
-    
+
     f.buffer_pos = f.buffer_pos + 1
     If f.buffer_pos >= f.buffer_len Then
         f.file_pos = f.file_pos + &H4000
@@ -148,6 +148,7 @@ Private Function BinRead(ByRef f As BinFile) As Integer
     End If
 End Function
 
+' Buffered write one byte at a time from a binary file.
 Private Sub BinWrite(ByRef f As BinFile, b As Integer)
     Mid(f.buffer, f.buffer_pos + 1, 1) = Chr(b)
     f.buffer_pos = f.buffer_pos + 1
@@ -157,6 +158,7 @@ Private Sub BinWrite(ByRef f As BinFile, b As Integer)
     End If
 End Sub
 
+' Close binary file.
 Private Sub BinClose(ByRef f As BinFile)
     If f.mode = "w" And f.buffer_pos > 0 Then
         f.buffer = Left(f.buffer, f.buffer_pos)
@@ -165,18 +167,74 @@ Private Sub BinClose(ByRef f As BinFile)
     Close f.file_num
 End Sub
 
+' String builder: Init
+Private Function Sb_Init() As String()
+    Dim x(-1 To -1) As String
+    Sb_Init = x
+End Function
+
+' String builder: Clear
+Private Sub Sb_Clear(ByRef sb() As String)
+    ReDim Sb_Init(-1 To -1)
+End Sub
+
+' String builder: Append
+Private Sub Sb_Append(ByRef sb() As String, Value As String)
+    If LBound(sb) = -1 Then
+        ReDim sb(0 To 0)
+    Else
+        ReDim Preserve sb(0 To UBound(sb) + 1)
+    End If
+    sb(UBound(sb)) = Value
+End Sub
+
+' String builder: Get value
+Private Function Sb_Get(ByRef sb() As String) As String
+    Sb_Get = Join(sb, "")
+End Function
+
+' --------------------------------
+' Beginning of main functions of this module
+' --------------------------------
+
+' Close all open forms.
+Private Function CloseFormsReports()
+    On Error GoTo ErrorHandler
+    Do While Forms.count > 0
+        DoCmd.Close acForm, Forms(0).Name
+    Loop
+    Do While Reports.count > 0
+        DoCmd.Close acReport, Reports(0).Name
+    Loop
+    Exit Function
+
+ErrorHandler:
+    Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.description
+End Function
+
+' Pad a string on the right to make it `count` characters long.
+Public Function PadRight(Value As String, count As Integer)
+    PadRight = Value
+    If Len(Value) < count Then
+        PadRight = PadRight & Space(count - Len(Value))
+    End If
+End Function
+
+' Path of the current database file.
 Private Function ProjectPath() As String
     ProjectPath = CurrentProject.Path
     If Right(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
 End Function
 
+' Path of single temp file used by any function in this module.
 Private Function TempFile() As String
     TempFile = ProjectPath() & "AppCodeImportExport.tempdata"
 End Function
 
+' Export a database object with optional UCS2-to-UTF-8 conversion.
 Private Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
     Optional Ucs2Convert As Boolean = False)
-        
+
     MkDirIfNotExist Left(file_path, InStrRev(file_path, "\"))
     If Ucs2Convert Then
         Application.SaveAsText obj_type_num, obj_name, TempFile()
@@ -186,11 +244,9 @@ Private Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path 
     End If
 End Sub
 
+' Import a database object with optional UTF-8-to-UCS2 conversion.
 Private Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
     Optional Ucs2Convert As Boolean = False)
-'
-'  Been getting "reserved" errors if a form is open....
-    CloseFormsReports
 
     If Ucs2Convert Then
         ConvertUtf8Ucs2 file_path, TempFile()
@@ -200,13 +256,14 @@ Private Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path 
     End If
 End Sub
 
+' Binary convert a UCS2-little-endian encoded file to UTF-8.
 Private Sub ConvertUcs2Utf8(source As String, dest As String)
     Dim f_in As BinFile, f_out As BinFile
     Dim in_low As Integer, in_high As Integer
 
     f_in = BinOpen(source, "r")
     f_out = BinOpen(dest, "w")
-    
+
     Do While Not f_in.at_eof
         in_low = BinRead(f_in)
         in_high = BinRead(f_in)
@@ -229,13 +286,14 @@ Private Sub ConvertUcs2Utf8(source As String, dest As String)
     BinClose f_out
 End Sub
 
+' Binary convert a UTF-8 encoded file to UCS2-little-endian.
 Private Sub ConvertUtf8Ucs2(source As String, dest As String)
     Dim f_in As BinFile, f_out As BinFile
     Dim in_1 As Integer, in_2 As Integer, in_3 As Integer
-    
+
     f_in = BinOpen(source, "r")
     f_out = BinOpen(dest, "w")
-    
+
     Do While Not f_in.at_eof
         in_1 = BinRead(f_in)
         If (in_1 And &H80) = 0 Then
@@ -255,30 +313,21 @@ Private Sub ConvertUtf8Ucs2(source As String, dest As String)
             BinWrite f_out, ((in_1 And &HF) * &H10) + ((in_2 And &H3C) / &H4)
         End If
     Loop
-    
+
     BinClose f_in
     BinClose f_out
 End Sub
 
-Public Sub TestExportUcs2()
-    ExportObject acForm, "example_form", ProjectPath & "output.txt", True
-    ConvertUtf8Ucs2 ProjectPath & "output.txt", ProjectPath & "output_ucs2.txt"
-End Sub
-
-' Determine if this database imports/exports code as UCS-2-LE
-Private Function UsingUcs2() As Boolean
+' Determine if this database imports/exports code as UCS-2-LE. (Older file
+' formats cause exported objects to use a Windows 8-bit character set.)
+Private Sub InitUsingUcs2()
     Dim obj_name As String, i As Integer, obj_type As Variant, fn As Integer, bytes As String
     Dim obj_type_split() As String, obj_type_name As String, obj_type_num As Integer
     Dim db As Object ' DAO.Database
 
-    If UsingUcs2_Result <> "" Then
-        UsingUcs2 = (UsingUcs2_Result = "1")
-        Exit Function
-    End If
-    
     If CurrentDb.QueryDefs.count > 0 Then
         obj_type_num = acQuery
-        obj_name = CurrentDb.QueryDefs(1).Name
+        obj_name = CurrentDb.QueryDefs(0).Name
     Else
         For Each obj_type In Split( _
             "Forms|" & acForm & "," & _
@@ -295,12 +344,11 @@ Private Function UsingUcs2() As Boolean
             End If
         Next
     End If
-    
+
     If obj_name = "" Then
         ' No objects found that can be used to test UCS2 versus UTF-8
-        UsingUcs2_Result = "1"
         UsingUcs2 = True
-        Exit Function
+        Exit Sub
     End If
 
     Application.SaveAsText obj_type_num, obj_name, TempFile()
@@ -309,18 +357,11 @@ Private Function UsingUcs2() As Boolean
     bytes = "  "
     Get fn, 1, bytes
     If Asc(Mid(bytes, 1, 1)) = &HFF And Asc(Mid(bytes, 2, 1)) = &HFE Then
-        UsingUcs2_Result = "1"
         UsingUcs2 = True
     Else
-        UsingUcs2_Result = "0"
         UsingUcs2 = False
     End If
     Close fn
-End Function
-
-Public Sub TestUsingUcs2()
-    UsingUcs2_Result = ""
-    Debug.Print UsingUcs2()
 End Sub
 
 ' Create folder `Path`. Silently do nothing if it already exists.
@@ -339,18 +380,18 @@ DelIfNotExist_Noop:
     On Error GoTo 0
 End Sub
 
-' Erase all *.data and *.txt files in `Path`.
+' Erase all *.`ext` files in `Path`.
 Private Sub ClearTextFilesFromDir(Path As String, Ext As String)
     Dim fso As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
     If Not fso.FolderExists(Path) Then Exit Sub
-    
+
     On Error GoTo ClearTextFilesFromDir_noop
     If Dir(Path & "*." & Ext) <> "" Then
-        Kill Path & "*.data" & Ext
+        Kill Path & "*." & Ext
     End If
 ClearTextFilesFromDir_noop:
-    
+
     On Error GoTo 0
 End Sub
 
@@ -360,16 +401,13 @@ End Sub
 ' version control).
 Private Sub SanitizeTextFiles(Path As String, Ext As String)
     Dim fso, InFile, OutFile, FileName As String, txt As String, obj_name As String
-    
-    Dim ForReading As Long
-    
-    ForReading = 1
+
     Set fso = CreateObject("Scripting.FileSystemObject")
-    
+
     FileName = Dir(Path & "*." & Ext)
     Do Until Len(FileName) = 0
         obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
-        
+
         Set InFile = fso.OpenTextFile(Path & obj_name & "." & Ext, ForReading)
         Set OutFile = fso.CreateTextFile(Path & obj_name & ".sanitize", True)
         Do Until InFile.AtEndOfStream
@@ -382,13 +420,12 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
                 InStr(txt, "PrtDevNamesW = Begin") > 0 Or _
                 InStr(txt, "PrtDevModeW = Begin") > 0 Or _
                 InStr(txt, "PrtDevMode = Begin") > 0 Or _
-                InStr(txt, "dbLongBinary ""DOL"" = Begin") > 0 Or _
-                (AggressiveSanitize > 0 And _
+                (AggressiveSanitize And ( _
                     InStr(txt, "dbLongBinary ""DOL"" = Begin") > 0 Or _
                     InStr(txt, "NameMap") > 0 Or _
                     InStr(txt, "GUID") _
-                ) Then
-    
+                )) Then
+
                 ' skip this block of code
                 Do Until InFile.AtEndOfStream
                     txt = InFile.ReadLine
@@ -400,10 +437,10 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
         Loop
         OutFile.Close
         InFile.Close
-        
+
         FileName = Dir()
     Loop
-    
+
     FileName = Dir(Path & "*." & Ext)
     Do Until Len(FileName) = 0
         obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
@@ -427,48 +464,45 @@ Public Sub ExportAllSource()
     Dim obj_type_label As String
     Dim obj_type_name As String
     Dim obj_type_num As Integer
+    Dim obj_count As Integer
     Dim ucs2 As Boolean
     Dim tblName As Variant
-    Dim obj_count As Integer
-    
-    '
-    '  Been getting "reserved" errors if a form was open.
-    CloseFormsReports
 
     Set db = CurrentDb
-    
+
+    CloseFormsReports
+    InitUsingUcs2
+
     source_path = ProjectPath() & "source\"
     MkDirIfNotExist source_path
-    
+
     Debug.Print
-    
+
     obj_path = source_path & "queries\"
     ClearTextFilesFromDir obj_path, "bas"
-    If (db.QueryDefs.count > 0) Then
-        obj_count = 0
-        Debug.Print "Exporting queries "; Tab(20);
-        For Each qry In db.QueryDefs
-            If Left(qry.Name, 1) <> "~" Then
-                ExportObject acQuery, qry.Name, obj_path & qry.Name & ".bas", UsingUcs2()
-                obj_count = obj_count + 1
-                If (AggressiveSanitize > 0) Then: SanitizeTextFiles obj_path, "bas"
-            End If
-        Next
-        Debug.Print "[" & obj_count & "]"
-    End If
-    
+    Debug.Print PadRight("Exporting queries...", 24);
+    obj_count = 0
+    For Each qry In db.QueryDefs
+        If Left(qry.Name, 1) <> "~" Then
+            ExportObject acQuery, qry.Name, obj_path & qry.Name & ".bas", UsingUcs2
+            obj_count = obj_count + 1
+        End If
+    Next
+    SanitizeTextFiles obj_path, "bas"
+    Debug.Print "[" & obj_count & "]"
+
     obj_path = source_path & "tables\"
     ClearTextFilesFromDir obj_path, "txt"
     If (Len(Replace(INCLUDE_TABLES, " ", "")) > 0) Then
+        Debug.Print PadRight("Exporting tables...", 24);
         obj_count = 0
-        Debug.Print "Exporting tables"; Tab(20);
         For Each tblName In Split(INCLUDE_TABLES, ",")
             ExportTable CStr(tblName), obj_path
             obj_count = obj_count + 1
         Next
         Debug.Print "[" & obj_count & "]"
     End If
-    
+
     For Each obj_type In Split( _
         "forms|Forms|" & acForm & "," & _
         "reports|Reports|" & acReport & "," & _
@@ -481,30 +515,27 @@ Public Sub ExportAllSource()
         obj_type_name = obj_type_split(1)
         obj_type_num = Val(obj_type_split(2))
         obj_path = source_path & obj_type_label & "\"
+        obj_count = 0
         ClearTextFilesFromDir obj_path, "bas"
-        '
-        '  Export objects (if there are any).
-        If (db.Containers(obj_type_name).Documents.count > 0) Then
-            Debug.Print "Exporting " & obj_type_label; Tab(20);
-            obj_count = 0
-            For Each doc In db.Containers(obj_type_name).Documents
-                If Left(doc.Name, 1) <> "~" Then
-                    If obj_type_label = "modules" Then
-                        ucs2 = False
-                    Else
-                        ucs2 = UsingUcs2()
-                    End If
-                    ExportObject obj_type_num, doc.Name, obj_path & doc.Name & ".bas", ucs2
-                    obj_count = obj_count + 1
+        Debug.Print PadRight("Exporting " & obj_type_label & "...", 24);
+        For Each doc In db.Containers(obj_type_name).Documents
+            If Left(doc.Name, 1) <> "~" Then
+                If obj_type_label = "modules" Then
+                    ucs2 = False
+                Else
+                    ucs2 = UsingUcs2
                 End If
-            Next
-            Debug.Print "[" & obj_count & "]"
-            If obj_type_label <> "modules" Then
-                SanitizeTextFiles obj_path, "bas"
+                ExportObject obj_type_num, doc.Name, obj_path & doc.Name & ".bas", ucs2
+                obj_count = obj_count + 1
             End If
+        Next
+        Debug.Print "[" & obj_count & "]"
+
+        If obj_type_label <> "modules" Then
+            SanitizeTextFiles obj_path, "bas"
         End If
     Next
-    
+
     DelIfExist TempFile()
     Debug.Print "Done."
 End Sub
@@ -524,45 +555,43 @@ Public Sub ImportAllSource()
     Dim obj_type_label As String
     Dim obj_type_name As String
     Dim obj_type_num As Integer
+    Dim obj_count As Integer
     Dim FileName As String
     Dim obj_name As String
     Dim ucs2 As Boolean
-    Dim obj_count As Integer
-    
-    '
-    '  Getting "reserved" error if a form was open during import.
-    CloseFormsReports
-    
+
     Set db = CurrentDb
     Set fso = CreateObject("Scripting.FileSystemObject")
 
+    CloseFormsReports
+    InitUsingUcs2
+
     source_path = ProjectPath() & "source\"
     If Not fso.FolderExists(source_path) Then
-        MsgBox "No source found at:" & vbCrLf & source_path, vbExclamation, "Warning"
+        MsgBox "No source found at:" & vbCrLf & source_path, vbExclamation, "Import failed"
         Exit Sub
     End If
-    
+
     Debug.Print
-    
+
     obj_path = source_path & "queries\"
     FileName = Dir(obj_path & "*.bas")
     If Len(FileName) > 0 Then
-        Debug.Print "Importing queries"; Tab(20);
+        Debug.Print PadRight("Importing queries...", 24);
         obj_count = 0
         Do Until Len(FileName) = 0
             obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
-            ImportObject acQuery, obj_name, obj_path & FileName, UsingUcs2()
+            ImportObject acQuery, obj_name, obj_path & FileName, UsingUcs2
             obj_count = obj_count + 1
             FileName = Dir()
         Loop
         Debug.Print "[" & obj_count & "]"
     End If
-    '
-    ' read in table values
+
     obj_path = source_path & "tables\"
     FileName = Dir(obj_path & "*.txt")
     If Len(FileName) > 0 Then
-        Debug.Print "Importing tables"; Tab(20);
+        Debug.Print PadRight("Importing tables...", 24);
         obj_count = 0
         Do Until Len(FileName) = 0
             obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
@@ -572,6 +601,7 @@ Public Sub ImportAllSource()
         Loop
         Debug.Print "[" & obj_count & "]"
     End If
+
     For Each obj_type In Split( _
         "forms|" & acForm & "," & _
         "reports|" & acReport & "," & _
@@ -585,7 +615,7 @@ Public Sub ImportAllSource()
         obj_path = source_path & obj_type_label & "\"
         FileName = Dir(obj_path & "*.bas")
         If Len(FileName) > 0 Then
-            Debug.Print "Importing " & obj_type_label; Tab(20);
+            Debug.Print PadRight("Importing " & obj_type_label & "...", 24);
             obj_count = 0
             Do Until Len(FileName) = 0
                 obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
@@ -593,7 +623,7 @@ Public Sub ImportAllSource()
                     If obj_type_label = "modules" Then
                         ucs2 = False
                     Else
-                        ucs2 = UsingUcs2()
+                        ucs2 = UsingUcs2
                     End If
                     ImportObject obj_type_num, obj_name, obj_path & FileName, ucs2
                     obj_count = obj_count + 1
@@ -603,24 +633,51 @@ Public Sub ImportAllSource()
             Debug.Print "[" & obj_count & "]"
         End If
     Next
-    
+
     DelIfExist TempFile()
     Debug.Print "Done."
 End Sub
 
+' Build SQL to export `tbl_name` sorted by each field from first to last
+Public Function TableExportSql(tbl_name As String)
+    Dim rs As Object ' DAO.Recordset
+    Dim fieldObj As Object ' DAO.Field
+    Dim sb() As String, count As Integer
+
+    Set rs = CurrentDb.OpenRecordset(tbl_name)
+
+    sb = Sb_Init()
+    Sb_Append sb, "SELECT "
+    count = 0
+    For Each fieldObj In rs.Fields
+        If count > 0 Then Sb_Append sb, ", "
+        Sb_Append sb, "[" & fieldObj.Name & "]"
+        count = count + 1
+    Next
+    Sb_Append sb, " FROM [" & tbl_name & "] ORDER BY "
+    count = 0
+    For Each fieldObj In rs.Fields
+        If count > 0 Then Sb_Append sb, ", "
+        Sb_Append sb, "[" & fieldObj.Name & "]"
+        count = count + 1
+    Next
+
+    TableExportSql = Sb_Get(sb)
+End Function
+
 ' Export the lookup table `tblName` to `source\tables`.
-Private Sub ExportTable(tblName As String, obj_path As String)
+Private Sub ExportTable(tbl_name As String, obj_path As String)
     Dim fso, OutFile
     Dim rs As Object ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
     Dim C As Long, Value As Variant
-    
+
     Set fso = CreateObject("Scripting.FileSystemObject")
     ' open file for writing with Create=True, Unicode=True (USC-2 Little Endian format)
     MkDirIfNotExist obj_path
     Set OutFile = fso.CreateTextFile(TempFile(), True, True)
-    
-    Set rs = CurrentDb.OpenRecordset("export_" & tblName)
+
+    Set rs = CurrentDb.OpenRecordset(TableExportSql(tbl_name))
     C = 0
     For Each fieldObj In rs.Fields
         If C <> 0 Then OutFile.write vbTab
@@ -628,7 +685,7 @@ Private Sub ExportTable(tblName As String, obj_path As String)
         OutFile.write fieldObj.Name
     Next
     OutFile.write vbCrLf
-    
+
     rs.MoveFirst
     Do Until rs.EOF
         C = 0
@@ -652,8 +709,8 @@ Private Sub ExportTable(tblName As String, obj_path As String)
     Loop
     rs.Close
     OutFile.Close
-    
-    ConvertUcs2Utf8 TempFile(), obj_path & tblName & ".txt"
+
+    ConvertUcs2Utf8 TempFile(), obj_path & tbl_name & ".txt"
 End Sub
 
 ' Import the lookup table `tblName` from `source\tables`.
@@ -662,24 +719,23 @@ Private Sub ImportTable(tblName As String, obj_path As String)
     Dim rs As Object ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
     Dim fso, InFile As Object
-    Dim C As Long, buf As String, Values() As String, Value As Variant, rsWrite As Recordset
-    
+    Dim C As Long, buf As String, Values() As String, Value As Variant
+
     Set fso = CreateObject("Scripting.FileSystemObject")
     ConvertUtf8Ucs2 obj_path & tblName & ".txt", TempFile()
     ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
     Set InFile = fso.OpenTextFile(TempFile(), ForReading, False, TristateTrue)
     Set db = CurrentDb
-    
+
     db.Execute "DELETE FROM [" & tblName & "]"
-    Set rs = db.OpenRecordset("export_" & tblName)
-    Set rsWrite = db.OpenRecordset(tblName)
+    Set rs = db.OpenRecordset(tblName)
     buf = InFile.ReadLine()
     Do Until InFile.AtEndOfStream
         buf = InFile.ReadLine()
         If Len(Trim(buf)) > 0 Then
             Values = Split(buf, vbTab)
             C = 0
-            rsWrite.AddNew
+            rs.AddNew
             For Each fieldObj In rs.Fields
                 Value = Values(C)
                 If Len(Value) = 0 Then
@@ -689,14 +745,13 @@ Private Sub ImportTable(tblName As String, obj_path As String)
                     Value = Replace(Value, "\n", vbCrLf)
                     Value = Replace(Value, "\\", "\")
                 End If
-                rsWrite(fieldObj.Name) = Value
+                rs(fieldObj.Name) = Value
                 C = C + 1
             Next
-            rsWrite.Update
+            rs.Update
         End If
     Loop
-    
-    rsWrite.Close
+
     rs.Close
     InFile.Close
 End Sub

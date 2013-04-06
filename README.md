@@ -39,7 +39,7 @@ First Commit to Your Source Control System
 1. Create a repository in your `~/MyProject` folder.
 2. Compact and Repair `Application.accdb` and zip it to `Application.zip` using the Send to Compressed Folder command in Windows Explorer.
 3. Using your repository's tools, set the repository to ignore any `accdb` and `laccdb` files, and then add and commit the zipped Access binary file `Application.zip` as well as the `scripts` folder. Use a commit message like "Initial commit of [name] at version [number]."
-4. Open the application, hit CTRL-G, and run the following VB code in the Immediate window: "`ExportAllSource`". Dismiss the popup command prompt window when it's done, and wait for the Immediate window to say the export job is "Done."
+4. Open the application, hit CTRL-G, and run the following VB code in the Immediate window: "`ExportAllSource`". Wait for the Immediate window to say the export job is "Done."
 5. Using your repository's tools, add and commit all the new files that were created in the `source` folder under `~/MyProject` . Use a commit message like "Initial commit of all source code for [name] at version [number]".
 6. Publish your repository to your preferred central sharing location.
 

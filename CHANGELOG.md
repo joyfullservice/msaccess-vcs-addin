@@ -2,15 +2,16 @@ Change log
 ==========
 version 0.3 - 5 Apr 2013
 
+bkidwell:
+* Sanitize query exports.
+
 matonb:
-* Added AggressiveSanitize constant, it's a number to allow for different
-  levels in the future. Default 0 (off)
+* Added AggressiveSanitize constant, it's a number to allow for different levels in the future. Default 0 (off)
 * Added Skipping for GUID & Namemap in aggressive sanitize mode.
-* If AggressiveSanitize is on, also sanitize query exports.
-* Append [Number] of objects exported to information lines in immediate window.
-* Append [Number] of objects imported to information lines in immediate window.
+* ~~If AggressiveSanitize is on, also sanitize query exports.~~
+* Append Number of objects imported/exported to information lines in immediate window.
 * Updated readme (removed references to terminal window).
-* Close all open forms and reports when importing (MS reserved error).
+* Close all open forms and reports when importing and exporting because you can't import an open form or report.
 
 version 0.2 - 4 Apr 2013
 ------------------------
