@@ -1,11 +1,22 @@
 Change log
 ==========
+version 0.3 - 5 Apr 2013
+
+matonb:
+* Added AggressiveSanitize constant, it's a number to allow for different
+  levels in the future. Default 0 (off)
+* Added Skipping for GUID & Namemap in aggressive sanitize mode.
+* If AggressiveSanitize is on, also sanitize query exports.
+* Append [Number] of objects exported to information lines in immediate window.
+* Append [Number] of objects imported to information lines in immediate window.
+* Updated readme (removed references to terminal window).
+* Close all open forms and reports when importing (MS reserved error).
 
 version 0.2 - 4 Apr 2013
 ------------------------
 
 matonb:
-* Added dbLongBinary "DOL" to SkipList in SanitizeTextFiles.
+* Added dbLongBinary "DOL" to SkipList in SanitizeTextFiles, default 0 (off).
 * Added Source directory check to ImportAllSource, pops up a message box if missing.
 * Only create source directories if there is something to export.
 
