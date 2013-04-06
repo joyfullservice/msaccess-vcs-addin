@@ -238,7 +238,7 @@ Private Sub ConvertUcs2Utf8(source As String, dest As String)
         If in_high = 0 And in_low < &H80 Then
             ' U+0000 - U+007F   0LLLLLLL
             BinWrite f_out, in_low
-        ElseIf in_high < &H80 Then
+        ElseIf in_high < &H8 Then
             ' U+0080 - U+07FF   110HHHLL 10LLLLLL
             BinWrite f_out, &HC0 + ((in_high And &H7) * &H4) + ((in_low And &HC0) / &H40)
             BinWrite f_out, &H80 + (in_low And &H3F)
