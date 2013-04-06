@@ -1,6 +1,8 @@
 Change log
 ==========
-version 0.3 - 5 Apr 2013
+
+version 0.3 - 6 Apr 2013
+------------------------
 
 bkidwell:
 * Sanitize query exports.
