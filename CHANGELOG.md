@@ -6,10 +6,11 @@ version 0.3 - 6 Apr 2013
 
 bkidwell:
 * Sanitize query exports.
-* Fixed SERIOUS TYPO in UCS2-to-UTF-8 conversion (wrong threshold for 2 byte versus 3 byte symbol in output stream)
+* Fixed SERIOUS TYPO in UCS2-to-UTF-8 conversion (wrong threshold for 2 byte versus 3 byte symbol in output stream).
+* AggressiveSanitize default True.
 
 matonb:
-* Added AggressiveSanitize constant, it's a number to allow for different levels in the future. Default 0 (off)
+* Added AggressiveSanitize constant, it's a number to allow for different levels in the future. ~~Default False.~~
 * Added Skipping for GUID & Namemap in aggressive sanitize mode.
 * ~~If AggressiveSanitize is on, also sanitize query exports.~~
 * Append Number of objects imported/exported to information lines in immediate window.
@@ -20,7 +21,7 @@ version 0.2 - 4 Apr 2013
 ------------------------
 
 matonb:
-* Added dbLongBinary "DOL" to SkipList in SanitizeTextFiles, default 0 (off).
+* Added dbLongBinary "DOL" to SkipList in SanitizeTextFiles.
 * Added Source directory check to ImportAllSource, pops up a message box if missing.
 * Only create source directories if there is something to export.
 
