@@ -415,7 +415,7 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
         Do Until InFile.AtEndOfStream
             txt = InFile.ReadLine
             SkipBlock = False
-            SlipLine = False
+            SkipLine = False
             If Left(txt, 10) = "Checksum =" Then
                 SkipLine = True
             ElseIf InStr(txt, "NoSaveCTIWhenDisabled =1") Then
