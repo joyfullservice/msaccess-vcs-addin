@@ -4,6 +4,7 @@ version 0.3 - 5 Apr 2013
 
 bkidwell:
 * Sanitize query exports.
+* Fixed SERIOUS TYPO in UCS2-to-UTF-8 conversion (wrong threshold for 2 byte versus 3 byte symbol in output stream)
 
 matonb:
 * Added AggressiveSanitize constant, it's a number to allow for different levels in the future. Default 0 (off)
