@@ -401,7 +401,8 @@ End Sub
 ' Access GUI and change often (we don't want these lines of code in
 ' version control).
 Private Sub SanitizeTextFiles(Path As String, Ext As String)
-    Dim fso, InFile, OutFile, FileName As String, txt As String, obj_name As String
+    Dim fso, InFile, OutFile, FileName As String, txt As String
+    Dim obj_name As String, SkipBlock As Boolean, SkipLine As Boolean
 
     Set fso = CreateObject("Scripting.FileSystemObject")
 
@@ -413,10 +414,12 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
         Set OutFile = fso.CreateTextFile(Path & obj_name & ".sanitize", True)
         Do Until InFile.AtEndOfStream
             txt = InFile.ReadLine
+            SkipBlock = False
+            SlipLine = False
             If Left(txt, 10) = "Checksum =" Then
-                ' Skip lines starting with Checksum
+                SkipLine = True
             ElseIf InStr(txt, "NoSaveCTIWhenDisabled =1") Then
-                ' Skip lines containning NoSaveCTIWhenDisabled
+                SkipLine = True
             ElseIf InStr(txt, "Begin") > 0 Then
                 If _
                     InStr(txt, "PrtDevNames =") > 0 Or _
@@ -425,24 +428,26 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
                     InStr(txt, "PrtDevMode =") > 0 _
                     Then
 
-                    ' skip this block of code
-                    Do Until InFile.AtEndOfStream
-                        txt = InFile.ReadLine
-                        If InStr(txt, "End") Then Exit Do
-                    Loop
+                    SkipLine = True
+                    SkipBlock = True
                 ElseIf AggressiveSanitize And ( _
                     InStr(txt, "dbLongBinary ""DOL"" =") > 0 Or _
                     InStr(txt, "NameMap") > 0 Or _
                     InStr(txt, "GUID") > 0 _
                     ) Then
 
-                    ' skip this block of code
-                    Do Until InFile.AtEndOfStream
-                        txt = InFile.ReadLine
-                        If InStr(txt, "End") Then Exit Do
-                    Loop
+                    SkipLine = True
+                    SkipBlock = True
                 End If
-            Else
+            End If
+
+            If SkipBlock Then
+                Do Until InFile.AtEndOfStream
+                    txt = InFile.ReadLine
+                    If InStr(txt, "End") Then Exit Do
+                Loop
+            End If
+            If Not SkipLine Then
                 OutFile.WriteLine txt
             End If
         Loop
