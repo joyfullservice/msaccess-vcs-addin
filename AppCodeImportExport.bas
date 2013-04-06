@@ -32,7 +32,6 @@
 ' * Maybe integrate into a dialog box triggered by a menu item.
 ' * Warning of destructive overwrite.
 
-Attribute VB_Name = "AppCodeImportExport"
 Option Compare Database
 Option Explicit
 
@@ -417,21 +416,31 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
                 ' Skip lines starting with Checksum
             ElseIf InStr(txt, "NoSaveCTIWhenDisabled =1") Then
                 ' Skip lines containning NoSaveCTIWhenDisabled
-            ElseIf InStr(txt, "PrtDevNames = Begin") > 0 Or _
-                InStr(txt, "PrtDevNamesW = Begin") > 0 Or _
-                InStr(txt, "PrtDevModeW = Begin") > 0 Or _
-                InStr(txt, "PrtDevMode = Begin") > 0 Or _
-                (AggressiveSanitize And ( _
-                    InStr(txt, "dbLongBinary ""DOL"" = Begin") > 0 Or _
-                    InStr(txt, "NameMap") > 0 Or _
-                    InStr(txt, "GUID") _
-                )) Then
+            ElseIf InStr(txt, "Begin") > 0 Then
+                If _
+                    InStr(txt, "PrtDevNames =") > 0 Or _
+                    InStr(txt, "PrtDevNamesW =") > 0 Or _
+                    InStr(txt, "PrtDevModeW =") > 0 Or _
+                    InStr(txt, "PrtDevMode =") > 0 _
+                    Then
 
-                ' skip this block of code
-                Do Until InFile.AtEndOfStream
-                    txt = InFile.ReadLine
-                    If InStr(txt, "End") Then Exit Do
-                Loop
+                    ' skip this block of code
+                    Do Until InFile.AtEndOfStream
+                        txt = InFile.ReadLine
+                        If InStr(txt, "End") Then Exit Do
+                    Loop
+                ElseIf AggressiveSanitize And ( _
+                    InStr(txt, "dbLongBinary ""DOL"" =") > 0 Or _
+                    InStr(txt, "NameMap") > 0 Or _
+                    InStr(txt, "GUID") > 0 _
+                    ) Then
+
+                    ' skip this block of code
+                    Do Until InFile.AtEndOfStream
+                        txt = InFile.ReadLine
+                        If InStr(txt, "End") Then Exit Do
+                    Loop
+                End If
             Else
                 OutFile.WriteLine txt
             End If
