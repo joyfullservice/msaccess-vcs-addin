@@ -51,7 +51,7 @@ Private Const INCLUDE_TABLES = ""
 ' Do more aggressive removal of superfluous blobs from exported MS
 ' Access source code?
 
-Const AggressiveSanitize = True
+Private Const AggressiveSanitize = True
 
 
 ' --------------------------------
