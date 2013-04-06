@@ -32,6 +32,7 @@
 ' * Maybe integrate into a dialog box triggered by a menu item.
 ' * Warning of destructive overwrite.
 
+Attribute VB_Name = "AppCodeImportExport"
 Option Compare Database
 Option Explicit
 
