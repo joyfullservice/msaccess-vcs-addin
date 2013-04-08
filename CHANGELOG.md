@@ -1,7 +1,13 @@
 Change log
 ==========
 
-version 0.3 - 6 Apr 2013
+Version 0.3.1 - 8 Apr 2013
+------------------------
+
+matonb:
+* Patched - Serious Problem:  SanitizeTextFiles If logic removed all lines containing "Begin".
+
+Version 0.3 - 6 Apr 2013
 ------------------------
 
 bkidwell:
@@ -17,7 +23,7 @@ matonb:
 * Updated readme (removed references to terminal window).
 * Close all open forms and reports when importing and exporting because you can't import an open form or report.
 
-version 0.2 - 4 Apr 2013
+Version 0.2 - 4 Apr 2013
 ------------------------
 
 matonb:
@@ -31,7 +37,7 @@ bkidwell:
 * Removed the need for a special "export_[name]" query to export and import a lookup table.
 * Added check to determine if Queries, Forms, etc. are exported from THIS database (depending on which version of Access created it) uses UCS-2-little-endian, or a legacy 8-bit Windows character set. Skip converting to/from UTF-8 if not using UCS-2, because the point of the conversion was to avoid writing 0x00 bytes in the text files and confuse diff/merge tools.
 
-version 0.1 - 22 Oct 2012
+Version 0.1 - 22 Oct 2012
 -------------------------
 
 Initial release

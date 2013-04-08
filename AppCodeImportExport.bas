@@ -1,7 +1,8 @@
+Attribute VB_Name = "AppCodeImportExport"
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
-' Version 0.3
+' Version 0.3.1
 '
 ' https://github.com/bkidwell/msaccess-vcs-integration
 '
@@ -32,7 +33,6 @@
 ' * Maybe integrate into a dialog box triggered by a menu item.
 ' * Warning of destructive overwrite.
 
-Attribute VB_Name = "AppCodeImportExport"
 Option Compare Database
 Option Explicit
 
@@ -441,6 +441,8 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
                         txt = InFile.ReadLine
                         If InStr(txt, "End") Then Exit Do
                     Loop
+                ' Emergency Fix
+                Else: OutFile.WriteLine txt
                 End If
             Else
                 OutFile.WriteLine txt
