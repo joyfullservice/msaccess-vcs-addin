@@ -2,7 +2,7 @@ Attribute VB_Name = "AppCodeImportExport"
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
-' Version 0.3.1
+' Version 0.3.2
 '
 ' https://github.com/bkidwell/msaccess-vcs-integration
 '
@@ -402,8 +402,24 @@ End Sub
 ' version control).
 Private Sub SanitizeTextFiles(Path As String, Ext As String)
     Dim fso, InFile, OutFile, FileName As String, txt As String, obj_name As String
+    Dim regEx As Object
+    Dim matches As String
 
     Set fso = CreateObject("Scripting.FileSystemObject")
+    Set regEx = CreateObject("VBScript.RegExp")
+    '
+    '  Match PrtDevNames / Mode with or  without W
+    matches = "PrtDev(?:Names|Mode)[W]?"
+    If (AggressiveSanitize = True) Then
+      '  Add and group aggressive matches
+      matches = "(?:" + matches
+      matches = matches + "|GUID|NameMap"
+      matches = matches + ")"
+    End If
+    '  Ensure that this is the begining of a block.
+    matches = matches + " = Begin"
+    regEx.IgnoreCase = False
+    regEx.pattern = matches
 
     FileName = Dir(Path & "*." & Ext)
     Do Until Len(FileName) = 0
@@ -417,33 +433,12 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
                 ' Skip lines starting with Checksum
             ElseIf InStr(txt, "NoSaveCTIWhenDisabled =1") Then
                 ' Skip lines containning NoSaveCTIWhenDisabled
-            ElseIf InStr(txt, "Begin") > 0 Then
-                If _
-                    InStr(txt, "PrtDevNames =") > 0 Or _
-                    InStr(txt, "PrtDevNamesW =") > 0 Or _
-                    InStr(txt, "PrtDevModeW =") > 0 Or _
-                    InStr(txt, "PrtDevMode =") > 0 _
-                    Then
-
-                    ' skip this block of code
-                    Do Until InFile.AtEndOfStream
-                        txt = InFile.ReadLine
-                        If InStr(txt, "End") Then Exit Do
-                    Loop
-                ElseIf AggressiveSanitize And ( _
-                    InStr(txt, "dbLongBinary ""DOL"" =") > 0 Or _
-                    InStr(txt, "NameMap") > 0 Or _
-                    InStr(txt, "GUID") > 0 _
-                    ) Then
-
-                    ' skip this block of code
-                    Do Until InFile.AtEndOfStream
-                        txt = InFile.ReadLine
-                        If InStr(txt, "End") Then Exit Do
-                    Loop
-                ' Emergency Fix
-                Else: OutFile.WriteLine txt
-                End If
+            ElseIf regEx.test(txt) Then
+                ' skip blocks of code matching regex pattern
+                Do Until InFile.AtEndOfStream
+                    txt = InFile.ReadLine
+                    If InStr(txt, "End") Then Exit Do
+                Loop
             Else
                 OutFile.WriteLine txt
             End If
