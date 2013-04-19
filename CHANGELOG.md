@@ -1,12 +1,22 @@
 Change log
 ==========
 
-Version 0.3.2 - 8 Apr 2013
-------------------------
+Version 0.4 - 19 Apr 2013
+--------------------------
 
 matonb:
-* 0.3.1 Patched - Serious Problem:  SanitizeTextFiles If logic removed all lines containing "Begin".
-* 0.3.2 Replaced if block for skipping code sections in SanitizeTextFiles with regular expression.
+*  Added dbLongBinary "DOL" to aggressive sanitize, these statements were
+   appearing in queries and being flagged by git as modified in files that
+   hadn't been touched by developers.
+
+Version 0.3.2 - 8 Apr 2013
+--------------------------
+
+matonb:
+* 0.3.1 Patched - Serious Problem:  SanitizeTextFiles If logic removed all
+        lines containing "Begin".
+* 0.3.2 Replaced if block for skipping code sections in SanitizeTextFiles with
+        regular expression.
 
 Version 0.3 - 6 Apr 2013
 ------------------------

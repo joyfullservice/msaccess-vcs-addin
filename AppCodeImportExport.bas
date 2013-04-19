@@ -2,7 +2,7 @@ Attribute VB_Name = "AppCodeImportExport"
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
-' Version 0.3.2
+' Version 0.4
 '
 ' https://github.com/bkidwell/msaccess-vcs-integration
 '
@@ -150,8 +150,8 @@ Private Function BinRead(ByRef f As BinFile) As Integer
 End Function
 
 ' Buffered write one byte at a time from a binary file.
-Private Sub BinWrite(ByRef f As BinFile, b As Integer)
-    Mid(f.buffer, f.buffer_pos + 1, 1) = Chr(b)
+Private Sub BinWrite(ByRef f As BinFile, B As Integer)
+    Mid(f.buffer, f.buffer_pos + 1, 1) = Chr(B)
     f.buffer_pos = f.buffer_pos + 1
     If f.buffer_pos >= &H4000 Then
         Put f.file_num, , f.buffer
@@ -402,25 +402,25 @@ End Sub
 ' version control).
 Private Sub SanitizeTextFiles(Path As String, Ext As String)
     Dim fso, InFile, OutFile, FileName As String, txt As String, obj_name As String
-    Dim regEx As Object
+    Dim regex As Object
     Dim matches As String
 
     Set fso = CreateObject("Scripting.FileSystemObject")
-    Set regEx = CreateObject("VBScript.RegExp")
+    Set regex = CreateObject("VBScript.RegExp")
     '
     '  Match PrtDevNames / Mode with or  without W
     matches = "PrtDev(?:Names|Mode)[W]?"
     If (AggressiveSanitize = True) Then
       '  Add and group aggressive matches
       matches = "(?:" + matches
-      matches = matches + "|GUID|NameMap"
+      matches = matches + "|GUID|NameMap|dbLongBinary ""DOL"""
       matches = matches + ")"
     End If
     '  Ensure that this is the begining of a block.
     matches = matches + " = Begin"
-    regEx.IgnoreCase = False
-    regEx.pattern = matches
-
+    regex.ignorecase = False
+    regex.pattern = matches
+'Debug.Print matches
     FileName = Dir(Path & "*." & Ext)
     Do Until Len(FileName) = 0
         obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
@@ -433,7 +433,7 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
                 ' Skip lines starting with Checksum
             ElseIf InStr(txt, "NoSaveCTIWhenDisabled =1") Then
                 ' Skip lines containning NoSaveCTIWhenDisabled
-            ElseIf regEx.test(txt) Then
+            ElseIf regex.test(txt) Then
                 ' skip blocks of code matching regex pattern
                 Do Until InFile.AtEndOfStream
                     txt = InFile.ReadLine
