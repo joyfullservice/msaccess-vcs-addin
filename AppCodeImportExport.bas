@@ -1,8 +1,7 @@
-Attribute VB_Name = "AppCodeImportExport"
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
-' Version 0.4
+' Version 0.5
 '
 ' https://github.com/bkidwell/msaccess-vcs-integration
 '
@@ -52,6 +51,7 @@ Private Const INCLUDE_TABLES = ""
 ' Access source code?
 
 Private Const AggressiveSanitize = True
+Private Const StripPublishOption = True
 
 
 ' --------------------------------
@@ -200,7 +200,7 @@ End Function
 
 ' Close all open forms.
 Private Function CloseFormsReports()
-    On Error GoTo ErrorHandler
+    On Error GoTo errorHandler
     Do While Forms.count > 0
         DoCmd.Close acForm, Forms(0).Name
     Loop
@@ -209,8 +209,8 @@ Private Function CloseFormsReports()
     Loop
     Exit Function
 
-ErrorHandler:
-    Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.description
+errorHandler:
+    Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
 End Function
 
 ' Pad a string on the right to make it `count` characters long.
@@ -401,26 +401,50 @@ End Sub
 ' Access GUI and change often (we don't want these lines of code in
 ' version control).
 Private Sub SanitizeTextFiles(Path As String, Ext As String)
-    Dim fso, InFile, OutFile, FileName As String, txt As String, obj_name As String
-    Dim regex As Object
-    Dim matches As String
+Dim fso As Object
+Dim thisFile As Object
+Dim InFile As Object
+Dim OutFile As Object
+Dim FileName As String
+Dim txt As String
+Dim obj_name As String
+Dim rxBlock As Object
+Dim rxLine As Object
+Dim matches As String
+Dim deleteCount As Integer
 
     Set fso = CreateObject("Scripting.FileSystemObject")
-    Set regex = CreateObject("VBScript.RegExp")
+    '
+    '  Setup Block matching Regex.
+    Set rxBlock = CreateObject("VBScript.RegExp")
+    rxBlock.ignorecase = False
     '
     '  Match PrtDevNames / Mode with or  without W
     matches = "PrtDev(?:Names|Mode)[W]?"
     If (AggressiveSanitize = True) Then
       '  Add and group aggressive matches
-      matches = "(?:" + matches
-      matches = matches + "|GUID|NameMap|dbLongBinary ""DOL"""
-      matches = matches + ")"
+      matches = "(?:" & matches
+      matches = matches & "|GUID|NameMap|dbLongBinary ""DOL"""
+      matches = matches & ")"
     End If
     '  Ensure that this is the begining of a block.
-    matches = matches + " = Begin"
-    regex.ignorecase = False
-    regex.pattern = matches
+    matches = matches & " = Begin"
 'Debug.Print matches
+    rxBlock.pattern = matches
+    '
+    '  Setup Line Matching Regex.
+    Set rxLine = CreateObject("VBScript.RegExp")
+    matches = "^\s*(?:"
+    matches = matches & "Checksum ="
+    matches = matches & "|NoSaveCTIWhenDisabled =1"
+    If (StripPublishOption = True) Then
+        matches = matches & "|dbByte ""PublishToWeb"" =""1"""
+        matches = matches & "|PublishOption =1"
+    End If
+    matches = matches & ")"
+'Debug.Print matches
+    rxLine.pattern = matches
+    
     FileName = Dir(Path & "*." & Ext)
     Do Until Len(FileName) = 0
         obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
@@ -429,12 +453,12 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
         Set OutFile = fso.CreateTextFile(Path & obj_name & ".sanitize", True)
         Do Until InFile.AtEndOfStream
             txt = InFile.ReadLine
-            If Left(txt, 10) = "Checksum =" Then
-                ' Skip lines starting with Checksum
-            ElseIf InStr(txt, "NoSaveCTIWhenDisabled =1") Then
-                ' Skip lines containning NoSaveCTIWhenDisabled
-            ElseIf regex.test(txt) Then
-                ' skip blocks of code matching regex pattern
+                '
+                ' Skip lines starting with line pattern
+            If rxLine.test(txt) Then
+                '
+                ' skip blocks of code matching block pattern
+            ElseIf rxBlock.test(txt) Then
                 Do Until InFile.AtEndOfStream
                     txt = InFile.ReadLine
                     If InStr(txt, "End") Then Exit Do
@@ -446,16 +470,13 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
         OutFile.Close
         InFile.Close
 
+        DeleteFile (Path & FileName)
+
+        Set thisFile = fso.GetFile(Path & obj_name & ".sanitize")
+        thisFile.Move (Path & FileName)
         FileName = Dir()
     Loop
 
-    FileName = Dir(Path & "*." & Ext)
-    Do Until Len(FileName) = 0
-        obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
-        Kill Path & obj_name & "." & Ext
-        Name Path & obj_name & ".sanitize" As Path & obj_name & "." & Ext
-        FileName = Dir()
-    Loop
 End Sub
 
 ' Main entry point for EXPORT. Export all forms, reports, queries,
@@ -763,3 +784,31 @@ Private Sub ImportTable(tblName As String, obj_path As String)
     rs.Close
     InFile.Close
 End Sub
+
+Private Function DeleteFile(sFileName As String)
+Dim deleteCount As Integer
+Dim pauseStart As Variant
+Dim pauseEnd As Variant
+'
+'  Try to delete the file a few times if it fails.
+'  Failure is generally caused by the file not actually being closed yet.
+        deleteCount = 0
+        On Error GoTo tryDeleteAgain
+tryDeleteAgain:
+        If deleteCount > 0 Then
+            pauseStart = Timer
+            pauseEnd = pauseStart + 0.1
+            Do While Timer < pauseEnd
+                DoEvents
+            Loop
+        ElseIf deleteCount > 3 Then
+            On Error GoTo 0
+        End If
+        deleteCount = deleteCount + 1
+        Kill sFileName
+'        If deleteCount > 1 Then Debug.Print "Delete Attempts [" & deleteCount & "] (" & sFileName & ")"
+        '
+        '  Release Error Handler
+        On Error GoTo 0
+
+End Function

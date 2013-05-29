@@ -1,10 +1,25 @@
 Change log
 ==========
 
+Version 0.5 - 29 May 2013
+--------------------------
+
+matonb:
+
+*  All "exclusion" patterns are now matched by regex.
+*  Added StripPublishOption constant.  
+   If set to _True_ the following lines are also excluded from the export files
+  * dbByte "PublishToWeb" ="1"
+  * PublishOption =1
+*  Added DeleteFile(FileName) function  
+   The function tries to delete _FileName_ three (3) times before giving up.  
+   A delay of 100ms is introduced between delete attempts should the first fail.
+
 Version 0.4 - 19 Apr 2013
 --------------------------
 
 matonb:
+
 *  Added dbLongBinary "DOL" to aggressive sanitize, these statements were
    appearing in queries and being flagged by git as modified in files that
    hadn't been touched by developers.
