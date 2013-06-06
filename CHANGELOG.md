@@ -1,6 +1,18 @@
 Change log
 ==========
 
+Version 0.6 - 06 Jul 2013
+-------------------------
+
+matonb:
+
+*  AppcodeImportExport excluded from ExportAllSource
+*  Added ImportProject sub-routine,  
+   Deletes all forms, macros, modules and queries before calling ImportAllSource.  
+   By clearing out the existing objects, you know that your database only contains  
+   code from your version control database.  
+   Excludes *AppCodeImportExport*
+
 Version 0.5 - 29 May 2013
 --------------------------
 

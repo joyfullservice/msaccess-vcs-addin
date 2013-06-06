@@ -1,7 +1,8 @@
+Attribute VB_Name = "AppCodeImportExport"
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
-' Version 0.5
+' Version 0.6
 '
 ' https://github.com/bkidwell/msaccess-vcs-integration
 '
@@ -210,7 +211,7 @@ Private Function CloseFormsReports()
     Exit Function
 
 errorHandler:
-    Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
+    Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.description
 End Function
 
 ' Pad a string on the right to make it `count` characters long.
@@ -258,11 +259,11 @@ Private Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path 
 End Sub
 
 ' Binary convert a UCS2-little-endian encoded file to UTF-8.
-Private Sub ConvertUcs2Utf8(source As String, dest As String)
+Private Sub ConvertUcs2Utf8(Source As String, dest As String)
     Dim f_in As BinFile, f_out As BinFile
     Dim in_low As Integer, in_high As Integer
 
-    f_in = BinOpen(source, "r")
+    f_in = BinOpen(Source, "r")
     f_out = BinOpen(dest, "w")
 
     Do While Not f_in.at_eof
@@ -288,11 +289,11 @@ Private Sub ConvertUcs2Utf8(source As String, dest As String)
 End Sub
 
 ' Binary convert a UTF-8 encoded file to UCS2-little-endian.
-Private Sub ConvertUtf8Ucs2(source As String, dest As String)
+Private Sub ConvertUtf8Ucs2(Source As String, dest As String)
     Dim f_in As BinFile, f_out As BinFile
     Dim in_1 As Integer, in_2 As Integer, in_3 As Integer
 
-    f_in = BinOpen(source, "r")
+    f_in = BinOpen(Source, "r")
     f_out = BinOpen(dest, "w")
 
     Do While Not f_in.at_eof
@@ -548,7 +549,8 @@ Public Sub ExportAllSource()
         ClearTextFilesFromDir obj_path, "bas"
         Debug.Print PadRight("Exporting " & obj_type_label & "...", 24);
         For Each doc In db.Containers(obj_type_name).Documents
-            If Left(doc.Name, 1) <> "~" Then
+            If (Left(doc.Name, 1) <> "~") And _
+               (doc.Name <> "AppCodeImportExport") Then
                 If obj_type_label = "modules" Then
                     ucs2 = False
                 Else
@@ -812,3 +814,76 @@ tryDeleteAgain:
         On Error GoTo 0
 
 End Function
+'
+' Main entry point for ImportProject.
+' Drop all forms, reports, queries, macros, modules.
+' execute ImportAllSource.
+Public Sub ImportProject()
+On Error GoTo errorHandler
+
+    If MsgBox("This action will delete all existing: " & vbCrLf & _
+              vbCrLf & _
+              Chr(149) & " Forms" & vbCrLf & _
+              Chr(149) & " Macros" & vbCrLf & _
+              Chr(149) & " Modules" & vbCrLf & _
+              Chr(149) & " Queries" & vbCrLf & _
+              Chr(149) & " Reports" & vbCrLf & _
+              vbCrLf & _
+              "Are you sure you want to proceed?", vbCritical + vbYesNo, _
+              "Import Project") <> vbYes Then
+        Exit Sub
+    End If
+
+    Dim db As Database
+    Set db = CurrentDb
+    CloseFormsReports
+
+    Debug.Print
+    Debug.Print "Deleting Existing Objects"
+    Debug.Print
+
+    Dim dbObject As Object
+    For Each dbObject In db.QueryDefs
+        If Left(dbObject.Name, 1) <> "~" Then
+            Debug.Print dbObject.Name
+            db.QueryDefs.Delete dbObject.Name
+        End If
+    Next
+
+    Dim objType As Variant
+    Dim objTypeArray() As String
+    Dim doc As Object
+    '
+    '  Object Type Constants
+    Const OTNAME = 0
+    Const OTID = 1
+
+    For Each objType In Split( _
+            "Forms|" & acForm & "," & _
+            "Reports|" & acReport & "," & _
+            "Scripts|" & acMacro & "," & _
+            "Modules|" & acModule _
+            , "," _
+        )
+        objTypeArray = Split(objType, "|")
+
+        For Each doc In db.Containers(objTypeArray(OTNAME)).Documents
+            If (Left(doc.Name, 1) <> "~") And _
+               (doc.Name <> "AppCodeImportExport") Then
+                Debug.Print doc.Name
+                DoCmd.DeleteObject objTypeArray(OTID), doc.Name
+            End If
+        Next
+    Next
+    
+    Debug.Print "================="
+    Debug.Print "Importing Project"
+    ImportAllSource
+    GoTo exitHandler
+
+errorHandler:
+  Debug.Print "AppCodeImportExport.ImportProject: Error #" & Err.Number & vbCrLf & _
+               Err.description
+
+exitHandler:
+End Sub
