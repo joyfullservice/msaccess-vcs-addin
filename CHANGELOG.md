@@ -1,6 +1,17 @@
 Change log
 ==========
 
+matonb:
+
+Version 0.7 - 06 Jul 2013
+-------------------------
+*  Replaced TempFile function.
+*  Temporary file names now generated via external MS libraries.
+*  Functions using TempFile updated to only call TempFile function once.
+   *  Temporary file path and name stored in tmepFileName variable.
+   *  Temporary files deleted when done.
+*  Changed db declaration in ImportProject to DAO.database.
+
 Version 0.6 - 06 Jul 2013
 -------------------------
 

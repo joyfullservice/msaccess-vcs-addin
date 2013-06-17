@@ -2,7 +2,7 @@ Attribute VB_Name = "AppCodeImportExport"
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
-' Version 0.6
+' Version 0.7
 '
 ' https://github.com/bkidwell/msaccess-vcs-integration
 '
@@ -53,8 +53,7 @@ Private Const INCLUDE_TABLES = ""
 
 Private Const AggressiveSanitize = True
 Private Const StripPublishOption = True
-
-
+'
 ' --------------------------------
 ' Structures
 ' --------------------------------
@@ -82,91 +81,104 @@ Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 ' --------------------------------
 ' Module variables
 ' --------------------------------
-
+'
 ' Does the current database file write UCS2-little-endian when exporting
 ' Queries, Forms, Reports, Macros
 Private UsingUcs2 As Boolean
-
+'
+' --------------------------------
+' External Library Functions
+' --------------------------------
+Private Declare PtrSafe _
+    Function getTempPath Lib "kernel32" _
+         Alias "GetTempPathA" (ByVal nBufferLength As Long, _
+                               ByVal lpBuffer As String) As Long
+Private Declare PtrSafe _
+    Function getTempFileName Lib "kernel32" _
+         Alias "GetTempFileNameA" (ByVal lpszPath As String, _
+                                   ByVal lpPrefixString As String, _
+                                   ByVal wUnique As Long, _
+                                   ByVal lpTempFileName As String) As Long
 ' --------------------------------
 ' Basic functions missing from VB 6: buffered file read/write, string builder
 ' --------------------------------
 
 ' Open a binary file for reading (mode = 'r') or writing (mode = 'w').
 Private Function BinOpen(file_path As String, mode As String) As BinFile
-    Dim f As BinFile
+    Dim F As BinFile
 
-    f.file_num = FreeFile
-    f.mode = LCase(mode)
-    If f.mode = "r" Then
-        Open file_path For Binary Access Read As f.file_num
-        f.file_len = LOF(f.file_num)
-        f.file_pos = 0
-        If f.file_len > &H4000 Then
-            f.buffer = String(&H4000, " ")
-            f.buffer_len = &H4000
+    F.file_num = FreeFile
+    F.mode = LCase(mode)
+    If F.mode = "r" Then
+        Open file_path For Binary Access Read As F.file_num
+        F.file_len = LOF(F.file_num)
+        F.file_pos = 0
+        If F.file_len > &H4000 Then
+            F.buffer = String(&H4000, " ")
+            F.buffer_len = &H4000
         Else
-            f.buffer = String(f.file_len, " ")
-            f.buffer_len = f.file_len
+            F.buffer = String(F.file_len, " ")
+            F.buffer_len = F.file_len
         End If
-        f.buffer_pos = 0
-        Get f.file_num, f.file_pos + 1, f.buffer
+        F.buffer_pos = 0
+        Get F.file_num, F.file_pos + 1, F.buffer
     Else
         DelIfExist file_path
-        Open file_path For Binary Access Write As f.file_num
-        f.file_len = 0
-        f.file_pos = 0
-        f.buffer = String(&H4000, " ")
-        f.buffer_len = 0
-        f.buffer_pos = 0
+        Open file_path For Binary Access Write As F.file_num
+        F.file_len = 0
+        F.file_pos = 0
+        F.buffer = String(&H4000, " ")
+        F.buffer_len = 0
+        F.buffer_pos = 0
     End If
 
-    BinOpen = f
+    BinOpen = F
 End Function
 
 ' Buffered read one byte at a time from a binary file.
-Private Function BinRead(ByRef f As BinFile) As Integer
-    If f.at_eof = True Then
+Private Function BinRead(ByRef F As BinFile) As Integer
+    If F.at_eof = True Then
         BinRead = 0
         Exit Function
     End If
 
-    BinRead = Asc(Mid(f.buffer, f.buffer_pos + 1, 1))
+    BinRead = Asc(Mid(F.buffer, F.buffer_pos + 1, 1))
 
-    f.buffer_pos = f.buffer_pos + 1
-    If f.buffer_pos >= f.buffer_len Then
-        f.file_pos = f.file_pos + &H4000
-        If f.file_pos >= f.file_len Then
-            f.at_eof = True
+    F.buffer_pos = F.buffer_pos + 1
+    If F.buffer_pos >= F.buffer_len Then
+        F.file_pos = F.file_pos + &H4000
+        If F.file_pos >= F.file_len Then
+            F.at_eof = True
             Exit Function
         End If
-        If f.file_len - f.file_pos > &H4000 Then
-            f.buffer_len = &H4000
+        If F.file_len - F.file_pos > &H4000 Then
+            F.buffer_len = &H4000
         Else
-            f.buffer_len = f.file_len - f.file_pos
-            f.buffer = String(f.buffer_len, " ")
+            F.buffer_len = F.file_len - F.file_pos
+            F.buffer = String(F.buffer_len, " ")
         End If
-        f.buffer_pos = 0
-        Get f.file_num, f.file_pos + 1, f.buffer
+        F.buffer_pos = 0
+        Get F.file_num, F.file_pos + 1, F.buffer
     End If
 End Function
 
 ' Buffered write one byte at a time from a binary file.
-Private Sub BinWrite(ByRef f As BinFile, B As Integer)
-    Mid(f.buffer, f.buffer_pos + 1, 1) = Chr(B)
-    f.buffer_pos = f.buffer_pos + 1
-    If f.buffer_pos >= &H4000 Then
-        Put f.file_num, , f.buffer
-        f.buffer_pos = 0
+Private Sub BinWrite(ByRef F As BinFile, B As Integer)
+    Mid(F.buffer, F.buffer_pos + 1, 1) = Chr(B)
+    F.buffer_pos = F.buffer_pos + 1
+    If F.buffer_pos >= &H4000 Then
+        Put F.file_num, , F.buffer
+        F.buffer_pos = 0
     End If
 End Sub
 
 ' Close binary file.
-Private Sub BinClose(ByRef f As BinFile)
-    If f.mode = "w" And f.buffer_pos > 0 Then
-        f.buffer = Left(f.buffer, f.buffer_pos)
-        Put f.file_num, , f.buffer
+Private Sub BinClose(ByRef F As BinFile)
+    If F.mode = "w" And F.buffer_pos > 0 Then
+        F.buffer = Left(F.buffer, F.buffer_pos)
+        Put F.file_num, , F.buffer
     End If
-    Close f.file_num
+    Close F.file_num
 End Sub
 
 ' String builder: Init
@@ -227,10 +239,18 @@ Private Function ProjectPath() As String
     ProjectPath = CurrentProject.Path
     If Right(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
 End Function
-
-' Path of single temp file used by any function in this module.
-Private Function TempFile() As String
-    TempFile = ProjectPath() & "AppCodeImportExport.tempdata"
+'
+' Generate Random / Unique temporary file name.
+Private Function TempFile(Optional sPrefix As String = "VBA") As String
+Dim sTmpPath As String * 512
+Dim sTmpName As String * 576
+Dim nRet As Long
+Dim sFileName As String
+    
+    nRet = getTempPath(512, sTmpPath)
+    nRet = getTempFileName(sTmpPath, sPrefix, 0, sTmpName)
+    If nRet <> 0 Then sFileName = Left$(sTmpName, InStr(sTmpName, vbNullChar) - 1)
+    TempFile = sFileName
 End Function
 
 ' Export a database object with optional UCS2-to-UTF-8 conversion.
@@ -239,8 +259,9 @@ Private Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path 
 
     MkDirIfNotExist Left(file_path, InStrRev(file_path, "\"))
     If Ucs2Convert Then
-        Application.SaveAsText obj_type_num, obj_name, TempFile()
-        ConvertUcs2Utf8 TempFile(), file_path
+        Dim tempFileName As String: tempFileName = TempFile()
+        Application.SaveAsText obj_type_num, obj_name, tempFileName
+        ConvertUcs2Utf8 tempFileName, file_path
     Else
         Application.SaveAsText obj_type_num, obj_name, file_path
     End If
@@ -251,8 +272,10 @@ Private Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path 
     Optional Ucs2Convert As Boolean = False)
 
     If Ucs2Convert Then
-        ConvertUtf8Ucs2 file_path, TempFile()
-        Application.LoadFromText obj_type_num, obj_name, TempFile()
+        Dim tempFileName As String: tempFileName = TempFile()
+        ConvertUtf8Ucs2 file_path, tempFileName
+        Application.LoadFromText obj_type_num, obj_name, tempFileName
+        DeleteFile tempFileName
     Else
         Application.LoadFromText obj_type_num, obj_name, file_path
     End If
@@ -353,9 +376,10 @@ Private Sub InitUsingUcs2()
         Exit Sub
     End If
 
-    Application.SaveAsText obj_type_num, obj_name, TempFile()
+    Dim tempFileName As String: tempFileName = TempFile()
+    Application.SaveAsText obj_type_num, obj_name, tempFileName
     fn = FreeFile
-    Open TempFile() For Binary Access Read As fn
+    Open tempFileName For Binary Access Read As fn
     bytes = "  "
     Get fn, 1, bytes
     If Asc(Mid(bytes, 1, 1)) = &HFF And Asc(Mid(bytes, 2, 1)) = &HFE Then
@@ -364,6 +388,7 @@ Private Sub InitUsingUcs2()
         UsingUcs2 = False
     End If
     Close fn
+    DeleteFile (tempFileName)
 End Sub
 
 ' Create folder `Path`. Silently do nothing if it already exists.
@@ -418,7 +443,7 @@ Dim deleteCount As Integer
     '
     '  Setup Block matching Regex.
     Set rxBlock = CreateObject("VBScript.RegExp")
-    rxBlock.ignorecase = False
+    rxBlock.ignoreCase = False
     '
     '  Match PrtDevNames / Mode with or  without W
     matches = "PrtDev(?:Names|Mode)[W]?"
@@ -567,7 +592,6 @@ Public Sub ExportAllSource()
         End If
     Next
 
-    DelIfExist TempFile()
     Debug.Print "Done."
 End Sub
 
@@ -665,7 +689,6 @@ Public Sub ImportAllSource()
         End If
     Next
 
-    DelIfExist TempFile()
     Debug.Print "Done."
 End Sub
 
@@ -706,7 +729,9 @@ Private Sub ExportTable(tbl_name As String, obj_path As String)
     Set fso = CreateObject("Scripting.FileSystemObject")
     ' open file for writing with Create=True, Unicode=True (USC-2 Little Endian format)
     MkDirIfNotExist obj_path
-    Set OutFile = fso.CreateTextFile(TempFile(), True, True)
+    Dim tempFileName As String: tempFileName = TempFile()
+
+    Set OutFile = fso.CreateTextFile(tempFileName, True, True)
 
     Set rs = CurrentDb.OpenRecordset(TableExportSql(tbl_name))
     C = 0
@@ -741,7 +766,8 @@ Private Sub ExportTable(tbl_name As String, obj_path As String)
     rs.Close
     OutFile.Close
 
-    ConvertUcs2Utf8 TempFile(), obj_path & tbl_name & ".txt"
+    ConvertUcs2Utf8 tempFileName, obj_path & tbl_name & ".txt"
+    DeleteFile tempFileName
 End Sub
 
 ' Import the lookup table `tblName` from `source\tables`.
@@ -753,9 +779,11 @@ Private Sub ImportTable(tblName As String, obj_path As String)
     Dim C As Long, buf As String, Values() As String, Value As Variant
 
     Set fso = CreateObject("Scripting.FileSystemObject")
-    ConvertUtf8Ucs2 obj_path & tblName & ".txt", TempFile()
+    
+    Dim tempFileName As String: tempFileName = TempFile()
+    ConvertUtf8Ucs2 obj_path & tblName & ".txt", tempFileName
     ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
-    Set InFile = fso.OpenTextFile(TempFile(), ForReading, False, TristateTrue)
+    Set InFile = fso.OpenTextFile(tempFileName, ForReading, False, TristateTrue)
     Set db = CurrentDb
 
     db.Execute "DELETE FROM [" & tblName & "]"
@@ -785,6 +813,7 @@ Private Sub ImportTable(tblName As String, obj_path As String)
 
     rs.Close
     InFile.Close
+    DeleteFile tempFileName
 End Sub
 
 Private Function DeleteFile(sFileName As String)
@@ -834,7 +863,7 @@ On Error GoTo errorHandler
         Exit Sub
     End If
 
-    Dim db As Database
+    Dim db As DAO.Database
     Set db = CurrentDb
     CloseFormsReports
 
@@ -845,7 +874,7 @@ On Error GoTo errorHandler
     Dim dbObject As Object
     For Each dbObject In db.QueryDefs
         If Left(dbObject.Name, 1) <> "~" Then
-            Debug.Print dbObject.Name
+'            Debug.Print dbObject.Name
             db.QueryDefs.Delete dbObject.Name
         End If
     Next
@@ -870,7 +899,7 @@ On Error GoTo errorHandler
         For Each doc In db.Containers(objTypeArray(OTNAME)).Documents
             If (Left(doc.Name, 1) <> "~") And _
                (doc.Name <> "AppCodeImportExport") Then
-                Debug.Print doc.Name
+'                Debug.Print doc.Name
                 DoCmd.DeleteObject objTypeArray(OTID), doc.Name
             End If
         Next
