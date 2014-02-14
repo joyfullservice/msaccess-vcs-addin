@@ -2,7 +2,7 @@ Attribute VB_Name = "AppCodeImportExport"
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
-' Version 0.7
+' Version 0.8
 '
 ' https://github.com/bkidwell/msaccess-vcs-integration
 '
@@ -163,8 +163,8 @@ Private Function BinRead(ByRef F As BinFile) As Integer
 End Function
 
 ' Buffered write one byte at a time from a binary file.
-Private Sub BinWrite(ByRef F As BinFile, B As Integer)
-    Mid(F.buffer, F.buffer_pos + 1, 1) = Chr(B)
+Private Sub BinWrite(ByRef F As BinFile, b As Integer)
+    Mid(F.buffer, F.buffer_pos + 1, 1) = Chr(b)
     F.buffer_pos = F.buffer_pos + 1
     If F.buffer_pos >= &H4000 Then
         Put F.file_num, , F.buffer
@@ -431,7 +431,7 @@ Dim fso As Object
 Dim thisFile As Object
 Dim InFile As Object
 Dim OutFile As Object
-Dim FileName As String
+Dim fileName As String
 Dim txt As String
 Dim obj_name As String
 Dim rxBlock As Object
@@ -450,7 +450,7 @@ Dim deleteCount As Integer
     If (AggressiveSanitize = True) Then
       '  Add and group aggressive matches
       matches = "(?:" & matches
-      matches = matches & "|GUID|NameMap|dbLongBinary ""DOL"""
+      matches = matches & "|BaseInfo|GUID|NameMap|dbLongBinary ""DOL"""
       matches = matches & ")"
     End If
     '  Ensure that this is the begining of a block.
@@ -471,9 +471,9 @@ Dim deleteCount As Integer
 'Debug.Print matches
     rxLine.pattern = matches
     
-    FileName = Dir(Path & "*." & Ext)
-    Do Until Len(FileName) = 0
-        obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+    fileName = Dir(Path & "*." & Ext)
+    Do Until Len(fileName) = 0
+        obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
 
         Set InFile = fso.OpenTextFile(Path & obj_name & "." & Ext, ForReading)
         Set OutFile = fso.CreateTextFile(Path & obj_name & ".sanitize", True)
@@ -481,10 +481,10 @@ Dim deleteCount As Integer
             txt = InFile.ReadLine
                 '
                 ' Skip lines starting with line pattern
-            If rxLine.test(txt) Then
+            If rxLine.Test(txt) Then
                 '
                 ' skip blocks of code matching block pattern
-            ElseIf rxBlock.test(txt) Then
+            ElseIf rxBlock.Test(txt) Then
                 Do Until InFile.AtEndOfStream
                     txt = InFile.ReadLine
                     If InStr(txt, "End") Then Exit Do
@@ -496,11 +496,11 @@ Dim deleteCount As Integer
         OutFile.Close
         InFile.Close
 
-        DeleteFile (Path & FileName)
+        DeleteFile (Path & fileName)
 
         Set thisFile = fso.GetFile(Path & obj_name & ".sanitize")
-        thisFile.Move (Path & FileName)
-        FileName = Dir()
+        thisFile.Move (Path & fileName)
+        fileName = Dir()
     Loop
 
 End Sub
@@ -611,7 +611,7 @@ Public Sub ImportAllSource()
     Dim obj_type_name As String
     Dim obj_type_num As Integer
     Dim obj_count As Integer
-    Dim FileName As String
+    Dim fileName As String
     Dim obj_name As String
     Dim ucs2 As Boolean
 
@@ -630,29 +630,29 @@ Public Sub ImportAllSource()
     Debug.Print
 
     obj_path = source_path & "queries\"
-    FileName = Dir(obj_path & "*.bas")
-    If Len(FileName) > 0 Then
+    fileName = Dir(obj_path & "*.bas")
+    If Len(fileName) > 0 Then
         Debug.Print PadRight("Importing queries...", 24);
         obj_count = 0
-        Do Until Len(FileName) = 0
-            obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
-            ImportObject acQuery, obj_name, obj_path & FileName, UsingUcs2
+        Do Until Len(fileName) = 0
+            obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
+            ImportObject acQuery, obj_name, obj_path & fileName, UsingUcs2
             obj_count = obj_count + 1
-            FileName = Dir()
+            fileName = Dir()
         Loop
         Debug.Print "[" & obj_count & "]"
     End If
 
     obj_path = source_path & "tables\"
-    FileName = Dir(obj_path & "*.txt")
-    If Len(FileName) > 0 Then
+    fileName = Dir(obj_path & "*.txt")
+    If Len(fileName) > 0 Then
         Debug.Print PadRight("Importing tables...", 24);
         obj_count = 0
-        Do Until Len(FileName) = 0
-            obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+        Do Until Len(fileName) = 0
+            obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
             ImportTable CStr(obj_name), obj_path
             obj_count = obj_count + 1
-            FileName = Dir()
+            fileName = Dir()
         Loop
         Debug.Print "[" & obj_count & "]"
     End If
@@ -668,22 +668,22 @@ Public Sub ImportAllSource()
         obj_type_label = obj_type_split(0)
         obj_type_num = Val(obj_type_split(1))
         obj_path = source_path & obj_type_label & "\"
-        FileName = Dir(obj_path & "*.bas")
-        If Len(FileName) > 0 Then
+        fileName = Dir(obj_path & "*.bas")
+        If Len(fileName) > 0 Then
             Debug.Print PadRight("Importing " & obj_type_label & "...", 24);
             obj_count = 0
-            Do Until Len(FileName) = 0
-                obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+            Do Until Len(fileName) = 0
+                obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
                 If obj_name <> "AppCodeImportExport" Then
                     If obj_type_label = "modules" Then
                         ucs2 = False
                     Else
                         ucs2 = UsingUcs2
                     End If
-                    ImportObject obj_type_num, obj_name, obj_path & FileName, ucs2
+                    ImportObject obj_type_num, obj_name, obj_path & fileName, ucs2
                     obj_count = obj_count + 1
                 End If
-                FileName = Dir()
+                fileName = Dir()
             Loop
             Debug.Print "[" & obj_count & "]"
         End If
@@ -736,17 +736,17 @@ Private Sub ExportTable(tbl_name As String, obj_path As String)
     Set rs = CurrentDb.OpenRecordset(TableExportSql(tbl_name))
     C = 0
     For Each fieldObj In rs.Fields
-        If C <> 0 Then OutFile.write vbTab
+        If C <> 0 Then OutFile.Write vbTab
         C = C + 1
-        OutFile.write fieldObj.Name
+        OutFile.Write fieldObj.Name
     Next
-    OutFile.write vbCrLf
+    OutFile.Write vbCrLf
 
     rs.MoveFirst
     Do Until rs.EOF
         C = 0
         For Each fieldObj In rs.Fields
-            If C <> 0 Then OutFile.write vbTab
+            If C <> 0 Then OutFile.Write vbTab
             C = C + 1
             Value = rs(fieldObj.Name)
             If IsNull(Value) Then
@@ -758,9 +758,9 @@ Private Sub ExportTable(tbl_name As String, obj_path As String)
                 Value = Replace(Value, vbLf, "\n")
                 Value = Replace(Value, vbTab, "\t")
             End If
-            OutFile.write Value
+            OutFile.Write Value
         Next
-        OutFile.write vbCrLf
+        OutFile.Write vbCrLf
         rs.MoveNext
     Loop
     rs.Close

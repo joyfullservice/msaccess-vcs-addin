@@ -3,6 +3,14 @@ Change log
 
 matonb:
 
+Version 0.8 - 14 Feb 2014
+-------------------------
+*  Aggressive Sanitise now excludes "BaseInfo" lines.
+  These lines were seen to be randomly switching between being empty,
+  not present or containing SQL on an arbitary basis.
+
+matonb:
+
 Version 0.7 - 06 Jul 2013
 -------------------------
 *  Replaced TempFile function.
