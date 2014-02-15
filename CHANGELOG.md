@@ -3,6 +3,12 @@ Change log
 
 matonb:
 
+Version 0.9 - 15 Feb 2014
+-------------------------
+*  Aggressive Sanitise, moved BaseInfo from "Block" regex to Line level.
+
+matonb:
+
 Version 0.8 - 14 Feb 2014
 -------------------------
 *  Aggressive Sanitise now excludes "BaseInfo" lines.

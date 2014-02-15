@@ -2,7 +2,7 @@ Attribute VB_Name = "AppCodeImportExport"
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
-' Version 0.8
+' Version 0.9
 '
 ' https://github.com/bkidwell/msaccess-vcs-integration
 '
@@ -240,7 +240,7 @@ Private Function ProjectPath() As String
     If Right(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
 End Function
 '
-' Generate Random / Unique temporary file name.
+' Generate Random / Unique tempprary file name.
 Private Function TempFile(Optional sPrefix As String = "VBA") As String
 Dim sTmpPath As String * 512
 Dim sTmpName As String * 576
@@ -268,7 +268,7 @@ Private Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path 
 End Sub
 
 ' Import a database object with optional UTF-8-to-UCS2 conversion.
-Private Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
+Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
     Optional Ucs2Convert As Boolean = False)
 
     If Ucs2Convert Then
@@ -450,7 +450,7 @@ Dim deleteCount As Integer
     If (AggressiveSanitize = True) Then
       '  Add and group aggressive matches
       matches = "(?:" & matches
-      matches = matches & "|BaseInfo|GUID|NameMap|dbLongBinary ""DOL"""
+      matches = matches & "|GUID|NameMap|dbLongBinary ""DOL"""
       matches = matches & ")"
     End If
     '  Ensure that this is the begining of a block.
@@ -462,7 +462,7 @@ Dim deleteCount As Integer
     Set rxLine = CreateObject("VBScript.RegExp")
     matches = "^\s*(?:"
     matches = matches & "Checksum ="
-    matches = matches & "|NoSaveCTIWhenDisabled =1"
+    matches = matches & "|BaseInfo|NoSaveCTIWhenDisabled =1"
     If (StripPublishOption = True) Then
         matches = matches & "|dbByte ""PublishToWeb"" =""1"""
         matches = matches & "|PublishOption =1"
