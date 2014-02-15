@@ -6,6 +6,8 @@ matonb:
 Version 0.9 - 15 Feb 2014
 -------------------------
 *  Aggressive Sanitise, moved BaseInfo from "Block" regex to Line level.
+*  Changed line level skipping to include lines with deeper indendation the follow.
+  This catches split lines mostly found in BaseInfo exports.
 
 matonb:
 

@@ -427,63 +427,95 @@ End Sub
 ' Access GUI and change often (we don't want these lines of code in
 ' version control).
 Private Sub SanitizeTextFiles(Path As String, Ext As String)
-Dim fso As Object
-Dim thisFile As Object
-Dim InFile As Object
-Dim OutFile As Object
-Dim fileName As String
-Dim txt As String
-Dim obj_name As String
-Dim rxBlock As Object
-Dim rxLine As Object
-Dim matches As String
-Dim deleteCount As Integer
 
+
+    Dim fso As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
     '
     '  Setup Block matching Regex.
+    Dim rxBlock As Object
     Set rxBlock = CreateObject("VBScript.RegExp")
     rxBlock.ignoreCase = False
     '
     '  Match PrtDevNames / Mode with or  without W
-    matches = "PrtDev(?:Names|Mode)[W]?"
+    Dim srchPattern As String
+    srchPattern = "PrtDev(?:Names|Mode)[W]?"
     If (AggressiveSanitize = True) Then
       '  Add and group aggressive matches
-      matches = "(?:" & matches
-      matches = matches & "|GUID|NameMap|dbLongBinary ""DOL"""
-      matches = matches & ")"
+      srchPattern = "(?:" & srchPattern
+      srchPattern = srchPattern & "|GUID|NameMap|dbLongBinary ""DOL"""
+      srchPattern = srchPattern & ")"
     End If
     '  Ensure that this is the begining of a block.
-    matches = matches & " = Begin"
-'Debug.Print matches
-    rxBlock.pattern = matches
+    srchPattern = srchPattern & " = Begin"
+'Debug.Print srchPattern
+    rxBlock.Pattern = srchPattern
     '
     '  Setup Line Matching Regex.
+    Dim rxLine As Object
     Set rxLine = CreateObject("VBScript.RegExp")
-    matches = "^\s*(?:"
-    matches = matches & "Checksum ="
-    matches = matches & "|BaseInfo|NoSaveCTIWhenDisabled =1"
+    srchPattern = "^\s*(?:"
+    srchPattern = srchPattern & "Checksum ="
+    srchPattern = srchPattern & "|BaseInfo|NoSaveCTIWhenDisabled =1"
     If (StripPublishOption = True) Then
-        matches = matches & "|dbByte ""PublishToWeb"" =""1"""
-        matches = matches & "|PublishOption =1"
+        srchPattern = srchPattern & "|dbByte ""PublishToWeb"" =""1"""
+        srchPattern = srchPattern & "|PublishOption =1"
     End If
-    matches = matches & ")"
-'Debug.Print matches
-    rxLine.pattern = matches
-    
+    srchPattern = srchPattern & ")"
+'Debug.Print srchPattern
+    rxLine.Pattern = srchPattern
+    Dim fileName As String
     fileName = Dir(Path & "*." & Ext)
+    
     Do Until Len(fileName) = 0
+        Dim obj_name As String
         obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
 
+        Dim InFile As Object
         Set InFile = fso.OpenTextFile(Path & obj_name & "." & Ext, ForReading)
+        Dim OutFile As Object
         Set OutFile = fso.CreateTextFile(Path & obj_name & ".sanitize", True)
+    
+        Dim getLine As Boolean: getLine = True
         Do Until InFile.AtEndOfStream
-            txt = InFile.ReadLine
-                '
-                ' Skip lines starting with line pattern
+            Dim txt As String
+            '
+            ' Check if we need to get a new line of text
+            If getLine = True Then
+                txt = InFile.ReadLine
+            Else
+                getLine = True
+            End If
+            '
+            ' Skip lines starting with line pattern
             If rxLine.Test(txt) Then
+                Dim rxIndent As Object
+                Set rxIndent = CreateObject("VBScript.RegExp")
+                rxIndent.Pattern = "^(\s+)\S"
                 '
-                ' skip blocks of code matching block pattern
+                ' Get indentation level.
+                Dim matches As Object
+                Set matches = rxIndent.Execute(txt)
+                '
+                ' Setup pattern to match current indent
+                Select Case matches.count
+                    Case 0
+                        rxIndent.Pattern = "^" & vbNullString
+                    Case Else
+                        rxIndent.Pattern = "^" & matches(0).SubMatches(0)
+                End Select
+                rxIndent.Pattern = rxIndent.Pattern + "\S"
+                '
+                ' Skip lines with deeper indentation
+                Do Until InFile.AtEndOfStream
+                    txt = InFile.ReadLine
+                    If rxIndent.Test(txt) Then Exit Do
+                Loop
+                ' We've moved on at least one line so do get a new one
+                ' when starting the loop again.
+                getLine = False
+            '
+            ' skip blocks of code matching block pattern
             ElseIf rxBlock.Test(txt) Then
                 Do Until InFile.AtEndOfStream
                     txt = InFile.ReadLine
@@ -498,6 +530,7 @@ Dim deleteCount As Integer
 
         DeleteFile (Path & fileName)
 
+        Dim thisFile As Object
         Set thisFile = fso.GetFile(Path & obj_name & ".sanitize")
         thisFile.Move (Path & fileName)
         fileName = Dir()
