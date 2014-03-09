@@ -3,6 +3,12 @@ Change log
 
 matonb:
 
+Version 0.10 - 09 Mar 2014
+-------------------------
+* Added DoEvents in loops to avoid "Unresponsive" state.
+
+matonb:
+
 Version 0.9 - 15 Feb 2014
 -------------------------
 *  Aggressive Sanitise, moved BaseInfo from "Block" regex to Line level.
