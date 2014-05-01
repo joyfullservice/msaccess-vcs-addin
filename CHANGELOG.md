@@ -3,6 +3,12 @@ Change log
 
 matonb:
 
+Version 0.11 - 01 May 2014
+-------------------------
+* Removed DeleteFile function and replaced calls to Kill with FileSystemObject.DeleteFile
+
+matonb:
+
 Version 0.10 - 09 Mar 2014
 -------------------------
 * Added DoEvents in loops to avoid "Unresponsive" state.

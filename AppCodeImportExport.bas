@@ -2,7 +2,7 @@ Attribute VB_Name = "AppCodeImportExport"
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
-' Version 0.10
+' Version 0.11
 '
 ' https://github.com/bkidwell/msaccess-vcs-integration
 '
@@ -281,7 +281,10 @@ Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path A
         Dim tempFileName As String: tempFileName = TempFile()
         ConvertUtf8Ucs2 file_path, tempFileName
         Application.LoadFromText obj_type_num, obj_name, tempFileName
-        DeleteFile tempFileName
+        
+        Dim FSO As Object
+        Set FSO = CreateObject("Scripting.FileSystemObject")
+        FSO.DeleteFile tempFileName
     Else
         Application.LoadFromText obj_type_num, obj_name, file_path
     End If
@@ -395,7 +398,10 @@ Private Sub InitUsingUcs2()
         UsingUcs2 = False
     End If
     Close fn
-    DeleteFile (tempFileName)
+    
+    Dim FSO As Object
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    FSO.DeleteFile (tempFileName)
 End Sub
 
 ' Create folder `Path`. Silently do nothing if it already exists.
@@ -422,7 +428,7 @@ Private Sub ClearTextFilesFromDir(Path As String, Ext As String)
 
     On Error GoTo ClearTextFilesFromDir_noop
     If Dir(Path & "*." & Ext) <> "" Then
-        Kill Path & "*." & Ext
+        FSO.DeleteFile Path & "*." & Ext
     End If
 ClearTextFilesFromDir_noop:
 
@@ -537,7 +543,7 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
         OutFile.Close
         InFile.Close
 
-        DeleteFile (Path & fileName)
+        FSO.DeleteFile (Path & fileName)
 
         Dim thisFile As Object
         Set thisFile = FSO.GetFile(Path & obj_name & ".sanitize")
@@ -609,7 +615,6 @@ Public Sub ExportAllSource()
         "modules|Modules|" & acModule _
         , "," _
     )
-        DoEvents
         obj_type_split = Split(obj_type, "|")
         obj_type_label = obj_type_split(0)
         obj_type_name = obj_type_split(1)
@@ -818,7 +823,7 @@ Private Sub ExportTable(tbl_name As String, obj_path As String)
     OutFile.Close
 
     ConvertUcs2Utf8 tempFileName, obj_path & tbl_name & ".txt"
-    DeleteFile tempFileName
+    FSO.DeleteFile tempFileName
 End Sub
 
 ' Import the lookup table `tblName` from `source\tables`.
@@ -865,36 +870,36 @@ Private Sub ImportTable(tblName As String, obj_path As String)
 
     rs.Close
     InFile.Close
-    DeleteFile tempFileName
+    FSO.DeleteFile tempFileName
 End Sub
 
-Private Function DeleteFile(sFileName As String)
-Dim deleteCount As Integer
-Dim pauseStart As Variant
-Dim pauseEnd As Variant
+'Private Function DeleteFile(sFileName As String)
+'Dim deleteCount As Integer
+'Dim pauseStart As Variant
+'Dim pauseEnd As Variant
+''
+''  Try to delete the file a few times if it fails.
+''  Failure is generally caused by the file not actually being closed yet.
+'        deleteCount = 0
+'        On Error GoTo tryDeleteAgain
+'tryDeleteAgain:
+'        If deleteCount > 0 Then
+'            pauseStart = Timer
+'            pauseEnd = pauseStart + 0.1
+'            Do While Timer < pauseEnd
+'                DoEvents
+'            Loop
+'        ElseIf deleteCount > 3 Then
+'            On Error GoTo 0
+'        End If
+'        deleteCount = deleteCount + 1
+'        Kill sFileName
+''        If deleteCount > 1 Then Debug.Print "Delete Attempts [" & deleteCount & "] (" & sFileName & ")"
+'        '
+'        '  Release Error Handler
+'        On Error GoTo 0
 '
-'  Try to delete the file a few times if it fails.
-'  Failure is generally caused by the file not actually being closed yet.
-        deleteCount = 0
-        On Error GoTo tryDeleteAgain
-tryDeleteAgain:
-        If deleteCount > 0 Then
-            pauseStart = Timer
-            pauseEnd = pauseStart + 0.1
-            Do While Timer < pauseEnd
-                DoEvents
-            Loop
-        ElseIf deleteCount > 3 Then
-            On Error GoTo 0
-        End If
-        deleteCount = deleteCount + 1
-        Kill sFileName
-'        If deleteCount > 1 Then Debug.Print "Delete Attempts [" & deleteCount & "] (" & sFileName & ")"
-        '
-        '  Release Error Handler
-        On Error GoTo 0
-
-End Function
+'End Function
 '
 ' Main entry point for ImportProject.
 ' Drop all forms, reports, queries, macros, modules.
