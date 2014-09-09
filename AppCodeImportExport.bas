@@ -1,3 +1,4 @@
+Attribute VB_Name = "AppCodeImportExport"
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
@@ -32,7 +33,6 @@
 ' * Maybe integrate into a dialog box triggered by a menu item.
 ' * Warning of destructive overwrite.
 
-Attribute VB_Name = "AppCodeImportExport"
 Option Compare Database
 Option Explicit
 
@@ -441,6 +441,9 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
                         txt = InFile.ReadLine
                         If InStr(txt, "End") Then Exit Do
                     Loop
+                Else
+                    ' Something else has begun
+                     OutFile.WriteLine txt
                 End If
             Else
                 OutFile.WriteLine txt
@@ -460,7 +463,147 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
         FileName = Dir()
     Loop
 End Sub
+' Save a Table Definition as SQL statement
+Public Sub ExportTableDef(db As Database, td As TableDef, tableName As String, FileName As String)
+    Dim sql As String
+    Dim csql As String
+    Dim idx As Index
+    Dim fi As Field
+    Dim cfi As Field
+    
+    Dim f As Field
+    Dim rel As Relation
+    Dim fso, OutFile
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set OutFile = fso.CreateTextFile(FileName, True)
+    If Len(td.Connect) > 0 Then Exit Sub ' this is an external table
+    
+    sql = "CREATE TABLE " & strName(tableName) & " ("
+    csql = ""
+    For Each fi In td.Fields
+        sql = sql & strName(fi.Name) & " "
+        If (fi.Attributes And dbAutoIncrField) Then
+            sql = sql & "AUTOINCREMENT"
+        Else
+            sql = sql & strType(fi.Type) & " "
+        End If
+        Select Case fi.Type
+            Case dbText, dbVarBinary
+                sql = sql & "(" & fi.Size & ")"
+            Case Else
+                
+        End Select
+        For Each idx In td.Indexes
+            If idx.Fields.count = 1 And idx.Fields(0).Name = fi.Name Then
+                sql = sql & " CONSTRAINT " & strName(idx.Name)
+                If idx.Primary Then sql = sql & " PRIMARY KEY "
+                If idx.Unique Then sql = sql & " UNIQUE "
+            End If
+        Next
+        
+        If Not fi.AllowZeroLength Then sql = sql & " " & "NOT NULL"
 
+        For Each rel In db.Relations
+            If (rel.Table = tableName) And (FieldInRel(fi, rel)) Then
+              sql = sql & "REFERENCES "
+              sql = sql & rel.ForeignTable & " ("
+              For Each f In rel.Fields
+                sql = sql & strName(f.Name) & ","
+              Next
+              sql = Left(sql, Len(sql) - 1) & ")"
+            End If
+            
+        Next
+        sql = sql + ", "
+    Next
+    'field1 type [(size)] [NOT NULL] [WITH COMPRESSION | WITH COMP] [index1] [, field2 type [(size)] [NOT NULL] [index2] [, …]] )"
+    ' todo on Update
+    ' [, CONSTRAINT multifieldindex [, …]]
+    For Each idx In td.Indexes
+        If idx.Fields.count > 1 Then
+            If Len(csql) = 0 Then csql = csql & " CONSTRAINT "
+            csql = csql & strName(idx.Name)
+            If idx.Primary Then
+                csql = csql & " PRIMARY KEY ("
+                For Each cfi In idx.Fields
+                  csql = csql & strName(cfi.Name) & ","
+                Next
+                csql = Left(csql, Len(csql) - 1) & ")"
+            End If
+            If idx.Unique Then
+                csql = csql & " UNIQUE ("
+                For Each fi In idx.Fields
+                  csql = csql & strName(fi.Name) & ","
+                Next
+                csql = Left(csql, Len(csql) - 1) & ")"
+            End If
+            csql = csql + ", "
+        End If
+        
+ 
+    Next
+    sql = sql & csql
+    sql = Left(sql, Len(sql) - 2) & ")"
+    
+    'Debug.Print sql
+    OutFile.WriteLine sql
+    OutFile.Close
+End Sub
+Private Function strName(s As String)
+    If InStr(s, " ") > 0 Then
+        strName = "[" & s & "]"
+    ElseIf UCase(s) = "UNIQUE" Then
+        strName = "[" & s & "]"
+    Else
+        strName = s
+    End If
+End Function
+Private Function strType(i As Integer) As String
+    Select Case i
+    Case dbLongBinary
+        strType = "LONGBINARY"
+    Case dbBinary
+        strType = "BINARY"
+    'Case dbBit missing enum
+    '    strType = "BIT"
+    Case dbAutoIncrField
+        strType = "COUNTER"
+    Case dbCurrency
+        strType = "CURRENCY"
+    Case dbDate, dbTime
+        strType = "DATETIME"
+    Case dbGUID
+        strType = "GUID"
+    Case dbMemo
+        strType = "LONGTEXT"
+    Case dbDouble
+        strType = "DOUBLE"
+    Case dbSingle
+        strType = "SINGLE"
+    Case dbByte
+        strType = "UNSIGNED BYTE"
+    Case dbInteger
+        strType = "SHORT"
+    Case dbLong
+        strType = "LONG"
+    Case dbNumeric
+        strType = "NUMERIC"
+    Case dbText
+        strType = "VARCHAR"
+    Case Else
+        strType = "VARCHAR"
+    End Select
+End Function
+Private Function FieldInRel(fi As Field, rel As Relation) As Boolean
+    Dim f As Field
+    For Each f In rel.Fields
+        If f.Name = fi.Name Then
+            FieldInRel = True
+            Exit Function
+        End If
+    Next
+    FieldInRel = False
+End Function
 ' Main entry point for EXPORT. Export all forms, reports, queries,
 ' macros, modules, and lookup tables to `source` folder under the
 ' database's folder.
@@ -548,6 +691,31 @@ Public Sub ExportAllSource()
     Next
 
     DelIfExist TempFile()
+    
+    ' TODO: table_defs
+    Dim td As TableDef
+    Dim tds As TableDefs
+    Set tds = db.TableDefs
+
+    obj_type_label = "tbldef"
+    obj_type_name = "Table_Def"
+    obj_type_num = acTable
+    obj_path = source_path & obj_type_label & "\"
+    obj_count = 0
+    MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
+    ClearTextFilesFromDir obj_path, "def"
+    Debug.Print PadRight("Exporting " & obj_type_label & "...", 24);
+    
+    For Each td In tds
+        If Left$(td.Name, 4) <> "MSys" And Left(td.Name, 1) <> "~" Then
+            'Debug.Print
+            ExportTableDef db, td, td.Name, obj_path & td.Name & ".sql"
+        End If
+        obj_count = obj_count + 1
+    Next
+    Debug.Print "[" & obj_count & "]"
+    
+    
     Debug.Print "Done."
 End Sub
 
@@ -599,6 +767,22 @@ Public Sub ImportAllSource()
         Debug.Print "[" & obj_count & "]"
     End If
 
+    ' restore table definitions
+    obj_path = source_path & "tbldef\"
+    FileName = Dir(obj_path & "*.sql")
+    If Len(FileName) > 0 Then
+        Debug.Print PadRight("Importing tabledefs...", 24);
+        obj_count = 0
+        Do Until Len(FileName) = 0
+            obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+            ImportTableDef CStr(obj_name), obj_path & FileName
+            obj_count = obj_count + 1
+            FileName = Dir()
+        Loop
+        Debug.Print "[" & obj_count & "]"
+    End If
+    
+    ' NOW we may load data
     obj_path = source_path & "tables\"
     FileName = Dir(obj_path & "*.txt")
     If Len(FileName) > 0 Then
@@ -646,6 +830,7 @@ Public Sub ImportAllSource()
     Next
 
     DelIfExist TempFile()
+    Dim td As TableDef
     Debug.Print "Done."
 End Sub
 
@@ -723,7 +908,28 @@ Private Sub ExportTable(tbl_name As String, obj_path As String)
 
     ConvertUcs2Utf8 TempFile(), obj_path & tbl_name & ".txt"
 End Sub
-
+' Import Table Definition
+Private Sub ImportTableDef(tblName As String, FilePath As String)
+    Dim db As Object ' DAO.Database
+    Dim fso, InFile As Object
+    Dim buf As String
+    
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    ConvertUtf8Ucs2 FilePath, TempFile()
+    ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
+    Set InFile = fso.OpenTextFile(TempFile(), ForReading, False, TristateTrue)
+    Set db = CurrentDb
+    On Error Resume Next
+    db.Execute "DROP TABLE  IF EXISTS [" & tblName & "]"
+    On Error GoTo 0
+    buf = InFile.ReadLine()
+    Do Until InFile.AtEndOfStream
+        buf = InFile.ReadLine()
+    Loop
+    db.Execute buf
+    InFile.Close
+    
+End Sub
 ' Import the lookup table `tblName` from `source\tables`.
 Private Sub ImportTable(tblName As String, obj_path As String)
     Dim db As Object ' DAO.Database
@@ -766,3 +972,4 @@ Private Sub ImportTable(tblName As String, obj_path As String)
     rs.Close
     InFile.Close
 End Sub
+
