@@ -1,4 +1,3 @@
-Attribute VB_Name = "AppCodeImportExport"
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
 '
@@ -52,8 +51,6 @@ Private Const INCLUDE_TABLES = ""
 ' Access source code?
 
 Private Const AggressiveSanitize = True
-
-
 ' --------------------------------
 ' Structures
 ' --------------------------------
@@ -69,7 +66,15 @@ Private Type BinFile
     at_eof As Boolean
     mode As String
 End Type
-
+' Structure to keep track of "on Update" and "on Delete" clauses
+' Access does not in all cases execute such queries
+Private Type structEnforce
+    foreignTable As String
+    foreignFields() As String
+    Table As String
+    refFields() As String
+    isUpdate As Boolean
+End Type
 ' --------------------------------
 ' Constants
 ' --------------------------------
@@ -85,6 +90,10 @@ Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 ' Does the current database file write UCS2-little-endian when exporting
 ' Queries, Forms, Reports, Macros
 Private UsingUcs2 As Boolean
+
+' keeping "on Update" relations to be complemented afte table creation
+Private K() As structEnforce
+
 
 ' --------------------------------
 ' Basic functions missing from VB 6: buffered file read/write, string builder
@@ -202,10 +211,10 @@ End Function
 Private Function CloseFormsReports()
     On Error GoTo ErrorHandler
     Do While Forms.count > 0
-        DoCmd.Close acForm, Forms(0).Name
+        DoCmd.Close acForm, Forms(0).name
     Loop
     Do While Reports.count > 0
-        DoCmd.Close acReport, Reports(0).Name
+        DoCmd.Close acReport, Reports(0).name
     Loop
     Exit Function
 
@@ -324,11 +333,11 @@ End Sub
 Private Sub InitUsingUcs2()
     Dim obj_name As String, i As Integer, obj_type As Variant, fn As Integer, bytes As String
     Dim obj_type_split() As String, obj_type_name As String, obj_type_num As Integer
-    Dim db As Object ' DAO.Database
+    Dim Db As Object ' DAO.Database
 
     If CurrentDb.QueryDefs.count > 0 Then
         obj_type_num = acQuery
-        obj_name = CurrentDb.QueryDefs(0).Name
+        obj_name = CurrentDb.QueryDefs(0).name
     Else
         For Each obj_type In Split( _
             "Forms|" & acForm & "," & _
@@ -340,7 +349,7 @@ Private Sub InitUsingUcs2()
             obj_type_name = obj_type_split(0)
             obj_type_num = Val(obj_type_split(1))
             If CurrentDb.Containers(obj_type_name).Documents.count > 0 Then
-                obj_name = CurrentDb.Containers(obj_type_name).Documents(1).Name
+                obj_name = CurrentDb.Containers(obj_type_name).Documents(1).name
                 Exit For
             End If
         Next
@@ -463,93 +472,164 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
         FileName = Dir()
     Loop
 End Sub
+' Import References from a CSV, true=SUCCESS
+Private Function ImportReferences(obj_path As String) As Boolean
+    Dim fso, InFile
+    Dim line As String
+    Dim item() As String
+    Dim GUID As String
+    Dim Major As Long
+    Dim Minor As Long
+    Dim FileName As String
+    FileName = Dir(obj_path & "references.csv")
+    If Len(FileName) = 0 Then
+        ImportReferences = False
+        Exit Function
+    End If
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set InFile = fso.OpenTextFile(FileName, ForReading)
+    Do Until InFile.AtEndOfStream
+        line = InFile.ReadLine
+        item = Split(line, ",")
+        GUID = item(0)
+        Major = Clong(item(1))
+        Minor = Clong(item(2))
+        Application.References.AddFromGuid GUID, Major, Minor
+    Loop
+    Close InFile
+    Set InFile = Nothing
+    Set fso = Nothing
+    ImportReferences = True
+End Function
+' Export References to a CSV
+Private Sub ExportReferences(obj_path As String)
+    Dim fso, OutFile
+    Dim line As String
+    Dim ref As Reference
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set OutFile = fso.CreateTextFile(obj_path & "references.csv", True)
+    For Each ref In Application.References
+        line = ref.GUID & "," & CStr(ref.Major) & "," & CStr(ref.Minor)
+        OutFile.WriteLine line
+    Next
+    OutFile.Close
+End Sub
 ' Save a Table Definition as SQL statement
-Public Sub ExportTableDef(db As Database, td As TableDef, tableName As String, FileName As String)
-    Dim sql As String
+Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, FileName As String)
+    Dim sql() As String
     Dim csql As String
     Dim idx As Index
     Dim fi As Field
-    Dim cfi As Field
-    
+    Dim i As Integer
+    Dim nrSql As Integer
     Dim f As Field
     Dim rel As Relation
     Dim fso, OutFile
+    Dim ff As Object
+    'Debug.Print tableName
     Set fso = CreateObject("Scripting.FileSystemObject")
     Set OutFile = fso.CreateTextFile(FileName, True)
-    If Len(td.Connect) > 0 Then Exit Sub ' this is an external table
-    
-    sql = "CREATE TABLE " & strName(tableName) & " ("
-    csql = ""
+    nrSql = 2
+    ReDim Preserve sql(nrSql)
+    sql(1) = "CREATE TABLE " & strName(tableName) & " ("
+
     For Each fi In td.Fields
-        sql = sql & strName(fi.Name) & " "
+        sql(0) = ""
+        sql(1) = sql(1) & strName(fi.name) & " "
         If (fi.Attributes And dbAutoIncrField) Then
-            sql = sql & "AUTOINCREMENT"
+            sql(1) = sql(1) & "AUTOINCREMENT"
         Else
-            sql = sql & strType(fi.Type) & " "
+            sql(1) = sql(1) & strType(fi.Type) & " "
         End If
         Select Case fi.Type
             Case dbText, dbVarBinary
-                sql = sql & "(" & fi.Size & ")"
+                sql(1) = sql(1) & "(" & fi.Size & ")"
             Case Else
-                
         End Select
         For Each idx In td.Indexes
-            If idx.Fields.count = 1 And idx.Fields(0).Name = fi.Name Then
-                sql = sql & " CONSTRAINT " & strName(idx.Name)
-                If idx.Primary Then sql = sql & " PRIMARY KEY "
-                If idx.Unique Then sql = sql & " UNIQUE "
+            If idx.Fields.count = 1 And idx.Fields(0).name = fi.name Then
+                 
+                If idx.Primary Then sql(0) = sql(0) & " PRIMARY KEY "
+                If idx.Unique Then sql(0) = sql(0) & " UNIQUE "
+                If idx.Required Then sql(0) = sql(0) & " NOT NULL "
+                '
+                If idx.Foreign Then
+                Set ff = idx.Fields
+                sql(0) = sql(0) & formatReferences(Db, ff, tableName)
+                '
+                End If
+                If Len(sql(0)) > 0 Then sql(0) = " CONSTRAINT " & idx.name & sql(0)
             End If
         Next
-        
-        If Not fi.AllowZeroLength Then sql = sql & " " & "NOT NULL"
-
-        For Each rel In db.Relations
-            If (rel.Table = tableName) And (FieldInRel(fi, rel)) Then
-              sql = sql & "REFERENCES "
-              sql = sql & rel.ForeignTable & " ("
-              For Each f In rel.Fields
-                sql = sql & strName(f.Name) & ","
-              Next
-              sql = Left(sql, Len(sql) - 1) & ")"
-            End If
-            
-        Next
-        sql = sql + ", "
+        sql(1) = sql(1) + sql(0)
+        sql(1) = sql(1) + ", "
     Next
-    'field1 type [(size)] [NOT NULL] [WITH COMPRESSION | WITH COMP] [index1] [, field2 type [(size)] [NOT NULL] [index2] [, …]] )"
-    ' todo on Update
-    ' [, CONSTRAINT multifieldindex [, …]]
+    
     For Each idx In td.Indexes
         If idx.Fields.count > 1 Then
-            If Len(csql) = 0 Then csql = csql & " CONSTRAINT "
-            csql = csql & strName(idx.Name)
-            If idx.Primary Then
-                csql = csql & " PRIMARY KEY ("
-                For Each cfi In idx.Fields
-                  csql = csql & strName(cfi.Name) & ","
-                Next
-                csql = Left(csql, Len(csql) - 1) & ")"
+            If Len(sql(1)) = 0 Then sql(1) = sql(1) & " CONSTRAINT " & idx.name
+            sql(1) = sql(1) & formatConstraint(idx.Primary, "PRIMARY KEY", idx)
+            sql(1) = sql(1) & formatConstraint(idx.Unique, "UNIQUE", idx)
+            sql(1) = sql(1) & formatConstraint(idx.Required, "NOT NULL", idx)
+            sql(0) = ""
+            sql(0) = formatConstraint(idx.Foreign, "FOREIGN KEY", idx)
+            If Len(sql(0)) > 0 Then
+                sql(1) = sql(1) & sql(0)
+                sql(1) = sql(1) & formatReferences(Db, idx.Fields, tableName)
             End If
-            If idx.Unique Then
-                csql = csql & " UNIQUE ("
-                For Each fi In idx.Fields
-                  csql = csql & strName(fi.Name) & ","
-                Next
-                csql = Left(csql, Len(csql) - 1) & ")"
-            End If
-            csql = csql + ", "
         End If
-        
- 
     Next
-    sql = sql & csql
-    sql = Left(sql, Len(sql) - 2) & ")"
-    
+    sql(1) = Left(sql(1), Len(sql(1)) - 2) & ")"
+
     'Debug.Print sql
-    OutFile.WriteLine sql
+    OutFile.WriteLine sql(1)
+    
     OutFile.Close
 End Sub
-Private Function strName(s As String)
+Private Function formatReferences(Db As Database, ff As Object, tableName As String)
+    Dim rel As Relation
+    Dim sql As String
+    Dim f As Field
+    For Each rel In Db.Relations
+        If (rel.foreignTable = tableName) Then
+         If FieldsIdentical(ff, rel.Fields) Then
+          sql = " REFERENCES "
+          sql = sql & rel.Table & " ("
+          For Each f In rel.Fields
+            sql = sql & strName(f.name) & ","
+          Next
+          sql = Left(sql, Len(sql) - 1) & ")"
+          If rel.Attributes And dbRelationUpdateCascade Then
+            sql = sql + " ON UPDATE CASCADE "
+          End If
+          If rel.Attributes And dbRelationDeleteCascade Then
+            sql = sql + " ON DELETE CASCADE "
+          End If
+          Exit For
+         End If
+        End If
+    Next
+    formatReferences = sql
+End Function
+Private Function formatConstraint(isConstraint As Boolean, keyw As String, idx As Index) As String
+    Dim sql As String
+    Dim fi As Field
+    
+    sql = sql & strName(idx.name)
+    If isConstraint Then
+        sql = sql & " " & keyw & " ("
+        For Each fi In idx.Fields
+            sql = sql & strName(fi.name) & ","
+        Next
+        sql = Left(sql, Len(sql) - 1) & ")"
+        formatConstraint = sql
+    Else
+        formatConstraint = ""
+    End If
+            
+End Function
+
+Private Function strName(s As String) As String
     If InStr(s, " ") > 0 Then
         strName = "[" & s & "]"
     ElseIf UCase(s) = "UNIQUE" Then
@@ -594,21 +674,67 @@ Private Function strType(i As Integer) As String
         strType = "VARCHAR"
     End Select
 End Function
-Private Function FieldInRel(fi As Field, rel As Relation) As Boolean
+Private Function FieldsIdentical(ff As Object, gg As Object) As Boolean
     Dim f As Field
-    For Each f In rel.Fields
-        If f.Name = fi.Name Then
-            FieldInRel = True
+    If ff.count <> gg.count Then
+        FieldsIdentical = False
+        Exit Function
+    End If
+    For Each f In ff
+        If Not FieldInFields(f, gg) Then
+        FieldsIdentical = False
+        Exit Function
+        End If
+    Next
+    FieldsIdentical = True
+        
+    
+End Function
+
+Private Function FieldInFields(fi As Field, ff As Fields) As Boolean
+    Dim f As Field
+    For Each f In ff
+        If f.name = fi.name Then
+            FieldInFields = True
             Exit Function
         End If
     Next
-    FieldInRel = False
+    FieldInFields = False
 End Function
+
+' Determine if a table or exists.
+' based on sample code of support.microsoftcom
+' ARGUMENTS:
+'    TName: The name of a table or query.
+'
+' RETURNS: True (it exists) or False (it does not exist).
+Function TableExists(TName As String) As Boolean
+        Dim Db As Database, Found As Boolean, Test As String
+        Const NAME_NOT_IN_COLLECTION = 3265
+
+         ' Assume the table or query does not exist.
+        Found = False
+        Set Db = CurrentDb()
+
+         ' Trap for any errors.
+        On Error Resume Next
+         
+         ' See if the name is in the Tables collection.
+        Test = Db.TableDefs(TName).name
+        If Err <> NAME_NOT_IN_COLLECTION Then Found = True
+
+        ' Reset the error variable.
+        Err = 0
+
+        TableExists = Found
+
+End Function
+
 ' Main entry point for EXPORT. Export all forms, reports, queries,
 ' macros, modules, and lookup tables to `source` folder under the
 ' database's folder.
 Public Sub ExportAllSource()
-    Dim db As Object ' DAO.Database
+    Dim Db As Object ' DAO.Database
     Dim source_path As String
     Dim obj_path As String
     Dim qry As Object ' DAO.QueryDef
@@ -622,7 +748,7 @@ Public Sub ExportAllSource()
     Dim ucs2 As Boolean
     Dim tblName As Variant
 
-    Set db = CurrentDb
+    Set Db = CurrentDb
 
     CloseFormsReports
     InitUsingUcs2
@@ -636,9 +762,9 @@ Public Sub ExportAllSource()
     ClearTextFilesFromDir obj_path, "bas"
     Debug.Print PadRight("Exporting queries...", 24);
     obj_count = 0
-    For Each qry In db.QueryDefs
-        If Left(qry.Name, 1) <> "~" Then
-            ExportObject acQuery, qry.Name, obj_path & qry.Name & ".bas", UsingUcs2
+    For Each qry In Db.QueryDefs
+        If Left(qry.name, 1) <> "~" Then
+            ExportObject acQuery, qry.name, obj_path & qry.name & ".bas", UsingUcs2
             obj_count = obj_count + 1
         End If
     Next
@@ -652,7 +778,9 @@ Public Sub ExportAllSource()
         obj_count = 0
         For Each tblName In Split(INCLUDE_TABLES, ",")
             ExportTable CStr(tblName), obj_path
-            obj_count = obj_count + 1
+            If Len(Dir(obj_path & tblName & ".txt")) > 0 Then
+                obj_count = obj_count + 1
+            End If
         Next
         Debug.Print "[" & obj_count & "]"
     End If
@@ -672,14 +800,14 @@ Public Sub ExportAllSource()
         obj_count = 0
         ClearTextFilesFromDir obj_path, "bas"
         Debug.Print PadRight("Exporting " & obj_type_label & "...", 24);
-        For Each doc In db.Containers(obj_type_name).Documents
-            If Left(doc.Name, 1) <> "~" Then
+        For Each doc In Db.Containers(obj_type_name).Documents
+            If Left(doc.name, 1) <> "~" Then
                 If obj_type_label = "modules" Then
                     ucs2 = False
                 Else
                     ucs2 = UsingUcs2
                 End If
-                ExportObject obj_type_num, doc.Name, obj_path & doc.Name & ".bas", ucs2
+                ExportObject obj_type_num, doc.name, obj_path & doc.name & ".bas", ucs2
                 obj_count = obj_count + 1
             End If
         Next
@@ -687,15 +815,17 @@ Public Sub ExportAllSource()
 
         If obj_type_label <> "modules" Then
             SanitizeTextFiles obj_path, "bas"
+        Else
+            ' Make sure all modules find their needed references
+            ExportReferences obj_path
         End If
     Next
 
     DelIfExist TempFile()
     
-    ' TODO: table_defs
     Dim td As TableDef
     Dim tds As TableDefs
-    Set tds = db.TableDefs
+    Set tds = Db.TableDefs
 
     obj_type_label = "tbldef"
     obj_type_name = "Table_Def"
@@ -707,11 +837,17 @@ Public Sub ExportAllSource()
     Debug.Print PadRight("Exporting " & obj_type_label & "...", 24);
     
     For Each td In tds
-        If Left$(td.Name, 4) <> "MSys" And Left(td.Name, 1) <> "~" Then
+        ' This is not a system table
+        ' this is not a temporary table
+        ' this is not an external table
+        If Left$(td.name, 4) <> "MSys" And _
+        Left(td.name, 1) <> "~" _
+        And Len(td.Connect) = 0 _
+        Then
             'Debug.Print
-            ExportTableDef db, td, td.Name, obj_path & td.Name & ".sql"
+            ExportTableDef Db, td, td.name, obj_path & td.name & ".sql"
+            obj_count = obj_count + 1
         End If
-        obj_count = obj_count + 1
     Next
     Debug.Print "[" & obj_count & "]"
     
@@ -723,7 +859,7 @@ End Sub
 ' macros, modules, and lookup tables from `source` folder under the
 ' database's folder.
 Public Sub ImportAllSource()
-    Dim db As Object ' DAO.Database
+    Dim Db As Object ' DAO.Database
     Dim fso As Object
     Dim source_path As String
     Dim obj_path As String
@@ -739,7 +875,7 @@ Public Sub ImportAllSource()
     Dim obj_name As String
     Dim ucs2 As Boolean
 
-    Set db = CurrentDb
+    Set Db = CurrentDb
     Set fso = CreateObject("Scripting.FileSystemObject")
 
     CloseFormsReports
@@ -826,6 +962,12 @@ Public Sub ImportAllSource()
                 FileName = Dir()
             Loop
             Debug.Print "[" & obj_count & "]"
+            If obj_type_label = "modules" Then
+                If Not ImportReferences(obj_path) Then
+                    Debug.Print
+                    Debug.Print "Info: no references file in " & obj_path
+                End If
+            End If
         End If
     Next
 
@@ -835,50 +977,61 @@ Public Sub ImportAllSource()
 End Sub
 
 ' Build SQL to export `tbl_name` sorted by each field from first to last
-Public Function TableExportSql(tbl_name As String)
+Private Function TableExportSql(tbl_name As String)
     Dim rs As Object ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
     Dim sb() As String, count As Integer
 
     Set rs = CurrentDb.OpenRecordset(tbl_name)
-
+    
     sb = Sb_Init()
     Sb_Append sb, "SELECT "
     count = 0
     For Each fieldObj In rs.Fields
         If count > 0 Then Sb_Append sb, ", "
-        Sb_Append sb, "[" & fieldObj.Name & "]"
+        Sb_Append sb, "[" & fieldObj.name & "]"
         count = count + 1
     Next
     Sb_Append sb, " FROM [" & tbl_name & "] ORDER BY "
     count = 0
     For Each fieldObj In rs.Fields
         If count > 0 Then Sb_Append sb, ", "
-        Sb_Append sb, "[" & fieldObj.Name & "]"
+        Sb_Append sb, "[" & fieldObj.name & "]"
         count = count + 1
     Next
 
     TableExportSql = Sb_Get(sb)
+
 End Function
 
 ' Export the lookup table `tblName` to `source\tables`.
 Private Sub ExportTable(tbl_name As String, obj_path As String)
     Dim fso, OutFile
-    Dim rs As Object ' DAO.Recordset
+    Dim rs As Recordset ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
     Dim C As Long, Value As Variant
+    ' Checks first
+    If Not TableExists(tbl_name) Then
+        Debug.Print "Error: Table " & tbl_name & " missing"
+        Exit Sub
+    End If
+    Set rs = CurrentDb.OpenRecordset(TableExportSql(tbl_name))
+    If rs.RecordCount = 0 Then
+        Debug.Print "Error: Table " & tbl_name & "  empty"
+        rs.Close
+        Exit Sub
+    End If
 
     Set fso = CreateObject("Scripting.FileSystemObject")
     ' open file for writing with Create=True, Unicode=True (USC-2 Little Endian format)
     MkDirIfNotExist obj_path
     Set OutFile = fso.CreateTextFile(TempFile(), True, True)
 
-    Set rs = CurrentDb.OpenRecordset(TableExportSql(tbl_name))
     C = 0
     For Each fieldObj In rs.Fields
         If C <> 0 Then OutFile.write vbTab
         C = C + 1
-        OutFile.write fieldObj.Name
+        OutFile.write fieldObj.name
     Next
     OutFile.write vbCrLf
 
@@ -888,7 +1041,7 @@ Private Sub ExportTable(tbl_name As String, obj_path As String)
         For Each fieldObj In rs.Fields
             If C <> 0 Then OutFile.write vbTab
             C = C + 1
-            Value = rs(fieldObj.Name)
+            Value = rs(fieldObj.name)
             If IsNull(Value) Then
                 Value = ""
             Else
@@ -908,31 +1061,124 @@ Private Sub ExportTable(tbl_name As String, obj_path As String)
 
     ConvertUcs2Utf8 TempFile(), obj_path & tbl_name & ".txt"
 End Sub
+' Kill Table if Exists
+Private Sub KillTable(tableName As String)
+    If TableExists(tblName) Then
+        Db.Execute "DROP TABLE [" & tblName & "]"
+    End If
+End Sub
 ' Import Table Definition
 Private Sub ImportTableDef(tblName As String, FilePath As String)
-    Dim db As Object ' DAO.Database
+    Dim Db As Object ' DAO.Database
     Dim fso, InFile As Object
     Dim buf As String
-    
+    Dim p As Integer
+    Dim p1 As Integer
+    Dim strFields() As String
+    Dim strRef As String
+    Dim strMsg As String
+    Dim strForeignKeys() As String
+    Dim s
+    Dim n As Integer
+    Dim i As Integer
+    Dim j As Integer
+    n = -1
     Set fso = CreateObject("Scripting.FileSystemObject")
     ConvertUtf8Ucs2 FilePath, TempFile()
     ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
     Set InFile = fso.OpenTextFile(TempFile(), ForReading, False, TristateTrue)
-    Set db = CurrentDb
-    On Error Resume Next
-    db.Execute "DROP TABLE  IF EXISTS [" & tblName & "]"
-    On Error GoTo 0
+    Set Db = CurrentDb
+    KillTable tblName
     buf = InFile.ReadLine()
     Do Until InFile.AtEndOfStream
-        buf = InFile.ReadLine()
+        buf = buf & InFile.ReadLine()
     Loop
-    db.Execute buf
-    InFile.Close
     
+    ' The following block is needed because "on update" actions may cause problems
+    For Each s In Split("UPDATE|DELETE", "|")
+    p = InStr(buf, "ON " & s & " CASCADE")
+    While p > 0
+        n = n + 1
+        ReDim Preserve K(n)
+        K(n).Table = tblName
+        K(n).isUpdate = (s = "UPDATE")
+        
+        buf = Left(buf, p - 1) & Mid(buf, p + 18)
+        p = InStrRev(buf, "REFERENCES", p)
+        p1 = InStr(p, buf, "(")
+        K(n).foreignFields = Split(SubString(p1, buf, "(", ")"), ",")
+        K(n).foreignTable = Trim(Mid(buf, p + 10, p1 - p - 10))
+        p = InStrRev(buf, "CONSTRAINT", p1)
+        p1 = InStrRev(buf, "FOREIGN KEY", p1)
+        If (p1 > 0) And (p > 0) And (p1 > p) Then
+        ' multifield index
+            K(n).refFields = Split(SubString(p1, buf, "(", ")"), ",")
+        ElseIf p1 = 0 Then
+        ' single field
+        End If
+        p = InStr(p, "ON " & s & " CASCADE", buf)
+    Wend
+    Next
+    On Error Resume Next
+    For i = 0 To n
+        strMsg = K(i).Table & " to " & K(i).foreignTable
+        strMsg = strMsg & "(  "
+        For j = 0 To UBound(K(i).refFields)
+            strMsg = strMsg & K(i).refFields(j) & ", "
+        Next j
+        strMsg = Left(strMsg, Len(strMsg) - 2) & ") to ("
+        For j = 0 To UBound(K(i).foreignFields)
+            strMsg = strMsg & K(i).foreignFields(j) & ", "
+        Next j
+        strMsg = Left(strMsg, Len(strMsg) - 2) & ") Check "
+        If K(i).isUpdate Then
+            strMsg = strMsg & " on update cascade " & vbCrLf
+        Else
+            strMsg = strMsg & " on delete cascade " & vbCrLf
+        End If
+    Next
+    On Error GoTo 0
+    Db.Execute buf
+    InFile.Close
+    If Len(strMsg) > 0 Then MsgBox strMsg, vbOKOnly, "Correct manually"
 End Sub
+' returns substring between e.g. "(" and ")", internal brackets ar skippped
+Public Function SubString(p As Integer, s As String, startsWith As String, endsWith As String)
+    Dim start As Integer
+    Dim last As Integer
+    Dim cursor As Integer
+    Dim p1 As Integer
+    Dim p2 As Integer
+    Dim level As Integer
+    start = InStr(p, s, startsWith)
+    level = 1
+    p1 = InStr(start + 1, s, startsWith)
+    p2 = InStr(start + 1, s, endsWith)
+    While level > 0
+        If p1 > p2 And p2 > 0 Then
+            cursor = p2
+            level = level - 1
+        ElseIf p2 > p1 And p1 > 0 Then
+            cursor = p1
+            level = level + 1
+        ElseIf p2 > 0 And p1 = 0 Then
+            cursor = p2
+            level = level - 1
+        ElseIf p1 > 0 And p1 = 0 Then
+            cursor = p1
+            level = level + 1
+        ElseIf p1 = 0 And p2 = 0 Then
+            SubString = ""
+            Exit Function
+        End If
+        p1 = InStr(cursor + 1, s, startsWith)
+        p2 = InStr(cursor + 1, s, endsWith)
+    Wend
+    SubString = Mid(s, start + 1, cursor - start - 1)
+End Function
 ' Import the lookup table `tblName` from `source\tables`.
 Private Sub ImportTable(tblName As String, obj_path As String)
-    Dim db As Object ' DAO.Database
+    Dim Db As Object ' DAO.Database
     Dim rs As Object ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
     Dim fso, InFile As Object
@@ -942,10 +1188,10 @@ Private Sub ImportTable(tblName As String, obj_path As String)
     ConvertUtf8Ucs2 obj_path & tblName & ".txt", TempFile()
     ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
     Set InFile = fso.OpenTextFile(TempFile(), ForReading, False, TristateTrue)
-    Set db = CurrentDb
+    Set Db = CurrentDb
 
-    db.Execute "DELETE FROM [" & tblName & "]"
-    Set rs = db.OpenRecordset(tblName)
+    Db.Execute "DELETE FROM [" & tblName & "]"
+    Set rs = Db.OpenRecordset(tblName)
     buf = InFile.ReadLine()
     Do Until InFile.AtEndOfStream
         buf = InFile.ReadLine()
@@ -962,7 +1208,7 @@ Private Sub ImportTable(tblName As String, obj_path As String)
                     Value = Replace(Value, "\n", vbCrLf)
                     Value = Replace(Value, "\\", "\")
                 End If
-                rs(fieldObj.Name) = Value
+                rs(fieldObj.name) = Value
                 C = C + 1
             Next
             rs.Update
@@ -972,4 +1218,7 @@ Private Sub ImportTable(tblName As String, obj_path As String)
     rs.Close
     InFile.Close
 End Sub
-
+' Expose for use as function, can be called by query
+Public Function make()
+    ImportAllSource
+End Function
