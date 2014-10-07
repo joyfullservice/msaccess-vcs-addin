@@ -1,7 +1,90 @@
 Change log
 ==========
 
-version 0.3 - 6 Apr 2013
+matonb:
+
+Version 0.11 - 01 May 2014
+-------------------------
+* Removed DeleteFile function and replaced calls to Kill with FileSystemObject.DeleteFile
+
+matonb:
+
+Version 0.10 - 09 Mar 2014
+-------------------------
+* Added DoEvents in loops to avoid "Unresponsive" state.
+
+matonb:
+
+Version 0.9 - 15 Feb 2014
+-------------------------
+*  Aggressive Sanitise, moved BaseInfo from "Block" regex to Line level.
+*  Changed line level skipping to include lines with deeper indendation the follow.
+  This catches split lines mostly found in BaseInfo exports.
+
+matonb:
+
+Version 0.8 - 14 Feb 2014
+-------------------------
+*  Aggressive Sanitise now excludes "BaseInfo" lines.
+  These lines were seen to be randomly switching between being empty,
+  not present or containing SQL on an arbitary basis.
+
+matonb:
+
+Version 0.7 - 06 Jul 2013
+-------------------------
+*  Replaced TempFile function.
+*  Temporary file names now generated via external MS libraries.
+*  Functions using TempFile updated to only call TempFile function once.
+   *  Temporary file path and name stored in tmepFileName variable.
+   *  Temporary files deleted when done.
+*  Changed db declaration in ImportProject to DAO.database.
+
+Version 0.6 - 06 Jul 2013
+-------------------------
+
+matonb:
+
+*  AppcodeImportExport excluded from ExportAllSource
+*  Added ImportProject sub-routine,  
+   Deletes all forms, macros, modules and queries before calling ImportAllSource.  
+   By clearing out the existing objects, you know that your database only contains  
+   code from your version control database.  
+   Excludes *AppCodeImportExport*
+
+Version 0.5 - 29 May 2013
+--------------------------
+
+matonb:
+
+*  All "exclusion" patterns are now matched by regex.
+*  Added StripPublishOption constant.  
+   If set to _True_ the following lines are also excluded from the export files
+  * dbByte "PublishToWeb" ="1"
+  * PublishOption =1
+*  Added DeleteFile(FileName) function  
+   The function tries to delete _FileName_ three (3) times before giving up.  
+   A delay of 100ms is introduced between delete attempts should the first fail.
+
+Version 0.4 - 19 Apr 2013
+--------------------------
+
+matonb:
+
+*  Added dbLongBinary "DOL" to aggressive sanitize, these statements were
+   appearing in queries and being flagged by git as modified in files that
+   hadn't been touched by developers.
+
+Version 0.3.2 - 8 Apr 2013
+--------------------------
+
+matonb:
+* 0.3.1 Patched - Serious Problem:  SanitizeTextFiles If logic removed all
+        lines containing "Begin".
+* 0.3.2 Replaced if block for skipping code sections in SanitizeTextFiles with
+        regular expression.
+
+Version 0.3 - 6 Apr 2013
 ------------------------
 
 bkidwell:
@@ -17,7 +100,7 @@ matonb:
 * Updated readme (removed references to terminal window).
 * Close all open forms and reports when importing and exporting because you can't import an open form or report.
 
-version 0.2 - 4 Apr 2013
+Version 0.2 - 4 Apr 2013
 ------------------------
 
 matonb:
@@ -31,7 +114,7 @@ bkidwell:
 * Removed the need for a special "export_[name]" query to export and import a lookup table.
 * Added check to determine if Queries, Forms, etc. are exported from THIS database (depending on which version of Access created it) uses UCS-2-little-endian, or a legacy 8-bit Windows character set. Skip converting to/from UTF-8 if not using UCS-2, because the point of the conversion was to avoid writing 0x00 bytes in the text files and confuse diff/merge tools.
 
-version 0.1 - 22 Oct 2012
+Version 0.1 - 22 Oct 2012
 -------------------------
 
 Initial release
