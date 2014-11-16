@@ -653,15 +653,12 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, f
     Dim constraintSql As String
     For Each idx In td.Indexes
         If idx.Fields.Count > 1 Then
-            sql = sql & vbCrLf
-            If Len(sql) = 0 Then sql = sql & " CONSTRAINT " & idx.Name
-            If idx.Primary Then sql = sql & formatConstraint("PRIMARY KEY", idx)
-            If idx.Unique Then sql = sql & formatConstraint("UNIQUE", idx)
-            If idx.Required Then sql = sql & formatConstraint("NOT NULL", idx)
+            If Len(constraintSql) = 0 Then constraintSql = constraintSql & " CONSTRAINT "
+            If idx.Primary Then constraintSql = constraintSql & formatConstraint("PRIMARY KEY", idx)
             If idx.Foreign Then constraintSql = formatConstraint("FOREIGN KEY", idx)
             If Len(constraintSql) > 0 Then
-                sql = sql & vbCrLf & "  " & constraintSql & vbCrLf
-                sql = sql & formatReferences(Db, idx.Fields, tableName) & vbCrLf
+                sql = sql & "," & vbCrLf & "  " & constraintSql
+                sql = sql & formatReferences(Db, idx.Fields, tableName)
             End If
         End If
     Next
@@ -704,9 +701,9 @@ Private Function formatConstraint(keyw As String, idx As Index) As String
     
     sql = strName(idx.Name) & " " & keyw & " ("
     For Each fi In idx.Fields
-        sql = sql & strName(fi.Name) & ","
+        sql = sql & strName(fi.Name) & ", "
     Next
-    sql = Left(sql, Len(sql) - 1) & ")" 'strip off last comma and close brackets
+    sql = Left(sql, Len(sql) - 2) & ")" 'strip off last comma and close brackets
     
     'return value
     formatConstraint = sql
