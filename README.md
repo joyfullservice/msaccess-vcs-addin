@@ -33,6 +33,7 @@ Installing the Integration Scripts
 2. Edit your `AppCodeImportExport` and change the constant `INCLUDE_TABLES` to list any lookup tables that function more as part of your application code than as client data. (For example, "Countries", "Colors", and things like that.)
 3. Copy the scripts folder as a child of `~/MyProject` .
 4. Make sure there is a DAO reference - In the VBA editor, menu "Tools" > "References", select "Microsoft DAO 3.6 Object Library". Without this the "Database" references will cause compilation to fail with the message "Compile error: User-defined type not defined"
+5. If on compilation you get "Compile error: Method or data member not found" on "fi.Size" (Field), try re-ordering the dependencies to put ADO after DAO, as ADO (2.1) also defines field, but without the size member.
 
 First Commit to Your Source Control System
 ------------------------------------------
