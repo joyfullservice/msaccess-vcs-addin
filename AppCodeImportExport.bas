@@ -655,10 +655,10 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, f
         If idx.Fields.Count > 1 Then
             sql = sql & vbCrLf
             If Len(sql) = 0 Then sql = sql & " CONSTRAINT " & idx.Name
-            sql = sql & formatConstraint(idx.Primary, "PRIMARY KEY", idx)
-            sql = sql & formatConstraint(idx.Unique, "UNIQUE", idx)
-            sql = sql & formatConstraint(idx.Required, "NOT NULL", idx)
-            constraintSql = formatConstraint(idx.Foreign, "FOREIGN KEY", idx)
+            If idx.Primary Then sql = sql & formatConstraint("PRIMARY KEY", idx)
+            If idx.Unique Then sql = sql & formatConstraint("UNIQUE", idx)
+            If idx.Required Then sql = sql & formatConstraint("NOT NULL", idx)
+            If idx.Foreign Then constraintSql = formatConstraint("FOREIGN KEY", idx)
             If Len(constraintSql) > 0 Then
                 sql = sql & vbCrLf & "  " & constraintSql & vbCrLf
                 sql = sql & formatReferences(Db, idx.Fields, tableName) & vbCrLf
@@ -697,22 +697,19 @@ Private Function formatReferences(Db As Database, ff As Object, tableName As Str
     Next
     formatReferences = sql
 End Function
-Private Function formatConstraint(isConstraint As Boolean, keyw As String, idx As Index) As String
+
+Private Function formatConstraint(keyw As String, idx As Index) As String
     Dim sql As String
     Dim fi As Field
     
-    sql = sql & strName(idx.Name)
-    If isConstraint Then
-        sql = sql & " " & keyw & " ("
-        For Each fi In idx.Fields
-            sql = sql & strName(fi.Name) & ","
-        Next
-        sql = Left(sql, Len(sql) - 1) & ")"
-        formatConstraint = sql
-    Else
-        formatConstraint = ""
-    End If
-            
+    sql = strName(idx.Name) & " " & keyw & " ("
+    For Each fi In idx.Fields
+        sql = sql & strName(fi.Name) & ","
+    Next
+    sql = Left(sql, Len(sql) - 1) & ")" 'strip off last comma and close brackets
+    
+    'return value
+    formatConstraint = sql
 End Function
 
 Private Function strName(s As String) As String
