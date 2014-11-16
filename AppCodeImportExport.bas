@@ -622,11 +622,10 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, f
     Set OutFile = FSO.CreateTextFile(fileName, True)
     nrSql = 2
     ReDim Preserve sql(nrSql)
-    sql(1) = "CREATE TABLE " & strName(tableName) & " ("
-
+    sql(1) = "CREATE TABLE " & strName(tableName) & " (" & vbCrLf
     For Each fi In td.Fields
         sql(0) = ""
-        sql(1) = sql(1) & strName(fi.Name) & " "
+        sql(1) = sql(1) & "  " & strName(fi.Name) & " "
         If (fi.Attributes And dbAutoIncrField) Then
             sql(1) = sql(1) & "AUTOINCREMENT"
         Else
@@ -653,8 +652,9 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, f
             End If
         Next
         sql(1) = sql(1) + sql(0)
-        sql(1) = sql(1) + ", "
+        sql(1) = sql(1) + "," & vbCrLf
     Next
+    sql(1) = Left(sql(1), Len(sql(1)) - 3) ' strip off last comma
     
     For Each idx In td.Indexes
         If idx.Fields.Count > 1 Then
@@ -670,7 +670,7 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, f
             End If
         End If
     Next
-    sql(1) = Left(sql(1), Len(sql(1)) - 2) & ")"
+    sql(1) = sql(1) & vbCrLf & ")"
 
     'Debug.Print sql
     OutFile.WriteLine sql(1)
@@ -1448,4 +1448,3 @@ End Sub
 Public Function make()
     ImportProject
 End Function
-
