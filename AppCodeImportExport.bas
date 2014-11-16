@@ -1,21 +1,8 @@
 Attribute VB_Name = "AppCodeImportExport"
 ' Access Module `AppCodeImportExport`
 ' -----------------------------------
-'
-' Version 0.12
-'
-' https://github.com/bkidwell/msaccess-vcs-integration
-'
-' Brendan Kidwell
-'
-' https://github.com/matonb/msaccess-vcs-integration
-'
-' Brett Maton
-'
-' https://github.com/ArminBra/msaccess-vcs-integration
-'
-' Armin Braun
-'
+' https://github.com/timabell/msaccess-vcs-integration
+
 ' This code is licensed under BSD-style terms.
 '
 ' This is some code for importing and exporting Access Queries, Forms,
