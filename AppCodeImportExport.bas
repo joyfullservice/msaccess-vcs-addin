@@ -648,19 +648,20 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, f
         sql = sql + fieldAttributeSql
         sql = sql + "," & vbCrLf
     Next
-    sql = Left(sql, Len(sql) - 3) ' strip off last comma
+    sql = Left(sql, Len(sql) - 3) ' strip off last comma and crlf
     
     Dim constraintSql As String
     For Each idx In td.Indexes
         If idx.Fields.Count > 1 Then
+            sql = sql & vbCrLf
             If Len(sql) = 0 Then sql = sql & " CONSTRAINT " & idx.Name
             sql = sql & formatConstraint(idx.Primary, "PRIMARY KEY", idx)
             sql = sql & formatConstraint(idx.Unique, "UNIQUE", idx)
             sql = sql & formatConstraint(idx.Required, "NOT NULL", idx)
             constraintSql = formatConstraint(idx.Foreign, "FOREIGN KEY", idx)
             If Len(constraintSql) > 0 Then
-                sql = sql & constraintSql
-                sql = sql & formatReferences(Db, idx.Fields, tableName)
+                sql = sql & vbCrLf & "  " & constraintSql & vbCrLf
+                sql = sql & formatReferences(Db, idx.Fields, tableName) & vbCrLf
             End If
         End If
     Next
