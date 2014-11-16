@@ -62,6 +62,6 @@ Committing a New "Release" of Your Project
 
 Caveats
 -------
-
+* If you make changes to or add a new module, be sure to save it in the VB Editor window or else it will not be exported.
 * If you make any changes to the script used in this process, the `AppCodeImportExport` module, they will not be automatically imported when any developer runs the ImportAllSource method. The code skips this file because it causes a conflict when trying to update a module that is actively being executed.
 * The import and export code does not handle deleted objects. When you notice that a developer upstream has pushed a change that deletes an Access object, you must manually delete that object in your own copy of the database file, and be sure it's not exported again and re-added to the repository.
