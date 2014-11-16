@@ -47,6 +47,7 @@ Private Const INCLUDE_TABLES = ""
 Private Const AggressiveSanitize = True
 Private Const StripPublishOption = True
 Private Const ArchiveMyself = True
+Private Const DebugOutput = False
 '
 ' --------------------------------
 ' Structures
@@ -1007,6 +1008,13 @@ Public Sub ImportAllSource()
         obj_count = 0
         Do Until Len(fileName) = 0
             obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
+            If DebugOutput Then
+                If obj_count = 0 Then
+                    Debug.Print
+                End If
+                Debug.Print "  [debug] table " & obj_name;
+                Debug.Print
+            End If
             ImportTableDef CStr(obj_name), obj_path & fileName
             obj_count = obj_count + 1
             fileName = Dir()
