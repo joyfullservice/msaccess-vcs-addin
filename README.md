@@ -17,7 +17,7 @@ Included in the export/import:
 * Modules
 * Tables
 
-By default, no Tables are exported. You must specify which tables to include in the export/import process. For example you might have "Countries" or "Colors" tables that populate dropdown lists. You shouldn't include regular data tables containing actual records, because this data doesn't belong in version control.
+By default, no table data is exported. You must specify which tables' data to include in the export/import process by editing the `INCLUDE_TABLES` variable in the supplied module. For example you might have "Countries" or "Colors" tables that populate dropdown lists. You shouldn't include regular data tables containing actual records, because this data doesn't belong in version control.
 
 Not included in the export/import:
 * Customized toolbars, toolbar items, and menu items
