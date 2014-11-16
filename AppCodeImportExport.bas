@@ -607,12 +607,11 @@ Private Sub ExportReferences(obj_path As String)
 End Sub
 ' Save a Table Definition as SQL statement
 Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, fileName As String)
-    Dim sql() As String
-    Dim csql As String
+    Dim sql As String
+    Dim fieldAttributeSql As String
     Dim idx As Index
     Dim fi As Field
     Dim i As Integer
-    Dim nrSql As Integer
     Dim f As Field
     Dim rel As Relation
     Dim FSO, OutFile
@@ -620,60 +619,55 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, f
     'Debug.Print tableName
     Set FSO = CreateObject("Scripting.FileSystemObject")
     Set OutFile = FSO.CreateTextFile(fileName, True)
-    nrSql = 2
-    ReDim Preserve sql(nrSql)
-    sql(1) = "CREATE TABLE " & strName(tableName) & " (" & vbCrLf
+    sql = "CREATE TABLE " & strName(tableName) & " (" & vbCrLf
     For Each fi In td.Fields
-        sql(0) = ""
-        sql(1) = sql(1) & "  " & strName(fi.Name) & " "
+        sql = sql & "  " & strName(fi.Name) & " "
         If (fi.Attributes And dbAutoIncrField) Then
-            sql(1) = sql(1) & "AUTOINCREMENT"
+            sql = sql & "AUTOINCREMENT"
         Else
-            sql(1) = sql(1) & strType(fi.Type) & " "
+            sql = sql & strType(fi.Type) & " "
         End If
         Select Case fi.Type
             Case dbText, dbVarBinary
-                sql(1) = sql(1) & "(" & fi.Size & ")"
+                sql = sql & "(" & fi.Size & ")"
             Case Else
         End Select
         For Each idx In td.Indexes
+            fieldAttributeSql = ""
             If idx.Fields.Count = 1 And idx.Fields(0).Name = fi.Name Then
-                 
-                If idx.Primary Then sql(0) = sql(0) & " PRIMARY KEY "
-                If idx.Unique Then sql(0) = sql(0) & " UNIQUE "
-                If idx.Required Then sql(0) = sql(0) & " NOT NULL "
-                '
+                If idx.Primary Then fieldAttributeSql = fieldAttributeSql & " PRIMARY KEY "
+                If idx.Unique Then fieldAttributeSql = fieldAttributeSql & " UNIQUE "
+                If idx.Required Then fieldAttributeSql = fieldAttributeSql & " NOT NULL "
                 If idx.Foreign Then
-                Set ff = idx.Fields
-                sql(0) = sql(0) & formatReferences(Db, ff, tableName)
-                '
+                    Set ff = idx.Fields
+                    fieldAttributeSql = fieldAttributeSql & formatReferences(Db, ff, tableName)
                 End If
-                If Len(sql(0)) > 0 Then sql(0) = " CONSTRAINT " & idx.Name & sql(0)
+                If Len(fieldAttributeSql) > 0 Then fieldAttributeSql = " CONSTRAINT " & idx.Name & fieldAttributeSql
             End If
         Next
-        sql(1) = sql(1) + sql(0)
-        sql(1) = sql(1) + "," & vbCrLf
+        sql = sql + fieldAttributeSql
+        sql = sql + "," & vbCrLf
     Next
-    sql(1) = Left(sql(1), Len(sql(1)) - 3) ' strip off last comma
+    sql = Left(sql, Len(sql) - 3) ' strip off last comma
     
+    Dim constraintSql As String
     For Each idx In td.Indexes
         If idx.Fields.Count > 1 Then
-            If Len(sql(1)) = 0 Then sql(1) = sql(1) & " CONSTRAINT " & idx.Name
-            sql(1) = sql(1) & formatConstraint(idx.Primary, "PRIMARY KEY", idx)
-            sql(1) = sql(1) & formatConstraint(idx.Unique, "UNIQUE", idx)
-            sql(1) = sql(1) & formatConstraint(idx.Required, "NOT NULL", idx)
-            sql(0) = ""
-            sql(0) = formatConstraint(idx.Foreign, "FOREIGN KEY", idx)
-            If Len(sql(0)) > 0 Then
-                sql(1) = sql(1) & sql(0)
-                sql(1) = sql(1) & formatReferences(Db, idx.Fields, tableName)
+            If Len(sql) = 0 Then sql = sql & " CONSTRAINT " & idx.Name
+            sql = sql & formatConstraint(idx.Primary, "PRIMARY KEY", idx)
+            sql = sql & formatConstraint(idx.Unique, "UNIQUE", idx)
+            sql = sql & formatConstraint(idx.Required, "NOT NULL", idx)
+            constraintSql = formatConstraint(idx.Foreign, "FOREIGN KEY", idx)
+            If Len(constraintSql) > 0 Then
+                sql = sql & constraintSql
+                sql = sql & formatReferences(Db, idx.Fields, tableName)
             End If
         End If
     Next
-    sql(1) = sql(1) & vbCrLf & ")"
+    sql = sql & vbCrLf & ")"
 
     'Debug.Print sql
-    OutFile.WriteLine sql(1)
+    OutFile.WriteLine sql
     
     OutFile.Close
 End Sub
