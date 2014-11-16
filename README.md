@@ -7,6 +7,8 @@ Synchronize your Access Forms, Macros, Modules, Queries, and Reports with a vers
 
 The Microsoft Access code module in this project provides functions to export and import all of your Access objects to plain text files so that you can use a version control tool to track changes in these objects. For Access objects which are normally exported in `UCS-2-little-endian` encoding , the included module automatically converts to the source code to and from `UTF-8` encoding during export/import; this is to ensure that you don't have trouble branching, merging, and comparing in tools such as Mercurial which [treat any file containing 0x00 bytes as a non-diffable binary file](http://mercurial.selenic.com/wiki/BinaryFiles).
 
+The module will put the files in a folder called `source` within the same folder as your database file. The import expects the files to be in the same folder.
+
 This README shows how to synchronize all application code objects from an Access application with a source control system such as Mercurial or Git. (The provided import/export module is agnostic about the actual source control system you use.)
 
 Included in the export/import:
@@ -24,32 +26,31 @@ Not included in the export/import:
 * Any external files
 * Pretty much anything that is not accessible by browsing the design, properties, and code of a Query, Form, Report, Macro, or Module object.
 
-For the purposes of these instructions, assume your database is called `Application.accdb` and it is stored in `~/MyProject`.
+For the purposes of these instructions, assume your database is called `Application.accdb`.
 
 Installing the Integration Scripts
 ----------------------------------
 
 1. Load `AppCodeImportExport.bas` into a new module in your database with that exact name.
 2. Edit your `AppCodeImportExport` and change the constant `INCLUDE_TABLES` to list any lookup tables that function more as part of your application code than as client data. (For example, "Countries", "Colors", and things like that.)
-3. Copy the scripts folder as a child of `~/MyProject` .
-4. Make sure there is a DAO reference - In the VBA editor, menu "Tools" > "References", select "Microsoft DAO 3.6 Object Library". Without this the "Database" references will cause compilation to fail with the message "Compile error: User-defined type not defined"
-5. If on compilation you get "Compile error: Method or data member not found" on "fi.Size" (Field), try re-ordering the dependencies to put ADO after DAO, as ADO (2.1) also defines field, but without the size member.
+3. Make sure there is a DAO reference - In the VBA editor, menu "Tools" > "References", select "Microsoft DAO 3.6 Object Library". Without this the "Database" references will cause compilation to fail with the message "Compile error: User-defined type not defined"
+4. If on compilation you get "Compile error: Method or data member not found" on "fi.Size" (Field), try re-ordering the dependencies to put ADO after DAO, as ADO (2.1) also defines field, but without the size member.
 
 First Commit to Your Source Control System
 ------------------------------------------
 
-1. Create a repository in your `~/MyProject` folder.
+1. Create a repository in the folder containing your database.
 2. Compact and Repair `Application.accdb` and zip it to `Application.zip` using the Send to Compressed Folder command in Windows Explorer.
-3. Using your repository's tools, set the repository to ignore any `accdb` and `laccdb` files, and then add and commit the zipped Access binary file `Application.zip` as well as the `scripts` folder. Use a commit message like "Initial commit of [name] at version [number]."
+3. Using your repository's tools, set the repository to ignore any `.accdb` and `.laccdb` files, and then add and commit the zipped Access binary file `Application.zip`. Use a commit message like "Initial commit of [name] at version [number]."
 4. Open the application, hit CTRL-G, and run the following VB code in the Immediate window: "`ExportAllSource`". Wait for the Immediate window to say the export job is "Done."
-5. Using your repository's tools, add and commit all the new files that were created in the `source` folder under `~/MyProject` . Use a commit message like "Initial commit of all source code for [name] at version [number]".
+5. Using your repository's tools, add and commit all the new files that were created in the `source` folder. Use a commit message like "Initial commit of all source code for [name] at version [number]".
 6. Publish your repository to your preferred central sharing location.
 
 Committing New Progress and Pulling Changes from Other Developers
 -----------------------------------------------------------------
 
 1. Open the application, hit CTRL-G, and run the following VB code in the Immediate window: "`ExportAllSource`". Wait for the Immediate window to say the export job is "Done."
-2. Using your repository's tools, commit all the new files that were created in the source folder under `~/MyProject` . Use an appropriate commit message to describe your changes.
+2. Using your repository's tools, commit all the new files that were created in the source folder. Use an appropriate commit message to describe your changes.
 3. Pull new upstream changes (if any exist) from your central sharing location used by all developers. If necessary address any merge conflicts using your repository's merge and conflict resolution tools. If any work was done in this step, commit these changes to your local repository as well.
 4. Push all local and merged changes back to the central sharing location.
 5. Go back into the Access Immediate window (CTRL-G) and run the following VB code: "`ImportAllSource`". Wait for the Immediate window to say the export job is "Done."
