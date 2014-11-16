@@ -1,4 +1,4 @@
-Copyright © 2012 Brendan Kidwell
+Copyright © 2012 Brendan Kidwell et al
 
 Use of msaccess-vcs-integration and documentation are subject to the following
 BSD-style license:
