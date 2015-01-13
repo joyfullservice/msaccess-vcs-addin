@@ -556,6 +556,7 @@ Private Sub SanitizeTextFiles(Path As String, Ext As String)
 
 
 End Sub
+
 ' Import References from a CSV, true=SUCCESS
 Private Function ImportReferences(obj_path As String) As Boolean
     Dim FSO, InFile
@@ -589,8 +590,15 @@ On Error GoTo 0
     ImportReferences = True
     Exit Function
 failed_guid:
-    MsgBox "Failed to register " & GUID
-    Resume go_on
+    If Err.Number = 32813 Then
+        'The reference is already present in the access project - so we can ignore the error
+        Resume Next
+    Else
+        MsgBox "Failed to register " & GUID
+        'Do we really want to carry on the import with missing references??? - Surely this is fatal
+        Resume go_on
+    End If
+    
 End Function
 ' Export References to a CSV
 Private Sub ExportReferences(obj_path As String)
