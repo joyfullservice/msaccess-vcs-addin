@@ -650,7 +650,7 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, f
                     Set ff = idx.Fields
                     fieldAttributeSql = fieldAttributeSql & formatReferences(Db, ff, tableName)
                 End If
-                If Len(fieldAttributeSql) > 0 Then fieldAttributeSql = " CONSTRAINT " & idx.Name & fieldAttributeSql
+                If Len(fieldAttributeSql) > 0 Then fieldAttributeSql = " CONSTRAINT " & strName(idx.Name) & fieldAttributeSql
             End If
         Next
         sql = sql + fieldAttributeSql
@@ -718,16 +718,9 @@ Private Function formatConstraint(keyw As String, idx As Index) As String
 End Function
 
 Private Function strName(s As String) As String
-    If InStr(s, " ") > 0 Then
-        strName = "[" & s & "]"
-    ElseIf UCase(s) = "UNIQUE" Then
-        strName = "[" & s & "]"
-    ElseIf UCase(s) = "VALUE" Then
-        strName = "[" & s & "]"
-    Else
-        strName = s
-    End If
+    strName = "[" & s & "]"
 End Function
+
 Private Function strType(i As Integer) As String
     Select Case i
     Case dbLongBinary
