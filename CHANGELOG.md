@@ -1,5 +1,10 @@
 Change log
 ==========
+jwbrookes:
+Version 0.11.1 - 14 Jan 2015
+---------------------------
+* Fixed bug in ExportTableDef function
+* Removed redundant DeleteFile function (had been left commented out in the module)
 
 matonb:
 
