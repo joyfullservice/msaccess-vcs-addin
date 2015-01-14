@@ -1332,34 +1332,6 @@ Private Sub ImportTable(tblName As String, obj_path As String)
     FSO.DeleteFile tempFileName
 End Sub
 
-'Private Function DeleteFile(sFileName As String)
-'Dim deleteCount As Integer
-'Dim pauseStart As Variant
-'Dim pauseEnd As Variant
-''
-''  Try to delete the file a few times if it fails.
-''  Failure is generally caused by the file not actually being closed yet.
-'        deleteCount = 0
-'        On Error GoTo tryDeleteAgain
-'tryDeleteAgain:
-'        If deleteCount > 0 Then
-'            pauseStart = Timer
-'            pauseEnd = pauseStart + 0.1
-'            Do While Timer < pauseEnd
-'                DoEvents
-'            Loop
-'        ElseIf deleteCount > 3 Then
-'            On Error GoTo 0
-'        End If
-'        deleteCount = deleteCount + 1
-'        Kill sFileName
-''        If deleteCount > 1 Then Debug.Print "Delete Attempts [" & deleteCount & "] (" & sFileName & ")"
-'        '
-'        '  Release Error Handler
-'        On Error GoTo 0
-'
-'End Function
-'
 ' Main entry point for ImportProject.
 ' Drop all forms, reports, queries, macros, modules.
 ' execute ImportAllSource.
