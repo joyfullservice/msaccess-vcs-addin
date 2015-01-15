@@ -904,7 +904,7 @@ Public Sub ExportAllSource()
             SanitizeTextFiles obj_path, "bas"
         Else
             ' Make sure all modules find their needed references
-            ExportReferences obj_path
+            If obj_count > 0 Then ExportReferences obj_path
         End If
     Next
 
