@@ -919,7 +919,7 @@ Public Sub ExportAllSource()
     obj_path = source_path & obj_type_label & "\"
     obj_count = 0
     MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
-    ClearTextFilesFromDir obj_path, "def"
+    ClearTextFilesFromDir obj_path, "sql"
     Debug.Print PadRight("Exporting " & obj_type_label & "...", 24);
     
     For Each td In tds
