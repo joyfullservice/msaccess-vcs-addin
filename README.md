@@ -33,9 +33,9 @@ Installing the Integration Scripts
 ----------------------------------
 
 1. Load `VCS_Loader.bas` into a new module in your database with that exact name.
-1. Go to the VBA editor (CTRL-G) and select "File" > "Import File..."
-2. Select the `VCS_Loader.bas` file.
-3. Save the file (CTRL-S).
+ 1. Go to the VBA editor (CTRL-G) and select "File" > "Import File..."
+ 2. Select the `VCS_Loader.bas` file.
+ 3. Save the file (CTRL-S).
 2. Type "`loadVCS`" into the immediate window followed by the directory where the other VCS files are located. If you don't specify a directory then it is assumed that the VCS code is contained in a folder called 'MSAccess-VCS', in the database directory.
 e.g. `loadVCS "C:\Users\MyUserAccount\Documents\Access-Proj\VCS-Code\"`
 or `loadVCS`
