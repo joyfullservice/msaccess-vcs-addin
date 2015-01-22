@@ -51,26 +51,26 @@ Public Sub ExportAllSource()
     'InitUsingUcs2
 
     source_path = ProjectPath() & "source\"
-    MkDirIfNotExist source_path
+    VCS_BasicFunctions.MkDirIfNotExist source_path
 
     Debug.Print
 
     obj_path = source_path & "queries\"
-    ClearTextFilesFromDir obj_path, "bas"
+    VCS_BasicFunctions.ClearTextFilesFromDir obj_path, "bas"
     Debug.Print VCS_BasicFunctions.PadRight("Exporting queries...", 24);
     obj_count = 0
     For Each qry In Db.QueryDefs
         DoEvents
-                If Left(qry.name, 1) <> "~" Then
-            ExportObject acQuery, qry.name, obj_path & qry.name & ".bas", UsingUcs2
+        If Left(qry.name, 1) <> "~" Then
+            VCS_IE_Functions.ExportObject acQuery, qry.name, obj_path & qry.name & ".bas", VCS_BasicFunctions.UsingUcs2
             obj_count = obj_count + 1
         End If
     Next
-    SanitizeTextFiles obj_path, "bas"
+    VCS_IE_Functions.SanitizeTextFiles obj_path, "bas"
     Debug.Print "[" & obj_count & "]"
 
     obj_path = source_path & "tables\"
-    ClearTextFilesFromDir obj_path, "txt"
+    VCS_BasicFunctions.ClearTextFilesFromDir obj_path, "txt"
     If (Len(Replace(INCLUDE_TABLES, " ", "")) > 0) Then
         Debug.Print VCS_BasicFunctions.PadRight("Exporting tables...", 24);
         obj_count = 0
@@ -97,7 +97,7 @@ Public Sub ExportAllSource()
         obj_type_num = Val(obj_type_split(2))
         obj_path = source_path & obj_type_label & "\"
         obj_count = 0
-        ClearTextFilesFromDir obj_path, "bas"
+        VCS_BasicFunctions.ClearTextFilesFromDir obj_path, "bas"
         Debug.Print VCS_BasicFunctions.PadRight("Exporting " & obj_type_label & "...", 24);
         For Each doc In Db.Containers(obj_type_name).Documents
             DoEvents
@@ -106,16 +106,16 @@ Public Sub ExportAllSource()
                 If obj_type_label = "modules" Then
                     ucs2 = False
                 Else
-                    ucs2 = UsingUcs2
+                    ucs2 = VCS_BasicFunctions.UsingUcs2
                 End If
-                ExportObject obj_type_num, doc.name, obj_path & doc.name & ".bas", ucs2
+                VCS_IE_Functions.ExportObject obj_type_num, doc.name, obj_path & doc.name & ".bas", ucs2
                 obj_count = obj_count + 1
             End If
         Next
         Debug.Print "[" & obj_count & "]"
 
         If obj_type_label <> "modules" Then
-            SanitizeTextFiles obj_path, "bas"
+            VCS_IE_Functions.SanitizeTextFiles obj_path, "bas"
         Else
             ' Make sure all modules find their needed references
             If obj_count > 0 Then ExportReferences obj_path
@@ -132,8 +132,8 @@ Public Sub ExportAllSource()
     obj_type_num = acTable
     obj_path = source_path & obj_type_label & "\"
     obj_count = 0
-    MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
-    ClearTextFilesFromDir obj_path, "sql"
+    VCS_BasicFunctions.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
+    VCS_BasicFunctions.ClearTextFilesFromDir obj_path, "sql"
     Debug.Print VCS_BasicFunctions.PadRight("Exporting " & obj_type_label & "...", 24);
     
     For Each td In tds
@@ -198,7 +198,7 @@ Public Sub ImportAllSource()
         Do Until Len(fileName) = 0
             DoEvents
             obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
-            ImportObject acQuery, obj_name, obj_path & fileName, UsingUcs2
+            VCS_IE_Functions.ImportObject acQuery, obj_name, obj_path & fileName, VCS_IE_Functions.UsingUcs2
             obj_count = obj_count + 1
             fileName = Dir()
         Loop
@@ -209,7 +209,7 @@ Public Sub ImportAllSource()
     obj_path = source_path & "tbldef\"
     fileName = Dir(obj_path & "*.sql")
     If Len(fileName) > 0 Then
-        Debug.Print PadRight("Importing tabledefs...", 24);
+        Debug.Print VCS_BasicFunctions.PadRight("Importing tabledefs...", 24);
         obj_count = 0
         Do Until Len(fileName) = 0
             obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
@@ -231,7 +231,7 @@ Public Sub ImportAllSource()
     obj_path = source_path & "tables\"
     fileName = Dir(obj_path & "*.txt")
     If Len(fileName) > 0 Then
-        Debug.Print PadRight("Importing tables...", 24);
+        Debug.Print VCS_BasicFunctions.PadRight("Importing tables...", 24);
         obj_count = 0
         Do Until Len(fileName) = 0
             DoEvents
@@ -265,7 +265,7 @@ Public Sub ImportAllSource()
         
         fileName = Dir(obj_path & "*.bas")
         If Len(fileName) > 0 Then
-            Debug.Print PadRight("Importing " & obj_type_label & "...", 24);
+            Debug.Print VCS_BasicFunctions.PadRight("Importing " & obj_type_label & "...", 24);
             obj_count = 0
             Do Until Len(fileName) = 0
                 ' DoEvents no good idea!
@@ -273,10 +273,10 @@ Public Sub ImportAllSource()
                 If obj_type_label = "modules" Then
                     ucs2 = False
                 Else
-                    ucs2 = UsingUcs2
+                    ucs2 = VCS_BasicFunctions.UsingUcs2
                 End If
                 If IsNotVCS(obj_name) Then
-                    ImportObject obj_type_num, obj_name, obj_path & fileName, ucs2
+                    VCS_IE_Functions.ImportObject obj_type_num, obj_name, obj_path & fileName, ucs2
                     obj_count = obj_count + 1
                 Else
                     If ArchiveMyself Then
