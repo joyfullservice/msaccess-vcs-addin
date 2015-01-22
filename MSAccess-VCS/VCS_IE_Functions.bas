@@ -16,11 +16,11 @@ Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 Public Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
     Optional Ucs2Convert As Boolean = False)
 
-    VCS_BasicFunctions.MkDirIfNotExist Left(file_path, InStrRev(file_path, "\"))
+    VCS_Dir.MkDirIfNotExist Left(file_path, InStrRev(file_path, "\"))
     If Ucs2Convert Then
-        Dim tempFileName As String: tempFileName = VCS_BasicFunctions.TempFile()
+        Dim tempFileName As String: tempFileName = VCS_File.TempFile()
         Application.SaveAsText obj_type_num, obj_name, tempFileName
-        VCS_BasicFunctions.ConvertUcs2Utf8 tempFileName, file_path
+        VCS_File.ConvertUcs2Utf8 tempFileName, file_path
     Else
         Application.SaveAsText obj_type_num, obj_name, file_path
     End If
@@ -31,8 +31,8 @@ Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path A
     Optional Ucs2Convert As Boolean = False)
 
     If Ucs2Convert Then
-        Dim tempFileName As String: tempFileName = VCS_BasicFunctions.TempFile()
-        VCS_BasicFunctions.ConvertUtf8Ucs2 file_path, tempFileName
+        Dim tempFileName As String: tempFileName = VCS_File.TempFile()
+        VCS_File.ConvertUtf8Ucs2 file_path, tempFileName
         Application.LoadFromText obj_type_num, obj_name, tempFileName
         
         Dim FSO As Object
@@ -163,6 +163,7 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
 
 
 End Sub
+
 
 
 

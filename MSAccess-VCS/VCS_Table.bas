@@ -229,24 +229,24 @@ Private Function TableExportSql(tbl_name As String)
 
     Set rs = CurrentDb.OpenRecordset(tbl_name)
     
-    sb = VCS_BasicFunctions.Sb_Init()
-    VCS_BasicFunctions.Sb_Append sb, "SELECT "
+    sb = VCS_String.Sb_Init()
+    VCS_String.Sb_Append sb, "SELECT "
     Count = 0
     For Each fieldObj In rs.Fields
-        If Count > 0 Then VCS_BasicFunctions.Sb_Append sb, ", "
-        VCS_BasicFunctions.Sb_Append sb, "[" & fieldObj.name & "]"
+        If Count > 0 Then VCS_String.Sb_Append sb, ", "
+        VCS_String.Sb_Append sb, "[" & fieldObj.name & "]"
         Count = Count + 1
     Next
-    VCS_BasicFunctions.Sb_Append sb, " FROM [" & tbl_name & "] ORDER BY "
+    VCS_String.Sb_Append sb, " FROM [" & tbl_name & "] ORDER BY "
     Count = 0
     For Each fieldObj In rs.Fields
         DoEvents
-        If Count > 0 Then VCS_BasicFunctions.Sb_Append sb, ", "
-        VCS_BasicFunctions.Sb_Append sb, "[" & fieldObj.name & "]"
+        If Count > 0 Then VCS_String.Sb_Append sb, ", "
+        VCS_String.Sb_Append sb, "[" & fieldObj.name & "]"
         Count = Count + 1
     Next
 
-    TableExportSql = VCS_BasicFunctions.Sb_Get(sb)
+    TableExportSql = VCS_String.Sb_Get(sb)
 
 End Function
 
@@ -270,8 +270,8 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
 
     Set FSO = CreateObject("Scripting.FileSystemObject")
     ' open file for writing with Create=True, Unicode=True (USC-2 Little Endian format)
-    VCS_BasicFunctions.MkDirIfNotExist obj_path
-    Dim tempFileName As String: tempFileName = VCS_BasicFunctions.TempFile()
+    VCS_Dir.MkDirIfNotExist obj_path
+    Dim tempFileName As String: tempFileName = VCS_File.TempFile()
 
     Set OutFile = FSO.CreateTextFile(tempFileName, True, True)
 
@@ -308,7 +308,7 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
     rs.Close
     OutFile.Close
 
-    VCS_BasicFunctions.ConvertUcs2Utf8 tempFileName, obj_path & tbl_name & ".txt"
+    VCS_File.ConvertUcs2Utf8 tempFileName, obj_path & tbl_name & ".txt"
     FSO.DeleteFile tempFileName
 End Sub
 ' Kill Table if Exists
@@ -332,11 +332,11 @@ Public Sub ImportTableDef(tblName As String, FilePath As String)
     Dim n As Integer
     Dim i As Integer
     Dim j As Integer
-    Dim tempFileName As String: tempFileName = VCS_BasicFunctions.TempFile()
+    Dim tempFileName As String: tempFileName = VCS_File.TempFile()
 
     n = -1
     Set FSO = CreateObject("Scripting.FileSystemObject")
-    VCS_BasicFunctions.ConvertUtf8Ucs2 FilePath, tempFileName
+    VCS_File.ConvertUtf8Ucs2 FilePath, tempFileName
     ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
     Set InFile = FSO.OpenTextFile(tempFileName, ForReading, False, TristateTrue)
     Set db = CurrentDb
@@ -358,13 +358,13 @@ Public Sub ImportTableDef(tblName As String, FilePath As String)
         buf = Left(buf, p - 1) & Mid(buf, p + 18)
         p = InStrRev(buf, "REFERENCES", p)
         p1 = InStr(p, buf, "(")
-        K(n).foreignFields = Split(VCS_BasicFunctions.SubString(p1, buf, "(", ")"), ",")
+        K(n).foreignFields = Split(VCS_String.SubString(p1, buf, "(", ")"), ",")
         K(n).foreignTable = Trim(Mid(buf, p + 10, p1 - p - 10))
         p = InStrRev(buf, "CONSTRAINT", p1)
         p1 = InStrRev(buf, "FOREIGN KEY", p1)
         If (p1 > 0) And (p > 0) And (p1 > p) Then
         ' multifield index
-            K(n).refFields = Split(VCS_BasicFunctions.SubString(p1, buf, "(", ")"), ",")
+            K(n).refFields = Split(VCS_String.SubString(p1, buf, "(", ")"), ",")
         ElseIf p1 = 0 Then
         ' single field
         End If
@@ -405,8 +405,8 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
 
     Set FSO = CreateObject("Scripting.FileSystemObject")
     
-    Dim tempFileName As String: tempFileName = VCS_BasicFunctions.TempFile()
-    VCS_BasicFunctions.ConvertUtf8Ucs2 obj_path & tblName & ".txt", tempFileName
+    Dim tempFileName As String: tempFileName = VCS_File.TempFile()
+    VCS_File.ConvertUtf8Ucs2 obj_path & tblName & ".txt", tempFileName
     ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
     Set InFile = FSO.OpenTextFile(tempFileName, ForReading, False, TristateTrue)
     Set db = CurrentDb

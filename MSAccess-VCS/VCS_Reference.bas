@@ -3,8 +3,11 @@ Option Compare Database
 
 Option Explicit
 
+Const ForReading = 1, ForWriting = 2, ForAppending = 8
+Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
+
 ' Import References from a CSV, true=SUCCESS
-Private Function ImportReferences(obj_path As String) As Boolean
+Public Function ImportReferences(obj_path As String) As Boolean
     Dim FSO, InFile
     Dim line As String
     Dim item() As String
@@ -47,7 +50,7 @@ failed_guid:
     
 End Function
 ' Export References to a CSV
-Private Sub ExportReferences(obj_path As String)
+Public Sub ExportReferences(obj_path As String)
     Dim FSO, OutFile
     Dim line As String
     Dim ref As Reference
