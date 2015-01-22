@@ -18,7 +18,7 @@ Public Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path A
 
     VCS_BasicFunctions.MkDirIfNotExist Left(file_path, InStrRev(file_path, "\"))
     If Ucs2Convert Then
-        Dim tempFileName As String: tempFileName = TempFile()
+        Dim tempFileName As String: tempFileName = VCS_BasicFunctions.TempFile()
         Application.SaveAsText obj_type_num, obj_name, tempFileName
         VCS_BasicFunctions.ConvertUcs2Utf8 tempFileName, file_path
     Else
@@ -163,6 +163,8 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
 
 
 End Sub
+
+
 
 
 

@@ -50,7 +50,7 @@ Public Sub ExportAllSource()
     CloseFormsReports
     'InitUsingUcs2
 
-    source_path = ProjectPath() & "source\"
+    source_path = VCS_BasicFunctions.ProjectPath() & "source\"
     VCS_BasicFunctions.MkDirIfNotExist source_path
 
     Debug.Print
@@ -182,7 +182,7 @@ Public Sub ImportAllSource()
     CloseFormsReports
     'InitUsingUcs2
 
-    source_path = ProjectPath() & "source\"
+    source_path = VCS_BasicFunctions.ProjectPath() & "source\"
     If Not FSO.FolderExists(source_path) Then
         MsgBox "No source found at:" & vbCrLf & source_path, vbExclamation, "Import failed"
         Exit Sub
@@ -193,7 +193,7 @@ Public Sub ImportAllSource()
     obj_path = source_path & "queries\"
     fileName = Dir(obj_path & "*.bas")
     If Len(fileName) > 0 Then
-        Debug.Print PadRight("Importing queries...", 24);
+        Debug.Print VCS_BasicFunctions.PadRight("Importing queries...", 24);
         obj_count = 0
         Do Until Len(fileName) = 0
             DoEvents

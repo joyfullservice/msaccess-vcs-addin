@@ -270,8 +270,8 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
 
     Set FSO = CreateObject("Scripting.FileSystemObject")
     ' open file for writing with Create=True, Unicode=True (USC-2 Little Endian format)
-    MkDirIfNotExist obj_path
-    Dim tempFileName As String: tempFileName = TempFile()
+    VCS_BasicFunctions.MkDirIfNotExist obj_path
+    Dim tempFileName As String: tempFileName = VCS_BasicFunctions.TempFile()
 
     Set OutFile = FSO.CreateTextFile(tempFileName, True, True)
 
@@ -358,13 +358,13 @@ Public Sub ImportTableDef(tblName As String, FilePath As String)
         buf = Left(buf, p - 1) & Mid(buf, p + 18)
         p = InStrRev(buf, "REFERENCES", p)
         p1 = InStr(p, buf, "(")
-        K(n).foreignFields = Split(SubString(p1, buf, "(", ")"), ",")
+        K(n).foreignFields = Split(VCS_BasicFunctions.SubString(p1, buf, "(", ")"), ",")
         K(n).foreignTable = Trim(Mid(buf, p + 10, p1 - p - 10))
         p = InStrRev(buf, "CONSTRAINT", p1)
         p1 = InStrRev(buf, "FOREIGN KEY", p1)
         If (p1 > 0) And (p > 0) And (p1 > p) Then
         ' multifield index
-            K(n).refFields = Split(SubString(p1, buf, "(", ")"), ",")
+            K(n).refFields = Split(VCS_BasicFunctions.SubString(p1, buf, "(", ")"), ",")
         ElseIf p1 = 0 Then
         ' single field
         End If
