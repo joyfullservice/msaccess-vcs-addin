@@ -12,13 +12,16 @@ On Error GoTo Err_DirCheck:
         GoTo Fin_DirCheck:
     Else
         'SourceDirectory is not a directory
-        Debug.Print Err.Number & " | " & Err.Description
-        Exit Sub
+        Err.Raise 60000, "loadVCS", "Source Directory specified is not a directory"
     End If
 
 Err_DirCheck:
-    'SourceDirectory does not exist
-    Debug.Print Err.Number & " | " & Err.Description
+    
+    If Err.Number = 53 Then 'SourceDirectory does not exist
+        Debug.Print Err.Number & " | " & "File/Directory not found"
+    Else
+        Debug.Print Err.Number & " | " & Err.Description
+    End If
     Exit Sub
 Fin_DirCheck:
 
@@ -38,7 +41,7 @@ Fin_DirCheck:
 
     GoTo Fin_DelHandler:
 Err_DelHandler:
-    Debug.Print Err.Number & " | " & Err.Description
+    Debug.Print "WARNING (" & Err.Number & ") | " & Err.Description
     Resume Next
 Fin_DelHandler:
     fileName = ""
