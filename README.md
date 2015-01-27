@@ -32,10 +32,16 @@ For the purposes of these instructions, assume your database is called `Applicat
 Installing the Integration Scripts
 ----------------------------------
 
-1. Load `AppCodeImportExport.bas` into a new module in your database with that exact name.
-2. Edit your `AppCodeImportExport` and change the constant `INCLUDE_TABLES` to list any lookup tables that function more as part of your application code than as client data. (For example, "Countries", "Colors", and things like that.)
-3. Make sure there is a DAO reference - In the VBA editor, menu "Tools" > "References", select "Microsoft DAO 3.6 Object Library". Without this the "Database" references will cause compilation to fail with the message "Compile error: User-defined type not defined"
-4. If on compilation you get "Compile error: Method or data member not found" on "fi.Size" (Field), try re-ordering the dependencies to put ADO after DAO, as ADO (2.1) also defines field, but without the size member.
+1. Load `VCS_Loader.bas` into a new module in your database with that exact name.
+ 1. Go to the VBA editor (CTRL-G) and select "File" > "Import File..."
+ 2. Select the `VCS_Loader.bas` file.
+ 3. Save the file (CTRL-S).
+2. Type "`loadVCS`" into the immediate window followed by the directory where the other VCS files are located. If you don't specify a directory then it is assumed that the VCS code is contained in a folder called 'MSAccess-VCS', in the database directory.
+e.g. `loadVCS "C:\Users\MyUserAccount\Documents\Access-Proj\VCS-Code\"`
+or `loadVCS`
+3. Edit your `VCS_ImportExport` and change the constant `INCLUDE_TABLES` to list any lookup tables that function more as part of your application code than as client data. (For example, "Countries", "Colors", and things like that.)
+4. Make sure there is a DAO reference - In the VBA editor, menu "Tools" > "References", select "Microsoft DAO 3.6 Object Library". Without this the "Database" references will cause compilation to fail with the message "Compile error: User-defined type not defined"
+5. If on compilation you get "Compile error: Method or data member not found" on "fi.Size" (Field), try re-ordering the dependencies to put ADO after DAO, as ADO (2.1) also defines field, but without the size member.
 
 First Commit to Your Source Control System
 ------------------------------------------
@@ -63,8 +69,14 @@ Committing a New "Release" of Your Project
 2. Follow the usual steps in the previous section "Committing New Progress".
 3. Use your repository's "tag" function to tag your last commit with the release number/name.
 
+Compiling from Source
+---------------------
+1. Create a new Access database
+2. Follow the instructions for installing the scripts
+3. Open the VBA editor (CTRL-G) and run the following VB code in the Immediate window: "`ImportProject`". You will be presented with a warning telling you that all database objects are about to be deleted, allowing you to cancel the operation if you change you mind.
+4. Wait until the code finishes executing, Compact and Repair the database.
+
 Caveats
 -------
 * If you make changes to or add a new module, be sure to save it in the VB Editor window or else it will not be exported.
-* If you make any changes to the script used in this process, the `AppCodeImportExport` module, they will not be automatically imported when any developer runs the ImportAllSource method. The code skips this file because it causes a conflict when trying to update a module that is actively being executed.
-* The import and export code does not handle deleted objects. When you notice that a developer upstream has pushed a change that deletes an Access object, you must manually delete that object in your own copy of the database file, and be sure it's not exported again and re-added to the repository.
+* If you make any changes to the script used in this process, the `VCS_` modules, they will not be automatically imported when any developer runs the `ImportProject` method. The code skips these files because it causes a conflict when trying to update a module that is actively being executed.
