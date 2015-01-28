@@ -116,11 +116,10 @@ Public Sub ExportAllSource()
 
         If obj_type_label <> "modules" Then
             VCS_IE_Functions.SanitizeTextFiles obj_path, "bas"
-        Else
-            ' Make sure all modules find their needed references
-            If obj_count > 0 Then VCS_Reference.ExportReferences obj_path
         End If
     Next
+    
+    VCS_Reference.ExportReferences source_path
 
     
     Dim td As TableDef
@@ -189,6 +188,11 @@ Public Sub ImportAllSource()
     End If
 
     Debug.Print
+    
+    If Not VCS_Reference.ImportReferences(source_path) Then
+        Debug.Print "Info: no references file in " & source_path
+        Debug.Print
+    End If
 
     obj_path = source_path & "queries\"
     fileName = Dir(obj_path & "*.bas")
@@ -255,12 +259,7 @@ Public Sub ImportAllSource()
         obj_type_num = Val(obj_type_split(1))
         obj_path = source_path & obj_type_label & "\"
         
-        If obj_type_label = "modules" Then
-            If Not VCS_Reference.ImportReferences(obj_path) Then
-                Debug.Print
-                Debug.Print "Info: no references file in " & obj_path
-            End If
-        End If
+        
     
         
         fileName = Dir(obj_path & "*.bas")
@@ -397,6 +396,7 @@ Private Function CloseFormsReports()
 errorHandler:
     Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
 End Function
+
 
 
 
