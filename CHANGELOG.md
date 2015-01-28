@@ -1,5 +1,11 @@
 Change log
 ==========
+Version 0.12.0 - 28 Jan 2015
+----------------------------
+jwbrookes:
+* Refactored AppCodeImportExport into several modules
+* Added VCS_Loader, a module to import multiple vba modules into a database 
+
 jwbrookes:
 Version 0.11.1 - 14 Jan 2015
 ---------------------------
