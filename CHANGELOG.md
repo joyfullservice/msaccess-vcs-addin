@@ -6,50 +6,52 @@ jwbrookes:
 * Refactored AppCodeImportExport into several modules
 * Added VCS_Loader, a module to import multiple vba modules into a database 
 
-jwbrookes:
+
 Version 0.11.1 - 14 Jan 2015
 ---------------------------
+jwbrookes:
 * Fixed bug in ExportTableDef function
 * Removed redundant DeleteFile function (had been left commented out in the module)
 
-matonb:
 
 Version 0.11 - 01 May 2014
 -------------------------
+matonb:
 * Removed DeleteFile function and replaced calls to Kill with FileSystemObject.DeleteFile
 
-matonb:
 
 Version 0.10 - 09 Mar 2014
 -------------------------
+matonb:
 * Added DoEvents in loops to avoid "Unresponsive" state.
 
-matonb:
 
 Version 0.9 - 15 Feb 2014
 -------------------------
+matonb:
 *  Aggressive Sanitise, moved BaseInfo from "Block" regex to Line level.
 *  Changed line level skipping to include lines with deeper indendation the follow.
   This catches split lines mostly found in BaseInfo exports.
 
-matonb:
 
 Version 0.8 - 14 Feb 2014
 -------------------------
+matonb:
 *  Aggressive Sanitise now excludes "BaseInfo" lines.
   These lines were seen to be randomly switching between being empty,
   not present or containing SQL on an arbitary basis.
 
-matonb:
 
 Version 0.7 - 06 Jul 2013
 -------------------------
+matonb:
 *  Replaced TempFile function.
 *  Temporary file names now generated via external MS libraries.
 *  Functions using TempFile updated to only call TempFile function once.
    *  Temporary file path and name stored in tmepFileName variable.
    *  Temporary files deleted when done.
 *  Changed db declaration in ImportProject to DAO.database.
+
 
 Version 0.6 - 06 Jul 2013
 -------------------------
