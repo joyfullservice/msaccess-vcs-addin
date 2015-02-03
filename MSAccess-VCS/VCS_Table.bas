@@ -22,7 +22,8 @@ Private K() As structEnforce
 
 
 ' Save a Table Definition as SQL statement
-Public Sub ExportTableDef(db As Database, td As TableDef, tableName As String, fileName As String)
+Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, directory As String)
+    Dim fileName As String: fileName = directory & tableName & ".sql"
     Dim sql As String
     Dim fieldAttributeSql As String
     Dim idx As Index
@@ -56,7 +57,7 @@ Public Sub ExportTableDef(db As Database, td As TableDef, tableName As String, f
                 If idx.Required Then fieldAttributeSql = fieldAttributeSql & " NOT NULL "
                 If idx.Foreign Then
                     Set ff = idx.Fields
-                    fieldAttributeSql = fieldAttributeSql & formatReferences(db, ff, tableName)
+                    fieldAttributeSql = fieldAttributeSql & formatReferences(Db, ff, tableName)
                 End If
                 If Len(fieldAttributeSql) > 0 Then fieldAttributeSql = " CONSTRAINT " & strName(idx.name) & fieldAttributeSql
             End If
@@ -74,7 +75,7 @@ Public Sub ExportTableDef(db As Database, td As TableDef, tableName As String, f
             If idx.Foreign Then constraintSql = formatConstraint("FOREIGN KEY", idx)
             If Len(constraintSql) > 0 Then
                 sql = sql & "," & vbCrLf & "  " & constraintSql
-                sql = sql & formatReferences(db, idx.Fields, tableName)
+                sql = sql & formatReferences(Db, idx.Fields, tableName)
             End If
         End If
     Next
@@ -84,12 +85,16 @@ Public Sub ExportTableDef(db As Database, td As TableDef, tableName As String, f
     OutFile.WriteLine sql
     
     OutFile.Close
+    
+    'exort Data Macros
+    VCS_DataMacro.ExportDataMacros tableName, directory
+    
 End Sub
-Private Function formatReferences(db As Database, ff As Object, tableName As String)
+Private Function formatReferences(Db As Database, ff As Object, tableName As String)
     Dim rel As Relation
     Dim sql As String
     Dim f As Field
-    For Each rel In db.Relations
+    For Each rel In Db.Relations
         If (rel.foreignTable = tableName) Then
          If FieldsIdentical(ff, rel.Fields) Then
           sql = " REFERENCES "
@@ -200,18 +205,18 @@ End Function
 '
 ' RETURNS: True (it exists) or False (it does not exist).
 Private Function TableExists(TName As String) As Boolean
-        Dim db As Database, Found As Boolean, Test As String
+        Dim Db As Database, Found As Boolean, Test As String
         Const NAME_NOT_IN_COLLECTION = 3265
 
          ' Assume the table or query does not exist.
         Found = False
-        Set db = CurrentDb()
+        Set Db = CurrentDb()
 
          ' Trap for any errors.
         On Error Resume Next
          
          ' See if the name is in the Tables collection.
-        Test = db.TableDefs(TName).name
+        Test = Db.TableDefs(TName).name
         If Err <> NAME_NOT_IN_COLLECTION Then Found = True
 
         ' Reset the error variable.
@@ -312,14 +317,15 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
     FSO.DeleteFile tempFileName
 End Sub
 ' Kill Table if Exists
-Private Sub KillTable(tblName As String, db As Object)
+Private Sub KillTable(tblName As String, Db As Object)
     If TableExists(tblName) Then
-        db.Execute "DROP TABLE [" & tblName & "]"
+        Db.Execute "DROP TABLE [" & tblName & "]"
     End If
 End Sub
 ' Import Table Definition
-Public Sub ImportTableDef(tblName As String, FilePath As String)
-    Dim db As Object ' DAO.Database
+Public Sub ImportTableDef(tblName As String, directory As String)
+    Dim filePath As String: filePath = directory & tblName & ".sql"
+    Dim Db As Object ' DAO.Database
     Dim FSO, InFile As Object
     Dim buf As String
     Dim p As Integer
@@ -336,11 +342,11 @@ Public Sub ImportTableDef(tblName As String, FilePath As String)
 
     n = -1
     Set FSO = CreateObject("Scripting.FileSystemObject")
-    VCS_File.ConvertUtf8Ucs2 FilePath, tempFileName
+    VCS_File.ConvertUtf8Ucs2 filePath, tempFileName
     ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
     Set InFile = FSO.OpenTextFile(tempFileName, ForReading, False, TristateTrue)
-    Set db = CurrentDb
-    KillTable tblName, db
+    Set Db = CurrentDb
+    KillTable tblName, Db
     buf = InFile.ReadLine()
     Do Until InFile.AtEndOfStream
         buf = buf & InFile.ReadLine()
@@ -390,14 +396,18 @@ Public Sub ImportTableDef(tblName As String, FilePath As String)
         End If
     Next
     On Error GoTo 0
-    db.Execute buf
+    Db.Execute buf
     InFile.Close
     If Len(strMsg) > 0 Then MsgBox strMsg, vbOKOnly, "Correct manually"
+    
+    'import Data Macros
+    VCS_DataMacro.ImportDataMacros tblName, directory
+    
 End Sub
 
 ' Import the lookup table `tblName` from `source\tables`.
 Public Sub ImportTableData(tblName As String, obj_path As String)
-    Dim db As Object ' DAO.Database
+    Dim Db As Object ' DAO.Database
     Dim rs As Object ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
     Dim FSO, InFile As Object
@@ -409,10 +419,10 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
     VCS_File.ConvertUtf8Ucs2 obj_path & tblName & ".txt", tempFileName
     ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
     Set InFile = FSO.OpenTextFile(tempFileName, ForReading, False, TristateTrue)
-    Set db = CurrentDb
+    Set Db = CurrentDb
 
-    db.Execute "DELETE FROM [" & tblName & "]"
-    Set rs = db.OpenRecordset(tblName)
+    Db.Execute "DELETE FROM [" & tblName & "]"
+    Set rs = Db.OpenRecordset(tblName)
     buf = InFile.ReadLine()
     Do Until InFile.AtEndOfStream
         buf = InFile.ReadLine()

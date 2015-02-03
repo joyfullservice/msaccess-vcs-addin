@@ -19,7 +19,7 @@ Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 
 'returns true if named module is NOT part of the VCS code
 Private Function IsNotVCS(name As String) As Boolean
-If name <> "VCS_ImportExport" And name <> "VCS_IE_Functions" And name <> "VCS_File" And name <> "VCS_Dir" And name <> "VCS_String" And name <> "VCS_Loader" And name <> "VCS_Table" And name <> "VCS_Reference" Then
+If name <> "VCS_ImportExport" And name <> "VCS_IE_Functions" And name <> "VCS_File" And name <> "VCS_Dir" And name <> "VCS_String" And name <> "VCS_Loader" And name <> "VCS_Table" And name <> "VCS_Reference" And name <> "VCS_DataMacro" Then
     IsNotVCS = True
 Else
     IsNotVCS = False
@@ -132,7 +132,11 @@ Public Sub ExportAllSource()
     obj_path = source_path & obj_type_label & "\"
     obj_count = 0
     VCS_Dir.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
+    
+    'move these into Table and DataMacro modules?
+    ' - We don't want to determin file extentions here - or obj_path either!
     VCS_Dir.ClearTextFilesFromDir obj_path, "sql"
+    VCS_Dir.ClearTextFilesFromDir obj_path, "xml"
     Debug.Print VCS_String.PadRight("Exporting " & obj_type_label & "...", 24);
     
     For Each td In tds
@@ -144,7 +148,7 @@ Public Sub ExportAllSource()
         And Len(td.Connect) = 0 _
         Then
             'Debug.Print
-            VCS_Table.ExportTableDef Db, td, td.name, obj_path & td.name & ".sql"
+            VCS_Table.ExportTableDef Db, td, td.name, obj_path
             obj_count = obj_count + 1
         End If
     Next
@@ -224,7 +228,7 @@ Public Sub ImportAllSource()
                 Debug.Print "  [debug] table " & obj_name;
                 Debug.Print
             End If
-            VCS_Table.ImportTableDef CStr(obj_name), obj_path & fileName
+            VCS_Table.ImportTableDef CStr(obj_name), obj_path
             obj_count = obj_count + 1
             fileName = Dir()
         Loop
@@ -396,6 +400,7 @@ Private Function CloseFormsReports()
 errorHandler:
     Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
 End Function
+
 
 
 
