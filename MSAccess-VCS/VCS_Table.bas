@@ -21,6 +21,60 @@ End Type
 Private K() As structEnforce
 
 
+Public Sub ExportLinkedTable(tbl_name As String, obj_path As String)
+    On Error GoTo Err_LinkedTable:
+    
+    Dim tempFilePath As String
+    
+    tempFilePath = VCS_File.TempFile()
+    
+    Dim FSO, OutFile
+
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    ' open file for writing with Create=True, Unicode=True (USC-2 Little Endian format)
+    VCS_Dir.MkDirIfNotExist obj_path
+    
+    Set OutFile = FSO.CreateTextFile(tempFilePath, True, True)
+    
+    OutFile.Write CurrentDb.TableDefs(tbl_name).name
+    OutFile.Write vbCrLf
+    OutFile.Write CurrentDb.TableDefs(tbl_name).Connect
+    OutFile.Write vbCrLf
+    OutFile.Write CurrentDb.TableDefs(tbl_name).SourceTableName
+    OutFile.Write vbCrLf
+    
+
+    Dim Db As Database
+    Set Db = CurrentDb
+    Dim td As TableDef
+    Set td = Db.TableDefs(tbl_name)
+    Dim idx As Index
+    
+    For Each idx In td.Indexes
+        If idx.Primary Then
+            OutFile.Write Right(idx.Fields, Len(idx.Fields) - 1)
+            OutFile.Write vbCrLf
+        End If
+
+    Next
+    
+
+Err_LinkedTable_Fin:
+    On Error Resume Next
+    OutFile.Close
+    'save files as .odbc
+    VCS_File.ConvertUcs2Utf8 tempFilePath, obj_path & tbl_name & ".LNKD"
+    
+    Exit Sub
+    
+Err_LinkedTable:
+
+    OutFile.Close
+    MsgBox Err.Description, vbCritical, "ERROR: EXPORT LINKED TABLE"
+    Resume Err_LinkedTable_Fin:
+End Sub
+
+
 ' Save a Table Definition as SQL statement
 Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, directory As String)
     Dim fileName As String: fileName = directory & tableName & ".sql"
@@ -90,6 +144,7 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, d
     VCS_DataMacro.ExportDataMacros tableName, directory
     
 End Sub
+
 Private Function formatReferences(Db As Database, ff As Object, tableName As String)
     Dim rel As Relation
     Dim sql As String
@@ -322,6 +377,76 @@ Private Sub KillTable(tblName As String, Db As Object)
         Db.Execute "DROP TABLE [" & tblName & "]"
     End If
 End Sub
+
+
+Public Sub ImportLinkedTable(tblName As String, obj_path As String)
+    Dim Db As Database ' DAO.Database
+    Dim FSO, InFile As Object
+    
+    Set Db = CurrentDb
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    
+    Dim tempFilePath As String
+    tempFilePath = TempFile()
+    
+    ConvertUtf8Ucs2 obj_path & tblName & ".LNKD", tempFilePath
+    ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
+    Set InFile = FSO.OpenTextFile(tempFilePath, ForReading, False, TristateTrue)
+    
+    On Error GoTo err_notable:
+    DoCmd.DeleteObject acTable, tblName
+    
+    GoTo err_notable_fin:
+err_notable:
+    Err.Clear
+    Resume err_notable_fin:
+err_notable_fin:
+    On Error GoTo Err_CreateLinkedTable:
+    
+    Dim td As TableDef
+    Set td = Db.CreateTableDef(InFile.ReadLine())
+    td.Connect = InFile.ReadLine()
+    td.SourceTableName = InFile.ReadLine()
+    Db.TableDefs.Append td
+    
+    GoTo Err_CreateLinkedTable_Fin:
+    
+Err_CreateLinkedTable:
+    MsgBox Err.Description, vbCritical, "ERROR: IMPORT LINKED TABLE"
+    Resume Err_CreateLinkedTable_Fin:
+Err_CreateLinkedTable_Fin:
+
+    'this will throw errors if a primary key already exists or the table is linked to an access database table
+    'will also error out if no pk is present
+    On Error GoTo Err_LinkPK_Fin:
+    
+    Dim Fields As String
+    Fields = InFile.ReadLine()
+    Dim Field As Variant
+    Dim sql As String
+    sql = "CREATE INDEX __uniqueindex ON " & td.name & " ("
+    
+    For Each Field In Split(Fields, ";+")
+        sql = sql & "[" & Field & "]" & ","
+    Next
+    'remove extraneous comma
+    sql = Left(sql, Len(sql) - 1)
+    
+    sql = sql & ") WITH PRIMARY"
+    CurrentDb.Execute sql
+    
+Err_LinkPK_Fin:
+    On Error Resume Next
+    InFile.Close
+    
+   
+
+End Sub
+
+
+
+
+
 ' Import Table Definition
 Public Sub ImportTableDef(tblName As String, directory As String)
     Dim filePath As String: filePath = directory & tblName & ".sql"

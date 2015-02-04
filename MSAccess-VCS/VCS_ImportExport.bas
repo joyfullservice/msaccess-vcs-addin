@@ -142,14 +142,16 @@ Public Sub ExportAllSource()
     For Each td In tds
         ' This is not a system table
         ' this is not a temporary table
-        ' this is not an external table
         If Left$(td.name, 4) <> "MSys" And _
-        Left(td.name, 1) <> "~" _
-        And Len(td.Connect) = 0 _
-        Then
-            'Debug.Print
-            VCS_Table.ExportTableDef Db, td, td.name, obj_path
+        Left(td.name, 1) <> "~" Then
+            If Len(td.Connect) = 0 Then ' this is not an external table
+                VCS_Table.ExportTableDef Db, td, td.name, obj_path
+            Else
+                VCS_Table.ExportLinkedTable td.name, obj_path
+            End If
+            
             obj_count = obj_count + 1
+            
         End If
     Next
     Debug.Print "[" & obj_count & "]"
@@ -234,6 +236,30 @@ Public Sub ImportAllSource()
         Loop
         Debug.Print "[" & obj_count & "]"
     End If
+    
+    
+    ' restore linked tables - we must have access to the remote store to import these!
+    fileName = Dir(obj_path & "*.LNKD")
+    If Len(fileName) > 0 Then
+        Debug.Print VCS_String.PadRight("Importing Linked tabledefs...", 24);
+        obj_count = 0
+        Do Until Len(fileName) = 0
+            obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
+            If DebugOutput Then
+                If obj_count = 0 Then
+                    Debug.Print
+                End If
+                Debug.Print "  [debug] table " & obj_name;
+                Debug.Print
+            End If
+            VCS_Table.ImportLinkedTable CStr(obj_name), obj_path
+            obj_count = obj_count + 1
+            fileName = Dir()
+        Loop
+        Debug.Print "[" & obj_count & "]"
+    End If
+    
+    
     
     ' NOW we may load data
     obj_path = source_path & "tables\"
@@ -400,6 +426,8 @@ Private Function CloseFormsReports()
 errorHandler:
     Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
 End Function
+
+
 
 
 
