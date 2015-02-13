@@ -5,7 +5,7 @@ Option Explicit
 ' List of lookup tables that are part of the program rather than the
 ' data, to be exported with source code
 'Only used in ExportAllSource
-Private Const INCLUDE_TABLES = ""
+Private Const INCLUDE_TABLES = "*"
 ' This is used in ImportAllSource
 Private Const DebugOutput = False
 'this is used in ExportAllSource
@@ -42,6 +42,7 @@ Public Sub ExportAllSource()
     Dim obj_type_name As String
     Dim obj_type_num As Integer
     Dim obj_count As Integer
+    Dim obj_data_count As Integer
     Dim ucs2 As Boolean
     Dim tblName As Variant
 
@@ -71,7 +72,7 @@ Public Sub ExportAllSource()
 
     obj_path = source_path & "tables\"
     VCS_Dir.ClearTextFilesFromDir obj_path, "txt"
-    If (Len(Replace(INCLUDE_TABLES, " ", "")) > 0) Then
+    If (Len(Replace(INCLUDE_TABLES, " ", "")) > 0) And INCLUDE_TABLES <> "*" Then
         Debug.Print VCS_String.PadRight("Exporting tables...", 24);
         obj_count = 0
         For Each tblName In Split(INCLUDE_TABLES, ",")
@@ -131,6 +132,7 @@ Public Sub ExportAllSource()
     obj_type_num = acTable
     obj_path = source_path & obj_type_label & "\"
     obj_count = 0
+    obj_data_count = 0
     VCS_Dir.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
     
     'move these into Table and DataMacro modules?
@@ -146,6 +148,13 @@ Public Sub ExportAllSource()
         Left(td.name, 1) <> "~" Then
             If Len(td.Connect) = 0 Then ' this is not an external table
                 VCS_Table.ExportTableDef Db, td, td.name, obj_path
+                If INCLUDE_TABLES = "*" Then
+                    DoEvents
+                    VCS_Table.ExportTableData CStr(td.name), source_path & "tables\"
+                    If Len(Dir(source_path & "tables\" & td.name & ".txt")) > 0 Then
+                        obj_data_count = obj_data_count + 1
+                    End If
+                End If
             Else
                 VCS_Table.ExportLinkedTable td.name, obj_path
             End If
@@ -155,7 +164,9 @@ Public Sub ExportAllSource()
         End If
     Next
     Debug.Print "[" & obj_count & "]"
-    
+    If obj_data_count > 0 Then
+      Debug.Print VCS_String.PadRight("Exported tables...", 24) & "[" & obj_data_count & "]"
+    End If
     
     Debug.Print "Done."
 End Sub
@@ -426,6 +437,11 @@ Private Function CloseFormsReports()
 errorHandler:
     Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
 End Function
+
+
+
+
+
 
 
 
