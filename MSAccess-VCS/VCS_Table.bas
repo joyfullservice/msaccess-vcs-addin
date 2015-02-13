@@ -195,8 +195,8 @@ Private Function strType(i As Integer) As String
         strType = "LONGBINARY"
     Case dbBinary
         strType = "BINARY"
-    'Case dbBit missing enum
-    '    strType = "BIT"
+    Case dbBoolean
+        strType = "BIT"
     Case dbAutoIncrField
         strType = "COUNTER"
     Case dbCurrency
