@@ -15,6 +15,7 @@ Public Function ImportReferences(obj_path As String) As Boolean
     Dim Major As Long
     Dim Minor As Long
     Dim fileName As String
+    Dim refName As String
     fileName = Dir(obj_path & "references.csv")
     If Len(fileName) = 0 Then
         ImportReferences = False
@@ -26,10 +27,15 @@ On Error GoTo failed_guid
     Do Until InFile.AtEndOfStream
         line = InFile.ReadLine
         item = Split(line, ",")
-        GUID = Trim(item(0))
-        Major = CLng(item(1))
-        Minor = CLng(item(2))
-        Application.References.AddFromGuid GUID, Major, Minor
+        If UBound(item) = 2 Then 'a ref with a guid
+          GUID = Trim(item(0))
+          Major = CLng(item(1))
+          Minor = CLng(item(2))
+          Application.References.AddFromGuid GUID, Major, Minor
+        Else
+          refName = Trim(item(0))
+          Application.References.AddFromFile refName
+        End If
 go_on:
     Loop
 On Error GoTo 0
@@ -57,9 +63,15 @@ Public Sub ExportReferences(obj_path As String)
     Set FSO = CreateObject("Scripting.FileSystemObject")
     Set OutFile = FSO.CreateTextFile(obj_path & "references.csv", True)
     For Each ref In Application.References
-        line = ref.GUID & "," & CStr(ref.Major) & "," & CStr(ref.Minor)
-        OutFile.WriteLine line
+        If ref.GUID > "" Then ' references of types mdb,accdb,mde etc don't have a GUID
+          line = ref.GUID & "," & CStr(ref.Major) & "," & CStr(ref.Minor)
+          OutFile.WriteLine line
+        Else
+          line = ref.FullPath
+          OutFile.WriteLine line
+        End If
     Next
     OutFile.Close
 End Sub
+
 
