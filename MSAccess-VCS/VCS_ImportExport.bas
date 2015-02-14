@@ -4,8 +4,9 @@ Option Compare Database
 Option Explicit
 ' List of lookup tables that are part of the program rather than the
 ' data, to be exported with source code
+' Set to "*" to export the contents of all tables
 'Only used in ExportAllSource
-Private Const INCLUDE_TABLES = "*"
+Private Const INCLUDE_TABLES = ""
 ' This is used in ImportAllSource
 Private Const DebugOutput = False
 'this is used in ExportAllSource
