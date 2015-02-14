@@ -195,8 +195,8 @@ Private Function strType(i As Integer) As String
         strType = "LONGBINARY"
     Case dbBinary
         strType = "BINARY"
-    'Case dbBit missing enum
-    '    strType = "BIT"
+    Case dbBoolean
+        strType = "BIT"
     Case dbAutoIncrField
         strType = "COUNTER"
     Case dbCurrency
@@ -323,7 +323,7 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
     End If
     Set rs = CurrentDb.OpenRecordset(TableExportSql(tbl_name))
     If rs.RecordCount = 0 Then
-        Debug.Print "Error: Table " & tbl_name & "  empty"
+        'why is this an error? Debug.Print "Error: Table " & tbl_name & "  empty"
         rs.Close
         Exit Sub
     End If
