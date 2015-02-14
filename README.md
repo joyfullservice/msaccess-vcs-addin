@@ -34,10 +34,11 @@ Installing the Integration Scripts
 
 1. Load `VCS_Loader.bas` into a new module in your database with that exact name.
  1. Go to the VBA editor (CTRL-G) and select "File" > "Import File..."
+    (or you can just drag and drop the file from windows explorer into the vba editor module list).
  2. Select the `VCS_Loader.bas` file.
  3. Save the file (CTRL-S).
 2. Type "`loadVCS`" into the immediate window followed by the directory where the other VCS files are located. If you don't specify a directory then it is assumed that the VCS code is contained in a folder called 'MSAccess-VCS', in the database directory.
-e.g. `loadVCS "C:\Users\MyUserAccount\Documents\Access-Proj\VCS-Code\"`
+e.g. `loadVCS "C:\Users\MyUserAccount\Documents\Access-Proj\MSAccess-VCS\"` - the trailing slash is required
 or `loadVCS`
 3. Edit your `VCS_ImportExport` and change the constant `INCLUDE_TABLES` to list any lookup tables that function more as part of your application code than as client data. (For example, "Countries", "Colors", and things like that.)
 4. Make sure there is a DAO reference - In the VBA editor, menu "Tools" > "References", select "Microsoft DAO 3.6 Object Library". Without this the "Database" references will cause compilation to fail with the message "Compile error: User-defined type not defined"
@@ -80,3 +81,14 @@ Caveats
 -------
 * If you make changes to or add a new module, be sure to save it in the VB Editor window or else it will not be exported.
 * If you make any changes to the script used in this process, the `VCS_` modules, they will not be automatically imported when any developer runs the `ImportProject` method. The code skips these files because it causes a conflict when trying to update a module that is actively being executed.
+
+Supplied databases
+------------------
+In the `demo\` folder there's a blank database that you can use with to provide with your source-controlled files, or to test the import; and a demo database with a sample of all the things that this project can import/export for trying the project out and testing any code changes made to the project.
+
+Contributing
+============
+
+Pull requests, issue reports etc welcomed.
+
+https://github.com/timabell/msaccess-vcs-integration seems to currently be the most actively maintained branch, and Tim Abell will generally accept pull requests to keep the project alive, though ability to actuall test and review them will be variable so please try and keep the quality as good as you can. Thanks!
