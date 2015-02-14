@@ -1,0 +1,9 @@
+﻿id	color
+0	black
+1	blue
+2	green
+3	cyan
+4	red
+5	magenta
+6	yellow
+7	white
