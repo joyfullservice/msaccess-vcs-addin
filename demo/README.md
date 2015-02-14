@@ -1,6 +1,18 @@
-demo.accdb
-==========
+demo\
+=====
 
+Databases supplied for convenience
 
-Use this Microsoft Access 2010 database to test `AppCodeImportExport.bas`. 
-You need to actually import that module into this database to try it.
+`demo.accdb`
+
+Use this for:
+
+* trying out this project
+* for testing updates to this project
+
+`blank.accdb`
+
+Use this for:
+
+* testing importing
+* a base for your own projects, to supply with source controlled files to other people
