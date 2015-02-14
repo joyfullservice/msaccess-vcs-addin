@@ -437,19 +437,3 @@ Private Function CloseFormsReports()
 errorHandler:
     Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
 End Function
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
