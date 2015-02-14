@@ -106,4 +106,4 @@ Contributing
 
 Pull requests, issue reports etc welcomed.
 
-https://github.com/timabell/msaccess-vcs-integration seems to currently be the most actively maintained branch, and Tim Abell will generally accept pull requests to keep the project alive, though ability to actuall test and review them will be variable so please try and keep the quality as good as you can. Thanks!
+https://github.com/timabell/msaccess-vcs-integration seems to currently be the most actively maintained branch, and Tim Abell will generally accept pull requests to keep the project alive, though ability to actually test and review them will be variable so please try and keep the quality as good as you can. Thanks!
