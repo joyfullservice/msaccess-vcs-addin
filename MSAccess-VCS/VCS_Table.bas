@@ -38,7 +38,16 @@ Public Sub ExportLinkedTable(tbl_name As String, obj_path As String)
     
     OutFile.Write CurrentDb.TableDefs(tbl_name).name
     OutFile.Write vbCrLf
-    OutFile.Write CurrentDb.TableDefs(tbl_name).Connect
+    
+    If InStr(1, CurrentDb.TableDefs(tbl_name).connect, "DATABASE=" & CurrentProject.Path) Then
+        'change to relatave path
+        Dim connect() As String
+        connect = Split(CurrentDb.TableDefs(tbl_name).connect, CurrentProject.Path)
+        OutFile.Write connect(0) & "." & connect(1)
+    Else
+        OutFile.Write CurrentDb.TableDefs(tbl_name).connect
+    End If
+    
     OutFile.Write vbCrLf
     OutFile.Write CurrentDb.TableDefs(tbl_name).SourceTableName
     OutFile.Write vbCrLf
@@ -405,7 +414,14 @@ err_notable_fin:
     
     Dim td As TableDef
     Set td = Db.CreateTableDef(InFile.ReadLine())
-    td.Connect = InFile.ReadLine()
+    
+    Dim connect As String
+    connect = InFile.ReadLine()
+    If InStr(1, connect, "DATABASE=.\") Then 'replace relative path with literal path
+        connect = Replace(connect, "DATABASE=.\", "DATABASE=" & CurrentProject.Path & "\")
+    End If
+    td.connect = connect
+    
     td.SourceTableName = InFile.ReadLine()
     Db.TableDefs.Append td
     
