@@ -43,5 +43,12 @@ End Sub
 
 Function DirExists(strPath As String) As Boolean
     On Error Resume Next
+    DirExists = False
     DirExists = ((GetAttr(strPath) And vbDirectory) = vbDirectory)
+End Function
+
+Function FileExists(strPath As String) As Boolean
+    On Error Resume Next
+    FileExists = False
+    FileExists = ((GetAttr(strPath) And vbDirectory) <> vbDirectory)
 End Function

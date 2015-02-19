@@ -29,7 +29,9 @@ End Sub
 ' Import a database object with optional UTF-8-to-UCS2 conversion.
 Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
     Optional Ucs2Convert As Boolean = False)
-
+    
+    If Not VCS_Dir.FileExists(file_path) Then Exit Sub
+    
     If Ucs2Convert Then
         Dim tempFileName As String: tempFileName = VCS_File.TempFile()
         VCS_File.ConvertUtf8Ucs2 file_path, tempFileName
@@ -163,6 +165,7 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
 
 
 End Sub
+
 
 
 
