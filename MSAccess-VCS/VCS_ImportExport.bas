@@ -20,7 +20,7 @@ Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 
 'returns true if named module is NOT part of the VCS code
 Private Function IsNotVCS(name As String) As Boolean
-If name <> "VCS_ImportExport" And name <> "VCS_IE_Functions" And name <> "VCS_File" And name <> "VCS_Dir" And name <> "VCS_String" And name <> "VCS_Loader" And name <> "VCS_Table" And name <> "VCS_Reference" And name <> "VCS_DataMacro" Then
+If name <> "VCS_ImportExport" And name <> "VCS_IE_Functions" And name <> "VCS_File" And name <> "VCS_Dir" And name <> "VCS_String" And name <> "VCS_Loader" And name <> "VCS_Table" And name <> "VCS_Reference" And name <> "VCS_DataMacro" And name <> "VCS_Report" Then
     IsNotVCS = True
 Else
     IsNotVCS = False
@@ -111,6 +111,11 @@ Public Sub ExportAllSource()
                     ucs2 = VCS_File.UsingUcs2
                 End If
                 VCS_IE_Functions.ExportObject obj_type_num, doc.name, obj_path & doc.name & ".bas", ucs2
+                
+                If obj_type_label = "reports" Then
+                    VCS_Report.ExportPrintVars doc.name, obj_path & doc.name & ".pv"
+                End If
+                
                 obj_count = obj_count + 1
             End If
         Next
@@ -147,7 +152,7 @@ Public Sub ExportAllSource()
         ' this is not a temporary table
         If Left$(td.name, 4) <> "MSys" And _
         Left(td.name, 1) <> "~" Then
-            If Len(td.Connect) = 0 Then ' this is not an external table
+            If Len(td.connect) = 0 Then ' this is not an external table
                 VCS_Table.ExportTableDef Db, td, td.name, obj_path
                 If INCLUDE_TABLES = "*" Then
                     DoEvents
@@ -330,6 +335,17 @@ Public Sub ImportAllSource()
         
         End If
     Next
+    
+    'import Print Variables
+    obj_path = source_path & "reports\"
+    fileName = Dir(obj_path & "*.pv")
+    Do Until Len(fileName) = 0
+        obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
+        VCS_Report.ImportPrintVars obj_name, obj_path & fileName
+        fileName = Dir()
+    Loop
+    
+    
     DoEvents
     Debug.Print "Done."
 End Sub
@@ -438,3 +454,6 @@ Private Function CloseFormsReports()
 errorHandler:
     Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
 End Function
+
+
+

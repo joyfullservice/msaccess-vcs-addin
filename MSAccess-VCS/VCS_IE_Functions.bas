@@ -166,9 +166,3 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
 
 End Sub
 
-
-
-
-
-
-
