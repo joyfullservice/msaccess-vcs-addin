@@ -14,7 +14,8 @@ Included in the export/import:
 * Macros
 * Modules
 * Table Data
-* Table Definitions (local tables only)
+* Table Definitions
+* Table Data Macros
 
 Not included in the export/import:
 
