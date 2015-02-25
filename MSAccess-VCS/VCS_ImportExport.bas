@@ -293,6 +293,27 @@ Public Sub ImportAllSource()
         Loop
         Debug.Print "[" & obj_count & "]"
     End If
+    
+    'load Data Macros - not DRY!
+    obj_path = source_path & "tbldef\"
+    fileName = Dir(obj_path & "*.xml")
+    If Len(fileName) > 0 Then
+        Debug.Print VCS_String.PadRight("Importing Data Macros...", 24);
+        obj_count = 0
+        Do Until Len(fileName) = 0
+            DoEvents
+            obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
+            'VCS_Table.ImportTableData CStr(obj_name), obj_path
+            VCS_DataMacro.ImportDataMacros obj_name, obj_path
+            obj_count = obj_count + 1
+            fileName = Dir()
+        Loop
+        Debug.Print "[" & obj_count & "]"
+    End If
+    
+
+        'import Data Macros
+    
 
     For Each obj_type In Split( _
         "forms|" & acForm & "," & _
@@ -454,6 +475,7 @@ Private Function CloseFormsReports()
 errorHandler:
     Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
 End Function
+
 
 
 

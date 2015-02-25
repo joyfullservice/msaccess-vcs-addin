@@ -541,8 +541,6 @@ Public Sub ImportTableDef(tblName As String, directory As String)
     InFile.Close
     If Len(strMsg) > 0 Then MsgBox strMsg, vbOKOnly, "Correct manually"
     
-    'import Data Macros
-    VCS_DataMacro.ImportDataMacros tblName, directory
     
 End Sub
 
