@@ -36,6 +36,8 @@ Private Type type_DEVMODE
  lngDFr As Long
 End Type
 
+Const ForReading = 1, ForWriting = 2, ForAppending = 8
+Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 
 
 
