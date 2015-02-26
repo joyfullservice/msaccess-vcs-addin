@@ -91,7 +91,7 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
     rxLine.Pattern = srchPattern
     Dim fileName As String
     fileName = Dir(Path & "*." & Ext)
-    
+    Dim isReport As Boolean: isReport = False
     Do Until Len(fileName) = 0
         DoEvents
         Dim obj_name As String
@@ -148,6 +148,12 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
                     txt = InFile.ReadLine
                     If InStr(txt, "End") Then Exit Do
                 Loop
+            ElseIf InStr(1, txt, "Begin Report") = 1 Then
+                isReport = True
+                OutFile.WriteLine txt
+            ElseIf isReport = True And (InStr(1, txt, "    Right =") Or InStr(1, txt, "    Bottom =")) Then
+                'skip line
+                isReport = False
             Else
                 OutFile.WriteLine txt
             End If
@@ -165,4 +171,5 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
 
 
 End Sub
+
 
