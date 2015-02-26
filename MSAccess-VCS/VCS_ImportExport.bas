@@ -219,6 +219,7 @@ Public Sub ImportAllSource()
 
     obj_path = source_path & "queries\"
     fileName = Dir(obj_path & "*.bas")
+    Dim tempFilePath As String: tempFilePath = VCS_File.TempFile()
     If Len(fileName) > 0 Then
         Debug.Print VCS_String.PadRight("Importing queries...", 24);
         obj_count = 0
@@ -226,11 +227,15 @@ Public Sub ImportAllSource()
             DoEvents
             obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
             VCS_IE_Functions.ImportObject acQuery, obj_name, obj_path & fileName, VCS_File.UsingUcs2
+            VCS_IE_Functions.ExportObject acQuery, obj_name, tempFilePath, VCS_File.UsingUcs2
+            VCS_IE_Functions.ImportObject acQuery, obj_name, tempFilePath, VCS_File.UsingUcs2
             obj_count = obj_count + 1
             fileName = Dir()
         Loop
         Debug.Print "[" & obj_count & "]"
     End If
+    
+    VCS_Dir.DelIfExist tempFilePath
 
     ' restore table definitions
     obj_path = source_path & "tbldef\"
@@ -475,6 +480,7 @@ Private Function CloseFormsReports()
 errorHandler:
     Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
 End Function
+
 
 
 
