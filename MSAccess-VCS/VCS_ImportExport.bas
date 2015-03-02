@@ -71,21 +71,7 @@ Public Sub ExportAllSource()
     VCS_IE_Functions.SanitizeTextFiles obj_path, "bas"
     Debug.Print "[" & obj_count & "]"
 
-    obj_path = source_path & "tables\"
-    VCS_Dir.ClearTextFilesFromDir obj_path, "txt"
-    If (Len(Replace(INCLUDE_TABLES, " ", "")) > 0) And INCLUDE_TABLES <> "*" Then
-        Debug.Print VCS_String.PadRight("Exporting tables...", 24);
-        obj_count = 0
-        For Each tblName In Split(INCLUDE_TABLES, ",")
-            DoEvents
-            VCS_Table.ExportTableData CStr(tblName), obj_path
-            If Len(Dir(obj_path & tblName & ".txt")) > 0 Then
-                obj_count = obj_count + 1
-            End If
-        Next
-        Debug.Print "[" & obj_count & "]"
-    End If
-
+    
     For Each obj_type In Split( _
         "forms|Forms|" & acForm & "," & _
         "reports|Reports|" & acReport & "," & _
@@ -128,6 +114,10 @@ Public Sub ExportAllSource()
     
     VCS_Reference.ExportReferences source_path
 
+'-------------------------table export------------------------
+    obj_path = source_path & "tables\"
+    VCS_Dir.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
+    VCS_Dir.ClearTextFilesFromDir obj_path, "txt"
     
     Dim td As TableDef
     Dim tds As TableDefs
@@ -145,6 +135,7 @@ Public Sub ExportAllSource()
     ' - We don't want to determin file extentions here - or obj_path either!
     VCS_Dir.ClearTextFilesFromDir obj_path, "sql"
     VCS_Dir.ClearTextFilesFromDir obj_path, "xml"
+    Dim IncludeTablesCol As Collection: Set IncludeTablesCol = StrSetToCol(INCLUDE_TABLES, ",")
     Debug.Print VCS_String.PadRight("Exporting " & obj_type_label & "...", 24);
     
     For Each td In tds
@@ -160,6 +151,16 @@ Public Sub ExportAllSource()
                     If Len(Dir(source_path & "tables\" & td.name & ".txt")) > 0 Then
                         obj_data_count = obj_data_count + 1
                     End If
+                ElseIf (Len(Replace(INCLUDE_TABLES, " ", "")) > 0) And INCLUDE_TABLES <> "*" Then
+                    DoEvents
+                    On Error GoTo Err_TableNotFound
+                    If IncludeTablesCol(td.name) = td.name Then
+                        VCS_Table.ExportTableData CStr(td.name), source_path & "tables\"
+                        obj_data_count = obj_data_count + 1
+                    End If
+Err_TableNotFound:
+                    
+                'else don't export table data
                 End If
             Else
                 VCS_Table.ExportLinkedTable td.name, obj_path
@@ -171,7 +172,7 @@ Public Sub ExportAllSource()
     Next
     Debug.Print "[" & obj_count & "]"
     If obj_data_count > 0 Then
-      Debug.Print VCS_String.PadRight("Exported tables...", 24) & "[" & obj_data_count & "]"
+      Debug.Print VCS_String.PadRight("Exported data...", 24) & "[" & obj_data_count & "]"
     End If
     
     Debug.Print "Done."
@@ -482,6 +483,18 @@ errorHandler:
 End Function
 
 
+'errno 457 - duplicate key (& item)
+Public Function StrSetToCol(strSet As String, delimiter As String) As Collection 'throws errors
+Dim strSetArray() As String
+Dim col As New Collection
+strSetArray = Split(strSet, delimiter)
+Dim item As Variant
+For Each item In strSetArray
+    col.Add item, item
+Next
 
+Set StrSetToCol = col
+
+End Function
 
 
