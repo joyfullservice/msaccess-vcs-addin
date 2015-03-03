@@ -124,9 +124,9 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, d
                 End If
                 If Len(fieldAttributeSql) > 0 Then fieldAttributeSql = " CONSTRAINT " & strName(idx.name) & fieldAttributeSql
             End If
+            sql = sql & fieldAttributeSql
         Next
-        sql = sql + fieldAttributeSql
-        sql = sql + "," & vbCrLf
+        sql = sql & "," & vbCrLf
     Next
     sql = Left(sql, Len(sql) - 3) ' strip off last comma and crlf
     
