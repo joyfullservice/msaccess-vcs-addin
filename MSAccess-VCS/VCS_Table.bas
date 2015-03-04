@@ -135,10 +135,11 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, d
         If idx.Fields.Count > 1 Then
             If Len(constraintSql) = 0 Then constraintSql = constraintSql & " CONSTRAINT "
             If idx.Primary Then constraintSql = constraintSql & formatConstraint("PRIMARY KEY", idx)
-            If idx.Foreign Then constraintSql = formatConstraint("FOREIGN KEY", idx)
-            If Len(constraintSql) > 0 Then
-                sql = sql & "," & vbCrLf & "  " & constraintSql
-                sql = sql & formatReferences(Db, idx.Fields, tableName)
+            If Not idx.Foreign Then
+                If Len(constraintSql) > 0 Then
+                    sql = sql & "," & vbCrLf & "  " & constraintSql
+                    sql = sql & formatReferences(Db, idx.Fields, tableName)
+                End If
             End If
         End If
     Next
