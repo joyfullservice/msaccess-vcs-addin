@@ -20,7 +20,7 @@ Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 
 'returns true if named module is NOT part of the VCS code
 Private Function IsNotVCS(name As String) As Boolean
-If name <> "VCS_ImportExport" And name <> "VCS_IE_Functions" And name <> "VCS_File" And name <> "VCS_Dir" And name <> "VCS_String" And name <> "VCS_Loader" And name <> "VCS_Table" And name <> "VCS_Reference" And name <> "VCS_DataMacro" And name <> "VCS_Report" Then
+If name <> "VCS_ImportExport" And name <> "VCS_IE_Functions" And name <> "VCS_File" And name <> "VCS_Dir" And name <> "VCS_String" And name <> "VCS_Loader" And name <> "VCS_Table" And name <> "VCS_Reference" And name <> "VCS_DataMacro" And name <> "VCS_Report" And name <> "VCS_Relation" Then
     IsNotVCS = True
 Else
     IsNotVCS = False
@@ -174,6 +174,24 @@ Err_TableNotFound:
     If obj_data_count > 0 Then
       Debug.Print VCS_String.PadRight("Exported data...", 24) & "[" & obj_data_count & "]"
     End If
+    
+    
+    Debug.Print VCS_String.PadRight("Exporting Relations...", 24);
+    obj_count = 0
+    obj_path = source_path & "relations\"
+    VCS_Dir.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
+
+    VCS_Dir.ClearTextFilesFromDir obj_path, "txt"
+
+    Dim aRelation As Relation
+    
+    For Each aRelation In CurrentDb.Relations
+        If Not (aRelation.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or aRelation.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+            VCS_Relation.ExportRelation aRelation, obj_path & aRelation.name & ".txt"
+            obj_count = obj_count + 1
+        End If
+    Next
+    Debug.Print "[" & obj_count & "]"
     
     Debug.Print "Done."
 End Sub
@@ -364,15 +382,32 @@ Public Sub ImportAllSource()
     Next
     
     'import Print Variables
+    Debug.Print VCS_String.PadRight("Importing Print Vars...", 24);
+    obj_count = 0
+    
     obj_path = source_path & "reports\"
     fileName = Dir(obj_path & "*.pv")
     Do Until Len(fileName) = 0
+        DoEvents
         obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
         VCS_Report.ImportPrintVars obj_name, obj_path & fileName
+        obj_count = obj_count + 1
         fileName = Dir()
     Loop
+    Debug.Print "[" & obj_count & "]"
     
-    
+    'import relations
+    Debug.Print VCS_String.PadRight("Importing Relations...", 24);
+    obj_count = 0
+    obj_path = source_path & "relations\"
+    fileName = Dir(obj_path & "*.txt")
+    Do Until Len(fileName) = 0
+        DoEvents
+        VCS_Relation.ImportRelation obj_path & fileName
+        obj_count = obj_count + 1
+        fileName = Dir()
+    Loop
+    Debug.Print "[" & obj_count & "]"
     DoEvents
     Debug.Print "Done."
 End Sub
@@ -386,6 +421,7 @@ On Error GoTo errorHandler
 
     If MsgBox("This action will delete all existing: " & vbCrLf & _
               vbCrLf & _
+              Chr(149) & " Tables" & vbCrLf & _
               Chr(149) & " Forms" & vbCrLf & _
               Chr(149) & " Macros" & vbCrLf & _
               Chr(149) & " Modules" & vbCrLf & _
@@ -404,6 +440,13 @@ On Error GoTo errorHandler
     Debug.Print
     Debug.Print "Deleting Existing Objects"
     Debug.Print
+    
+    Dim rel As Relation
+    For Each rel In CurrentDb.Relations
+        If Not (rel.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or rel.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+            CurrentDb.Relations.Delete (rel.name)
+        End If
+    Next
 
     Dim dbObject As Object
     For Each dbObject In Db.QueryDefs
@@ -411,6 +454,14 @@ On Error GoTo errorHandler
         If Left(dbObject.name, 1) <> "~" Then
 '            Debug.Print dbObject.Name
             Db.QueryDefs.Delete dbObject.name
+        End If
+    Next
+    
+    Dim td As TableDef
+    For Each td In CurrentDb.TableDefs
+        If Left$(td.name, 4) <> "MSys" And _
+            Left(td.name, 1) <> "~" Then
+            CurrentDb.TableDefs.Delete (td.name)
         End If
     Next
 
@@ -496,5 +547,7 @@ Next
 Set StrSetToCol = col
 
 End Function
+
+
 
 
