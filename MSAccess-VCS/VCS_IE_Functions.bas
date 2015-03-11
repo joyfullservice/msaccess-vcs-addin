@@ -68,7 +68,7 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
     If (AggressiveSanitize = True) Then
       '  Add and group aggressive matches
       srchPattern = "(?:" & srchPattern
-      srchPattern = srchPattern & "|GUID|NameMap|dbLongBinary ""DOL"""
+      srchPattern = srchPattern & "|GUID|""GUID""|NameMap|dbLongBinary ""DOL"""
       srchPattern = srchPattern & ")"
     End If
     '  Ensure that this is the begining of a block.
