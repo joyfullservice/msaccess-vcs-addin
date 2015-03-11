@@ -1,5 +1,22 @@
 Change log
 ==========
+Version 1.0.0 - 11 Mar 2015
+----------------------------
+jwbrookes:
+* Added support for Table Data Macros
+* Added support for Linked Tables (supports relative paths for linked files)
+* Added support for Print Variables in Reports (Page size and orientation) 
+* Added support for Relation for all types of table
+* LoadVCS warnings removed when no object delete is required
+* Removed elements from Report export that change constantly but don't affect import
+* Fixed query import bug (complex queries being rearranged on import)
+* Fixed missing constants in table export
+
+prmills:
+* Added support for bit fields in table Import/Export
+* Added support for References without GUIDs
+* Export all table data with `INCLUDE_TABLES = "*"`
+
 Version 0.12.0 - 28 Jan 2015
 ----------------------------
 jwbrookes:
