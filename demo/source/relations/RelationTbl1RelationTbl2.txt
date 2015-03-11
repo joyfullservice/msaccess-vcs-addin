@@ -1,0 +1,8 @@
+4352
+RelationTbl1RelationTbl2
+RelationTbl1
+RelationTbl2
+Field = Begin
+PK
+F1
+End
