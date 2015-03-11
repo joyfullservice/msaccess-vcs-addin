@@ -1,1 +1,4 @@
 *.komodoproject
+
+*.accdb
+*.laccdb

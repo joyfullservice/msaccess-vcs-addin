@@ -153,7 +153,9 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
                 OutFile.WriteLine txt
             ElseIf isReport = True And (InStr(1, txt, "    Right =") Or InStr(1, txt, "    Bottom =")) Then
                 'skip line
-                isReport = False
+                If InStr(1, txt, "    Bottom =") Then
+                    isReport = False
+                End If
             Else
                 OutFile.WriteLine txt
             End If
@@ -171,5 +173,6 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
 
 
 End Sub
+
 
 
