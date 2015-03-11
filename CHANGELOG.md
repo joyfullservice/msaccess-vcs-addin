@@ -10,7 +10,7 @@ jwbrookes:
 * LoadVCS warnings removed when no object delete is required
 * Removed elements from Report export that change constantly but don't affect import
 * Fixed query import bug (complex queries being rearranged on import)
-* Fixed missing constants in table export
+* Fixed missing constraints in table export
 
 prmills:
 * Added support for bit fields in table Import/Export
