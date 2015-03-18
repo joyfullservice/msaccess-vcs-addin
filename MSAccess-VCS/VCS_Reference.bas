@@ -49,7 +49,7 @@ failed_guid:
         'The reference is already present in the access project - so we can ignore the error
         Resume Next
     Else
-        MsgBox "Failed to register " & GUID
+        MsgBox "Failed to register " & GUID, ,"Error: " & Err.Number
         'Do we really want to carry on the import with missing references??? - Surely this is fatal
         Resume go_on
     End If
