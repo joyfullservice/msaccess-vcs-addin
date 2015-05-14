@@ -1,4 +1,4 @@
-Attribute VB_Name = "VCS_File"
+Attribute VB_Name = "modFileAccess"
 Option Compare Database
 Option Private Module
 Option Explicit

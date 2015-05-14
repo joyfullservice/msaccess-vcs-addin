@@ -1,4 +1,4 @@
-Attribute VB_Name = "VCS_Report"
+Attribute VB_Name = "modReport"
 Option Compare Database
 Option Private Module
 Option Explicit

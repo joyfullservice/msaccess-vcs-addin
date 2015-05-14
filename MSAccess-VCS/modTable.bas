@@ -1,4 +1,4 @@
-Attribute VB_Name = "VCS_Table"
+Attribute VB_Name = "modTable"
 Option Compare Database
 Option Private Module
 Option Explicit
@@ -23,13 +23,13 @@ Public Sub ExportLinkedTable(tbl_name As String, obj_path As String)
     
     Dim tempFilePath As String
     
-    tempFilePath = VCS_File.TempFile()
+    tempFilePath = modFileAccess.TempFile()
     
     Dim FSO, OutFile
 
     Set FSO = CreateObject("Scripting.FileSystemObject")
     ' open file for writing with Create=True, Unicode=True (USC-2 Little Endian format)
-    VCS_Dir.MkDirIfNotExist obj_path
+    modFunctions.MkDirIfNotExist obj_path
     
     Set OutFile = FSO.CreateTextFile(tempFilePath, True, True)
     
@@ -69,7 +69,7 @@ Err_LinkedTable_Fin:
     On Error Resume Next
     OutFile.Close
     'save files as .odbc
-    VCS_File.ConvertUcs2Utf8 tempFilePath, obj_path & tbl_name & ".LNKD"
+    modFileAccess.ConvertUcs2Utf8 tempFilePath, obj_path & tbl_name & ".LNKD"
     
     Exit Sub
     
@@ -145,7 +145,7 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, d
     OutFile.Close
     
     'exort Data Macros
-    VCS_DataMacro.ExportDataMacros tableName, directory
+    modMacro.ExportDataMacros tableName, directory
     
 End Sub
 
@@ -302,24 +302,24 @@ Private Function TableExportSql(tbl_name As String)
 
     Set rs = CurrentDb.OpenRecordset(tbl_name)
     
-    sb = VCS_String.Sb_Init()
-    VCS_String.Sb_Append sb, "SELECT "
+    sb = modFunctions.Sb_Init()
+    modFunctions.Sb_Append sb, "SELECT "
     Count = 0
     For Each fieldObj In rs.Fields
-        If Count > 0 Then VCS_String.Sb_Append sb, ", "
-        VCS_String.Sb_Append sb, "[" & fieldObj.name & "]"
+        If Count > 0 Then modFunctions.Sb_Append sb, ", "
+        modFunctions.Sb_Append sb, "[" & fieldObj.name & "]"
         Count = Count + 1
     Next
-    VCS_String.Sb_Append sb, " FROM [" & tbl_name & "] ORDER BY "
+    modFunctions.Sb_Append sb, " FROM [" & tbl_name & "] ORDER BY "
     Count = 0
     For Each fieldObj In rs.Fields
         DoEvents
-        If Count > 0 Then VCS_String.Sb_Append sb, ", "
-        VCS_String.Sb_Append sb, "[" & fieldObj.name & "]"
+        If Count > 0 Then modFunctions.Sb_Append sb, ", "
+        modFunctions.Sb_Append sb, "[" & fieldObj.name & "]"
         Count = Count + 1
     Next
 
-    TableExportSql = VCS_String.Sb_Get(sb)
+    TableExportSql = modFunctions.Sb_Get(sb)
 
 End Function
 
@@ -344,8 +344,8 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
 
     Set FSO = CreateObject("Scripting.FileSystemObject")
     ' open file for writing with Create=True, Unicode=True (USC-2 Little Endian format)
-    VCS_Dir.MkDirIfNotExist obj_path
-    Dim tempFileName As String: tempFileName = VCS_File.TempFile()
+    modFunctions.MkDirIfNotExist obj_path
+    Dim tempFileName As String: tempFileName = modFileAccess.TempFile()
 
     Set OutFile = FSO.CreateTextFile(tempFileName, True, True)
 
@@ -382,7 +382,7 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
     rs.Close
     OutFile.Close
 
-    VCS_File.ConvertUcs2Utf8 tempFileName, obj_path & tbl_name & ".txt"
+    modFileAccess.ConvertUcs2Utf8 tempFileName, obj_path & tbl_name & ".txt"
     FSO.DeleteFile tempFileName
 End Sub
 
@@ -478,11 +478,11 @@ Public Sub ImportTableDef(tblName As String, directory As String)
     Dim n As Integer
     Dim i As Integer
     Dim j As Integer
-    Dim tempFileName As String: tempFileName = VCS_File.TempFile()
+    Dim tempFileName As String: tempFileName = modFileAccess.TempFile()
 
     n = -1
     Set FSO = CreateObject("Scripting.FileSystemObject")
-    VCS_File.ConvertUtf8Ucs2 filePath, tempFileName
+    modFileAccess.ConvertUtf8Ucs2 filePath, tempFileName
     ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
     Set InFile = FSO.OpenTextFile(tempFileName, ForReading, False, TristateTrue)
     Set Db = CurrentDb
@@ -504,13 +504,13 @@ Public Sub ImportTableDef(tblName As String, directory As String)
         buf = Left(buf, p - 1) & Mid(buf, p + 18)
         p = InStrRev(buf, "REFERENCES", p)
         p1 = InStr(p, buf, "(")
-        K(n).foreignFields = Split(VCS_String.SubString(p1, buf, "(", ")"), ",")
+        K(n).foreignFields = Split(modFunctions.SubString(p1, buf, "(", ")"), ",")
         K(n).foreignTable = Trim(Mid(buf, p + 10, p1 - p - 10))
         p = InStrRev(buf, "CONSTRAINT", p1)
         p1 = InStrRev(buf, "FOREIGN KEY", p1)
         If (p1 > 0) And (p > 0) And (p1 > p) Then
         ' multifield index
-            K(n).refFields = Split(VCS_String.SubString(p1, buf, "(", ")"), ",")
+            K(n).refFields = Split(modFunctions.SubString(p1, buf, "(", ")"), ",")
         ElseIf p1 = 0 Then
         ' single field
         End If
@@ -554,8 +554,8 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
 
     Set FSO = CreateObject("Scripting.FileSystemObject")
     
-    Dim tempFileName As String: tempFileName = VCS_File.TempFile()
-    VCS_File.ConvertUtf8Ucs2 obj_path & tblName & ".txt", tempFileName
+    Dim tempFileName As String: tempFileName = modFileAccess.TempFile()
+    modFileAccess.ConvertUtf8Ucs2 obj_path & tblName & ".txt", tempFileName
     ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
     Set InFile = FSO.OpenTextFile(tempFileName, ForReading, False, TristateTrue)
     Set Db = CurrentDb

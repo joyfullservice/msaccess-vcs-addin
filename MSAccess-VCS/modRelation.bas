@@ -1,4 +1,4 @@
-Attribute VB_Name = "VCS_Relation"
+Attribute VB_Name = "modRelation"
 Option Compare Database
 Option Private Module
 Option Explicit

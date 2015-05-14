@@ -1,4 +1,4 @@
-Attribute VB_Name = "VCS_Reference"
+Attribute VB_Name = "modReference"
 Option Compare Database
 Option Private Module
 Option Explicit

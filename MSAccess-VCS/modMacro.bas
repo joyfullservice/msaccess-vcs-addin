@@ -1,4 +1,4 @@
-Attribute VB_Name = "VCS_DataMacro"
+Attribute VB_Name = "modMacro"
 Option Compare Database
 Option Private Module
 Option Explicit
@@ -10,7 +10,7 @@ Public Sub ExportDataMacros(tableName As String, directory As String)
     Dim MacroConst As Integer
     Dim filePath As String: filePath = directory & tableName & ".xml"
 
-    VCS_IE_Functions.ExportObject MacroConst, tableName, filePath, VCS_File.UsingUcs2
+    modFunctions.ExportObject MacroConst, tableName, filePath, modFileAccess.UsingUcs2
     FormatDataMacro filePath
 
     Exit Sub
@@ -23,7 +23,7 @@ End Sub
 Public Sub ImportDataMacros(tableName As String, directory As String)
     On Error GoTo Err_import:
     Dim filePath As String: filePath = directory & tableName & ".xml"
-    VCS_IE_Functions.ImportObject MacroConst, tableName, filePath, VCS_File.UsingUcs2
+    modFunctions.ImportObject MacroConst, tableName, filePath, modFileAccess.UsingUcs2
 
 Err_import:
     

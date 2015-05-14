@@ -1,4 +1,4 @@
-Attribute VB_Name = "VCS_IE_Functions"
+Attribute VB_Name = "modFunctions"
 Option Compare Database
 Option Private Module
 Option Explicit
@@ -25,11 +25,11 @@ End Enum
 Public Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
     Optional Ucs2Convert As Boolean = False)
 
-    VCS_Dir.MkDirIfNotExist Left(file_path, InStrRev(file_path, "\"))
+    modFunctions.MkDirIfNotExist Left(file_path, InStrRev(file_path, "\"))
     If Ucs2Convert Then
-        Dim tempFileName As String: tempFileName = VCS_File.TempFile()
+        Dim tempFileName As String: tempFileName = modFileAccess.TempFile()
         Application.SaveAsText obj_type_num, obj_name, tempFileName
-        VCS_File.ConvertUcs2Utf8 tempFileName, file_path
+        modFileAccess.ConvertUcs2Utf8 tempFileName, file_path
     Else
         Application.SaveAsText obj_type_num, obj_name, file_path
     End If
@@ -39,11 +39,11 @@ End Sub
 Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
     Optional Ucs2Convert As Boolean = False)
     
-    If Not VCS_Dir.FileExists(file_path) Then Exit Sub
+    If Not modFunctions.FileExists(file_path) Then Exit Sub
     
     If Ucs2Convert Then
-        Dim tempFileName As String: tempFileName = VCS_File.TempFile()
-        VCS_File.ConvertUtf8Ucs2 file_path, tempFileName
+        Dim tempFileName As String: tempFileName = modFileAccess.TempFile()
+        modFileAccess.ConvertUtf8Ucs2 file_path, tempFileName
         Application.LoadFromText obj_type_num, obj_name, tempFileName
         
         Dim FSO As Object
@@ -184,4 +184,127 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
 End Sub
 
 
+
+
+' Path/Directory of the current database file.
+Public Function ProjectPath() As String
+    ProjectPath = CurrentProject.Path
+    If Right(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
+End Function
+
+' Create folder `Path`. Silently do nothing if it already exists.
+Public Sub MkDirIfNotExist(Path As String)
+    On Error GoTo MkDirIfNotexist_noop
+    MkDir Path
+MkDirIfNotexist_noop:
+    On Error GoTo 0
+End Sub
+
+' Delete a file if it exists.
+Public Sub DelIfExist(Path As String)
+    On Error GoTo DelIfNotExist_Noop
+    Kill Path
+DelIfNotExist_Noop:
+    On Error GoTo 0
+End Sub
+
+' Erase all *.`ext` files in `Path`.
+Public Sub ClearTextFilesFromDir(Path As String, Ext As String)
+    Dim FSO As Object
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    If Not FSO.FolderExists(Path) Then Exit Sub
+
+    On Error GoTo ClearTextFilesFromDir_noop
+    If Dir(Path & "*." & Ext) <> "" Then
+        FSO.DeleteFile Path & "*." & Ext
+    End If
+ClearTextFilesFromDir_noop:
+
+    On Error GoTo 0
+End Sub
+
+Function DirExists(strPath As String) As Boolean
+    On Error Resume Next
+    DirExists = False
+    DirExists = ((GetAttr(strPath) And vbDirectory) = vbDirectory)
+End Function
+
+Function FileExists(strPath As String) As Boolean
+    On Error Resume Next
+    FileExists = False
+    FileExists = ((GetAttr(strPath) And vbDirectory) <> vbDirectory)
+End Function
+
+'--------------------
+' String Functions: String Builder,String Padding (right only), Substrings
+'--------------------
+
+' String builder: Init
+Public Function Sb_Init() As String()
+    Dim x(-1 To -1) As String
+    Sb_Init = x
+End Function
+
+' String builder: Clear
+Public Sub Sb_Clear(ByRef sb() As String)
+    ReDim sb(-1 To -1)
+End Sub
+
+' String builder: Append
+Public Sub Sb_Append(ByRef sb() As String, Value As String)
+    If LBound(sb) = -1 Then
+        ReDim sb(0 To 0)
+    Else
+        ReDim Preserve sb(0 To UBound(sb) + 1)
+    End If
+    sb(UBound(sb)) = Value
+End Sub
+
+' String builder: Get value
+Public Function Sb_Get(ByRef sb() As String) As String
+    Sb_Get = Join(sb, "")
+End Function
+
+
+' Pad a string on the right to make it `count` characters long.
+Public Function PadRight(Value As String, Count As Integer)
+    PadRight = Value
+    If Len(Value) < Count Then
+        PadRight = PadRight & Space(Count - Len(Value))
+    End If
+End Function
+
+' returns substring between e.g. "(" and ")", internal brackets ar skippped
+Public Function SubString(p As Integer, s As String, startsWith As String, endsWith As String)
+    Dim start As Integer
+    Dim cursor As Integer
+    Dim p1 As Integer
+    Dim p2 As Integer
+    Dim level As Integer
+    start = InStr(p, s, startsWith)
+    level = 1
+    p1 = InStr(start + 1, s, startsWith)
+    p2 = InStr(start + 1, s, endsWith)
+    While level > 0
+        If p1 > p2 And p2 > 0 Then
+            cursor = p2
+            level = level - 1
+        ElseIf p2 > p1 And p1 > 0 Then
+            cursor = p1
+            level = level + 1
+        ElseIf p2 > 0 And p1 = 0 Then
+            cursor = p2
+            level = level - 1
+        ElseIf p1 > 0 And p1 = 0 Then
+            cursor = p1
+            level = level + 1
+        ElseIf p1 = 0 And p2 = 0 Then
+            SubString = ""
+            Exit Function
+        End If
+        p1 = InStr(cursor + 1, s, startsWith)
+        p2 = InStr(cursor + 1, s, endsWith)
+    Wend
+    SubString = Mid(s, start + 1, cursor - start - 1)
+End Function
 
