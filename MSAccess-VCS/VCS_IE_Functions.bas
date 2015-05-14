@@ -1,14 +1,23 @@
 Attribute VB_Name = "VCS_IE_Functions"
 Option Compare Database
-
+Option Private Module
 Option Explicit
+
 Private Const AggressiveSanitize = True
 Private Const StripPublishOption = True
-Private Const ArchiveMyself = True
 
 ' Constants for Scripting.FileSystemObject API
-Const ForReading = 1, ForWriting = 2, ForAppending = 8
-Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
+Public Enum eOpenType
+    ForReading = 1
+    ForWriting = 2
+    ForAppending = 8
+End Enum
+
+Public Enum eTristate
+    TristateTrue = -1
+    TristateFalse = 0
+    TristateUseDefault = -2
+End Enum
 
 ' Can we export without closing the form?
 

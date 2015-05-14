@@ -1,7 +1,7 @@
 Attribute VB_Name = "VCS_ImportExport"
 Option Compare Database
-
 Option Explicit
+
 ' List of lookup tables that are part of the program rather than the
 ' data, to be exported with source code
 ' Set to "*" to export the contents of all tables
@@ -13,9 +13,6 @@ Private Const DebugOutput = False
 'Causes the VCS_ code to be exported
 Private Const ArchiveMyself = False
 
-' Constants for Scripting.FileSystemObject API
-Const ForReading = 1, ForWriting = 2, ForAppending = 8
-Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 
 
 'returns true if named module is NOT part of the VCS code
@@ -38,6 +35,7 @@ Private Function IsNotVCS(name As String) As Boolean
     End Select
 End Function
 
+
 ' Main entry point for EXPORT. Export all forms, reports, queries,
 ' macros, modules, and lookup tables to `source` folder under the
 ' database's folder.
@@ -55,7 +53,6 @@ Public Sub ExportAllSource()
     Dim obj_count As Integer
     Dim obj_data_count As Integer
     Dim ucs2 As Boolean
-    Dim tblName As Variant
 
     Set Db = CurrentDb
 
@@ -215,12 +212,9 @@ Public Sub ImportAllSource()
     Dim FSO As Object
     Dim source_path As String
     Dim obj_path As String
-    Dim qry As Object ' DAO.QueryDef
-    Dim doc As Object ' DAO.Document
     Dim obj_type As Variant
     Dim obj_type_split() As String
     Dim obj_type_label As String
-    Dim obj_type_name As String
     Dim obj_type_num As Integer
     Dim obj_count As Integer
     Dim fileName As String
@@ -546,16 +540,14 @@ End Function
 
 'errno 457 - duplicate key (& item)
 Public Function StrSetToCol(strSet As String, delimiter As String) As Collection 'throws errors
-Dim strSetArray() As String
-Dim col As New Collection
-strSetArray = Split(strSet, delimiter)
-Dim item As Variant
-For Each item In strSetArray
-    col.Add item, item
-Next
-
-Set StrSetToCol = col
-
+    Dim strSetArray() As String
+    Dim col As New Collection
+    strSetArray = Split(strSet, delimiter)
+    Dim item As Variant
+    For Each item In strSetArray
+        col.Add item, item
+    Next
+    Set StrSetToCol = col
 End Function
 
 

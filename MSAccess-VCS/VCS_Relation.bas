@@ -1,6 +1,6 @@
 Attribute VB_Name = "VCS_Relation"
 Option Compare Database
-
+Option Private Module
 Option Explicit
 
 Public Sub ExportRelation(rel As Relation, filePath As String)

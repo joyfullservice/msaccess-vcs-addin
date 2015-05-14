@@ -1,6 +1,6 @@
 Attribute VB_Name = "VCS_File"
 Option Compare Database
-
+Option Private Module
 Option Explicit
 
 #If Mac Then
@@ -194,9 +194,8 @@ End Sub
 ' Determine if this database imports/exports code as UCS-2-LE. (Older file
 ' formats cause exported objects to use a Windows 8-bit character set.)
 Public Function UsingUcs2() As Boolean
-    Dim obj_name As String, i As Integer, obj_type As Variant, fn As Integer, bytes As String
+    Dim obj_name As String, obj_type As Variant, fn As Integer, bytes As String
     Dim obj_type_split() As String, obj_type_name As String, obj_type_num As Integer
-    Dim db As Object ' DAO.Database
 
     If CurrentDb.QueryDefs.Count > 0 Then
         obj_type_num = acQuery

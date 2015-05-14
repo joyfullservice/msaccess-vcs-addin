@@ -1,6 +1,6 @@
 Attribute VB_Name = "VCS_DataMacro"
 Option Compare Database
-
+Option Private Module
 Option Explicit
 
 
@@ -17,8 +17,8 @@ Public Sub ExportDataMacros(tableName As String, directory As String)
 
 Err_export:
     
-    
 End Sub
+
 
 Public Sub ImportDataMacros(tableName As String, directory As String)
     On Error GoTo Err_import:

@@ -1,11 +1,8 @@
 Attribute VB_Name = "VCS_Table"
 Option Compare Database
-
+Option Private Module
 Option Explicit
 
-'this is used in import table def
-Const ForReading = 1, ForWriting = 2, ForAppending = 8
-Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 
 ' Structure to keep track of "on Update" and "on Delete" clauses
 ' Access does not in all cases execute such queries
@@ -91,9 +88,6 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, d
     Dim fieldAttributeSql As String
     Dim idx As Index
     Dim fi As Field
-    Dim i As Integer
-    Dim f As Field
-    Dim rel As Relation
     Dim FSO, OutFile
     Dim ff As Object
     'Debug.Print tableName
@@ -155,6 +149,7 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, d
     
 End Sub
 
+
 Private Function formatReferences(Db As Database, ff As Object, tableName As String)
     Dim rel As Relation
     Dim sql As String
@@ -181,6 +176,7 @@ Private Function formatReferences(Db As Database, ff As Object, tableName As Str
     formatReferences = sql
 End Function
 
+
 Private Function formatConstraint(keyw As String, idx As Index) As String
     Dim sql As String
     Dim fi As Field
@@ -195,9 +191,11 @@ Private Function formatConstraint(keyw As String, idx As Index) As String
     formatConstraint = sql
 End Function
 
+
 Private Function strName(s As String) As String
     strName = "[" & s & "]"
 End Function
+
 
 Private Function strType(i As Integer) As String
     Select Case i
@@ -235,6 +233,8 @@ Private Function strType(i As Integer) As String
         strType = "VARCHAR"
     End Select
 End Function
+
+
 Private Function FieldsIdentical(ff As Object, gg As Object) As Boolean
     Dim f As Field
     If ff.Count <> gg.Count Then
@@ -252,6 +252,7 @@ Private Function FieldsIdentical(ff As Object, gg As Object) As Boolean
     
 End Function
 
+
 Private Function FieldInFields(fi As Field, ff As Fields) As Boolean
     Dim f As Field
     For Each f In ff
@@ -262,6 +263,7 @@ Private Function FieldInFields(fi As Field, ff As Fields) As Boolean
     Next
     FieldInFields = False
 End Function
+
 
 ' Determine if a table or exists.
 ' based on sample code of support.microsoftcom
@@ -291,6 +293,7 @@ Private Function TableExists(TName As String) As Boolean
 
 End Function
 
+
 ' Build SQL to export `tbl_name` sorted by each field from first to last
 Private Function TableExportSql(tbl_name As String)
     Dim rs As Object ' DAO.Recordset
@@ -319,6 +322,7 @@ Private Function TableExportSql(tbl_name As String)
     TableExportSql = VCS_String.Sb_Get(sb)
 
 End Function
+
 
 ' Export the lookup table `tblName` to `source\tables`.
 Public Sub ExportTableData(tbl_name As String, obj_path As String)
@@ -381,6 +385,8 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
     VCS_File.ConvertUcs2Utf8 tempFileName, obj_path & tbl_name & ".txt"
     FSO.DeleteFile tempFileName
 End Sub
+
+
 ' Kill Table if Exists
 Private Sub KillTable(tblName As String, Db As Object)
     If TableExists(tblName) Then
@@ -456,12 +462,7 @@ Err_LinkPK_Fin:
     On Error Resume Next
     InFile.Close
     
-   
-
 End Sub
-
-
-
 
 
 ' Import Table Definition
@@ -472,10 +473,7 @@ Public Sub ImportTableDef(tblName As String, directory As String)
     Dim buf As String
     Dim p As Integer
     Dim p1 As Integer
-    Dim strFields() As String
-    Dim strRef As String
     Dim strMsg As String
-    Dim strForeignKeys() As String
     Dim s
     Dim n As Integer
     Dim i As Integer
@@ -544,6 +542,7 @@ Public Sub ImportTableDef(tblName As String, directory As String)
     
     
 End Sub
+
 
 ' Import the lookup table `tblName` from `source\tables`.
 Public Sub ImportTableData(tblName As String, obj_path As String)

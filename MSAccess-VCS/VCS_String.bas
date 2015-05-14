@@ -1,6 +1,6 @@
 Attribute VB_Name = "VCS_String"
 Option Compare Database
-
+Option Private Module
 Option Explicit
 
 '--------------------
@@ -15,7 +15,7 @@ End Function
 
 ' String builder: Clear
 Public Sub Sb_Clear(ByRef sb() As String)
-    ReDim Sb_Init(-1 To -1)
+    ReDim sb(-1 To -1)
 End Sub
 
 ' String builder: Append
@@ -45,7 +45,6 @@ End Function
 ' returns substring between e.g. "(" and ")", internal brackets ar skippped
 Public Function SubString(p As Integer, s As String, startsWith As String, endsWith As String)
     Dim start As Integer
-    Dim last As Integer
     Dim cursor As Integer
     Dim p1 As Integer
     Dim p2 As Integer

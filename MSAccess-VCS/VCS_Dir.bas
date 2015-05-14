@@ -1,6 +1,6 @@
 Attribute VB_Name = "VCS_Dir"
 Option Compare Database
-
+Option Private Module
 Option Explicit
 
 
