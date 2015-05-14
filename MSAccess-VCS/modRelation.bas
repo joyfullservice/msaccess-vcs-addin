@@ -2,7 +2,9 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+
 Public Sub ExportRelation(rel As Relation, filePath As String)
+
     Dim FSO, OutFile As Object
     Set FSO = CreateObject("Scripting.FileSystemObject")
     Set OutFile = FSO.CreateTextFile(filePath, True)

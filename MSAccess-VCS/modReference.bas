@@ -52,6 +52,8 @@ failed_guid:
     End If
     
 End Function
+
+
 ' Export References to a CSV
 Public Sub ExportReferences(obj_path As String)
     Dim FSO, OutFile
@@ -67,6 +69,7 @@ Public Sub ExportReferences(obj_path As String)
           line = ref.FullPath
           OutFile.WriteLine line
         End If
+        'If ShowDebugInfo Then Debug.Print "  " & line
     Next
     OutFile.Close
 End Sub

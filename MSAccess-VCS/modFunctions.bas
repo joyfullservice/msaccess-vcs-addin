@@ -35,6 +35,7 @@ Public Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path A
     Else
         Application.SaveAsText obj_type_num, obj_name, file_path
     End If
+    If ShowDebugInfo Then Debug.Print "  " & obj_name
     
 End Sub
 

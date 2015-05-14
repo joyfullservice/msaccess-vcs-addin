@@ -12,6 +12,7 @@ Option Explicit
 'Causes the mod code to be exported
 'Private Const ArchiveMyself = False
 
+Private Const cstrSpacer As String = "-------------------------------"
 
 
 ' Main entry point for EXPORT. Export all forms, reports, queries,
@@ -45,7 +46,9 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
 
     obj_path = source_path & "queries\"
     modFunctions.ClearTextFilesFromDir obj_path, "bas"
+    If ShowDebugInfo Then Debug.Print cstrSpacer
     Debug.Print modFunctions.PadRight("Exporting queries...", 24);
+    If ShowDebugInfo Then Debug.Print
     obj_count = 0
     For Each qry In Db.QueryDefs
         DoEvents
@@ -72,7 +75,9 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
         obj_path = source_path & obj_type_label & "\"
         obj_count = 0
         modFunctions.ClearTextFilesFromDir obj_path, "bas"
+        If ShowDebugInfo Then Debug.Print cstrSpacer
         Debug.Print modFunctions.PadRight("Exporting " & obj_type_label & "...", 24);
+        If ShowDebugInfo Then Debug.Print
         For Each doc In Db.Containers(obj_type_name).Documents
             DoEvents
             If (Left(doc.name, 1) <> "~") Then
@@ -90,13 +95,18 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
                 obj_count = obj_count + 1
             End If
         Next
-        Debug.Print "[" & obj_count & "]"
+        If ShowDebugInfo Then
+            Debug.Print "[" & obj_count & "] " & obj_type_label & " exported."
+        Else
+            Debug.Print "[" & obj_count & "]"
+        End If
 
         If obj_type_label <> "modules" Then
             modFunctions.SanitizeTextFiles obj_path, "bas"
         End If
     Next
     
+    If ShowDebugInfo Then Debug.Print cstrSpacer
     modReference.ExportReferences source_path
 
 '-------------------------table export------------------------
@@ -120,6 +130,8 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
     ' - We don't want to determin file extentions here - or obj_path either!
     modFunctions.ClearTextFilesFromDir obj_path, "sql"
     modFunctions.ClearTextFilesFromDir obj_path, "xml"
+    
+    If ShowDebugInfo Then Debug.Print cstrSpacer
     Debug.Print modFunctions.PadRight("Exporting " & obj_type_label & "...", 24);
     
     For Each td In tds
@@ -144,6 +156,8 @@ Err_TableNotFound:
                     
                 'else don't export table data
                 End If
+                If ShowDebugInfo Then Debug.Print "  " & td.name
+
             Else
                 modTable.ExportLinkedTable td.name, obj_path
             End If
@@ -155,9 +169,10 @@ Err_TableNotFound:
     Debug.Print "[" & obj_count & "]"
     If obj_data_count > 0 Then
       Debug.Print modFunctions.PadRight("Exported data...", 24) & "[" & obj_data_count & "]"
+      If ShowDebugInfo Then Debug.Print cstrSpacer
     End If
     
-    
+    If ShowDebugInfo Then Debug.Print cstrSpacer
     Debug.Print modFunctions.PadRight("Exporting Relations...", 24);
     obj_count = 0
     obj_path = source_path & "relations\"
@@ -176,6 +191,7 @@ Err_TableNotFound:
     Debug.Print "[" & obj_count & "]"
     
     Debug.Print "Done."
+    
 End Sub
 
 
