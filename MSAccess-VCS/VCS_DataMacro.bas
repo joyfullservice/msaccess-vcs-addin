@@ -6,10 +6,11 @@ Option Explicit
 
 Public Sub ExportDataMacros(tableName As String, directory As String)
     On Error GoTo Err_export:
-
+    
+    Dim MacroConst As Integer
     Dim filePath As String: filePath = directory & tableName & ".xml"
 
-    VCS_IE_Functions.ExportObject acTableDataMacro, tableName, filePath, VCS_File.UsingUcs2
+    VCS_IE_Functions.ExportObject MacroConst, tableName, filePath, VCS_File.UsingUcs2
     FormatDataMacro filePath
 
     Exit Sub
@@ -22,11 +23,12 @@ End Sub
 Public Sub ImportDataMacros(tableName As String, directory As String)
     On Error GoTo Err_import:
     Dim filePath As String: filePath = directory & tableName & ".xml"
-    VCS_IE_Functions.ImportObject acTableDataMacro, tableName, filePath, VCS_File.UsingUcs2
+    VCS_IE_Functions.ImportObject MacroConst, tableName, filePath, VCS_File.UsingUcs2
 
 Err_import:
     
 End Sub
+
 
 'Splits exported DataMacro XML onto multiple lines
 'Allows git to find changes within lines using diff
@@ -68,13 +70,18 @@ Private Sub FormatDataMacro(filePath As String)
 End Sub
 
 
-
-
-
-
-
-
-
-
-
-
+'---------------------------------------------------------------------------------------
+' Procedure : MacroConst
+' Author    : Adam Waller
+' Date      : 5/14/2015
+' Purpose   : Return version specific macro constant for export
+'---------------------------------------------------------------------------------------
+'
+Private Function MacroConst() As Integer
+    If Application.Version > 12 Then
+        MacroConst = 12 ' acTableDataMacro
+    Else
+        ' Access 2007 and earlier
+        MacroConst = acMacro
+    End If
+End Function

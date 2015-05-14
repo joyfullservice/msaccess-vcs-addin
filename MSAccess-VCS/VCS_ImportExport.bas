@@ -20,12 +20,22 @@ Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 
 'returns true if named module is NOT part of the VCS code
 Private Function IsNotVCS(name As String) As Boolean
-If name <> "VCS_ImportExport" And name <> "VCS_IE_Functions" And name <> "VCS_File" And name <> "VCS_Dir" And name <> "VCS_String" And name <> "VCS_Loader" And name <> "VCS_Table" And name <> "VCS_Reference" And name <> "VCS_DataMacro" And name <> "VCS_Report" And name <> "VCS_Relation" Then
-    IsNotVCS = True
-Else
-    IsNotVCS = False
-End If
-
+    Select Case name
+        Case "VCS_ImportExport", _
+            "VCS_IE_Functions", _
+            "VCS_File", _
+            "VCS_Dir", _
+            "VCS_String", _
+            "VCS_Loader", _
+            "VCS_Table", _
+            "VCS_Reference", _
+            "VCS_DataMacro", _
+            "VCS_Report", _
+            "VCS_Relation"
+            IsNotVCS = False
+        Case Else
+            IsNotVCS = True
+    End Select
 End Function
 
 ' Main entry point for EXPORT. Export all forms, reports, queries,
