@@ -1,4 +1,3 @@
-Attribute VB_Name = "modReport"
 Option Compare Database
 Option Private Module
 Option Explicit
@@ -132,5 +131,3 @@ LSet DevModeString = DM
 
 DoCmd.Close acReport, obj_name, acSaveYes
 End Sub
-
-

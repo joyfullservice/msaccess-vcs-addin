@@ -1,4 +1,3 @@
-Attribute VB_Name = "modReference"
 Option Compare Database
 Option Private Module
 Option Explicit
@@ -71,5 +70,3 @@ Public Sub ExportReferences(obj_path As String)
     Next
     OutFile.Close
 End Sub
-
-

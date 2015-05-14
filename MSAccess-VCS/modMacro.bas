@@ -1,4 +1,3 @@
-Attribute VB_Name = "modMacro"
 Option Compare Database
 Option Private Module
 Option Explicit

@@ -1,4 +1,3 @@
-Attribute VB_Name = "modTable"
 Option Compare Database
 Option Private Module
 Option Explicit
@@ -590,4 +589,3 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
     InFile.Close
     FSO.DeleteFile tempFileName
 End Sub
-

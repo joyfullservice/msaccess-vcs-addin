@@ -1,4 +1,3 @@
-Attribute VB_Name = "modFileAccess"
 Option Compare Database
 Option Private Module
 Option Explicit
@@ -255,4 +254,3 @@ Dim sFileName As String
     If nRet <> 0 Then sFileName = Left$(sTmpName, InStr(sTmpName, vbNullChar) - 1)
     TempFile = sFileName
 End Function
-
