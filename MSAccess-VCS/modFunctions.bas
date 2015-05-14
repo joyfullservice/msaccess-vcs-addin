@@ -1,7 +1,8 @@
-Attribute VB_Name = "modFunctions"
 Option Compare Database
 Option Private Module
 Option Explicit
+
+Public ShowDebugInfo As Boolean ' Public to this project only, when used with Option Private Module
 
 Private Const AggressiveSanitize = True
 Private Const StripPublishOption = True
@@ -19,6 +20,7 @@ Public Enum eTristate
     TristateUseDefault = -2
 End Enum
 
+
 ' Can we export without closing the form?
 
 ' Export a database object with optional UCS2-to-UTF-8 conversion.
@@ -33,6 +35,7 @@ Public Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path A
     Else
         Application.SaveAsText obj_type_num, obj_name, file_path
     End If
+    
 End Sub
 
 ' Import a database object with optional UTF-8-to-UCS2 conversion.
@@ -308,3 +311,43 @@ Public Function SubString(p As Integer, s As String, startsWith As String, endsW
     SubString = Mid(s, start + 1, cursor - start - 1)
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : InArray
+' Author    : Adam Waller
+' Date      : 5/14/2015
+' Purpose   : Returns true if the item is found in the array
+'---------------------------------------------------------------------------------------
+'
+Public Function InArray(varArray As Variant, varItem As Variant) As Boolean
+    Dim intCnt As Integer
+    If Not IsArray(varArray) Then
+        InArray = (varItem = varArray)
+    Else
+        For intCnt = LBound(varArray) To UBound(varArray)
+            If varArray(intCnt) = varItem Then
+                InArray = True
+                Exit For
+            End If
+        Next intCnt
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ArrayToCollection
+' Author    : Adam Waller
+' Date      : 5/14/2015
+' Purpose   : Convert the array to a collection
+'---------------------------------------------------------------------------------------
+'
+Public Function ArrayToCollection(varArray As Variant) As Collection
+    Dim intCnt As Integer
+    Dim colItems As New Collection
+    If IsArray(varArray) Then
+        For intCnt = LBound(varArray) To UBound(varArray)
+            colItems.Add varArray(intCnt)
+        Next intCnt
+    End If
+    Set ArrayToCollection = colItems
+End Function

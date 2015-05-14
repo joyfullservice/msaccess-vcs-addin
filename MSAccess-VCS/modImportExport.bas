@@ -1,4 +1,3 @@
-Attribute VB_Name = "modImportExport"
 Option Compare Database
 Option Explicit
 
@@ -6,40 +5,19 @@ Option Explicit
 ' data, to be exported with source code
 ' Set to "*" to export the contents of all tables
 'Only used in ExportAllSource
-Private Const INCLUDE_TABLES = ""
+'Private Const INCLUDE_TABLES = ""
 ' This is used in ImportAllSource
-Private Const DebugOutput = False
+'Private Const DebugOutput = False
 'this is used in ExportAllSource
 'Causes the mod code to be exported
-Private Const ArchiveMyself = False
+'Private Const ArchiveMyself = False
 
-
-
-'returns true if named module is NOT part of the VCS code
-Private Function IsNotVCS(name As String) As Boolean
-    Select Case name
-        Case "modImportExport", _
-            "modFunctions", _
-            "modFileAccess", _
-            "modFunctions", _
-            "modFunctions", _
-            "modLoader", _
-            "modTable", _
-            "modReference", _
-            "modDataMacro", _
-            "modReport", _
-            "modRelation"
-            IsNotVCS = False
-        Case Else
-            IsNotVCS = True
-    End Select
-End Function
 
 
 ' Main entry point for EXPORT. Export all forms, reports, queries,
 ' macros, modules, and lookup tables to `source` folder under the
 ' database's folder.
-Public Sub ExportAllSource()
+Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional ArrayOfTablesToSave As Variant)
     Dim Db As Object ' DAO.Database
     Dim source_path As String
     Dim obj_path As String
@@ -55,6 +33,7 @@ Public Sub ExportAllSource()
     Dim ucs2 As Boolean
 
     Set Db = CurrentDb
+    ShowDebugInfo = ShowDebug
 
     CloseFormsReports
     'InitUsingUcs2
@@ -96,8 +75,7 @@ Public Sub ExportAllSource()
         Debug.Print modFunctions.PadRight("Exporting " & obj_type_label & "...", 24);
         For Each doc In Db.Containers(obj_type_name).Documents
             DoEvents
-            If (Left(doc.name, 1) <> "~") And _
-               (IsNotVCS(doc.name) Or ArchiveMyself) Then
+            If (Left(doc.name, 1) <> "~") Then
                 If obj_type_label = "modules" Then
                     ucs2 = False
                 Else
@@ -142,29 +120,26 @@ Public Sub ExportAllSource()
     ' - We don't want to determin file extentions here - or obj_path either!
     modFunctions.ClearTextFilesFromDir obj_path, "sql"
     modFunctions.ClearTextFilesFromDir obj_path, "xml"
-    Dim IncludeTablesCol As Collection: Set IncludeTablesCol = StrSetToCol(INCLUDE_TABLES, ",")
     Debug.Print modFunctions.PadRight("Exporting " & obj_type_label & "...", 24);
     
     For Each td In tds
         ' This is not a system table
         ' this is not a temporary table
         If Left$(td.name, 4) <> "MSys" And _
-        Left(td.name, 1) <> "~" Then
+            Left(td.name, 1) <> "~" Then
             If Len(td.connect) = 0 Then ' this is not an external table
                 modTable.ExportTableDef Db, td, td.name, obj_path
-                If INCLUDE_TABLES = "*" Then
+                If InArray(ArrayOfTablesToSave, "*") Then
                     DoEvents
                     modTable.ExportTableData CStr(td.name), source_path & "tables\"
                     If Len(Dir(source_path & "tables\" & td.name & ".txt")) > 0 Then
                         obj_data_count = obj_data_count + 1
                     End If
-                ElseIf (Len(Replace(INCLUDE_TABLES, " ", "")) > 0) And INCLUDE_TABLES <> "*" Then
+                ElseIf InArray(ArrayOfTablesToSave, td.name) Then
                     DoEvents
                     On Error GoTo Err_TableNotFound
-                    If IncludeTablesCol(td.name) = td.name Then
-                        modTable.ExportTableData CStr(td.name), source_path & "tables\"
-                        obj_data_count = obj_data_count + 1
-                    End If
+                    modTable.ExportTableData CStr(td.name), source_path & "tables\"
+                    obj_data_count = obj_data_count + 1
 Err_TableNotFound:
                     
                 'else don't export table data
@@ -207,7 +182,7 @@ End Sub
 ' Main entry point for IMPORT. Import all forms, reports, queries,
 ' macros, modules, and lookup tables from `source` folder under the
 ' database's folder.
-Public Sub ImportAllSource()
+Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     Dim Db As Object ' DAO.Database
     Dim FSO As Object
     Dim source_path As String
@@ -220,6 +195,12 @@ Public Sub ImportAllSource()
     Dim fileName As String
     Dim obj_name As String
     Dim ucs2 As Boolean
+
+    ' Make sure we are not trying to import into our runing code.
+    If CurrentProject.name = CodeProject.name Then
+        MsgBox "Module " & obj_name & "Code modules cannot be updated while running." & vbCrLf & "Please update manually", vbCritical, "Unable to import source"
+        Exit Sub
+    End If
 
     Set Db = CurrentDb
     Set FSO = CreateObject("Scripting.FileSystemObject")
@@ -268,7 +249,7 @@ Public Sub ImportAllSource()
         obj_count = 0
         Do Until Len(fileName) = 0
             obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
-            If DebugOutput Then
+            If ShowDebugInfo Then
                 If obj_count = 0 Then
                     Debug.Print
                 End If
@@ -290,7 +271,7 @@ Public Sub ImportAllSource()
         obj_count = 0
         Do Until Len(fileName) = 0
             obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
-            If DebugOutput Then
+            If ShowDebugInfo Then
                 If obj_count = 0 Then
                     Debug.Print
                 End If
@@ -357,7 +338,6 @@ Public Sub ImportAllSource()
         
         
     
-        
         fileName = Dir(obj_path & "*.bas")
         If Len(fileName) > 0 Then
             Debug.Print modFunctions.PadRight("Importing " & obj_type_label & "...", 24);
@@ -370,14 +350,10 @@ Public Sub ImportAllSource()
                 Else
                     ucs2 = modFileAccess.UsingUcs2
                 End If
-                If IsNotVCS(obj_name) Then
-                    modFunctions.ImportObject obj_type_num, obj_name, obj_path & fileName, ucs2
-                    obj_count = obj_count + 1
-                Else
-                    If ArchiveMyself Then
-                            MsgBox "Module " & obj_name & " could not be updated while running. Ensure latest version is included!", vbExclamation, "Warning"
-                    End If
-                End If
+                
+                modFunctions.ImportObject obj_type_num, obj_name, obj_path & fileName, ucs2
+                obj_count = obj_count + 1
+
                 fileName = Dir()
             Loop
             Debug.Print "[" & obj_count & "]"
@@ -421,7 +397,15 @@ End Sub
 ' Drop all forms, reports, queries, macros, modules.
 ' execute ImportAllSource.
 Public Sub ImportProject()
-On Error GoTo errorHandler
+    
+    On Error GoTo errorHandler
+
+    ' Make sure we are not trying to delete our runing code.
+    If CurrentProject.name = CodeProject.name Then
+        MsgBox "Code modules cannot be removed while running." & vbCrLf & "Please update manually", vbCritical, "Unable to import source"
+        Exit Sub
+    End If
+
 
     If MsgBox("This action will delete all existing: " & vbCrLf & _
               vbCrLf & _
@@ -488,8 +472,7 @@ On Error GoTo errorHandler
         DoEvents
         For Each doc In Db.Containers(objTypeArray(OTNAME)).Documents
             DoEvents
-            If (Left(doc.name, 1) <> "~") And _
-               (IsNotVCS(doc.name)) Then
+            If (Left(doc.name, 1) <> "~") Then
 '                Debug.Print doc.Name
                 DoCmd.DeleteObject objTypeArray(OTID), doc.name
             End If
@@ -549,7 +532,3 @@ Public Function StrSetToCol(strSet As String, delimiter As String) As Collection
     Next
     Set StrSetToCol = col
 End Function
-
-
-
-
