@@ -39,7 +39,7 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
     CloseFormsReports
     'InitUsingUcs2
 
-    source_path = modFunctions.ProjectPath() & "source\"
+    source_path = modFunctions.SourcePath
     modFunctions.MkDirIfNotExist source_path
 
     Debug.Print
