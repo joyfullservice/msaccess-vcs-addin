@@ -1,5 +1,18 @@
 Change log
 ==========
+Version 1.1.0 - 15 May 2015
+----------------------------
+joyfullservice:
+* Performed some significant refactoring to use the system as a reference library rather than a collection of modules that need to be added to each project.
+* Added support for exporting VBE objects directly, allowing drag-and-drop within projects in the IDE.
+* Standardized module names (special prefix no longer needed)
+* Source folder name changed to be specific to the current database (avoids unexpected results when working with two databases in the same folder.)
+* Source folders only created when they will contain content
+* General code cleanup and organization
+* Improved debug output in debug mode
+* Converted module constants to input parameters for debug mode and tables to save data
+* Updated sample database
+
 Version 1.0.0 - 11 Mar 2015
 ----------------------------
 jwbrookes:
