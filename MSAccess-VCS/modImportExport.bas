@@ -35,12 +35,13 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
 
     Set Db = CurrentDb
     ShowDebugInfo = ShowDebug
+    Set colVerifiedPaths = New Collection   ' Reset cache
 
     CloseFormsReports
     'InitUsingUcs2
 
     source_path = modFunctions.SourcePath
-    modFunctions.MkDirIfNotExist source_path
+    modFunctions.VerifyPath source_path
 
     Debug.Print
 
@@ -58,7 +59,11 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
         End If
     Next
     modFunctions.SanitizeTextFiles obj_path, "bas"
-    Debug.Print "[" & obj_count & "]"
+    If ShowDebugInfo Then
+        Debug.Print "[" & obj_count & "] queries exported."
+    Else
+        Debug.Print "[" & obj_count & "]"
+    End If
 
     
     For Each obj_type In Split( _
@@ -107,24 +112,30 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
     Next
     
     If ShowDebugInfo Then Debug.Print cstrSpacer
+    Debug.Print modFunctions.PadRight("Exporting references...", 24);
+    If ShowDebugInfo Then Debug.Print
     modReference.ExportReferences source_path
+
 
 '-------------------------table export------------------------
     obj_path = source_path & "tables\"
-    modFunctions.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
     modFunctions.ClearTextFilesFromDir obj_path, "txt"
     
     Dim td As TableDef
     Dim tds As TableDefs
     Set tds = Db.TableDefs
 
-    obj_type_label = "tbldef"
+    If Not IsMissing(ArrayOfTablesToSave) Then
+        ' Only create this folder if we are actually saving table data
+        modFunctions.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
+    End If
+    
+    obj_type_label = "tbldefs"
     obj_type_name = "Table_Def"
     obj_type_num = acTable
     obj_path = source_path & obj_type_label & "\"
     obj_count = 0
     obj_data_count = 0
-    modFunctions.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
     
     'move these into Table and DataMacro modules?
     ' - We don't want to determin file extentions here - or obj_path either!
@@ -133,12 +144,14 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
     
     If ShowDebugInfo Then Debug.Print cstrSpacer
     Debug.Print modFunctions.PadRight("Exporting " & obj_type_label & "...", 24);
+    If ShowDebugInfo Then Debug.Print
     
     For Each td In tds
         ' This is not a system table
         ' this is not a temporary table
         If Left$(td.name, 4) <> "MSys" And _
-            Left(td.name, 1) <> "~" Then
+            Left$(td.name, 1) <> "~" Then
+            modFunctions.VerifyPath Left(obj_path, InStrRev(obj_path, "\"))
             If Len(td.connect) = 0 Then ' this is not an external table
                 modTable.ExportTableDef Db, td, td.name, obj_path
                 If InArray(ArrayOfTablesToSave, "*") Then
@@ -166,30 +179,38 @@ Err_TableNotFound:
             
         End If
     Next
-    Debug.Print "[" & obj_count & "]"
-    If obj_data_count > 0 Then
-      Debug.Print modFunctions.PadRight("Exported data...", 24) & "[" & obj_data_count & "]"
-      If ShowDebugInfo Then Debug.Print cstrSpacer
+    
+    If ShowDebugInfo Then
+        Debug.Print "[" & obj_count & "] tbldefs exported."
+    Else
+        Debug.Print "[" & obj_count & "]"
     End If
     
     If ShowDebugInfo Then Debug.Print cstrSpacer
     Debug.Print modFunctions.PadRight("Exporting Relations...", 24);
+    If ShowDebugInfo Then Debug.Print
+    
     obj_count = 0
     obj_path = source_path & "relations\"
-    modFunctions.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
-
-    modFunctions.ClearTextFilesFromDir obj_path, "txt"
-
-    Dim aRelation As Relation
     
+    modFunctions.ClearTextFilesFromDir obj_path, "txt"
+    
+    Dim aRelation As Relation
     For Each aRelation In CurrentDb.Relations
         If Not (aRelation.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or aRelation.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+            modFunctions.VerifyPath Left(obj_path, InStrRev(obj_path, "\"))
             modRelation.ExportRelation aRelation, obj_path & aRelation.name & ".txt"
             obj_count = obj_count + 1
         End If
-    Next
-    Debug.Print "[" & obj_count & "]"
-    
+    Next aRelation
+
+    If ShowDebugInfo Then
+        Debug.Print "[" & obj_count & "] relations exported."
+    Else
+        Debug.Print "[" & obj_count & "]"
+    End If
+
+    If ShowDebugInfo Then Debug.Print cstrSpacer
     Debug.Print "Done."
     
 End Sub
@@ -258,7 +279,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     modFunctions.DelIfExist tempFilePath
 
     ' restore table definitions
-    obj_path = source_path & "tbldef\"
+    obj_path = source_path & "tbldefs\"
     fileName = Dir(obj_path & "*.sql")
     If Len(fileName) > 0 Then
         Debug.Print modFunctions.PadRight("Importing tabledefs...", 24);
@@ -320,7 +341,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     End If
     
     'load Data Macros - not DRY!
-    obj_path = source_path & "tbldef\"
+    obj_path = source_path & "tbldefs\"
     fileName = Dir(obj_path & "*.xml")
     If Len(fileName) > 0 Then
         Debug.Print modFunctions.PadRight("Importing Data Macros...", 24);

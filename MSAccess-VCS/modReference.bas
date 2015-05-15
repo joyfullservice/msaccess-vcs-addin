@@ -56,11 +56,16 @@ End Function
 
 ' Export References to a CSV
 Public Sub ExportReferences(obj_path As String)
-    Dim FSO, OutFile
+    
+    Dim FSO As Object
+    Dim OutFile As Object
     Dim line As String
     Dim ref As Reference
+    Dim obj_count As Integer
+    
     Set FSO = CreateObject("Scripting.FileSystemObject")
     Set OutFile = FSO.CreateTextFile(obj_path & "references.csv", True)
+    
     For Each ref In Application.References
         If ref.GUID > "" Then ' references of types mdb,accdb,mde etc don't have a GUID
           line = ref.GUID & "," & CStr(ref.Major) & "," & CStr(ref.Minor)
@@ -69,7 +74,18 @@ Public Sub ExportReferences(obj_path As String)
           line = ref.FullPath
           OutFile.WriteLine line
         End If
-        'If ShowDebugInfo Then Debug.Print "  " & line
-    Next
+        obj_count = obj_count + 1
+        If ShowDebugInfo Then Debug.Print "  " & line
+    Next ref
     OutFile.Close
+
+    If ShowDebugInfo Then
+        Debug.Print "[" & obj_count & "] references exported."
+    Else
+        Debug.Print "[" & obj_count & "]"
+    End If
+    
+    Set OutFile = Nothing
+    Set FSO = Nothing
+    
 End Sub

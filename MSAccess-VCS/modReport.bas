@@ -39,47 +39,53 @@ End Type
 
 'Exports print vars for reports
 Public Sub ExportPrintVars(obj_name As String, filePath As String)
-DoEvents
-Dim FSO As Object
-Set FSO = CreateObject("Scripting.FileSystemObject")
-
- Dim DevModeString As str_DEVMODE
- Dim DevModeExtra As String
- Dim DM As type_DEVMODE
- Dim rpt As Report
- 
- 'report must be open to access Report object
- 'report must be opened in design view to save changes to the print vars
-  DoCmd.OpenReport obj_name, acViewDesign
-  Set rpt = Reports(obj_name)
- 
-
-'read print vars into struct
- If Not IsNull(rpt.PrtDevMode) Then
-    DevModeExtra = rpt.PrtDevMode
-    DevModeString.RGB = DevModeExtra
-    LSet DM = DevModeString
- Else
+    DoEvents
+    Dim FSO As Object
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    
+    Dim DevModeString As str_DEVMODE
+    Dim DevModeExtra As String
+    Dim DM As type_DEVMODE
+    Dim rpt As Report
+    
+    'report must be open to access Report object
+    'report must be opened in design view to save changes to the print vars
+    Application.Echo False
+    DoCmd.OpenReport obj_name, acViewDesign
+    Set rpt = Reports(obj_name)
+    rpt.Visible = False
+    ' Move focus back to IDE
+    VBE.ActiveCodePane.Show
+    
+    'read print vars into struct
+    If Not IsNull(rpt.PrtDevMode) Then
+       DevModeExtra = rpt.PrtDevMode
+       DevModeString.RGB = DevModeExtra
+       LSet DM = DevModeString
+    Else
+       Set rpt = Nothing
+       DoCmd.Close acReport, obj_name, acSaveNo
+       Debug.Print "Warning: PrtDevMode is null"
+       Exit Sub
+    End If
+    
+    Dim OutFile As Object
+    Set OutFile = FSO.CreateTextFile(filePath, True)
+    
+    'print out print var values
+    OutFile.WriteLine DM.intOrientation
+    OutFile.WriteLine DM.intPaperSize
+    OutFile.WriteLine DM.intPaperLength
+    OutFile.WriteLine DM.intPaperWidth
+    OutFile.WriteLine DM.intScale
+    OutFile.Close
+    
     Set rpt = Nothing
-    DoCmd.Close acReport, obj_name, acSaveNo
-    Debug.Print "Warning: PrtDevMode is null"
-    Exit Sub
- End If
- 
- Dim OutFile As Object
- Set OutFile = FSO.CreateTextFile(filePath, True)
- 
- 'print out print var values
- OutFile.WriteLine DM.intOrientation
- OutFile.WriteLine DM.intPaperSize
- OutFile.WriteLine DM.intPaperLength
- OutFile.WriteLine DM.intPaperWidth
- OutFile.WriteLine DM.intScale
- OutFile.Close
-
- Set rpt = Nothing
-
-DoCmd.Close acReport, obj_name, acSaveYes
+    
+    DoCmd.Close acReport, obj_name, acSaveYes
+    Application.Echo True
+    VBE.ActiveCodePane.Show
+    
 End Sub
 
 Public Sub ImportPrintVars(obj_name As String, filePath As String)

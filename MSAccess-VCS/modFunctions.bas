@@ -3,9 +3,7 @@ Option Private Module
 Option Explicit
 
 Public ShowDebugInfo As Boolean ' Public to this project only, when used with Option Private Module
-
-Private Const AggressiveSanitize = True
-Private Const StripPublishOption = True
+Public colVerifiedPaths As New Collection
 
 ' Constants for Scripting.FileSystemObject API
 Public Enum eOpenType
@@ -20,6 +18,9 @@ Public Enum eTristate
     TristateUseDefault = -2
 End Enum
 
+Private Const AggressiveSanitize = True
+Private Const StripPublishOption = True
+
 
 ' Can we export without closing the form?
 
@@ -27,7 +28,7 @@ End Enum
 Public Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
     Optional Ucs2Convert As Boolean = False)
 
-    modFunctions.MkDirIfNotExist Left(file_path, InStrRev(file_path, "\"))
+    modFunctions.VerifyPath Left(file_path, InStrRev(file_path, "\"))
     If Ucs2Convert Then
         Dim tempFileName As String: tempFileName = modFileAccess.TempFile()
         Application.SaveAsText obj_type_num, obj_name, tempFileName
@@ -327,6 +328,7 @@ End Function
 '
 Public Function InArray(varArray As Variant, varItem As Variant) As Boolean
     Dim intCnt As Integer
+    If IsMissing(varArray) Then Exit Function
     If Not IsArray(varArray) Then
         InArray = (varItem = varArray)
     Else
@@ -357,3 +359,34 @@ Public Function ArrayToCollection(varArray As Variant) As Collection
     End If
     Set ArrayToCollection = colItems
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyPath
+' Author    : Adam Waller
+' Date      : 5/15/2015
+' Purpose   : Verifies that the path to a folder exists, caching results to
+'           : avoid uneeded calls to the Dir() function.
+'---------------------------------------------------------------------------------------
+'
+Public Sub VerifyPath(strFolderPath As String)
+    
+    Dim varPath As Variant
+    
+    ' Check cache first
+    For Each varPath In colVerifiedPaths
+        If strFolderPath = varPath Then
+            ' Found path. Assume it still exists
+            Exit Sub
+        End If
+    Next varPath
+    
+    ' If code reaches here, we don't have a copy of the path
+    ' in the cached list of verified paths. Verify and add
+    If Dir(strFolderPath, vbDirectory) = "" Then
+        ' Path does not seem to exist. Create it.
+        MkDirIfNotExist strFolderPath
+    End If
+    colVerifiedPaths.Add strFolderPath
+    
+End Sub
