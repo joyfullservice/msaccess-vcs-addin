@@ -40,6 +40,7 @@ Public Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path A
     
 End Sub
 
+
 ' Import a database object with optional UTF-8-to-UCS2 conversion.
 Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
     Optional Ucs2Convert As Boolean = False)
@@ -390,3 +391,34 @@ Public Sub VerifyPath(strFolderPath As String)
     colVerifiedPaths.Add strFolderPath
     
 End Sub
+
+
+' Close all open forms.
+Public Function CloseFormsReports()
+    On Error GoTo errorHandler
+    Do While Forms.Count > 0
+        DoCmd.Close acForm, Forms(0).name
+        DoEvents
+    Loop
+    Do While Reports.Count > 0
+        DoCmd.Close acReport, Reports(0).name
+        DoEvents
+    Loop
+    Exit Function
+
+errorHandler:
+    Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
+End Function
+
+
+'errno 457 - duplicate key (& item)
+Public Function StrSetToCol(strSet As String, delimiter As String) As Collection 'throws errors
+    Dim strSetArray() As String
+    Dim col As New Collection
+    strSetArray = Split(strSet, delimiter)
+    Dim item As Variant
+    For Each item In strSetArray
+        col.Add item, item
+    Next
+    Set StrSetToCol = col
+End Function

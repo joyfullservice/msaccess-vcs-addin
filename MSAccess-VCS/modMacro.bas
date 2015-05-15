@@ -33,14 +33,14 @@ End Sub
 'Allows git to find changes within lines using diff
 Private Sub FormatDataMacro(filePath As String)
 
-    Dim saveStream As Object 'ADODB.Stream
+    Dim saveStream As Object ' ADODB.Stream
 
     Set saveStream = CreateObject("ADODB.Stream")
     saveStream.Charset = "utf-8"
     saveStream.Type = 2 'adTypeText
     saveStream.Open
 
-    Dim objStream As Object 'ADODB.Stream
+    Dim objStream As Object ' ADODB.Stream
     Dim strData As String
     Set objStream = CreateObject("ADODB.Stream")
 

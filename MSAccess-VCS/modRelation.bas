@@ -5,7 +5,7 @@ Option Explicit
 
 Public Sub ExportRelation(rel As Relation, filePath As String)
 
-    Dim FSO, OutFile As Object
+    Dim FSO, OutFile As Object ' Scripting.FileSystemObject
     Set FSO = CreateObject("Scripting.FileSystemObject")
     Set OutFile = FSO.CreateTextFile(filePath, True)
 
@@ -26,7 +26,7 @@ End Sub
 
 
 Public Sub ImportRelation(filePath As String)
-    Dim FSO, InFile As Object
+    Dim FSO, InFile As Object ' Scripting.FileSystemObject
     Set FSO = CreateObject("Scripting.FileSystemObject")
     Set InFile = FSO.OpenTextFile(filePath, 1)
     

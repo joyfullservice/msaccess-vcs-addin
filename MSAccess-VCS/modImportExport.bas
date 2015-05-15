@@ -216,11 +216,84 @@ Err_TableNotFound:
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : ExportVBE
+' Author    : Adam Waller
+' Date      : 5/15/2015
+' Purpose   : Exports all objects from the Visual Basic Editor.
+'           : (Allows drag and drop to re-import the objects into the IDE)
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportAllVBE(Optional ShowDebug As Boolean = False)
+    
+    ' Declare constants locally to avoid need for reference
+    Const vbext_ct_StdModule As Integer = 1
+    Const vbext_ct_MSForm As Integer = 3
+    
+    Dim cmp As Object ' VBComponent
+    Dim strExt As String
+    Dim strPath As String
+    Dim obj_count As Integer
+    
+    ShowDebugInfo = ShowDebug
+    Set colVerifiedPaths = New Collection   ' Reset cache
+
+    Debug.Print
+    
+    If ShowDebugInfo Then Debug.Print cstrSpacer
+    Debug.Print modFunctions.PadRight("Exporting Components...", 24);
+    If ShowDebugInfo Then Debug.Print
+    
+    strPath = modFunctions.SourcePath
+    modFunctions.VerifyPath strPath
+    strPath = strPath & "VBE\"
+    
+    ' Clear existing files
+    modFunctions.ClearTextFilesFromDir strPath, "bas"
+    modFunctions.ClearTextFilesFromDir strPath, "frm"
+    modFunctions.ClearTextFilesFromDir strPath, "cls"
+    
+    If VBE.ActiveVBProject.VBComponents.Count > 0 Then
+    
+        ' Verify path (creating if needed)
+        modFunctions.VerifyPath strPath
+       
+        ' Loop through all components in the active project
+        For Each cmp In VBE.ActiveVBProject.VBComponents
+            Select Case cmp.Type
+                Case vbext_ct_StdModule:    strExt = ".bas"
+                Case vbext_ct_MSForm:       strExt = ".frm" ' (not used in Microsoft Access)
+                Case Else ' vbext_ct_Document, vbext_ct_ActiveXDesigner, vbext_ct_ClassModule
+                    strExt = ".cls"
+            End Select
+            obj_count = obj_count + 1
+            cmp.Export strPath & cmp.name & strExt
+            If ShowDebugInfo Then Debug.Print "  " & cmp.name
+        Next cmp
+        
+        If ShowDebugInfo Then
+            Debug.Print "[" & obj_count & "] components exported."
+        Else
+            Debug.Print "[" & obj_count & "]"
+        End If
+    Else
+        If ShowDebugInfo Then
+            Debug.Print "No objects found."
+        Else
+            Debug.Print "[0]"
+        End If
+    End If
+    
+    Debug.Print "Done."
+    
+End Sub
+
+
 ' Main entry point for IMPORT. Import all forms, reports, queries,
 ' macros, modules, and lookup tables from `source` folder under the
 ' database's folder.
 Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
-    Dim Db As Object ' DAO.Database
+    Dim Db As DAO.Database
     Dim FSO As Object
     Dim source_path As String
     Dim obj_path As String
@@ -527,45 +600,9 @@ errorHandler:
 
 exitHandler:
 End Sub
-' Expose for use as function, can be called by query
-Public Function make()
+
+
+' Expose for use as function, can be called by a query
+Public Function Make()
     ImportProject
-End Function
-
-'===================================================================================================================================
-'-----------------------------------------------------------'
-' Helper Functions - these should be put in their own files '
-'-----------------------------------------------------------'
-
-
-
-
-' Close all open forms.
-Private Function CloseFormsReports()
-    On Error GoTo errorHandler
-    Do While Forms.Count > 0
-        DoCmd.Close acForm, Forms(0).name
-        DoEvents
-    Loop
-    Do While Reports.Count > 0
-        DoCmd.Close acReport, Reports(0).name
-        DoEvents
-    Loop
-    Exit Function
-
-errorHandler:
-    Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
-End Function
-
-
-'errno 457 - duplicate key (& item)
-Public Function StrSetToCol(strSet As String, delimiter As String) As Collection 'throws errors
-    Dim strSetArray() As String
-    Dim col As New Collection
-    strSetArray = Split(strSet, delimiter)
-    Dim item As Variant
-    For Each item In strSetArray
-        col.Add item, item
-    Next
-    Set StrSetToCol = col
 End Function

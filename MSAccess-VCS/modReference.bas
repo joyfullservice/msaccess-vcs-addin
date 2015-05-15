@@ -57,7 +57,7 @@ End Function
 ' Export References to a CSV
 Public Sub ExportReferences(obj_path As String)
     
-    Dim FSO As Object
+    Dim FSO As Object ' Scripting.FileSystemObject
     Dim OutFile As Object
     Dim line As String
     Dim ref As Reference
