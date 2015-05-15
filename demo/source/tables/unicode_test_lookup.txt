@@ -1,3 +1,0 @@
-﻿id	value
-1	Résumé
-2	Tromsø

@@ -1,3 +1,0 @@
-﻿id	full_name	favorite_color
-1	alice	4
-2	bob	5
