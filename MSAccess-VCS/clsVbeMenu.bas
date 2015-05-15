@@ -86,9 +86,11 @@ Private Sub AddAllButtons()
     If m_CommandBar Is Nothing Then Exit Sub
 
     ' Add buttons with event handlers
-    AddButton "Commit Module/Project", 270, m_evtCommit
-    AddButton "Diff Module/Project", 2042, m_evtDiff, , True
-    AddButton "Save Module/Project", 3, m_evtSave
+    With Application.VBE.Events
+        Set m_evtCommit = .CommandBarEvents(AddButton("Commit Module/Project", 270))
+        Set m_evtDiff = .CommandBarEvents(AddButton("Diff Module/Project", 2042, , True))
+        Set m_evtSave = .CommandBarEvents(AddButton("Save Module/Project", 3))
+    End With
     
 End Sub
 
@@ -100,7 +102,8 @@ End Sub
 ' Purpose   : Add a button to the command bar, and connects to event handler
 '---------------------------------------------------------------------------------------
 '
-Private Sub AddButton(strCaption As String, intFaceID As Integer, ByRef EventHandler As CommandBarEvents, Optional intPositionBefore As Integer = 1, Optional blnBeginGroup As Boolean = False)
+Private Function AddButton(strCaption As String, intFaceID As Integer, _
+    Optional intPositionBefore As Integer = 1, Optional blnBeginGroup As Boolean = False) As CommandBarButton
     
     Dim btn As CommandBarButton
     
@@ -108,9 +111,9 @@ Private Sub AddButton(strCaption As String, intFaceID As Integer, ByRef EventHan
     btn.Caption = strCaption
     btn.FaceId = intFaceID
     If blnBeginGroup Then btn.BeginGroup = True
-    Set EventHandler = Application.VBE.Events.CommandBarEvents(btn)
+    Set AddButton = btn
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -180,5 +183,15 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub ExportSelected()
-
+    If SelectionInActiveProject Then
+        If ProjectIsSelected Then
+            ' Commit entire project
+            ExportAllSource False
+        Else
+            ' Commit single file
+            ExportByVBEComponent VBE.SelectedVBComponent
+        End If
+    Else
+        MsgBox "Please select a component in " & CurrentProject.name & " and try again.", vbExclamation, CodeProject.name
+    End If
 End Sub

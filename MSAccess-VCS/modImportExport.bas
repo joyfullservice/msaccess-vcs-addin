@@ -289,6 +289,55 @@ Public Sub ExportAllVBE(Optional ShowDebug As Boolean = False)
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : ExportByVBEComponentName
+' Author    : Adam Waller
+' Date      : 5/15/2015
+' Purpose   : Export single object using the VBE component name
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportByVBEComponent(cmpToExport As VBComponent)
+    
+    Dim intType As Integer
+    Dim strFolder As String
+    Dim strName As String
+    Dim strExt As String
+    Dim blnUcs As Boolean
+    
+    ' Determine the type of object, and get name of item
+    ' in Microsoft Access. (Can be different from VBE)
+    With cmpToExport
+        Select Case .Type
+            Case vbext_ct_StdModule, vbext_ct_ClassModule
+                ' Code modules
+                intType = acModule
+                strName = .name
+                strFolder = "modules\" & .name & ".bas"
+            
+            Case vbext_ct_Document
+                ' Class object (Forms, Reports)
+                If Left(.name, 5) = "Form_" Then
+                    intType = acForm
+                    strName = Mid(.name, 6)
+                    strFolder = "forms\" & strName & ".bas"
+                ElseIf Left(.name, 6) = "Report_" Then
+                    intType = acReport
+                    strName = Mid(.name, 8)
+                    strFolder = "reports\" & strName & ".bas"
+                End If
+                
+        End Select
+    End With
+    
+    If intType > 0 Then
+        strFolder = modFunctions.SourcePath & strFolder
+        ' Export the single object
+        ExportObject intType, strName, strFolder, blnUcs
+    End If
+    
+End Sub
+
+
 ' Main entry point for IMPORT. Import all forms, reports, queries,
 ' macros, modules, and lookup tables from `source` folder under the
 ' database's folder.

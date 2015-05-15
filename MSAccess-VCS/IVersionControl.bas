@@ -26,3 +26,14 @@ End Sub
 '
 Public Sub Diff()
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasRequiredSoftware
+' Author    : Adam Waller
+' Date      : 5/15/2015
+' Purpose   : Make sure the user has the software installed to use the VCS.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get HasRequiredSoftware(blnWarnUser As Boolean) As Boolean
+End Property
