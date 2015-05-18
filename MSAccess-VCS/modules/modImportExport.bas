@@ -19,6 +19,7 @@ Private Const cstrSpacer As String = "-------------------------------"
 ' macros, modules, and lookup tables to `source` folder under the
 ' database's folder.
 Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional ArrayOfTablesToSave As Variant)
+    
     Dim Db As Object ' DAO.Database
     Dim source_path As String
     Dim obj_path As String

@@ -6,11 +6,31 @@ Option Compare Database
 Option Explicit
 
 
+' Simple properties can be set here
+Public ExportBaseFolder As String
+Public ShowDebug As Boolean
+
+' Objects and collections need to be set with wrappers.
+Private m_TablesToSaveData As New Collection
+
+
 '---------------------------------------------------------------------------------------
-' Procedure : Save
+' Procedure : TablesToSaveData
 ' Author    : Adam Waller
 ' Date      : 5/18/2015
-' Purpose   : Save the selected item or project
+' Purpose   : Tables where we would like to save data during export
+'---------------------------------------------------------------------------------------
+'
+Public Property Get TablesToSaveData() As Collection
+    Set TablesToSaveData = m_TablesToSaveData
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Export
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Save the selected item or project, exporting files to the sources folder
 '---------------------------------------------------------------------------------------
 '
 Public Sub Export()

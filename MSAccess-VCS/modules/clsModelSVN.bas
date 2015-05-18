@@ -20,7 +20,8 @@ Const cCmdDiff As String = ""
 ' Require the functions outlined in IVersionControl
 ' (Allows us to use different data models with the same
 '  programming logic.)
-Implements IVersionControl
+'Implements IVersionControl
+Private m_vcs As IVersionControl
 
 ' Private variables
 Private m_ProgFiles As String
@@ -90,4 +91,32 @@ Private Property Get IVersionControl_HasRequiredSoftware(blnWarnUser As Boolean)
     Else
     
     End If
+End Property
+
+
+
+
+'---------------------------------------------------------------------------------------
+'///////////////////////////////////////////////////////////////////////////////////////
+'---------------------------------------------------------------------------------------
+' Procedure : (Multiple)
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Wrapper classes to call functions in parent class
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IVersionControl_TablesToSaveData() As Collection
+    Set IVersionControl_TablesToSaveData = m_vcs.TablesToSaveData
+End Property
+Private Property Let IVersionControl_ExportBaseFolder(ByVal RHS As String)
+    m_vcs.ExportBaseFolder = RHS
+End Property
+Private Property Get IVersionControl_ExportBaseFolder() As String
+    IVersionControl_ExportBaseFolder = m_vcs.ExportBaseFolder
+End Property
+Private Property Let IVersionControl_ShowDebug(ByVal RHS As Boolean)
+    m_vcs.ShowDebug = RHS
+End Property
+Private Property Get IVersionControl_ShowDebug() As Boolean
+    IVersionControl_ShowDebug = m_vcs.ShowDebug
 End Property

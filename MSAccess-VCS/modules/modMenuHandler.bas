@@ -2,7 +2,7 @@ Option Compare Database
 Option Explicit
 
 Private m_DefaultModel As New clsModelGitHub
-Private m_Menu As New clsVbeMenu
+Private m_Model As IVersionControl
 
 
 '---------------------------------------------------------------------------------------
@@ -15,7 +15,7 @@ Private m_Menu As New clsVbeMenu
 Public Sub LoadVBEMenuForVCS(Optional cModel As IVersionControl)
     
     If cModel Is Nothing Then Set cModel = DefaultModel
-    If cModel.HasRequiredSoftware(True) Then m_Menu.Construct cModel
+    Set m_Model = cModel
     
 End Sub
 
@@ -42,8 +42,8 @@ Private Function DefaultModel() As IVersionControl
             ' Use this folder after verifying with user.
             If MsgBox("Use local GitHub folder?", vbQuestion + vbYesNo) = vbYes Then
                 Set cGitHub = New clsModelGitHub
-                cGitHub.ExportBaseFolder = strPath
                 Set DefaultModel = cGitHub
+                DefaultModel.ExportBaseFolder = strPath
             End If
         Else
             ' Can't find the local GitHub project.

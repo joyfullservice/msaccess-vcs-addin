@@ -9,10 +9,36 @@ Option Explicit
 ' (Allows us to use different data models with the same
 '  programming logic.)
 Implements IVersionControl
+Private m_vcs As IVersionControl
+
+' Local instance of menu class
+Private m_Menu As New clsVbeMenu
 
 
-' Exposed properties
-Public ExportBaseFolder As String
+'---------------------------------------------------------------------------------------
+' Procedure : Construct
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Construct an instance of this class
+'---------------------------------------------------------------------------------------
+'
+Public Function Construct(cModel As IVersionControl) As IVersionControl
+    Set m_vcs = cModel
+    Set Construct = m_vcs
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Initialize
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Initialize the class and load the menu.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Initialize()
+    Set m_vcs = New IVersionControl
+    m_Menu.Construct Me
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -47,7 +73,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IVersionControl_Export()
-    VCSSourcePath = Me.ExportBaseFolder
+    VCSSourcePath = m_vcs.ExportBaseFolder
     If ProjectIsSelected Then
         ' Commit entire project
         ExportAllSource False
@@ -57,6 +83,8 @@ Private Sub IVersionControl_Export()
     End If
     ActivateGitHub
 End Sub
+
+
 
 
 '---------------------------------------------------------------------------------------
@@ -94,3 +122,36 @@ Private Sub ActivateGitHub()
     End If
     On Error GoTo 0
 End Sub
+
+
+
+
+
+
+
+
+
+'---------------------------------------------------------------------------------------
+'///////////////////////////////////////////////////////////////////////////////////////
+'---------------------------------------------------------------------------------------
+' Procedure : (Multiple)
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Wrapper classes to call functions in parent class
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IVersionControl_TablesToSaveData() As Collection
+    Set IVersionControl_TablesToSaveData = m_vcs.TablesToSaveData
+End Property
+Private Property Let IVersionControl_ExportBaseFolder(ByVal RHS As String)
+    m_vcs.ExportBaseFolder = RHS
+End Property
+Private Property Get IVersionControl_ExportBaseFolder() As String
+    IVersionControl_ExportBaseFolder = m_vcs.ExportBaseFolder
+End Property
+Private Property Let IVersionControl_ShowDebug(ByVal RHS As Boolean)
+    m_vcs.ShowDebug = RHS
+End Property
+Private Property Get IVersionControl_ShowDebug() As Boolean
+    IVersionControl_ShowDebug = m_vcs.ShowDebug
+End Property
