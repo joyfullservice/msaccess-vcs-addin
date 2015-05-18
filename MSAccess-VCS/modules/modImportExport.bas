@@ -40,7 +40,7 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
     CloseFormsReports
     'InitUsingUcs2
 
-    source_path = modFunctions.SourcePath
+    source_path = modFunctions.VCSSourcePath
     modFunctions.VerifyPath source_path
 
     Debug.Print
@@ -244,7 +244,7 @@ Public Sub ExportAllVBE(Optional ShowDebug As Boolean = False)
     Debug.Print modFunctions.PadRight("Exporting Components...", 24);
     If ShowDebugInfo Then Debug.Print
     
-    strPath = modFunctions.SourcePath
+    strPath = modFunctions.VCSSourcePath
     modFunctions.VerifyPath strPath
     strPath = strPath & "VBE\"
     
@@ -330,7 +330,7 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent)
     End With
     
     If intType > 0 Then
-        strFolder = modFunctions.SourcePath & strFolder
+        strFolder = modFunctions.VCSSourcePath & strFolder
         ' Export the single object
         ExportObject intType, strName, strFolder, blnUcs
     End If

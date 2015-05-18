@@ -1,6 +1,7 @@
 Option Compare Database
 Option Explicit
 
+Private m_DefaultModel As New clsModelGitHub
 Private m_Menu As New clsVbeMenu
 
 
@@ -11,18 +12,62 @@ Private m_Menu As New clsVbeMenu
 ' Purpose   : Initialize the menu for VCS
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadVBEMenuForVCS(Optional strType As String = "TortoiseSVN")
+Public Sub LoadVBEMenuForVCS(Optional cModel As IVersionControl)
     
-    Dim cModel As IVersionControl
-    
-    Select Case strType
-        Case "TortoiseSVN"
-            Set cModel = New clsModelSVN
-        Case Else
-            MsgBox strType & " Version Control System not currently supported" & vbCrLf & _
-                "Please contact your administrator for assistance", vbExclamation
-            Exit Sub
-    End Select
-    m_Menu.Construct cModel
+    If cModel Is Nothing Then Set cModel = DefaultModel
+    If cModel.HasRequiredSoftware(True) Then m_Menu.Construct cModel
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DefaultModel
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Set up the default model
+'---------------------------------------------------------------------------------------
+'
+Private Function DefaultModel() As IVersionControl
+
+    Dim cGitHub As clsModelGitHub
+    Dim strPath As String
+
+    ' If we are editing the MSAccess-VCS project, then assume we are using GitHub
+    ' Otherwise, use whatever is specified as the default model.
+    If SelectionInActiveProject And VBE.ActiveVBProject.name = "MSAccess-VCS" Then
+    
+        ' Build path to source files. (Assuming default installation of GitHub)
+        strPath = GetDocumentsFolder & "\GitHub\msaccess-vcs-integration\MSAccess-VCS\"
+        If Dir(strPath, vbDirectory) <> "" Then
+            ' Use this folder after verifying with user.
+            If MsgBox("Use local GitHub folder?", vbQuestion + vbYesNo) = vbYes Then
+                Set cGitHub = New clsModelGitHub
+                cGitHub.ExportBaseFolder = strPath
+                Set DefaultModel = cGitHub
+            End If
+        Else
+            ' Can't find the local GitHub project.
+            Set DefaultModel = m_DefaultModel
+        End If
+    
+    Else
+        ' Use default model
+        Set DefaultModel = m_DefaultModel
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDocumentsFolder
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Get "My Documents" folder.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDocumentsFolder() As String
+    Dim objShell As Object
+    Set objShell = CreateObject("WScript.Shell")
+    GetDocumentsFolder = objShell.SpecialFolders("MyDocuments")
+    Set objShell = Nothing
+End Function

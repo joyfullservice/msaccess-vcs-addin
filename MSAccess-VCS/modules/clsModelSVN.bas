@@ -68,6 +68,9 @@ Private Function AppPath() As String
 End Function
 
 
+Private Sub IVersionControl_Export()
+
+End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : IVersionControl_HasRequiredSoftware

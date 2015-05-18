@@ -22,6 +22,9 @@ Private Const AggressiveSanitize = True
 Private Const StripPublishOption = True
 
 
+Private m_SourcePath As String
+
+
 ' Can we export without closing the form?
 
 ' Export a database object with optional UCS2-to-UTF-8 conversion.
@@ -198,10 +201,36 @@ Public Function ProjectPath() As String
     If Right(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
 End Function
 
-' Path/Directory for source files
-Public Function SourcePath() As String
-    SourcePath = ProjectPath & CurrentProject.name & ".src\"
-End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : VCSSourcePath
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Get source path. (Allow user to specify this)
+'---------------------------------------------------------------------------------------
+'
+Public Property Get VCSSourcePath() As String
+    If m_SourcePath = "" Then m_SourcePath = ProjectPath & CurrentProject.name & ".src\"
+    VCSSourcePath = m_SourcePath
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VCSSourcePath
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Set the source path for import/export
+'           : (Set to "" to use default path)
+'---------------------------------------------------------------------------------------
+'
+Public Property Let VCSSourcePath(strPath As String)
+    If Len(strPath) > 0 Then
+        ' Ensure we have a trailing slash
+        If Right(strPath, 1) <> "\" Then strPath = strPath & "\"
+    End If
+    m_SourcePath = strPath
+End Property
+
 
 ' Create folder `Path`. Silently do nothing if it already exists.
 Public Sub MkDirIfNotExist(Path As String)

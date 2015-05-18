@@ -328,7 +328,7 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
     Dim FSO, OutFile
     Dim rs As Recordset ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
-    Dim c As Long, Value As Variant
+    Dim C As Long, Value As Variant
     ' Checks first
     If Not TableExists(tbl_name) Then
         Debug.Print "Error: Table " & tbl_name & " missing"
@@ -348,21 +348,21 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
 
     Set OutFile = FSO.CreateTextFile(tempFileName, True, True)
 
-    c = 0
+    C = 0
     For Each fieldObj In rs.Fields
-        If c <> 0 Then OutFile.Write vbTab
-        c = c + 1
+        If C <> 0 Then OutFile.Write vbTab
+        C = C + 1
         OutFile.Write fieldObj.name
     Next
     OutFile.Write vbCrLf
 
     rs.MoveFirst
     Do Until rs.EOF
-        c = 0
+        C = 0
         For Each fieldObj In rs.Fields
             DoEvents
-            If c <> 0 Then OutFile.Write vbTab
-            c = c + 1
+            If C <> 0 Then OutFile.Write vbTab
+            C = C + 1
             Value = rs(fieldObj.name)
             If IsNull(Value) Then
                 Value = ""
@@ -549,7 +549,7 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
     Dim rs As Object ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
     Dim FSO, InFile As Object
-    Dim c As Long, buf As String, Values() As String, Value As Variant
+    Dim C As Long, buf As String, Values() As String, Value As Variant
 
     Set FSO = CreateObject("Scripting.FileSystemObject")
     
@@ -566,11 +566,11 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
         buf = InFile.ReadLine()
         If Len(Trim(buf)) > 0 Then
             Values = Split(buf, vbTab)
-            c = 0
+            C = 0
             rs.AddNew
             For Each fieldObj In rs.Fields
                 DoEvents
-                Value = Values(c)
+                Value = Values(C)
                 If Len(Value) = 0 Then
                     Value = Null
                 Else
@@ -579,7 +579,7 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
                     Value = Replace(Value, "\\", "\")
                 End If
                 rs(fieldObj.name) = Value
-                c = c + 1
+                C = C + 1
             Next
             rs.Update
         End If

@@ -184,13 +184,7 @@ End Sub
 '
 Private Sub ExportSelected()
     If SelectionInActiveProject Then
-        If ProjectIsSelected Then
-            ' Commit entire project
-            ExportAllSource False
-        Else
-            ' Commit single file
-            ExportByVBEComponent VBE.SelectedVBComponent
-        End If
+        m_Model.Export
     Else
         MsgBox "Please select a component in " & CurrentProject.name & " and try again.", vbExclamation, CodeProject.name
     End If
