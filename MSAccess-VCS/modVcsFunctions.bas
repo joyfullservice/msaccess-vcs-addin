@@ -56,5 +56,40 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function SelectionInActiveProject() As Boolean
-    SelectionInActiveProject = (Application.VBE.ActiveVBProject.fileName = CurrentProject.FullName)
+    SelectionInActiveProject = (Application.VBE.ActiveVBProject.fileName = UncPath(CurrentProject.FullName))
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UncPath
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Returns the UNC path of a mapped network drive, if applicable
+'---------------------------------------------------------------------------------------
+'
+Public Function UncPath(strPath As String) As String
+    
+    Dim objFSO As Object ' FileSystemObject
+    Dim strDrive As String
+    Dim strShare As String
+    
+    Set objFSO = CreateObject("Scripting.FileSystemObject")
+    
+    ' Identify drive letter and share name
+    With objFSO
+        strDrive = .GetDriveName(.GetAbsolutePathName(strPath))
+        strShare = .GetDrive(strDrive).ShareName
+    End With
+    
+    If strShare <> "" Then
+        ' Replace drive with UNC path
+        UncPath = strShare & Mid(strPath, Len(strDrive) + 1)
+    Else
+        ' Return unmodified path
+        UncPath = strPath
+    End If
+    
+    ' Clean up references
+    Set objFSO = Nothing
+    
 End Function
