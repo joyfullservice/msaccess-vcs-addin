@@ -109,7 +109,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
         End If
         
         ' Check to see if the library file exists
-        strPath = strPath & strLibraryName
+        strPath = strPath & strLibraryFile
         If Dir(strPath) <> "" Then
             ' File exists
             Application.References.AddFromFile strPath
