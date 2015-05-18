@@ -55,6 +55,7 @@ Private Sub IVersionControl_Export()
         ' Commit single file
         ExportByVBEComponent VBE.SelectedVBComponent
     End If
+    ActivateGitHub
 End Sub
 
 

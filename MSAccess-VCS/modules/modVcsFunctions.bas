@@ -21,6 +21,18 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ShowIDE
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Show the VBA code editor (used in autoexec macro)
+'---------------------------------------------------------------------------------------
+'
+Public Function ShowIDE()
+    DoCmd.RunCommand acCmdVisualBasicEditor
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ProgramFilesFolder
 ' Author    : Adam Waller
 ' Date      : 5/15/2015

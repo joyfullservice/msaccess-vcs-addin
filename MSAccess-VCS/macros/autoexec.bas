@@ -4,3 +4,7 @@ Begin
     Action ="RunCode"
     Argument ="StartUp()"
 End
+Begin
+    Action ="RunCode"
+    Argument ="ShowIDE()"
+End
