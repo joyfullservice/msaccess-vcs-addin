@@ -16,7 +16,9 @@ Option Private Module
 '---------------------------------------------------------------------------------------
 '
 Public Function StartUp()
-    LoadVBEMenuForVCS
+    
+
+    
 End Function
 
 

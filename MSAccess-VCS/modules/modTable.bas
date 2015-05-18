@@ -271,7 +271,7 @@ End Function
 '
 ' RETURNS: True (it exists) or False (it does not exist).
 Private Function TableExists(TName As String) As Boolean
-        Dim Db As Database, Found As Boolean, Test As String
+        Dim Db As Database, Found As Boolean, test As String
         Const NAME_NOT_IN_COLLECTION = 3265
 
          ' Assume the table or query does not exist.
@@ -282,7 +282,7 @@ Private Function TableExists(TName As String) As Boolean
         On Error Resume Next
          
          ' See if the name is in the Tables collection.
-        Test = Db.TableDefs(TName).name
+        test = Db.TableDefs(TName).name
         If Err <> NAME_NOT_IN_COLLECTION Then Found = True
 
         ' Reset the error variable.
@@ -328,7 +328,7 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
     Dim FSO, OutFile
     Dim rs As Recordset ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
-    Dim C As Long, Value As Variant
+    Dim c As Long, Value As Variant
     ' Checks first
     If Not TableExists(tbl_name) Then
         Debug.Print "Error: Table " & tbl_name & " missing"
@@ -348,21 +348,21 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
 
     Set OutFile = FSO.CreateTextFile(tempFileName, True, True)
 
-    C = 0
+    c = 0
     For Each fieldObj In rs.Fields
-        If C <> 0 Then OutFile.Write vbTab
-        C = C + 1
+        If c <> 0 Then OutFile.Write vbTab
+        c = c + 1
         OutFile.Write fieldObj.name
     Next
     OutFile.Write vbCrLf
 
     rs.MoveFirst
     Do Until rs.EOF
-        C = 0
+        c = 0
         For Each fieldObj In rs.Fields
             DoEvents
-            If C <> 0 Then OutFile.Write vbTab
-            C = C + 1
+            If c <> 0 Then OutFile.Write vbTab
+            c = c + 1
             Value = rs(fieldObj.name)
             If IsNull(Value) Then
                 Value = ""
@@ -549,7 +549,7 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
     Dim rs As Object ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
     Dim FSO, InFile As Object
-    Dim C As Long, buf As String, Values() As String, Value As Variant
+    Dim c As Long, buf As String, Values() As String, Value As Variant
 
     Set FSO = CreateObject("Scripting.FileSystemObject")
     
@@ -566,11 +566,11 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
         buf = InFile.ReadLine()
         If Len(Trim(buf)) > 0 Then
             Values = Split(buf, vbTab)
-            C = 0
+            c = 0
             rs.AddNew
             For Each fieldObj In rs.Fields
                 DoEvents
-                Value = Values(C)
+                Value = Values(c)
                 If Len(Value) = 0 Then
                     Value = Null
                 Else
@@ -579,7 +579,7 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
                     Value = Replace(Value, "\\", "\")
                 End If
                 rs(fieldObj.name) = Value
-                C = C + 1
+                c = c + 1
             Next
             rs.Update
         End If

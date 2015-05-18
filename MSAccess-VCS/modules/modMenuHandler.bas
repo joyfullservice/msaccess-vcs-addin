@@ -6,15 +6,71 @@ Private m_Model As IVersionControl
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : LoadVBEMenuForVCS
+' Procedure : LoadVCSModel
 ' Author    : Adam Waller
-' Date      : 5/15/2015
-' Purpose   : Initialize the menu for VCS
+' Date      : 5/18/2015
+' Purpose   : Load the VCS model directly
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadVBEMenuForVCS(Optional cModel As IVersionControl)
+Public Function LoadVCSModel(Optional cModel As IVersionControl)
     If cModel Is Nothing Then Set cModel = DefaultModel
     Set m_Model = cModel
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadVersionControl
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Load the version control system using the specified parameters
+'           : (We use a parameter array to avoid need for early binding on
+'           :  class models in parent applications)
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadVersionControl(varParams As Variant)
+
+    Dim intCnt As Integer
+    Dim cModel As IVersionControl
+    Dim strKey As String
+    Dim strVal As String
+    Dim strMsg As String
+    
+    ' Load parameters
+    For intCnt = LBound(varParams) To UBound(varParams)
+        strKey = varParams(intCnt)(0)
+        strVal = varParams(intCnt)(1)
+        Select Case strKey
+            Case "System"
+                Select Case strVal
+                    Case "GitHub"
+                        Set cModel = New clsModelGitHub
+                    Case "SVN"
+                        Set cModel = New clsModelSVN
+                    Case Else
+                        strMsg = "System not supported: " & strVal
+                End Select
+            
+            Case "Export Folder"
+                If Not cModel Is Nothing Then cModel.ExportBaseFolder = strVal
+                
+            Case "Show Debug"
+                If Not cModel Is Nothing Then cModel.ShowDebug = strVal
+            
+            Case Else
+                strMsg = "Unknown parameter: " & strKey
+        
+        End Select
+        If strMsg <> "" Then Exit For
+    Next intCnt
+    
+    If strMsg = "" Then
+        ' Set model
+        Set m_Model = cModel
+    Else
+        ' Show message if errors were encountered
+        MsgBox strMsg, vbExclamation, "Version Control"
+    End If
+    
 End Sub
 
 

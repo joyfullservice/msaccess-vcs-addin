@@ -2,7 +2,7 @@
 ColumnsShown =8
 Begin
     Action ="RunCode"
-    Argument ="StartUp()"
+    Argument ="LoadVCSModel()"
 End
 Begin
     Action ="RunCode"

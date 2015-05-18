@@ -133,7 +133,7 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
             End If
             '
             ' Skip lines starting with line pattern
-            If rxLine.Test(txt) Then
+            If rxLine.test(txt) Then
                 Dim rxIndent As Object
                 Set rxIndent = CreateObject("VBScript.RegExp")
                 rxIndent.Pattern = "^(\s+)\S"
@@ -154,14 +154,14 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
                 ' Skip lines with deeper indentation
                 Do Until InFile.AtEndOfStream
                     txt = InFile.ReadLine
-                    If rxIndent.Test(txt) Then Exit Do
+                    If rxIndent.test(txt) Then Exit Do
                 Loop
                 ' We've moved on at least one line so do get a new one
                 ' when starting the loop again.
                 getLine = False
             '
             ' skip blocks of code matching block pattern
-            ElseIf rxBlock.Test(txt) Then
+            ElseIf rxBlock.test(txt) Then
                 Do Until InFile.AtEndOfStream
                     txt = InFile.ReadLine
                     If InStr(txt, "End") Then Exit Do

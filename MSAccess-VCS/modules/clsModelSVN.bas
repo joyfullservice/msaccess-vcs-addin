@@ -20,7 +20,7 @@ Const cCmdDiff As String = ""
 ' Require the functions outlined in IVersionControl
 ' (Allows us to use different data models with the same
 '  programming logic.)
-'Implements IVersionControl
+Implements IVersionControl
 Private m_vcs As IVersionControl
 
 ' Private variables
@@ -69,9 +69,23 @@ Private Function AppPath() As String
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : IVersionControl_Export
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Export files for SVN
+'---------------------------------------------------------------------------------------
+'
 Private Sub IVersionControl_Export()
-
+    If ProjectIsSelected Then
+        ' Commit entire project
+        ExportAllSource False
+    Else
+        ' Commit single file
+        ExportByVBEComponent VBE.SelectedVBComponent
+    End If
 End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : IVersionControl_HasRequiredSoftware
@@ -92,7 +106,6 @@ Private Property Get IVersionControl_HasRequiredSoftware(blnWarnUser As Boolean)
     
     End If
 End Property
-
 
 
 

@@ -85,8 +85,6 @@ Private Sub IVersionControl_Export()
 End Sub
 
 
-
-
 '---------------------------------------------------------------------------------------
 ' Procedure : IVersionControl_HasRequiredSoftware
 ' Author    : Adam Waller
@@ -122,12 +120,6 @@ Private Sub ActivateGitHub()
     End If
     On Error GoTo 0
 End Sub
-
-
-
-
-
-
 
 
 
