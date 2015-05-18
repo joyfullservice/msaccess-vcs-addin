@@ -9,20 +9,6 @@ Option Private Module
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : StartUp
-' Author    : Adam Waller
-' Date      : 5/15/2015
-' Purpose   : Auto-load version control when opening the library file.
-'---------------------------------------------------------------------------------------
-'
-Public Function StartUp()
-    
-
-    
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : ShowIDE
 ' Author    : Adam Waller
 ' Date      : 5/18/2015
