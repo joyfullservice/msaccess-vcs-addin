@@ -63,7 +63,6 @@ Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path A
     End If
 End Sub
 
-'shouldn't this be SanitizeTextFile (Singular)?
 
 ' For each *.txt in `Path`, find and remove a number of problematic but
 ' unnecessary lines of VB code that are inserted automatically by the
@@ -71,10 +70,33 @@ End Sub
 ' version control).
 Public Sub SanitizeTextFiles(Path As String, Ext As String)
 
+    Dim fileName As String
+    fileName = Dir(Path & "*." & Ext)
+    Do Until Len(fileName) = 0
+        SanitizeFile Path, fileName, Ext, AggressiveSanitize
+        fileName = Dir()
+    Loop
+
+End Sub
+
+
+' Sanitize the text file
+Public Sub SanitizeFile(strPath As String, strFile As String, strExt As String, blnAggressive As Boolean)
 
     Dim FSO As Object
+    Dim strData As String
+    Dim sngOverall As Single
+    Dim sngTimer As Single
+    Dim cData As New clsConcat
+    
+    ' Timers to monitor performance
+    sngTimer = Timer
+    sngOverall = sngTimer
+    cData.lngAllocSize = 10000
+    
     Set FSO = CreateObject("Scripting.FileSystemObject")
-    '
+    Dim isReport As Boolean: isReport = False
+    
     '  Setup Block matching Regex.
     Dim rxBlock As Object
     Set rxBlock = CreateObject("VBScript.RegExp")
@@ -107,91 +129,105 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
     srchPattern = srchPattern & ")"
 'Debug.Print srchPattern
     rxLine.Pattern = srchPattern
-    Dim fileName As String
-    fileName = Dir(Path & "*." & Ext)
-    Dim isReport As Boolean: isReport = False
-    Do Until Len(fileName) = 0
-        DoEvents
-        Dim obj_name As String
-        obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
 
-        Dim InFile As Object
-        Set InFile = FSO.OpenTextFile(Path & obj_name & "." & Ext, ForReading)
-        Dim OutFile As Object
-        Set OutFile = FSO.CreateTextFile(Path & obj_name & ".sanitize", True)
+
+    Dim obj_name As String
+    obj_name = Mid(strFile, 1, InStrRev(strFile, ".") - 1)
+
+    Dim InFile As Object
+    Set InFile = FSO.OpenTextFile(strPath & obj_name & "." & strExt, ForReading)
+    Dim OutFile As Object
+    Set OutFile = FSO.CreateTextFile(strPath & obj_name & ".sanitize", True)
+
+    Dim getLine As Boolean: getLine = True
+    Do Until InFile.AtEndOfStream
     
-        Dim getLine As Boolean: getLine = True
-        Do Until InFile.AtEndOfStream
+        ' Only call DoEvents once per second.
+        ' (Drastic performance gains)
+        If Timer - sngTimer > 1 Then
             DoEvents
-            Dim txt As String
+            sngTimer = Timer
+        End If
+    
+        Dim txt As String
+        '
+        ' Check if we need to get a new line of text
+        If getLine = True Then
+            txt = InFile.ReadLine
+        Else
+            getLine = True
+        End If
+        '
+        ' Skip lines starting with line pattern
+        If rxLine.test(txt) Then
+            Dim rxIndent As Object
+            Set rxIndent = CreateObject("VBScript.RegExp")
+            rxIndent.Pattern = "^(\s+)\S"
             '
-            ' Check if we need to get a new line of text
-            If getLine = True Then
+            ' Get indentation level.
+            Dim matches As Object
+            Set matches = rxIndent.Execute(txt)
+            '
+            ' Setup pattern to match current indent
+            Select Case matches.Count
+                Case 0
+                    rxIndent.Pattern = "^" & vbNullString
+                Case Else
+                    rxIndent.Pattern = "^" & matches(0).SubMatches(0)
+            End Select
+            rxIndent.Pattern = rxIndent.Pattern + "\S"
+            '
+            ' Skip lines with deeper indentation
+            Do Until InFile.AtEndOfStream
                 txt = InFile.ReadLine
-            Else
-                getLine = True
+                If rxIndent.test(txt) Then Exit Do
+            Loop
+            ' We've moved on at least one line so do get a new one
+            ' when starting the loop again.
+            getLine = False
+        '
+        ' skip blocks of code matching block pattern
+        ElseIf rxBlock.test(txt) Then
+            Do Until InFile.AtEndOfStream
+                txt = InFile.ReadLine
+                If InStr(txt, "End") Then Exit Do
+            Loop
+        ElseIf InStr(1, txt, "Begin Report") = 1 Then
+            isReport = True
+            cData.Add txt
+            cData.Add vbCrLf
+            'strData = strData & txt & vbCrLf
+            'OutFile.WriteLine txt
+        ElseIf isReport = True And (InStr(1, txt, "    Right =") Or InStr(1, txt, "    Bottom =")) Then
+            'skip line
+            If InStr(1, txt, "    Bottom =") Then
+                isReport = False
             End If
-            '
-            ' Skip lines starting with line pattern
-            If rxLine.test(txt) Then
-                Dim rxIndent As Object
-                Set rxIndent = CreateObject("VBScript.RegExp")
-                rxIndent.Pattern = "^(\s+)\S"
-                '
-                ' Get indentation level.
-                Dim matches As Object
-                Set matches = rxIndent.Execute(txt)
-                '
-                ' Setup pattern to match current indent
-                Select Case matches.Count
-                    Case 0
-                        rxIndent.Pattern = "^" & vbNullString
-                    Case Else
-                        rxIndent.Pattern = "^" & matches(0).SubMatches(0)
-                End Select
-                rxIndent.Pattern = rxIndent.Pattern + "\S"
-                '
-                ' Skip lines with deeper indentation
-                Do Until InFile.AtEndOfStream
-                    txt = InFile.ReadLine
-                    If rxIndent.test(txt) Then Exit Do
-                Loop
-                ' We've moved on at least one line so do get a new one
-                ' when starting the loop again.
-                getLine = False
-            '
-            ' skip blocks of code matching block pattern
-            ElseIf rxBlock.test(txt) Then
-                Do Until InFile.AtEndOfStream
-                    txt = InFile.ReadLine
-                    If InStr(txt, "End") Then Exit Do
-                Loop
-            ElseIf InStr(1, txt, "Begin Report") = 1 Then
-                isReport = True
-                OutFile.WriteLine txt
-            ElseIf isReport = True And (InStr(1, txt, "    Right =") Or InStr(1, txt, "    Bottom =")) Then
-                'skip line
-                If InStr(1, txt, "    Bottom =") Then
-                    isReport = False
-                End If
-            Else
-                OutFile.WriteLine txt
-            End If
-        Loop
-        OutFile.Close
-        InFile.Close
-
-        FSO.DeleteFile (Path & fileName)
-
-        Dim thisFile As Object
-        Set thisFile = FSO.GetFile(Path & obj_name & ".sanitize")
-        thisFile.Move (Path & fileName)
-        fileName = Dir()
+        Else
+            cData.Add txt
+            cData.Add vbCrLf
+            'strData = strData & txt & vbCrLf
+            'OutFile.WriteLine txt
+        End If
     Loop
+    
+    ' Write file all at once, rather than line by line.
+    ' (Otherwise the code can bog down with tens of thousands of write operations)
+    OutFile.Write cData.GetStr
+    
+    OutFile.Close
+    InFile.Close
 
+    ' Show stats if debug turned on.
+    If ShowDebugInfo Then Debug.Print "  Sanitized " & obj_name & " in " & Timer - sngOverall & " seconds."
+
+    FSO.DeleteFile (strPath & strFile)
+
+    Dim thisFile As Object
+    Set thisFile = FSO.GetFile(strPath & obj_name & ".sanitize")
+    thisFile.Move (strPath & strFile)
 
 End Sub
-
 
 
 
