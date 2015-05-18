@@ -13,10 +13,8 @@ Private m_Model As IVersionControl
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadVBEMenuForVCS(Optional cModel As IVersionControl)
-    
     If cModel Is Nothing Then Set cModel = DefaultModel
     Set m_Model = cModel
-    
 End Sub
 
 
@@ -29,7 +27,6 @@ End Sub
 '
 Private Function DefaultModel() As IVersionControl
 
-    Dim cGitHub As clsModelGitHub
     Dim strPath As String
 
     ' If we are editing the MSAccess-VCS project, then assume we are using GitHub
@@ -41,9 +38,11 @@ Private Function DefaultModel() As IVersionControl
         If Dir(strPath, vbDirectory) <> "" Then
             ' Use this folder after verifying with user.
             If MsgBox("Use local GitHub folder?", vbQuestion + vbYesNo) = vbYes Then
-                Set cGitHub = New clsModelGitHub
-                Set DefaultModel = cGitHub
-                DefaultModel.ExportBaseFolder = strPath
+                Set DefaultModel = New clsModelGitHub
+                With DefaultModel
+                    .ExportBaseFolder = strPath
+                    .ShowDebug = False  ' Simple output messages
+                End With
             End If
         Else
             ' Can't find the local GitHub project.
