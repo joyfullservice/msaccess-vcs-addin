@@ -122,7 +122,6 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
     ' Initialize the VBE menu
     ' (Use the Run commmand to avoid compile errors if the library was not loaded)
     If blnInitialize Then
-        Run "LoadVersionControl", varParams
     End If
     
 End Sub
