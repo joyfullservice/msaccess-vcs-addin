@@ -28,6 +28,18 @@ Private m_ProgFiles As String
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Class_Terminate
+' Author    : Adam Waller
+' Date      : 6/2/2015
+' Purpose   : Remove references to child classes
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Terminate()
+    ' Terminate child classes
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IVersionControl_Commit
 ' Author    : Adam Waller
 ' Date      : 5/15/2015
@@ -106,6 +118,18 @@ Private Property Get IVersionControl_HasRequiredSoftware(blnWarnUser As Boolean)
     
     End If
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IVersionControl_Terminate
+' Author    : Adam Waller
+' Date      : 6/2/2015
+' Purpose   : Terminate child classes
+'---------------------------------------------------------------------------------------
+'
+Private Sub IVersionControl_Terminate()
+    Call Class_Terminate
+End Sub
 
 
 

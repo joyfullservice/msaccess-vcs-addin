@@ -125,10 +125,11 @@ End Function
 '
 Private Sub RemoveAllButtons()
     Dim btn As CommandBarButton
-    If m_CommandBar Is Nothing Then Exit Sub
-    For Each btn In m_CommandBar.Controls
-        btn.Delete
-    Next btn
+    If Not m_CommandBar Is Nothing Then
+        For Each btn In m_CommandBar.Controls
+            btn.Delete
+        Next btn
+    End If
 End Sub
 
 
@@ -148,7 +149,12 @@ Private Sub Class_Terminate()
     
     ' Finish cleaning up
     RemoveAllButtons
-    Set m_CommandBar = Nothing
+    If Not m_CommandBar Is Nothing Then
+        m_CommandBar.Delete
+        Set m_CommandBar = Nothing
+    End If
+    ' Don't terminate a circular reference
+    ' since menu is a child of the model
     Set m_Model = Nothing
     
 End Sub
@@ -188,4 +194,16 @@ Private Sub ExportSelected()
     Else
         MsgBox "Please select a component in " & CurrentProject.Name & " and try again.", vbExclamation, CodeProject.Name
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Terminate
+' Author    : Adam Waller
+' Date      : 6/2/2015
+' Purpose   : Manually fire the terminate event
+'---------------------------------------------------------------------------------------
+'
+Public Sub Terminate()
+    Call Class_Terminate
 End Sub

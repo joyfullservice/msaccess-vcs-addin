@@ -70,3 +70,16 @@ End Sub
 '
 Public Property Get HasRequiredSoftware(blnWarnUser As Boolean) As Boolean
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Terminate
+' Author    : Adam Waller
+' Date      : 6/2/2015
+' Purpose   : Manually call the terminate event.
+'           : This is helpful when you are dealing with circular references
+'           : in class objects. http://dailydoseofexcel.com/archives/2007/12/28/terminating-dependent-classes/
+'---------------------------------------------------------------------------------------
+'
+Public Sub Terminate()
+End Sub

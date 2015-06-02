@@ -1,7 +1,7 @@
 Option Compare Database
 Option Explicit
 
-Private m_DefaultModel As New clsModelGitHub
+'Private m_DefaultModel As clsModelGitHub
 Private m_Model As IVersionControl
 
 
@@ -87,6 +87,7 @@ End Sub
 Private Function DefaultModel() As IVersionControl
 
     Dim strPath As String
+    Dim cDefault As New clsModelGitHub
 
     ' If we are editing the MSAccess-VCS project, then assume we are using GitHub
     ' Otherwise, use whatever is specified as the default model.
@@ -105,12 +106,12 @@ Private Function DefaultModel() As IVersionControl
             End If
         Else
             ' Can't find the local GitHub project.
-            Set DefaultModel = m_DefaultModel
+            Set DefaultModel = cDefault
         End If
     
     Else
         ' Use default model
-        Set DefaultModel = m_DefaultModel
+        Set DefaultModel = cDefault
     End If
 
 End Function
@@ -128,4 +129,20 @@ Private Function GetDocumentsFolder() As String
     Set objShell = CreateObject("WScript.Shell")
     GetDocumentsFolder = objShell.SpecialFolders("MyDocuments")
     Set objShell = Nothing
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReleaseObjectReferences
+' Author    : Adam Waller
+' Date      : 6/2/2015
+' Purpose   : Releases object references to allow unload of project
+'---------------------------------------------------------------------------------------
+'
+Public Function ReleaseObjectReferences()
+    If Not m_Model Is Nothing Then
+        m_Model.Terminate
+        Set m_Model = Nothing
+    End If
+    Set modFunctions.colVerifiedPaths = Nothing
 End Function

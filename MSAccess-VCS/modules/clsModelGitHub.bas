@@ -12,7 +12,7 @@ Implements IVersionControl
 Private m_vcs As IVersionControl
 
 ' Local instance of menu class
-Private m_Menu As New clsVbeMenu
+Private m_Menu As clsVbeMenu
 
 
 '---------------------------------------------------------------------------------------
@@ -29,6 +29,18 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Terminate
+' Author    : Adam Waller
+' Date      : 6/2/2015
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Public Function Terminate()
+    Call Class_Terminate
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Class_Initialize
 ' Author    : Adam Waller
 ' Date      : 5/18/2015
@@ -37,7 +49,23 @@ End Function
 '
 Private Sub Class_Initialize()
     Set m_vcs = New IVersionControl
+    Set m_Menu = New clsVbeMenu
     m_Menu.Construct Me
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Terminate
+' Author    : Adam Waller
+' Date      : 6/2/2015
+' Purpose   : Remove reference to menu class
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Terminate()
+    If Not m_Menu Is Nothing Then
+        m_Menu.Terminate
+        Set m_Menu = Nothing
+    End If
 End Sub
 
 
@@ -122,6 +150,16 @@ Private Sub ActivateGitHub()
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : IVersionControl_Terminate
+' Author    : Adam Waller
+' Date      : 6/2/2015
+' Purpose   : Terminate child classes
+'---------------------------------------------------------------------------------------
+'
+Private Sub IVersionControl_Terminate()
+    Call Class_Terminate
+End Sub
 
 
 '---------------------------------------------------------------------------------------
