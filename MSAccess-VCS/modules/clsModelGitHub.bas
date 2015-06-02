@@ -76,10 +76,10 @@ Private Sub IVersionControl_Export()
     VCSSourcePath = m_vcs.ExportBaseFolder
     If ProjectIsSelected Then
         ' Commit entire project
-        ExportAllSource False
+        ExportAllSource Me
     Else
         ' Commit single file
-        ExportByVBEComponent VBE.SelectedVBComponent
+        ExportByVBEComponent VBE.SelectedVBComponent, Me
     End If
     ActivateGitHub
 End Sub

@@ -17,14 +17,15 @@ Public Sub InitializeVersionControlSystem(Optional blnUseVersionControl As Boole
     
     ' Version Control Library
     Const cstrLibraryPath As String = "T:\Apps\SysAdmin\Development\"
-    Const cstrLibraryFile As String = "Version Control 1.0.accda"
+    Const cstrLibraryFile As String = "Version Control.accda"
     Const cstrLibraryName As String = "MSAccess-VCS"
     
     ' VCS Settings for this database (Additional parameters may be added as needed)
-    Dim varParams(0 To 2) As Variant
+    Dim varParams(0 To 3) As Variant
     varParams(0) = Array("System", "GitHub")    ' Set this first, before other settings.
-    varParams(1) = Array("Export Folder", "T:\Apps\SysAdmin\Development\Source\VBA-Web")
+    varParams(1) = Array("Export Folder", "T:\Apps\SysAdmin\Development\Source\MyProject")
     varParams(2) = Array("Show Debug", False)
+    varParams(3) = Array("Include VBE", False)
 
     ' Pass the parameters to the wrapper function
     LoadVersionControl blnUseVersionControl, cstrLibraryPath, cstrLibraryFile, cstrLibraryName, varParams
@@ -58,7 +59,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
     For intCnt = Application.References.Count To 1 Step -1
         Set ref = Application.References(intCnt)
         If ref.Kind = VB_PROJECT Then
-            If ref.name = strLibraryName Then
+            If ref.Name = strLibraryName Then
                 If blnUseVersionControl Then
                     ' Make sure the path is valid.
                     If Dir(ref.FullPath) = "" Then

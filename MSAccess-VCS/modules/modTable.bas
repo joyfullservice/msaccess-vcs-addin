@@ -32,7 +32,7 @@ Public Sub ExportLinkedTable(tbl_name As String, obj_path As String)
     
     Set OutFile = FSO.CreateTextFile(tempFilePath, True, True)
     
-    OutFile.Write CurrentDb.TableDefs(tbl_name).name
+    OutFile.Write CurrentDb.TableDefs(tbl_name).Name
     OutFile.Write vbCrLf
     
     If InStr(1, CurrentDb.TableDefs(tbl_name).connect, "DATABASE=" & CurrentProject.Path) Then
@@ -94,7 +94,7 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, d
     Set OutFile = FSO.CreateTextFile(fileName, True)
     sql = "CREATE TABLE " & strName(tableName) & " (" & vbCrLf
     For Each fi In td.Fields
-        sql = sql & "  " & strName(fi.name) & " "
+        sql = sql & "  " & strName(fi.Name) & " "
         If (fi.Attributes And dbAutoIncrField) Then
             sql = sql & "AUTOINCREMENT"
         Else
@@ -107,7 +107,7 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, d
         End Select
         For Each idx In td.Indexes
             fieldAttributeSql = ""
-            If idx.Fields.Count = 1 And idx.Fields(0).name = fi.name Then
+            If idx.Fields.Count = 1 And idx.Fields(0).Name = fi.Name Then
                 If idx.Primary Then fieldAttributeSql = fieldAttributeSql & " PRIMARY KEY "
                 If idx.Unique Then fieldAttributeSql = fieldAttributeSql & " UNIQUE "
                 If idx.Required Then fieldAttributeSql = fieldAttributeSql & " NOT NULL "
@@ -115,7 +115,7 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, d
                     Set ff = idx.Fields
                     fieldAttributeSql = fieldAttributeSql & formatReferences(Db, ff, tableName)
                 End If
-                If Len(fieldAttributeSql) > 0 Then fieldAttributeSql = " CONSTRAINT " & strName(idx.name) & fieldAttributeSql
+                If Len(fieldAttributeSql) > 0 Then fieldAttributeSql = " CONSTRAINT " & strName(idx.Name) & fieldAttributeSql
             End If
             sql = sql & fieldAttributeSql
         Next
@@ -159,7 +159,7 @@ Private Function formatReferences(Db As Database, ff As Object, tableName As Str
           sql = " REFERENCES "
           sql = sql & rel.table & " ("
           For Each f In rel.Fields
-            sql = sql & strName(f.name) & ","
+            sql = sql & strName(f.Name) & ","
           Next
           sql = Left(sql, Len(sql) - 1) & ")"
           If rel.Attributes And dbRelationUpdateCascade Then
@@ -180,9 +180,9 @@ Private Function formatConstraint(keyw As String, idx As Index) As String
     Dim sql As String
     Dim fi As Field
     
-    sql = strName(idx.name) & " " & keyw & " ("
+    sql = strName(idx.Name) & " " & keyw & " ("
     For Each fi In idx.Fields
-        sql = sql & strName(fi.name) & ", "
+        sql = sql & strName(fi.Name) & ", "
     Next
     sql = Left(sql, Len(sql) - 2) & ")" 'strip off last comma and close brackets
     
@@ -255,7 +255,7 @@ End Function
 Private Function FieldInFields(fi As Field, ff As Fields) As Boolean
     Dim f As Field
     For Each f In ff
-        If f.name = fi.name Then
+        If f.Name = fi.Name Then
             FieldInFields = True
             Exit Function
         End If
@@ -282,7 +282,7 @@ Private Function TableExists(TName As String) As Boolean
         On Error Resume Next
          
          ' See if the name is in the Tables collection.
-        test = Db.TableDefs(TName).name
+        test = Db.TableDefs(TName).Name
         If Err <> NAME_NOT_IN_COLLECTION Then Found = True
 
         ' Reset the error variable.
@@ -306,7 +306,7 @@ Private Function TableExportSql(tbl_name As String)
     Count = 0
     For Each fieldObj In rs.Fields
         If Count > 0 Then modFunctions.Sb_Append sb, ", "
-        modFunctions.Sb_Append sb, "[" & fieldObj.name & "]"
+        modFunctions.Sb_Append sb, "[" & fieldObj.Name & "]"
         Count = Count + 1
     Next
     modFunctions.Sb_Append sb, " FROM [" & tbl_name & "] ORDER BY "
@@ -314,7 +314,7 @@ Private Function TableExportSql(tbl_name As String)
     For Each fieldObj In rs.Fields
         DoEvents
         If Count > 0 Then modFunctions.Sb_Append sb, ", "
-        modFunctions.Sb_Append sb, "[" & fieldObj.name & "]"
+        modFunctions.Sb_Append sb, "[" & fieldObj.Name & "]"
         Count = Count + 1
     Next
 
@@ -352,7 +352,7 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
     For Each fieldObj In rs.Fields
         If c <> 0 Then OutFile.Write vbTab
         c = c + 1
-        OutFile.Write fieldObj.name
+        OutFile.Write fieldObj.Name
     Next
     OutFile.Write vbCrLf
 
@@ -363,7 +363,7 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
             DoEvents
             If c <> 0 Then OutFile.Write vbTab
             c = c + 1
-            Value = rs(fieldObj.name)
+            Value = rs(fieldObj.Name)
             If IsNull(Value) Then
                 Value = ""
             Else
@@ -446,7 +446,7 @@ Err_CreateLinkedTable_Fin:
     Fields = InFile.ReadLine()
     Dim Field As Variant
     Dim sql As String
-    sql = "CREATE INDEX __uniqueindex ON " & td.name & " ("
+    sql = "CREATE INDEX __uniqueindex ON " & td.Name & " ("
     
     For Each Field In Split(Fields, ";+")
         sql = sql & "[" & Field & "]" & ","
@@ -578,7 +578,7 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
                     Value = Replace(Value, "\n", vbCrLf)
                     Value = Replace(Value, "\\", "\")
                 End If
-                rs(fieldObj.name) = Value
+                rs(fieldObj.Name) = Value
                 c = c + 1
             Next
             rs.Update

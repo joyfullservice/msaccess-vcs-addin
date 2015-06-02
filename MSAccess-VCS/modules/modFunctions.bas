@@ -246,7 +246,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get VCSSourcePath() As String
-    If m_SourcePath = "" Then m_SourcePath = ProjectPath & CurrentProject.name & ".src\"
+    If m_SourcePath = "" Then m_SourcePath = ProjectPath & CurrentProject.Name & ".src\"
     VCSSourcePath = m_SourcePath
 End Property
 
@@ -409,6 +409,24 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : InCollection
+' Author    : Adam Waller
+' Date      : 6/2/2015
+' Purpose   : Returns true if the item value is found in the collection
+'---------------------------------------------------------------------------------------
+'
+Public Function InCollection(MyCol As Collection, MyValue) As Boolean
+    Dim intCnt As Integer
+    For intCnt = 1 To MyCol.Count
+        If MyCol(intCnt) = MyValue Then
+            InCollection = True
+            Exit For
+        End If
+    Next intCnt
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ArrayToCollection
 ' Author    : Adam Waller
 ' Date      : 5/14/2015
@@ -462,11 +480,11 @@ End Sub
 Public Function CloseFormsReports()
     On Error GoTo errorHandler
     Do While Forms.Count > 0
-        DoCmd.Close acForm, Forms(0).name
+        DoCmd.Close acForm, Forms(0).Name
         DoEvents
     Loop
     Do While Reports.Count > 0
-        DoCmd.Close acReport, Reports(0).name
+        DoCmd.Close acReport, Reports(0).Name
         DoEvents
     Loop
     Exit Function
@@ -479,11 +497,30 @@ End Function
 'errno 457 - duplicate key (& item)
 Public Function StrSetToCol(strSet As String, delimiter As String) As Collection 'throws errors
     Dim strSetArray() As String
-    Dim col As New Collection
+    Dim Col As New Collection
     strSetArray = Split(strSet, delimiter)
     Dim item As Variant
     For Each item In strSetArray
-        col.Add item, item
+        Col.Add item, item
     Next
-    Set StrSetToCol = col
+    Set StrSetToCol = Col
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetVBEExtByType
+' Author    : Adam Waller
+' Date      : 6/2/2015
+' Purpose   : Return a standardized VBE component extension by type
+'---------------------------------------------------------------------------------------
+'
+Public Function GetVBEExtByType(cmp As VBComponent) As String
+    Dim strExt As String
+    Select Case cmp.Type
+        Case vbext_ct_StdModule:    strExt = ".bas"
+        Case vbext_ct_MSForm:       strExt = ".frm" ' (not used in Microsoft Access)
+        Case Else ' vbext_ct_Document, vbext_ct_ActiveXDesigner, vbext_ct_ClassModule
+            strExt = ".cls"
+    End Select
+    GetVBEExtByType = strExt
 End Function

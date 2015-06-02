@@ -90,7 +90,7 @@ Private Function DefaultModel() As IVersionControl
 
     ' If we are editing the MSAccess-VCS project, then assume we are using GitHub
     ' Otherwise, use whatever is specified as the default model.
-    If SelectionInActiveProject And VBE.ActiveVBProject.name = "MSAccess-VCS" Then
+    If SelectionInActiveProject And VBE.ActiveVBProject.Name = "MSAccess-VCS" Then
     
         ' Build path to source files. (Assuming default installation of GitHub)
         strPath = GetDocumentsFolder & "\GitHub\msaccess-vcs-integration\MSAccess-VCS\"

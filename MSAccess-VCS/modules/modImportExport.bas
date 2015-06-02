@@ -1,5 +1,7 @@
 Option Compare Database
 Option Explicit
+Option Private Module
+
 
 ' List of lookup tables that are part of the program rather than the
 ' data, to be exported with source code
@@ -18,7 +20,7 @@ Private Const cstrSpacer As String = "-------------------------------"
 ' Main entry point for EXPORT. Export all forms, reports, queries,
 ' macros, modules, and lookup tables to `source` folder under the
 ' database's folder.
-Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional ArrayOfTablesToSave As Variant)
+Public Sub ExportAllSource(cModel As IVersionControl)
     
     Dim Db As Object ' DAO.Database
     Dim source_path As String
@@ -35,7 +37,7 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
     Dim ucs2 As Boolean
 
     Set Db = CurrentDb
-    ShowDebugInfo = ShowDebug
+    ShowDebugInfo = cModel.ShowDebug
     Set colVerifiedPaths = New Collection   ' Reset cache
 
     CloseFormsReports
@@ -54,8 +56,8 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
     obj_count = 0
     For Each qry In Db.QueryDefs
         DoEvents
-        If Left(qry.name, 1) <> "~" Then
-            modFunctions.ExportObject acQuery, qry.name, obj_path & qry.name & ".bas", modFileAccess.UsingUcs2
+        If Left(qry.Name, 1) <> "~" Then
+            modFunctions.ExportObject acQuery, qry.Name, obj_path & qry.Name & ".bas", modFileAccess.UsingUcs2
             obj_count = obj_count + 1
         End If
     Next
@@ -86,16 +88,16 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
         If ShowDebugInfo Then Debug.Print
         For Each doc In Db.Containers(obj_type_name).Documents
             DoEvents
-            If (Left(doc.name, 1) <> "~") Then
+            If (Left(doc.Name, 1) <> "~") Then
                 If obj_type_label = "modules" Then
                     ucs2 = False
                 Else
                     ucs2 = modFileAccess.UsingUcs2
                 End If
-                modFunctions.ExportObject obj_type_num, doc.name, obj_path & doc.name & ".bas", ucs2
+                modFunctions.ExportObject obj_type_num, doc.Name, obj_path & doc.Name & ".bas", ucs2
                 
                 If obj_type_label = "reports" Then
-                    modReport.ExportPrintVars doc.name, obj_path & doc.name & ".pv"
+                    modReport.ExportPrintVars doc.Name, obj_path & doc.Name & ".pv"
                 End If
                 
                 obj_count = obj_count + 1
@@ -126,7 +128,7 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
     Dim tds As TableDefs
     Set tds = Db.TableDefs
 
-    If Not IsMissing(ArrayOfTablesToSave) Then
+    If cModel.TablesToSaveData.Count > 0 Then
         ' Only create this folder if we are actually saving table data
         modFunctions.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
     End If
@@ -150,30 +152,30 @@ Public Sub ExportAllSource(Optional ShowDebug As Boolean = False, Optional Array
     For Each td In tds
         ' This is not a system table
         ' this is not a temporary table
-        If Left$(td.name, 4) <> "MSys" And _
-            Left$(td.name, 1) <> "~" Then
+        If Left$(td.Name, 4) <> "MSys" And _
+            Left$(td.Name, 1) <> "~" Then
             modFunctions.VerifyPath Left(obj_path, InStrRev(obj_path, "\"))
             If Len(td.connect) = 0 Then ' this is not an external table
-                modTable.ExportTableDef Db, td, td.name, obj_path
-                If InArray(ArrayOfTablesToSave, "*") Then
+                modTable.ExportTableDef Db, td, td.Name, obj_path
+                If InCollection(cModel.TablesToSaveData, "*") Then
                     DoEvents
-                    modTable.ExportTableData CStr(td.name), source_path & "tables\"
-                    If Len(Dir(source_path & "tables\" & td.name & ".txt")) > 0 Then
+                    modTable.ExportTableData CStr(td.Name), source_path & "tables\"
+                    If Len(Dir(source_path & "tables\" & td.Name & ".txt")) > 0 Then
                         obj_data_count = obj_data_count + 1
                     End If
-                ElseIf InArray(ArrayOfTablesToSave, td.name) Then
+                ElseIf InCollection(cModel.TablesToSaveData, td.Name) Then
                     DoEvents
                     On Error GoTo Err_TableNotFound
-                    modTable.ExportTableData CStr(td.name), source_path & "tables\"
+                    modTable.ExportTableData CStr(td.Name), source_path & "tables\"
                     obj_data_count = obj_data_count + 1
 Err_TableNotFound:
                     
                 'else don't export table data
                 End If
-                If ShowDebugInfo Then Debug.Print "  " & td.name
+                If ShowDebugInfo Then Debug.Print "  " & td.Name
 
             Else
-                modTable.ExportLinkedTable td.name, obj_path
+                modTable.ExportLinkedTable td.Name, obj_path
             End If
             
             obj_count = obj_count + 1
@@ -198,9 +200,9 @@ Err_TableNotFound:
     
     Dim aRelation As Relation
     For Each aRelation In CurrentDb.Relations
-        If Not (aRelation.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or aRelation.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+        If Not (aRelation.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or aRelation.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
             modFunctions.VerifyPath Left(obj_path, InStrRev(obj_path, "\"))
-            modRelation.ExportRelation aRelation, obj_path & aRelation.name & ".txt"
+            modRelation.ExportRelation aRelation, obj_path & aRelation.Name & ".txt"
             obj_count = obj_count + 1
         End If
     Next aRelation
@@ -210,6 +212,9 @@ Err_TableNotFound:
     Else
         Debug.Print "[" & obj_count & "]"
     End If
+
+    ' VBE objects
+    If cModel.IncludeVBE Then ExportAllVBE ShowDebugInfo
 
     If ShowDebugInfo Then Debug.Print cstrSpacer
     Debug.Print "Done."
@@ -261,15 +266,10 @@ Public Sub ExportAllVBE(Optional ShowDebug As Boolean = False)
        
         ' Loop through all components in the active project
         For Each cmp In VBE.ActiveVBProject.VBComponents
-            Select Case cmp.Type
-                Case vbext_ct_StdModule:    strExt = ".bas"
-                Case vbext_ct_MSForm:       strExt = ".frm" ' (not used in Microsoft Access)
-                Case Else ' vbext_ct_Document, vbext_ct_ActiveXDesigner, vbext_ct_ClassModule
-                    strExt = ".cls"
-            End Select
             obj_count = obj_count + 1
-            cmp.Export strPath & cmp.name & strExt
-            If ShowDebugInfo Then Debug.Print "  " & cmp.name
+            strExt = GetVBEExtByType(cmp)
+            cmp.Export strPath & cmp.Name & strExt
+            If ShowDebugInfo Then Debug.Print "  " & cmp.Name
         Next cmp
         
         If ShowDebugInfo Then
@@ -291,13 +291,39 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ExportSingleVBEComponent
+' Author    : Adam Waller
+' Date      : 6/2/2015
+' Purpose   : Export a single (selected) VBE component
+'---------------------------------------------------------------------------------------
+'
+Private Sub ExportSingleVBEComponent(cmp As VBComponent)
+
+    Dim strPath As String
+    
+    If ShowDebugInfo Then Debug.Print "Exporting " & cmp.Name & " (VBE)"
+    
+    strPath = modFunctions.VCSSourcePath
+    modFunctions.VerifyPath strPath
+    strPath = strPath & "VBE\" & cmp.Name & GetVBEExtByType(cmp)
+    
+    ' Clear any existing file
+    If Dir(strPath) <> "" Then Kill strPath
+    
+    ' Export to file
+    cmp.Export strPath
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ExportByVBEComponentName
 ' Author    : Adam Waller
 ' Date      : 5/15/2015
 ' Purpose   : Export single object using the VBE component name
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportByVBEComponent(cmpToExport As VBComponent)
+Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionControl)
     
     Dim intType As Integer
     Dim strFolder As String
@@ -312,18 +338,18 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent)
             Case vbext_ct_StdModule, vbext_ct_ClassModule
                 ' Code modules
                 intType = acModule
-                strName = .name
-                strFolder = "modules\" & .name & ".bas"
+                strName = .Name
+                strFolder = "modules\" & .Name & ".bas"
             
             Case vbext_ct_Document
                 ' Class object (Forms, Reports)
-                If Left(.name, 5) = "Form_" Then
+                If Left(.Name, 5) = "Form_" Then
                     intType = acForm
-                    strName = Mid(.name, 6)
+                    strName = Mid(.Name, 6)
                     strFolder = "forms\" & strName & ".bas"
-                ElseIf Left(.name, 6) = "Report_" Then
+                ElseIf Left(.Name, 6) = "Report_" Then
                     intType = acReport
-                    strName = Mid(.name, 8)
+                    strName = Mid(.Name, 8)
                     strFolder = "reports\" & strName & ".bas"
                 End If
                 
@@ -334,6 +360,10 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent)
         strFolder = modFunctions.VCSSourcePath & strFolder
         ' Export the single object
         ExportObject intType, strName, strFolder, blnUcs
+    End If
+    
+    If cModel.IncludeVBE Then
+    
     End If
     
 End Sub
@@ -357,7 +387,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     Dim ucs2 As Boolean
 
     ' Make sure we are not trying to import into our runing code.
-    If CurrentProject.name = CodeProject.name Then
+    If CurrentProject.Name = CodeProject.Name Then
         MsgBox "Module " & obj_name & "Code modules cannot be updated while running." & vbCrLf & "Please update manually", vbCritical, "Unable to import source"
         Exit Sub
     End If
@@ -561,7 +591,7 @@ Public Sub ImportProject()
     On Error GoTo errorHandler
 
     ' Make sure we are not trying to delete our runing code.
-    If CurrentProject.name = CodeProject.name Then
+    If CurrentProject.Name = CodeProject.Name Then
         MsgBox "Code modules cannot be removed while running." & vbCrLf & "Please update manually", vbCritical, "Unable to import source"
         Exit Sub
     End If
@@ -591,25 +621,25 @@ Public Sub ImportProject()
     
     Dim rel As Relation
     For Each rel In CurrentDb.Relations
-        If Not (rel.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or rel.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
-            CurrentDb.Relations.Delete (rel.name)
+        If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or rel.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+            CurrentDb.Relations.Delete (rel.Name)
         End If
     Next
 
     Dim dbObject As Object
     For Each dbObject In Db.QueryDefs
         DoEvents
-        If Left(dbObject.name, 1) <> "~" Then
+        If Left(dbObject.Name, 1) <> "~" Then
 '            Debug.Print dbObject.Name
-            Db.QueryDefs.Delete dbObject.name
+            Db.QueryDefs.Delete dbObject.Name
         End If
     Next
     
     Dim td As TableDef
     For Each td In CurrentDb.TableDefs
-        If Left$(td.name, 4) <> "MSys" And _
-            Left(td.name, 1) <> "~" Then
-            CurrentDb.TableDefs.Delete (td.name)
+        If Left$(td.Name, 4) <> "MSys" And _
+            Left(td.Name, 1) <> "~" Then
+            CurrentDb.TableDefs.Delete (td.Name)
         End If
     Next
 
@@ -632,9 +662,9 @@ Public Sub ImportProject()
         DoEvents
         For Each doc In Db.Containers(objTypeArray(OTNAME)).Documents
             DoEvents
-            If (Left(doc.name, 1) <> "~") Then
+            If (Left(doc.Name, 1) <> "~") Then
 '                Debug.Print doc.Name
-                DoCmd.DeleteObject objTypeArray(OTID), doc.name
+                DoCmd.DeleteObject objTypeArray(OTID), doc.Name
             End If
         Next
     Next

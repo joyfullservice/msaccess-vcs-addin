@@ -44,7 +44,7 @@ Public Sub Construct(cModel As IVersionControl)
         ' Add toolbar
         Set m_CommandBar = Application.VBE.CommandBars.Add
         With m_CommandBar
-            .name = cstrCmdBarName
+            .Name = cstrCmdBarName
             .Position = msoBarTop
             .Visible = True
         End With
@@ -66,7 +66,7 @@ End Sub
 Private Function CommandBarExists(strName As String) As Boolean
     Dim cmdBar As CommandBar
     For Each cmdBar In Application.VBE.CommandBars
-        If cmdBar.name = strName Then
+        If cmdBar.Name = strName Then
             CommandBarExists = True
             Exit For
         End If
@@ -186,6 +186,6 @@ Private Sub ExportSelected()
     If SelectionInActiveProject Then
         m_Model.Export
     Else
-        MsgBox "Please select a component in " & CurrentProject.name & " and try again.", vbExclamation, CodeProject.name
+        MsgBox "Please select a component in " & CurrentProject.Name & " and try again.", vbExclamation, CodeProject.Name
     End If
 End Sub

@@ -37,10 +37,10 @@ Private m_ProgFiles As String
 Private Sub IVersionControl_Commit()
     If ProjectIsSelected Then
         ' Commit entire project
-        ExportAllSource False
+        ExportAllSource Me
     Else
         ' Commit single file
-        ExportByVBEComponent VBE.SelectedVBComponent
+        ExportByVBEComponent VBE.SelectedVBComponent, Me
     End If
 End Sub
 
@@ -79,10 +79,10 @@ End Function
 Private Sub IVersionControl_Export()
     If ProjectIsSelected Then
         ' Commit entire project
-        ExportAllSource False
+        ExportAllSource Me
     Else
         ' Commit single file
-        ExportByVBEComponent VBE.SelectedVBComponent
+        ExportByVBEComponent VBE.SelectedVBComponent, Me
     End If
 End Sub
 
