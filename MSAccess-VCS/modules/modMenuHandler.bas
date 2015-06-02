@@ -55,6 +55,9 @@ Public Sub LoadVersionControl(varParams As Variant)
                 
             Case "Show Debug"
                 If Not cModel Is Nothing Then cModel.ShowDebug = strVal
+                
+            Case "Include VBE"
+                If Not cModel Is Nothing Then cModel.IncludeVBE = strVal
             
             Case Else
                 strMsg = "Unknown parameter: " & strKey

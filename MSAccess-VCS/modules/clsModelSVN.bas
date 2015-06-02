@@ -133,3 +133,9 @@ End Property
 Private Property Get IVersionControl_ShowDebug() As Boolean
     IVersionControl_ShowDebug = m_vcs.ShowDebug
 End Property
+Private Property Let IVersionControl_IncludeVBE(ByVal RHS As Boolean)
+    m_vcs.IncludeVBE = RHS
+End Property
+Private Property Get IVersionControl_IncludeVBE() As Boolean
+    IVersionControl_IncludeVBE = m_vcs.IncludeVBE
+End Property

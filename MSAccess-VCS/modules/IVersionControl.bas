@@ -9,6 +9,8 @@ Option Explicit
 ' Simple properties can be set here
 Public ExportBaseFolder As String
 Public ShowDebug As Boolean
+Public IncludeVBE As Boolean
+
 
 ' Objects and collections need to be set with wrappers.
 Private m_TablesToSaveData As New Collection
