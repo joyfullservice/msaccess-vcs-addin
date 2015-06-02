@@ -37,13 +37,17 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     Dim ucs2 As Boolean
 
     Set Db = CurrentDb
-    ShowDebugInfo = cModel.ShowDebug
     Set colVerifiedPaths = New Collection   ' Reset cache
+
+    ' Read in options from model
+    With cModel
+        ShowDebugInfo = .ShowDebug
+        source_path = .ExportBaseFolder
+    End With
 
     CloseFormsReports
     'InitUsingUcs2
 
-    source_path = modFunctions.VCSSourcePath
     modFunctions.VerifyPath source_path
 
     Debug.Print
@@ -214,7 +218,7 @@ Err_TableNotFound:
     End If
 
     ' VBE objects
-    If cModel.IncludeVBE Then ExportAllVBE ShowDebugInfo
+    If cModel.IncludeVBE Then ExportAllVBE cModel
 
     If ShowDebugInfo Then Debug.Print cstrSpacer
     Debug.Print "Done."
@@ -230,7 +234,7 @@ End Sub
 '           : (Allows drag and drop to re-import the objects into the IDE)
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportAllVBE(Optional ShowDebug As Boolean = False)
+Public Sub ExportAllVBE(cModel As IVersionControl)
     
     ' Declare constants locally to avoid need for reference
     Const vbext_ct_StdModule As Integer = 1
@@ -241,7 +245,7 @@ Public Sub ExportAllVBE(Optional ShowDebug As Boolean = False)
     Dim strPath As String
     Dim obj_count As Integer
     
-    ShowDebugInfo = ShowDebug
+    ShowDebugInfo = cModel.ShowDebug
     Set colVerifiedPaths = New Collection   ' Reset cache
 
     Debug.Print
@@ -250,7 +254,7 @@ Public Sub ExportAllVBE(Optional ShowDebug As Boolean = False)
     Debug.Print modFunctions.PadRight("Exporting Components...", 24);
     If ShowDebugInfo Then Debug.Print
     
-    strPath = modFunctions.VCSSourcePath
+    strPath = cModel.ExportBaseFolder
     modFunctions.VerifyPath strPath
     strPath = strPath & "VBE\"
     
@@ -297,13 +301,13 @@ End Sub
 ' Purpose   : Export a single (selected) VBE component
 '---------------------------------------------------------------------------------------
 '
-Private Sub ExportSingleVBEComponent(cmp As VBComponent)
+Private Sub ExportSingleVBEComponent(cmp As VBComponent, cModel As IVersionControl)
 
     Dim strPath As String
     
     If ShowDebugInfo Then Debug.Print "Exporting " & cmp.Name & " (VBE)"
     
-    strPath = modFunctions.VCSSourcePath
+    strPath = cModel.ExportBaseFolder
     modFunctions.VerifyPath strPath
     strPath = strPath & "VBE\" & cmp.Name & GetVBEExtByType(cmp)
     
@@ -357,7 +361,7 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionCo
     End With
     
     If intType > 0 Then
-        strFolder = modFunctions.VCSSourcePath & strFolder
+        strFolder = cModel.ExportBaseFolder & strFolder
         ' Export the single object
         ExportObject intType, strName, strFolder, blnUcs
     End If

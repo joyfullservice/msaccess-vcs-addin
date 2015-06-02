@@ -69,6 +69,8 @@ Public Sub LoadVersionControl(varParams As Variant)
     If strMsg = "" Then
         ' Set model
         Set m_Model = cModel
+        
+    
     Else
         ' Show message if errors were encountered
         MsgBox strMsg, vbExclamation, "Version Control"

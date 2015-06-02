@@ -23,7 +23,7 @@ Public Sub InitializeVersionControlSystem(Optional blnUseVersionControl As Boole
     ' VCS Settings for this database (Additional parameters may be added as needed)
     Dim varParams(0 To 3) As Variant
     varParams(0) = Array("System", "GitHub")    ' Set this first, before other settings.
-    varParams(1) = Array("Export Folder", "T:\Apps\SysAdmin\Development\Source\MyProject")
+    varParams(1) = Array("Export Folder", "T:\Apps\SysAdmin\Development\Source\MyProject\")
     varParams(2) = Array("Show Debug", False)
     varParams(3) = Array("Include VBE", False)
 

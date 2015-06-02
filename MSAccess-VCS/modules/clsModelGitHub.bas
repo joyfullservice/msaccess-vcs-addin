@@ -16,19 +16,6 @@ Private m_Menu As clsVbeMenu
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Construct
-' Author    : Adam Waller
-' Date      : 5/18/2015
-' Purpose   : Construct an instance of this class
-'---------------------------------------------------------------------------------------
-'
-Public Function Construct(cModel As IVersionControl) As IVersionControl
-    Set m_vcs = cModel
-    Set Construct = m_vcs
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : Terminate
 ' Author    : Adam Waller
 ' Date      : 6/2/2015
@@ -79,6 +66,7 @@ End Sub
 Private Sub IVersionControl_Commit()
     ActivateGitHub
 End Sub
+
 
 
 '---------------------------------------------------------------------------------------

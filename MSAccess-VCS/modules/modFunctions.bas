@@ -245,7 +245,7 @@ End Function
 ' Purpose   : Get source path. (Allow user to specify this)
 '---------------------------------------------------------------------------------------
 '
-Public Property Get VCSSourcePath() As String
+Public Property Get zVCSSourcePath() As String
     If m_SourcePath = "" Then m_SourcePath = ProjectPath & CurrentProject.Name & ".src\"
     VCSSourcePath = m_SourcePath
 End Property

@@ -24,18 +24,48 @@ Implements IVersionControl
 Private m_vcs As IVersionControl
 
 ' Private variables
+Private m_Menu As clsVbeMenu
 Private m_ProgFiles As String
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Initialize
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Initialize the class and load the menu.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Initialize()
+    Set m_vcs = New IVersionControl
+    Set m_Menu = New clsVbeMenu
+    m_Menu.Construct Me
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Terminate
+' Author    : Adam Waller
+' Date      : 6/2/2015
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Public Function Terminate()
+    Call Class_Terminate
+End Function
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Class_Terminate
 ' Author    : Adam Waller
 ' Date      : 6/2/2015
-' Purpose   : Remove references to child classes
+' Purpose   : Remove reference to menu class
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Terminate()
-    ' Terminate child classes
+    If Not m_Menu Is Nothing Then
+        m_Menu.Terminate
+        Set m_Menu = Nothing
+    End If
 End Sub
 
 
@@ -108,15 +138,17 @@ End Sub
 '
 Private Property Get IVersionControl_HasRequiredSoftware(blnWarnUser As Boolean) As Boolean
     Dim blnFound As Boolean
+    Dim strMsg As String
     If Dir(cAppPath) <> "" Then
         If Dir(cDiffPath) <> "" Then
             IVersionControl_HasRequiredSoftware = True
         Else
-            
+            strMsg = "Could not find Diff program in " & vbCrLf & cDiffPath
         End If
     Else
-    
+        strMsg = "Could not find SVN program in " & vbCrLf & cAppPath
     End If
+    If strMsg <> "" And blnWarnUser Then MsgBox strMsg, vbExclamation, "Version Control"
 End Property
 
 
