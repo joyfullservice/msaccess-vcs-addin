@@ -35,8 +35,10 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     Dim obj_count As Integer
     Dim obj_data_count As Integer
     Dim ucs2 As Boolean
+    Dim sngStart As Single
 
     Set Db = CurrentDb
+    sngStart = Timer
     Set colVerifiedPaths = New Collection   ' Reset cache
 
     ' Read in options from model
@@ -221,7 +223,7 @@ Err_TableNotFound:
     If cModel.IncludeVBE Then ExportAllVBE cModel
 
     If ShowDebugInfo Then Debug.Print cstrSpacer
-    Debug.Print "Done."
+    Debug.Print "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
     
 End Sub
 
@@ -247,11 +249,9 @@ Public Sub ExportAllVBE(cModel As IVersionControl)
     
     ShowDebugInfo = cModel.ShowDebug
     Set colVerifiedPaths = New Collection   ' Reset cache
-
-    Debug.Print
     
     If ShowDebugInfo Then Debug.Print cstrSpacer
-    Debug.Print modFunctions.PadRight("Exporting Components...", 24);
+    Debug.Print modFunctions.PadRight("Exporting VBE...", 24);
     If ShowDebugInfo Then Debug.Print
     
     strPath = cModel.ExportBaseFolder
@@ -281,15 +281,8 @@ Public Sub ExportAllVBE(cModel As IVersionControl)
         Else
             Debug.Print "[" & obj_count & "]"
         End If
-    Else
-        If ShowDebugInfo Then
-            Debug.Print "No objects found."
-        Else
-            Debug.Print "[0]"
-        End If
     End If
-    
-    Debug.Print "Done."
+
     
 End Sub
 
