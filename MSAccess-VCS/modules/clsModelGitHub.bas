@@ -138,6 +138,7 @@ Private Sub ActivateGitHub()
 End Sub
 
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : IVersionControl_Terminate
 ' Author    : Adam Waller
@@ -179,4 +180,7 @@ Private Property Let IVersionControl_IncludeVBE(ByVal RHS As Boolean)
 End Property
 Private Property Get IVersionControl_IncludeVBE() As Boolean
     IVersionControl_IncludeVBE = m_vcs.IncludeVBE
+End Property
+Private Property Get IVersionControl_SelectionSourceFile(Optional UseVBEFile As Boolean = True) As String
+    IVersionControl_SelectionSourceFile = m_vcs.SelectionSourceFile(UseVBEFile)
 End Property

@@ -35,24 +35,29 @@ Public Sub Construct(cModel As IVersionControl)
     ' Save reference to model
     Set m_Model = cModel
     
-    ' Set up toolbar
-    If CommandBarExists(cstrCmdBarName) Then
-        Set m_CommandBar = Application.VBE.CommandBars(cstrCmdBarName)
-        ' Reassign buttons so we can capture events
-        RemoveAllButtons
-    Else
-        ' Add toolbar
-        Set m_CommandBar = Application.VBE.CommandBars.Add
-        With m_CommandBar
-            .Name = cstrCmdBarName
-            .Position = msoBarTop
-            .Visible = True
-        End With
+    ' Verify that the required software is installed
+    If m_Model.HasRequiredSoftware(True) Then
+    
+        ' Set up toolbar
+        If CommandBarExists(cstrCmdBarName) Then
+            Set m_CommandBar = Application.VBE.CommandBars(cstrCmdBarName)
+            ' Reassign buttons so we can capture events
+            RemoveAllButtons
+        Else
+            ' Add toolbar
+            Set m_CommandBar = Application.VBE.CommandBars.Add
+            With m_CommandBar
+                .Name = cstrCmdBarName
+                .Position = msoBarTop
+                .Visible = True
+            End With
+        End If
+        
+        ' Assign/reassign buttons so we can capture events
+        AddAllButtons
+    
     End If
     
-    ' Assign/reassign buttons so we can capture events
-    AddAllButtons
-
 End Sub
 
 

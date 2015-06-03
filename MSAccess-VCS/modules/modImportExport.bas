@@ -359,8 +359,11 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionCo
         ExportObject intType, strName, strFolder, blnUcs
     End If
     
+    ' Export VBE version
     If cModel.IncludeVBE Then
-    
+        strName = cModel.ExportBaseFolder & "VBE\" & cmpToExport.Name & GetVBEExtByType(cmpToExport)
+        If Dir(strName) <> "" Then Kill strName
+        cmpToExport.Export strName
     End If
     
 End Sub

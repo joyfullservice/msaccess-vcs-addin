@@ -524,3 +524,19 @@ Public Function GetVBEExtByType(cmp As VBComponent) As String
     End Select
     GetVBEExtByType = strExt
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Shell2
+' Author    : Adam Waller
+' Date      : 6/3/2015
+' Purpose   : Alternative to VBA Shell command, to work around issues with the
+'           : TortoiseSVN command line for commits.
+'---------------------------------------------------------------------------------------
+'
+Public Sub Shell2(strCmd As String)
+    Dim objShell As Object
+    Set objShell = CreateObject("WScript.Shell")
+    objShell.Exec strCmd
+    Set objShell = Nothing
+End Sub

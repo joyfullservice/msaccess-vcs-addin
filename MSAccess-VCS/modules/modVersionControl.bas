@@ -88,6 +88,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
                     End If
                 Else
                     ' Disable version control
+                    Run "[" & strLibraryName & "].ReleaseObjectReferences"
                     Application.References.Remove ref
                     Set ref = Nothing
                     Debug.Print "Removed Version Control System"

@@ -29,6 +29,53 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SelectionSourceFile
+' Author    : Adam Waller
+' Date      : 6/3/2015
+' Purpose   : Returns the full path to the selected component
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SelectionSourceFile(Optional UseVBEFile As Boolean = True) As String
+    
+    Dim strPath As String
+    Dim strName As String
+    
+    If ProjectIsSelected Then
+        ' Path to root project folder
+        strPath = Me.ExportBaseFolder
+        ' Trim trailing slash
+        If Right(strPath, 1) = "\" Then strPath = Left(strPath, Len(strPath) - 1)
+    Else
+        ' Get correct file extension and path
+        strName = VBE.SelectedVBComponent.Name
+        If UseVBEFile Then
+            strName = strName & GetVBEExtByType(VBE.SelectedVBComponent)
+            strPath = Me.ExportBaseFolder & "VBE\" & strName
+            ' Fall back to database object if VBE file not found
+            If Dir(strPath) = "" Then strPath = ""
+        End If
+        If strPath = "" Then
+            ' Remove prefixes
+            strName = Replace(strName, "Form_", "", , 1)
+            strName = Replace(strName, "Report_", "", , 1)
+            strName = strName & ".bas"
+            strPath = Me.ExportBaseFolder & strName
+            If Dir(strPath) = "" Then strPath = ""
+        End If
+    End If
+    
+    ' Return path to source file
+    If strPath = "" Then
+        MsgBox "Path to exported source file not found. Please export first.", vbExclamation
+    Else
+        ' Add quotes to path
+        SelectionSourceFile = """" & strPath & """"
+    End If
+
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Export
 ' Author    : Adam Waller
 ' Date      : 5/18/2015

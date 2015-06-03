@@ -9,11 +9,9 @@ Option Explicit
 ' Update these values to set the paths and commands for default installations
 '---------------------------------------------------------------------------------------
 Const cAppPath As String = "TortoiseSVN\bin\TortoiseProc.exe"
-Const cCmdCommit As String = " /command:commit /notempfile /path:"
-Const cCmdUpdate As String = " /command:update /rev /notempfile /path:"
-' Differ
-Const cDiffPath As String = "WinMerge\WinMergeU.exe"
-Const cCmdDiff As String = ""
+Const cCmdCommit As String = " /command:commit /path:"
+Const cCmdUpdate As String = " /command:update /path:"
+Const cCmdDiff As String = " /command:diff /path:"
 '---------------------------------------------------------------------------------------
 
 
@@ -77,13 +75,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IVersionControl_Commit()
-    If ProjectIsSelected Then
-        ' Commit entire project
-        ExportAllSource Me
-    Else
-        ' Commit single file
-        ExportByVBEComponent VBE.SelectedVBComponent, Me
-    End If
+    Call IVersionControl_Export
+    ' For some reason we have issues when we try to use the VBA Shell command
+    ' The VBScript version seems to work fine.
+    Shell2 AppPath & cCmdCommit & m_vcs.SelectionSourceFile
 End Sub
 
 
@@ -95,7 +90,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IVersionControl_Diff()
-    MsgBox "Diff"
+    Call IVersionControl_Export
+    Shell AppPath & cCmdDiff & m_vcs.SelectionSourceFile
 End Sub
 
 
@@ -107,7 +103,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function AppPath() As String
-    AppPath = ProgramFilesFolder & cAppPath
+    Dim strPath As String
+    strPath = ProgramFilesFolder
+    ' Assume we are using the 64-bit version
+    strPath = Replace(strPath, " (x86)", "")
+    AppPath = """" & strPath & cAppPath & """"
 End Function
 
 
@@ -140,11 +140,7 @@ Private Property Get IVersionControl_HasRequiredSoftware(blnWarnUser As Boolean)
     Dim blnFound As Boolean
     Dim strMsg As String
     If Dir(cAppPath) <> "" Then
-        If Dir(cDiffPath) <> "" Then
-            IVersionControl_HasRequiredSoftware = True
-        Else
-            strMsg = "Could not find Diff program in " & vbCrLf & cDiffPath
-        End If
+        IVersionControl_HasRequiredSoftware = True
     Else
         strMsg = "Could not find SVN program in " & vbCrLf & cAppPath
     End If
@@ -194,4 +190,7 @@ Private Property Let IVersionControl_IncludeVBE(ByVal RHS As Boolean)
 End Property
 Private Property Get IVersionControl_IncludeVBE() As Boolean
     IVersionControl_IncludeVBE = m_vcs.IncludeVBE
+End Property
+Private Property Get IVersionControl_SelectionSourceFile(Optional UseVBEFile As Boolean = True) As String
+    IVersionControl_SelectionSourceFile = m_vcs.SelectionSourceFile(UseVBEFile)
 End Property
