@@ -139,7 +139,9 @@ End Sub
 Private Property Get IVersionControl_HasRequiredSoftware(blnWarnUser As Boolean) As Boolean
     Dim blnFound As Boolean
     Dim strMsg As String
-    If Dir(cAppPath) <> "" Then
+    Dim strPath As String
+    strPath = Replace(AppPath, """", "")
+    If Dir(strPath) <> "" Then
         IVersionControl_HasRequiredSoftware = True
     Else
         strMsg = "Could not find SVN program in " & vbCrLf & cAppPath
