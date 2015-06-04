@@ -246,8 +246,8 @@ End Sub
 Public Sub ExportAllVBE(cModel As IVersionControl)
     
     ' Declare constants locally to avoid need for reference
-    Const vbext_ct_StdModule As Integer = 1
-    Const vbext_ct_MSForm As Integer = 3
+    'Const vbext_ct_StdModule As Integer = 1
+    'Const vbext_ct_MSForm As Integer = 3
     
     Dim cmp As Object ' VBComponent
     Dim strExt As String
@@ -295,32 +295,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ExportSingleVBEComponent
-' Author    : Adam Waller
-' Date      : 6/2/2015
-' Purpose   : Export a single (selected) VBE component
-'---------------------------------------------------------------------------------------
-'
-Private Sub ExportSingleVBEComponent(cmp As VBComponent, cModel As IVersionControl)
-
-    Dim strPath As String
-    
-    If ShowDebugInfo Then Debug.Print "Exporting " & cmp.Name & " (VBE)"
-    
-    strPath = cModel.ExportBaseFolder
-    modFunctions.VerifyPath strPath
-    strPath = strPath & "VBE\" & cmp.Name & GetVBEExtByType(cmp)
-    
-    ' Clear any existing file
-    If Dir(strPath) <> "" Then Kill strPath
-    
-    ' Export to file
-    cmp.Export strPath
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : ExportByVBEComponentName
 ' Author    : Adam Waller
 ' Date      : 5/15/2015
@@ -332,7 +306,6 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionCo
     Dim intType As Integer
     Dim strFolder As String
     Dim strName As String
-    Dim strExt As String
     Dim blnUcs As Boolean
     
     ' Determine the type of object, and get name of item

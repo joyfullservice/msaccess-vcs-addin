@@ -112,7 +112,7 @@ Private Function AddButton(strCaption As String, intFaceID As Integer, _
     
     Dim btn As CommandBarButton
     
-    Set btn = m_CommandBar.Controls.Add(msoControlButton, , , 1)
+    Set btn = m_CommandBar.Controls.Add(msoControlButton, , , intPositionBefore)
     btn.Caption = strCaption
     btn.FaceId = intFaceID
     If blnBeginGroup Then btn.BeginGroup = True

@@ -23,7 +23,6 @@ Private m_vcs As IVersionControl
 
 ' Private variables
 Private m_Menu As clsVbeMenu
-Private m_ProgFiles As String
 
 
 '---------------------------------------------------------------------------------------
@@ -137,7 +136,6 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IVersionControl_HasRequiredSoftware(blnWarnUser As Boolean) As Boolean
-    Dim blnFound As Boolean
     Dim strMsg As String
     Dim strPath As String
     strPath = Replace(AppPath, """", "")
