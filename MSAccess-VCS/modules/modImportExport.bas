@@ -36,6 +36,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     Dim obj_data_count As Integer
     Dim ucs2 As Boolean
     Dim sngStart As Single
+    Dim strName As String
 
     Set Db = CurrentDb
     sngStart = Timer
@@ -206,9 +207,15 @@ Err_TableNotFound:
     
     Dim aRelation As Relation
     For Each aRelation In CurrentDb.Relations
-        If Not (aRelation.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or aRelation.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+        strName = aRelation.Name
+        If Not (strName = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or strName = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
             modFunctions.VerifyPath Left(obj_path, InStrRev(obj_path, "\"))
-            modRelation.ExportRelation aRelation, obj_path & aRelation.Name & ".txt"
+            ' Replace slashes with division character to support linked table relationships
+            'http://stackoverflow.com/questions/10708334/how-can-i-create-files-on-windows-with-embedded-slashes-using-python
+            'strName = Replace(strName, "\", ChrW(2215))
+            ' On second thought, just use table name.
+            strName = GetRelationFileName(aRelation)
+            modRelation.ExportRelation aRelation, obj_path & strName & ".txt"
             obj_count = obj_count + 1
         End If
     Next aRelation

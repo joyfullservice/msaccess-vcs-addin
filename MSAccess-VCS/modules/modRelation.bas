@@ -54,3 +54,28 @@ Public Sub ImportRelation(filePath As String)
     CurrentDb.Relations.Append rel
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetRelationFileName
+' Author    : Adam Waller
+' Date      : 6/4/2015
+' Purpose   : Build file name based on relation name, including support for linked
+'           : tables that would put a slash in the relation name.
+'           : (Strips the link path from the table name)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetRelationFileName(objRelation As Relation) As String
+
+    Dim strName As String
+    
+    strName = objRelation.Name
+    
+    If InStr(1, strName, "].") > 0 Then
+        ' Need to remove path to linked file
+        GetRelationFileName = Split(strName, "].")(1)
+    Else
+        GetRelationFileName = strName
+    End If
+
+End Function
