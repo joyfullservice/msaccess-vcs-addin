@@ -144,7 +144,7 @@ Private Property Get IVersionControl_HasRequiredSoftware(blnWarnUser As Boolean)
     If Dir(strPath) <> "" Then
         IVersionControl_HasRequiredSoftware = True
     Else
-        strMsg = "Could not find SVN program in " & vbCrLf & cAppPath
+        strMsg = "Could not find SVN program in " & vbCrLf & strPath
     End If
     If strMsg <> "" And blnWarnUser Then MsgBox strMsg, vbExclamation, "Version Control"
 End Property
