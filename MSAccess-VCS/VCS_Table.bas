@@ -53,11 +53,11 @@ Public Sub ExportLinkedTable(tbl_name As String, obj_path As String)
     OutFile.Write vbCrLf
     
 
-    Dim Db As Database
+    Dim Db As DAO.Database
     Set Db = CurrentDb
-    Dim td As TableDef
+    Dim td As DAO.TableDef
     Set td = Db.TableDefs(tbl_name)
-    Dim idx As Index
+    Dim idx As DAO.Index
     
     For Each idx In td.Indexes
         If idx.Primary Then
@@ -89,11 +89,11 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, d
     Dim fileName As String: fileName = directory & tableName & ".sql"
     Dim sql As String
     Dim fieldAttributeSql As String
-    Dim idx As Index
-    Dim fi As Field
+    Dim idx As DAO.Index
+    Dim fi As DAO.Field
     Dim i As Integer
-    Dim f As Field
-    Dim rel As Relation
+    Dim f As DAO.Field
+    Dim rel As DAO.Relation
     Dim FSO, OutFile
     Dim ff As Object
     'Debug.Print tableName
@@ -155,10 +155,10 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, d
     
 End Sub
 
-Private Function formatReferences(Db As Database, ff As Object, tableName As String)
-    Dim rel As Relation
+Private Function formatReferences(Db As DAO.Database, ff As Object, tableName As String)
+    Dim rel As DAO.Relation
     Dim sql As String
-    Dim f As Field
+    Dim f As DAO.Field
     For Each rel In Db.Relations
         If (rel.foreignTable = tableName) Then
          If FieldsIdentical(ff, rel.Fields) Then
@@ -181,9 +181,9 @@ Private Function formatReferences(Db As Database, ff As Object, tableName As Str
     formatReferences = sql
 End Function
 
-Private Function formatConstraint(keyw As String, idx As Index) As String
+Private Function formatConstraint(keyw As String, idx As DAO.Index) As String
     Dim sql As String
-    Dim fi As Field
+    Dim fi As DAO.Field
     
     sql = strName(idx.name) & " " & keyw & " ("
     For Each fi In idx.Fields
@@ -236,7 +236,7 @@ Private Function strType(i As Integer) As String
     End Select
 End Function
 Private Function FieldsIdentical(ff As Object, gg As Object) As Boolean
-    Dim f As Field
+    Dim f As DAO.Field
     If ff.Count <> gg.Count Then
         FieldsIdentical = False
         Exit Function
@@ -252,8 +252,8 @@ Private Function FieldsIdentical(ff As Object, gg As Object) As Boolean
     
 End Function
 
-Private Function FieldInFields(fi As Field, ff As Fields) As Boolean
-    Dim f As Field
+Private Function FieldInFields(fi As DAO.Field, ff As DAO.Fields) As Boolean
+    Dim f As DAO.Field
     For Each f In ff
         If f.name = fi.name Then
             FieldInFields = True
@@ -323,7 +323,7 @@ End Function
 ' Export the lookup table `tblName` to `source\tables`.
 Public Sub ExportTableData(tbl_name As String, obj_path As String)
     Dim FSO, OutFile
-    Dim rs As Recordset ' DAO.Recordset
+    Dim rs As DAO.Recordset ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
     Dim c As Long, Value As Variant
     ' Checks first
@@ -413,7 +413,7 @@ err_notable:
 err_notable_fin:
     On Error GoTo Err_CreateLinkedTable:
     
-    Dim td As TableDef
+    Dim td As DAO.TableDef
     Set td = Db.CreateTableDef(InFile.ReadLine())
     
     Dim connect As String

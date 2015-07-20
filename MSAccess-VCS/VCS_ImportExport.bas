@@ -119,8 +119,8 @@ Public Sub ExportAllSource()
     VCS_Dir.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
     VCS_Dir.ClearTextFilesFromDir obj_path, "txt"
     
-    Dim td As TableDef
-    Dim tds As TableDefs
+    Dim td As DAO.TableDef
+    Dim tds As DAO.TableDefs
     Set tds = Db.TableDefs
 
     obj_type_label = "tbldef"
@@ -183,7 +183,7 @@ Err_TableNotFound:
 
     VCS_Dir.ClearTextFilesFromDir obj_path, "txt"
 
-    Dim aRelation As Relation
+    Dim aRelation As DAO.Relation
     
     For Each aRelation In CurrentDb.Relations
         If Not (aRelation.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or aRelation.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
@@ -441,7 +441,7 @@ On Error GoTo errorHandler
     Debug.Print "Deleting Existing Objects"
     Debug.Print
     
-    Dim rel As Relation
+    Dim rel As DAO.Relation
     For Each rel In CurrentDb.Relations
         If Not (rel.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or rel.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
             CurrentDb.Relations.Delete (rel.name)
@@ -457,7 +457,7 @@ On Error GoTo errorHandler
         End If
     Next
     
-    Dim td As TableDef
+    Dim td As DAO.TableDef
     For Each td In CurrentDb.TableDefs
         If Left$(td.name, 4) <> "MSys" And _
             Left(td.name, 1) <> "~" Then

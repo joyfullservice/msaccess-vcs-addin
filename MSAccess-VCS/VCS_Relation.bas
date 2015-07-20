@@ -3,7 +3,7 @@ Option Compare Database
 
 Option Explicit
 
-Public Sub ExportRelation(rel As Relation, filePath As String)
+Public Sub ExportRelation(rel As DAO.Relation, filePath As String)
     Dim FSO, OutFile As Object
     Set FSO = CreateObject("Scripting.FileSystemObject")
     Set OutFile = FSO.CreateTextFile(filePath, True)
@@ -12,7 +12,7 @@ Public Sub ExportRelation(rel As Relation, filePath As String)
     OutFile.WriteLine rel.name
     OutFile.WriteLine rel.table
     OutFile.WriteLine rel.foreignTable
-    Dim f As Field
+    Dim f As DAO.Field
     For Each f In rel.Fields
         OutFile.WriteLine "Field = Begin"
         OutFile.WriteLine f.name
@@ -29,15 +29,15 @@ Public Sub ImportRelation(filePath As String)
     Set FSO = CreateObject("Scripting.FileSystemObject")
     Set InFile = FSO.OpenTextFile(filePath, 1)
     
-    Dim rel As New Relation
+    Dim rel As New DAO.Relation
     rel.Attributes = InFile.ReadLine
     rel.name = InFile.ReadLine
     rel.table = InFile.ReadLine
     rel.foreignTable = InFile.ReadLine
-    Dim f As Field
+    Dim f As DAO.Field
     Do Until InFile.AtEndOfStream
         If "Field = Begin" = InFile.ReadLine Then
-            Set f = New Field
+            Set f = New DAO.Field
             f.name = InFile.ReadLine
             f.ForeignName = InFile.ReadLine
             If "End" <> InFile.ReadLine Then
