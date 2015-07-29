@@ -163,7 +163,7 @@ Private Function formatReferences(Db As DAO.Database, ff As Object, tableName As
         If (rel.foreignTable = tableName) Then
          If FieldsIdentical(ff, rel.Fields) Then
           sql = " REFERENCES "
-          sql = sql & rel.table & " ("
+          sql = sql & strName(rel.table) & " ("
           For Each f In rel.Fields
             sql = sql & strName(f.name) & ","
           Next
