@@ -135,6 +135,7 @@ Public Sub ExportAllSource()
     ' - We don't want to determin file extentions here - or obj_path either!
     VCS_Dir.ClearTextFilesFromDir obj_path, "sql"
     VCS_Dir.ClearTextFilesFromDir obj_path, "xml"
+    VCS_Dir.ClearTextFilesFromDir obj_path, "LNKD"
     Dim IncludeTablesCol As Collection: Set IncludeTablesCol = StrSetToCol(INCLUDE_TABLES, ",")
     Debug.Print VCS_String.PadRight("Exporting " & obj_type_label & "...", 24);
     
@@ -186,7 +187,8 @@ Err_TableNotFound:
     Dim aRelation As DAO.Relation
     
     For Each aRelation In CurrentDb.Relations
-        If Not (aRelation.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or aRelation.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+        ' Exclude relations from system and linked tables
+        If Not (aRelation.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or aRelation.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups" Or Left(aRelation.name,1) = "[") Then
             VCS_Relation.ExportRelation aRelation, obj_path & aRelation.name & ".txt"
             obj_count = obj_count + 1
         End If
