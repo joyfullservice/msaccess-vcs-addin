@@ -187,8 +187,11 @@ Err_TableNotFound:
     Dim aRelation As DAO.Relation
     
     For Each aRelation In CurrentDb.Relations
-        ' Exclude relations from system and linked tables
-        If Not (aRelation.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or aRelation.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups" Or Left(aRelation.name,1) = "[") Then
+        ' Exclude relations from system tables and inherited (linked) relations
+        If Not (aRelation.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
+                Or aRelation.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups" _
+                Or (aRelation.Attributes And DAO.RelationAttributeEnum.dbRelationInherited) = _
+                DAO.RelationAttributeEnum.dbRelationInherited) Then
             VCS_Relation.ExportRelation aRelation, obj_path & aRelation.name & ".txt"
             obj_count = obj_count + 1
         End If
