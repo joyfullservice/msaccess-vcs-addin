@@ -1,6 +1,7 @@
 Attribute VB_Name = "VCS_Reference"
 Option Compare Database
 
+Option Private Module
 Option Explicit
 
 Const ForReading = 1, ForWriting = 2, ForAppending = 8
@@ -49,7 +50,7 @@ failed_guid:
         'The reference is already present in the access project - so we can ignore the error
         Resume Next
     Else
-        MsgBox "Failed to register " & GUID, ,"Error: " & Err.Number
+        MsgBox "Failed to register " & GUID, , "Error: " & Err.Number
         'Do we really want to carry on the import with missing references??? - Surely this is fatal
         Resume go_on
     End If

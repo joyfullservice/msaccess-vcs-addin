@@ -541,18 +541,14 @@ End Function
 
 'errno 457 - duplicate key (& item)
 Public Function StrSetToCol(strSet As String, delimiter As String) As Collection 'throws errors
-Dim strSetArray() As String
-Dim col As New Collection
-strSetArray = Split(strSet, delimiter)
-Dim item As Variant
-For Each item In strSetArray
-    col.Add item, item
-Next
-
-Set StrSetToCol = col
+    Dim strSetArray() As String
+    Dim col As New Collection
+    strSetArray = Split(strSet, delimiter)
+    Dim item As Variant
+    For Each item In strSetArray
+        col.Add item, item
+    Next
+    
+    Set StrSetToCol = col
 
 End Function
-
-
-
-

@@ -1,6 +1,7 @@
 Attribute VB_Name = "VCS_File"
 Option Compare Database
 
+Option Private Module
 Option Explicit
 
 #If VBA7 Then
@@ -255,5 +256,3 @@ Dim sFileName As String
     If nRet <> 0 Then sFileName = Left$(sTmpName, InStr(sTmpName, vbNullChar) - 1)
     TempFile = sFileName
 End Function
-
-

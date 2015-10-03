@@ -1,6 +1,7 @@
 Attribute VB_Name = "VCS_IE_Functions"
 Option Compare Database
 
+Option Private Module
 Option Explicit
 Private Const AggressiveSanitize = True
 Private Const StripPublishOption = True
@@ -173,6 +174,3 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
 
 
 End Sub
-
-
-

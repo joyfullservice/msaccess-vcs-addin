@@ -1,6 +1,7 @@
 Attribute VB_Name = "VCS_DataMacro"
 Option Compare Database
 
+Option Private Module
 Option Explicit
 
 ' For Access 2007 (VBA6) and earlier
@@ -70,15 +71,3 @@ Private Sub FormatDataMacro(filePath As String)
     saveStream.Close
 
 End Sub
-
-
-
-
-
-
-
-
-
-
-
-

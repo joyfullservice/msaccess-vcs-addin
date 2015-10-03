@@ -1,6 +1,7 @@
 Attribute VB_Name = "VCS_String"
 Option Compare Database
 
+Option Private Module
 Option Explicit
 
 '--------------------
@@ -76,6 +77,3 @@ Public Function SubString(p As Integer, s As String, startsWith As String, endsW
     Wend
     SubString = Mid(s, start + 1, cursor - start - 1)
 End Function
-
-
-

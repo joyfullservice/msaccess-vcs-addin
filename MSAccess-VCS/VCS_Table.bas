@@ -1,6 +1,7 @@
 Attribute VB_Name = "VCS_Table"
 Option Compare Database
 
+Option Private Module
 Option Explicit
 
 'this is used in import table def
@@ -52,7 +53,6 @@ Public Sub ExportLinkedTable(tbl_name As String, obj_path As String)
     OutFile.Write CurrentDb.TableDefs(tbl_name).SourceTableName
     OutFile.Write vbCrLf
     
-
     Dim Db As DAO.Database
     Set Db = CurrentDb
     Dim td As DAO.TableDef
@@ -67,7 +67,6 @@ Public Sub ExportLinkedTable(tbl_name As String, obj_path As String)
 
     Next
     
-
 Err_LinkedTable_Fin:
     On Error Resume Next
     OutFile.Close
@@ -82,7 +81,6 @@ Err_LinkedTable:
     MsgBox Err.Description, vbCritical, "ERROR: EXPORT LINKED TABLE"
     Resume Err_LinkedTable_Fin:
 End Sub
-
 
 ' Save a Table Definition as SQL statement
 Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, directory As String)
@@ -235,6 +233,7 @@ Private Function strType(i As Integer) As String
         strType = "VARCHAR"
     End Select
 End Function
+
 Private Function FieldsIdentical(ff As Object, gg As Object) As Boolean
     Dim f As DAO.Field
     If ff.Count <> gg.Count Then
@@ -248,8 +247,7 @@ Private Function FieldsIdentical(ff As Object, gg As Object) As Boolean
         End If
     Next
     FieldsIdentical = True
-        
-    
+            
 End Function
 
 Private Function FieldInFields(fi As DAO.Field, ff As DAO.Fields) As Boolean
@@ -381,13 +379,13 @@ Public Sub ExportTableData(tbl_name As String, obj_path As String)
     VCS_File.ConvertUcs2Utf8 tempFileName, obj_path & tbl_name & ".txt"
     FSO.DeleteFile tempFileName
 End Sub
+
 ' Kill Table if Exists
 Private Sub KillTable(tblName As String, Db As Object)
     If TableExists(tblName) Then
         Db.Execute "DROP TABLE [" & tblName & "]"
     End If
 End Sub
-
 
 Public Sub ImportLinkedTable(tblName As String, obj_path As String)
     Dim Db As Database ' DAO.Database
@@ -456,13 +454,7 @@ Err_LinkPK_Fin:
     On Error Resume Next
     InFile.Close
     
-   
-
 End Sub
-
-
-
-
 
 ' Import Table Definition
 Public Sub ImportTableDef(tblName As String, directory As String)
@@ -541,8 +533,7 @@ Public Sub ImportTableDef(tblName As String, directory As String)
     Db.Execute buf
     InFile.Close
     If Len(strMsg) > 0 Then MsgBox strMsg, vbOKOnly, "Correct manually"
-    
-    
+        
 End Sub
 
 ' Import the lookup table `tblName` from `source\tables`.
@@ -591,4 +582,3 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
     InFile.Close
     FSO.DeleteFile tempFileName
 End Sub
-
