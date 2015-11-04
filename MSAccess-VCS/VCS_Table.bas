@@ -222,7 +222,7 @@ Private Function strType(i As Integer) As String
     Case dbSingle
         strType = "SINGLE"
     Case dbByte
-        strType = "UNSIGNED BYTE"
+        strType = "BYTE"
     Case dbInteger
         strType = "SHORT"
     Case dbLong
@@ -591,4 +591,3 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
     InFile.Close
     FSO.DeleteFile tempFileName
 End Sub
-
