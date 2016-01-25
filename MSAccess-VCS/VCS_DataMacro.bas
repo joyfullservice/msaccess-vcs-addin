@@ -3,6 +3,10 @@ Option Compare Database
 
 Option Explicit
 
+' For Access 2007 (VBA6) and earlier
+#If Not VBA7 Then
+  Const acTableDataMacro = 12
+#End If
 
 Public Sub ExportDataMacros(tableName As String, directory As String)
     On Error GoTo Err_export:

@@ -3,16 +3,29 @@ Option Compare Database
 
 Option Explicit
 
-Private Declare PtrSafe _
-    Function getTempPath Lib "kernel32" _
-         Alias "GetTempPathA" (ByVal nBufferLength As Long, _
-                               ByVal lpBuffer As String) As Long
-Private Declare PtrSafe _
-    Function getTempFileName Lib "kernel32" _
-         Alias "GetTempFileNameA" (ByVal lpszPath As String, _
-                                   ByVal lpPrefixString As String, _
-                                   ByVal wUnique As Long, _
-                                   ByVal lpTempFileName As String) As Long
+#If VBA7 Then
+  Private Declare PtrSafe _
+      Function getTempPath Lib "kernel32" _
+           Alias "GetTempPathA" (ByVal nBufferLength As Long, _
+                                 ByVal lpBuffer As String) As Long
+  Private Declare PtrSafe _
+      Function getTempFileName Lib "kernel32" _
+           Alias "GetTempFileNameA" (ByVal lpszPath As String, _
+                                     ByVal lpPrefixString As String, _
+                                     ByVal wUnique As Long, _
+                                     ByVal lpTempFileName As String) As Long
+#Else
+  Private Declare _
+      Function getTempPath Lib "kernel32" _
+           Alias "GetTempPathA" (ByVal nBufferLength As Long, _
+                                 ByVal lpBuffer As String) As Long
+  Private Declare _
+      Function getTempFileName Lib "kernel32" _
+           Alias "GetTempFileNameA" (ByVal lpszPath As String, _
+                                     ByVal lpPrefixString As String, _
+                                     ByVal wUnique As Long, _
+                                     ByVal lpTempFileName As String) As Long
+#End If
 
 ' --------------------------------
 ' Structures
@@ -182,7 +195,7 @@ End Sub
 Public Function UsingUcs2() As Boolean
     Dim obj_name As String, i As Integer, obj_type As Variant, fn As Integer, bytes As String
     Dim obj_type_split() As String, obj_type_name As String, obj_type_num As Integer
-    Dim db As Object ' DAO.Database
+    Dim Db As Object ' DAO.Database
 
     If CurrentDb.QueryDefs.Count > 0 Then
         obj_type_num = acQuery
@@ -242,4 +255,5 @@ Dim sFileName As String
     If nRet <> 0 Then sFileName = Left$(sTmpName, InStr(sTmpName, vbNullChar) - 1)
     TempFile = sFileName
 End Function
+
 
