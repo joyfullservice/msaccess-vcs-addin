@@ -82,6 +82,30 @@ Err_LinkedTable:
     Resume Err_LinkedTable_Fin:
 End Sub
 
+<<<<<<< .merge_file_a07080
+=======
+' This requires Microsoft ADO Ext. 2.x for DLL and Security
+' See reference: https://social.msdn.microsoft.com/Forums/office/en-US/883087ba-2c25-4571-bd3c-706061466a11/how-can-i-programmatically-access-scale-property-of-a-decimal-data-type-field?forum=accessdev
+Private Function formatDecimal(ByVal tableName As String, ByVal fieldName As String) As String
+
+    Dim cnn As New ADODB.Connection
+    Dim cat As New ADOX.Catalog
+    Dim col As ADOX.Column
+
+    Set cnn = CurrentProject.Connection
+    Set cat.ActiveConnection = cnn
+
+    Set col = cat.Tables(tableName).Columns(fieldName)
+
+    formatDecimal = "(" & col.Precision & ", " & col.NumericScale & ")"
+
+    Set col = Nothing
+    Set cat = Nothing
+    Set cnn = Nothing
+
+End Function
+
+>>>>>>> .merge_file_a03508
 ' Save a Table Definition as SQL statement
 Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, directory As String)
     Dim fileName As String: fileName = directory & tableName & ".sql"
@@ -108,6 +132,8 @@ Public Sub ExportTableDef(Db As Database, td As TableDef, tableName As String, d
         Select Case fi.Type
             Case dbText, dbVarBinary
                 sql = sql & "(" & fi.Size & ")"
+            Case dbDecimal
+                sql = sql & formatDecimal(tableName, fi.name)
             Case Else
         End Select
         For Each idx In td.Indexes
@@ -220,7 +246,7 @@ Private Function strType(i As Integer) As String
     Case dbSingle
         strType = "SINGLE"
     Case dbByte
-        strType = "UNSIGNED BYTE"
+        strType = "BYTE"
     Case dbInteger
         strType = "SHORT"
     Case dbLong
@@ -229,6 +255,8 @@ Private Function strType(i As Integer) As String
         strType = "NUMERIC"
     Case dbText
         strType = "VARCHAR"
+    Case dbDecimal
+        strType = "DECIMAL"
     Case Else
         strType = "VARCHAR"
     End Select
@@ -530,7 +558,7 @@ Public Sub ImportTableDef(tblName As String, directory As String)
         End If
     Next
     On Error GoTo 0
-    Db.Execute buf
+    CurrentProject.Connection.Execute buf
     InFile.Close
     If Len(strMsg) > 0 Then MsgBox strMsg, vbOKOnly, "Correct manually"
         
@@ -581,4 +609,8 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
     rs.Close
     InFile.Close
     FSO.DeleteFile tempFileName
+<<<<<<< .merge_file_a07080
 End Sub
+=======
+End Sub
+>>>>>>> .merge_file_a03508
