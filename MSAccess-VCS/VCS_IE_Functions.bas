@@ -3,23 +3,25 @@ Option Compare Database
 
 Option Private Module
 Option Explicit
-Private Const AggressiveSanitize = True
-Private Const StripPublishOption = True
-Private Const ArchiveMyself = True
+
+Private Const AggressiveSanitize As Boolean = True
+Private Const StripPublishOption As Boolean = True
 
 ' Constants for Scripting.FileSystemObject API
-Const ForReading = 1, ForWriting = 2, ForAppending = 8
-Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
+Public Const ForReading = 1, ForWriting = 2, ForAppending = 8
+Public Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
+
 
 ' Can we export without closing the form?
 
 ' Export a database object with optional UCS2-to-UTF-8 conversion.
-Public Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
-    Optional Ucs2Convert As Boolean = False)
+Public Sub ExportObject(ByVal obj_type_num As Integer, ByVal obj_name As String, _
+                    ByVal file_path As String, Optional ByVal Ucs2Convert As Boolean = False)
 
-    VCS_Dir.MkDirIfNotExist Left(file_path, InStrRev(file_path, "\"))
+    VCS_Dir.MkDirIfNotExist Left$(file_path, InStrRev(file_path, "\"))
     If Ucs2Convert Then
-        Dim tempFileName As String: tempFileName = VCS_File.TempFile()
+        Dim tempFileName As String
+        tempFileName = VCS_File.TempFile()
         Application.SaveAsText obj_type_num, obj_name, tempFileName
         VCS_File.ConvertUcs2Utf8 tempFileName, file_path
     Else
@@ -28,13 +30,14 @@ Public Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path A
 End Sub
 
 ' Import a database object with optional UTF-8-to-UCS2 conversion.
-Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
-    Optional Ucs2Convert As Boolean = False)
+Public Sub ImportObject(ByVal obj_type_num As Integer, ByVal obj_name As String, _
+                    ByVal file_path As String, Optional ByVal Ucs2Convert As Boolean = False)
     
     If Not VCS_Dir.FileExists(file_path) Then Exit Sub
     
     If Ucs2Convert Then
-        Dim tempFileName As String: tempFileName = VCS_File.TempFile()
+        Dim tempFileName As String
+        tempFileName = VCS_File.TempFile()
         VCS_File.ConvertUtf8Ucs2 file_path, tempFileName
         Application.LoadFromText obj_type_num, obj_name, tempFileName
         
@@ -52,8 +55,7 @@ End Sub
 ' unnecessary lines of VB code that are inserted automatically by the
 ' Access GUI and change often (we don't want these lines of code in
 ' version control).
-Public Sub SanitizeTextFiles(Path As String, Ext As String)
-
+Public Sub SanitizeTextFiles(ByVal Path As String, ByVal Ext As String)
 
     Dim FSO As Object
     Set FSO = CreateObject("Scripting.FileSystemObject")
@@ -91,19 +93,23 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
 'Debug.Print srchPattern
     rxLine.Pattern = srchPattern
     Dim fileName As String
-    fileName = Dir(Path & "*." & Ext)
-    Dim isReport As Boolean: isReport = False
+    fileName = Dir$(Path & "*." & Ext)
+    Dim isReport As Boolean
+    isReport = False
+    
     Do Until Len(fileName) = 0
         DoEvents
         Dim obj_name As String
-        obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
+        obj_name = Mid$(fileName, 1, InStrRev(fileName, ".") - 1)
 
         Dim InFile As Object
-        Set InFile = FSO.OpenTextFile(Path & obj_name & "." & Ext, ForReading)
+        Set InFile = FSO.OpenTextFile(Path & obj_name & "." & Ext, iomode:=ForReading, create:=False, Format:=TristateFalse)
         Dim OutFile As Object
-        Set OutFile = FSO.CreateTextFile(Path & obj_name & ".sanitize", True)
+        Set OutFile = FSO.CreateTextFile(Path & obj_name & ".sanitize", overwrite:=True, Unicode:=False)
     
-        Dim getLine As Boolean: getLine = True
+        Dim getLine As Boolean
+        getLine = True
+        
         Do Until InFile.AtEndOfStream
             DoEvents
             Dim txt As String
@@ -169,8 +175,7 @@ Public Sub SanitizeTextFiles(Path As String, Ext As String)
         Dim thisFile As Object
         Set thisFile = FSO.GetFile(Path & obj_name & ".sanitize")
         thisFile.Move (Path & fileName)
-        fileName = Dir()
+        fileName = Dir$()
     Loop
-
 
 End Sub

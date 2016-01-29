@@ -44,25 +44,26 @@ Private Type BinFile
     mode As String
 End Type
 
+
 ' --------------------------------
 ' Basic functions missing from VB 6: buffered file read/write, string builder, encoding check & conversion
 ' --------------------------------
 
 ' Open a binary file for reading (mode = 'r') or writing (mode = 'w').
-Private Function BinOpen(file_path As String, mode As String) As BinFile
+Private Function BinOpen(ByVal file_path As String, ByVal mode As String) As BinFile
     Dim f As BinFile
 
     f.file_num = FreeFile
-    f.mode = LCase(mode)
+    f.mode = LCase$(mode)
     If f.mode = "r" Then
         Open file_path For Binary Access Read As f.file_num
         f.file_len = LOF(f.file_num)
         f.file_pos = 0
         If f.file_len > &H4000 Then
-            f.buffer = String(&H4000, " ")
+            f.buffer = String$(&H4000, " ")
             f.buffer_len = &H4000
         Else
-            f.buffer = String(f.file_len, " ")
+            f.buffer = String$(f.file_len, " ")
             f.buffer_len = f.file_len
         End If
         f.buffer_pos = 0
@@ -72,7 +73,7 @@ Private Function BinOpen(file_path As String, mode As String) As BinFile
         Open file_path For Binary Access Write As f.file_num
         f.file_len = 0
         f.file_pos = 0
-        f.buffer = String(&H4000, " ")
+        f.buffer = String$(&H4000, " ")
         f.buffer_len = 0
         f.buffer_pos = 0
     End If
@@ -87,7 +88,7 @@ Private Function BinRead(ByRef f As BinFile) As Integer
         Exit Function
     End If
 
-    BinRead = Asc(Mid(f.buffer, f.buffer_pos + 1, 1))
+    BinRead = Asc(Mid$(f.buffer, f.buffer_pos + 1, 1))
 
     f.buffer_pos = f.buffer_pos + 1
     If f.buffer_pos >= f.buffer_len Then
@@ -100,7 +101,7 @@ Private Function BinRead(ByRef f As BinFile) As Integer
             f.buffer_len = &H4000
         Else
             f.buffer_len = f.file_len - f.file_pos
-            f.buffer = String(f.buffer_len, " ")
+            f.buffer = String$(f.buffer_len, " ")
         End If
         f.buffer_pos = 0
         Get f.file_num, f.file_pos + 1, f.buffer
@@ -109,7 +110,7 @@ End Function
 
 ' Buffered write one byte at a time from a binary file.
 Private Sub BinWrite(ByRef f As BinFile, b As Integer)
-    Mid(f.buffer, f.buffer_pos + 1, 1) = Chr(b)
+    Mid(f.buffer, f.buffer_pos + 1, 1) = Chr$(b)
     f.buffer_pos = f.buffer_pos + 1
     If f.buffer_pos >= &H4000 Then
         Put f.file_num, , f.buffer
@@ -120,7 +121,7 @@ End Sub
 ' Close binary file.
 Private Sub BinClose(ByRef f As BinFile)
     If f.mode = "w" And f.buffer_pos > 0 Then
-        f.buffer = Left(f.buffer, f.buffer_pos)
+        f.buffer = Left$(f.buffer, f.buffer_pos)
         Put f.file_num, , f.buffer
     End If
     Close f.file_num
@@ -128,9 +129,11 @@ End Sub
 
 
 ' Binary convert a UCS2-little-endian encoded file to UTF-8.
-Public Sub ConvertUcs2Utf8(Source As String, dest As String)
-    Dim f_in As BinFile, f_out As BinFile
-    Dim in_low As Integer, in_high As Integer
+Public Sub ConvertUcs2Utf8(ByVal Source As String, ByVal dest As String)
+    Dim f_in As BinFile
+    Dim f_out As BinFile
+    Dim in_low As Integer
+    Dim in_high As Integer
 
     f_in = BinOpen(Source, "r")
     f_out = BinOpen(dest, "w")
@@ -158,9 +161,12 @@ Public Sub ConvertUcs2Utf8(Source As String, dest As String)
 End Sub
 
 ' Binary convert a UTF-8 encoded file to UCS2-little-endian.
-Public Sub ConvertUtf8Ucs2(Source As String, dest As String)
-    Dim f_in As BinFile, f_out As BinFile
-    Dim in_1 As Integer, in_2 As Integer, in_3 As Integer
+Public Sub ConvertUtf8Ucs2(ByVal Source As String, ByVal dest As String)
+    Dim f_in As BinFile
+    Dim f_out As BinFile
+    Dim in_1 As Integer
+    Dim in_2 As Integer
+    Dim in_3 As Integer
 
     f_in = BinOpen(Source, "r")
     f_out = BinOpen(dest, "w")
@@ -189,15 +195,17 @@ Public Sub ConvertUtf8Ucs2(Source As String, dest As String)
     BinClose f_out
 End Sub
 
-
-
 ' Determine if this database imports/exports code as UCS-2-LE. (Older file
 ' formats cause exported objects to use a Windows 8-bit character set.)
 Public Function UsingUcs2() As Boolean
-    Dim obj_name As String, i As Integer, obj_type As Variant, fn As Integer, bytes As String
-    Dim obj_type_split() As String, obj_type_name As String, obj_type_num As Integer
-    Dim Db As Object ' DAO.Database
-
+    Dim obj_name As String
+    Dim obj_type As Variant
+    Dim fn As Integer
+    Dim bytes As String
+    Dim obj_type_split() As String
+    Dim obj_type_name As String
+    Dim obj_type_num As Integer
+    
     If CurrentDb.QueryDefs.Count > 0 Then
         obj_type_num = acQuery
         obj_name = CurrentDb.QueryDefs(0).name
@@ -219,19 +227,21 @@ Public Function UsingUcs2() As Boolean
         Next
     End If
 
-    If obj_name = "" Then
+    If obj_name = vbNullString Then
         ' No objects found that can be used to test UCS2 versus UTF-8
         UsingUcs2 = True
         Exit Function
     End If
 
-    Dim tempFileName As String: tempFileName = TempFile()
+    Dim tempFileName As String
+    tempFileName = VCS_File.TempFile()
+    
     Application.SaveAsText obj_type_num, obj_name, tempFileName
     fn = FreeFile
     Open tempFileName For Binary Access Read As fn
     bytes = "  "
     Get fn, 1, bytes
-    If Asc(Mid(bytes, 1, 1)) = &HFF And Asc(Mid(bytes, 2, 1)) = &HFE Then
+    If Asc(Mid$(bytes, 1, 1)) = &HFF And Asc(Mid$(bytes, 2, 1)) = &HFE Then
         UsingUcs2 = True
     Else
         UsingUcs2 = False
@@ -243,13 +253,12 @@ Public Function UsingUcs2() As Boolean
     FSO.DeleteFile (tempFileName)
 End Function
 
-
 ' Generate Random / Unique tempprary file name.
-Public Function TempFile(Optional sPrefix As String = "VBA") As String
-Dim sTmpPath As String * 512
-Dim sTmpName As String * 576
-Dim nRet As Long
-Dim sFileName As String
+Public Function TempFile(Optional ByVal sPrefix As String = "VBA") As String
+    Dim sTmpPath As String * 512
+    Dim sTmpName As String * 576
+    Dim nRet As Long
+    Dim sFileName As String
     
     nRet = getTempPath(512, sTmpPath)
     nRet = getTempFileName(sTmpPath, sPrefix, 0, sTmpName)

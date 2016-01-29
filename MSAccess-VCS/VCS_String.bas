@@ -4,6 +4,7 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+
 '--------------------
 ' String Functions: String Builder,String Padding (right only), Substrings
 '--------------------
@@ -20,7 +21,7 @@ Public Sub Sb_Clear(ByRef sb() As String)
 End Sub
 
 ' String builder: Append
-Public Sub Sb_Append(ByRef sb() As String, Value As String)
+Public Sub Sb_Append(ByRef sb() As String, ByVal Value As String)
     If LBound(sb) = -1 Then
         ReDim sb(0 To 0)
     Else
@@ -36,26 +37,28 @@ End Function
 
 
 ' Pad a string on the right to make it `count` characters long.
-Public Function PadRight(Value As String, Count As Integer)
+Public Function PadRight(ByVal Value As String, ByVal Count As Integer) As String
     PadRight = Value
     If Len(Value) < Count Then
-        PadRight = PadRight & Space(Count - Len(Value))
+        PadRight = PadRight & Space$(Count - Len(Value))
     End If
 End Function
 
 ' returns substring between e.g. "(" and ")", internal brackets ar skippped
-Public Function SubString(p As Integer, s As String, startsWith As String, endsWith As String)
+Public Function SubString(ByVal p As Integer, ByVal s As String, ByVal startsWith As String, _
+                          ByVal endsWith As String) As String
     Dim start As Integer
-    Dim last As Integer
     Dim cursor As Integer
     Dim p1 As Integer
     Dim p2 As Integer
     Dim level As Integer
+    
     start = InStr(p, s, startsWith)
     level = 1
     p1 = InStr(start + 1, s, startsWith)
     p2 = InStr(start + 1, s, endsWith)
-    While level > 0
+    
+    Do While level > 0
         If p1 > p2 And p2 > 0 Then
             cursor = p2
             level = level - 1
@@ -69,11 +72,12 @@ Public Function SubString(p As Integer, s As String, startsWith As String, endsW
             cursor = p1
             level = level + 1
         ElseIf p1 = 0 And p2 = 0 Then
-            SubString = ""
+            SubString = vbNullString
             Exit Function
         End If
         p1 = InStr(cursor + 1, s, startsWith)
         p2 = InStr(cursor + 1, s, endsWith)
-    Wend
-    SubString = Mid(s, start + 1, cursor - start - 1)
+    Loop
+    
+    SubString = Mid$(s, start + 1, cursor - start - 1)
 End Function
