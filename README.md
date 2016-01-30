@@ -1,6 +1,8 @@
 msaccess-vcs-integration
 ========================
 
+[![Join the chat at https://gitter.im/timabell/msaccess-vcs-integration](https://badges.gitter.im/timabell/msaccess-vcs-integration.svg)](https://gitter.im/timabell/msaccess-vcs-integration?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 About
 -----
 
