@@ -82,113 +82,31 @@ Err_LinkedTable:
     Resume Err_LinkedTable_Fin
 End Sub
 
-' This requires Microsoft ADO Ext. 2.x for DLL and Security
-' See reference: https://social.msdn.microsoft.com/Forums/office/en-US/883087ba-2c25-4571-bd3c-706061466a11/how-can-i-programmatically-access-scale-property-of-a-decimal-data-type-field?forum=accessdev
-Private Function formatDecimal(ByVal tableName As String, ByVal fieldName As String) As String
-
-    Dim cnn As ADODB.Connection
-    Dim cat As ADOX.Catalog
-    Dim col As ADOX.Column
-    
-    Set cnn = New ADODB.Connection
-    Set cat = New ADOX.Catalog
-    
-
-    Set cnn = CurrentProject.Connection
-    Set cat.ActiveConnection = cnn
-
-    Set col = cat.Tables(tableName).Columns(fieldName)
-
-    formatDecimal = "(" & col.Precision & ", " & col.NumericScale & ")"
-
-    Set col = Nothing
-    Set cat = Nothing
-    Set cnn = Nothing
-
-End Function
-
 ' Save a Table Definition as SQL statement
-Public Sub ExportTableDef(Db As DAO.Database, td As DAO.TableDef, ByVal tableName As String, _
+Public Sub ExportTableDef(Db As DAO.Database, td As DAO.TableDef, ByVal TableName As String, _
                           ByVal directory As String)
     Dim fileName As String
-    fileName = directory & tableName & ".sql"
-    Dim sql As String
-    Dim fieldAttributeSql As String
-    Dim idx As DAO.Index
-    Dim fi As DAO.Field
-    Dim FSO As Object
-    Dim OutFile As Object
-    Dim ff As Object
-    'Debug.Print tableName
-    Set FSO = CreateObject("Scripting.FileSystemObject")
-    Set OutFile = FSO.CreateTextFile(fileName, overwrite:=True, Unicode:=False)
-    sql = "CREATE TABLE " & strName(tableName) & " (" & vbCrLf
-    For Each fi In td.Fields
-        sql = sql & "  " & strName(fi.name) & " "
-        If (fi.Attributes And dbAutoIncrField) Then
-            sql = sql & "AUTOINCREMENT"
-        Else
-            sql = sql & strType(fi.Type) & " "
-        End If
-        Select Case fi.Type
-            Case dbText, dbVarBinary
-                sql = sql & "(" & fi.Size & ")"
-            Case dbDecimal
-                sql = sql & formatDecimal(tableName, fi.name)
-            Case Else
-        End Select
-        For Each idx In td.Indexes
-            fieldAttributeSql = vbNullString
-            If idx.Fields.Count = 1 And idx.Fields(0).name = fi.name Then
-                If idx.Primary Then fieldAttributeSql = fieldAttributeSql & " PRIMARY KEY "
-                If idx.Unique Then fieldAttributeSql = fieldAttributeSql & " UNIQUE "
-                If idx.Required Then fieldAttributeSql = fieldAttributeSql & " NOT NULL "
-                If idx.Foreign Then
-                    Set ff = idx.Fields
-                    fieldAttributeSql = fieldAttributeSql & formatReferences(Db, ff, tableName)
-                End If
-                If Len(fieldAttributeSql) > 0 Then fieldAttributeSql = " CONSTRAINT " & strName(idx.name) & fieldAttributeSql
-            End If
-            sql = sql & fieldAttributeSql
-        Next
-        sql = sql & "," & vbCrLf
-    Next
-    sql = Left$(sql, Len(sql) - 3) ' strip off last comma and crlf
+    fileName = directory & TableName & ".xml"
     
-    Dim constraintSql As String
-    For Each idx In td.Indexes
-        If idx.Fields.Count > 1 Then
-            If Len(constraintSql) = 0 Then constraintSql = constraintSql & " CONSTRAINT "
-            If idx.Primary Then constraintSql = constraintSql & formatConstraint("PRIMARY KEY", idx)
-            If Not idx.Foreign Then
-                If Len(constraintSql) > 0 Then
-                    sql = sql & "," & vbCrLf & "  " & constraintSql
-                    sql = sql & formatReferences(Db, idx.Fields, tableName)
-                End If
-            End If
-        End If
-    Next
-    sql = sql & vbCrLf & ")"
-
-    'Debug.Print sql
-    OutFile.WriteLine sql
-    
-    OutFile.Close
+    Application.ExportXML _
+    ObjectType:=acExportTable, _
+    DataSource:=TableName, _
+    SchemaTarget:=fileName
     
     'exort Data Macros
-    VCS_DataMacro.ExportDataMacros tableName, directory
+    VCS_DataMacro.ExportDataMacros TableName, directory
     
 End Sub
 
 Private Function formatReferences(Db As DAO.Database, ff As Object, _
-                                  ByVal tableName As String) As String
+                                  ByVal TableName As String) As String
 
     Dim rel As DAO.Relation
     Dim sql As String
     Dim f As DAO.Field
     
     For Each rel In Db.Relations
-        If (rel.foreignTable = tableName) Then
+        If (rel.foreignTable = TableName) Then
          If FieldsIdentical(ff, rel.Fields) Then
           sql = " REFERENCES "
           sql = sql & strName(rel.table) & " ("
@@ -504,81 +422,10 @@ End Sub
 ' Import Table Definition
 Public Sub ImportTableDef(ByVal tblName As String, ByVal directory As String)
     Dim filePath As String
-    filePath = directory & tblName & ".sql"
-    Dim Db As Object ' DAO.Database
-    Dim FSO As Object
-    Dim InFile As Object
-    Dim buf As String
-    Dim p As Integer
-    Dim p1 As Integer
-    Dim strMsg As String
-    Dim s As Variant
-    Dim n As Integer
-    Dim i As Integer
-    Dim j As Integer
-    Dim tempFileName As String
-    tempFileName = VCS_File.TempFile()
-
-    n = -1
-    Set FSO = CreateObject("Scripting.FileSystemObject")
-    VCS_File.ConvertUtf8Ucs2 filePath, tempFileName
-    ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
-    Set InFile = FSO.OpenTextFile(tempFileName, iomode:=ForReading, create:=False, Format:=TristateTrue)
-    Set Db = CurrentDb
-    KillTable tblName, Db
-    buf = InFile.ReadLine()
-    Do Until InFile.AtEndOfStream
-        buf = buf & InFile.ReadLine()
-    Loop
     
-    ' The following block is needed because "on update" actions may cause problems
-    For Each s In Split("UPDATE|DELETE", "|")
-      p = InStr(buf, "ON " & s & " CASCADE")
-      Do While p > 0
-          n = n + 1
-          ReDim Preserve K(n)
-          K(n).table = tblName
-          K(n).isUpdate = (s = "UPDATE")
-          
-          buf = Left$(buf, p - 1) & Mid$(buf, p + 18)
-          p = InStrRev(buf, "REFERENCES", p)
-          p1 = InStr(p, buf, "(")
-          K(n).foreignFields = Split(VCS_String.SubString(p1, buf, "(", ")"), ",")
-          K(n).foreignTable = Trim$(Mid$(buf, p + 10, p1 - p - 10))
-          p = InStrRev(buf, "CONSTRAINT", p1)
-          p1 = InStrRev(buf, "FOREIGN KEY", p1)
-          If (p1 > 0) And (p > 0) And (p1 > p) Then
-          ' multifield index
-              K(n).refFields = Split(VCS_String.SubString(p1, buf, "(", ")"), ",")
-          ElseIf p1 = 0 Then
-          ' single field
-          End If
-          p = InStr(p, "ON " & s & " CASCADE", buf)
-      Loop
-    Next
-    On Error Resume Next
-    For i = 0 To n
-        strMsg = K(i).table & " to " & K(i).foreignTable
-        strMsg = strMsg & "(  "
-        For j = 0 To UBound(K(i).refFields)
-            strMsg = strMsg & K(i).refFields(j) & ", "
-        Next j
-        strMsg = Left$(strMsg, Len(strMsg) - 2) & ") to ("
-        For j = 0 To UBound(K(i).foreignFields)
-            strMsg = strMsg & K(i).foreignFields(j) & ", "
-        Next j
-        strMsg = Left$(strMsg, Len(strMsg) - 2) & ") Check "
-        If K(i).isUpdate Then
-            strMsg = strMsg & " on update cascade " & vbCrLf
-        Else
-            strMsg = strMsg & " on delete cascade " & vbCrLf
-        End If
-    Next
-    On Error GoTo 0
-    Db.Execute buf
-    InFile.Close
-    If Len(strMsg) > 0 Then MsgBox strMsg, vbOKOnly, "Correct manually"
-        
+    filePath = directory & tblName & ".xml"
+    Application.ImportXML DataSource:=filePath, ImportOptions:=acStructureOnly
+
 End Sub
 
 ' Import the lookup table `tblName` from `source\tables`.

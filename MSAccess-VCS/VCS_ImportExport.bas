@@ -154,7 +154,7 @@ Public Sub ExportAllSource()
         If Left$(td.name, 4) <> "MSys" And _
         Left$(td.name, 1) <> "~" Then
             If Len(td.connect) = 0 Then ' this is not an external table
-                VCS_Table.ExportTableDef Db, td, td.name, obj_path
+                VCS_Table.ExportTableDef td.name, obj_path
                 If INCLUDE_TABLES = "*" Then
                     DoEvents
                     VCS_Table.ExportTableData CStr(td.name), source_path & "tables\"
@@ -197,10 +197,12 @@ Err_TableNotFound:
     
     For Each aRelation In CurrentDb.Relations
         ' Exclude relations from system tables and inherited (linked) relations
+        ' Skip if dbRelationDontEnforce property is set. The relationship is already in the table xml file. - sean
         If Not (aRelation.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
                 Or aRelation.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups" _
                 Or (aRelation.Attributes And DAO.RelationAttributeEnum.dbRelationInherited) = _
-                DAO.RelationAttributeEnum.dbRelationInherited) Then
+                DAO.RelationAttributeEnum.dbRelationInherited) _
+                And (aRelation.Attributes = DAO.RelationAttributeEnum.dbRelationDontEnforce) Then
             VCS_Relation.ExportRelation aRelation, obj_path & aRelation.name & ".txt"
             obj_count = obj_count + 1
         End If
