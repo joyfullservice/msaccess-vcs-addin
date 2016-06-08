@@ -197,7 +197,7 @@ Err_TableNotFound:
     
     For Each aRelation In CurrentDb.Relations
         ' Exclude relations from system tables and inherited (linked) relations
-        ' Skip if dbRelationDontEnforce property is set. The relationship is already in the table xml file. - sean
+        ' Skip if dbRelationDontEnforce property is not set. The relationship is already in the table xml file. - sean
         If Not (aRelation.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
                 Or aRelation.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups" _
                 Or (aRelation.Attributes And DAO.RelationAttributeEnum.dbRelationInherited) = _
