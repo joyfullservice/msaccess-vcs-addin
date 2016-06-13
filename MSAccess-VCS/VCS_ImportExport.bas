@@ -74,6 +74,7 @@ Public Sub ExportAllSource()
             obj_count = obj_count + 1
         End If
     Next
+    Debug.Print VCS_String.PadRight("Sanitizing...", 15);
     VCS_IE_Functions.SanitizeTextFiles obj_path, "bas"
     Debug.Print "[" & obj_count & "]"
 
@@ -111,11 +112,12 @@ Public Sub ExportAllSource()
                 obj_count = obj_count + 1
             End If
         Next
-        Debug.Print "[" & obj_count & "]"
 
+		Debug.Print VCS_String.PadRight("Sanitizing...", 15);
         If obj_type_label <> "modules" Then
             VCS_IE_Functions.SanitizeTextFiles obj_path, "bas"
         End If
+        Debug.Print "[" & obj_count & "]"
     Next
     
     VCS_Reference.ExportReferences source_path
@@ -164,7 +166,7 @@ Public Sub ExportAllSource()
                 ElseIf (Len(Replace(INCLUDE_TABLES, " ", vbNullString)) > 0) And INCLUDE_TABLES <> "*" Then
                     DoEvents
                     On Error GoTo Err_TableNotFound
-                    If IncludeTablesCol(td.name) = td.name Then
+                    If InCollection(IncludeTablesCol,td.name) Then
                         VCS_Table.ExportTableData CStr(td.name), source_path & "tables\"
                         obj_data_count = obj_data_count + 1
                     End If
@@ -561,4 +563,35 @@ Public Function StrSetToCol(ByVal strSet As String, ByVal delimiter As String) A
     Next
     
     Set StrSetToCol = col
+End Function
+
+
+' Check if an item or key is in a collection
+Public Function InCollection(col As Collection, Optional vItem, Optional vKey) As Boolean
+    On Error Resume Next
+
+    Dim vColItem As Variant
+
+    InCollection = False
+
+    If Not IsMissing(vKey) Then
+        col.item vKey
+
+        '5 if not in collection, it is 91 if no collection exists
+        If Err.Number <> 5 And Err.Number <> 91 Then
+            InCollection = True
+        End If
+    ElseIf Not IsMissing(vItem) Then
+        For Each vColItem In col
+            If vColItem = vItem Then
+                InCollection = True
+                GoTo Exit_Proc
+            End If
+        Next vColItem
+    End If
+
+Exit_Proc:
+    Exit Function
+Err_Handle:
+    Resume Exit_Proc
 End Function
