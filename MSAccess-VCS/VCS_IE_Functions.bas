@@ -174,8 +174,31 @@ Public Sub VCS_SanitizeTextFiles(ByVal Path As String, ByVal Ext As String)
 
         Dim thisFile As Object
         Set thisFile = FSO.GetFile(Path & obj_name & ".sanitize")
+        
+        ' Error Handling to deal with errors caused by Dropbox, VirusScan,
+        ' or anything else touching the file.
+        Dim ErrCounter As Integer
+        On Error GoTo ErrorHandler
         thisFile.Move (Path & fileName)
         fileName = Dir$()
     Loop
-
+    
+    Exit Sub
+ErrorHandler:
+    ErrCounter = ErrCounter + 1
+    If ErrCounter = 20 Then  ' 20 attempts seems like a nice arbitrary number
+        MsgBox "This file could not be moved: " & vbNewLine, vbCritical + vbApplicationModal, _
+            "Error moving file..."
+        Resume Next
+    End If
+    Select Case Err.Number
+        Case 58    ' "File already exists" error.
+            DoEvents
+            Sleep 10
+            Resume    ' Go back to what you were doing
+        Case Else
+            MsgBox "This file could not be moved: " & vbNewLine, vbCritical + vbApplicationModal, _
+                "Error moving file..."
+    End Select
+    Resume Next
 End Sub
