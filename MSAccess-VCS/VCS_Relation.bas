@@ -57,6 +57,17 @@ Public Sub VCS_ImportRelation(ByVal filePath As String)
     
     InFile.Close
     
+    ' Skip if relationship already exists and make a note of it. It was embedded in the table schema.
+    On Error GoTo ErrorHandler
     CurrentDb.Relations.Append rel
-
+    
+    Exit Sub
+ErrorHandler:
+    Select Case Err.Number
+        Case 3012    ' Relationship already exists
+            Debug.Print "Skipped: """ & rel.Name & """ ";
+            Resume Next    ' Skip it and move on
+        Case Else
+            Resume Next    ' Move on anyways
+    End Select
 End Sub
