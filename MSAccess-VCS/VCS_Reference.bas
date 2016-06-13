@@ -6,7 +6,7 @@ Option Explicit
 
 
 ' Import References from a CSV, true=SUCCESS
-Public Function ImportReferences(ByVal obj_path As String) As Boolean
+Public Function VCS_ImportReferences(ByVal obj_path As String) As Boolean
     Dim FSO As Object
     Dim InFile As Object
     Dim line As String
@@ -19,7 +19,7 @@ Public Function ImportReferences(ByVal obj_path As String) As Boolean
     
     fileName = Dir$(obj_path & "references.csv")
     If Len(fileName) = 0 Then
-        ImportReferences = False
+        VCS_ImportReferences = False
         Exit Function
     End If
     Set FSO = CreateObject("Scripting.FileSystemObject")
@@ -44,7 +44,7 @@ On Error GoTo 0
     InFile.Close
     Set InFile = Nothing
     Set FSO = Nothing
-    ImportReferences = True
+    VCS_ImportReferences = True
     Exit Function
     
 failed_guid:
@@ -60,7 +60,7 @@ failed_guid:
 End Function
 
 ' Export References to a CSV
-Public Sub ExportReferences(ByVal obj_path As String)
+Public Sub VCS_ExportReferences(ByVal obj_path As String)
     Dim FSO As Object
     Dim OutFile As Object
     Dim line As String

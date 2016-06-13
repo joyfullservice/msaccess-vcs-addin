@@ -10,18 +10,18 @@ Option Explicit
 '--------------------
 
 ' String builder: Init
-Public Function Sb_Init() As String()
+Public Function VCS_Sb_Init() As String()
     Dim x(-1 To -1) As String
-    Sb_Init = x
+    VCS_Sb_Init = x
 End Function
 
 ' String builder: Clear
-Public Sub Sb_Clear(ByRef sb() As String)
-    ReDim Sb_Init(-1 To -1)
+Public Sub VCS_Sb_Clear(ByRef sb() As String)
+    ReDim VCS_Sb_Init(-1 To -1)
 End Sub
 
 ' String builder: Append
-Public Sub Sb_Append(ByRef sb() As String, ByVal Value As String)
+Public Sub VCS_Sb_Append(ByRef sb() As String, ByVal Value As String)
     If LBound(sb) = -1 Then
         ReDim sb(0 To 0)
     Else
@@ -31,15 +31,15 @@ Public Sub Sb_Append(ByRef sb() As String, ByVal Value As String)
 End Sub
 
 ' String builder: Get value
-Public Function Sb_Get(ByRef sb() As String) As String
-    Sb_Get = Join(sb, "")
+Public Function VCS_Sb_Get(ByRef sb() As String) As String
+    VCS_Sb_Get = Join(sb, "")
 End Function
 
 
 ' Pad a string on the right to make it `count` characters long.
-Public Function PadRight(ByVal Value As String, ByVal Count As Integer) As String
-    PadRight = Value
+Public Function VCS_PadRight(ByVal Value As String, ByVal Count As Integer) As String
+    VCS_PadRight = Value
     If Len(Value) < Count Then
-        PadRight = PadRight & Space$(Count - Len(Value))
+        VCS_PadRight = VCS_PadRight & Space$(Count - Len(Value))
     End If
 End Function

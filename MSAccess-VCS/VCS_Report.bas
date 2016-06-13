@@ -43,7 +43,7 @@ End Type
 
 
 'Exports print vars for reports
-Public Sub ExportPrintVars(ByVal obj_name As String, ByVal filePath As String)
+Public Sub VCS_ExportPrintVars(ByVal obj_name As String, ByVal filePath As String)
   DoEvents
   Dim FSO As Object
   Set FSO = CreateObject("Scripting.FileSystemObject")
@@ -87,7 +87,7 @@ Public Sub ExportPrintVars(ByVal obj_name As String, ByVal filePath As String)
   DoCmd.Close acReport, obj_name, acSaveYes
 End Sub
 
-Public Sub ImportPrintVars(ByVal obj_name As String, ByVal filePath As String)
+Public Sub VCS_ImportPrintVars(ByVal obj_name As String, ByVal filePath As String)
   
   Dim FSO As Object
   Set FSO = CreateObject("Scripting.FileSystemObject")
