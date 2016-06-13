@@ -11,11 +11,6 @@ Public Function ProjectPath() As String
     If Right$(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
 End Function
 
-' Path/Directory for source files
-Public Function SourcePath() As String
-    SourcePath = ProjectPath & CurrentProject.name & ".src\"
-End Function
-
 ' Create folder `Path`. Silently do nothing if it already exists.
 Public Sub MkDirIfNotExist(ByVal Path As String)
     On Error GoTo MkDirIfNotexist_noop
@@ -46,15 +41,3 @@ Public Sub ClearTextFilesFromDir(ByVal Path As String, ByVal Ext As String)
 ClearTextFilesFromDir_noop:
     On Error GoTo 0
 End Sub
-
-Public Function DirExists(ByVal strPath As String) As Boolean
-    On Error Resume Next
-    DirExists = False
-    DirExists = ((GetAttr(strPath) And vbDirectory) = vbDirectory)
-End Function
-
-Public Function FileExists(ByVal strPath As String) As Boolean
-    On Error Resume Next
-    FileExists = False
-    FileExists = ((GetAttr(strPath) And vbDirectory) <> vbDirectory)
-End Function
