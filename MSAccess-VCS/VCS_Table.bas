@@ -22,19 +22,19 @@ End Type
 Private K() As structEnforce
 
 
-Public Sub ExportLinkedTable(ByVal tbl_name As String, ByVal obj_path As String)
+Public Sub VCS_ExportLinkedTable(ByVal tbl_name As String, ByVal obj_path As String)
     On Error GoTo Err_LinkedTable
     
     Dim tempFilePath As String
     
-    tempFilePath = VCS_File.TempFile()
+    tempFilePath = VCS_File.VCS_TempFile()
     
     Dim FSO As Object
     Dim OutFile As Object
 
     Set FSO = CreateObject("Scripting.FileSystemObject")
     ' open file for writing with Create=True, Unicode=True (USC-2 Little Endian format)
-    VCS_Dir.MkDirIfNotExist obj_path
+    VCS_Dir.VCS_MkDirIfNotExist obj_path
     
     Set OutFile = FSO.CreateTextFile(tempFilePath, overwrite:=True, Unicode:=True)
     
@@ -72,7 +72,7 @@ Err_LinkedTable_Fin:
     On Error Resume Next
     OutFile.Close
     'save files as .odbc
-    VCS_File.ConvertUcs2Utf8 tempFilePath, obj_path & tbl_name & ".LNKD"
+    VCS_File.VCS_ConvertUcs2Utf8 tempFilePath, obj_path & tbl_name & ".LNKD"
     
     Exit Sub
     
@@ -83,8 +83,7 @@ Err_LinkedTable:
 End Sub
 
 ' Save a Table Definition as SQL statement
-Public Sub ExportTableDef(Db As DAO.Database, td As DAO.TableDef, ByVal TableName As String, _
-                          ByVal directory As String)
+Public Sub VCS_ExportTableDef(ByVal TableName As String, ByVal directory As String)
     Dim fileName As String
     fileName = directory & TableName & ".xml"
     
@@ -94,8 +93,7 @@ Public Sub ExportTableDef(Db As DAO.Database, td As DAO.TableDef, ByVal TableNam
     SchemaTarget:=fileName
     
     'exort Data Macros
-    VCS_DataMacro.ExportDataMacros TableName, directory
-    
+    VCS_DataMacro.VCS_ExportDataMacros TableName, directory
 End Sub
 
 Private Function formatReferences(Db As DAO.Database, ff As Object, _
@@ -251,31 +249,31 @@ Private Function TableExportSql(ByVal tbl_name As String) As String
 
     Set rs = CurrentDb.OpenRecordset(tbl_name)
     
-    sb = VCS_String.Sb_Init()
-    VCS_String.Sb_Append sb, "SELECT "
+    sb = VCS_String.VCS_Sb_Init()
+    VCS_String.VCS_Sb_Append sb, "SELECT "
     
     Count = 0
     For Each fieldObj In rs.Fields
-        If Count > 0 Then VCS_String.Sb_Append sb, ", "
-        VCS_String.Sb_Append sb, "[" & fieldObj.name & "]"
+        If Count > 0 Then VCS_String.VCS_Sb_Append sb, ", "
+        VCS_String.VCS_Sb_Append sb, "[" & fieldObj.name & "]"
         Count = Count + 1
     Next
     
-    VCS_String.Sb_Append sb, " FROM [" & tbl_name & "] ORDER BY "
+    VCS_String.VCS_Sb_Append sb, " FROM [" & tbl_name & "] ORDER BY "
     
     Count = 0
     For Each fieldObj In rs.Fields
         DoEvents
-        If Count > 0 Then VCS_String.Sb_Append sb, ", "
-        VCS_String.Sb_Append sb, "[" & fieldObj.name & "]"
+        If Count > 0 Then VCS_String.VCS_Sb_Append sb, ", "
+        VCS_String.VCS_Sb_Append sb, "[" & fieldObj.name & "]"
         Count = Count + 1
     Next
 
-    TableExportSql = VCS_String.Sb_Get(sb)
+    TableExportSql = VCS_String.VCS_Sb_Get(sb)
 End Function
 
 ' Export the lookup table `tblName` to `source\tables`.
-Public Sub ExportTableData(ByVal tbl_name As String, ByVal obj_path As String)
+Public Sub VCS_ExportTableData(ByVal tbl_name As String, ByVal obj_path As String)
     Dim FSO As Object
     Dim OutFile As Object
     Dim rs As DAO.Recordset ' DAO.Recordset
@@ -297,9 +295,9 @@ Public Sub ExportTableData(ByVal tbl_name As String, ByVal obj_path As String)
 
     Set FSO = CreateObject("Scripting.FileSystemObject")
     ' open file for writing with Create=True, Unicode=True (USC-2 Little Endian format)
-    VCS_Dir.MkDirIfNotExist obj_path
+    VCS_Dir.VCS_MkDirIfNotExist obj_path
     Dim tempFileName As String
-    tempFileName = VCS_File.TempFile()
+    tempFileName = VCS_File.VCS_TempFile()
 
     Set OutFile = FSO.CreateTextFile(tempFileName, overwrite:=True, Unicode:=True)
 
@@ -336,7 +334,7 @@ Public Sub ExportTableData(ByVal tbl_name As String, ByVal obj_path As String)
     rs.Close
     OutFile.Close
 
-    VCS_File.ConvertUcs2Utf8 tempFileName, obj_path & tbl_name & ".txt"
+    VCS_File.VCS_ConvertUcs2Utf8 tempFileName, obj_path & tbl_name & ".txt"
     FSO.DeleteFile tempFileName
 End Sub
 
@@ -347,7 +345,7 @@ Private Sub KillTable(ByVal tblName As String, Db As Object)
     End If
 End Sub
 
-Public Sub ImportLinkedTable(ByVal tblName As String, ByRef obj_path As String)
+Public Sub VCS_ImportLinkedTable(ByVal tblName As String, ByRef obj_path As String)
     Dim Db As DAO.Database
     Dim FSO As Object
     Dim InFile As Object
@@ -356,9 +354,9 @@ Public Sub ImportLinkedTable(ByVal tblName As String, ByRef obj_path As String)
     Set FSO = CreateObject("Scripting.FileSystemObject")
     
     Dim tempFilePath As String
-    tempFilePath = VCS_File.TempFile()
+    tempFilePath = VCS_File.VCS_TempFile()
     
-    ConvertUtf8Ucs2 obj_path & tblName & ".LNKD", tempFilePath
+    VCS_ConvertUtf8Ucs2 obj_path & tblName & ".LNKD", tempFilePath
     ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
     Set InFile = FSO.OpenTextFile(tempFilePath, iomode:=ForReading, create:=False, Format:=TristateTrue)
     
@@ -420,7 +418,7 @@ Err_LinkPK_Fin:
 End Sub
 
 ' Import Table Definition
-Public Sub ImportTableDef(ByVal tblName As String, ByVal directory As String)
+Public Sub VCS_ImportTableDef(ByVal tblName As String, ByVal directory As String)
     Dim filePath As String
     
     filePath = directory & tblName & ".xml"
@@ -429,7 +427,7 @@ Public Sub ImportTableDef(ByVal tblName As String, ByVal directory As String)
 End Sub
 
 ' Import the lookup table `tblName` from `source\tables`.
-Public Sub ImportTableData(ByVal tblName As String, ByVal obj_path As String)
+Public Sub VCS_ImportTableData(ByVal tblName As String, ByVal obj_path As String)
     Dim Db As Object ' DAO.Database
     Dim rs As Object ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field
@@ -440,8 +438,8 @@ Public Sub ImportTableData(ByVal tblName As String, ByVal obj_path As String)
     Set FSO = CreateObject("Scripting.FileSystemObject")
     
     Dim tempFileName As String
-    tempFileName = VCS_File.TempFile()
-    VCS_File.ConvertUtf8Ucs2 obj_path & tblName & ".txt", tempFileName
+    tempFileName = VCS_File.VCS_TempFile()
+    VCS_File.VCS_ConvertUtf8Ucs2 obj_path & tblName & ".txt", tempFileName
     ' open file for reading with Create=False, Unicode=True (USC-2 Little Endian format)
     Set InFile = FSO.OpenTextFile(tempFileName, iomode:=ForReading, create:=False, Format:=TristateTrue)
     Set Db = CurrentDb
