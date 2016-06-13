@@ -33,7 +33,7 @@ End Sub
 Public Sub ImportObject(ByVal obj_type_num As Integer, ByVal obj_name As String, _
                     ByVal file_path As String, Optional ByVal Ucs2Convert As Boolean = False)
     
-    If Not FileExists(file_path) Then Exit Sub
+    If Not VCS_Dir.FileExists(file_path) Then Exit Sub
     
     If Ucs2Convert Then
         Dim tempFileName As String
@@ -179,9 +179,3 @@ Public Sub SanitizeTextFiles(ByVal Path As String, ByVal Ext As String)
     Loop
 
 End Sub
-
-Private Function FileExists(ByVal strPath As String) As Boolean
-    On Error Resume Next
-    FileExists = False
-    FileExists = ((GetAttr(strPath) And vbDirectory) <> vbDirectory)
-End Function
