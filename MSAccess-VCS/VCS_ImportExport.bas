@@ -550,7 +550,7 @@ End Sub
 
 
 'errno 457 - duplicate key (& item)
-Public Function StrSetToCol(ByVal strSet As String, ByVal delimiter As String) As Collection 'throws errors
+Private Function StrSetToCol(ByVal strSet As String, ByVal delimiter As String) As Collection 'throws errors
     Dim strSetArray() As String
     Dim col As Collection
     
@@ -567,7 +567,7 @@ End Function
 
 
 ' Check if an item or key is in a collection
-Public Function InCollection(col As Collection, Optional vItem, Optional vKey) As Boolean
+Private Function InCollection(col As Collection, Optional vItem, Optional vKey) As Boolean
     On Error Resume Next
 
     Dim vColItem As Variant
