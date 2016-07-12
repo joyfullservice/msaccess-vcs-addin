@@ -143,12 +143,12 @@ Public Sub VCS_SanitizeTextFiles(ByVal Path As String, ByVal Ext As String)
                     Case Else
                         rxIndent.Pattern = "^" & matches(0).SubMatches(0)
                 End Select
-                rxIndent.Pattern = rxIndent.Pattern + "\S"
+                rxIndent.Pattern = rxIndent.Pattern + "\s"
                 '
                 ' Skip lines with deeper indentation
                 Do Until InFile.AtEndOfStream
                     txt = InFile.ReadLine
-                    If rxIndent.Test(txt) Then Exit Do
+                    If Not rxIndent.Test(txt) Then Exit Do
                 Loop
                 ' We've moved on at least one line so do get a new one
                 ' when starting the loop again.
