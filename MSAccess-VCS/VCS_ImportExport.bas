@@ -274,7 +274,7 @@ Public Sub ImportAllSource()
 
     ' restore table definitions
     obj_path = source_path & "tbldef\"
-    fileName = Dir$(obj_path & "*.sql")
+    fileName = Dir$(obj_path & "*.xml")
     If Len(fileName) > 0 Then
         Debug.Print VCS_String.VCS_PadRight("Importing tabledefs...", 24);
         obj_count = 0
