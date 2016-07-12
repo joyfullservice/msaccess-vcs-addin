@@ -4,7 +4,11 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
-Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+#If VBA7 Then
+    Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+#Else
+    Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+#End If
 Private Const AggressiveSanitize As Boolean = True
 Private Const StripPublishOption As Boolean = True
 
