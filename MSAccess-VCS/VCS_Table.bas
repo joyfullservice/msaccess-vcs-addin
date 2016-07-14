@@ -464,7 +464,7 @@ err_notable_fin:
     If InStr(1, connect, "DATABASE=.\") Then 'replace relative path with literal path
         connect = Replace(connect, "DATABASE=.\", "DATABASE=" & CurrentProject.Path & "\")
     End If
-    td.Attribute = dbAttachSavePWD
+    td.Attributes = dbAttachSavePWD
     td.connect = connect
     
     td.SourceTableName = InFile.ReadLine()
