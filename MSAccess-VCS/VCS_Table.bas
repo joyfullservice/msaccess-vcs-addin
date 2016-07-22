@@ -210,13 +210,6 @@ Public Sub VCS_ExportTableData(ByVal tbl_name As String, ByVal obj_path As Strin
     FSO.DeleteFile tempFileName
 End Sub
 
-' Kill Table if Exists
-Private Sub KillTable(ByVal tblName As String, Db As Object)
-    If TableExists(tblName) Then
-        Db.Execute "DROP TABLE [" & tblName & "]"
-    End If
-End Sub
-
 Public Sub VCS_ImportLinkedTable(ByVal tblName As String, ByRef obj_path As String)
     Dim Db As DAO.Database
     Dim FSO As Object
