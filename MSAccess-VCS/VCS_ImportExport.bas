@@ -336,7 +336,7 @@ Public Sub ImportAllSource()
     
     'load Data Macros - not DRY!
     obj_path = source_path & "tbldef\"
-    fileName = Dir$(obj_path & "*.xml")
+    fileName = Dir$(obj_path & "*.dm")
     If Len(fileName) > 0 Then
         Debug.Print VCS_String.VCS_PadRight("Importing Data Macros...", 24);
         obj_count = 0
