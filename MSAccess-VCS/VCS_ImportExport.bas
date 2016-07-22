@@ -518,12 +518,6 @@ errorHandler:
                 Err.Description
 End Sub
 
-' Expose for use as function, can be called by query
-Public Sub make()
-    ImportProject
-End Sub
-
-
 
 '===================================================================================================================================
 '-----------------------------------------------------------'
