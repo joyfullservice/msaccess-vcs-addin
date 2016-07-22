@@ -4,22 +4,8 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
-' --------------------------------
-' Structures
-' --------------------------------
 
-' Structure to keep track of "on Update" and "on Delete" clauses
-' Access does not in all cases execute such queries
-Private Type structEnforce
-    foreignTable As String
-    foreignFields() As String
-    table As String
-    refFields() As String
-    isUpdate As Boolean
-End Type
 
-' keeping "on Update" relations to be complemented after table creation
-Private K() As structEnforce
 
 
 Public Sub VCS_ExportLinkedTable(ByVal tbl_name As String, ByVal obj_path As String)
@@ -96,120 +82,6 @@ Public Sub VCS_ExportTableDef(ByVal TableName As String, ByVal directory As Stri
     VCS_DataMacro.VCS_ExportDataMacros TableName, directory
 End Sub
 
-Private Function formatReferences(Db As DAO.Database, ff As Object, _
-                                  ByVal TableName As String) As String
-
-    Dim rel As DAO.Relation
-    Dim sql As String
-    Dim f As DAO.Field
-    
-    For Each rel In Db.Relations
-        If (rel.foreignTable = TableName) Then
-         If FieldsIdentical(ff, rel.Fields) Then
-          sql = " REFERENCES "
-          sql = sql & strName(rel.table) & " ("
-          For Each f In rel.Fields
-            sql = sql & strName(f.name) & ","
-          Next
-          sql = Left$(sql, Len(sql) - 1) & ")"
-          If rel.Attributes And dbRelationUpdateCascade Then
-            sql = sql + " ON UPDATE CASCADE "
-          End If
-          If rel.Attributes And dbRelationDeleteCascade Then
-            sql = sql + " ON DELETE CASCADE "
-          End If
-          Exit For
-         End If
-        End If
-    Next
-    
-    formatReferences = sql
-End Function
-
-Private Function formatConstraint(ByVal keyw As String, ByVal idx As DAO.Index) As String
-    Dim sql As String
-    Dim fi As DAO.Field
-    
-    sql = strName(idx.name) & " " & keyw & " ("
-    For Each fi In idx.Fields
-        sql = sql & strName(fi.name) & ", "
-    Next
-    sql = Left$(sql, Len(sql) - 2) & ")" 'strip off last comma and close brackets
-    
-    'return value
-    formatConstraint = sql
-End Function
-
-Private Function strName(ByVal s As String) As String
-    strName = "[" & s & "]"
-End Function
-
-Private Function strType(ByVal i As Integer) As String
-    Select Case i
-    Case dbLongBinary
-        strType = "LONGBINARY"
-    Case dbBinary
-        strType = "BINARY"
-    Case dbBoolean
-        strType = "BIT"
-    Case dbAutoIncrField
-        strType = "COUNTER"
-    Case dbCurrency
-        strType = "CURRENCY"
-    Case dbDate, dbTime
-        strType = "DATETIME"
-    Case dbGUID
-        strType = "GUID"
-    Case dbMemo
-        strType = "LONGTEXT"
-    Case dbDouble
-        strType = "DOUBLE"
-    Case dbSingle
-        strType = "SINGLE"
-    Case dbByte
-        strType = "BYTE"
-    Case dbInteger
-        strType = "SHORT"
-    Case dbLong
-        strType = "LONG"
-    Case dbNumeric
-        strType = "NUMERIC"
-    Case dbText
-        strType = "VARCHAR"
-    Case dbDecimal
-        strType = "DECIMAL"
-    Case Else
-        strType = "VARCHAR"
-    End Select
-End Function
-
-Private Function FieldsIdentical(ff As Object, gg As Object) As Boolean
-    Dim f As DAO.Field
-    If ff.Count <> gg.Count Then
-        FieldsIdentical = False
-        Exit Function
-    End If
-    For Each f In ff
-        If Not FieldInFields(f, gg) Then
-        FieldsIdentical = False
-        Exit Function
-        End If
-    Next
-    
-    FieldsIdentical = True
-End Function
-
-Private Function FieldInFields(fi As DAO.Field, ff As DAO.Fields) As Boolean
-    Dim f As DAO.Field
-    For Each f In ff
-        If f.name = fi.name Then
-            FieldInFields = True
-            Exit Function
-        End If
-    Next
-    
-    FieldInFields = False
-End Function
 
 ' Determine if a table or exists.
 ' based on sample code of support.microsoftcom
