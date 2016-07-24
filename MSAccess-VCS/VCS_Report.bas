@@ -9,36 +9,36 @@ Option Explicit
 ' --------------------------------
 
 Private Type str_DEVMODE
-  RGB As String * 94
+    RGB As String * 94
 End Type
 
 Private Type type_DEVMODE
-  strDeviceName(31) As Byte 'vba strings are encoded in unicode (16 bit) not ascii
-  intSpecVersion As Integer
-  intDriverVersion As Integer
-  intSize As Integer
-  intDriverExtra As Integer
-  lngFields As Long
-  intOrientation As Integer
-  intPaperSize As Integer
-  intPaperLength As Integer
-  intPaperWidth As Integer
-  intScale As Integer
-  intCopies As Integer
-  intDefaultSource As Integer
-  intPrintQuality As Integer
-  intColor As Integer
-  intDuplex As Integer
-  intResolution As Integer
-  intTTOption As Integer
-  intCollate As Integer
-  strFormName(31) As Byte
-  lngPad As Long
-  lngBits As Long
-  lngPW As Long
-  lngPH As Long
-  lngDFI As Long
-  lngDFr As Long
+    strDeviceName(31) As Byte 'vba strings are encoded in unicode (16 bit) not ascii
+    intSpecVersion As Integer
+    intDriverVersion As Integer
+    intSize As Integer
+    intDriverExtra As Integer
+    lngFields As Long
+    intOrientation As Integer
+    intPaperSize As Integer
+    intPaperLength As Integer
+    intPaperWidth As Integer
+    intScale As Integer
+    intCopies As Integer
+    intDefaultSource As Integer
+    intPrintQuality As Integer
+    intColor As Integer
+    intDuplex As Integer
+    intResolution As Integer
+    intTTOption As Integer
+    intCollate As Integer
+    strFormName(31) As Byte
+    lngPad As Long
+    lngBits As Long
+    lngPW As Long
+    lngPH As Long
+    lngDFI As Long
+    lngDFr As Long
 End Type
 
 
