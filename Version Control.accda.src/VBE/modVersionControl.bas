@@ -1,3 +1,4 @@
+Attribute VB_Name = "modVersionControl"
 Option Compare Database
 Option Explicit
 
@@ -127,3 +128,4 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
     End If
     
 End Sub
+
