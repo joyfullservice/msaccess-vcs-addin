@@ -274,7 +274,7 @@ Public Sub ImportAllSource()
 
     ' restore table definitions
     obj_path = source_path & "tbldef\"
-    fileName = Dir$(obj_path & "*.sql")
+    fileName = Dir$(obj_path & "*.xml")
     If Len(fileName) > 0 Then
         Debug.Print VCS_String.VCS_PadRight("Importing tabledefs...", 24);
         obj_count = 0
@@ -336,7 +336,7 @@ Public Sub ImportAllSource()
     
     'load Data Macros - not DRY!
     obj_path = source_path & "tbldef\"
-    fileName = Dir$(obj_path & "*.xml")
+    fileName = Dir$(obj_path & "*.dm")
     If Len(fileName) > 0 Then
         Debug.Print VCS_String.VCS_PadRight("Importing Data Macros...", 24);
         obj_count = 0
@@ -517,12 +517,6 @@ errorHandler:
     Debug.Print "VCS_ImportExport.ImportProject: Error #" & Err.Number & vbCrLf & _
                 Err.Description
 End Sub
-
-' Expose for use as function, can be called by query
-Public Sub make()
-    ImportProject
-End Sub
-
 
 
 '===================================================================================================================================

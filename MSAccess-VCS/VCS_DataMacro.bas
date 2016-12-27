@@ -13,8 +13,8 @@ Option Explicit
 Public Sub VCS_ExportDataMacros(ByVal tableName As String, ByVal directory As String)
     On Error GoTo Err_export
     Dim filePath As String
-    
-    filePath = directory & tableName & ".xml"
+
+    filePath = directory & tableName & ".dm"
 
     VCS_IE_Functions.VCS_ExportObject acTableDataMacro, tableName, filePath, VCS_File.VCS_UsingUcs2
     FormatDataMacro filePath
@@ -28,8 +28,8 @@ End Sub
 Public Sub VCS_ImportDataMacros(ByVal tableName As String, ByVal directory As String)
     On Error GoTo Err_import
     Dim filePath As String
-    
-    filePath = directory & tableName & ".xml"
+
+    filePath = directory & tableName & ".dm"
     VCS_IE_Functions.VCS_ImportObject acTableDataMacro, tableName, filePath, VCS_File.VCS_UsingUcs2
     
     Exit Sub
