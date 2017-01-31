@@ -2,6 +2,7 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+
 Private Type str_DEVMODE
  RGB As String * 94
 End Type

@@ -1,4 +1,5 @@
 Option Compare Database
+Option Private Module
 Option Explicit
 
 
@@ -24,8 +25,8 @@ Public Sub InitializeVersionControlSystem(Optional blnUseVersionControl As Boole
     Dim varParams(0 To 3) As Variant
     varParams(0) = Array("System", "GitHub")    ' Set this first, before other settings.
     varParams(1) = Array("Export Folder", CodeDb.Name & ".src\")
-    varParams(2) = Array("Show Debug", False)
-    varParams(3) = Array("Include VBE", True)
+    varParams(2) = Array("Show Debug", True)
+    varParams(3) = Array("Include VBE", False)
 
     ' Pass the parameters to the wrapper function
     LoadVersionControl blnUseVersionControl, cstrLibraryPath, cstrLibraryFile, cstrLibraryName, varParams
@@ -102,7 +103,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
     ' Prepare to initialize version control.
     If blnUseVersionControl And Not blnLoaded Then
         ' Attempt to load the file
-        If Dir(strLibraryPath, vbDirectory) <> "" Then
+        If strLibraryPath <> "\" And Dir(strLibraryPath, vbDirectory) <> "" Then
             ' Use specified path
             strPath = strLibraryPath
         Else
@@ -114,7 +115,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
         strPath = strPath & strLibraryFile
         If Dir(strPath) <> "" Then
             ' File exists
-            Application.References.AddFromFile strPath
+            If strPath <> CodeDb.Name Then Application.References.AddFromFile strPath
             blnInitialize = True
         End If
         

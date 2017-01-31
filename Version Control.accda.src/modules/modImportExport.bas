@@ -1,6 +1,6 @@
 Option Compare Database
-Option Explicit
 Option Private Module
+Option Explicit
 
 
 ' List of lookup tables that are part of the program rather than the
@@ -125,6 +125,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     Debug.Print modFunctions.PadRight("Exporting references...", 24);
     If ShowDebugInfo Then Debug.Print
     modReference.ExportReferences source_path
+    modProperty.ExportProperties source_path
 
 
 '-------------------------table export------------------------
