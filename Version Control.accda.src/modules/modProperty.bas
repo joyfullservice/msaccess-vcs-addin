@@ -75,8 +75,11 @@ Public Sub ExportProperties(obj_path As String)
     
     On Error Resume Next
     For Each prp In objParent.Properties
-        OutFile.WriteLine prp.Name & "=" & prp.Value
-        obj_count = obj_count + 1
+        ' Ignore file name property, since this could contain PI and can't be set anyway.
+        If prp.Name <> "Name" Then
+            OutFile.WriteLine prp.Name & "=" & prp.Value
+            obj_count = obj_count + 1
+        End If
     Next prp
     If Err Then Err.Clear
     On Error GoTo 0

@@ -1,4 +1,3 @@
-Name=C:\Users\awaller.IAA\Documents\GitHub\msaccess-vcs-integration\Version Control.accda
 Connect=
 Transactions=True
 Updatable=True
@@ -36,4 +35,4 @@ NavPane Sort By=1
 Build=606
 ProjVer=119
 Show Navigation Pane Search Bar=0
-AppVersion=1.0.0.1
+AppVersion=1.0.0.2
