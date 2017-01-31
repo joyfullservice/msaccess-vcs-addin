@@ -27,7 +27,7 @@ Public Function ImportProperties(obj_path As String) As Boolean
     Set FSO = CreateObject("Scripting.FileSystemObject")
     Set InFile = FSO.OpenTextFile(obj_path & fileName, ForReading)
 
-    Set objParent = CodeDb
+    Set objParent = CurrentDb
     If CodeProject.ProjectType = acADP Then Set objParent = CurrentProject
 
     'On Error Resume Next
@@ -70,7 +70,7 @@ Public Sub ExportProperties(obj_path As String)
     Set OutFile = FSO.CreateTextFile(obj_path & "properties.txt", True)
     
     ' Save list of properties set in current database.
-    Set objParent = CodeDb
+    Set objParent = CurrentDb
     If CodeProject.ProjectType = acADP Then Set objParent = CurrentProject
     
     On Error Resume Next

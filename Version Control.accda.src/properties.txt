@@ -35,4 +35,4 @@ NavPane Sort By=1
 Build=606
 ProjVer=119
 Show Navigation Pane Search Bar=0
-AppVersion=1.0.0.2
+AppVersion=1.0.0.3
