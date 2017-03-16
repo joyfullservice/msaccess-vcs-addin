@@ -10,13 +10,13 @@ Option Explicit
   Private Const acTableDataMacro As Integer = 12
 #End If
 
-Public Sub ExportDataMacros(ByVal tableName As String, ByVal directory As String)
+Public Sub VCS_ExportDataMacros(ByVal tableName As String, ByVal directory As String)
     On Error GoTo Err_export
     Dim filePath As String
-    
-    filePath = directory & tableName & ".xml"
 
-    VCS_IE_Functions.ExportObject acTableDataMacro, tableName, filePath, VCS_File.UsingUcs2
+    filePath = directory & tableName & ".dm"
+
+    VCS_IE_Functions.VCS_ExportObject acTableDataMacro, tableName, filePath, VCS_File.VCS_UsingUcs2
     FormatDataMacro filePath
 
     Exit Sub
@@ -25,12 +25,12 @@ Err_export:
     ' Error to export dataMacro, no contains dataMacro. Do nothing
 End Sub
 
-Public Sub ImportDataMacros(ByVal tableName As String, ByVal directory As String)
+Public Sub VCS_ImportDataMacros(ByVal tableName As String, ByVal directory As String)
     On Error GoTo Err_import
     Dim filePath As String
-    
-    filePath = directory & tableName & ".xml"
-    VCS_IE_Functions.ImportObject acTableDataMacro, tableName, filePath, VCS_File.UsingUcs2
+
+    filePath = directory & tableName & ".dm"
+    VCS_IE_Functions.VCS_ImportObject acTableDataMacro, tableName, filePath, VCS_File.VCS_UsingUcs2
     
     Exit Sub
     

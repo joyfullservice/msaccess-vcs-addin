@@ -4,6 +4,11 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+#If VBA7 Then
+    Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+#Else
+    Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+#End If
 Private Const AggressiveSanitize As Boolean = True
 Private Const StripPublishOption As Boolean = True
 
@@ -15,30 +20,30 @@ Public Const TristateTrue = -1, TristateFalse = 0, TristateUseDefault = -2
 ' Can we export without closing the form?
 
 ' Export a database object with optional UCS2-to-UTF-8 conversion.
-Public Sub ExportObject(ByVal obj_type_num As Integer, ByVal obj_name As String, _
+Public Sub VCS_ExportObject(ByVal obj_type_num As Integer, ByVal obj_name As String, _
                     ByVal file_path As String, Optional ByVal Ucs2Convert As Boolean = False)
 
-    VCS_Dir.MkDirIfNotExist Left$(file_path, InStrRev(file_path, "\"))
+    VCS_Dir.VCS_MkDirIfNotExist Left$(file_path, InStrRev(file_path, "\"))
     If Ucs2Convert Then
         Dim tempFileName As String
-        tempFileName = VCS_File.TempFile()
+        tempFileName = VCS_File.VCS_TempFile()
         Application.SaveAsText obj_type_num, obj_name, tempFileName
-        VCS_File.ConvertUcs2Utf8 tempFileName, file_path
+        VCS_File.VCS_ConvertUcs2Utf8 tempFileName, file_path
     Else
         Application.SaveAsText obj_type_num, obj_name, file_path
     End If
 End Sub
 
 ' Import a database object with optional UTF-8-to-UCS2 conversion.
-Public Sub ImportObject(ByVal obj_type_num As Integer, ByVal obj_name As String, _
+Public Sub VCS_ImportObject(ByVal obj_type_num As Integer, ByVal obj_name As String, _
                     ByVal file_path As String, Optional ByVal Ucs2Convert As Boolean = False)
     
-    If Not VCS_Dir.FileExists(file_path) Then Exit Sub
+    If Not VCS_Dir.VCS_FileExists(file_path) Then Exit Sub
     
     If Ucs2Convert Then
         Dim tempFileName As String
-        tempFileName = VCS_File.TempFile()
-        VCS_File.ConvertUtf8Ucs2 file_path, tempFileName
+        tempFileName = VCS_File.VCS_TempFile()
+        VCS_File.VCS_ConvertUtf8Ucs2 file_path, tempFileName
         Application.LoadFromText obj_type_num, obj_name, tempFileName
         
         Dim FSO As Object
@@ -55,7 +60,7 @@ End Sub
 ' unnecessary lines of VB code that are inserted automatically by the
 ' Access GUI and change often (we don't want these lines of code in
 ' version control).
-Public Sub SanitizeTextFiles(ByVal Path As String, ByVal Ext As String)
+Public Sub VCS_SanitizeTextFiles(ByVal Path As String, ByVal Ext As String)
 
     Dim FSO As Object
     Set FSO = CreateObject("Scripting.FileSystemObject")
@@ -138,12 +143,12 @@ Public Sub SanitizeTextFiles(ByVal Path As String, ByVal Ext As String)
                     Case Else
                         rxIndent.Pattern = "^" & matches(0).SubMatches(0)
                 End Select
-                rxIndent.Pattern = rxIndent.Pattern + "\S"
+                rxIndent.Pattern = rxIndent.Pattern + "\s"
                 '
                 ' Skip lines with deeper indentation
                 Do Until InFile.AtEndOfStream
                     txt = InFile.ReadLine
-                    If rxIndent.Test(txt) Then Exit Do
+                    If Not rxIndent.Test(txt) Then Exit Do
                 Loop
                 ' We've moved on at least one line so do get a new one
                 ' when starting the loop again.
@@ -174,8 +179,31 @@ Public Sub SanitizeTextFiles(ByVal Path As String, ByVal Ext As String)
 
         Dim thisFile As Object
         Set thisFile = FSO.GetFile(Path & obj_name & ".sanitize")
+        
+        ' Error Handling to deal with errors caused by Dropbox, VirusScan,
+        ' or anything else touching the file.
+        Dim ErrCounter As Integer
+        On Error GoTo ErrorHandler
         thisFile.Move (Path & fileName)
         fileName = Dir$()
     Loop
-
+    
+    Exit Sub
+ErrorHandler:
+    ErrCounter = ErrCounter + 1
+    If ErrCounter = 20 Then  ' 20 attempts seems like a nice arbitrary number
+        MsgBox "This file could not be moved: " & vbNewLine, vbCritical + vbApplicationModal, _
+            "Error moving file..."
+        Resume Next
+    End If
+    Select Case Err.Number
+        Case 58    ' "File already exists" error.
+            DoEvents
+            Sleep 10
+            Resume    ' Go back to what you were doing
+        Case Else
+            MsgBox "This file could not be moved: " & vbNewLine, vbCritical + vbApplicationModal, _
+                "Error moving file..."
+    End Select
+    Resume Next
 End Sub

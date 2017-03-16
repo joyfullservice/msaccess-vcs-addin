@@ -5,7 +5,7 @@ Option Private Module
 Option Explicit
 
 
-Public Sub ExportRelation(ByVal rel As DAO.Relation, ByVal filePath As String)
+Public Sub VCS_ExportRelation(ByVal rel As DAO.Relation, ByVal filePath As String)
     Dim FSO As Object
     Dim OutFile As Object
     Set FSO = CreateObject("Scripting.FileSystemObject")
@@ -28,7 +28,7 @@ Public Sub ExportRelation(ByVal rel As DAO.Relation, ByVal filePath As String)
 
 End Sub
 
-Public Sub ImportRelation(ByVal filePath As String)
+Public Sub VCS_ImportRelation(ByVal filePath As String)
     Dim FSO As Object
     Dim InFile As Object
     Set FSO = CreateObject("Scripting.FileSystemObject")
@@ -49,7 +49,7 @@ Public Sub ImportRelation(ByVal filePath As String)
             f.ForeignName = InFile.ReadLine
             If "End" <> InFile.ReadLine Then
                 Set f = Nothing
-                Err.Raise 40000, "ImportRelation", "Missing 'End' for a 'Begin' in " & filePath
+                Err.Raise 40000, "VCS_ImportRelation", "Missing 'End' for a 'Begin' in " & filePath
             End If
             rel.Fields.Append f
         End If
@@ -57,6 +57,17 @@ Public Sub ImportRelation(ByVal filePath As String)
     
     InFile.Close
     
+    ' Skip if relationship already exists and make a note of it. It was embedded in the table schema.
+    On Error GoTo ErrorHandler
     CurrentDb.Relations.Append rel
-
+    
+    Exit Sub
+ErrorHandler:
+    Select Case Err.Number
+        Case 3012    ' Relationship already exists
+            Debug.Print "Skipped: """ & rel.Name & """ ";
+            Resume Next    ' Skip it and move on
+        Case Else
+            Resume Next    ' Move on anyways
+    End Select
 End Sub

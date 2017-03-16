@@ -69,7 +69,7 @@ Private Function BinOpen(ByVal file_path As String, ByVal mode As String) As Bin
         f.buffer_pos = 0
         Get f.file_num, f.file_pos + 1, f.buffer
     Else
-        DelIfExist file_path
+        VCS_DelIfExist file_path
         Open file_path For Binary Access Write As f.file_num
         f.file_len = 0
         f.file_pos = 0
@@ -129,7 +129,7 @@ End Sub
 
 
 ' Binary convert a UCS2-little-endian encoded file to UTF-8.
-Public Sub ConvertUcs2Utf8(ByVal Source As String, ByVal dest As String)
+Public Sub VCS_ConvertUcs2Utf8(ByVal Source As String, ByVal dest As String)
     Dim f_in As BinFile
     Dim f_out As BinFile
     Dim in_low As Integer
@@ -161,7 +161,7 @@ Public Sub ConvertUcs2Utf8(ByVal Source As String, ByVal dest As String)
 End Sub
 
 ' Binary convert a UTF-8 encoded file to UCS2-little-endian.
-Public Sub ConvertUtf8Ucs2(ByVal Source As String, ByVal dest As String)
+Public Sub VCS_ConvertUtf8Ucs2(ByVal Source As String, ByVal dest As String)
     Dim f_in As BinFile
     Dim f_out As BinFile
     Dim in_1 As Integer
@@ -197,7 +197,7 @@ End Sub
 
 ' Determine if this database imports/exports code as UCS-2-LE. (Older file
 ' formats cause exported objects to use a Windows 8-bit character set.)
-Public Function UsingUcs2() As Boolean
+Public Function VCS_UsingUcs2() As Boolean
     Dim obj_name As String
     Dim obj_type As Variant
     Dim fn As Integer
@@ -229,12 +229,12 @@ Public Function UsingUcs2() As Boolean
 
     If obj_name = vbNullString Then
         ' No objects found that can be used to test UCS2 versus UTF-8
-        UsingUcs2 = True
+        VCS_UsingUcs2 = True
         Exit Function
     End If
 
     Dim tempFileName As String
-    tempFileName = VCS_File.TempFile()
+    tempFileName = VCS_File.VCS_TempFile()
     
     Application.SaveAsText obj_type_num, obj_name, tempFileName
     fn = FreeFile
@@ -242,9 +242,9 @@ Public Function UsingUcs2() As Boolean
     bytes = "  "
     Get fn, 1, bytes
     If Asc(Mid$(bytes, 1, 1)) = &HFF And Asc(Mid$(bytes, 2, 1)) = &HFE Then
-        UsingUcs2 = True
+        VCS_UsingUcs2 = True
     Else
-        UsingUcs2 = False
+        VCS_UsingUcs2 = False
     End If
     Close fn
     
@@ -254,7 +254,7 @@ Public Function UsingUcs2() As Boolean
 End Function
 
 ' Generate Random / Unique tempprary file name.
-Public Function TempFile(Optional ByVal sPrefix As String = "VBA") As String
+Public Function VCS_TempFile(Optional ByVal sPrefix As String = "VBA") As String
     Dim sTmpPath As String * 512
     Dim sTmpName As String * 576
     Dim nRet As Long
@@ -263,5 +263,5 @@ Public Function TempFile(Optional ByVal sPrefix As String = "VBA") As String
     nRet = getTempPath(512, sTmpPath)
     nRet = getTempFileName(sTmpPath, sPrefix, 0, sTmpName)
     If nRet <> 0 Then sFileName = Left$(sTmpName, InStr(sTmpName, vbNullChar) - 1)
-    TempFile = sFileName
+    VCS_TempFile = sFileName
 End Function
