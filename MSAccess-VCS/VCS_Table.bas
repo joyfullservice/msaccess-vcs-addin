@@ -191,6 +191,8 @@ Public Sub VCS_ExportTableData(ByVal tbl_name As String, ByVal obj_path As Strin
             Value = rs(fieldObj.name)
             If IsNull(Value) Then
                 Value = vbNullString
+            ElseIf VarType(Value) = vbBoolean Then
+                Value = CInt(Value)
             Else
                 Value = Replace(Value, "\", "\\")
                 Value = Replace(Value, vbCrLf, "\n")
