@@ -53,10 +53,12 @@ e.g. `loadVCS "C:\Users\MyUserAccount\Documents\Access-Proj\MSAccess-VCS\"` - th
 or `loadVCS`
 3. Edit your `VCS_ImportExport` and change the constant `INCLUDE_TABLES` to list any lookup tables that function more as part of your application code than as client data. (For example, "Countries", "Colors", and things like that.)
 
-Configuring export of table data
+Configuring export
 --------------------------------
 
 By default, no table data is exported. You must specify which tables' data to include in the export/import process by editing the `INCLUDE_TABLES` variable in the supplied module. For example you might have "Countries" or "Colors" tables that populate dropdown lists. You shouldn't include regular data tables containing actual records, because this data doesn't belong in version control.
+
+Additionally, if a type of data should not be exported, change the "Export_" constants to `False` in `VCS_ImportExport.bas`. Report, Query, Form, Macro, Module, and Table exports can be disabled individually.
 
 Supplied databases
 ------------------
