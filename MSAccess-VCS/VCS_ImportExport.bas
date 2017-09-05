@@ -157,7 +157,7 @@ Public Sub ExportAllSource()
 		VCS_Dir.VCS_MkDirIfNotExist Left$(obj_path, InStrRev(obj_path, "\"))
 		
 		'move these into Table and DataMacro modules?
-		' - We don't want to determin file extentions here - or obj_path either!
+		' - We don't want to determin file extensions here - or obj_path either!
 		VCS_Dir.VCS_ClearTextFilesFromDir obj_path, "sql"
 		VCS_Dir.VCS_ClearTextFilesFromDir obj_path, "xml"
 		VCS_Dir.VCS_ClearTextFilesFromDir obj_path, "LNKD"
