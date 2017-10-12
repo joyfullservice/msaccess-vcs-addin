@@ -79,7 +79,7 @@ Public Sub VCS_SanitizeTextFiles(ByVal Path As String, ByVal Ext As String)
       srchPattern = srchPattern & "|GUID|""GUID""|NameMap|dbLongBinary ""DOL"""
       srchPattern = srchPattern & ")"
     End If
-    '  Ensure that this is the begining of a block.
+    '  Ensure that this is the beginning of a block.
     srchPattern = srchPattern & " = Begin"
 'Debug.Print srchPattern
     rxBlock.Pattern = srchPattern
