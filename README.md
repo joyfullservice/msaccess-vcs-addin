@@ -48,9 +48,9 @@ For the purposes of these instructions, assume your database is called `Applicat
     (or you can just drag and drop the file from windows explorer into the vba editor module list).
  2. Select the `VCS_Loader.bas` file.
  3. Save the file (CTRL-S).
-2. Type "`loadVCS`" into the immediate window followed by the directory where the other VCS files are located. If you don't specify a directory then it is assumed that the VCS code is contained in a folder called 'MSAccess-VCS', in the database directory.
+2. Type "`loadVCS`" into the immediate window followed by the directory where the other VCS files are located. If you don't specify a directory then it is assumed that the VCS code is contained in a folder called 'MSAccess-VCS' in the database directory;
 e.g. `loadVCS "C:\Users\MyUserAccount\Documents\Access-Proj\MSAccess-VCS\"` - the trailing slash is required
-or `loadVCS`
+or `loadVCS` will not import the new modules.
 3. Edit your `VCS_ImportExport` and change the constant `INCLUDE_TABLES` to list any lookup tables that function more as part of your application code than as client data. (For example, "Countries", "Colors", and things like that.)
 
 Configuring export
