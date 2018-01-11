@@ -21,6 +21,8 @@ Private Const ExportForms As Boolean = True
 Private Const ExportMacros As Boolean = True
 Private Const ExportModules As Boolean = True
 Private Const ExportTables As Boolean = True
+'export/import all Queries as plain SQL text
+Private Const HandleQueriesAsSQL As Boolean = True
 
 'returns true if named module is NOT part of the VCS code
 Private Function IsNotVCS(ByVal name As String) As Boolean
@@ -78,7 +80,11 @@ Public Sub ExportAllSource()
 		For Each qry In Db.QueryDefs
 			DoEvents
 			If Left$(qry.name, 1) <> "~" Then
-				VCS_IE_Functions.VCS_ExportObject acQuery, qry.name, obj_path & qry.name & ".bas", VCS_File.VCS_UsingUcs2
+				If HandleQueriesAsSQL Then
+                                    VCS_Query.ExportQueryAsSQL qry, obj_path & qry.name & ".bas", False
+                                Else
+                                    VCS_IE_Functions.VCS_ExportObject acQuery, qry.name, obj_path & qry.name & ".bas", VCS_File.VCS_UsingUcs2
+                                End If
 				obj_count = obj_count + 1
 			End If
 		Next
@@ -279,10 +285,15 @@ Public Sub ImportAllSource()
         Do Until Len(fileName) = 0
             DoEvents
             obj_name = Mid$(fileName, 1, InStrRev(fileName, ".") - 1)
-            VCS_IE_Functions.VCS_ImportObject acQuery, obj_name, obj_path & fileName, VCS_File.VCS_UsingUcs2
-            VCS_IE_Functions.VCS_ExportObject acQuery, obj_name, tempFilePath, VCS_File.VCS_UsingUcs2
-            VCS_IE_Functions.VCS_ImportObject acQuery, obj_name, tempFilePath, VCS_File.VCS_UsingUcs2
-            obj_count = obj_count + 1
+            'Check for plain sql export/import
+			if HandleQueriesAsSQL then
+				VCS_Query.ImportQueryFromSQL obj_name, obj_path & fileName, False
+			Else
+				VCS_IE_Functions.VCS_ImportObject acQuery, obj_name, obj_path & fileName, VCS_File.VCS_UsingUcs2
+				VCS_IE_Functions.VCS_ExportObject acQuery, obj_name, tempFilePath, VCS_File.VCS_UsingUcs2
+				VCS_IE_Functions.VCS_ImportObject acQuery, obj_name, tempFilePath, VCS_File.VCS_UsingUcs2
+			End if
+			obj_count = obj_count + 1
             fileName = Dir$()
         Loop
         Debug.Print "[" & obj_count & "]"
