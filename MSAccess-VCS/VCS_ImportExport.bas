@@ -82,10 +82,10 @@ Public Sub ExportAllSource()
 			DoEvents
 			If Left$(qry.name, 1) <> "~" Then
 				If HandleQueriesAsSQL Then
-                                    VCS_Query.ExportQueryAsSQL qry, obj_path & qry.name & ".bas", False
-                                Else
-                                    VCS_IE_Functions.VCS_ExportObject acQuery, qry.name, obj_path & qry.name & ".bas", VCS_File.VCS_UsingUcs2
-                                End If
+                    VCS_Query.ExportQueryAsSQL qry, obj_path & qry.name & ".bas", False
+				Else
+					VCS_IE_Functions.VCS_ExportObject acQuery, qry.name, obj_path & qry.name & ".bas", VCS_File.VCS_UsingUcs2
+				End If
 				obj_count = obj_count + 1
 			End If
 		Next

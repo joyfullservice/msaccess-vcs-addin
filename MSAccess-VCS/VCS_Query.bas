@@ -71,13 +71,13 @@ Public Sub ImportQueryFromSQL(ByVal obj_name As String, ByVal file_path As Strin
         Dim tempFileName As String
         tempFileName = VCS_File.VCS_TempFile()
         VCS_File.VCS_ConvertUtf8Ucs2 file_path, tempFileName
-        CurrentDb.CreateQueryDef(obj_name, readFromTextFile(file_path)).Close
+        CurrentDb.CreateQueryDef obj_name, readFromTextFile(file_path)
         
         Dim fso As Object
         Set fso = CreateObject("Scripting.FileSystemObject")
         fso.DeleteFile tempFileName
     Else
-        CurrentDb.CreateQueryDef(obj_name, readFromTextFile(file_path)).Close
+        CurrentDb.CreateQueryDef obj_name, readFromTextFile(file_path)
     End If
 
 End Sub
