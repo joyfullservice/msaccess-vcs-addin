@@ -509,7 +509,6 @@ On Error GoTo errorHandler
 	
 	For Each qryName In toBeDeleted
         Db.QueryDefs.Delete qryName
-        Debug.Print "Deleted: " & qryName
     Next
 	
 	Set toBeDeleted = Nothing
