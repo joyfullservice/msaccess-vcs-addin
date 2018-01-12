@@ -36,7 +36,8 @@ Private Function IsNotVCS(ByVal name As String) As Boolean
       name <> "VCS_Reference" And _
       name <> "VCS_DataMacro" And _
       name <> "VCS_Report" And _
-      name <> "VCS_Relation" Then
+      name <> "VCS_Relation" And _
+      name <> "VCS_Query" Then
         IsNotVCS = True
     Else
         IsNotVCS = False
@@ -491,15 +492,27 @@ On Error GoTo errorHandler
             CurrentDb.Relations.Delete (rel.name)
         End If
     Next
-
+	
+	' First gather all Query Names. 
+	' If you delete right away, the iterator loses track and only deletes every 2nd Query
+	Dim toBeDeleted As Collection
+    Set toBeDeleted = New Collection
+    Dim qryName As Variant
+    
     Dim dbObject As Object
     For Each dbObject In Db.QueryDefs
         DoEvents
         If Left$(dbObject.name, 1) <> "~" Then
-'            Debug.Print dbObject.Name
-            Db.QueryDefs.Delete dbObject.name
+			toBeDeleted.Add dbObject.Name
         End If
     Next
+	
+	For Each qryName In toBeDeleted
+        Db.QueryDefs.Delete qryName
+        Debug.Print "Deleted: " & qryName
+    Next
+	
+	Set toBeDeleted = Nothing
     
     Dim td As DAO.TableDef
     For Each td In CurrentDb.TableDefs
