@@ -1,5 +1,12 @@
 Change log
 ==========
+Version 1.0.1_beta - 7 April 2018
+----------------------------
+lastlink:
+* started a custom ui ribbon for nondevelopers to update forms that ignores tables with extendibility through the other button
+* added optional parameter for importing & exporting to ignore tables
+* added a message box to display version to users on `loadVCS`, shouldn't be version of this project, but of the user's actual access database forms so for this should always be 0.01
+
 Version 1.0.0 - 11 Mar 2015
 ----------------------------
 jwbrookes:
