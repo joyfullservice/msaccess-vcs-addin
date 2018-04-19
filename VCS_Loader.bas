@@ -71,5 +71,21 @@ Err_LoadHandler:
 
 Fin_LoadHandler:
     Debug.Print "Done"
+    
+    displayFormVersion
+End Sub
 
+Public Sub displayFormVersion()
+    Dim versionPath As String, FormsVersion As String, textline As String, posLat As Integer, posLong As Integer
+    versionPath = CurrentProject.Path & "\VERSION.txt"
+    Open versionPath For Input As #1
+
+    Do Until EOF(1)
+        Line Input #1, textline
+        FormsVersion = FormsVersion & textline
+        
+    Loop
+    Close #1
+
+    MsgBox "Form Version: " & FormsVersion & " loaded"
 End Sub
