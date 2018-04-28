@@ -39,7 +39,8 @@ Private Function IsNotVCS(ByVal name As String) As Boolean
       name <> "VCS_DataMacro" And _
       name <> "VCS_Report" And _
       name <> "VCS_Relation" And _
-      name <> "VCS_Query" Then
+      name <> "VCS_Query" And _
+      name <> "VCS_Button_Functions" Then
         IsNotVCS = True
     Else
         IsNotVCS = False
@@ -718,6 +719,7 @@ Exit_Proc:
 Err_Handle:
     Resume Exit_Proc
 End Function
+
 
 
 

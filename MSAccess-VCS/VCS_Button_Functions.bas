@@ -1,4 +1,4 @@
-Attribute VB_Name = "VCS_buttonFunctions"
+Attribute VB_Name = "VCS_Button_Functions"
 Option Compare Database
 
 ' function to call update functions from button clicks
