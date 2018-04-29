@@ -55,6 +55,13 @@ e.g. `loadVCS "C:\Users\MyUserAccount\Documents\Access-Proj\MSAccess-VCS\"` - th
 or `loadVCS` will not import the new modules.
 3. Edit your `VCS_ImportExport` and change the constant `INCLUDE_TABLES` to list any lookup tables that function more as part of your application code than as client data. (For example, "Countries", "Colors", and things like that.)
 
+# Updating UIRibbon
+
+1. Right click anywhere on the ribbon, click `customize ribbon`.
+    ![rightClickRibbon](Assets/rightClickRibbon.png)
+2. Then click on `Import/Export` then click `import customization file` and open `./UIRibbon/FORM UPDATES.exportedUI`.
+    ![importCustomizationFile](Assets/importCustomizationFile.png)
+
 # Configuring export
 
 By default, no table data is exported. You must specify which tables' data to include in the export/import process by editing the `INCLUDE_TABLES` variable in the supplied module. For example you might have "Countries" or "Colors" tables that populate dropdown lists. You shouldn't include regular data tables containing actual records, because this data doesn't belong in version control.
