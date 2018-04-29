@@ -58,9 +58,9 @@ or `loadVCS` will not import the new modules.
 # Updating UIRibbon
 
 1. Right click anywhere on the ribbon, click `customize ribbon`.
-    ![importCustomizationFile](Assets/importCustomizationFile.png)
-2. Then click on `Import/Export` then click `import customization file` and open `./UIRibbon/FORM UPDATES.exportedUI`.
     ![rightClickRibbon](Assets/rightClickRibbon.png)
+2. Then click on `Import/Export` then click `import customization file` and open `./UIRibbon/FORM UPDATES.exportedUI`.
+    ![importCustomizationFile](Assets/importCustomizationFile.png)
 
 # Configuring export
 
