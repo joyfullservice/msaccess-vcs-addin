@@ -118,3 +118,7 @@ capacity to ensure correctness so please try and keep the quality as good as
 you can. Thanks! Several other people have been made collaborators to help
 keep the repo alive. Better ideas for running this project would be welcome
 https://github.com/timabell/msaccess-vcs-integration/issues/32
+
+# Related tools
+
+* Add-in version of this: https://github.com/joyfullservice/msaccess-vcs-integration
