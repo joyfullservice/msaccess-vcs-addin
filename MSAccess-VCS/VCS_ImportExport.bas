@@ -27,20 +27,20 @@ Private Const ExportTables As Boolean = True
 Private Const HandleQueriesAsSQL As Boolean = True
 
 'returns true if named module is NOT part of the VCS code
-Private Function IsNotVCS(ByVal name As String) As Boolean
-    If name <> "VCS_ImportExport" And _
-      name <> "VCS_IE_Functions" And _
-      name <> "VCS_File" And _
-      name <> "VCS_Dir" And _
-      name <> "VCS_String" And _
-      name <> "VCS_Loader" And _
-      name <> "VCS_Table" And _
-      name <> "VCS_Reference" And _
-      name <> "VCS_DataMacro" And _
-      name <> "VCS_Report" And _
-      name <> "VCS_Relation" And _
-      name <> "VCS_Query" And _
-      name <> "VCS_Button_Functions" Then
+Private Function IsNotVCS(ByVal moduleName As String) As Boolean
+    If moduleName <> "VCS_ImportExport" And _
+      moduleName <> "VCS_IE_Functions" And _
+      moduleName <> "VCS_File" And _
+      moduleName <> "VCS_Dir" And _
+      moduleName <> "VCS_String" And _
+      moduleName <> "VCS_Loader" And _
+      moduleName <> "VCS_Table" And _
+      moduleName <> "VCS_Reference" And _
+      moduleName <> "VCS_DataMacro" And _
+      moduleName <> "VCS_Report" And _
+      moduleName <> "VCS_Relation" And _
+      moduleName <> "VCS_Query" And _
+      moduleName <> "VCS_Button_Functions" Then
         IsNotVCS = True
     Else
         IsNotVCS = False
@@ -681,9 +681,9 @@ Private Function StrSetToCol(ByVal strSet As String, ByVal delimiter As String) 
     Set col = New Collection
     strSetArray = Split(strSet, delimiter)
     
-    Dim item As Variant
-    For Each item In strSetArray
-        col.Add item, item
+    Dim strPart As Variant
+    For Each strPart In strSetArray
+        col.Add strPart, strPart
     Next
     
     Set StrSetToCol = col
@@ -699,7 +699,7 @@ Private Function InCollection(col As Collection, Optional vItem, Optional vKey) 
     InCollection = False
 
     If Not IsMissing(vKey) Then
-        col.item vKey
+        col.Item vKey
 
         '5 if not in collection, it is 91 if no collection exists
         If Err.Number <> 5 And Err.Number <> 91 Then

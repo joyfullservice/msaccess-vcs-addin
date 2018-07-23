@@ -253,7 +253,7 @@ Public Function VCS_UsingUcs2() As Boolean
     FSO.DeleteFile (tempFileName)
 End Function
 
-' Generate Random / Unique tempprary file name.
+' Generate Random / Unique temporary file name.
 Public Function VCS_TempFile(Optional ByVal sPrefix As String = "VBA") As String
     Dim sTmpPath As String * 512
     Dim sTmpName As String * 576
