@@ -94,11 +94,11 @@ Public Sub ExportAllSource(Optional ByVal isButton As Boolean)
                 obj_count = 0
                 For Each qry In Db.QueryDefs
                         DoEvents
-                        If Left$(qry.name, 1) <> "~" Then
+                        If Left$(qry.Name, 1) <> "~" Then
                                 If HandleQueriesAsSQL Then
-                    VCS_Query.ExportQueryAsSQL qry, obj_path & qry.name & ".bas", False
+                    VCS_Query.ExportQueryAsSQL qry, obj_path & qry.Name & ".bas", False
                                 Else
-                                        VCS_IE_Functions.VCS_ExportObject acQuery, qry.name, obj_path & qry.name & ".bas", VCS_File.VCS_UsingUcs2
+                                        VCS_IE_Functions.VCS_ExportObject acQuery, qry.Name, obj_path & qry.Name & ".bas", VCS_File.VCS_UsingUcs2
                                 End If
                                 obj_count = obj_count + 1
                         End If
@@ -132,17 +132,17 @@ Public Sub ExportAllSource(Optional ByVal isButton As Boolean)
                         Debug.Print VCS_String.VCS_PadRight("Exporting " & obj_type_label & "...", 24);
                         For Each doc In Db.Containers(obj_type_name).Documents
                                 DoEvents
-                                If (Left$(doc.name, 1) <> "~") And _
-                                   (IsNotVCS(doc.name) Or ArchiveMyself) Then
+                                If (Left$(doc.Name, 1) <> "~") And _
+                                   (IsNotVCS(doc.Name) Or ArchiveMyself) Then
                                         If obj_type_label = "modules" Then
                                                 ucs2 = False
                                         Else
                                                 ucs2 = VCS_File.VCS_UsingUcs2
                                         End If
-                                        VCS_IE_Functions.VCS_ExportObject obj_type_num, doc.name, obj_path & doc.name & ".bas", ucs2
+                                        VCS_IE_Functions.VCS_ExportObject obj_type_num, doc.Name, obj_path & doc.Name & ".bas", ucs2
                                         
                                         If obj_type_label = "reports" Then
-                                                VCS_Report.VCS_ExportPrintVars doc.name, obj_path & doc.name & ".pv"
+                                                VCS_Report.VCS_ExportPrintVars doc.Name, obj_path & doc.Name & ".pv"
                                         End If
                                         
                                         obj_count = obj_count + 1
@@ -191,21 +191,21 @@ Public Sub ExportAllSource(Optional ByVal isButton As Boolean)
                 For Each td In tds
                         ' This is not a system table
                         ' this is not a temporary table
-                        If Left$(td.name, 4) <> "MSys" And _
-                        Left$(td.name, 1) <> "~" Then
+                        If Left$(td.Name, 4) <> "MSys" And _
+                        Left$(td.Name, 1) <> "~" Then
                                 If Len(td.connect) = 0 Then ' this is not an external table
-                                        VCS_Table.VCS_ExportTableDef td.name, obj_path
+                                        VCS_Table.VCS_ExportTableDef td.Name, obj_path
                                         If INCLUDE_TABLES = "*" Then
                                                 DoEvents
-                                                VCS_Table.VCS_ExportTableData CStr(td.name), source_path & "tables\"
-                                                If Len(Dir$(source_path & "tables\" & td.name & ".txt")) > 0 Then
+                                                VCS_Table.VCS_ExportTableData CStr(td.Name), source_path & "tables\"
+                                                If Len(Dir$(source_path & "tables\" & td.Name & ".txt")) > 0 Then
                                                         obj_data_count = obj_data_count + 1
                                                 End If
                                         ElseIf (Len(Replace(INCLUDE_TABLES, " ", vbNullString)) > 0) And INCLUDE_TABLES <> "*" Then
                                                 DoEvents
                                                 On Error GoTo Err_TableNotFound
-                                                If InCollection(IncludeTablesCol, td.name) Then
-                                                        VCS_Table.VCS_ExportTableData CStr(td.name), source_path & "tables\"
+                                                If InCollection(IncludeTablesCol, td.Name) Then
+                                                        VCS_Table.VCS_ExportTableData CStr(td.Name), source_path & "tables\"
                                                         obj_data_count = obj_data_count + 1
                                                 End If
 Err_TableNotFound:
@@ -213,7 +213,7 @@ Err_TableNotFound:
                                         'else don't export table data
                                         End If
                                 Else
-                                        VCS_Table.VCS_ExportLinkedTable td.name, obj_path
+                                        VCS_Table.VCS_ExportLinkedTable td.Name, obj_path
                                 End If
                                 
                                 obj_count = obj_count + 1
@@ -232,21 +232,21 @@ Err_TableNotFound:
                 For Each td In tds
                         ' This is not a system table
                         ' this is not a temporary table
-                        If Left$(td.name, 4) <> "MSys" And _
-                        Left$(td.name, 1) <> "~" Then
+                        If Left$(td.Name, 4) <> "MSys" And _
+                        Left$(td.Name, 1) <> "~" Then
                                 If Len(td.connect) = 0 Then ' this is not an external table
-                                        VCS_Table.VCS_ExportTableDef td.name, obj_path
+                                        VCS_Table.VCS_ExportTableDef td.Name, obj_path
                                         If INCLUDE_TABLES = "*" Then
                                                 DoEvents
-                                                VCS_Table.VCS_ExportTableData CStr(td.name), source_path_pfs & "tables\"
-                                                If Len(Dir$(source_path_pfs & "tables\" & td.name & ".txt")) > 0 Then
+                                                VCS_Table.VCS_ExportTableData CStr(td.Name), source_path_pfs & "tables\"
+                                                If Len(Dir$(source_path_pfs & "tables\" & td.Name & ".txt")) > 0 Then
                                                         obj_data_count = obj_data_count + 1
                                                 End If
                                         ElseIf (Len(Replace(INCLUDE_TABLES, " ", vbNullString)) > 0) And INCLUDE_TABLES <> "*" Then
                                                 DoEvents
                                                 On Error GoTo Err_TablePFSNotFound
-                                                If InCollection(IncludeTablesCol, td.name) Then
-                                                        VCS_Table.VCS_ExportTableData CStr(td.name), source_path_pfs & "tables\"
+                                                If InCollection(IncludeTablesCol, td.Name) Then
+                                                        VCS_Table.VCS_ExportTableData CStr(td.Name), source_path_pfs & "tables\"
                                                         obj_data_count = obj_data_count + 1
                                                 End If
 Err_TablePFSNotFound:
@@ -254,7 +254,7 @@ Err_TablePFSNotFound:
                                         'else don't export table data
                                         End If
                                 Else
-                                        VCS_Table.VCS_ExportLinkedTable td.name, obj_path
+                                        VCS_Table.VCS_ExportLinkedTable td.Name, obj_path
                                 End If
                                 
                                 obj_count = obj_count + 1
@@ -279,12 +279,12 @@ Err_TablePFSNotFound:
                 For Each aRelation In CurrentDb.Relations
                         ' Exclude relations from system tables and inherited (linked) relations
                         ' Skip if dbRelationDontEnforce property is not set. The relationship is already in the table xml file. - sean
-                        If Not (aRelation.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
-                                        Or aRelation.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups" _
+                        If Not (aRelation.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
+                                        Or aRelation.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups" _
                                         Or (aRelation.Attributes And DAO.RelationAttributeEnum.dbRelationInherited) = _
                                         DAO.RelationAttributeEnum.dbRelationInherited) _
                                         And (aRelation.Attributes = DAO.RelationAttributeEnum.dbRelationDontEnforce) Then
-                                VCS_Relation.VCS_ExportRelation aRelation, obj_path & aRelation.name & ".txt"
+                                VCS_Relation.VCS_ExportRelation aRelation, obj_path & aRelation.Name & ".txt"
                                 obj_count = obj_count + 1
                         End If
                 Next
@@ -571,9 +571,9 @@ Public Sub ImportProject(Optional ByVal isButton As Boolean)
         Debug.Print "Deleting table relations"
         Dim rel As DAO.Relation
         For Each rel In CurrentDb.Relations
-            If Not (rel.name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or _
-                    rel.name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
-                CurrentDb.Relations.Delete (rel.name)
+            If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or _
+                    rel.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+                CurrentDb.Relations.Delete (rel.Name)
             End If
         Next
     End If
@@ -588,8 +588,8 @@ Public Sub ImportProject(Optional ByVal isButton As Boolean)
     Dim dbObject As Object
     For Each dbObject In Db.QueryDefs
         DoEvents
-        If Left$(dbObject.name, 1) <> "~" Then
-                        toBeDeleted.Add dbObject.name
+        If Left$(dbObject.Name, 1) <> "~" Then
+                        toBeDeleted.Add dbObject.Name
         End If
     Next
 
@@ -603,9 +603,9 @@ Public Sub ImportProject(Optional ByVal isButton As Boolean)
         Debug.Print "Deleting table defs"
         Dim td As DAO.TableDef
         For Each td In CurrentDb.TableDefs
-            If Left$(td.name, 4) <> "MSys" And _
-                Left$(td.name, 1) <> "~" Then
-                CurrentDb.TableDefs.Delete (td.name)
+            If Left$(td.Name, 4) <> "MSys" And _
+                Left$(td.Name, 1) <> "~" Then
+                CurrentDb.TableDefs.Delete (td.Name)
             End If
         Next
     End If
@@ -629,10 +629,10 @@ Public Sub ImportProject(Optional ByVal isButton As Boolean)
         DoEvents
         For Each doc In Db.Containers(objTypeArray(OTNAME)).Documents
             DoEvents
-            If (Left$(doc.name, 1) <> "~") And _
-               (IsNotVCS(doc.name)) Then
+            If (Left$(doc.Name, 1) <> "~") And _
+               (IsNotVCS(doc.Name)) Then
 '                Debug.Print doc.Name
-                DoCmd.DeleteObject objTypeArray(OTID), doc.name
+                DoCmd.DeleteObject objTypeArray(OTID), doc.Name
             End If
         Next
     Next
@@ -658,11 +658,11 @@ End Sub
 Private Sub CloseFormsReports()
     On Error GoTo ErrorHandler
     Do While Forms.Count > 0
-        DoCmd.Close acForm, Forms(0).name
+        DoCmd.Close acForm, Forms(0).Name
         DoEvents
     Loop
     Do While Reports.Count > 0
-        DoCmd.Close acReport, Reports(0).name
+        DoCmd.Close acReport, Reports(0).Name
         DoEvents
     Loop
     Exit Sub

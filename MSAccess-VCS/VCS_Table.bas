@@ -24,7 +24,7 @@ Public Sub VCS_ExportLinkedTable(ByVal tbl_name As String, ByVal obj_path As Str
     
     Set OutFile = FSO.CreateTextFile(tempFilePath, overwrite:=True, Unicode:=True)
     
-    OutFile.Write CurrentDb.TableDefs(tbl_name).name
+    OutFile.Write CurrentDb.TableDefs(tbl_name).Name
     OutFile.Write vbCrLf
     
     If InStr(1, CurrentDb.TableDefs(tbl_name).connect, "DATABASE=" & CurrentProject.Path) Then
@@ -104,7 +104,7 @@ Private Function TableExists(ByVal TName As String) As Boolean
     On Error Resume Next
      
      ' See if the name is in the Tables collection.
-    Test = Db.TableDefs(TName).name
+    Test = Db.TableDefs(TName).Name
     If Err.Number <> NAME_NOT_IN_COLLECTION Then Found = True
     
     ' Reset the error variable.
@@ -127,7 +127,7 @@ Private Function TableExportSql(ByVal tbl_name As String) As String
     Count = 0
     For Each fieldObj In rs.Fields
         If Count > 0 Then VCS_String.VCS_Sb_Append sb, ", "
-        VCS_String.VCS_Sb_Append sb, "[" & fieldObj.name & "]"
+        VCS_String.VCS_Sb_Append sb, "[" & fieldObj.Name & "]"
         Count = Count + 1
     Next
     
@@ -137,7 +137,7 @@ Private Function TableExportSql(ByVal tbl_name As String) As String
     For Each fieldObj In rs.Fields
         DoEvents
         If Count > 0 Then VCS_String.VCS_Sb_Append sb, ", "
-        VCS_String.VCS_Sb_Append sb, "[" & fieldObj.name & "]"
+        VCS_String.VCS_Sb_Append sb, "[" & fieldObj.Name & "]"
         Count = Count + 1
     Next
 
@@ -177,7 +177,7 @@ Public Sub VCS_ExportTableData(ByVal tbl_name As String, ByVal obj_path As Strin
     For Each fieldObj In rs.Fields
         If c <> 0 Then OutFile.Write vbTab
         c = c + 1
-        OutFile.Write fieldObj.name
+        OutFile.Write fieldObj.Name
     Next
     OutFile.Write vbCrLf
 
@@ -188,7 +188,7 @@ Public Sub VCS_ExportTableData(ByVal tbl_name As String, ByVal obj_path As Strin
             DoEvents
             If c <> 0 Then OutFile.Write vbTab
             c = c + 1
-            Value = rs(fieldObj.name)
+            Value = rs(fieldObj.Name)
             If IsNull(Value) Then
                 Value = vbNullString
             ElseIf VarType(Value) = vbBoolean Then
@@ -268,7 +268,7 @@ Err_CreateLinkedTable_Fin:
     Fields = InFile.ReadLine()
     Dim Field As Variant
     Dim sql As String
-    sql = "CREATE INDEX __uniqueindex ON " & td.name & " ("
+    sql = "CREATE INDEX __uniqueindex ON " & td.Name & " ("
     
     For Each Field In Split(Fields, ";+")
         sql = sql & "[" & Field & "]" & ","
@@ -331,7 +331,7 @@ Public Sub VCS_ImportTableData(ByVal tblName As String, ByVal obj_path As String
                     Value = Replace(Value, "\n", vbCrLf)
                     Value = Replace(Value, "\\", "\")
                 End If
-                rs(fieldObj.name) = Value
+                rs(fieldObj.Name) = Value
                 c = c + 1
             Next
             rs.Update
