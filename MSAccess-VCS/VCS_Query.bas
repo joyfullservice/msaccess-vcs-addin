@@ -18,14 +18,14 @@ Public Sub ExportQueryAsSQL(qry As QueryDef, ByVal file_path As String, _
 End Sub
 
 
-Private Sub writeTextToFile(ByVal text As String, ByVal file_path As String)
+Private Sub writeTextToFile(ByVal textToWrite As String, ByVal file_path As String)
     
     Dim fso As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
     Dim oFile As Object
     Set oFile = fso.CreateTextFile(file_path)
 
-    oFile.WriteLine text
+    oFile.WriteLine textToWrite
     oFile.Close
     
     Set fso = Nothing

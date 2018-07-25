@@ -208,7 +208,7 @@ Public Function VCS_UsingUcs2() As Boolean
     
     If CurrentDb.QueryDefs.Count > 0 Then
         obj_type_num = acQuery
-        obj_name = CurrentDb.QueryDefs(0).name
+        obj_name = CurrentDb.QueryDefs(0).Name
     Else
         For Each obj_type In Split( _
             "Forms|" & acForm & "," & _
@@ -221,7 +221,7 @@ Public Function VCS_UsingUcs2() As Boolean
             obj_type_name = obj_type_split(0)
             obj_type_num = Val(obj_type_split(1))
             If CurrentDb.Containers(obj_type_name).Documents.Count > 0 Then
-                obj_name = CurrentDb.Containers(obj_type_name).Documents(0).name
+                obj_name = CurrentDb.Containers(obj_type_name).Documents(0).Name
                 Exit For
             End If
         Next
@@ -253,7 +253,7 @@ Public Function VCS_UsingUcs2() As Boolean
     FSO.DeleteFile (tempFileName)
 End Function
 
-' Generate Random / Unique tempprary file name.
+' Generate Random / Unique temporary file name.
 Public Function VCS_TempFile(Optional ByVal sPrefix As String = "VBA") As String
     Dim sTmpPath As String * 512
     Dim sTmpName As String * 576

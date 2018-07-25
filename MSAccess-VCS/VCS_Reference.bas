@@ -10,7 +10,7 @@ Public Function VCS_ImportReferences(ByVal obj_path As String) As Boolean
     Dim FSO As Object
     Dim InFile As Object
     Dim line As String
-    Dim item() As String
+    Dim strParts() As String
     Dim GUID As String
     Dim Major As Long
     Dim Minor As Long
@@ -28,14 +28,14 @@ Public Function VCS_ImportReferences(ByVal obj_path As String) As Boolean
 On Error GoTo failed_guid
     Do Until InFile.AtEndOfStream
         line = InFile.ReadLine
-        item = Split(line, ",")
-        If UBound(item) = 2 Then 'a ref with a guid
-          GUID = Trim$(item(0))
-          Major = CLng(item(1))
-          Minor = CLng(item(2))
+        strParts = Split(line, ",")
+        If UBound(strParts) = 2 Then 'a ref with a guid
+          GUID = Trim$(strParts(0))
+          Major = CLng(strParts(1))
+          Minor = CLng(strParts(2))
           Application.References.AddFromGuid GUID, Major, Minor
         Else
-          refName = Trim$(item(0))
+          refName = Trim$(strParts(0))
           Application.References.AddFromFile refName
         End If
 go_on:
