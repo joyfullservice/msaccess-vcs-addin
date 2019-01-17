@@ -1,6 +1,6 @@
+Option Explicit
 Option Compare Database
 Option Private Module
-Option Explicit
 
 Public ShowDebugInfo As Boolean ' Public to this project only, when used with Option Private Module
 Public colVerifiedPaths As New Collection
@@ -28,18 +28,56 @@ Private m_SourcePath As String
 ' Can we export without closing the form?
 
 ' Export a database object with optional UCS2-to-UTF-8 conversion.
-Public Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
-    Optional Ucs2Convert As Boolean = False)
+Public Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path As String, cModel As IVersionControl, Optional Ucs2Convert As Boolean = False)
+        
+    Dim blnSkip As Boolean
 
+    On Error GoTo ErrHandler
+    
     modFunctions.VerifyPath Left(file_path, InStrRev(file_path, "\"))
-    If Ucs2Convert Then
-        Dim tempFileName As String: tempFileName = modFileAccess.TempFile()
-        Application.SaveAsText obj_type_num, obj_name, tempFileName
-        modFileAccess.ConvertUcs2Utf8 tempFileName, file_path
-    Else
-        Application.SaveAsText obj_type_num, obj_name, file_path
+    
+    ' Check for fast save
+    If Not cModel Is Nothing Then
+        If cModel.FastSave Then
+            Select Case obj_type_num
+                Case acQuery
+                    blnSkip = (HasMoreRecentChanges(CurrentData.AllQueries(obj_name), file_path))
+                Case acForm
+                    blnSkip = (HasMoreRecentChanges(CurrentProject.AllForms(obj_name), file_path))
+                Case acReport
+                    blnSkip = (HasMoreRecentChanges(CurrentProject.AllReports(obj_name), file_path))
+                ' Tables are done through a different function
+            End Select
+        End If
     End If
-    If ShowDebugInfo Then Debug.Print "  " & obj_name
+    
+    If blnSkip Then
+        If cModel.ShowDebug Then Debug.Print "  (Skipping '" & obj_name & "')"
+    Else
+        If Ucs2Convert Then
+            Dim tempFileName As String: tempFileName = modFileAccess.TempFile()
+            Application.SaveAsText obj_type_num, obj_name, tempFileName
+            modFileAccess.ConvertUcs2Utf8 tempFileName, file_path
+        Else
+            Application.SaveAsText obj_type_num, obj_name, file_path
+        End If
+        If cModel.ShowDebug Then Debug.Print "  " & obj_name
+    End If
+
+    Exit Sub
+    
+ErrHandler:
+    Select Case Err.Number
+        Case 2950
+            ' Reserved error. Probably couldn't run the SaveAsText command.
+            ' (This can happen, for example, when you try to save a data macros on a table that doesn't contain them.)
+            Err.Clear
+            Resume Next
+    Case Else
+        ' Unhandled error
+        Debug.Print Err.Number & ": " & Err.Description
+        Stop
+    End Select
     
 End Sub
 
@@ -55,9 +93,8 @@ Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path A
         modFileAccess.ConvertUtf8Ucs2 file_path, tempFileName
         Application.LoadFromText obj_type_num, obj_name, tempFileName
         
-        Dim FSO As Object
-        Set FSO = CreateObject("Scripting.FileSystemObject")
-        FSO.DeleteFile tempFileName
+        Dim fso As New Scripting.FileSystemObject
+        fso.DeleteFile tempFileName
     Else
         Application.LoadFromText obj_type_num, obj_name, file_path
     End If
@@ -68,38 +105,46 @@ End Sub
 ' unnecessary lines of VB code that are inserted automatically by the
 ' Access GUI and change often (we don't want these lines of code in
 ' version control).
-Public Sub SanitizeTextFiles(Path As String, Ext As String)
+Public Sub SanitizeTextFiles(Path As String, ext As String, cModel As IVersionControl)
 
     Dim fileName As String
-    fileName = Dir(Path & "*." & Ext)
+    fileName = Dir(Path & "*." & ext)
     Do Until Len(fileName) = 0
-        SanitizeFile Path, fileName, Ext, AggressiveSanitize
+        SanitizeFile Path, fileName, ext, cModel
         fileName = Dir()
     Loop
 
 End Sub
 
+Public Sub QuickTest()
+    Dim cModel As IVersionControl
+    Set cModel = New clsModelGitHub
+    cModel.ShowDebug = True
+    cModel.ExportBaseFolder = CurrentProject.Path & "\" & CurrentProject.Name & ".src\"
+    SanitizeFile "C:\Users\awaller.IAA\Documents\GitHub\alert-contacts\ALERTContacts.adp.src\reports\", "rptEventsReceipt.bas", "bas", cModel
+End Sub
+
 
 ' Sanitize the text file
-Public Sub SanitizeFile(strPath As String, strFile As String, strExt As String, blnAggressive As Boolean)
+Public Sub SanitizeFile(strPath As String, strFile As String, strExt As String, cModel As IVersionControl)
 
-    Dim FSO As Object
+    Dim fso As Scripting.FileSystemObject
     Dim strData As String
     Dim sngOverall As Single
     Dim sngTimer As Single
     Dim cData As New clsConcat
-    
+    Dim txt As String
+        
     ' Timers to monitor performance
     sngTimer = Timer
     sngOverall = sngTimer
-    cData.lngAllocSize = 10000
     
-    Set FSO = CreateObject("Scripting.FileSystemObject")
+    Set fso = New Scripting.FileSystemObject
     Dim isReport As Boolean: isReport = False
     
     '  Setup Block matching Regex.
-    Dim rxBlock As Object
-    Set rxBlock = CreateObject("VBScript.RegExp")
+    Dim rxBlock As New RegExp
+    'Set rxBlock = CreateObject("VBScript.RegExp")
     rxBlock.ignoreCase = False
     '
     '  Match PrtDevNames / Mode with or  without W
@@ -117,8 +162,8 @@ Public Sub SanitizeFile(strPath As String, strFile As String, strExt As String, 
     rxBlock.Pattern = srchPattern
     '
     '  Setup Line Matching Regex.
-    Dim rxLine As Object
-    Set rxLine = CreateObject("VBScript.RegExp")
+    Dim rxLine As New RegExp    ' Object
+    'Set rxLine = CreateObject("VBScript.RegExp")
     srchPattern = "^\s*(?:"
     srchPattern = srchPattern & "Checksum ="
     srchPattern = srchPattern & "|BaseInfo|NoSaveCTIWhenDisabled =1"
@@ -134,10 +179,10 @@ Public Sub SanitizeFile(strPath As String, strFile As String, strExt As String, 
     Dim obj_name As String
     obj_name = Mid(strFile, 1, InStrRev(strFile, ".") - 1)
 
-    Dim InFile As Object
-    Set InFile = FSO.OpenTextFile(strPath & obj_name & "." & strExt, ForReading)
-    Dim OutFile As Object
-    Set OutFile = FSO.CreateTextFile(strPath & obj_name & ".sanitize", True)
+    Dim InFile As Scripting.TextStream ' Object
+    Set InFile = fso.OpenTextFile(strPath & obj_name & "." & strExt, ForReading)
+    Dim OutFile As Scripting.TextStream ' Object
+    Set OutFile = fso.CreateTextFile(strPath & obj_name & ".sanitize", True)
 
     Dim getLine As Boolean: getLine = True
     Do Until InFile.AtEndOfStream
@@ -149,23 +194,21 @@ Public Sub SanitizeFile(strPath As String, strFile As String, strExt As String, 
             sngTimer = Timer
         End If
     
-        Dim txt As String
-        '
         ' Check if we need to get a new line of text
         If getLine = True Then
             txt = InFile.ReadLine
         Else
             getLine = True
         End If
-        '
+        
         ' Skip lines starting with line pattern
         If rxLine.test(txt) Then
-            Dim rxIndent As Object
-            Set rxIndent = CreateObject("VBScript.RegExp")
+            Dim rxIndent As New RegExp ' Object
+            'Set rxIndent = CreateObject("VBScript.RegExp")
             rxIndent.Pattern = "^(\s+)\S"
             '
             ' Get indentation level.
-            Dim matches As Object
+            Dim matches As VBScript_RegExp_55.MatchCollection ' Object
             Set matches = rxIndent.Execute(txt)
             '
             ' Setup pattern to match current indent
@@ -196,7 +239,6 @@ Public Sub SanitizeFile(strPath As String, strFile As String, strExt As String, 
             isReport = True
             cData.Add txt
             cData.Add vbCrLf
-            'strData = strData & txt & vbCrLf
             'OutFile.WriteLine txt
         ElseIf isReport = True And (InStr(1, txt, "    Right =") Or InStr(1, txt, "    Bottom =")) Then
             'skip line
@@ -206,9 +248,9 @@ Public Sub SanitizeFile(strPath As String, strFile As String, strExt As String, 
         Else
             cData.Add txt
             cData.Add vbCrLf
-            'strData = strData & txt & vbCrLf
             'OutFile.WriteLine txt
         End If
+    
     Loop
     
     ' Write file all at once, rather than line by line.
@@ -219,16 +261,15 @@ Public Sub SanitizeFile(strPath As String, strFile As String, strExt As String, 
     InFile.Close
 
     ' Show stats if debug turned on.
-    If ShowDebugInfo Then Debug.Print "  Sanitized " & obj_name & " in " & Timer - sngOverall & " seconds."
+    If cModel.ShowDebug Then Debug.Print "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds."
 
-    FSO.DeleteFile (strPath & strFile)
-
-    Dim thisFile As Object
-    Set thisFile = FSO.GetFile(strPath & obj_name & ".sanitize")
+    fso.DeleteFile (strPath & strFile)
+    DoEvents
+    Dim thisFile As Scripting.File
+    Set thisFile = fso.GetFile(strPath & obj_name & ".sanitize")
     thisFile.Move (strPath & strFile)
 
 End Sub
-
 
 
 ' Path/Directory of the current database file.
@@ -276,6 +317,7 @@ MkDirIfNotexist_noop:
     On Error GoTo 0
 End Sub
 
+
 ' Delete a file if it exists.
 Public Sub DelIfExist(Path As String)
     On Error GoTo DelIfNotExist_Noop
@@ -284,19 +326,121 @@ DelIfNotExist_Noop:
     On Error GoTo 0
 End Sub
 
+
 ' Erase all *.`ext` files in `Path`.
-Public Sub ClearTextFilesFromDir(Path As String, Ext As String)
-    Dim FSO As Object
-    Set FSO = CreateObject("Scripting.FileSystemObject")
-    If Not FSO.FolderExists(Path) Then Exit Sub
+Public Sub ClearTextFilesFromDir(Path As String, ext As String)
+    Dim fso As New Scripting.FileSystemObject
+    If Not fso.FolderExists(Path) Then Exit Sub
 
     On Error GoTo ClearTextFilesFromDir_noop
-    If Dir(Path & "*." & Ext) <> "" Then
-        FSO.DeleteFile Path & "*." & Ext
+    If Dir(Path & "*." & ext) <> "" Then
+        fso.DeleteFile Path & "*." & ext
     End If
 ClearTextFilesFromDir_noop:
 
     On Error GoTo 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearTextFilesForFastSave
+' Author    : Adam Waller
+' Date      : 12/14/2016
+' Purpose   : Like ClearTextFilesFromDir, but only clears files that don't exist.
+'           : The existing files will be compared to the database objects to avoid
+'           : unecessary processing when no changes have occured.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearTextFilesForFastSave(ByVal strPath As String, strExt As String, strType As String)
+    
+    Dim fso As New Scripting.FileSystemObject
+    Dim objContainer As Object
+    Dim oFolder As Scripting.Folder
+    Dim oFile As Scripting.File
+    Dim colNames As New Collection
+    Dim objItem As Object
+    Dim strFile As String
+    Dim varName As Variant
+    Dim blnFound As Boolean
+    
+    If CurrentProject.ProjectType = acMDB Then
+        ' Access Database
+        Select Case strType
+            Case "forms": Set objContainer = CurrentProject.AllForms
+            Case "reports": Set objContainer = CurrentProject.AllReports
+            Case "queries": Set objContainer = CurrentData.AllQueries
+            Case "tables": Set objContainer = CurrentData.AllTables
+            Case "macros": Set objContainer = CurrentProject.AllMacros
+        Case Else
+            ' Fast save not (yet) supported
+            ClearTextFilesFromDir strPath, strExt
+            Exit Sub
+        End Select
+    Else
+        ' ADP Project
+        Select Case strType
+            Case "forms": Set objContainer = CurrentProject.AllForms
+            Case "reports": Set objContainer = CurrentProject.AllReports
+            Case "tables": Set objContainer = CurrentData.AllTables
+            Case "macros": Set objContainer = CurrentProject.AllMacros
+            Case "views": Set objContainer = CurrentData.AllViews
+            Case "procedures": Set objContainer = CurrentData.AllStoredProcedures
+            Case "functions": Set objContainer = CurrentData.AllFunctions
+            'Case "triggers": Set objContainer = CurrentProject.All
+        Case Else
+            ' Fast save not (yet) supported
+            ClearTextFilesFromDir strPath, strExt
+            Exit Sub
+        End Select
+    End If
+    
+    
+    ' Continue with more in-depth review, clearing any file that
+    ' is not represented by a database object.
+    If Not DirExists(strPath) Then Exit Sub
+
+    ' Build list of database objects
+    For Each objItem In objContainer
+        colNames.Add GetSafeFileName(StripDboPrefix(objItem.Name))
+    Next objItem
+    
+    ' Loop through files in folder
+    strPath = Left(strPath, Len(strPath) - 1)
+    Set oFolder = fso.GetFolder(strPath)
+    
+    For Each oFile In oFolder.Files
+        If fso.GetExtensionName(oFile.Path) = strExt Then
+            
+            ' Get file name
+            strFile = fso.GetBaseName(oFile.Name)
+            
+            ' Loop through list of names to see if this one exists
+            blnFound = False
+            For Each varName In colNames
+                If strFile = varName Then
+                    blnFound = True
+                    Exit For
+                End If
+            Next varName
+            
+            If Not blnFound Then
+                ' Object not found in database. Remove file.
+                Kill oFile.ParentFolder.Path & "\" & oFile.Name
+            End If
+            
+        End If
+    Next oFile
+    
+    On Error GoTo 0
+    Set fso = Nothing
+
+    Exit Sub
+
+
+ErrHandler:
+    Err.Clear
+    Resume Next
+    
 End Sub
 
 Function DirExists(strPath As String) As Boolean
@@ -317,8 +461,8 @@ End Function
 
 ' String builder: Init
 Public Function Sb_Init() As String()
-    Dim x(-1 To -1) As String
-    Sb_Init = x
+    Dim X(-1 To -1) As String
+    Sb_Init = X
 End Function
 
 ' String builder: Clear
@@ -351,13 +495,13 @@ Public Function PadRight(Value As String, Count As Integer)
 End Function
 
 ' returns substring between e.g. "(" and ")", internal brackets ar skippped
-Public Function SubString(p As Integer, s As String, startsWith As String, endsWith As String)
+Public Function SubString(P As Integer, s As String, startsWith As String, endsWith As String)
     Dim start As Integer
     Dim cursor As Integer
     Dim p1 As Integer
     Dim p2 As Integer
     Dim level As Integer
-    start = InStr(p, s, startsWith)
+    start = InStr(P, s, startsWith)
     level = 1
     p1 = InStr(start + 1, s, startsWith)
     p2 = InStr(start + 1, s, endsWith)
@@ -499,9 +643,9 @@ Public Function StrSetToCol(strSet As String, delimiter As String) As Collection
     Dim strSetArray() As String
     Dim Col As New Collection
     strSetArray = Split(strSet, delimiter)
-    Dim item As Variant
-    For Each item In strSetArray
-        Col.Add item, item
+    Dim Item As Variant
+    For Each Item In strSetArray
+        Col.Add Item, Item
     Next
     Set StrSetToCol = Col
 End Function
@@ -540,3 +684,239 @@ Public Sub Shell2(strCmd As String)
     objShell.Exec strCmd
     Set objShell = Nothing
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteFile
+' Author    : awaller
+' Date      : 12/12/2016
+' Purpose   : Save string variable to text file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub WriteFile(strContent As String, strPath As String)
+
+    Dim fso As New Scripting.FileSystemObject
+    Dim OutFile As Scripting.TextStream
+    Set OutFile = fso.CreateTextFile(strPath, True)
+    OutFile.Write strContent
+    OutFile.Close
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSafeFileName
+' Author    : awaller
+' Date      : 1/14/2019
+' Purpose   : Replace illegal filename characters with URL encoded substitutes
+'           : Sources: http://stackoverflow.com/questions/1976007/what-characters-are-forbidden-in-windows-and-linux-directory-names
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSafeFileName(strName As String) As String
+
+    Dim strSafe As String
+    
+'    ' This created a lot of other issues when using the similar unicode characters.
+'    strSafe = Replace(strName, "<", "«")
+'    strSafe = Replace(strSafe, ">", "»")
+'    strSafe = Replace(strSafe, ":", ChrW(760))
+'    strSafe = Replace(strSafe, """", "”")
+'    strSafe = Replace(strSafe, "/", ChrW(8725)) ' Division character
+'    strSafe = Replace(strSafe, "\", ChrW(1633)) ' Arabic 1
+'    strSafe = Replace(strSafe, "|", ChrW(1472)) ' Hebrew character
+'    strSafe = Replace(strSafe, "?", ChrW(8253))
+'    strSafe = Replace(strSafe, "*", ChrW(1645)) ' Arabic five-pointed star
+
+    ' Instead, use URL encoding for these characters
+    ' https://www.w3schools.com/tags/ref_urlencode.asp
+    strSafe = Replace(strName, "%", "%25")  ' Since we are using this character for encoding. (Makes decoding easier if we do that at some point in the future.)
+    strSafe = Replace(strName, "<", "%3C")
+    strSafe = Replace(strSafe, ">", "%3E")
+    strSafe = Replace(strSafe, ":", "%3A")
+    strSafe = Replace(strSafe, """", "%22")
+    strSafe = Replace(strSafe, "/", "%2F")
+    strSafe = Replace(strSafe, "\", "%5C")
+    strSafe = Replace(strSafe, "|", "%7C")
+    strSafe = Replace(strSafe, "?", "%3F")
+    strSafe = Replace(strSafe, "*", "%2A")
+
+    ' Return the sanitized file name.
+    GetSafeFileName = strSafe
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasMoreRecentChanges
+' Author    : Adam Waller
+' Date      : 12/14/2016
+' Purpose   : Returns true if the database object has been modified more recently
+'           : than the exported file.
+'---------------------------------------------------------------------------------------
+'
+Public Function HasMoreRecentChanges(objItem As Object, strFile As String) As Boolean
+    ' File dates could be a second off (between exporting the file and saving the report)
+    ' so ignore changes that are less than three seconds apart.
+    If Dir(strFile) <> "" Then
+        HasMoreRecentChanges = (DateDiff("s", objItem.DateModified, FileDateTime(strFile)) < -3)
+    Else
+        HasMoreRecentChanges = True
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PreserveModificationStatusBeforeCompact
+' Author    : Adam Waller
+' Date      : 10/13/2017
+' Purpose   : Run this function before doing a compact/repair on the database to allow
+'           : quick saves (skipping unchanged files) even after the dates are reset
+'           : by the compact/repair operation.
+'---------------------------------------------------------------------------------------
+'
+Public Sub PreserveModificationStatusBeforeCompact()
+
+    Dim colContainers As New Collection
+    Dim obj As Object
+    Dim dbs As Database
+    Dim strValue As String
+    Dim varContainer As Variant
+    Dim dteOldest As Date
+    Dim dteCreated As Date
+    Dim dteModified As Date
+    Dim blnExport As Boolean
+    Dim dteLastCompact As Date
+    
+    ' Start with today and work backwards
+    dteOldest = Now
+    
+    ' Get date/time when the database was last compacted/repaired.
+    strValue = GetDBProperty("InitiatedCompactRepair")
+    If IsDate(strValue) Then dteLastCompact = CDate(strValue)
+    
+    ' Add object types to collection
+    With colContainers
+        If CurrentProject.ProjectType = acMDB Then
+            Set dbs = CurrentDb
+            .Add Forms
+            .Add Reports
+            '.Add dbs.QueryDefs
+            '.Add dbs.TableDefs
+            '.Add CurrentProject.AllMacros
+        Else
+            .Add CurrentProject.AllForms
+            .Add CurrentProject.AllReports
+            '.Add CurrentProject.AllMacros
+        End If
+    End With
+    
+    ' Go through each container
+    For Each varContainer In colContainers
+    
+        ' Loop through each object
+        For Each obj In varContainer
+        
+            ' Get creation and modified dates
+            dteCreated = obj.DateCreated
+            dteModified = obj.DateModified
+            
+            ' Default to needing to export the current object.
+            blnExport = True
+            
+            ' If dates match, the object has not changed since last compact/repair
+            If DatesClose(dteCreated, dteModified) And DatesClose(dteCreated, dteLastCompact, 20) Then
+                ' Sounds like this object has not changed.
+            Else
+                ' Changes were made since creation or modification.
+                ' Increment flag to force update on next export.
+                If GetChangeFlag(obj, 0) = 0 Then SetChangeFlag obj, 1
+            End If
+            
+            'Debug.Print obj. & " ";  & " " & obj.Name
+        Next obj
+        
+    Next varContainer
+
+    ' Save the current time at the database level
+    SetDBProperty "InitiatedCompactRepair", CStr(Now)
+    
+    ' Clean up
+    Set obj = Nothing
+    Set colContainers = Nothing
+    
+End Sub
+
+
+Public Function GetChangeFlag(obj As AccessObject, Optional intDefault As Integer) As Integer
+    Dim strValue As String
+    strValue = GetAccessObjectProperty(obj, "GitLabChangeFlag", CStr(intDefault))
+    If IsNumeric(strValue) Then GetChangeFlag = CInt(strValue)
+End Function
+
+Public Sub SetChangeFlag(obj As AccessObject, varValue As Variant)
+    SetAccessObjectProperty obj, "GitLabChangeFlag", CStr(varValue)
+End Sub
+
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DatesClose
+' Author    : Adam Waller
+' Date      : 10/13/2017
+' Purpose   : Returns true if the dates are within the threshhold.
+'           : (Used when dates are very similar, but not exact)
+'---------------------------------------------------------------------------------------
+'
+Public Function DatesClose(dte1 As Date, dte2 As Date, Optional lngMaxDiffSeconds As Long = 3) As Boolean
+    DatesClose = (Abs(DateDiff("s", dte1, dte2)) < lngMaxDiffSeconds)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetAccessObjectProperty
+' Author    : Adam Waller
+' Date      : 10/13/2017
+' Purpose   : Sets a custom access object property.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetAccessObjectProperty(objItem As AccessObject, strProperty As String, strValue As String)
+    Dim prp As AccessObjectProperty
+    For Each prp In objItem.Properties
+        If StrComp(prp.Name, strProperty, vbTextCompare) = 0 Then
+            ' Update value of property.
+            prp.Value = strValue
+            Exit Sub
+        End If
+    Next prp
+    ' Property not found. Create it.
+    objItem.Properties.Add strProperty, strValue
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAccessObjectProperty
+' Author    : Adam Waller
+' Date      : 10/13/2017
+' Purpose   : Get the value of a custom access property
+'---------------------------------------------------------------------------------------
+'
+Public Function GetAccessObjectProperty(objItem As AccessObject, strProperty As String, Optional strDefault As String)
+    Dim prp As AccessObjectProperty
+    For Each prp In objItem.Properties
+        If StrComp(prp.Name, strProperty, vbTextCompare) = 0 Then
+            GetAccessObjectProperty = prp.Value
+            Exit Function
+        End If
+    Next prp
+    ' Nothing found. Return default
+    GetAccessObjectProperty = strDefault
+End Function
+
+
+Public Function StripDboPrefix(strName As String) As String
+    If Left(strName, 4) = "dbo." Then
+        StripDboPrefix = Mid(strName, 5)
+    Else
+        StripDboPrefix = strName
+    End If
+End Function

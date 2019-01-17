@@ -1,17 +1,26 @@
+Option Explicit
 Option Compare Database
 Option Private Module
-Option Explicit
 
 
-Public Sub ExportDataMacros(tableName As String, directory As String)
-    On Error GoTo Err_export:
+Public Sub ExportDataMacros(TableName As String, directory As String, cModel As IVersionControl, Optional Ucs2Convert As Boolean = False)
+    'On Error GoTo Err_export:
+    Dim blnSkip As Boolean
     
-    Dim MacroConst As Integer
-    Dim filePath As String: filePath = directory & tableName & ".xml"
+    Dim filePath As String: filePath = directory & TableName & ".xml"
 
-    modFunctions.ExportObject MacroConst, tableName, filePath, modFileAccess.UsingUcs2
-    FormatDataMacro filePath
-
+    ' Check for fast save
+    If Not cModel Is Nothing Then
+        If cModel.FastSave Then
+            blnSkip = (HasMoreRecentChanges(CurrentData.AllTables(TableName), filePath))
+        End If
+    End If
+    
+    If Not blnSkip Then
+        modFunctions.ExportObject acTableDataMacro, TableName, filePath, cModel, Ucs2Convert
+        If FileExists(filePath) Then FormatDataMacro filePath
+    End If
+    
     Exit Sub
 
 Err_export:
@@ -19,10 +28,10 @@ Err_export:
 End Sub
 
 
-Public Sub ImportDataMacros(tableName As String, directory As String)
+Public Sub ImportDataMacros(TableName As String, directory As String)
     On Error GoTo Err_import:
-    Dim filePath As String: filePath = directory & tableName & ".xml"
-    modFunctions.ImportObject MacroConst, tableName, filePath, modFileAccess.UsingUcs2
+    Dim filePath As String: filePath = directory & TableName & ".xml"
+    modFunctions.ImportObject MacroConst, TableName, filePath, modFileAccess.UsingUcs2
 
 Err_import:
     
@@ -33,33 +42,28 @@ End Sub
 'Allows git to find changes within lines using diff
 Private Sub FormatDataMacro(filePath As String)
 
-    Dim saveStream As Object ' ADODB.Stream
-
-    Set saveStream = CreateObject("ADODB.Stream")
+    Dim saveStream As New ADODB.Stream
+    Dim objStream As New ADODB.Stream
+    Dim strData As String
+    Dim tag As Variant
+    
     saveStream.Charset = "utf-8"
-    saveStream.Type = 2 'adTypeText
+    saveStream.Type = adTypeText
     saveStream.Open
 
-    Dim objStream As Object ' ADODB.Stream
-    Dim strData As String
-    Set objStream = CreateObject("ADODB.Stream")
-
     objStream.Charset = "utf-8"
-    objStream.Type = 2 'adTypeText
+    objStream.Type = adTypeText
     objStream.Open
-    objStream.LoadFromFile (filePath)
+    objStream.LoadFromFile filePath
     
     Do While Not objStream.EOS
         strData = objStream.ReadText(-2) 'adReadLine
 
-        Dim tag As Variant
-        
         For Each tag In Split(strData, ">")
             If tag <> "" Then
                 saveStream.WriteText tag & ">", 1 'adWriteLine
             End If
         Next
-        
     Loop
     
     objStream.Close

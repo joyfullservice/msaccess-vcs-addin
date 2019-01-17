@@ -17,7 +17,7 @@ Public Sub InitializeVersionControlSystem(Optional blnUseVersionControl As Boole
     '//////////////////////////////////////////////////////////
     
     ' Version Control Library
-    Const cstrLibraryPath As String = "\"
+    Const cstrLibraryPath As String = "\..\"
     Const cstrLibraryFile As String = "Version Control.accda"
     Const cstrLibraryName As String = "MSAccess-VCS"
     
@@ -108,19 +108,19 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
     ' Prepare to initialize version control.
     If blnUseVersionControl And Not blnLoaded Then
         ' Attempt to load the file
-        If strLibraryPath <> "\" And Dir(strLibraryPath, vbDirectory) <> "" Then
+        If strLibraryPath <> "\..\" And Dir(strLibraryPath, vbDirectory) <> "" Then
             ' Use specified path
             strPath = strLibraryPath
         Else
             ' Use current folder
-            strPath = CodeProject.Path & "\"
+            strPath = CodeProject.Path & "\..\"
         End If
         
         ' Check to see if the library file exists
         strPath = strPath & strLibraryFile
         If Dir(strPath) <> "" Then
             ' File exists
-            '''If strPath <> CodeDb.Name Then Application.References.AddFromFile strPath
+            If strPath <> CodeDb.Name Then Application.References.AddFromFile strPath
             blnInitialize = True
         End If
         

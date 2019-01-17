@@ -1,6 +1,6 @@
 Option Compare Database
-Option Private Module
 Option Explicit
+Option Private Module
 
 
 ' List of lookup tables that are part of the program rather than the
@@ -37,7 +37,23 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     Dim ucs2 As Boolean
     Dim sngStart As Single
     Dim strName As String
+    Dim colADO As New Collection
+    Dim varType As Variant
+    Dim strData As String
+    Dim blnSkipFile As Boolean
+    Dim strFile As String
+    Dim dteLastCompact As Date
+    Dim dteModified As Date
 
+    ' Check Ucs2 status
+    ucs2 = modFileAccess.UsingUcs2
+    
+    ' Option used with fast saves
+    If cModel.FastSave Then
+        strData = GetDBProperty("InitiatedCompactRepair")
+        If IsDate(strData) Then dteLastCompact = CDate(strData)
+    End If
+    
     Set Db = CurrentDb
     sngStart = Timer
     Set colVerifiedPaths = New Collection   ' Reset cache
@@ -55,177 +71,364 @@ Public Sub ExportAllSource(cModel As IVersionControl)
 
     Debug.Print
 
-    obj_path = source_path & "queries\"
-    modFunctions.ClearTextFilesFromDir obj_path, "bas"
-    If ShowDebugInfo Then Debug.Print cstrSpacer
-    Debug.Print modFunctions.PadRight("Exporting queries...", 24);
-    If ShowDebugInfo Then Debug.Print
-    obj_count = 0
-    For Each qry In Db.QueryDefs
-        DoEvents
-        If Left(qry.Name, 1) <> "~" Then
-            modFunctions.ExportObject acQuery, qry.Name, obj_path & qry.Name & ".bas", modFileAccess.UsingUcs2
-            obj_count = obj_count + 1
-        End If
-    Next
-    modFunctions.SanitizeTextFiles obj_path, "bas"
-    If ShowDebugInfo Then
-        Debug.Print "[" & obj_count & "] queries exported."
-    Else
-        Debug.Print "[" & obj_count & "]"
-    End If
-
+    ' Process queries
     
-    For Each obj_type In Split( _
-        "forms|Forms|" & acForm & "," & _
-        "reports|Reports|" & acReport & "," & _
-        "macros|Scripts|" & acMacro & "," & _
-        "modules|Modules|" & acModule _
-        , "," _
-    )
-        obj_type_split = Split(obj_type, "|")
-        obj_type_label = obj_type_split(0)
-        obj_type_name = obj_type_split(1)
-        obj_type_num = Val(obj_type_split(2))
-        obj_path = source_path & obj_type_label & "\"
-        obj_count = 0
+    If CurrentProject.ProjectType = acMDB Then
+        ' Standard Access Project
+        obj_path = source_path & "queries\"
         modFunctions.ClearTextFilesFromDir obj_path, "bas"
         If ShowDebugInfo Then Debug.Print cstrSpacer
-        Debug.Print modFunctions.PadRight("Exporting " & obj_type_label & "...", 24);
+        Debug.Print modFunctions.PadRight("Exporting queries...", 24);
         If ShowDebugInfo Then Debug.Print
-        For Each doc In Db.Containers(obj_type_name).Documents
+        obj_count = 0
+        For Each qry In Db.QueryDefs
             DoEvents
-            If (Left(doc.Name, 1) <> "~") Then
-                If obj_type_label = "modules" Then
-                    ucs2 = False
-                Else
-                    ucs2 = modFileAccess.UsingUcs2
-                End If
-                modFunctions.ExportObject obj_type_num, doc.Name, obj_path & doc.Name & ".bas", ucs2
-                
-                If obj_type_label = "reports" Then
-                    modReport.ExportPrintVars doc.Name, obj_path & doc.Name & ".pv"
-                End If
-                
+            If Left(qry.Name, 1) <> "~" Then
+                modFunctions.ExportObject acQuery, qry.Name, obj_path & GetSafeFileName(qry.Name) & ".bas", cModel, ucs2
                 obj_count = obj_count + 1
             End If
         Next
+        modFunctions.SanitizeTextFiles obj_path, "bas", cModel
         If ShowDebugInfo Then
-            Debug.Print "[" & obj_count & "] " & obj_type_label & " exported."
+            Debug.Print "[" & obj_count & "] queries exported."
         Else
             Debug.Print "[" & obj_count & "]"
         End If
-
-        If obj_type_label <> "modules" Then
-            modFunctions.SanitizeTextFiles obj_path, "bas"
+    Else
+        ' ADP project (Several types of 'queries' involved)
+        With colADO
+            .Add Array("views", "sql", CurrentData.AllViews)
+            .Add Array("functions", "sql", CurrentData.AllFunctions)
+            .Add Array("procedures", "sql", CurrentData.AllStoredProcedures)
+            .Add Array("tables", "tdf", CurrentData.AllTables)
+            '.Add Array("diagrams", CurrentData.AllDatabaseDiagrams) ' (Not supported in Access 2010)
+            '.Add Array("queries", CurrentData.AllQueries) ' (Combination of views, functions and proceedures)
+        End With
+        
+        ' Clear any triggers if the triggers folder exists.
+        If DirExists(obj_path & "triggers\") Then
+            If Not cModel.FastSave Then modFunctions.ClearTextFilesFromDir obj_path & "triggers\", "sql"
         End If
-    Next
+        
+        ' Process triggers
+        ExportADPTriggers cModel, source_path & "triggers\"
+        
+        
+        ' Loop through each type, exporting SQL definitions
+        For Each varType In colADO
+            obj_path = source_path & varType(0) & "\"
+            modFunctions.VerifyPath obj_path
+            
+            
+            ''''' Wait to clear tables (or other objects) since we need to check the modified date of the file.
+            
+            If cModel.FastSave Then
+                modFunctions.ClearTextFilesForFastSave obj_path, CStr(varType(1)), CStr(varType(0))
+            Else
+                modFunctions.ClearTextFilesFromDir obj_path, CStr(varType(1))
+            End If
+            
+            If ShowDebugInfo Then Debug.Print cstrSpacer
+            Debug.Print modFunctions.PadRight("Exporting " & varType(0) & "...", 24);
+            If ShowDebugInfo Then Debug.Print
+            obj_count = 0
+            For Each qry In varType(2)
+                DoEvents
+                blnSkipFile = False
+                strFile = obj_path & GetSafeFileName(StripDboPrefix(qry.Name)) & "." & varType(1)
+                ' Fast save options
+                If cModel.FastSave Then
+                    dteModified = GetSQLObjectModifiedDate(qry.Name, varType(0))
+                    'dteModified = #1/1/2000#
+                    If FileExists(strFile) Then
+                        If dteModified < FileDateTime(strFile) Then
+                            ' Object does not appear to have been modified.
+                            blnSkipFile = True
+                        End If
+                    End If
+                End If
+                If Not blnSkipFile Then
+                    If varType(0) = "tables" Then
+                        strData = GetADPTableDef(qry.Name)
+                    Else
+                        strData = GetSQLObjectDefinitionForADP(qry.Name)
+                    End If
+                End If
+
+                If blnSkipFile Then
+                    If ShowDebugInfo Then Debug.Print "  (Skipping '" & qry.Name & "')"
+                Else
+                    WriteFile strData, strFile
+                    If ShowDebugInfo Then Debug.Print "  " & qry.Name
+                End If
+                obj_count = obj_count + 1
+                ' Check for table/query data export
+                If InCollection(cModel.TablesToSaveData, qry.Name) Then
+                    DoCmd.OutputTo acOutputServerView, qry.Name, acFormatTXT, obj_path & GetSafeFileName(StripDboPrefix(qry.Name)) & ".txt", False
+                    If ShowDebugInfo Then Debug.Print "    Data exported"
+                End If
+            Next qry
+            If ShowDebugInfo Then
+                Debug.Print "[" & obj_count & "] " & varType(0) & " exported."
+            Else
+                Debug.Print "[" & obj_count & "]"
+            End If
+        Next varType
+    End If
+
+    ' Clear the cached variables
+    GetSQLObjectModifiedDate "", ""
+    
+    If CurrentProject.ProjectType = acMDB Then
+        ' Access Database
+        For Each obj_type In Split( _
+            "forms|Forms|" & acForm & "," & _
+            "reports|Reports|" & acReport & "," & _
+            "macros|Scripts|" & acMacro & "," & _
+            "modules|Modules|" & acModule _
+            , ",")
+            
+            obj_type_split = Split(obj_type, "|")
+            obj_type_label = obj_type_split(0)
+            obj_type_name = obj_type_split(1)
+            obj_type_num = Val(obj_type_split(2))
+            obj_path = source_path & obj_type_label & "\"
+            obj_count = 0
+            If cModel.FastSave Then
+                modFunctions.ClearTextFilesForFastSave obj_path, "bas", obj_type_label
+            Else
+                modFunctions.ClearTextFilesFromDir obj_path, "bas"
+            End If
+            If ShowDebugInfo Then Debug.Print cstrSpacer
+            Debug.Print modFunctions.PadRight("Exporting " & obj_type_label & "...", 24);
+            If ShowDebugInfo Then Debug.Print
+            For Each doc In Db.Containers(obj_type_name).Documents
+                DoEvents
+                If (Left(doc.Name, 1) <> "~") Then
+                    If obj_type_label = "modules" Then
+                        ucs2 = False
+                    Else
+                        ucs2 = modFileAccess.UsingUcs2
+                    End If
+                    modFunctions.ExportObject obj_type_num, doc.Name, obj_path & doc.Name & ".bas", cModel, ucs2
+                    
+                    If obj_type_label = "reports" Then
+                        If cModel.SavePrintVars Then modReport.ExportPrintVars doc.Name, obj_path & doc.Name & ".pv"
+                    End If
+                    
+                    obj_count = obj_count + 1
+                End If
+            Next
+            If ShowDebugInfo Then
+                Debug.Print "[" & obj_count & "] " & obj_type_label & " exported."
+            Else
+                Debug.Print "[" & obj_count & "]"
+            End If
+    
+            If obj_type_label <> "modules" Then
+                modFunctions.SanitizeTextFiles obj_path, "bas", cModel
+            End If
+        Next
+    Else
+        ' ADP Project
+        
+        Set colADO = New Collection
+        With colADO
+            .Add Array("forms", CurrentProject.AllForms, acForm)
+            .Add Array("macros", CurrentProject.AllMacros, acMacro)
+            .Add Array("modules", CurrentProject.AllModules, acModule)
+            .Add Array("reports", CurrentProject.AllReports, acReport)
+        End With
+        
+        For Each varType In colADO
+    
+            obj_type_label = varType(0)
+            obj_type_num = varType(2)
+            obj_path = source_path & obj_type_label & "\"
+            obj_count = 0
+            If cModel.FastSave Then
+                modFunctions.ClearTextFilesForFastSave obj_path, "bas", obj_type_label
+            Else
+                modFunctions.ClearTextFilesFromDir obj_path, "bas"
+            End If
+            If ShowDebugInfo Then Debug.Print cstrSpacer
+            Debug.Print modFunctions.PadRight("Exporting " & obj_type_label & "...", 24);
+            If ShowDebugInfo Then Debug.Print
+            For Each doc In varType(1)
+                DoEvents
+                ' Build file name
+                strFile = obj_path & GetSafeFileName(StripDboPrefix(doc.Name)) & ".bas"
+                ' Check for fast save option
+                blnSkipFile = False
+                If (cModel.FastSave And (obj_type_num = acForm Or obj_type_num = acReport)) Then
+                    If Not HasMoreRecentChanges(doc, strFile) Then
+                        ' Yes, we can really skip the export on this object.
+                        blnSkipFile = True
+                    End If
+                
+'                    ' Check modified dates on object
+'                    dteCreated = doc.DateCreated
+'                    dteModified = doc.DateModified
+'                    If DatesClose(dteCreated, dteModified) Then
+'                        'and also last compact/repair date (which resets these dates)
+'                        If DatesClose(dteCreated, dteLastCompact, 20) Then
+'                            ' Check change flag from previous compact/repair
+'                            If (GetChangeFlag(doc, 0) = 0) Then
+'                                ' Make sure repository file hasn't changed
+'                                If Not HasMoreRecentChanges(doc, strFile) Then
+'                                    ' Yes, we can really skip the export on this object.
+'                                    blnSkipFile = True
+'                                End If
+'                            End If
+'                       End If
+'                    End If
+
+                End If
+                If blnSkipFile Then
+                    If ShowDebugInfo Then Debug.Print "  (Skipping '" & doc.Name & "')"
+                Else
+                    modFunctions.ExportObject obj_type_num, doc.Name, strFile, cModel, ucs2
+                    If obj_type_label <> "modules" Then SanitizeFile obj_path, GetSafeFileName(StripDboPrefix(doc.Name)) & ".bas", "bas", cModel
+                    If obj_type_label = "reports" Then
+                        If cModel.SavePrintVars Then modReport.ExportPrintVars doc.Name, obj_path & GetSafeFileName(StripDboPrefix(doc.Name)) & ".pv"
+                    End If
+                    ' Skip this step if we aren't using fast saves.
+                    If cModel.FastSave Then
+                        ' Reset change flag to unchanged since last export.
+                        If GetChangeFlag(doc, 0) > 0 Then SetChangeFlag doc, 0
+                    End If
+                End If
+                obj_count = obj_count + 1
+            Next doc
+            
+            If ShowDebugInfo Then
+                Debug.Print "[" & obj_count & "] " & obj_type_label & " exported."
+            Else
+                Debug.Print "[" & obj_count & "]"
+            End If
+    
+        Next varType
+    End If
+    
     
     If ShowDebugInfo Then Debug.Print cstrSpacer
     Debug.Print modFunctions.PadRight("Exporting references...", 24);
     If ShowDebugInfo Then Debug.Print
     modReference.ExportReferences source_path
+    Debug.Print modFunctions.PadRight("Exporting properties...", 24);
+    If ShowDebugInfo Then Debug.Print
     modProperty.ExportProperties source_path
+    
 
-
-'-------------------------table export------------------------
-    obj_path = source_path & "tables\"
-    modFunctions.ClearTextFilesFromDir obj_path, "txt"
+'-------------------------mdb table export------------------------
     
-    Dim td As TableDef
-    Dim tds As TableDefs
-    Set tds = Db.TableDefs
-
-    If cModel.TablesToSaveData.Count > 0 Then
-        ' Only create this folder if we are actually saving table data
-        modFunctions.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
-    End If
+    If CurrentProject.ProjectType = acMDB Then
+        obj_path = source_path & "tables\"
+        modFunctions.ClearTextFilesFromDir obj_path, "txt"
+        
+        Dim td As TableDef
+        Dim tds As TableDefs
+        Set tds = Db.TableDefs
     
-    obj_type_label = "tbldefs"
-    obj_type_name = "Table_Def"
-    obj_type_num = acTable
-    obj_path = source_path & obj_type_label & "\"
-    obj_count = 0
-    obj_data_count = 0
-    
-    'move these into Table and DataMacro modules?
-    ' - We don't want to determin file extentions here - or obj_path either!
-    modFunctions.ClearTextFilesFromDir obj_path, "sql"
-    modFunctions.ClearTextFilesFromDir obj_path, "xml"
-    
-    If ShowDebugInfo Then Debug.Print cstrSpacer
-    Debug.Print modFunctions.PadRight("Exporting " & obj_type_label & "...", 24);
-    If ShowDebugInfo Then Debug.Print
-    
-    For Each td In tds
-        ' This is not a system table
-        ' this is not a temporary table
-        If Left$(td.Name, 4) <> "MSys" And _
-            Left$(td.Name, 1) <> "~" Then
-            modFunctions.VerifyPath Left(obj_path, InStrRev(obj_path, "\"))
-            If Len(td.connect) = 0 Then ' this is not an external table
-                modTable.ExportTableDef Db, td, td.Name, obj_path
-                If InCollection(cModel.TablesToSaveData, "*") Then
-                    DoEvents
-                    modTable.ExportTableData CStr(td.Name), source_path & "tables\"
-                    If Len(Dir(source_path & "tables\" & td.Name & ".txt")) > 0 Then
+        If cModel.TablesToSaveData.Count > 0 Then
+            ' Only create this folder if we are actually saving table data
+            modFunctions.MkDirIfNotExist Left(obj_path, InStrRev(obj_path, "\"))
+        End If
+        
+        obj_type_label = "tables"
+        obj_type_name = "Table_Def"
+        obj_type_num = acTable
+        obj_path = source_path & obj_type_label & "\"
+        obj_count = 0
+        obj_data_count = 0
+        
+        ' Clear any existing files
+        If cModel.FastSave Then
+            modFunctions.ClearTextFilesForFastSave obj_path, "LNKD", obj_type_label
+            modFunctions.ClearTextFilesForFastSave obj_path, "sql", obj_type_label
+            modFunctions.ClearTextFilesForFastSave obj_path, "xml", obj_type_label
+        Else
+            modFunctions.ClearTextFilesFromDir obj_path, "LNKD"
+            modFunctions.ClearTextFilesFromDir obj_path, "sql"
+            modFunctions.ClearTextFilesFromDir obj_path, "xml"
+        End If
+        
+        If ShowDebugInfo Then Debug.Print cstrSpacer
+        Debug.Print modFunctions.PadRight("Exporting " & obj_type_label & "...", 24);
+        If ShowDebugInfo Then Debug.Print
+        
+        For Each td In tds
+            ' This is not a system table
+            ' this is not a temporary table
+            If Left$(td.Name, 4) <> "MSys" And _
+                Left$(td.Name, 1) <> "~" Then
+                modFunctions.VerifyPath Left(obj_path, InStrRev(obj_path, "\"))
+                If Len(td.connect) = 0 Then ' this is not an external table
+                    modTable.ExportTableDef Db, td, td.Name, obj_path, cModel
+                    If InCollection(cModel.TablesToSaveData, "*") Then
+                        DoEvents
+                        modTable.ExportTableData CStr(td.Name), source_path & "tables\"
+                        If Len(Dir(source_path & "tables\" & td.Name & ".txt")) > 0 Then
+                            obj_data_count = obj_data_count + 1
+                        End If
+                    ElseIf InCollection(cModel.TablesToSaveData, td.Name) Then
+                        DoEvents
+                        On Error GoTo Err_TableNotFound
+                        modTable.ExportTableData CStr(td.Name), source_path & "tables\"
                         obj_data_count = obj_data_count + 1
-                    End If
-                ElseIf InCollection(cModel.TablesToSaveData, td.Name) Then
-                    DoEvents
-                    On Error GoTo Err_TableNotFound
-                    modTable.ExportTableData CStr(td.Name), source_path & "tables\"
-                    obj_data_count = obj_data_count + 1
 Err_TableNotFound:
-                    
-                'else don't export table data
+                        
+                    'else don't export table data
+                    End If
+                    If ShowDebugInfo Then Debug.Print "  " & td.Name
+    
+                Else
+                    modTable.ExportLinkedTable td.Name, obj_path, cModel
                 End If
-                If ShowDebugInfo Then Debug.Print "  " & td.Name
-
-            Else
-                modTable.ExportLinkedTable td.Name, obj_path
+                
+                obj_count = obj_count + 1
+                
             End If
-            
-            obj_count = obj_count + 1
-            
+        Next
+        
+        If ShowDebugInfo Then
+            Debug.Print "[" & obj_count & "] tbldefs exported."
+        Else
+            Debug.Print "[" & obj_count & "]"
         End If
-    Next
     
-    If ShowDebugInfo Then
-        Debug.Print "[" & obj_count & "] tbldefs exported."
-    Else
-        Debug.Print "[" & obj_count & "]"
+        ' Export relationships (MDB only)
+        If ShowDebugInfo Then Debug.Print cstrSpacer
+        Debug.Print modFunctions.PadRight("Exporting Relations...", 24);
+        If ShowDebugInfo Then Debug.Print
+        
+        obj_count = 0
+        obj_path = source_path & "relations\"
+        
+        modFunctions.ClearTextFilesFromDir obj_path, "txt"
+        
+        Dim aRelation As Relation
+        For Each aRelation In CurrentDb.Relations
+            strName = aRelation.Name
+            If Not (strName = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or strName = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+                modFunctions.VerifyPath Left(obj_path, InStrRev(obj_path, "\"))
+                ' Replace slashes with division character to support linked table relationships
+                'http://stackoverflow.com/questions/10708334/how-can-i-create-files-on-windows-with-embedded-slashes-using-python
+                'strName = Replace(strName, "\", ChrW(2215))
+                ' On second thought, just use table name.
+                strName = GetRelationFileName(aRelation)
+                modRelation.ExportRelation aRelation, obj_path & strName & ".txt"
+                obj_count = obj_count + 1
+            End If
+        Next aRelation
+    
+        If ShowDebugInfo Then
+            Debug.Print "[" & obj_count & "] relations exported."
+        Else
+            Debug.Print "[" & obj_count & "]"
+        End If
     End If
     
-    If ShowDebugInfo Then Debug.Print cstrSpacer
-    Debug.Print modFunctions.PadRight("Exporting Relations...", 24);
-    If ShowDebugInfo Then Debug.Print
-    
-    obj_count = 0
-    obj_path = source_path & "relations\"
-    
-    modFunctions.ClearTextFilesFromDir obj_path, "txt"
-    
-    Dim aRelation As Relation
-    For Each aRelation In CurrentDb.Relations
-        strName = aRelation.Name
-        If Not (strName = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or strName = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
-            modFunctions.VerifyPath Left(obj_path, InStrRev(obj_path, "\"))
-            ' Replace slashes with division character to support linked table relationships
-            'http://stackoverflow.com/questions/10708334/how-can-i-create-files-on-windows-with-embedded-slashes-using-python
-            'strName = Replace(strName, "\", ChrW(2215))
-            ' On second thought, just use table name.
-            strName = GetRelationFileName(aRelation)
-            modRelation.ExportRelation aRelation, obj_path & strName & ".txt"
-            obj_count = obj_count + 1
-        End If
-    Next aRelation
-
-    If ShowDebugInfo Then
-        Debug.Print "[" & obj_count & "] relations exported."
-    Else
-        Debug.Print "[" & obj_count & "]"
-    End If
 
     ' VBE objects
     If cModel.IncludeVBE Then ExportAllVBE cModel
@@ -250,7 +453,7 @@ Public Sub ExportAllVBE(cModel As IVersionControl)
     'Const vbext_ct_StdModule As Integer = 1
     'Const vbext_ct_MSForm As Integer = 3
     
-    Dim cmp As Object ' VBComponent
+    Dim cmp As VBIDE.VBComponent
     Dim strExt As String
     Dim strPath As String
     Dim obj_count As Integer
@@ -308,6 +511,7 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionCo
     Dim strFolder As String
     Dim strName As String
     Dim blnUcs As Boolean
+    Dim blnSanitize As Boolean
     
     ' Determine the type of object, and get name of item
     ' in Microsoft Access. (Can be different from VBE)
@@ -316,28 +520,33 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionCo
             Case vbext_ct_StdModule, vbext_ct_ClassModule
                 ' Code modules
                 intType = acModule
-                strName = .Name
-                strFolder = "modules\" & .Name & ".bas"
+                strName = GetSafeFileName(.Name)
+                strFolder = "modules\"
             
             Case vbext_ct_Document
                 ' Class object (Forms, Reports)
                 If Left(.Name, 5) = "Form_" Then
                     intType = acForm
-                    strName = Mid(.Name, 6)
-                    strFolder = "forms\" & strName & ".bas"
-                ElseIf Left(.Name, 6) = "Report_" Then
+                    strName = GetSafeFileName(Mid(.Name, 6))
+                    strFolder = "forms\"
+                    blnSanitize = True
+                ElseIf Left(.Name, 7) = "Report_" Then
                     intType = acReport
-                    strName = Mid(.Name, 8)
-                    strFolder = "reports\" & strName & ".bas"
+                    strName = GetSafeFileName(Mid(.Name, 8))
+                    strFolder = "reports\"
+                    blnSanitize = True
                 End If
                 
         End Select
     End With
     
+    DoCmd.Hourglass True
     If intType > 0 Then
         strFolder = cModel.ExportBaseFolder & strFolder
         ' Export the single object
-        ExportObject intType, strName, strFolder, blnUcs
+        ExportObject intType, strName, strFolder & strName & ".bas", cModel, blnUcs
+        ' Sanitize object if needed
+        If blnSanitize Then SanitizeFile strFolder, strName & ".bas", "bas", cModel
     End If
     
     ' Export VBE version
@@ -346,6 +555,7 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionCo
         If Dir(strName) <> "" Then Kill strName
         cmpToExport.Export strName
     End If
+    DoCmd.Hourglass False
     
 End Sub
 
@@ -355,7 +565,7 @@ End Sub
 ' database's folder.
 Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     Dim Db As DAO.Database
-    Dim FSO As Object
+    Dim fso As New Scripting.FileSystemObject
     Dim source_path As String
     Dim obj_path As String
     Dim obj_type As Variant
@@ -374,13 +584,12 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     End If
 
     Set Db = CurrentDb
-    Set FSO = CreateObject("Scripting.FileSystemObject")
 
     CloseFormsReports
     'InitUsingUcs2
 
     source_path = modFunctions.ProjectPath() & "source\"
-    If Not FSO.FolderExists(source_path) Then
+    If Not fso.FolderExists(source_path) Then
         MsgBox "No source found at:" & vbCrLf & source_path, vbExclamation, "Import failed"
         Exit Sub
     End If
@@ -402,7 +611,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
             DoEvents
             obj_name = Mid(fileName, 1, InStrRev(fileName, ".") - 1)
             modFunctions.ImportObject acQuery, obj_name, obj_path & fileName, modFileAccess.UsingUcs2
-            modFunctions.ExportObject acQuery, obj_name, tempFilePath, modFileAccess.UsingUcs2
+            modFunctions.ExportObject acQuery, obj_name, tempFilePath, Nothing, modFileAccess.UsingUcs2
             modFunctions.ImportObject acQuery, obj_name, tempFilePath, modFileAccess.UsingUcs2
             obj_count = obj_count + 1
             fileName = Dir()

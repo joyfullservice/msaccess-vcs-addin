@@ -1,13 +1,14 @@
+Option Explicit
 Option Compare Database
 Option Private Module
-Option Explicit
 
 
 ' Import References from a CSV, true=SUCCESS
 Public Function ImportReferences(obj_path As String) As Boolean
-    Dim FSO, InFile
+    Dim fso As New Scripting.FileSystemObject
+    Dim InFile As Scripting.TextStream
     Dim line As String
-    Dim item() As String
+    Dim Item() As String
     Dim GUID As String
     Dim Major As Long
     Dim Minor As Long
@@ -18,19 +19,18 @@ Public Function ImportReferences(obj_path As String) As Boolean
         ImportReferences = False
         Exit Function
     End If
-    Set FSO = CreateObject("Scripting.FileSystemObject")
-    Set InFile = FSO.OpenTextFile(obj_path & fileName, ForReading)
+    Set InFile = fso.OpenTextFile(obj_path & fileName, ForReading)
 On Error GoTo failed_guid
     Do Until InFile.AtEndOfStream
         line = InFile.ReadLine
-        item = Split(line, ",")
-        If UBound(item) = 2 Then 'a ref with a guid
-          GUID = Trim(item(0))
-          Major = CLng(item(1))
-          Minor = CLng(item(2))
+        Item = Split(line, ",")
+        If UBound(Item) = 2 Then 'a ref with a guid
+          GUID = Trim(Item(0))
+          Major = CLng(Item(1))
+          Minor = CLng(Item(2))
           Application.References.AddFromGuid GUID, Major, Minor
         Else
-          refName = Trim(item(0))
+          refName = Trim(Item(0))
           Application.References.AddFromFile refName
         End If
 go_on:
@@ -38,7 +38,7 @@ go_on:
 On Error GoTo 0
     InFile.Close
     Set InFile = Nothing
-    Set FSO = Nothing
+    Set fso = Nothing
     ImportReferences = True
     Exit Function
 failed_guid:
@@ -57,14 +57,13 @@ End Function
 ' Export References to a CSV
 Public Sub ExportReferences(obj_path As String)
     
-    Dim FSO As Object ' Scripting.FileSystemObject
-    Dim OutFile As Object
+    Dim fso As New Scripting.FileSystemObject
+    Dim OutFile As Scripting.TextStream
     Dim line As String
     Dim ref As Reference
     Dim obj_count As Integer
     
-    Set FSO = CreateObject("Scripting.FileSystemObject")
-    Set OutFile = FSO.CreateTextFile(obj_path & "references.csv", True)
+    Set OutFile = fso.CreateTextFile(obj_path & "references.csv", True)
     
     For Each ref In Application.References
         If ref.GUID > "" Then ' references of types mdb,accdb,mde etc don't have a GUID
@@ -86,6 +85,6 @@ Public Sub ExportReferences(obj_path As String)
     End If
     
     Set OutFile = Nothing
-    Set FSO = Nothing
+    Set fso = Nothing
     
 End Sub

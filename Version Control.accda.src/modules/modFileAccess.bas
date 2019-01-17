@@ -1,6 +1,7 @@
+Option Explicit
 Option Compare Database
 Option Private Module
-Option Explicit
+
 
 #If Mac Then
 #ElseIf Win64 Then
@@ -196,25 +197,39 @@ Public Function UsingUcs2() As Boolean
     Dim obj_name As String, obj_type As Variant, fn As Integer, bytes As String
     Dim obj_type_split() As String, obj_type_name As String, obj_type_num As Integer
 
-    If CurrentDb.QueryDefs.Count > 0 Then
-        obj_type_num = acQuery
-        obj_name = CurrentDb.QueryDefs(0).Name
+    If CurrentProject.ProjectType = acMDB Then
+        If CurrentDb.QueryDefs.Count > 0 Then
+            obj_type_num = acQuery
+            obj_name = CurrentDb.QueryDefs(0).Name
+        Else
+            For Each obj_type In Split( _
+                "Forms|" & acForm & "," & _
+                "Reports|" & acReport & "," & _
+                "Scripts|" & acMacro & "," & _
+                "Modules|" & acModule _
+            )
+                DoEvents
+                obj_type_split = Split(obj_type, "|")
+                obj_type_name = obj_type_split(0)
+                obj_type_num = Val(obj_type_split(1))
+                If CurrentDb.Containers(obj_type_name).Documents.Count > 0 Then
+                    obj_name = CurrentDb.Containers(obj_type_name).Documents(0).Name
+                    Exit For
+                End If
+            Next
+        End If
     Else
-        For Each obj_type In Split( _
-            "Forms|" & acForm & "," & _
-            "Reports|" & acReport & "," & _
-            "Scripts|" & acMacro & "," & _
-            "Modules|" & acModule _
-        )
-            DoEvents
-            obj_type_split = Split(obj_type, "|")
-            obj_type_name = obj_type_split(0)
-            obj_type_num = Val(obj_type_split(1))
-            If CurrentDb.Containers(obj_type_name).Documents.Count > 0 Then
-                obj_name = CurrentDb.Containers(obj_type_name).Documents(0).Name
-                Exit For
-            End If
-        Next
+        ' ADP Project
+        If CurrentData.AllQueries.Count > 0 Then
+            obj_type_num = acServerView
+            obj_name = CurrentData.AllQueries(1).Name
+        ElseIf CurrentProject.AllForms.Count > 0 Then
+            ' Try a form
+            obj_type_num = acForm
+            obj_name = CurrentProject.AllForms(1).Name
+        Else
+            ' Can add more object types as needed...
+        End If
     End If
 
     If obj_name = "" Then
@@ -236,9 +251,9 @@ Public Function UsingUcs2() As Boolean
     End If
     Close fn
     
-    Dim FSO As Object
-    Set FSO = CreateObject("Scripting.FileSystemObject")
-    FSO.DeleteFile (tempFileName)
+    Dim fso As New Scripting.FileSystemObject
+    fso.DeleteFile tempFileName
+    
 End Function
 
 

@@ -2,8 +2,8 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-Option Compare Database
 Option Explicit
+Option Compare Database
 
 ' Require the functions outlined in IVersionControl
 ' (Allows us to use different data models with the same
@@ -51,7 +51,9 @@ End Sub
 Private Sub Class_Terminate()
     If Not m_Menu Is Nothing Then
         m_Menu.Terminate
+        m_vcs.Terminate
         Set m_Menu = Nothing
+        Set m_vcs = Nothing
     End If
 End Sub
 
@@ -66,7 +68,6 @@ End Sub
 Private Sub IVersionControl_Commit()
     ActivateGitHub
 End Sub
-
 
 
 '---------------------------------------------------------------------------------------
@@ -138,7 +139,6 @@ Private Sub ActivateGitHub()
 End Sub
 
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : IVersionControl_Terminate
 ' Author    : Adam Waller
@@ -183,4 +183,16 @@ Private Property Get IVersionControl_IncludeVBE() As Boolean
 End Property
 Private Property Get IVersionControl_SelectionSourceFile(Optional UseVBEFile As Boolean = True) As String
     IVersionControl_SelectionSourceFile = m_vcs.SelectionSourceFile(UseVBEFile)
+End Property
+Private Property Let IVersionControl_FastSave(ByVal RHS As Boolean)
+    m_vcs.FastSave = RHS
+End Property
+Private Property Get IVersionControl_FastSave() As Boolean
+    IVersionControl_FastSave = m_vcs.FastSave
+End Property
+Private Property Let IVersionControl_SavePrintVars(ByVal RHS As Boolean)
+    m_vcs.SavePrintVars = RHS
+End Property
+Private Property Get IVersionControl_SavePrintVars() As Boolean
+    IVersionControl_SavePrintVars = m_vcs.SavePrintVars
 End Property

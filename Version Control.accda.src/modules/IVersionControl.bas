@@ -2,14 +2,16 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-Option Compare Database
 Option Explicit
+Option Compare Database
 
 
 ' Simple properties can be set here
 Public ExportBaseFolder As String
 Public ShowDebug As Boolean
 Public IncludeVBE As Boolean
+Public FastSave As Boolean
+Public SavePrintVars As Boolean
 
 
 ' Objects and collections need to be set with wrappers.

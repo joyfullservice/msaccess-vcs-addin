@@ -1,19 +1,19 @@
+Option Explicit
 Option Compare Database
 Option Private Module
-Option Explicit
 
 
 Public Sub ExportRelation(rel As Relation, filePath As String)
 
-    Dim FSO, OutFile As Object ' Scripting.FileSystemObject
-    Set FSO = CreateObject("Scripting.FileSystemObject")
-    Set OutFile = FSO.CreateTextFile(filePath, True)
+    Dim fso As New Scripting.FileSystemObject
+    Dim OutFile As Scripting.TextStream
+    Set OutFile = fso.CreateTextFile(filePath, True)
 
     OutFile.WriteLine rel.Attributes 'RelationAttributeEnum
     OutFile.WriteLine rel.Name
     OutFile.WriteLine rel.table
     OutFile.WriteLine rel.foreignTable
-    Dim f As Field
+    Dim f As Object ' Field
     For Each f In rel.Fields
         OutFile.WriteLine "Field = Begin"
         OutFile.WriteLine f.Name
@@ -26,19 +26,21 @@ End Sub
 
 
 Public Sub ImportRelation(filePath As String)
-    Dim FSO, InFile As Object ' Scripting.FileSystemObject
-    Set FSO = CreateObject("Scripting.FileSystemObject")
-    Set InFile = FSO.OpenTextFile(filePath, 1)
+
+    Dim fso As New Scripting.FileSystemObject
+    Dim InFile As Scripting.TextStream
+    Set InFile = fso.OpenTextFile(filePath, 1)
     
     Dim rel As New Relation
     rel.Attributes = InFile.ReadLine
     rel.Name = InFile.ReadLine
     rel.table = InFile.ReadLine
     rel.foreignTable = InFile.ReadLine
-    Dim f As Field
+    Dim f As Object ' Field
     Do Until InFile.AtEndOfStream
         If "Field = Begin" = InFile.ReadLine Then
-            Set f = New Field
+            'Set f = New Field
+            Set f = CreateObject("ADODB.Field")
             f.Name = InFile.ReadLine
             f.ForeignName = InFile.ReadLine
             If "End" <> InFile.ReadLine Then

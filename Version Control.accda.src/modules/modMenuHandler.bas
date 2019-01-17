@@ -1,5 +1,5 @@
-Option Compare Database
 Option Explicit
+Option Compare Database
 
 'Private m_DefaultModel As clsModelGitHub
 Private m_Model As IVersionControl
@@ -22,50 +22,69 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadVersionControl
 ' Author    : Adam Waller
-' Date      : 5/18/2015
+' Date      : 1/24/2018
 ' Purpose   : Load the version control system using the specified parameters
-'           : (We use a parameter array to avoid need for early binding on
+'           : (We use a collection to avoid the need for early binding on
 '           :  class models in parent applications)
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadVersionControl(varParams As Variant)
+Public Sub LoadVersionControl(colParams As Collection)
 
-    Dim intCnt As Integer
     Dim cModel As IVersionControl
+    Dim varParam As Variant
     Dim strKey As String
     Dim strVal As String
     Dim strMsg As String
     
+    ' Unload and clear any existing objects
+    If Not m_Model Is Nothing Then
+        m_Model.Terminate
+        Set m_Model = Nothing
+    End If
+    
     ' Load parameters
-    For intCnt = LBound(varParams) To UBound(varParams)
-        strKey = varParams(intCnt)(0)
-        strVal = varParams(intCnt)(1)
-        Select Case strKey
-            Case "System"
-                Select Case strVal
-                    Case "GitHub"
-                        Set cModel = New clsModelGitHub
-                    Case "SVN"
-                        Set cModel = New clsModelSVN
-                    Case Else
-                        strMsg = "System not supported: " & strVal
-                End Select
-            
-            Case "Export Folder"
-                If Not cModel Is Nothing Then cModel.ExportBaseFolder = strVal
+    For Each varParam In colParams
+        If IsArray(varParam) Then
+            strKey = varParam(0)
+            strVal = varParam(1)
+            Select Case strKey
+                Case "System"
+                    Select Case strVal
+                        Case "GitHub"
+                            Set cModel = New clsModelGitHub
+                        Case "SVN"
+                            Set cModel = New clsModelSVN
+                        Case Else
+                            strMsg = "System not supported: " & strVal
+                    End Select
                 
-            Case "Show Debug"
-                If Not cModel Is Nothing Then cModel.ShowDebug = strVal
+                Case "Export Folder"
+                    If Not cModel Is Nothing Then cModel.ExportBaseFolder = strVal
+                    
+                Case "Show Debug"
+                    If Not cModel Is Nothing Then cModel.ShowDebug = strVal
+                    
+                Case "Include VBE"
+                    If Not cModel Is Nothing Then cModel.IncludeVBE = strVal
                 
-            Case "Include VBE"
-                If Not cModel Is Nothing Then cModel.IncludeVBE = strVal
+                Case "Fast Save"
+                    If Not cModel Is Nothing Then cModel.FastSave = strVal
+                    
+                Case "Save Table"
+                    If Not cModel Is Nothing Then cModel.TablesToSaveData.Add strVal
+                
+                Case "Save Print Vars"
+                    'if not cmodel is nothing then cmodel.
+                
+                Case Else
+                    strMsg = "Unknown parameter: " & strKey
             
-            Case Else
-                strMsg = "Unknown parameter: " & strKey
-        
-        End Select
+            End Select
+        Else
+            strMsg = "Parameter must be passed as an array."
+        End If
         If strMsg <> "" Then Exit For
-    Next intCnt
+    Next varParam
     
     If strMsg = "" Then
         ' Set model

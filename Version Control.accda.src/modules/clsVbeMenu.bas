@@ -2,8 +2,8 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-Option Compare Database
 Option Explicit
+Option Compare Database
 
 
 Private Const cstrCmdBarName As String = "Version Control"
@@ -33,8 +33,9 @@ Attribute m_evtDiff.VB_VarHelpID = -1
 Public Sub Construct(cModel As IVersionControl)
     
     ' Save reference to model
+    If Not m_Model Is Nothing Then m_Model.Terminate
     Set m_Model = cModel
-    
+
     ' Verify that the required software is installed
     If m_Model.HasRequiredSoftware(True) Then
     

@@ -2,8 +2,8 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-Option Compare Database
 Option Explicit
+Option Compare Database
 
 '---------------------------------------------------------------------------------------
 ' Update these values to set the paths and commands for default installations
@@ -193,4 +193,16 @@ Private Property Get IVersionControl_IncludeVBE() As Boolean
 End Property
 Private Property Get IVersionControl_SelectionSourceFile(Optional UseVBEFile As Boolean = True) As String
     IVersionControl_SelectionSourceFile = m_vcs.SelectionSourceFile(UseVBEFile)
+End Property
+Private Property Let IVersionControl_FastSave(ByVal RHS As Boolean)
+    m_vcs.FastSave = RHS
+End Property
+Private Property Get IVersionControl_FastSave() As Boolean
+    IVersionControl_FastSave = m_vcs.FastSave
+End Property
+Private Property Let IVersionControl_SavePrintVars(ByVal RHS As Boolean)
+    m_vcs.SavePrintVars = RHS
+End Property
+Private Property Get IVersionControl_SavePrintVars() As Boolean
+    IVersionControl_SavePrintVars = m_vcs.SavePrintVars
 End Property

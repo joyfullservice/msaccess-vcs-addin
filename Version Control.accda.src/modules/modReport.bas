@@ -1,7 +1,6 @@
+Option Explicit
 Option Compare Database
 Option Private Module
-Option Explicit
-
 
 Private Type str_DEVMODE
  RGB As String * 94
@@ -41,8 +40,7 @@ End Type
 'Exports print vars for reports
 Public Sub ExportPrintVars(obj_name As String, filePath As String)
     DoEvents
-    Dim FSO As Object
-    Set FSO = CreateObject("Scripting.FileSystemObject")
+    Dim fso As New Scripting.FileSystemObject
     
     Dim DevModeString As str_DEVMODE
     Dim DevModeExtra As String
@@ -70,32 +68,33 @@ Public Sub ExportPrintVars(obj_name As String, filePath As String)
        Exit Sub
     End If
     
-    Dim OutFile As Object
-    Set OutFile = FSO.CreateTextFile(filePath, True)
+    Dim OutFile As Scripting.TextStream
+    Set OutFile = fso.CreateTextFile(filePath, True)
     
     'print out print var values
-    OutFile.WriteLine DM.intOrientation
-    OutFile.WriteLine DM.intPaperSize
-    OutFile.WriteLine DM.intPaperLength
-    OutFile.WriteLine DM.intPaperWidth
-    OutFile.WriteLine DM.intScale
+    OutFile.WriteLine "Orientation=" & DM.intOrientation
+    OutFile.WriteLine "PaperSize=" & DM.intPaperSize
+    OutFile.WriteLine "PaperLength=" & DM.intPaperLength
+    OutFile.WriteLine "PaperWidth=" & DM.intPaperWidth
+    OutFile.WriteLine "Scale=" & DM.intScale
     OutFile.Close
     
     Set rpt = Nothing
     
-    DoCmd.Close acReport, obj_name, acSaveYes
+    DoCmd.Close acReport, obj_name, acSaveNo ' acSaveYes
     Application.Echo True
     VBE.ActiveCodePane.Show
     
 End Sub
 
+
 Public Sub ImportPrintVars(obj_name As String, filePath As String)
 
-Dim FSO As Object
-Set FSO = CreateObject("Scripting.FileSystemObject")
+Dim fso As New Scripting.FileSystemObject
 
  Dim DevModeString As str_DEVMODE
  Dim DevModeExtra As String
+ Dim varLine As Variant
  
  Dim DM As type_DEVMODE
   Dim rpt As Report
@@ -118,15 +117,25 @@ Set FSO = CreateObject("Scripting.FileSystemObject")
     Exit Sub
  End If
  
- Dim InFile As Object
- Set InFile = FSO.OpenTextFile(filePath, ForReading)
+ Dim InFile As Scripting.TextStream ' Object
+ Set InFile = fso.OpenTextFile(filePath, ForReading)
  
- 'print out print var values
- DM.intOrientation = InFile.ReadLine
- DM.intPaperSize = InFile.ReadLine
- DM.intPaperLength = InFile.ReadLine
- DM.intPaperWidth = InFile.ReadLine
- DM.intScale = InFile.ReadLine
+ ' Loop through lines
+ Do While Not InFile.AtEndOfStream
+    varLine = Split(InFile.ReadLine, "=")
+    If UBound(varLine) = 1 Then
+        Select Case varLine(0)
+            Case "Orientation":     DM.intOrientation = varLine(1)
+            Case "PaperSize":       DM.intPaperSize = varLine(1)
+            Case "PaperLength":     DM.intPaperLength = varLine(1)
+            Case "PaperWidth":      DM.intPaperWidth = varLine(1)
+            Case "Scale":           DM.intScale = varLine(1)
+            Case Else
+                Debug.Print "* Unknown print var: '" & varLine(0) & "'"
+        End Select
+    End If
+ Loop
+ 
  InFile.Close
  
 'write print vars back into report

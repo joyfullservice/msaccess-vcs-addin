@@ -1,10 +1,10 @@
+Option Explicit
 '---------------------------------------------------------------------------------------
 ' Functions used by the Version Control System menu handlers.
 ' Added here to reduce the memory overhead if we are only loading the menu.
 ' (VBA loads code modules on the first call to a function in the module)
 '---------------------------------------------------------------------------------------
 Option Compare Database
-Option Explicit
 Option Private Module
 
 
@@ -69,11 +69,9 @@ End Function
 '
 Public Function UncPath(strPath As String) As String
     
-    Dim objFSO As Object ' FileSystemObject
+    Dim objFSO As New Scripting.FileSystemObject
     Dim strDrive As String
     Dim strShare As String
-    
-    Set objFSO = CreateObject("Scripting.FileSystemObject")
     
     ' Identify drive letter and share name
     With objFSO

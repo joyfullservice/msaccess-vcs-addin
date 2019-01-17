@@ -1,14 +1,15 @@
+Option Explicit
 Option Compare Database
 Option Private Module
-Option Explicit
 
 
 ' Import database properties from a text file, true=SUCCESS
 Public Function ImportProperties(obj_path As String) As Boolean
 
-    Dim FSO, InFile
+    Dim fso As New Scripting.FileSystemObject
+    Dim InFile As Scripting.TextStream
     Dim strLine As String
-    Dim item() As String
+    Dim Item() As String
     Dim GUID As String
     Dim Major As Long
     Dim Minor As Long
@@ -24,23 +25,22 @@ Public Function ImportProperties(obj_path As String) As Boolean
         Exit Function
     End If
     
-    Set FSO = CreateObject("Scripting.FileSystemObject")
-    Set InFile = FSO.OpenTextFile(obj_path & fileName, ForReading)
+    Set InFile = fso.OpenTextFile(obj_path & fileName, ForReading)
 
-    Set objParent = CurrentDb
+    Set objParent = CodeDb
     If CodeProject.ProjectType = acADP Then Set objParent = CurrentProject
 
     'On Error Resume Next
     Do Until InFile.AtEndOfStream
         strLine = InFile.ReadLine
-        item = Split(strLine, "=")
-        If UBound(item) > 0 Then ' Looks like a valid entry
+        Item = Split(strLine, "=")
+        If UBound(Item) > 0 Then ' Looks like a valid entry
             ' Set property in database
-            Set prp = objParent.Properties(item(0))
-            strVal = Mid(strLine, Len(item(0)) + 2)
+            Set prp = objParent.Properties(Item(0))
+            strVal = Mid(strLine, Len(Item(0)) + 2)
             If prp.Value <> strVal Then
                 ' Different property. Attempt to set.
-                objParent.Properties(item(0)) = strVal
+                objParent.Properties(Item(0)) = strVal
             End If
         End If
     Loop
@@ -49,7 +49,7 @@ Public Function ImportProperties(obj_path As String) As Boolean
     
     InFile.Close
     Set InFile = Nothing
-    Set FSO = Nothing
+    Set fso = Nothing
     ImportProperties = True
 
 End Function
@@ -58,19 +58,16 @@ End Function
 ' Export database properties to a CSV
 Public Sub ExportProperties(obj_path As String)
     
-    Dim FSO As Object ' Scripting.FileSystemObject
-    Dim OutFile As Object
-    Dim strLine As String
-    Dim ref As Reference
+    Dim fso As New Scripting.FileSystemObject
+    Dim OutFile As Scripting.TextStream
     Dim obj_count As Integer
     Dim objParent As Object
     Dim prp As Object
     
-    Set FSO = CreateObject("Scripting.FileSystemObject")
-    Set OutFile = FSO.CreateTextFile(obj_path & "properties.txt", True)
+    Set OutFile = fso.CreateTextFile(obj_path & "properties.txt", True)
     
     ' Save list of properties set in current database.
-    Set objParent = CurrentDb
+    Set objParent = CodeDb
     If CodeProject.ProjectType = acADP Then Set objParent = CurrentProject
     
     On Error Resume Next
@@ -93,6 +90,6 @@ Public Sub ExportProperties(obj_path As String)
     End If
     
     Set OutFile = Nothing
-    Set FSO = Nothing
+    Set fso = Nothing
     
 End Sub
