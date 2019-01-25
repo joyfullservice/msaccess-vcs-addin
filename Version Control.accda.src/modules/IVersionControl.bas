@@ -12,10 +12,13 @@ Public ShowDebug As Boolean
 Public IncludeVBE As Boolean
 Public FastSave As Boolean
 Public SavePrintVars As Boolean
+Public AggressiveSanitize As Boolean
+Public StripPublishOption As Boolean
 
 
 ' Objects and collections need to be set with wrappers.
 Private m_TablesToSaveData As New Collection
+Private m_Log As New clsConcat
 
 
 '---------------------------------------------------------------------------------------
@@ -44,9 +47,7 @@ Public Property Get SelectionSourceFile(Optional UseVBEFile As Boolean = True) A
     
     If ProjectIsSelected Then
         ' Path to root project folder
-        strPath = Me.ExportBaseFolder
-        ' Trim trailing slash
-        If Right(strPath, 1) = "\" Then strPath = Left(strPath, Len(strPath) - 1)
+        strPath = StripSlash(Me.ExportBaseFolder)
     Else
         ' Get correct file extension and path
         strName = VBE.SelectedVBComponent.Name
@@ -78,6 +79,54 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Log
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Add a log file entry.
+'---------------------------------------------------------------------------------------
+'
+Public Sub Log(strText As String, Optional blnPrint As Boolean = True, Optional blnNextOutputOnNewLine As Boolean = True)
+
+    Static dblLastLog As Double
+    
+    m_Log.Add strText
+    If blnPrint Then
+        If blnNextOutputOnNewLine Then
+            ' Create new line
+            Debug.Print strText
+        Else
+            ' Continue next printout on this line.
+            Debug.Print strText;
+        End If
+    End If
+    
+    If blnNextOutputOnNewLine Then m_Log.Add vbCrLf
+    
+    ' Allow an update to the screen every second.
+    ' (This keeps the aplication from an apparent hang while
+    '  running intensive export processes.)
+    If dblLastLog + 1 < Timer Then
+        DoEvents
+        dblLastLog = Timer
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveLogFile
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Saves the log data to a file, and resets the log buffer.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveLogFile(strPath As String)
+    WriteFile m_Log.GetStr, strPath
+    Set m_Log = New clsConcat
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Export
 ' Author    : Adam Waller
 ' Date      : 5/18/2015
@@ -85,6 +134,17 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Sub Export()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportAll
+' Author    : Adam Waller
+' Date      : 1/25/2019
+' Purpose   : Export the entire project
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportAll()
 End Sub
 
 
@@ -131,4 +191,21 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Sub Terminate()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Initialize
+' Author    : Adam Waller
+' Date      : 1/24/2019
+' Purpose   : Set up default values. (Can be overriden later)
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Initialize()
+    AggressiveSanitize = True
+    StripPublishOption = True
+    IncludeVBE = False
+    FastSave = True
+    SavePrintVars = False
+    ShowDebug = False
 End Sub

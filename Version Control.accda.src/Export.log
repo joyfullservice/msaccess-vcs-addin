@@ -1,0 +1,70 @@
+-------------------------------
+Beginning Export of all Source
+Version Control.accda
+1/25/2019 4:30:43 PM
+-------------------------------
+Exporting queries...    
+
+[0] queries exported.
+-------------------------------
+Exporting forms...      
+
+[0] forms exported.
+-------------------------------
+Exporting reports...    
+
+[0] reports exported.
+-------------------------------
+Exporting macros...     
+
+  (Skipping 'autoexec')
+[1] macros exported.
+-------------------------------
+Exporting modules...    
+
+  clsVbeMenu
+  modDataMacro
+  modFileAccess
+  modRelation
+  clsConcat
+  modVersionControl
+  clsModelSVN
+  IVersionControl
+  modDeploy
+  modMenuHandler
+  modADPFunctions
+  modFunctions
+  clsModelGitHub
+  modReference
+  modTable
+  modImportExport
+  modProperty
+  modReport
+[18] modules exported.
+-------------------------------
+Exporting references... 
+
+  VBA 4.1
+  Access 9.0
+  stdole 2.0
+  DAO 12.0
+  ADODB 6.1
+  Office 2.5
+  VBIDE 5.3
+  Scripting 1.0
+  VBScript_RegExp_55 5.5
+[9] references exported.
+-------------------------------
+Exporting properties... 
+
+[39] database properties exported.
+-------------------------------
+Exporting tbldef...     
+
+[0] tbldefs exported.
+-------------------------------
+Exporting Relations...  
+
+[0] relations exported.
+-------------------------------
+Done. (0.34 seconds)

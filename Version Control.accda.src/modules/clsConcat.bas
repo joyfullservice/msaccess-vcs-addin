@@ -22,6 +22,8 @@ Option Explicit
 Private astrPages() As String
 Private lngCurrentPage As Long
 Private lngCurrentPos As Long
+Private lngPageSize As Long
+Private lngInitialPages As Long
 
 ' These defaults can be tweaked as needed
 Const clngPageSize As Long = 4096
@@ -31,6 +33,9 @@ Const clngInitialPages As Long = 100
 
 ' Prepares the initial buffer page
 Private Sub Class_Initialize()
+    
+    If lngPageSize = 0 Then lngPageSize = clngPageSize
+    If lngInitialPages = 0 Then lngInitialPages = clngInitialPages
     
     ' Set up the initial array of pages.
     ReDim astrPages(0 To clngInitialPages - 1) As String
@@ -97,7 +102,34 @@ Public Sub Add(strAddString As String)
 End Sub
 
 
-'Returns the accumulated string
+' Removes the specified number of chacters from the string.
+' (Technically just moves the position back)
+Public Sub Remove(lngChars As Long)
+    
+    Dim lngTotalLen As Long
+    Dim lngNewPosition As Long
+    
+    ' Get total length of current string including all pages
+    lngTotalLen = lngCurrentPos + (lngCurrentPage * clngPageSize)
+    
+    ' We can't remove more characters than we put in the string to start with.
+    If lngChars > lngTotalLen Then
+        ' Go to beginning
+        lngCurrentPage = 0
+        lngCurrentPos = 1
+    Else
+        ' Get new absolute position
+        lngNewPosition = lngTotalLen - lngChars
+        ' Calculate full pages
+        lngCurrentPage = (lngNewPosition \ clngPageSize)
+        ' Set position on partial page
+        lngCurrentPos = lngNewPosition - (lngCurrentPage * clngPageSize)
+    End If
+    
+End Sub
+
+
+' Returns the accumulated string
 Public Function GetStr() As String
 
     Dim lngCnt As Long
@@ -115,3 +147,55 @@ Public Function GetStr() As String
     End If
     
 End Function
+
+
+' returns the length of the string, based on the current position
+' (Faster than building the string just to check the length)
+Public Function Length() As Double
+    Length = (lngCurrentPage * clngPageSize) + lngCurrentPos
+End Function
+
+
+' Reset the buffer without changing the page size
+Public Sub Clear()
+    
+    Class_Initialize
+    
+    ' Reset positions
+    lngCurrentPage = 0
+    lngCurrentPos = 0
+
+End Sub
+
+
+' Manually set page size if you want something different from the default.
+Public Sub SetPageSize(lngNewPageSize As Long, Optional lngNewInitialPages As Long)
+    If lngCurrentPage > 0 Or lngCurrentPos > 1 Then
+        MsgBox "Please set the page size before adding any data", vbExclamation, "Error in clsConcat"
+    Else
+        lngPageSize = lngNewPageSize
+        If lngNewInitialPages > 0 Then lngInitialPages = lngNewInitialPages
+        ' Reinitialize with the updated sizes
+        Class_Initialize
+    End If
+End Sub
+
+
+' Test the class to make sure we are paging correctly.
+Public Sub SelfTest()
+
+    SetPageSize 10
+    
+    Add "abcdefghij"
+    Add "k"
+    Debug.Assert Len(GetStr) = 11
+    Remove 2
+    Debug.Assert Len(GetStr) = 9
+    Add "jkl"
+    Debug.Assert Len(GetStr) = 12
+    Debug.Assert GetStr = "abcdefghijkl"
+    Add "m123456789"
+    Remove 11
+    Debug.Assert GetStr = "abcdefghijk"
+    
+End Sub

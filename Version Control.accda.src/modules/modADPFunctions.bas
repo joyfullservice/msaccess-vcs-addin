@@ -132,6 +132,8 @@ Public Function GetSQLObjectDefinitionForADP(strName As String) As String
         GetSQLObjectDefinitionForADP = Nz(rst(0).Value)
     End If
     
+    Set rst = Nothing
+    
 End Function
 
 
@@ -148,7 +150,6 @@ Public Function GetADPTableDef(strTable As String) As String
     Dim strSQL As String
     Dim strObject As String
     Dim intRst As Integer
-    Dim strText As String
     Dim fld As ADODB.Field
     Dim colText As New clsConcat
     
@@ -238,15 +239,14 @@ Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As S
     
     ' If no triggers, then clear and exit
     If colTriggers.Count = 0 Then
-        If DirExists(strBaseExportFolder) Then
+        If FSO.FolderExists(strBaseExportFolder) Then
             ClearTextFilesFromDir strBaseExportFolder, "sql"
             Exit Sub
         End If
     End If
     
     ' Prepare folder
-    If Not DirExists(strBaseExportFolder) Then VerifyPath strBaseExportFolder
-    
+    If Not FSO.FolderExists(strBaseExportFolder) Then VerifyPath strBaseExportFolder
     
     ' Clear all existing files unless we are using fast save.
     If cModel.FastSave Then
@@ -280,7 +280,7 @@ Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As S
         ' Check for fast save, to see if we can just export the newly changed triggers
         If cModel.FastSave Then
             strFile = strBaseExportFolder & varTrg(3)
-            If Not FileExists(strFile) Then
+            If Not FSO.FileExists(strFile) Then
                 blnSkip = False
             Else
                 dteFileModified = FileDateTime(strFile)
@@ -295,16 +295,15 @@ Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As S
         End If
         
         If blnSkip Then
-            If ShowDebugInfo Then Debug.Print "    (Skipping) [Trigger] - " & varTrg(0)
+            cModel.Log "    (Skipping) [Trigger] - " & varTrg(0), cModel.ShowDebug
         Else
             ' Export the trigger definition
             strDef = GetSQLObjectDefinitionForADP(varTrg(2) & "." & varTrg(0))
             WriteFile strDef, strBaseExportFolder & varTrg(3)
             ' Show output
-            If ShowDebugInfo Then Debug.Print "    [Trigger] - " & varTrg(0)
+            cModel.Log "    [Trigger] - " & varTrg(0), cModel.ShowDebug
         End If
             
     Next varTrg
 
-    
 End Sub

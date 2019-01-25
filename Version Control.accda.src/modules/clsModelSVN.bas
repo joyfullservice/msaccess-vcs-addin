@@ -129,6 +129,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IVersionControl_ExportAll
+' Author    : Adam Waller
+' Date      : 1/25/2019
+' Purpose   : Export all source files for the project.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IVersionControl_ExportAll()
+    ExportAllSource Me
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IVersionControl_HasRequiredSoftware
 ' Author    : Adam Waller
 ' Date      : 5/15/2015
@@ -205,4 +217,22 @@ Private Property Let IVersionControl_SavePrintVars(ByVal RHS As Boolean)
 End Property
 Private Property Get IVersionControl_SavePrintVars() As Boolean
     IVersionControl_SavePrintVars = m_vcs.SavePrintVars
+End Property
+Private Sub IVersionControl_Log(strText As String, Optional blnPrint As Boolean = True, Optional blnStartNewLine As Boolean = True)
+    m_vcs.Log strText, blnPrint, blnStartNewLine
+End Sub
+Private Sub IVersionControl_SaveLogFile(strPath As String)
+    m_vcs.SaveLogFile strPath
+End Sub
+Private Property Let IVersionControl_StripPublishOption(ByVal RHS As Boolean)
+    m_vcs.StripPublishOption = RHS
+End Property
+Private Property Get IVersionControl_StripPublishOption() As Boolean
+    IVersionControl_StripPublishOption = m_vcs.StripPublishOption
+End Property
+Private Property Let IVersionControl_AggressiveSanitize(ByVal RHS As Boolean)
+    m_vcs.AggressiveSanitize = RHS
+End Property
+Private Property Get IVersionControl_AggressiveSanitize() As Boolean
+    IVersionControl_AggressiveSanitize = m_vcs.AggressiveSanitize
 End Property

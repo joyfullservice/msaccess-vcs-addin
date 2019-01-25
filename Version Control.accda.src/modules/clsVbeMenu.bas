@@ -15,6 +15,8 @@ Private m_Model As IVersionControl
 Private m_CommandBar As Office.CommandBar
 
 ' Menu button events
+Private WithEvents m_evtSaveAll As VBIDE.CommandBarEvents
+Attribute m_evtSaveAll.VB_VarHelpID = -1
 Private WithEvents m_evtSave As VBIDE.CommandBarEvents
 Attribute m_evtSave.VB_VarHelpID = -1
 Private WithEvents m_evtCommit As VBIDE.CommandBarEvents
@@ -95,7 +97,8 @@ Private Sub AddAllButtons()
     With Application.VBE.Events
         Set m_evtCommit = .CommandBarEvents(AddButton("Commit Module/Project", 270))
         Set m_evtDiff = .CommandBarEvents(AddButton("Diff Module/Project", 2042, , True))
-        Set m_evtSave = .CommandBarEvents(AddButton("Save Module/Project", 3))
+        Set m_evtSave = .CommandBarEvents(AddButton("Export Selected", 3))
+        Set m_evtSaveAll = .CommandBarEvents(AddButton("Export All", 749, , , msoButtonIconAndCaption))
     End With
     
 End Sub
@@ -109,13 +112,14 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function AddButton(strCaption As String, intFaceID As Integer, _
-    Optional intPositionBefore As Integer = 1, Optional blnBeginGroup As Boolean = False) As CommandBarButton
+    Optional intPositionBefore As Integer = 1, Optional blnBeginGroup As Boolean = False, Optional intStyle As MsoButtonStyle) As CommandBarButton
     
     Dim btn As CommandBarButton
     
     Set btn = m_CommandBar.Controls.Add(msoControlButton, , , intPositionBefore)
     btn.Caption = strCaption
     btn.FaceId = intFaceID
+    btn.Style = intStyle
     If blnBeginGroup Then btn.BeginGroup = True
     Set AddButton = btn
 
@@ -182,7 +186,11 @@ Private Sub m_evtDiff_Click(ByVal CommandBarControl As Object, handled As Boolea
     handled = True
 End Sub
 Private Sub m_evtSave_Click(ByVal CommandBarControl As Object, handled As Boolean, CancelDefault As Boolean)
-    ExportSelected
+    If CloseAllFormsReports Then ExportSelected
+    handled = True
+End Sub
+Private Sub m_evtSaveAll_Click(ByVal CommandBarControl As Object, handled As Boolean, CancelDefault As Boolean)
+    If CloseAllFormsReports Then m_Model.ExportAll
     handled = True
 End Sub
 

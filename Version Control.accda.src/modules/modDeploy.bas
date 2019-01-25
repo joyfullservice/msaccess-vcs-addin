@@ -408,7 +408,7 @@ Public Function CheckForUpdates() As Boolean
                         ' Compare current with latest.
                         If strCurrent <> strLatest Then
                             Debug.Print "UPDATE AVAILABLE: " & ref.Name & " (" & _
-                                GetFileNameFromPath(VBE.VBProjects(ref.Name).fileName) & _
+                                GetFileNameFromPath(VBE.VBProjects(ref.Name).FileName) & _
                                 ") can be updated from " & strCurrent & " to " & strLatest
                             CheckForUpdates = True
                         End If
@@ -690,13 +690,13 @@ Private Function GetVBProjectForCurrentDB() As Object   ' As VBProject
     Dim strPath As String
     
     strPath = CurrentProject.FullName
-    If VBE.ActiveVBProject.fileName = strPath Then
+    If VBE.ActiveVBProject.FileName = strPath Then
         ' Use currently active project
         Set GetVBProjectForCurrentDB = VBE.ActiveVBProject
     Else
         ' Search for project with matching filename.
         For Each objProj In VBE.VBProjects
-            If objProj.fileName = strPath Then
+            If objProj.FileName = strPath Then
                 Set GetVBProjectForCurrentDB = objProj
                 Exit For
             End If

@@ -3,29 +3,77 @@ Option Compare Database
 Option Private Module
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : ExportProperties
+' Author    : Adam Waller
+' Date      : 1/24/2019
+' Purpose   : Export database properties to a CSV
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportProperties(strFolder As String, cModel As IVersionControl)
+    
+    Dim cData As New clsConcat
+    Dim intCnt As Integer
+    Dim objParent As Object
+    Dim prp As Object
+    
+    ' Save list of properties set in current database.
+    If CodeProject.ProjectType = acMDB Then
+        Set objParent = CodeDb
+    Else
+        ' ADP project
+        Set objParent = CurrentProject
+    End If
+    
+    On Error Resume Next
+    For Each prp In objParent.Properties
+        Select Case prp.Name
+            Case "Name"
+                ' Ignore file name property, since this could contain PI and can't be set anyway.
+            Case Else
+                With cData
+                    .Add prp.Name
+                    .Add "="
+                    .Add prp.Value
+                    .Add vbCrLf
+                End With
+                intCnt = intCnt + 1
+        End Select
+    Next prp
+    If Err Then Err.Clear
+    On Error GoTo 0
+    
+    ' Write to file
+    WriteFile cData.GetStr, strFolder & "properties.txt"
+    
+    ' Display summary.
+    If cModel.ShowDebug Then
+        cModel.Log "[" & intCnt & "] database properties exported."
+    Else
+        cModel.Log "[" & intCnt & "]"
+    End If
+    
+End Sub
+
+
 ' Import database properties from a text file, true=SUCCESS
 Public Function ImportProperties(obj_path As String) As Boolean
 
-    Dim fso As New Scripting.FileSystemObject
     Dim InFile As Scripting.TextStream
     Dim strLine As String
     Dim Item() As String
-    Dim GUID As String
-    Dim Major As Long
-    Dim Minor As Long
-    Dim fileName As String
-    Dim refName As String
+    Dim FileName As String
     Dim objParent As Object
     Dim strVal As String
     Dim prp As Object
     
-    fileName = Dir(obj_path & "properties.txt")
-    If Len(fileName) = 0 Then
+    FileName = Dir(obj_path & "properties.txt")
+    If Len(FileName) = 0 Then
         ImportProperties = False
         Exit Function
     End If
     
-    Set InFile = fso.OpenTextFile(obj_path & fileName, ForReading)
+    Set InFile = FSO.OpenTextFile(obj_path & FileName, ForReading)
 
     Set objParent = CodeDb
     If CodeProject.ProjectType = acADP Then Set objParent = CurrentProject
@@ -49,47 +97,6 @@ Public Function ImportProperties(obj_path As String) As Boolean
     
     InFile.Close
     Set InFile = Nothing
-    Set fso = Nothing
     ImportProperties = True
 
 End Function
-
-
-' Export database properties to a CSV
-Public Sub ExportProperties(obj_path As String)
-    
-    Dim fso As New Scripting.FileSystemObject
-    Dim OutFile As Scripting.TextStream
-    Dim obj_count As Integer
-    Dim objParent As Object
-    Dim prp As Object
-    
-    Set OutFile = fso.CreateTextFile(obj_path & "properties.txt", True)
-    
-    ' Save list of properties set in current database.
-    Set objParent = CodeDb
-    If CodeProject.ProjectType = acADP Then Set objParent = CurrentProject
-    
-    On Error Resume Next
-    For Each prp In objParent.Properties
-        ' Ignore file name property, since this could contain PI and can't be set anyway.
-        If prp.Name <> "Name" Then
-            OutFile.WriteLine prp.Name & "=" & prp.Value
-            obj_count = obj_count + 1
-        End If
-    Next prp
-    If Err Then Err.Clear
-    On Error GoTo 0
-    
-    OutFile.Close
-
-    If ShowDebugInfo Then
-        Debug.Print "[" & obj_count & "] database properties exported."
-    Else
-        Debug.Print "[" & obj_count & "]"
-    End If
-    
-    Set OutFile = Nothing
-    Set fso = Nothing
-    
-End Sub

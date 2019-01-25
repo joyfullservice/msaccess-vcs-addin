@@ -4,6 +4,7 @@ Option Private Module
 
 
 #If Mac Then
+    ' Mac not supported
 #ElseIf Win64 Then
     Private Declare PtrSafe _
         Function getTempPath Lib "kernel32" _
@@ -44,12 +45,14 @@ Private Type BinFile
     mode As String
 End Type
 
+
 ' --------------------------------
 ' Basic functions missing from VB 6: buffered file read/write, string builder, encoding check & conversion
 ' --------------------------------
 
 ' Open a binary file for reading (mode = 'r') or writing (mode = 'w').
 Private Function BinOpen(file_path As String, mode As String) As BinFile
+
     Dim f As BinFile
 
     f.file_num = FreeFile
@@ -68,7 +71,7 @@ Private Function BinOpen(file_path As String, mode As String) As BinFile
         f.buffer_pos = 0
         Get f.file_num, f.file_pos + 1, f.buffer
     Else
-        DelIfExist file_path
+        If FSO.FileExists(file_path) Then Kill file_path
         Open file_path For Binary Access Write As f.file_num
         f.file_len = 0
         f.file_pos = 0
@@ -78,10 +81,13 @@ Private Function BinOpen(file_path As String, mode As String) As BinFile
     End If
 
     BinOpen = f
+    
 End Function
+
 
 ' Buffered read one byte at a time from a binary file.
 Private Function BinRead(ByRef f As BinFile) As Integer
+
     If f.at_eof = True Then
         BinRead = 0
         Exit Function
@@ -105,10 +111,13 @@ Private Function BinRead(ByRef f As BinFile) As Integer
         f.buffer_pos = 0
         Get f.file_num, f.file_pos + 1, f.buffer
     End If
+    
 End Function
+
 
 ' Buffered write one byte at a time from a binary file.
 Private Sub BinWrite(ByRef f As BinFile, b As Integer)
+
     Mid(f.buffer, f.buffer_pos + 1, 1) = Chr(b)
     f.buffer_pos = f.buffer_pos + 1
     If f.buffer_pos >= &H4000 Then
@@ -116,6 +125,7 @@ Private Sub BinWrite(ByRef f As BinFile, b As Integer)
         f.buffer_pos = 0
     End If
 End Sub
+
 
 ' Close binary file.
 Private Sub BinClose(ByRef f As BinFile)
@@ -128,7 +138,8 @@ End Sub
 
 
 ' Binary convert a UCS2-little-endian encoded file to UTF-8.
-Public Sub ConvertUcs2Utf8(Source As String, dest As String)
+Public Sub zConvertUcs2Utf8(Source As String, dest As String)
+
     Dim f_in As BinFile, f_out As BinFile
     Dim in_low As Integer, in_high As Integer
 
@@ -155,39 +166,40 @@ Public Sub ConvertUcs2Utf8(Source As String, dest As String)
 
     BinClose f_in
     BinClose f_out
+    
 End Sub
 
-' Binary convert a UTF-8 encoded file to UCS2-little-endian.
-Public Sub ConvertUtf8Ucs2(Source As String, dest As String)
-    Dim f_in As BinFile, f_out As BinFile
-    Dim in_1 As Integer, in_2 As Integer, in_3 As Integer
-
-    f_in = BinOpen(Source, "r")
-    f_out = BinOpen(dest, "w")
-
-    Do While Not f_in.at_eof
-        in_1 = BinRead(f_in)
-        If (in_1 And &H80) = 0 Then
-            ' U+0000 - U+007F   0LLLLLLL
-            BinWrite f_out, in_1
-            BinWrite f_out, 0
-        ElseIf (in_1 And &HE0) = &HC0 Then
-            ' U+0080 - U+07FF   110HHHLL 10LLLLLL
-            in_2 = BinRead(f_in)
-            BinWrite f_out, ((in_1 And &H3) * &H40) + (in_2 And &H3F)
-            BinWrite f_out, (in_1 And &H1C) / &H4
-        Else
-            ' U+0800 - U+FFFF   1110HHHH 10HHHHLL 10LLLLLL
-            in_2 = BinRead(f_in)
-            in_3 = BinRead(f_in)
-            BinWrite f_out, ((in_2 And &H3) * &H40) + (in_3 And &H3F)
-            BinWrite f_out, ((in_1 And &HF) * &H10) + ((in_2 And &H3C) / &H4)
-        End If
-    Loop
-
-    BinClose f_in
-    BinClose f_out
-End Sub
+'
+'Public Sub ConvertUtf8Ucs2(Source As String, dest As String)
+'    Dim f_in As BinFile, f_out As BinFile
+'    Dim in_1 As Integer, in_2 As Integer, in_3 As Integer
+'
+'    f_in = BinOpen(Source, "r")
+'    f_out = BinOpen(dest, "w")
+'
+'    Do While Not f_in.at_eof
+'        in_1 = BinRead(f_in)
+'        If (in_1 And &H80) = 0 Then
+'            ' U+0000 - U+007F   0LLLLLLL
+'            BinWrite f_out, in_1
+'            BinWrite f_out, 0
+'        ElseIf (in_1 And &HE0) = &HC0 Then
+'            ' U+0080 - U+07FF   110HHHLL 10LLLLLL
+'            in_2 = BinRead(f_in)
+'            BinWrite f_out, ((in_1 And &H3) * &H40) + (in_2 And &H3F)
+'            BinWrite f_out, (in_1 And &H1C) / &H4
+'        Else
+'            ' U+0800 - U+FFFF   1110HHHH 10HHHHLL 10LLLLLL
+'            in_2 = BinRead(f_in)
+'            in_3 = BinRead(f_in)
+'            BinWrite f_out, ((in_2 And &H3) * &H40) + (in_3 And &H3F)
+'            BinWrite f_out, ((in_1 And &HF) * &H10) + ((in_2 And &H3C) / &H4)
+'        End If
+'    Loop
+'
+'    BinClose f_in
+'    BinClose f_out
+'End Sub
 
 
 
@@ -238,7 +250,7 @@ Public Function UsingUcs2() As Boolean
         Exit Function
     End If
 
-    Dim tempFileName As String: tempFileName = TempFile()
+    Dim tempFileName As String: tempFileName = GetTempFile()
     Application.SaveAsText obj_type_num, obj_name, tempFileName
     fn = FreeFile
     Open tempFileName For Binary Access Read As fn
@@ -251,21 +263,93 @@ Public Function UsingUcs2() As Boolean
     End If
     Close fn
     
-    Dim fso As New Scripting.FileSystemObject
-    fso.DeleteFile tempFileName
+    FSO.DeleteFile tempFileName
     
 End Function
 
 
-' Generate Random / Unique tempprary file name.
-Public Function TempFile(Optional sPrefix As String = "VBA") As String
-Dim sTmpPath As String * 512
-Dim sTmpName As String * 576
-Dim nRet As Long
-Dim sFileName As String
+'---------------------------------------------------------------------------------------
+' Procedure : ConvertUcs2Utf8
+' Author    : Adam Waller
+' Date      : 1/23/2019
+' Purpose   : Convert the file to unicode format
+'---------------------------------------------------------------------------------------
+'
+Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String)
+
+    Dim stmNew As New ADODB.Stream
+    Dim strText As String
     
-    nRet = getTempPath(512, sTmpPath)
-    nRet = getTempFileName(sTmpPath, sPrefix, 0, sTmpName)
-    If nRet <> 0 Then sFileName = Left$(sTmpName, InStr(sTmpName, vbNullChar) - 1)
-    TempFile = sFileName
+    ' Read file contents
+    With FSO.OpenTextFile(strSourceFile, , , TristateTrue)
+        strText = .ReadAll
+        .Close
+    End With
+    
+    ' Write as UTF-8
+    With stmNew
+        .Open
+        .Type = adTypeText
+        .Charset = "utf-8"
+        .WriteText strText
+        .SaveToFile strDestinationFile, adSaveCreateOverWrite
+        .Close
+    End With
+    
+    Set stmNew = Nothing
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ConvertUtf8Ucs2
+' Author    : Adam Waller
+' Date      : 1/24/2019
+' Purpose   : NOT YET WORKING...
+'---------------------------------------------------------------------------------------
+'
+Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String)
+
+    Dim stmNew As New ADODB.Stream
+    Dim strText As String
+    
+    ' Read file contents
+    With FSO.OpenTextFile(strSourceFile, , , TristateTrue)
+        strText = .ReadAll
+        .Close
+    End With
+    
+    ' Write as USC2 LE
+    With stmNew
+        .Open
+        .Type = adTypeText
+        ' Not sure what to use here...
+        .Charset = "utf-8"
+        .WriteText strText
+        .SaveToFile strDestinationFile, adSaveCreateOverWrite
+        .Close
+    End With
+    
+    Set stmNew = Nothing
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTempFile
+' Author    : Adapted by Adam Waller
+' Date      : 1/23/2019
+' Purpose   : Generate Random / Unique temporary file name.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTempFile(Optional strPrefix As String = "VBA") As String
+
+    Dim strPath As String * 512
+    Dim strName As String * 576
+    Dim lngReturn As Long
+    
+    lngReturn = getTempPath(512, strPath)
+    lngReturn = getTempFileName(strPath, strPrefix, 0, strName)
+    If lngReturn <> 0 Then GetTempFile = Left$(strName, InStr(strName, vbNullChar) - 1)
+    
 End Function

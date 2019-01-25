@@ -3,33 +3,39 @@ Option Compare Database
 Option Private Module
 
 
-Public Sub ExportRelation(rel As Relation, filePath As String)
+'---------------------------------------------------------------------------------------
+' Procedure : ExportRelation
+' Author    : Adam Waller
+' Date      : 1/24/2019
+' Purpose   : Exports the database table relationships
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportRelation(rel As Relation, strFile As String)
 
-    Dim fso As New Scripting.FileSystemObject
-    Dim OutFile As Scripting.TextStream
-    Set OutFile = fso.CreateTextFile(filePath, True)
-
-    OutFile.WriteLine rel.Attributes 'RelationAttributeEnum
-    OutFile.WriteLine rel.Name
-    OutFile.WriteLine rel.table
-    OutFile.WriteLine rel.foreignTable
-    Dim f As Object ' Field
-    For Each f In rel.Fields
-        OutFile.WriteLine "Field = Begin"
-        OutFile.WriteLine f.Name
-        OutFile.WriteLine f.ForeignName
-        OutFile.WriteLine "End"
-    Next
-    OutFile.Close
-
+    Dim cData As New clsConcat
+    Dim fld As DAO.Field
+    
+    With cData
+        .Add rel.Attributes 'RelationAttributeEnum
+        .Add rel.Name
+        .Add rel.table
+        .Add rel.foreignTable
+        For Each fld In rel.Fields
+            .Add "Field = Begin"
+            .Add fld.Name
+            .Add fld.ForeignName
+            .Add "End"
+        Next
+    End With
+    WriteFile cData.GetStr, strFile
+    
 End Sub
 
 
 Public Sub ImportRelation(filePath As String)
 
-    Dim fso As New Scripting.FileSystemObject
     Dim InFile As Scripting.TextStream
-    Set InFile = fso.OpenTextFile(filePath, 1)
+    Set InFile = FSO.OpenTextFile(filePath, 1)
     
     Dim rel As New Relation
     rel.Attributes = InFile.ReadLine
@@ -75,9 +81,9 @@ Public Function GetRelationFileName(objRelation As Relation) As String
     
     If InStr(1, strName, "].") > 0 Then
         ' Need to remove path to linked file
-        GetRelationFileName = Split(strName, "].")(1)
+        GetRelationFileName = GetSafeFileName(CStr(Split(strName, "].")(1)))
     Else
-        GetRelationFileName = strName
+        GetRelationFileName = GetSafeFileName(strName)
     End If
 
 End Function

@@ -2,12 +2,14 @@ Option Explicit
 Option Compare Database
 Option Private Module
 
+' See https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
+
 Private Type str_DEVMODE
- RGB As String * 94
+    RGB As String * 94
 End Type
 
 Private Type type_DEVMODE
-    strDeviceName(31) As Byte 'vba strings are encoded in unicode (16 bit) not ascii
+    strDeviceName As String * 32
     intSpecVersion As Integer
     intDriverVersion As Integer
     intSize As Integer
@@ -26,7 +28,7 @@ Private Type type_DEVMODE
     intResolution As Integer
     intTTOption As Integer
     intCollate As Integer
-    strFormName(31) As Byte
+    strFormName As String * 32
     lngPad As Long
     lngBits As Long
     lngPW As Long
@@ -36,53 +38,63 @@ Private Type type_DEVMODE
 End Type
 
 
-
-'Exports print vars for reports
-Public Sub ExportPrintVars(obj_name As String, filePath As String)
-    DoEvents
-    Dim fso As New Scripting.FileSystemObject
+'---------------------------------------------------------------------------------------
+' Procedure : ExportPrintVars
+' Author    : Adam Waller
+' Date      : 1/25/2019
+' Purpose   : Exports print vars for reports
+'           : https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportPrintVars(strReport As String, strFile As String, cModel As IVersionControl)
     
     Dim DevModeString As str_DEVMODE
     Dim DevModeExtra As String
     Dim DM As type_DEVMODE
     Dim rpt As Report
+    Dim cData As New clsConcat
     
     'report must be open to access Report object
     'report must be opened in design view to save changes to the print vars
     Application.Echo False
-    DoCmd.OpenReport obj_name, acViewDesign
-    Set rpt = Reports(obj_name)
+    DoCmd.OpenReport strReport, acViewDesign
+    Set rpt = Reports(strReport)
     rpt.Visible = False
+    
     ' Move focus back to IDE
     VBE.ActiveCodePane.Show
     
-    'read print vars into struct
+    ' Make sure we don't have a null devmode
     If Not IsNull(rpt.PrtDevMode) Then
-       DevModeExtra = rpt.PrtDevMode
-       DevModeString.RGB = DevModeExtra
-       LSet DM = DevModeString
+        
+        ' Read report devmode into structure
+        DevModeExtra = rpt.PrtDevMode
+        DevModeString.RGB = DevModeExtra
+        LSet DM = DevModeString
+       
+        ' Print out print var values
+        With cData
+            .Add "Orientation=":    .Add CStr(DM.intOrientation)
+            .Add "PaperSize=":      .Add CStr(DM.intPaperSize)
+            .Add "PaperLength=":    .Add CStr(DM.intPaperLength)
+            .Add "PaperWidth=":     .Add CStr(DM.intPaperWidth)
+            .Add "Scale=":          .Add CStr(DM.intScale)
+        End With
+       
+        ' Write output to file
+        WriteFile cData.GetStr, strFile
+        
     Else
-       Set rpt = Nothing
-       DoCmd.Close acReport, obj_name, acSaveNo
-       Debug.Print "Warning: PrtDevMode is null"
-       Exit Sub
+        ' DevMode was null
+        cModel.Log "  Warning: PrtDevMode is null"
     End If
-    
-    Dim OutFile As Scripting.TextStream
-    Set OutFile = fso.CreateTextFile(filePath, True)
-    
-    'print out print var values
-    OutFile.WriteLine "Orientation=" & DM.intOrientation
-    OutFile.WriteLine "PaperSize=" & DM.intPaperSize
-    OutFile.WriteLine "PaperLength=" & DM.intPaperLength
-    OutFile.WriteLine "PaperWidth=" & DM.intPaperWidth
-    OutFile.WriteLine "Scale=" & DM.intScale
-    OutFile.Close
-    
+        
+    ' Clean up
     Set rpt = Nothing
-    
-    DoCmd.Close acReport, obj_name, acSaveNo ' acSaveYes
+    DoCmd.Close acReport, strReport, acSaveNo
     Application.Echo True
+    
+    ' Go back to the VBA IDE if we are not there already.
     VBE.ActiveCodePane.Show
     
 End Sub
@@ -90,7 +102,6 @@ End Sub
 
 Public Sub ImportPrintVars(obj_name As String, filePath As String)
 
-Dim fso As New Scripting.FileSystemObject
 
  Dim DevModeString As str_DEVMODE
  Dim DevModeExtra As String
@@ -118,7 +129,7 @@ Dim fso As New Scripting.FileSystemObject
  End If
  
  Dim InFile As Scripting.TextStream ' Object
- Set InFile = fso.OpenTextFile(filePath, ForReading)
+ Set InFile = FSO.OpenTextFile(filePath, ForReading)
  
  ' Loop through lines
  Do While Not InFile.AtEndOfStream
@@ -146,4 +157,5 @@ LSet DevModeString = DM
  Set rpt = Nothing
 
 DoCmd.Close acReport, obj_name, acSaveYes
+
 End Sub

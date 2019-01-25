@@ -164,5 +164,5 @@ Public Function ReleaseObjectReferences()
         m_Model.Terminate
         Set m_Model = Nothing
     End If
-    Set modFunctions.colVerifiedPaths = Nothing
+    Set colVerifiedPaths = Nothing
 End Function

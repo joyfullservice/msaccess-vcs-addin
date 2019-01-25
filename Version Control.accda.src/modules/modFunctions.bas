@@ -2,190 +2,78 @@ Option Explicit
 Option Compare Database
 Option Private Module
 
-Public ShowDebugInfo As Boolean ' Public to this project only, when used with Option Private Module
 Public colVerifiedPaths As New Collection
 
-' Constants for Scripting.FileSystemObject API
-Public Enum eOpenType
-    ForReading = 1
-    ForWriting = 2
-    ForAppending = 8
-End Enum
 
-Public Enum eTristate
-    TristateTrue = -1
-    TristateFalse = 0
-    TristateUseDefault = -2
-End Enum
+'---------------------------------------------------------------------------------------
+' Procedure : SanitizeFile
+' Author    : Adam Waller
+' Date      : 1/23/2019
+' Purpose   : Sanitize the text file (forms and reports)
+'---------------------------------------------------------------------------------------
+'
+Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
 
-Private Const AggressiveSanitize = True
-Private Const StripPublishOption = True
-
-
-Private m_SourcePath As String
-
-
-' Can we export without closing the form?
-
-' Export a database object with optional UCS2-to-UTF-8 conversion.
-Public Sub ExportObject(obj_type_num As Integer, obj_name As String, file_path As String, cModel As IVersionControl, Optional Ucs2Convert As Boolean = False)
-        
-    Dim blnSkip As Boolean
-
-    On Error GoTo ErrHandler
-    
-    modFunctions.VerifyPath Left(file_path, InStrRev(file_path, "\"))
-    
-    ' Check for fast save
-    If Not cModel Is Nothing Then
-        If cModel.FastSave Then
-            Select Case obj_type_num
-                Case acQuery
-                    blnSkip = (HasMoreRecentChanges(CurrentData.AllQueries(obj_name), file_path))
-                Case acForm
-                    blnSkip = (HasMoreRecentChanges(CurrentProject.AllForms(obj_name), file_path))
-                Case acReport
-                    blnSkip = (HasMoreRecentChanges(CurrentProject.AllReports(obj_name), file_path))
-                ' Tables are done through a different function
-            End Select
-        End If
-    End If
-    
-    If blnSkip Then
-        If cModel.ShowDebug Then Debug.Print "  (Skipping '" & obj_name & "')"
-    Else
-        If Ucs2Convert Then
-            Dim tempFileName As String: tempFileName = modFileAccess.TempFile()
-            Application.SaveAsText obj_type_num, obj_name, tempFileName
-            modFileAccess.ConvertUcs2Utf8 tempFileName, file_path
-        Else
-            Application.SaveAsText obj_type_num, obj_name, file_path
-        End If
-        If cModel.ShowDebug Then Debug.Print "  " & obj_name
-    End If
-
-    Exit Sub
-    
-ErrHandler:
-    Select Case Err.Number
-        Case 2950
-            ' Reserved error. Probably couldn't run the SaveAsText command.
-            ' (This can happen, for example, when you try to save a data macros on a table that doesn't contain them.)
-            Err.Clear
-            Resume Next
-    Case Else
-        ' Unhandled error
-        Debug.Print Err.Number & ": " & Err.Description
-        Stop
-    End Select
-    
-End Sub
-
-
-' Import a database object with optional UTF-8-to-UCS2 conversion.
-Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
-    Optional Ucs2Convert As Boolean = False)
-    
-    If Not modFunctions.FileExists(file_path) Then Exit Sub
-    
-    If Ucs2Convert Then
-        Dim tempFileName As String: tempFileName = modFileAccess.TempFile()
-        modFileAccess.ConvertUtf8Ucs2 file_path, tempFileName
-        Application.LoadFromText obj_type_num, obj_name, tempFileName
-        
-        Dim fso As New Scripting.FileSystemObject
-        fso.DeleteFile tempFileName
-    Else
-        Application.LoadFromText obj_type_num, obj_name, file_path
-    End If
-End Sub
-
-
-' For each *.txt in `Path`, find and remove a number of problematic but
-' unnecessary lines of VB code that are inserted automatically by the
-' Access GUI and change often (we don't want these lines of code in
-' version control).
-Public Sub SanitizeTextFiles(Path As String, ext As String, cModel As IVersionControl)
-
-    Dim fileName As String
-    fileName = Dir(Path & "*." & ext)
-    Do Until Len(fileName) = 0
-        SanitizeFile Path, fileName, ext, cModel
-        fileName = Dir()
-    Loop
-
-End Sub
-
-Public Sub QuickTest()
-    Dim cModel As IVersionControl
-    Set cModel = New clsModelGitHub
-    cModel.ShowDebug = True
-    cModel.ExportBaseFolder = CurrentProject.Path & "\" & CurrentProject.Name & ".src\"
-    SanitizeFile "C:\Users\awaller.IAA\Documents\GitHub\alert-contacts\ALERTContacts.adp.src\reports\", "rptEventsReceipt.bas", "bas", cModel
-End Sub
-
-
-' Sanitize the text file
-Public Sub SanitizeFile(strPath As String, strFile As String, strExt As String, cModel As IVersionControl)
-
-    Dim fso As Scripting.FileSystemObject
-    Dim strData As String
     Dim sngOverall As Single
     Dim sngTimer As Single
     Dim cData As New clsConcat
-    Dim txt As String
-        
+    Dim strText As String
+    Dim rxBlock As New VBScript_RegExp_55.RegExp
+    Dim rxLine As New VBScript_RegExp_55.RegExp
+    Dim rxIndent As New VBScript_RegExp_55.RegExp
+    Dim objMatches As VBScript_RegExp_55.MatchCollection
+    Dim blnIsReport As Boolean
+    Dim cPattern As New clsConcat
+    Dim stmInFile As Scripting.TextStream
+    Dim blnGetLine As Boolean
+    
+    On Error GoTo 0
+    
     ' Timers to monitor performance
     sngTimer = Timer
     sngOverall = sngTimer
-    
-    Set fso = New Scripting.FileSystemObject
-    Dim isReport As Boolean: isReport = False
-    
+        
     '  Setup Block matching Regex.
-    Dim rxBlock As New RegExp
-    'Set rxBlock = CreateObject("VBScript.RegExp")
     rxBlock.ignoreCase = False
-    '
-    '  Match PrtDevNames / Mode with or  without W
-    Dim srchPattern As String
-    srchPattern = "PrtDev(?:Names|Mode)[W]?"
-    If (AggressiveSanitize = True) Then
-      '  Add and group aggressive matches
-      srchPattern = "(?:" & srchPattern
-      srchPattern = srchPattern & "|GUID|""GUID""|NameMap|dbLongBinary ""DOL"""
-      srchPattern = srchPattern & ")"
-    End If
-    '  Ensure that this is the begining of a block.
-    srchPattern = srchPattern & " = Begin"
-'Debug.Print srchPattern
-    rxBlock.Pattern = srchPattern
-    '
-    '  Setup Line Matching Regex.
-    Dim rxLine As New RegExp    ' Object
-    'Set rxLine = CreateObject("VBScript.RegExp")
-    srchPattern = "^\s*(?:"
-    srchPattern = srchPattern & "Checksum ="
-    srchPattern = srchPattern & "|BaseInfo|NoSaveCTIWhenDisabled =1"
-    If (StripPublishOption = True) Then
-        srchPattern = srchPattern & "|dbByte ""PublishToWeb"" =""1"""
-        srchPattern = srchPattern & "|PublishOption =1"
-    End If
-    srchPattern = srchPattern & ")"
-'Debug.Print srchPattern
-    rxLine.Pattern = srchPattern
+    
+    ' Build main search patterns
+    With cPattern
+    
+        '  Match PrtDevNames / Mode with or  without W
+        If cModel.AggressiveSanitize Then .Add "(?:"
+        .Add "PrtDev(?:Names|Mode)[W]?"
+        If cModel.AggressiveSanitize Then
+          '  Add and group aggressive matches
+          .Add "|GUID|""GUID""|NameMap|dbLongBinary ""DOL"""
+          .Add ")"
+        End If
+        
+        '  Ensure that this is the begining of a block.
+        .Add " = Begin"
+        
+        ' Set block search pattern
+        rxBlock.Pattern = .GetStr
+        .Clear
+        
+        '  Setup Line Matching Regex.
+        .Add "^\s*(?:"
+        .Add "Checksum ="
+        .Add "|BaseInfo|NoSaveCTIWhenDisabled =1"
+        If cModel.StripPublishOption Then
+            .Add "|dbByte ""PublishToWeb"" =""1"""
+            .Add "|PublishOption =1"
+        End If
+        .Add ")"
 
+        ' Set line search pattern
+        rxLine.Pattern = .GetStr
+    End With
+    
+    ' Open file to read contents line by line.
+    Set stmInFile = FSO.OpenTextFile(strPath, ForReading)
 
-    Dim obj_name As String
-    obj_name = Mid(strFile, 1, InStrRev(strFile, ".") - 1)
-
-    Dim InFile As Scripting.TextStream ' Object
-    Set InFile = fso.OpenTextFile(strPath & obj_name & "." & strExt, ForReading)
-    Dim OutFile As Scripting.TextStream ' Object
-    Set OutFile = fso.CreateTextFile(strPath & obj_name & ".sanitize", True)
-
-    Dim getLine As Boolean: getLine = True
-    Do Until InFile.AtEndOfStream
+    blnGetLine = True
+    Do Until stmInFile.AtEndOfStream
     
         ' Only call DoEvents once per second.
         ' (Drastic performance gains)
@@ -195,84 +83,86 @@ Public Sub SanitizeFile(strPath As String, strFile As String, strExt As String, 
         End If
     
         ' Check if we need to get a new line of text
-        If getLine = True Then
-            txt = InFile.ReadLine
+        If blnGetLine Then
+            strText = stmInFile.ReadLine
         Else
-            getLine = True
+            blnGetLine = True
         End If
         
         ' Skip lines starting with line pattern
-        If rxLine.test(txt) Then
-            Dim rxIndent As New RegExp ' Object
-            'Set rxIndent = CreateObject("VBScript.RegExp")
+        If rxLine.test(strText) Then
+            
+            ' set up initial pattern
             rxIndent.Pattern = "^(\s+)\S"
-            '
+            
             ' Get indentation level.
-            Dim matches As VBScript_RegExp_55.MatchCollection ' Object
-            Set matches = rxIndent.Execute(txt)
-            '
+            Set objMatches = rxIndent.Execute(strText)
+            
             ' Setup pattern to match current indent
-            Select Case matches.Count
+            Select Case objMatches.Count
                 Case 0
                     rxIndent.Pattern = "^" & vbNullString
                 Case Else
-                    rxIndent.Pattern = "^" & matches(0).SubMatches(0)
+                    rxIndent.Pattern = "^" & objMatches(0).SubMatches(0)
             End Select
-            rxIndent.Pattern = rxIndent.Pattern + "\S"
-            '
+            rxIndent.Pattern = rxIndent.Pattern & "\S"
+            
             ' Skip lines with deeper indentation
-            Do Until InFile.AtEndOfStream
-                txt = InFile.ReadLine
-                If rxIndent.test(txt) Then Exit Do
+            Do While Not stmInFile.AtEndOfStream
+                strText = stmInFile.ReadLine
+                If rxIndent.test(strText) Then Exit Do
             Loop
-            ' We've moved on at least one line so do get a new one
-            ' when starting the loop again.
-            getLine = False
-        '
-        ' skip blocks of code matching block pattern
-        ElseIf rxBlock.test(txt) Then
-            Do Until InFile.AtEndOfStream
-                txt = InFile.ReadLine
-                If InStr(txt, "End") Then Exit Do
+            
+            ' We've moved on at least one line so restart the
+            ' regex testing when starting the loop again.
+            blnGetLine = False
+        
+        ' Skip blocks of code matching block pattern
+        ElseIf rxBlock.test(strText) Then
+            Do While Not stmInFile.AtEndOfStream
+                strText = stmInFile.ReadLine
+                If InStr(strText, "End") Then Exit Do
             Loop
-        ElseIf InStr(1, txt, "Begin Report") = 1 Then
-            isReport = True
-            cData.Add txt
+        
+        ' Check for report object
+        ElseIf InStr(1, strText, "Begin Report") = 1 Then
+            blnIsReport = True
+            cData.Add strText
             cData.Add vbCrLf
-            'OutFile.WriteLine txt
-        ElseIf isReport = True And (InStr(1, txt, "    Right =") Or InStr(1, txt, "    Bottom =")) Then
-            'skip line
-            If InStr(1, txt, "    Bottom =") Then
-                isReport = False
-            End If
+            
+        ' Watch for end of report (and skip these lines)
+        ElseIf blnIsReport And (InStr(1, strText, "    Right =") Or InStr(1, strText, "    Bottom =")) Then
+            If InStr(1, strText, "    Bottom =") Then blnIsReport = False
+
+        ' Regular lines of data to add.
         Else
-            cData.Add txt
+            cData.Add strText
             cData.Add vbCrLf
-            'OutFile.WriteLine txt
         End If
-    
+        
     Loop
+    
+    ' Close and delete original file
+    stmInFile.Close
+    FSO.DeleteFile strPath
     
     ' Write file all at once, rather than line by line.
     ' (Otherwise the code can bog down with tens of thousands of write operations)
-    OutFile.Write cData.GetStr
-    
-    OutFile.Close
-    InFile.Close
+    WriteFile cData.GetStr, strPath
 
     ' Show stats if debug turned on.
-    If cModel.ShowDebug Then Debug.Print "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds."
-
-    fso.DeleteFile (strPath & strFile)
-    DoEvents
-    Dim thisFile As Scripting.File
-    Set thisFile = fso.GetFile(strPath & obj_name & ".sanitize")
-    thisFile.Move (strPath & strFile)
+    cModel.Log "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cModel.ShowDebug
 
 End Sub
 
 
-' Path/Directory of the current database file.
+'---------------------------------------------------------------------------------------
+' Procedure : ProjectPath
+' Author    : Adam Waller
+' Date      : 1/25/2019
+' Purpose   : Path/Directory of the current database file.
+'---------------------------------------------------------------------------------------
+'
 Public Function ProjectPath() As String
     ProjectPath = CurrentProject.Path
     If Right(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
@@ -280,65 +170,29 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : VCSSourcePath
+' Procedure : MkDirIfNotExist
 ' Author    : Adam Waller
-' Date      : 5/18/2015
-' Purpose   : Get source path. (Allow user to specify this)
+' Date      : 1/25/2019
+' Purpose   : Create folder `Path`. Silently do nothing if it already exists.
 '---------------------------------------------------------------------------------------
 '
-Public Property Get zVCSSourcePath() As String
-    If m_SourcePath = "" Then m_SourcePath = ProjectPath & CurrentProject.Name & ".src\"
-    VCSSourcePath = m_SourcePath
-End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : VCSSourcePath
-' Author    : Adam Waller
-' Date      : 5/18/2015
-' Purpose   : Set the source path for import/export
-'           : (Set to "" to use default path)
-'---------------------------------------------------------------------------------------
-'
-Public Property Let VCSSourcePath(strPath As String)
-    If Len(strPath) > 0 Then
-        ' Ensure we have a trailing slash
-        If Right(strPath, 1) <> "\" Then strPath = strPath & "\"
-    End If
-    m_SourcePath = strPath
-End Property
-
-
-' Create folder `Path`. Silently do nothing if it already exists.
-Public Sub MkDirIfNotExist(Path As String)
-    On Error GoTo MkDirIfNotexist_noop
-    MkDir Path
-MkDirIfNotexist_noop:
-    On Error GoTo 0
+Public Sub MkDirIfNotExist(strPath As String)
+    If Not FSO.FolderExists(StripSlash(strPath)) Then MkDir StripSlash(strPath)
 End Sub
 
 
-' Delete a file if it exists.
-Public Sub DelIfExist(Path As String)
-    On Error GoTo DelIfNotExist_Noop
-    Kill Path
-DelIfNotExist_Noop:
-    On Error GoTo 0
-End Sub
-
-
-' Erase all *.`ext` files in `Path`.
-Public Sub ClearTextFilesFromDir(Path As String, ext As String)
-    Dim fso As New Scripting.FileSystemObject
-    If Not fso.FolderExists(Path) Then Exit Sub
-
-    On Error GoTo ClearTextFilesFromDir_noop
-    If Dir(Path & "*." & ext) <> "" Then
-        fso.DeleteFile Path & "*." & ext
+'---------------------------------------------------------------------------------------
+' Procedure : ClearTextFilesFromDir
+' Author    : Adam Waller
+' Date      : 1/25/2019
+' Purpose   : Erase all *.`ext` files in `Path`.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearTextFilesFromDir(ByVal strFolder As String, strExt As String)
+    If Not FSO.FolderExists(StripSlash(strFolder)) Then Exit Sub
+    If Dir(strFolder & "*." & strExt) <> "" Then
+        FSO.DeleteFile strFolder & "*." & strExt
     End If
-ClearTextFilesFromDir_noop:
-
-    On Error GoTo 0
 End Sub
 
 
@@ -346,15 +200,12 @@ End Sub
 ' Procedure : ClearTextFilesForFastSave
 ' Author    : Adam Waller
 ' Date      : 12/14/2016
-' Purpose   : Like ClearTextFilesFromDir, but only clears files that don't exist.
-'           : The existing files will be compared to the database objects to avoid
-'           : unecessary processing when no changes have occured.
+' Purpose   : Clears existing source files that don't have a matching object in the
+'           : database.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ClearTextFilesForFastSave(ByVal strPath As String, strExt As String, strType As String)
+Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, objContainer As Object, cModel As IVersionControl, ParamArray StrExtensions())
     
-    Dim fso As New Scripting.FileSystemObject
-    Dim objContainer As Object
     Dim oFolder As Scripting.Folder
     Dim oFile As Scripting.File
     Dim colNames As New Collection
@@ -362,192 +213,86 @@ Public Sub ClearTextFilesForFastSave(ByVal strPath As String, strExt As String, 
     Dim strFile As String
     Dim varName As Variant
     Dim blnFound As Boolean
-    
-    If CurrentProject.ProjectType = acMDB Then
-        ' Access Database
-        Select Case strType
-            Case "forms": Set objContainer = CurrentProject.AllForms
-            Case "reports": Set objContainer = CurrentProject.AllReports
-            Case "queries": Set objContainer = CurrentData.AllQueries
-            Case "tables": Set objContainer = CurrentData.AllTables
-            Case "macros": Set objContainer = CurrentProject.AllMacros
-        Case Else
-            ' Fast save not (yet) supported
-            ClearTextFilesFromDir strPath, strExt
-            Exit Sub
-        End Select
-    Else
-        ' ADP Project
-        Select Case strType
-            Case "forms": Set objContainer = CurrentProject.AllForms
-            Case "reports": Set objContainer = CurrentProject.AllReports
-            Case "tables": Set objContainer = CurrentData.AllTables
-            Case "macros": Set objContainer = CurrentProject.AllMacros
-            Case "views": Set objContainer = CurrentData.AllViews
-            Case "procedures": Set objContainer = CurrentData.AllStoredProcedures
-            Case "functions": Set objContainer = CurrentData.AllFunctions
-            'Case "triggers": Set objContainer = CurrentProject.All
-        Case Else
-            ' Fast save not (yet) supported
-            ClearTextFilesFromDir strPath, strExt
-            Exit Sub
-        End Select
-    End If
-    
+    Dim varExt As Variant
     
     ' Continue with more in-depth review, clearing any file that
     ' is not represented by a database object.
-    If Not DirExists(strPath) Then Exit Sub
+    If Not FSO.FolderExists(strPath) Then Exit Sub
 
     ' Build list of database objects
-    For Each objItem In objContainer
-        colNames.Add GetSafeFileName(StripDboPrefix(objItem.Name))
-    Next objItem
+    If Not objContainer Is Nothing Then
+        For Each objItem In objContainer
+            colNames.Add GetSafeFileName(StripDboPrefix(objItem.Name))
+        Next objItem
+    End If
     
     ' Loop through files in folder
     strPath = Left(strPath, Len(strPath) - 1)
-    Set oFolder = fso.GetFolder(strPath)
+    Set oFolder = FSO.GetFolder(strPath)
     
     For Each oFile In oFolder.Files
-        If fso.GetExtensionName(oFile.Path) = strExt Then
-            
-            ' Get file name
-            strFile = fso.GetBaseName(oFile.Name)
-            
-            ' Loop through list of names to see if this one exists
-            blnFound = False
-            For Each varName In colNames
-                If strFile = varName Then
-                    blnFound = True
-                    Exit For
+        ' Check against list of extensions
+        For Each varExt In StrExtensions
+        
+            ' Check for matching extension on wanted list.
+            If FSO.GetExtensionName(oFile.Path) = varExt Then
+                
+                ' Get file name
+                strFile = FSO.GetBaseName(oFile.Name)
+                
+                ' Loop through list of names to see if this one exists
+                blnFound = False
+                For Each varName In colNames
+                    If strFile = varName Then
+                        blnFound = True
+                        Exit For
+                    End If
+                Next varName
+                
+                If Not blnFound Then
+                    ' Object not found in database. Remove file.
+                    Kill oFile.ParentFolder.Path & "\" & oFile.Name
+                    cModel.Log "  Removing orphaned file: " & strFile, cModel.ShowDebug
                 End If
-            Next varName
-            
-            If Not blnFound Then
-                ' Object not found in database. Remove file.
-                Kill oFile.ParentFolder.Path & "\" & oFile.Name
-            End If
-            
-        End If
-    Next oFile
-    
-    On Error GoTo 0
-    Set fso = Nothing
-
-    Exit Sub
-
-
-ErrHandler:
-    Err.Clear
-    Resume Next
-    
-End Sub
-
-Function DirExists(strPath As String) As Boolean
-    On Error Resume Next
-    DirExists = False
-    DirExists = ((GetAttr(strPath) And vbDirectory) = vbDirectory)
-End Function
-
-Function FileExists(strPath As String) As Boolean
-    On Error Resume Next
-    FileExists = False
-    FileExists = ((GetAttr(strPath) And vbDirectory) <> vbDirectory)
-End Function
-
-'--------------------
-' String Functions: String Builder,String Padding (right only), Substrings
-'--------------------
-
-' String builder: Init
-Public Function Sb_Init() As String()
-    Dim X(-1 To -1) As String
-    Sb_Init = X
-End Function
-
-' String builder: Clear
-Public Sub Sb_Clear(ByRef sb() As String)
-    ReDim sb(-1 To -1)
-End Sub
-
-' String builder: Append
-Public Sub Sb_Append(ByRef sb() As String, Value As String)
-    If LBound(sb) = -1 Then
-        ReDim sb(0 To 0)
-    Else
-        ReDim Preserve sb(0 To UBound(sb) + 1)
-    End If
-    sb(UBound(sb)) = Value
-End Sub
-
-' String builder: Get value
-Public Function Sb_Get(ByRef sb() As String) As String
-    Sb_Get = Join(sb, "")
-End Function
-
-
-' Pad a string on the right to make it `count` characters long.
-Public Function PadRight(Value As String, Count As Integer)
-    PadRight = Value
-    If Len(Value) < Count Then
-        PadRight = PadRight & Space(Count - Len(Value))
-    End If
-End Function
-
-' returns substring between e.g. "(" and ")", internal brackets ar skippped
-Public Function SubString(P As Integer, s As String, startsWith As String, endsWith As String)
-    Dim start As Integer
-    Dim cursor As Integer
-    Dim p1 As Integer
-    Dim p2 As Integer
-    Dim level As Integer
-    start = InStr(P, s, startsWith)
-    level = 1
-    p1 = InStr(start + 1, s, startsWith)
-    p2 = InStr(start + 1, s, endsWith)
-    While level > 0
-        If p1 > p2 And p2 > 0 Then
-            cursor = p2
-            level = level - 1
-        ElseIf p2 > p1 And p1 > 0 Then
-            cursor = p1
-            level = level + 1
-        ElseIf p2 > 0 And p1 = 0 Then
-            cursor = p2
-            level = level - 1
-        ElseIf p1 > 0 And p1 = 0 Then
-            cursor = p1
-            level = level + 1
-        ElseIf p1 = 0 And p2 = 0 Then
-            SubString = ""
-            Exit Function
-        End If
-        p1 = InStr(cursor + 1, s, startsWith)
-        p2 = InStr(cursor + 1, s, endsWith)
-    Wend
-    SubString = Mid(s, start + 1, cursor - start - 1)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : InArray
-' Author    : Adam Waller
-' Date      : 5/14/2015
-' Purpose   : Returns true if the item is found in the array
-'---------------------------------------------------------------------------------------
-'
-Public Function InArray(varArray As Variant, varItem As Variant) As Boolean
-    Dim intCnt As Integer
-    If IsMissing(varArray) Then Exit Function
-    If Not IsArray(varArray) Then
-        InArray = (varItem = varArray)
-    Else
-        For intCnt = LBound(varArray) To UBound(varArray)
-            If varArray(intCnt) = varItem Then
-                InArray = True
+                
+                ' No need to check other extensions since we
+                ' already had a match and processed the file.
                 Exit For
             End If
-        Next intCnt
+        Next varExt
+    Next oFile
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StripSlash
+' Author    : Adam Waller
+' Date      : 1/25/2019
+' Purpose   : Strip the trailing slash
+'---------------------------------------------------------------------------------------
+'
+Public Function StripSlash(strText As String) As String
+    If Right(strText, 1) = "\" Then
+        StripSlash = Left(strText, Len(strText) - 1)
+    Else
+        StripSlash = strText
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PadRight
+' Author    : Adam Waller
+' Date      : 1/25/2019
+' Purpose   : Pad a string on the right to make it `count` characters long.
+'---------------------------------------------------------------------------------------
+'
+Public Function PadRight(strText As String, intCharacters As Integer)
+    If Len(strText) < intCharacters Then
+        PadRight = strText & Space(intCharacters - Len(strText))
+    Else
+        PadRight = strText
     End If
 End Function
 
@@ -567,25 +312,6 @@ Public Function InCollection(MyCol As Collection, MyValue) As Boolean
             Exit For
         End If
     Next intCnt
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ArrayToCollection
-' Author    : Adam Waller
-' Date      : 5/14/2015
-' Purpose   : Convert the array to a collection
-'---------------------------------------------------------------------------------------
-'
-Public Function ArrayToCollection(varArray As Variant) As Collection
-    Dim intCnt As Integer
-    Dim colItems As New Collection
-    If IsArray(varArray) Then
-        For intCnt = LBound(varArray) To UBound(varArray)
-            colItems.Add varArray(intCnt)
-        Next intCnt
-    End If
-    Set ArrayToCollection = colItems
 End Function
 
 
@@ -620,34 +346,30 @@ Public Sub VerifyPath(strFolderPath As String)
 End Sub
 
 
-' Close all open forms.
-Public Function CloseFormsReports()
+'---------------------------------------------------------------------------------------
+' Procedure : CloseAllFormsReports
+' Author    : Adam Waller
+' Date      : 1/25/2019
+' Purpose   : Close all open forms and reports. Returns true if successful.
+'---------------------------------------------------------------------------------------
+'
+Public Function CloseAllFormsReports() As Boolean
+    Dim strName As String
     On Error GoTo errorHandler
     Do While Forms.Count > 0
-        DoCmd.Close acForm, Forms(0).Name
+        strName = Forms(0).Name
+        DoCmd.Close acForm, strName
         DoEvents
     Loop
     Do While Reports.Count > 0
-        DoCmd.Close acReport, Reports(0).Name
+        strName = Reports(0).Name
+        DoCmd.Close acReport, strName
         DoEvents
     Loop
+    If (Forms.Count + Reports.Count) = 0 Then CloseAllFormsReports = True
     Exit Function
-
 errorHandler:
-    Debug.Print "AppCodeImportExport.CloseFormsReports: Error #" & Err.Number & vbCrLf & Err.Description
-End Function
-
-
-'errno 457 - duplicate key (& item)
-Public Function StrSetToCol(strSet As String, delimiter As String) As Collection 'throws errors
-    Dim strSetArray() As String
-    Dim Col As New Collection
-    strSetArray = Split(strSet, delimiter)
-    Dim Item As Variant
-    For Each Item In strSetArray
-        Col.Add Item, Item
-    Next
-    Set StrSetToCol = Col
+    Debug.Print "Error closing " & strName & ": " & Err.Number & vbCrLf & Err.Description
 End Function
 
 
@@ -688,25 +410,22 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : WriteFile
-' Author    : awaller
-' Date      : 12/12/2016
+' Author    : Adam Waller
+' Date      : 1/23/2019
 ' Purpose   : Save string variable to text file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub WriteFile(strContent As String, strPath As String)
-
-    Dim fso As New Scripting.FileSystemObject
-    Dim OutFile As Scripting.TextStream
-    Set OutFile = fso.CreateTextFile(strPath, True)
-    OutFile.Write strContent
-    OutFile.Close
-    
+Public Sub WriteFile(strContent As String, strPath As String, Optional blnUnicode As Boolean = False)
+    With FSO.CreateTextFile(strPath, True, blnUnicode)
+        .Write strContent
+        .Close
+    End With
 End Sub
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetSafeFileName
-' Author    : awaller
+' Author    : Adam Waller
 ' Date      : 1/14/2019
 ' Purpose   : Replace illegal filename characters with URL encoded substitutes
 '           : Sources: http://stackoverflow.com/questions/1976007/what-characters-are-forbidden-in-windows-and-linux-directory-names
@@ -715,19 +434,8 @@ End Sub
 Public Function GetSafeFileName(strName As String) As String
 
     Dim strSafe As String
-    
-'    ' This created a lot of other issues when using the similar unicode characters.
-'    strSafe = Replace(strName, "<", "«")
-'    strSafe = Replace(strSafe, ">", "»")
-'    strSafe = Replace(strSafe, ":", ChrW(760))
-'    strSafe = Replace(strSafe, """", "”")
-'    strSafe = Replace(strSafe, "/", ChrW(8725)) ' Division character
-'    strSafe = Replace(strSafe, "\", ChrW(1633)) ' Arabic 1
-'    strSafe = Replace(strSafe, "|", ChrW(1472)) ' Hebrew character
-'    strSafe = Replace(strSafe, "?", ChrW(8253))
-'    strSafe = Replace(strSafe, "*", ChrW(1645)) ' Arabic five-pointed star
 
-    ' Instead, use URL encoding for these characters
+    ' Use URL encoding for these characters
     ' https://www.w3schools.com/tags/ref_urlencode.asp
     strSafe = Replace(strName, "%", "%25")  ' Since we are using this character for encoding. (Makes decoding easier if we do that at some point in the future.)
     strSafe = Replace(strName, "<", "%3C")
@@ -847,16 +555,21 @@ Public Sub PreserveModificationStatusBeforeCompact()
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetChangeFlag
+' Author    : Adam Waller
+' Date      : 1/25/2019
+' Purpose   : Get or set the custom change flag in a database object.
+'---------------------------------------------------------------------------------------
+'
 Public Function GetChangeFlag(obj As AccessObject, Optional intDefault As Integer) As Integer
     Dim strValue As String
     strValue = GetAccessObjectProperty(obj, "GitLabChangeFlag", CStr(intDefault))
     If IsNumeric(strValue) Then GetChangeFlag = CInt(strValue)
 End Function
-
 Public Sub SetChangeFlag(obj As AccessObject, varValue As Variant)
     SetAccessObjectProperty obj, "GitLabChangeFlag", CStr(varValue)
 End Sub
-
 
 
 '---------------------------------------------------------------------------------------
@@ -913,6 +626,14 @@ Public Function GetAccessObjectProperty(objItem As AccessObject, strProperty As 
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : StripDboPrefix
+' Author    : Adam Waller
+' Date      : 1/25/2019
+' Purpose   : Removes the dbo prefix, as sometimes encountered with ADP projects
+'           : depending on the sql permissions of the current user.
+'---------------------------------------------------------------------------------------
+'
 Public Function StripDboPrefix(strName As String) As String
     If Left(strName, 4) = "dbo." Then
         StripDboPrefix = Mid(strName, 5)
@@ -920,3 +641,136 @@ Public Function StripDboPrefix(strName As String) As String
         StripDboPrefix = strName
     End If
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MultiReplace
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Does a string replacement of multiple items in one call.
+'---------------------------------------------------------------------------------------
+'
+Public Function MultiReplace(ByVal strText As String, ParamArray varPairs()) As String
+    Dim intPair As Integer
+    For intPair = 0 To UBound(varPairs) Step 2
+        strText = Replace(strText, varPairs(intPair), varPairs(intPair + 1))
+    Next intPair
+    MultiReplace = strText
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ShowIDE
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Show the VBA code editor (used in autoexec macro)
+'---------------------------------------------------------------------------------------
+'
+Public Function ShowIDE()
+    DoCmd.RunCommand acCmdVisualBasicEditor
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ProgramFilesFolder
+' Author    : Adam Waller
+' Date      : 5/15/2015
+' Purpose   : Returns the program files folder on the OS. (32 or 64 bit)
+'---------------------------------------------------------------------------------------
+'
+Public Function ProgramFilesFolder() As String
+    Dim strFolder As String
+    strFolder = Environ$("PROGRAMFILES")
+    ' Should always work, but just in case!
+    If strFolder = "" Then strFolder = "C:\Program Files (x86)"
+    ProgramFilesFolder = strFolder & "\"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ProjectIsSelected
+' Author    : Adam Waller
+' Date      : 5/15/2015
+' Purpose   : Returns true if the base project is selected in the VBE
+'---------------------------------------------------------------------------------------
+'
+Public Function ProjectIsSelected() As Boolean
+    ProjectIsSelected = (Application.VBE.SelectedVBComponent Is Nothing)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SelectionInActiveProject
+' Author    : Adam Waller
+' Date      : 5/15/2015
+' Purpose   : Returns true if the current selection is in the active project
+'---------------------------------------------------------------------------------------
+'
+Public Function SelectionInActiveProject() As Boolean
+    SelectionInActiveProject = (Application.VBE.ActiveVBProject.FileName = UncPath(CurrentProject.FullName))
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UncPath
+' Author    : Adam Waller
+' Date      : 5/18/2015
+' Purpose   : Returns the UNC path of a mapped network drive, if applicable
+'---------------------------------------------------------------------------------------
+'
+Public Function UncPath(strPath As String) As String
+    
+    Dim strDrive As String
+    Dim strShare As String
+    
+    ' Identify drive letter and share name
+    With FSO
+        strDrive = .GetDriveName(.GetAbsolutePathName(strPath))
+        strShare = .GetDrive(strDrive).ShareName
+    End With
+    
+    If strShare <> "" Then
+        ' Replace drive with UNC path
+        UncPath = strShare & Mid(strPath, Len(strDrive) + 1)
+    Else
+        ' Return unmodified path
+        UncPath = strPath
+    End If
+        
+End Function
+
+
+' returns substring between e.g. "(" and ")", internal brackets ar skippped
+'Public Function SubString(P As Integer, s As String, startsWith As String, endsWith As String)
+'    Dim start As Integer
+'    Dim cursor As Integer
+'    Dim p1 As Integer
+'    Dim p2 As Integer
+'    Dim level As Integer
+'    start = InStr(P, s, startsWith)
+'    level = 1
+'    p1 = InStr(start + 1, s, startsWith)
+'    p2 = InStr(start + 1, s, endsWith)
+'    While level > 0
+'        If p1 > p2 And p2 > 0 Then
+'            cursor = p2
+'            level = level - 1
+'        ElseIf p2 > p1 And p1 > 0 Then
+'            cursor = p1
+'            level = level + 1
+'        ElseIf p2 > 0 And p1 = 0 Then
+'            cursor = p2
+'            level = level - 1
+'        ElseIf p1 > 0 And p1 = 0 Then
+'            cursor = p1
+'            level = level + 1
+'        ElseIf p1 = 0 And p2 = 0 Then
+'            SubString = ""
+'            Exit Function
+'        End If
+'        p1 = InStr(cursor + 1, s, startsWith)
+'        p2 = InStr(cursor + 1, s, endsWith)
+'    Wend
+'    SubString = Mid(s, start + 1, cursor - start - 1)
+'End Function
+'
