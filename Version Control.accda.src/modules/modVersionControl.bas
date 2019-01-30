@@ -6,8 +6,10 @@ Option Compare Database
 '---------------------------------------------------------------------------------------
 ' Procedure : InitializeVersionControlSystem
 ' Author    : Adam Waller
-' Date      : 5/18/2015
+' Date      : 1/29/2019
 ' Purpose   : Call this function to activate or deactivate version control.
+'           : Add a copy of this module to the local project to serve as the
+'           : loader/unloader of the referenced VCS library.
 '---------------------------------------------------------------------------------------
 '
 Public Sub InitializeVersionControlSystem(Optional blnUseVersionControl As Boolean = True)
@@ -19,22 +21,31 @@ Public Sub InitializeVersionControlSystem(Optional blnUseVersionControl As Boole
     ' Version Control Library
     Const cstrLibraryPath As String = "\"
     Const cstrLibraryFile As String = "Version Control.accda"
-    Const cstrLibraryName As String = "MSAccess-VCS"
+    Const cstrLibraryName As String = "MSAccessVCS"
     
     ' VCS Settings for this database (Additional parameters may be added as needed)
     Dim colParams As New Collection
     With colParams
-        .Add Array("System", "GitHub")     ' Set this first, before other settings.
+        .Add Array("System", "GitHub")  ' IMPORTANT: Set this first, before other settings.
         .Add Array("Export Folder", CurrentProject.Path & "\" & CurrentProject.Name & ".src\")
+        ' Optional parameters
         .Add Array("Show Debug", True)
         .Add Array("Include VBE", False)
         .Add Array("Fast Save", True)
         .Add Array("Save Print Vars", False)
+        .Add Array("Save Query SQL", True)
+        .Add Array("Save Table SQL", True)
         '.Add Array("Save Table", "vObjectPermissions")
     End With
 
-    ' Pass the parameters to the wrapper function
-    LoadVersionControl blnUseVersionControl, cstrLibraryPath, cstrLibraryFile, cstrLibraryName, colParams
+    ' Make sure we are in the current project, not a library database.
+    If CurrentProject.FullName <> CodeProject.FullName Then
+        ' Call the function in the current project instead.
+        Debug.Print "Please run this command from " & CurrentProject.Name
+    Else
+        ' Pass the parameters to the wrapper function
+        LoadVersionControl blnUseVersionControl, cstrLibraryPath, cstrLibraryFile, cstrLibraryName, colParams
+    End If
 
 End Sub
 
@@ -60,7 +71,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
     Dim varParts As Variant
     Dim blnInitialize As Boolean
     Dim blnLoaded As Boolean
-    
+        
     ' Loop backwards through references, since libraries will be near the end.
     For intCnt = Application.References.Count To 1 Step -1
         Set ref = Application.References(intCnt)
@@ -105,32 +116,43 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
     Next intCnt
     
     
-    ' Prepare to initialize version control.
-    If blnUseVersionControl And Not blnLoaded Then
-        ' Attempt to load the file
-        If strLibraryPath <> "\" And Dir(strLibraryPath, vbDirectory) <> "" Then
-            ' Use specified path
-            strPath = strLibraryPath
-        Else
-            ' Use current folder
-            strPath = CodeProject.Path & "\"
-        End If
+    ' See if this module is being used as the VCS loader.
+    If CodeProject.Name <> strLibraryFile Then
         
-        ' Check to see if the library file exists
-        strPath = strPath & strLibraryFile
-        If Dir(strPath) <> "" Then
-            ' File exists
-            '''If strPath <> CodeDb.Name Then Application.References.AddFromFile strPath
-            blnInitialize = True
+        ' Make sure library is loaded.
+        If blnUseVersionControl And Not blnLoaded Then
+            
+            ' Attempt to load the file
+            If strLibraryPath <> "\" And Dir(strLibraryPath, vbDirectory) <> "" Then
+                ' Use specified path
+                strPath = strLibraryPath
+            Else
+                ' Use current folder
+                strPath = CodeProject.Path & "\"
+            End If
+            
+            ' Check to see if the library file exists
+            strPath = strPath & strLibraryFile
+            If Dir(strPath) <> "" Then
+                ' File exists
+                If strPath <> CodeProject.FullName Then Application.References.AddFromFile strPath
+                blnInitialize = True
+            End If
         End If
-        
+    Else
+        ' Running from library (i.e. code development in the library project)
+        blnInitialize = blnUseVersionControl
+        If Not blnInitialize Then Run "[" & strLibraryName & "].ReleaseObjectReferences"
     End If
     
     ' Initialize the VBE menu
     ' (Use the Run commmand to avoid compile errors if the library was not loaded)
-    If blnInitialize Then
-        Run "[" & strLibraryName & "].LoadVersionControl", colParams
-        '''Run "LoadVersionControl", colParams
+    If CurrentProject.ProjectType = acADP Then
+        ' Unable to use library name when loading from an ADP project.
+        If blnInitialize Then Run "LoadVersionControlMenu", colParams
+    Else
+        ' Use the fully qualified library name to make sure we are running the right thing.  :-)
+        If blnInitialize Then Run "[" & strLibraryName & "].LoadVersionControlMenu", colParams
     End If
-    
+            
 End Sub

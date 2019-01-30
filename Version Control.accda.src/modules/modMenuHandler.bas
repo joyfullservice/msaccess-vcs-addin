@@ -28,13 +28,14 @@ End Function
 '           :  class models in parent applications)
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadVersionControl(colParams As Collection)
+Public Sub LoadVersionControlMenu(colParams As Collection)
 
     Dim cModel As IVersionControl
     Dim varParam As Variant
     Dim strKey As String
     Dim strVal As String
     Dim strMsg As String
+    Dim strCurrent As String
     
     ' Unload and clear any existing objects
     If Not m_Model Is Nothing Then
@@ -69,12 +70,18 @@ Public Sub LoadVersionControl(colParams As Collection)
                 
                 Case "Fast Save"
                     If Not cModel Is Nothing Then cModel.FastSave = strVal
-                    
+                        
                 Case "Save Table"
                     If Not cModel Is Nothing Then cModel.TablesToSaveData.Add strVal
                 
                 Case "Save Print Vars"
-                    'if not cmodel is nothing then cmodel.
+                    If Not cModel Is Nothing Then cModel.SavePrintVars = strVal
+                
+                Case "Save Query SQL"
+                    If Not cModel Is Nothing Then cModel.SaveQuerySQL = strVal
+                
+                Case "Save Table SQL"
+                    If Not cModel Is Nothing Then cModel.SaveTableSQL = strVal
                 
                 Case Else
                     strMsg = "Unknown parameter: " & strKey
@@ -87,14 +94,59 @@ Public Sub LoadVersionControl(colParams As Collection)
     Next varParam
     
     If strMsg = "" Then
-        ' Set model
+            
+        ' Make sure version matches to enable fast save.
+        If Not cModel Is Nothing Then
+            If cModel.FastSave Then
+                strCurrent = GetVCSVersion
+                If strCurrent <> "" And strCurrent = GetDBProperty("Last VCS Version") Then
+                    ' Only allow fast save if we have run a full export with this
+                    ' version of VCS.
+                    cModel.FastSave = True
+                Else
+                    ' Require a full export on current version before enabling fast save.
+                    cModel.FastSave = False
+                End If
+            End If
+        End If
+        
+        ' Set model for class
         Set m_Model = cModel
+        
     Else
         ' Show message if errors were encountered
         MsgBox strMsg, vbExclamation, "Version Control"
     End If
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetVCSVersion
+' Author    : Adam Waller
+' Date      : 1/28/2019
+' Purpose   : Gets the version of the version control system. (Used to turn off fast
+'           : save until a full export has been run with the current version of
+'           : the MSAccessVCS addin.)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetVCSVersion() As String
+    
+    Dim dbs As Database
+    Dim objParent As Object
+    Dim prp As Object
+    
+    Set objParent = CodeDb
+    If objParent Is Nothing Then Set objParent = CurrentProject ' ADP support
+
+    For Each prp In objParent.Properties
+        If prp.Name = "AppVersion" Then
+            ' Return version
+            GetVCSVersion = prp.Value
+        End If
+    Next prp
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

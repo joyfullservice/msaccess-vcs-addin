@@ -219,6 +219,7 @@ Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As S
     Dim blnFound As Boolean
     Dim dteFileModified As Date
     Dim blnSkip As Boolean
+    Dim intObjCnt As Integer
     
     ' Only try this on ADP projects
     If CurrentProject.ProjectType <> acADP Then Exit Sub
@@ -301,9 +302,19 @@ Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As S
             strDef = GetSQLObjectDefinitionForADP(varTrg(2) & "." & varTrg(0))
             WriteFile strDef, strBaseExportFolder & varTrg(3)
             ' Show output
-            cModel.Log "    [Trigger] - " & varTrg(0), cModel.ShowDebug
+            cModel.Log "  " & varTrg(0), cModel.ShowDebug
         End If
+        
+        ' Increment counter
+        intObjCnt = intObjCnt + 1
             
     Next varTrg
-
+    
+    ' Display totals
+    If cModel.ShowDebug Then
+        cModel.Log "[" & intObjCnt & "] triggers exported."
+    Else
+        cModel.Log "[" & intObjCnt & "]"
+    End If
+    
 End Sub

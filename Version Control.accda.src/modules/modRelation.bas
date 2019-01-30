@@ -17,14 +17,22 @@ Public Sub ExportRelation(rel As Relation, strFile As String)
     
     With cData
         .Add rel.Attributes 'RelationAttributeEnum
+        .Add vbCrLf
         .Add rel.Name
+        .Add vbCrLf
         .Add rel.table
+        .Add vbCrLf
         .Add rel.foreignTable
+        .Add vbCrLf
         For Each fld In rel.Fields
             .Add "Field = Begin"
+            .Add vbCrLf
             .Add fld.Name
+            .Add vbCrLf
             .Add fld.ForeignName
+            .Add vbCrLf
             .Add "End"
+            .Add vbCrLf
         Next
     End With
     WriteFile cData.GetStr, strFile

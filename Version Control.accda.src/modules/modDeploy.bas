@@ -684,7 +684,7 @@ End Function
 '           : (This is harder than you would think!)
 '---------------------------------------------------------------------------------------
 '
-Private Function GetVBProjectForCurrentDB() As Object   ' As VBProject
+Private Function GetVBProjectForCurrentDB() As VBProject
 
     Dim objProj As Object
     Dim strPath As String

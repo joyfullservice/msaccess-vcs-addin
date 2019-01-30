@@ -12,6 +12,8 @@ Public ShowDebug As Boolean
 Public IncludeVBE As Boolean
 Public FastSave As Boolean
 Public SavePrintVars As Boolean
+Public SaveQuerySQL As Boolean
+Public SaveTableSQL As Boolean
 Public AggressiveSanitize As Boolean
 Public StripPublishOption As Boolean
 

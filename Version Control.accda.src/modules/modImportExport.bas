@@ -51,10 +51,14 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     sngStart = Timer
     Set colVerifiedPaths = New Collection   ' Reset cache
 
-    cModel.Log cstrSpacer
-    cModel.Log "Beginning Export of all Source", False
-    cModel.Log CurrentProject.Name
-    cModel.Log Now()
+    With cModel
+        .Log cstrSpacer
+        .Log "Beginning Export of all Source", False
+        .Log CurrentProject.Name
+        .Log "VCS Version " & GetVCSVersion
+        If .FastSave Then .Log "Using Fast Save"
+        .Log Now()
+    End With
     
     ' Read in options from model
     strSourcePath = cModel.ExportBaseFolder
@@ -73,7 +77,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     If CurrentProject.ProjectType = acMDB Then
         ' Standard Access Project
         strObjectPath = strSourcePath & "queries\"
-        ClearOrphanedSourceFiles strObjectPath, dbs.QueryDefs, cModel, "bas"
+        ClearOrphanedSourceFiles strObjectPath, dbs.QueryDefs, cModel, "bas", "sql"
         cModel.Log cstrSpacer, cModel.ShowDebug
         cModel.Log PadRight("Exporting queries...", 24), True, cModel.ShowDebug
         cModel.Log "", cModel.ShowDebug
@@ -107,8 +111,10 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         End If
         
         ' Process triggers
+        cModel.Log cstrSpacer, cModel.ShowDebug
+        cModel.Log PadRight("Exporting triggers...", 24), True, cModel.ShowDebug
+        cModel.Log "", cModel.ShowDebug
         ExportADPTriggers cModel, strSourcePath & "triggers\"
-        
         
         ' Loop through each type, exporting SQL definitions
         For Each varType In colADO
@@ -258,7 +264,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         
         ' Verify path and clear any existing files
         VerifyPath Left(strObjectPath, InStrRev(strObjectPath, "\"))
-        ClearOrphanedSourceFiles strObjectPath, tds, cModel, "LNKD", "sql", "xml"
+        ClearOrphanedSourceFiles strObjectPath, tds, cModel, "LNKD", "sql", "xml", "bas"
 
         cModel.Log cstrSpacer, cModel.ShowDebug
         cModel.Log PadRight("Exporting " & strLabel & "...", 24), , cModel.ShowDebug
@@ -270,18 +276,15 @@ Public Sub ExportAllSource(cModel As IVersionControl)
             If Left$(td.Name, 4) <> "MSys" And _
                 Left$(td.Name, 1) <> "~" Then
                 If Len(td.connect) = 0 Then ' this is not an external table
-                    modTable.ExportTableDef td.Name, strObjectPath, cModel
+                    ExportTableDef td.Name, strObjectPath, cModel
                     If InCollection(cModel.TablesToSaveData, "*") Then
-                        modTable.ExportTableData CStr(td.Name), strSourcePath & "tables\", cModel
+                        ExportTableData CStr(td.Name), strSourcePath & "tables\", cModel
                         If Len(Dir(strSourcePath & "tables\" & td.Name & ".txt")) > 0 Then
                             intObjDataCnt = intObjDataCnt + 1
                         End If
                     ElseIf InCollection(cModel.TablesToSaveData, td.Name) Then
-                        On Error GoTo Err_TableNotFound
                         modTable.ExportTableData CStr(td.Name), strSourcePath & "tables\", cModel
                         intObjDataCnt = intObjDataCnt + 1
-Err_TableNotFound:
-                        
                     'else don't export table data
                     End If
     
@@ -345,6 +348,13 @@ Err_TableNotFound:
     
     ' Clean up after completion
     Set m_FSO = Nothing
+    
+    ' Save version from last
+    If GetDBProperty("Last VCS Version") <> GetVCSVersion Then
+        SetDBProperty "Last VCS Version", GetVCSVersion
+        ' Reload version control so we can run fast save.
+        'InitializeVersionControlSystem
+    End If
     
 End Sub
 
@@ -467,7 +477,6 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionCo
 End Sub
 
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : ExportObject
 ' Author    : Adam Waller
@@ -479,10 +488,14 @@ Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As
         
     Dim blnSkip As Boolean
     Dim strTempFile As String
+    Dim strFile As String
+    Dim strFolder As String
+    Dim dbs As DAO.Database
     
     On Error GoTo ErrHandler
     
-    VerifyPath Left(strPath, InStrRev(strPath, "\"))
+    strFolder = Left(strPath, InStrRev(strPath, "\"))
+    VerifyPath strFolder
     
     ' Check for fast save
     If cModel.FastSave Then
@@ -495,29 +508,44 @@ Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As
                 blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllReports(strObject), strPath))
             Case acMacro
                 blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllMacros(strObject), strPath))
-            ' Tables are done through a different function
         End Select
     End If
     
     If blnSkip Then
         cModel.Log "  (Skipping '" & strObject & "')", cModel.ShowDebug
     Else
+        Set dbs = CurrentDb
+    
+        ' Special options for SQL queries
+        If intType = acQuery And cModel.SaveQuerySQL Then
+            ' Support for SQL export for queries.
+            strFile = strFolder & GetSafeFileName(strObject) & ".sql"
+            WriteFile dbs.QueryDefs(strObject).sql, strFile
+            cModel.Log "  " & strObject & " (with SQL)", cModel.ShowDebug
+            
+        ' Log other object
+        Else
+            cModel.Log "  " & strObject, cModel.ShowDebug
+        End If
+    
+        ' Export object as text (sanitize if needed.)
         Select Case intType
             Case acForm, acReport, acQuery
-                ' Convert UCS to UTF-8
-                strTempFile = GetTempFile
-                Application.SaveAsText intType, strObject, strTempFile
-                ConvertUcs2Utf8 strTempFile, strPath
-                Kill strTempFile
-                
-                ' Sanitize file for certain types.
-                'If (intType = acForm) Or (intType = acReport) Then
-                    SanitizeFile strPath, cModel
-                'End If
+                If CurrentProject.ProjectType = acADP Then
+                    ' No UCS conversion needed.
+                    Application.SaveAsText intType, strObject, strPath
+                Else
+                    ' Convert UCS to UTF-8
+                    strTempFile = GetTempFile
+                    Application.SaveAsText intType, strObject, strTempFile
+                    ConvertUcs2Utf8 strTempFile, strPath
+                    Kill strTempFile
+                End If
+                SanitizeFile strPath, cModel
             Case Else
+                ' Other object type
                 Application.SaveAsText intType, strObject, strPath
         End Select
-        cModel.Log "  " & strObject, cModel.ShowDebug
     End If
 
     Exit Sub

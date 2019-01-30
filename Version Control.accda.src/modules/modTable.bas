@@ -97,110 +97,143 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportTableDef(strTable As String, strFolder As String, cModel As IVersionControl)
-    
+
     Dim strFile As String
     Dim cData As New clsConcat
-    Dim cAttr As New clsConcat
-    Dim idx As DAO.Index
-    Dim dbs As Database
-    Dim tdf As DAO.TableDef
-    Dim fld As DAO.Field
     Dim blnSkip As Boolean
+    Dim dbs As Database
+    Dim tdf As TableDef
 
     Set dbs = CurrentDb
     Set tdf = dbs.TableDefs(strTable)
-    
+
     ' Build file name
-    strFile = strFolder & GetSafeFileName(strTable) & ".sql"
-    
+    strFile = strFolder & GetSafeFileName(strTable) & ".xml"
+
     ' Check for fast save
     If cModel.FastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strFile))
-    
+
     ' Export table definition
     If blnSkip Then
         cModel.Log "  (Skipping '" & strTable & "')", cModel.ShowDebug
     Else
-        With cData
-            .Add "CREATE TABLE ["
-            .Add strTable
-            .Add "] ("
-            .Add vbCrLf
-            
-            ' Loop through fields
-            For Each fld In tdf.Fields
-                .Add "  ["
-                .Add fld.Name
-                .Add "] "
-                If (fld.Attributes And dbAutoIncrField) Then
-                    .Add "AUTOINCREMENT"
-                Else
-                    .Add GetTypeString(fld.Type)
-                    .Add " "
-                End If
-                Select Case fld.Type
-                    Case dbText, dbVarBinary
-                        .Add "("
-                        .Add fld.Size
-                        .Add ")"
-                End Select
-                
-                ' Indexes
-                For Each idx In tdf.Indexes
-                    Set cAttr = New clsConcat
-                    If idx.Fields.Count = 1 And idx.Fields(0).Name = fld.Name Then
-                        If idx.Primary Then cAttr.Add " PRIMARY KEY"
-                        If idx.Unique Then cAttr.Add " UNIQUE"
-                        If idx.Required Then cAttr.Add " NOT NULL"
-                        If idx.Foreign Then AddFieldReferences dbs, idx.Fields, strTable, cAttr
-                        If Len(cAttr.GetStr) > 0 Then
-                            .Add " CONSTRAINT ["
-                            .Add idx.Name
-                            .Add "]"
-                        End If
-                    End If
-                    .Add cAttr.GetStr
-                Next
-                .Add ","
-                .Add vbCrLf
-            Next fld
-            .Remove 3   ' strip off last comma and crlf
+        If cModel.SaveTableSQL Then
+            ' Option for SQL output for accdb tables
+            cModel.Log "  " & strTable & " (with SQL)", cModel.ShowDebug
+            SaveTableSqlDef dbs, strTable, strFolder, cModel
+        Else
+            cModel.Log "  " & strTable, cModel.ShowDebug
+        End If
+        
+        ' Tables are export as XML files
+        Application.ExportXML acExportTable, strTable, , strFile
 
-            ' Constraints
-            Set cAttr = New clsConcat
+        'exort Data Macros
+        ExportDataMacros strTable, strFolder, cModel
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveTableSqlDef
+' Author    : Adam Waller
+' Date      : 1/28/2019
+' Purpose   : Save a version of the table formatted as a SQL statement.
+'           : (Makes it easier to see table changes in version control systems.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As String, cModel As IVersionControl)
+
+    Dim cData As New clsConcat
+    Dim cAttr As New clsConcat
+    Dim idx As DAO.Index
+    Dim fld As DAO.Field
+    Dim strFile As String
+    Dim tdf As DAO.TableDef
+    
+    Set tdf = dbs.TableDefs(strTable)
+    
+    With cData
+        .Add "CREATE TABLE ["
+        .Add strTable
+        .Add "] ("
+        .Add vbCrLf
+        
+        ' Loop through fields
+        For Each fld In tdf.Fields
+            .Add "  ["
+            .Add fld.Name
+            .Add "] "
+            If (fld.Attributes And dbAutoIncrField) Then
+                .Add "AUTOINCREMENT"
+            Else
+                .Add GetTypeString(fld.Type)
+                .Add " "
+            End If
+            Select Case fld.Type
+                Case dbText, dbVarBinary
+                    .Add "("
+                    .Add fld.Size
+                    .Add ")"
+            End Select
+            
+            ' Indexes
             For Each idx In tdf.Indexes
-                If idx.Fields.Count > 1 Then
-                    If Len(cAttr.GetStr) = 0 Then cAttr.Add " CONSTRAINT "
-                    If idx.Primary Then
-                        cAttr.Add "["
-                        cAttr.Add idx.Name
-                        cAttr.Add "] PRIMARY KEY ("
-                        For Each fld In idx.Fields
-                            cAttr.Add fld.Name
-                            cAttr.Add ", "
-                        Next fld
-                        cAttr.Remove 2
-                        cAttr.Add ")"
-                    End If
-                    If Not idx.Foreign Then
-                        If Len(cAttr.GetStr) > 0 Then
-                            .Add ","
-                            .Add vbCrLf
-                            .Add "  "
-                            .Add cAttr.GetStr
-                            AddFieldReferences dbs, idx.Fields, strTable, cData
-                        End If
+                Set cAttr = New clsConcat
+                If idx.Fields.Count = 1 And idx.Fields(0).Name = fld.Name Then
+                    If idx.Primary Then cAttr.Add " PRIMARY KEY"
+                    If idx.Unique Then cAttr.Add " UNIQUE"
+                    If idx.Required Then cAttr.Add " NOT NULL"
+                    If idx.Foreign Then AddFieldReferences dbs, idx.Fields, strTable, cAttr
+                    If Len(cAttr.GetStr) > 0 Then
+                        .Add " CONSTRAINT ["
+                        .Add idx.Name
+                        .Add "]"
                     End If
                 End If
+                .Add cAttr.GetStr
             Next
+            .Add ","
             .Add vbCrLf
-            .Add ")"
+        Next fld
+        .Remove 3   ' strip off last comma and crlf
+
+        ' Constraints
+        Set cAttr = New clsConcat
+        For Each idx In tdf.Indexes
+            If idx.Fields.Count > 1 Then
+                If Len(cAttr.GetStr) = 0 Then cAttr.Add " CONSTRAINT "
+                If idx.Primary Then
+                    cAttr.Add "["
+                    cAttr.Add idx.Name
+                    cAttr.Add "] PRIMARY KEY ("
+                    For Each fld In idx.Fields
+                        cAttr.Add fld.Name
+                        cAttr.Add ", "
+                    Next fld
+                    cAttr.Remove 2
+                    cAttr.Add ")"
+                End If
+                If Not idx.Foreign Then
+                    If Len(cAttr.GetStr) > 0 Then
+                        .Add ","
+                        .Add vbCrLf
+                        .Add "  "
+                        .Add cAttr.GetStr
+                        AddFieldReferences dbs, idx.Fields, strTable, cData
+                    End If
+                End If
+            End If
+        Next
+        .Add vbCrLf
+        .Add ")"
         
-            WriteFile .GetStr, strFile
-        End With
+        ' Build file name and create file.
+        strFile = strFolder & GetSafeFileName(strTable) & ".sql"
+        WriteFile .GetStr, strFile
         
-        'exort Data Macros
-        modDataMacro.ExportDataMacros strTable, strFolder, cModel
-    End If
+    End With
     
 End Sub
 

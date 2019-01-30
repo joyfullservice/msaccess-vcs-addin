@@ -222,7 +222,18 @@ Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, objContainer As Obj
     ' Build list of database objects
     If Not objContainer Is Nothing Then
         For Each objItem In objContainer
-            colNames.Add GetSafeFileName(StripDboPrefix(objItem.Name))
+            If TypeOf objItem Is Relation Then
+                ' Exclude specific names
+                Select Case objItem.Name
+                    Case "MSysNavPaneGroupsMSysNavPaneGroupToObjects", "MSysNavPaneGroupCategoriesMSysNavPaneGroups"
+                        ' Skip these built-in relationships
+                    Case Else
+                        ' Relationship names can't be used directly as file names.
+                        colNames.Add GetRelationFileName(objItem)
+                End Select
+            Else
+                colNames.Add GetSafeFileName(StripDboPrefix(objItem.Name))
+            End If
         Next objItem
     End If
     
@@ -354,20 +365,35 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function CloseAllFormsReports() As Boolean
+
     Dim strName As String
-    On Error GoTo errorHandler
-    Do While Forms.Count > 0
-        strName = Forms(0).Name
-        DoCmd.Close acForm, strName
-        DoEvents
-    Loop
-    Do While Reports.Count > 0
-        strName = Reports(0).Name
-        DoCmd.Close acReport, strName
-        DoEvents
-    Loop
-    If (Forms.Count + Reports.Count) = 0 Then CloseAllFormsReports = True
+    Dim intOpened As Integer
+    
+    ' Get count of opened objects
+    intOpened = Forms.Count + Reports.Count
+    If intOpened > 0 Then
+        On Error GoTo errorHandler
+        Do While Forms.Count > 0
+            strName = Forms(0).Name
+            DoCmd.Close acForm, strName
+            DoEvents
+        Loop
+        Do While Reports.Count > 0
+            strName = Reports(0).Name
+            DoCmd.Close acReport, strName
+            DoEvents
+        Loop
+        If (Forms.Count + Reports.Count) = 0 Then CloseAllFormsReports = True
+        
+        ' Switch back to IDE window
+        ShowIDE
+    Else
+        ' No forms or reports currently open.
+        CloseAllFormsReports = True
+    End If
+    
     Exit Function
+
 errorHandler:
     Debug.Print "Error closing " & strName & ": " & Err.Number & vbCrLf & Err.Description
 End Function
@@ -668,6 +694,7 @@ End Function
 '
 Public Function ShowIDE()
     DoCmd.RunCommand acCmdVisualBasicEditor
+    DoEvents
 End Function
 
 

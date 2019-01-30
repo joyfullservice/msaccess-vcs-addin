@@ -225,3 +225,15 @@ End Property
 Private Property Get IVersionControl_AggressiveSanitize() As Boolean
     IVersionControl_AggressiveSanitize = m_vcs.AggressiveSanitize
 End Property
+Private Property Let IVersionControl_SaveQuerySQL(ByVal RHS As Boolean)
+    m_vcs.SaveQuerySQL = RHS
+End Property
+Private Property Get IVersionControl_SaveQuerySQL() As Boolean
+    IVersionControl_SaveQuerySQL = m_vcs.SaveQuerySQL
+End Property
+Private Property Let IVersionControl_SaveTableSQL(ByVal RHS As Boolean)
+    m_vcs.SaveTableSQL = RHS
+End Property
+Private Property Get IVersionControl_SaveTableSQL() As Boolean
+    IVersionControl_SaveTableSQL = m_vcs.SaveTableSQL
+End Property
