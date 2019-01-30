@@ -777,7 +777,7 @@ Private Function IsClickOnce() As Boolean
             End If
             
             ' Save to this database
-            If CodeProject.ProjectType = acADP Then
+            If CurrentProject.ProjectType = acADP Then
                 PropertyParent.Properties.Add cstrName, strValue
             Else
                 ' Normal accdb database property

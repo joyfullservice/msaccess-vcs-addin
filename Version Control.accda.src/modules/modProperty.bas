@@ -18,7 +18,7 @@ Public Sub ExportProperties(strFolder As String, cModel As IVersionControl)
     Dim prp As Object
     
     ' Save list of properties set in current database.
-    If CodeProject.ProjectType = acMDB Then
+    If CurrentProject.ProjectType = acMDB Then
         Set objParent = CurrentDb
     Else
         ' ADP project
@@ -76,7 +76,7 @@ Public Function ImportProperties(obj_path As String) As Boolean
     Set InFile = FSO.OpenTextFile(obj_path & FileName, ForReading)
 
     Set objParent = CurrentDb
-    If CodeProject.ProjectType = acADP Then Set objParent = CurrentProject
+    If CurrentProject.ProjectType = acADP Then Set objParent = CurrentProject
 
     'On Error Resume Next
     Do Until InFile.AtEndOfStream
