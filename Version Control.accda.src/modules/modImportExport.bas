@@ -236,6 +236,13 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     cModel.Log "", cModel.ShowDebug
     ExportProperties strSourcePath, cModel
     
+    ' Export Import/Export Specifications
+    cModel.Log cstrSpacer, cModel.ShowDebug
+    cModel.Log PadRight("Exporting specs...", 24), , cModel.ShowDebug
+    cModel.Log "", cModel.ShowDebug
+    ExportSpecs strSourcePath, cModel
+    
+    
 
 '-------------------------mdb table export------------------------
     
@@ -305,7 +312,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     
         ' Export relationships (MDB only)
         cModel.Log cstrSpacer, cModel.ShowDebug
-        cModel.Log PadRight("Exporting Relations...", 24), , cModel.ShowDebug
+        cModel.Log PadRight("Exporting relations...", 24), , cModel.ShowDebug
         cModel.Log "", cModel.ShowDebug
         
         intObjCnt = 0
@@ -530,7 +537,7 @@ Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As
     
         ' Export object as text (sanitize if needed.)
         Select Case intType
-            Case acForm, acReport, acQuery
+            Case acForm, acReport, acQuery, acMacro
                 If CurrentProject.ProjectType = acADP Then
                     ' No UCS conversion needed.
                     Application.SaveAsText intType, strObject, strPath

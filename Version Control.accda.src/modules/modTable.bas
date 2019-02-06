@@ -71,13 +71,30 @@ Public Sub ExportLinkedTable(strTable As String, strFolder As String, cModel As 
             .Add tdf.SourceTableName
             .Add vbCrLf
             
-            ' Indexes
-            For Each idx In tdf.Indexes
-                If idx.Primary Then
-                    .Add Mid(idx.Fields, 2)
-                    .Add vbCrLf
-                End If
-            Next idx
+            ' Make sure we can access the index.
+            ' (Will throw an error if the linked table is not accessible.)
+            On Error Resume Next
+            varText = tdf.Indexes.Count
+            If Err.Number = 3011 Then
+                ' File may be inaccessible
+                Err.Clear
+            ElseIf Err.Number = 3625 Then
+                ' Invalid file specification
+                Err.Clear
+            ElseIf Err.Number > 0 Then
+                MsgBox "Error reading linked table indexes on " & tdf.Name & vbCrLf & "Error " & Err.Number & ": " & Err.Description, vbExclamation
+                Err.Clear
+            Else
+                On Error GoTo 0
+                ' Indexes
+                For Each idx In tdf.Indexes
+                    If idx.Primary Then
+                        .Add Mid(idx.Fields, 2)
+                        .Add vbCrLf
+                    End If
+                Next idx
+            End If
+            On Error GoTo 0
             
             ' Write to file
             WriteFile cData.GetStr, strPath

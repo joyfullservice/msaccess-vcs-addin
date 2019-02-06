@@ -29,7 +29,7 @@ Public Sub InitializeVersionControlSystem(Optional blnUseVersionControl As Boole
         .Add Array("System", "GitHub")  ' IMPORTANT: Set this first, before other settings.
         .Add Array("Export Folder", CurrentProject.Path & "\" & CurrentProject.Name & ".src\")
         ' Optional parameters
-        .Add Array("Show Debug", True)
+        .Add Array("Show Debug", False)
         .Add Array("Include VBE", False)
         .Add Array("Fast Save", True)
         .Add Array("Save Print Vars", False)
@@ -71,6 +71,11 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
     Dim varParts As Variant
     Dim blnInitialize As Boolean
     Dim blnLoaded As Boolean
+    Dim strLibPrefix As String
+    Dim strError As String
+    
+    ' Unable to use library name when loading from an ADP project.
+    If CurrentProject.ProjectType <> acADP Then strLibPrefix = "[" & strLibraryName & "]."
         
     ' Loop backwards through references, since libraries will be near the end.
     For intCnt = Application.References.Count To 1 Step -1
@@ -94,8 +99,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
                             blnInitialize = True
                             blnLoaded = True
                         Else
-                            MsgBox "Unable to find required reference for Version Control System" & _
-                                vbCrLf & ref.FullPath & vbCrLf & "Please contact your systems administrator for assistance.", vbExclamation
+                            strError = "Could not find library file in " & strFile
                         End If
                         Exit For
                     Else
@@ -105,7 +109,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
                     End If
                 Else
                     ' Disable version control
-                    Run "[" & strLibraryName & "].ReleaseObjectReferences"
+                    Run strLibPrefix & "ReleaseObjectReferences"
                     Application.References.Remove ref
                     Set ref = Nothing
                     Debug.Print "Removed Version Control System"
@@ -135,24 +139,50 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
             strPath = strPath & strLibraryFile
             If Dir(strPath) <> "" Then
                 ' File exists
-                If strPath <> CodeProject.FullName Then Application.References.AddFromFile strPath
-                blnInitialize = True
+                If strPath <> CodeProject.FullName Then
+                    ' In ADP projects, the first call may not fully load the library.
+                    ' (Not exactly sure why, but ADP seems to work a little differently with
+                    '  library databases. If we try the AddFromFile again, it finishes the
+                    '  load and allows us to continue with calling the VCS functions.)
+                    On Error Resume Next
+                    References.AddFromFile strPath
+                    If Err Then
+                        If Err.Number = 35021 Then
+                            Err.Clear
+                            ' Try loading it again
+                            References.AddFromFile strPath
+                            If Not Err Then
+                                ' Go ahead and run a compile to just to make sure we can run the VCS command
+                                ' later in this code. (Name conflicts would probably be the reasons for errors here.)
+                                On Error GoTo 0
+                                DoCmd.RunCommand acCmdCompileAllModules
+                            End If
+                        End If
+                    End If
+                    ' Check for errors and reset error handler
+                    If Err Then
+                        ' Unresolved error after attempting to reload.
+                        strError = "Could not load " & strPath & vbCrLf & "Error Number: " & Err.Number & Err.Description
+                        Err.Clear
+                    Else
+                        blnInitialize = True
+                    End If
+                    On Error GoTo 0
+                End If
             End If
         End If
     Else
         ' Running from library (i.e. code development in the library project)
         blnInitialize = blnUseVersionControl
-        If Not blnInitialize Then Run "[" & strLibraryName & "].ReleaseObjectReferences"
+        If Not blnInitialize Then Run strLibPrefix & "ReleaseObjectReferences"
     End If
     
-    ' Initialize the VBE menu
-    ' (Use the Run commmand to avoid compile errors if the library was not loaded)
-    If CurrentProject.ProjectType = acADP Then
-        ' Unable to use library name when loading from an ADP project.
-        If blnInitialize Then Run "LoadVersionControlMenu", colParams
+    If strError = "" Then
+        ' Initialize the VBE menu
+        ' (Use the Run commmand to avoid compile errors if the library was not loaded)
+        If blnInitialize Then Run strLibPrefix & "LoadVersionControlMenu", colParams
     Else
-        ' Use the fully qualified library name to make sure we are running the right thing.  :-)
-        If blnInitialize Then Run "[" & strLibraryName & "].LoadVersionControlMenu", colParams
+        Debug.Print "**ERROR** " & strError
     End If
             
 End Sub

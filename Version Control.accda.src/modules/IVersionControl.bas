@@ -204,6 +204,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Initialize()
+    ExportBaseFolder = CurrentProject.Path & "\" & CurrentProject.Name & ".src\"
     AggressiveSanitize = True
     StripPublishOption = True
     IncludeVBE = False
