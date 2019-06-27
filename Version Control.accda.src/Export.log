@@ -41,12 +41,12 @@ Exporting modules...
 [19]
 -------------------------------
 Exporting references... 
-  VBA 4.1
+  VBA 4.2
   Access 9.0
   stdole 2.0
   DAO 12.0
   ADODB 6.1
-  Office 2.5
+  Office 2.7
   VBIDE 5.3
   Scripting 1.0
   VBScript_RegExp_55 5.5
@@ -64,4 +64,4 @@ Exporting tbldef...
 Exporting relations...  
 [0]
 -------------------------------
-Done. (0.3 seconds)
+Done. (2.39 seconds)
