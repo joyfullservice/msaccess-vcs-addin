@@ -2,14 +2,39 @@
 Option Compare Database
 Option Explicit
 
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+'---------------------------------------------------------------------------------------
+' Module    : modLIBVCS
+' Author    : Marco Salernitano
+' Date      : 25-Jun-2019
+' Purpose   : Extend some functionality like the possibility to choose export path and
+'             give name parts list to select tables for what to save also data
+'---------------------------------------------------------------------------------------
+'
+=======
+>>>>>>> 30b632bb7f90363acfd7154d238359249b34f9b2
+>>>>>>> Stashed changes
 Public Function pub_LIBVCS_LoadVCSModel(Optional commaSeparatedListOfNamePartsOfTablesToIncludeForDataSave As String = "tbl_L_;", _
                                         Optional commaSeparatedListOfNamePartsOfTablesToExcludeFromIncludedOnes As String = "tbl_L_NotThisOne;" _
                                         ) As Boolean
 
     Dim exportPath As String
     exportPath = getExportPath()
+<<<<<<< Updated upstream
     
     If exportPath <> "" Then
+=======
+<<<<<<< HEAD
+    If exportPath <> "" Then
+        Debug.Print "VCS Export Path: " & exportPath
+        
+=======
+    
+    If exportPath <> "" Then
+>>>>>>> 30b632bb7f90363acfd7154d238359249b34f9b2
+>>>>>>> Stashed changes
         Dim TablesToSaveData As Collection
         Set TablesToSaveData = getTablesToSaveData(commaSeparatedListOfNamePartsOfTablesToIncludeForDataSave, commaSeparatedListOfNamePartsOfTablesToExcludeFromIncludedOnes)
         
@@ -33,6 +58,35 @@ Public Function pub_LIBVCS_LoadVCSModel(Optional commaSeparatedListOfNamePartsOf
     
         ' Pass the parameters to the wrapper function
         LoadVersionControlMenu colParams
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+        pub_LIBVCS_LoadVCSModel = True
+    End If
+End Function
+
+Public Function pub_LIBVCS_ChangeExportPath()
+    ResetExportFolderPath
+    pub_LIBVCS_LoadVCSModel UserSettings_Get("VCSParams", "TablesToInclude", ""), UserSettings_Get("VCSParams", "TablesToExclude", "")
+End Function
+
+Private Function getExportPath() As String
+    getExportPath = GetExportFolderPath
+    ' If code reaches here, we don't have a copy of the path
+    ' in the cached list of verified paths. Verify and add
+    If getExportPath = "" Then
+        getExportPath = CStr(SelectFolder(CurrentProject.Path))
+        If getExportPath <> "" Then
+            If Right(getExportPath, 1) <> "\" Then getExportPath = getExportPath & "\"
+        Else
+            Exit Function
+        End If
+    ElseIf Dir(getExportPath, vbDirectory) = "" Then
+    ' Path does not seem to exist.
+        Dim Answer
+        Answer = MsgBox("Saved Path:" & vbCrLf & vbCrLf & getExportPath & vbCrLf & vbCrLf & "doesn't exist." & vbCrLf & vbCrLf & "Answer Yes to create it, No to choose another one or Cancel to abort.", vbYesNoCancel Or vbExclamation, "Export folder not found!")
+=======
+>>>>>>> Stashed changes
     End If
 End Function
 
@@ -77,6 +131,10 @@ Private Function getExportPath() As String
     ' Path does not seem to exist.
         Dim Answer
         Answer = MsgBox("Saved or Default Path:" & vbCrLf & vbCrLf & getExportPath & vbCrLf & vbCrLf & "doesn't exist." & vbCrLf & vbCrLf & "Answer Yes to create it, No to choose another one or Cancel to abort.", vbYesNoCancel Or vbExclamation, "Export folder not found!")
+<<<<<<< Updated upstream
+=======
+>>>>>>> 30b632bb7f90363acfd7154d238359249b34f9b2
+>>>>>>> Stashed changes
         Select Case Answer
             Case vbYes
                 ' Create it.
@@ -86,6 +144,14 @@ Private Function getExportPath() As String
                 getExportPath = CStr(SelectFolder(CurrentProject.Path))
                 If getExportPath <> "" Then
                     If Right(getExportPath, 1) <> "\" Then getExportPath = getExportPath & "\"
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+                Else
+                    Exit Function
+=======
+>>>>>>> 30b632bb7f90363acfd7154d238359249b34f9b2
+>>>>>>> Stashed changes
                 End If
             Case Else
                 Exit Function
@@ -94,6 +160,32 @@ Private Function getExportPath() As String
     End If
 End Function
 
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+'---------------------------------------------------------------------------------------
+' Procedure : GetSourceFolderPath
+' Author    : Marco Salernitano
+' Date      : 25-Jun-2019
+' Purpose   : Returns the saved or default export path
+'---------------------------------------------------------------------------------------
+
+Private Function GetExportFolderPath() As String
+    GetExportFolderPath = UserSettings_Get("VCSParams", "ExportFolder", "")
+End Function
+
+Private Sub SetExportFolderPath(exportPath As String)
+    If exportPath = "" Then Exit Sub
+    UserSettings_Set "VCSParams", "ExportFolder", (exportPath)
+End Sub
+
+Private Sub ResetExportFolderPath()
+    UserSettings_Del "VCSParams", "ExportFolder"
+End Sub
+
+=======
+>>>>>>> 30b632bb7f90363acfd7154d238359249b34f9b2
+>>>>>>> Stashed changes
 Private Function getTablesToSaveData(Optional TablesToInclude_List As String, Optional IncludedTablesToExclude_List As String) As Collection
     Dim TablesToSaveData    As New Collection
     Dim Includes            As Variant
@@ -102,6 +194,15 @@ Private Function getTablesToSaveData(Optional TablesToInclude_List As String, Op
     Dim iName               As Variant
     Dim eName               As Variant
     
+<<<<<<< Updated upstream
+=======
+<<<<<<< HEAD
+    'UserSettings_Set TablesToInclude_List , IncludedTablesToExclude_List
+    UserSettings_Set "VCSParams", "TablesToInclude", (TablesToInclude_List)
+    UserSettings_Set "VCSParams", "TablesToExclude", (IncludedTablesToExclude_List)
+=======
+>>>>>>> 30b632bb7f90363acfd7154d238359249b34f9b2
+>>>>>>> Stashed changes
     Includes = Split(TablesToInclude_List, ";", vbTextCompare)
     Excludes = Split(IncludedTablesToExclude_List, ";", vbTextCompare)
     If UBound(Includes) <> -1 Then
