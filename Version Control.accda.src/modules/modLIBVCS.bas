@@ -145,15 +145,15 @@ Private Function SelectFolder(Optional StartingFolder) As Variant
    End With
 End Function
 
-Private Function cProjectName()
-    cProjectName = VBE.ActiveVBProject.Name
+Private Function getProjectName()
+    getProjectName = CurrentProject.FullName ' VBE.ActiveVBProject.Name
 End Function
 
 Private Function UserSettings_Get(DBSection As String, DBUserSettingKey As String, Optional default) As Variant
     Dim DbName As String
     Dim DBEnvironment As String
     On Error Resume Next
-    DbName = cProjectName 'CurrentDb.Properties("AppTitle")
+    DbName = getProjectName 'CurrentDb.Properties("AppTitle")
     DBEnvironment = "DEV"  'pub_Settings_Get("Environment")
     UserSettings_Get = GetSetting(DbName & " - " & DBEnvironment, DBSection, DBUserSettingKey, default)
 End Function
@@ -162,7 +162,7 @@ Private Sub UserSettings_Set(DBSection As String, DBUserSettingKey As String, DB
     Dim DbName As String
     Dim DBEnvironment As String
     On Error Resume Next
-    DbName = cProjectName 'CurrentDb.Properties("AppTitle")
+    DbName = getProjectName 'CurrentDb.Properties("AppTitle")
     DBEnvironment = "DEV"  'pub_Settings_Get("Environment")
     SaveSetting DbName & " - " & DBEnvironment, DBSection, DBUserSettingKey, DBUserSettingValue
 End Sub
@@ -171,7 +171,7 @@ Private Sub UserSettings_Del(DBSection As String, Optional DBUserSettingKey As S
     Dim DbName As String
     Dim DBEnvironment As String
     On Error Resume Next
-    DbName = cProjectName 'CurrentDb.Properties("AppTitle")
+    DbName = getProjectName 'CurrentDb.Properties("AppTitle")
     DBEnvironment = "DEV"  'DBSettings.Setting("Environment")
     If DBUserSettingKey <> "" Then
         'Delete only the specified Key
