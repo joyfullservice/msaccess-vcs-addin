@@ -406,8 +406,10 @@ Private Function GetTableExportSql(strTable As String) As String
     Dim intFields As Integer
     Dim cText As New clsConcat
     Dim cFieldList As New clsConcat
+    Dim dbs As Database
     
-    Set tdf = CurrentDb.TableDefs(strTable)
+    Set dbs = CurrentDb
+    Set tdf = dbs.TableDefs(strTable)
     intFields = tdf.Fields.Count
     
     ' Build list of fields
@@ -415,9 +417,9 @@ Private Function GetTableExportSql(strTable As String) As String
         For Each fld In tdf.Fields
             .Add "["
             .Add fld.Name
-            .Add "], "
-            If intCnt < intFields Then cText.Add ", "
+            .Add "]"
             intCnt = intCnt + 1
+            If intCnt < intFields Then .Add ", "
         Next fld
     End With
     
@@ -465,19 +467,20 @@ Public Sub ExportTableData(strTable As String, strFolder As String, cModel As IV
     ' Add header row
     For Each fld In rst.Fields
         cData.Add fld.Name
-        If intCnt < intFields Then cData.Add vbTab
         intCnt = intCnt + 1
+        If intCnt < intFields Then cData.Add vbTab
     Next fld
     cData.Add vbCrLf
 
     ' Add data rows
     Do While Not rst.EOF
+        intCnt = 0
         For Each fld In rst.Fields
             ' Format for TDF format without line breaks
             strText = MultiReplace(Nz(fld.Value), "\", "\\", vbCrLf, "\n", vbCr, "\n", vbLf, "\n", vbTab, "\t")
             cData.Add strText
-            If intCnt < intFields Then cData.Add vbTab
             intCnt = intCnt + 1
+            If intCnt < intFields Then cData.Add vbTab
         Next fld
         cData.Add vbCrLf
         rst.MoveNext
