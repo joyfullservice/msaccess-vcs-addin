@@ -70,6 +70,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     Debug.Print
     Debug.Print cstrSpacer
     Debug.Print "  Exporting All Source"
+    Debug.Print "  Export Path: " & strSourcePath
     Debug.Print cstrSpacer
 
     ' Process queries
@@ -468,6 +469,7 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionCo
         strFolder = cModel.ExportBaseFolder & strFolder
         strFile = strFolder & GetSafeFileName(strName) & ".bas"
         ' Export the single object
+        Debug.Print "  Export Path: " & strFile
         ExportObject intType, strName, strFile, cModel
         ' Sanitize object if needed
         If blnSanitize Then SanitizeFile strFile, cModel
