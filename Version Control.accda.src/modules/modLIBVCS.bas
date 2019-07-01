@@ -118,14 +118,14 @@ Private Function getTablesToSaveData(Optional TablesToInclude_List As String, Op
     'UserSettings_Set TablesToInclude_List , IncludedTablesToExclude_List
     UserSettings_Set "VCSParams", "TablesToInclude", (TablesToInclude_List)
     UserSettings_Set "VCSParams", "TablesToExclude", (IncludedTablesToExclude_List)
-    Includes = Split(TablesToInclude_List, ";", vbTextCompare)
-    Excludes = Split(IncludedTablesToExclude_List, ";", vbTextCompare)
+    Includes = Split(TablesToInclude_List, ";", , vbTextCompare)
+    Excludes = Split(IncludedTablesToExclude_List, ";", , vbTextCompare)
     If UBound(Includes) <> -1 Then
         For Each tblDef In CurrentDb.TableDefs
             For Each iName In Includes
-                If InStr(tblDef.Name, iName) <> 0 Then
+                If iName <> "" And InStr(tblDef.Name, iName) <> 0 Then
                     For Each eName In Excludes
-                        If InStr(tblDef.Name, eName) <> 0 Then
+                        If eName <> "" And InStr(tblDef.Name, eName) <> 0 Then
                             iName = Empty
                             Exit For
                         End If
