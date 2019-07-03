@@ -305,7 +305,7 @@ End Sub
 '           : (Even if the order of the fields is different.)
 '---------------------------------------------------------------------------------------
 '
-Private Function FieldsIdentical(oFields1 As DAO.Fields, oFields2 As DAO.Fields) As Boolean
+Private Function FieldsIdentical(oFields1 As Object, oFields2 As Object) As Boolean
 
     Dim fld As DAO.Field
     Dim fld2 As DAO.Field

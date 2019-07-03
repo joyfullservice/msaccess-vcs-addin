@@ -442,7 +442,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub WriteFile(strContent As String, strPath As String, Optional blnUnicode As Boolean = False)
-    With FSO.CreateTextFile(strPath, True, blnUnicode)
+    Dim ts As Scripting.TextStream
+    Set ts = FSO.CreateTextFile(strPath, True, blnUnicode)
+    With ts
         .Write strContent
         .Close
     End With
