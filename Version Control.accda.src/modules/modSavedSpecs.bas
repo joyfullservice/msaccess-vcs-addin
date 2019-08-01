@@ -27,6 +27,10 @@ Public Sub ExportSpecs(strSourcePath As String, cModel As IVersionControl)
     ' Loop through specs
     For Each oSpec In CurrentProject.ImportExportSpecifications
     
+        ' We may hit an error if the export does not have a description.
+        ' Not sure how to test this other than a resume next.
+        On Error Resume Next
+        
         ' Build data to export
         With cData
             strXML = oSpec.XML
@@ -37,6 +41,10 @@ Public Sub ExportSpecs(strSourcePath As String, cModel As IVersionControl)
             .Add vbCrLf
             .Add strXML
         End With
+        
+        ' Restore normal error handling
+        If Err Then Err.Clear
+        On Error GoTo 0
         
         ' Determine if this was an import or an export spec.
         If InStr(1, strXML, "</ImportText>") > 0 Then
