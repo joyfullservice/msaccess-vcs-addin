@@ -122,12 +122,12 @@ End Sub
 '
 Private Property Get IVersionControl_HasRequiredSoftware(blnWarnUser As Boolean) As Boolean
     Dim strPath As String
-    strPath = Environ$("localappdata") & "\GitHub\GitHub.appref-ms"
-    If Dir(strPath) <> "" Then
+    strPath = Environ$("localappdata") & "\GitHubDesktop"
+    If Dir(strPath, vbDirectory) <> "" Then
         ' Found path
         IVersionControl_HasRequiredSoftware = True
     Else
-        If blnWarnUser Then MsgBox "Could not find GitHub Windows Client installation.", vbExclamation
+        If blnWarnUser Then MsgBox "Could not find GitHub Desktop software installation.", vbExclamation
     End If
 End Property
 
