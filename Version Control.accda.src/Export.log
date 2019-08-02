@@ -1,9 +1,8 @@
 -------------------------------
 Beginning Export of all Source
 Version Control.accda
-VCS Version 1.0.0.18
-Using Fast Save
-8/1/2019 2:52:57 PM
+VCS Version 1.2.0.19
+8/2/2019 1:27:50 PM
 -------------------------------
 Exporting queries...    
 [0]
@@ -15,7 +14,8 @@ Exporting reports...
 [0]
 -------------------------------
 Exporting macros...     
-  (Skipping 'autoexec')
+  autoexec
+    Sanitized in 0.01 seconds.
 [1]
 -------------------------------
 Exporting modules...    
@@ -64,4 +64,4 @@ Exporting tbldef...
 Exporting relations...  
 [0]
 -------------------------------
-Done. (0.24 seconds)
+Done. (0.3 seconds)
