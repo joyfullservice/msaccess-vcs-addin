@@ -36,7 +36,15 @@ Public Sub ExportSpecs(strSourcePath As String, cModel As IVersionControl)
             strXML = oSpec.XML
             .Add oSpec.Name
             .Add vbCrLf
-            .Add oSpec.Description
+        '<patch description="avoid error when import/export have no description">
+            '.Add oSpec.Description
+            Dim strDescription      As String
+            strDescription = ""
+            On Error Resume Next
+            strDescription = oSpec.Description
+            On Error GoTo 0
+            .Add strDescription
+        '</patch>
             .Add vbCrLf
             .Add vbCrLf
             .Add strXML
@@ -46,8 +54,11 @@ Public Sub ExportSpecs(strSourcePath As String, cModel As IVersionControl)
         If Err Then Err.Clear
         On Error GoTo 0
         
+    '<patch description="handle imp/exp different from a text">
         ' Determine if this was an import or an export spec.
-        If InStr(1, strXML, "</ImportText>") > 0 Then
+        'If InStr(1, strXML, "</ImportText>") > 0 Then
+        If InStr(1, strXML, "</Export") = 0 Then
+    '</patch>
             strFolder = cModel.ExportBaseFolder & "\importspecs"
         Else
             strFolder = cModel.ExportBaseFolder & "\exportspecs"
