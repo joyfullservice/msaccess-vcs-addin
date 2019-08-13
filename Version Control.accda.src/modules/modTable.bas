@@ -57,7 +57,8 @@ Public Sub ExportLinkedTable(strTable As String, strFolder As String, cModel As 
             ' Check for linked databases in the same folder.
             If InStr(1, tdf.connect, "DATABASE=" & CurrentProject.Path) Then
                 ' Use relative path for databases in same folder.
-                varText = Split(tdf.Name, CurrentProject.Path)
+                'varText = Split(tdf.Name, CurrentProject.Path)
+                varText = Split(tdf.connect, CurrentProject.Path)
                 .Add CStr(varText(0))
                 .Add "."
                 .Add CStr(varText(1))
