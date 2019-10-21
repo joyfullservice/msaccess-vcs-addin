@@ -218,7 +218,7 @@ Public Function UsingUcs2() As Boolean
                 "Forms|" & acForm & "," & _
                 "Reports|" & acReport & "," & _
                 "Scripts|" & acMacro & "," & _
-                "Modules|" & acModule _
+                "Modules|" & acModule, "," _
             )
                 DoEvents
                 obj_type_split = Split(obj_type, "|")
