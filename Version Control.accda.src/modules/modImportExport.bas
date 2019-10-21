@@ -596,10 +596,10 @@ End Sub
 ' Main entry point for IMPORT. Import all forms, reports, queries,
 ' macros, modules, and lookup tables from `source` folder under the
 ' database's folder.
-Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
+Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False, Optional source_path As String)
     
     Dim dbs As DAO.Database
-    Dim source_path As String
+'    Dim source_path As String
     Dim obj_path As String
     Dim obj_type As Variant
     Dim obj_type_split() As String
@@ -618,7 +618,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
 
     Set dbs = CurrentDb
 
-    source_path = ProjectPath() & "source\"
+    If source_path = "" Then source_path = ProjectPath() & "source\"
     If Not FSO.FolderExists(source_path) Then
         MsgBox "No source found at:" & vbCrLf & source_path, vbExclamation, "Import failed"
         Exit Sub
@@ -806,7 +806,7 @@ End Sub
 ' Main entry point for ImportProject.
 ' Drop all forms, reports, queries, macros, modules.
 ' execute ImportAllSource.
-Public Sub ImportProject()
+Public Sub ImportProject(Optional ShowDebugInfo As Boolean = False, Optional source_path As String)
     
     On Error GoTo errorHandler
 
@@ -891,7 +891,7 @@ Public Sub ImportProject()
     
     Debug.Print "================="
     Debug.Print "Importing Project"
-    ImportAllSource
+    ImportAllSource ShowDebugInfo, source_path
     GoTo exitHandler
 
 errorHandler:
