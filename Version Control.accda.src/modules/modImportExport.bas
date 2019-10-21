@@ -755,11 +755,12 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False, Optional s
             Do Until Len(FileName) = 0
                 ' DoEvents no good idea!
                 obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
-                If obj_type_label = "modules" Then
-                    ucs2 = False
-                Else
-                    ucs2 = modFileAccess.UsingUcs2
-                End If
+                Select Case obj_type_label
+                    Case "modules", "macros", "reports", "forms"
+                        ucs2 = False
+                    Case Else
+                        ucs2 = modFileAccess.UsingUcs2
+                End Select
                 
                 ImportObject obj_type_num, obj_name, obj_path & FileName, ucs2
                 obj_count = obj_count + 1

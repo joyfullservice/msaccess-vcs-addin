@@ -104,12 +104,7 @@ Public Function getImportPath() As String
         getImportPath = CStr(SelectImportFolder(StartingFolder))
         If getImportPath <> "" Then
             If Right(getImportPath, 1) <> "\" Then getImportPath = getImportPath & "\"
-        Else
-            Exit Function
         End If
-    Else
-        Exit Function
-    End If
 End Function
 
 '---------------------------------------------------------------------------------------

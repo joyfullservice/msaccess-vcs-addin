@@ -71,10 +71,13 @@ On Error GoTo failed_guid
     Do Until InFile.AtEndOfStream
         line = InFile.ReadLine
         Item = Split(line, ",")
-        If UBound(Item) = 2 Then 'a ref with a guid
+'        If UBound(Item) = 2 Then 'a ref with a guid
+        If UBound(Item) = 3 Then 'a ref with a guid
           GUID = Trim(Item(0))
-          Major = CLng(Item(1))
-          Minor = CLng(Item(2))
+'          Major = CLng(Item(1))
+          Major = CLng(Item(2))
+'          Minor = CLng(Item(2))
+          Minor = CLng(Item(3))
           Application.References.AddFromGuid GUID, Major, Minor
         Else
           refName = Trim(Item(0))
