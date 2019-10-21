@@ -51,6 +51,14 @@ Public Function pub_LIBVCS_ChangeExportPath()
     pub_LIBVCS_LoadVCSModel UserSettings_Get("VCSParams", "TablesToInclude", ""), UserSettings_Get("VCSParams", "TablesToExclude", "")
 End Function
 
+Public Function pub_LIBVCS_ImportAll()
+    ImportAllSource True, getImportPath
+End Function
+
+Public Function pub_LIBVCS_ResetProjectAndImportAll()
+    ImportProject True, getImportPath
+End Function
+
 Public Function getExportPath() As String
     getExportPath = GetExportFolderPath
     ' If code reaches here, we don't have a copy of the path
@@ -85,6 +93,23 @@ Public Function getExportPath() As String
         Exit Function
     End If
     If Dir(getExportPath, vbDirectory) <> "" Then SetExportFolderPath getExportPath
+End Function
+
+Public Function getImportPath() As String
+    Dim StartingFolder
+    StartingFolder = GetExportFolderPath
+    ' If code reaches here, we don't have a copy of the path
+    ' in the cached list of verified paths. Verify and add
+    If StartingFolder = "" Or Dir(StartingFolder, vbDirectory) = "" Then StartingFolder = CurrentProject.Path
+        getImportPath = CStr(SelectImportFolder(StartingFolder))
+        If getImportPath <> "" Then
+            If Right(getImportPath, 1) <> "\" Then getImportPath = getImportPath & "\"
+        Else
+            Exit Function
+        End If
+    Else
+        Exit Function
+    End If
 End Function
 
 '---------------------------------------------------------------------------------------
@@ -155,6 +180,24 @@ Private Function SelectExportFolder(Optional StartingFolder) As Variant
       .Filters.Clear
       If .Show = True Then
         SelectExportFolder = .SelectedItems(1)
+      Else
+         MsgBox "You clicked Cancel in the folder dialog box."
+      End If
+   End With
+End Function
+
+Private Function SelectImportFolder(Optional StartingFolder) As Variant
+'Requires reference to Microsoft Office 12.0 Object Library.
+   Dim fDialog As Office.FileDialog
+   Dim varFile As Variant
+   Set fDialog = Application.FileDialog(msoFileDialogFolderPicker)
+   With fDialog
+      .InitialFileName = StartingFolder
+      .AllowMultiSelect = False
+      .Title = "Please select Import folder"
+      .Filters.Clear
+      If .Show = True Then
+        SelectImportFolder = .SelectedItems(1)
       Else
          MsgBox "You clicked Cancel in the folder dialog box."
       End If
