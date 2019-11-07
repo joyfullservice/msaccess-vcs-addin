@@ -52,11 +52,15 @@ Public Function pub_LIBVCS_ChangeExportPath()
 End Function
 
 Public Function pub_LIBVCS_ImportAll()
-    ImportAllSource True, getImportPath
+    Dim ImportPath As String
+    ImportPath = getImportPath
+    If Dir(ImportPath) <> "" Then ImportAllSource True, getImportPath Else MsgBox "Import path not valid", VbMsgBoxStyle.vbCritical, "Import aborted"
 End Function
 
 Public Function pub_LIBVCS_ResetProjectAndImportAll()
-    ImportProject True, getImportPath
+    Dim ImportPath As String
+    ImportPath = getImportPath
+    If Dir(ImportPath) <> "" Then ImportProject True, ImportPath Else MsgBox "Import path not valid", VbMsgBoxStyle.vbCritical, "Reset/Import aborted"
 End Function
 
 Public Function getExportPath() As String
