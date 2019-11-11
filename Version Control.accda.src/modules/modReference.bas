@@ -51,7 +51,7 @@ End Sub
 
 
 ' Import References from a CSV, true=SUCCESS
-Public Function ImportReferences(obj_path As String) As Boolean
+Public Function ImportReferences(obj_path As String, Optional ShowDebugInfo As Boolean) As Boolean
     
     Dim InFile As Scripting.TextStream
     Dim line As String
@@ -61,10 +61,15 @@ Public Function ImportReferences(obj_path As String) As Boolean
     Dim Minor As Long
     Dim FileName As String
     Dim refName As String
+    Dim obj_count As Integer
+    
     FileName = Dir(obj_path & "references.csv")
     If Len(FileName) = 0 Then
         ImportReferences = False
         Exit Function
+    Else
+        Debug.Print PadRight("Importing references...", 24);
+        obj_count = 0
     End If
     Set InFile = FSO.OpenTextFile(obj_path & FileName, ForReading)
 On Error GoTo failed_guid
@@ -79,12 +84,23 @@ On Error GoTo failed_guid
 '          Minor = CLng(Item(2))
           Minor = CLng(Item(3))
           Application.References.AddFromGuid GUID, Major, Minor
+          refName = GUID
         Else
           refName = Trim(Item(0))
           Application.References.AddFromFile refName
         End If
+        If ShowDebugInfo Then
+            If obj_count = 0 Then
+                Debug.Print
+            End If
+            Debug.Print "  [debug] reference " & refName;
+            Debug.Print
+        End If
+        obj_count = obj_count + 1
 go_on:
     Loop
+    Debug.Print "[" & obj_count & "]"
+
 On Error GoTo 0
     InFile.Close
     Set InFile = Nothing
