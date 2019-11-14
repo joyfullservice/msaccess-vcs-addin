@@ -1,3 +1,7 @@
+Option Compare Database
+Option Private Module
+Option Explicit
+
 '---------------------------------------------------------------------------------------
 ' Module    : basDeploy
 ' Author    : Adam Waller
@@ -5,9 +9,6 @@
 ' Purpose   : Deploy an update to an Access Database application.
 '           : Version number is stored in a custom property in the local database.
 '---------------------------------------------------------------------------------------
-Option Compare Database
-Option Private Module
-Option Explicit
 
 '---------------------------------------------------------------------------------------
 '   USER CONFIGURED OPTIONS

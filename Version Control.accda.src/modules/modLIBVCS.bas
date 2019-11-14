@@ -10,6 +10,10 @@ Option Explicit
 '             give name parts list to select tables for what to save also data
 '---------------------------------------------------------------------------------------
 '
+
+Private LastObjectsImportPath As String
+'
+
 Public Function pub_LIBVCS_LoadVCSModel(Optional commaSeparatedListOfNamePartsOfTablesToIncludeForDataSave As String = "tbl_L_;", _
                                         Optional commaSeparatedListOfNamePartsOfTablesToExcludeFromIncludedOnes As String = "tbl_L_NotThisOne;" _
                                         ) As Boolean
@@ -63,6 +67,38 @@ Public Function pub_LIBVCS_ResetProjectAndImportAll()
     If Dir(ImportPath) <> "" Then ImportProject True, ImportPath Else MsgBox "Import path not valid", VbMsgBoxStyle.vbCritical, "Reset/Import aborted"
 End Function
 
+Public Function pub_LIBVCS_ImportObjects(Optional simulate As Boolean) ' it's a function in order to be called by macros
+    Dim ObjectImportPaths   As Collection
+    Dim ObjectImportCounts  As Scripting.Dictionary
+    Dim ObjectImportKey     As Variant
+    Dim msg                 As String
+    Set ObjectImportPaths = getObjectImportPaths
+    If ObjectImportPaths.Count > 0 Then
+        Set ObjectImportCounts = ImportObjects(ObjectImportPaths, simulate)
+        For Each ObjectImportKey In ObjectImportCounts.Keys
+            Debug.Print ObjectImportKey, ObjectImportCounts(ObjectImportKey)
+            msg = msg & ObjectImportKey & ": " & ObjectImportCounts(ObjectImportKey) & vbCrLf
+        Next
+    End If
+    MsgBox msg, , "Import results:"
+End Function
+
+Public Function getObjectImportPaths() As Collection
+    Dim StartingFolder
+    StartingFolder = LastObjectsImportPath
+    If StartingFolder = "" Then StartingFolder = GetExportFolderPath
+    ' If code reaches here, we don't have a copy of the path
+    ' in the cached list of verified paths. Verify and add
+    If StartingFolder = "" Or Dir(StartingFolder, vbDirectory) = "" Then StartingFolder = CurrentProject.Path
+    Set getObjectImportPaths = SelectImportObjects(StartingFolder)
+    If getObjectImportPaths.Count > 0 Then
+        'MsgBox "Import path not valid", VbMsgBoxStyle.vbCritical, "Reset/Import aborted"
+    'Else
+        LastObjectsImportPath = getObjectImportPaths.Item(getObjectImportPaths.Count)
+        LastObjectsImportPath = Left(LastObjectsImportPath, InStrRev(LastObjectsImportPath, "\"))
+    End If
+End Function
+
 Public Function getExportPath() As String
     getExportPath = GetExportFolderPath
     ' If code reaches here, we don't have a copy of the path
@@ -105,10 +141,10 @@ Public Function getImportPath() As String
     ' If code reaches here, we don't have a copy of the path
     ' in the cached list of verified paths. Verify and add
     If StartingFolder = "" Or Dir(StartingFolder, vbDirectory) = "" Then StartingFolder = CurrentProject.Path
-        getImportPath = CStr(SelectImportFolder(StartingFolder))
-        If getImportPath <> "" Then
-            If Right(getImportPath, 1) <> "\" Then getImportPath = getImportPath & "\"
-        End If
+    getImportPath = CStr(SelectImportFolder(StartingFolder))
+    If getImportPath <> "" Then
+        If Right(getImportPath, 1) <> "\" Then getImportPath = getImportPath & "\"
+    End If
 End Function
 
 '---------------------------------------------------------------------------------------
@@ -200,6 +236,29 @@ Private Function SelectImportFolder(Optional StartingFolder) As Variant
       Else
          MsgBox "You clicked Cancel in the folder dialog box."
       End If
+   End With
+End Function
+
+Private Function SelectImportObjects(Optional StartingFolder) As Collection
+'Requires reference to Microsoft Office 12.0 Object Library.
+    Dim selectedItem As Variant
+    Dim fDialog As Office.FileDialog
+    Dim varFile As Variant
+    Set fDialog = Application.FileDialog(msoFileDialogFilePicker)
+    Set SelectImportObjects = New Collection
+    With fDialog
+        .InitialFileName = StartingFolder
+        .AllowMultiSelect = True
+        .Title = "Please select Objects to import"
+        .Filters.Clear
+        .Filters.Add "All files", "*.*"
+        If .Show = True Then
+            For Each selectedItem In .SelectedItems
+                SelectImportObjects.Add selectedItem
+            Next
+        Else
+            MsgBox "You clicked Cancel in the folder dialog box."
+        End If
    End With
 End Function
 

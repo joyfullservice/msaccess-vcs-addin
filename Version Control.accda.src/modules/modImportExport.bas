@@ -592,6 +592,158 @@ Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path A
     End If
 End Sub
 
+Public Function CheckMarkerInFile(file_path As String, marker As String, _
+    Optional Ucs2Convert As Boolean = False, Optional topLinesToCheck As Long) As Boolean
+    
+    If Not FSO.FileExists(file_path) Then Exit Function
+    Dim tempFileName As String
+    If Ucs2Convert Then
+        tempFileName = modFileAccess.GetTempFile()
+        modFileAccess.ConvertUtf8Ucs2 file_path, tempFileName
+    Else
+        tempFileName = file_path
+    End If
+    
+    Dim Stream As Scripting.TextStream
+    Set Stream = FSO.GetFile(file_path).OpenAsTextStream(ForReading)
+    Do While Not Stream.AtEndOfStream
+        Dim line As String
+        line = Stream.ReadLine
+'If Stream.line = 2 And marker = "" Then
+'    Debug.Print file_path
+'    Debug.Print line
+'End If
+        CheckMarkerInFile = InStr(line, marker) > 0
+        If CheckMarkerInFile Then Exit Do
+        If topLinesToCheck > 0 Then If Stream.line > topLinesToCheck Then Exit Do
+    Loop
+    Stream.Close
+    If Ucs2Convert Then FSO.DeleteFile tempFileName
+End Function
+
+ Public Function RecogAndImportObject(ObjectImportPath As String, Optional simulate As Boolean, Optional ShowDebugInfo As Boolean) As String
+ 
+    Dim obj_path_split() As String
+    Dim obj_path_part As Variant
+    Dim obj_type As Variant
+    Dim obj_type_split() As String
+    Dim obj_type_label As String
+    Dim obj_type_num As Variant
+    Dim obj_type_ext As Variant
+    Dim obj_type_mark As Variant
+    Dim obj_type_topl As Long
+    'Dim obj_count As Integer
+    'Dim FileName As String
+    Dim obj_name As String
+    Dim ucs2 As Boolean
+ 
+    ' types: type1 , type2 ...
+    ' type: label | acObjectType | extensions | markers | toplines
+    ' extensions;marker: item1 ; item2; item3 ... (in OR)
+    ' be careful to not insert separation characters ,| in markers
+    ' sequence order counts
+    Const cObjectTypes = _
+        "queries|" & acQuery & "|bas;qry;accqry" & "|Operation =;dbMemo|1" & "," & _
+        "modules|" & acModule & "|bas;vba;accmod" & "|Option Explicit;Attribute VB|5" & "," & _
+        "forms|" & acForm & "|bas;frm;accfrm" & "|Begin Form|10" & "," & _
+        "reports|" & acReport & "|bas;rpt;accrpt" & "|Begin Report|10" & "," & _
+        "macros|" & acMacro & "|bas;mcr;accmcr" & "|    Action =;    Comment =;    Condition =|5" & "," & _
+        "tables|" & acTable & "|txt;acctdt" & "|" & vbTab & "|1" & "," & _
+        "tbldefs|" & acModule & "|xml;acctdf" & "|urn:schemas-microsoft-com:officedata|10" & "," & _
+        "properties|" & acDatabaseProperties & "|txt;accprp" & "|Connect=|10" & "," & _
+        "relations|" & "rel" & "|txt;accrel" & "|Field = Begin|0" & "," & _
+        "importspecs|" & "spec" & "|spec;accspc" & "|urn:www.microsoft.com/office/access/imexspec|10" & "," & _
+        "references|" & "ref" & "|csv;accref" & "|{"
+    
+    'search all types
+    For Each obj_type In Split(cObjectTypes, ",")
+        obj_type_num = Empty
+        obj_type_split = Split(obj_type, "|")
+        obj_type_label = obj_type_split(0)
+        
+'        ' search label in path
+'        obj_path_split = Split(ObjectImportPath, "\")
+'        For Each obj_path_part In obj_path_split
+'            If InStr(obj_path_part, obj_type_label) <> 0 Then
+'                obj_type_num = obj_type_split(1)
+'                Exit For
+'            End If
+'        Next
+        'if label is not found in path then check for file extension(s)
+        If IsEmpty(obj_type_num) Then
+            For Each obj_type_ext In Split(obj_type_split(2), ";")
+                If obj_type_ext = FSO.GetExtensionName(ObjectImportPath) Then
+                    obj_type_num = obj_type_split(1)
+                    Exit For
+                End If
+            Next
+        End If
+        If Not IsEmpty(obj_type_num) Then
+            Select Case obj_type_label
+                Case "modules", "macros", "reports", "forms"
+                    ucs2 = False
+                Case Else
+                    ucs2 = modFileAccess.UsingUcs2
+            End Select
+            ' if found the label in path or the extension then
+            ' check for marker as confirmation
+            Dim markerFound As Boolean
+            markerFound = False
+            obj_type_topl = Val(obj_type_split(4))
+            For Each obj_type_mark In Split(obj_type_split(3), ";")
+                markerFound = CheckMarkerInFile(ObjectImportPath, (obj_type_mark), ucs2, obj_type_topl)
+                If markerFound Then Exit For
+            Next
+            If markerFound Then
+                Exit For
+            Else
+                obj_type_num = Empty
+            End If
+        End If
+    Next
+    
+    'if a type matched
+    If Not IsEmpty(obj_type_num) Then
+        If IsNumeric(obj_type_num) Then
+            If Not simulate Then ImportObject Val(obj_type_num), FSO.GetBaseName(ObjectImportPath), CStr(ObjectImportPath), ucs2
+        Else
+            Select Case obj_type_num
+                Case "ref"
+                    'call ref importer  <<<<<<<<<<<<<<<<<<<
+                Case Else ' "rel", "spec"
+                    Debug.Print PadRight("No function '" & obj_type_num & "' for:", 24); ObjectImportPath
+                    Exit Function
+            End Select
+        End If
+        RecogAndImportObject = obj_type_label
+        If ShowDebugInfo Then Debug.Print PadRight("Imported in " & obj_type_label & ":", 24); ObjectImportPath
+    Else
+        Debug.Print PadRight("Unknown object type in:", 24); ObjectImportPath
+    End If
+ End Function
+
+Public Function ImportObjects(ObjectImportPaths As Collection, Optional simulate As Boolean) As Scripting.Dictionary
+    Dim ObjectImportPath    As Variant
+    Dim importedCount       As Long
+    
+    Dim importedMap         As New Scripting.Dictionary
+    importedMap.Add "Failed", CLng(0)
+    
+    For Each ObjectImportPath In ObjectImportPaths
+        If FSO.FileExists(ObjectImportPath) Then
+            Dim importedObject      As String
+            importedObject = RecogAndImportObject((ObjectImportPath), simulate, True)
+            If importedObject = "" Then importedObject = "Failed"
+            If importedMap.Exists(importedObject) Then
+                importedMap(importedObject) = importedMap(importedObject) + 1
+            Else
+                importedMap.Add importedObject, CLng(1)
+            End If
+        End If
+    Next
+    Set ImportObjects = importedMap
+End Function
+
 
 ' Main entry point for IMPORT. Import all forms, reports, queries,
 ' macros, modules, and lookup tables from `source` folder under the
