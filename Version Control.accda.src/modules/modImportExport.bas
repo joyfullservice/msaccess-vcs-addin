@@ -2,13 +2,11 @@ Option Compare Database
 Option Explicit
 Option Private Module
 
-
 Private Const cstrSpacer As String = "-------------------------------"
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
 Private m_FSO As Scripting.FileSystemObject
-
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ExportAllSource
@@ -16,7 +14,6 @@ Private m_FSO As Scripting.FileSystemObject
 ' Date      : 1/18/2019
 ' Purpose   : Exports all source files for the current project.
 '---------------------------------------------------------------------------------------
-'
 Public Sub ExportAllSource(cModel As IVersionControl)
     
     Dim dbs As DAO.Database
@@ -592,6 +589,40 @@ Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path A
     End If
 End Sub
 
+'---------------------------------------------------------------------------------------
+' Procedure : ImportObjects
+' Author    : Marco Salernitano
+' Date      : 14-Nov-2019
+' Purpose   : Import multiple objects automatically recognizing their type
+'---------------------------------------------------------------------------------------
+Public Function ImportObjects(ObjectImportPaths As Collection, Optional simulate As Boolean) As Scripting.Dictionary
+    Dim ObjectImportPath    As Variant
+    Dim importedCount       As Long
+    
+    Dim importedMap         As New Scripting.Dictionary
+    importedMap.Add "Failed", CLng(0)
+    
+    For Each ObjectImportPath In ObjectImportPaths
+        If FSO.FileExists(ObjectImportPath) Then
+            Dim importedObject      As String
+            importedObject = RecogAndImportObject((ObjectImportPath), simulate, True)
+            If importedObject = "" Then importedObject = "Failed"
+            If importedMap.Exists(importedObject) Then
+                importedMap(importedObject) = importedMap(importedObject) + 1
+            Else
+                importedMap.Add importedObject, CLng(1)
+            End If
+        End If
+    Next
+    Set ImportObjects = importedMap
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckMarkerInFile
+' Author    : Marco Salernitano
+' Date      : 14-Nov-2019
+' Purpose   : search for a given marker in the given top lines of a file
+'---------------------------------------------------------------------------------------
 Public Function CheckMarkerInFile(file_path As String, marker As String, _
     Optional Ucs2Convert As Boolean = False, Optional topLinesToCheck As Long) As Boolean
     
@@ -609,10 +640,6 @@ Public Function CheckMarkerInFile(file_path As String, marker As String, _
     Do While Not Stream.AtEndOfStream
         Dim line As String
         line = Stream.ReadLine
-'If Stream.line = 2 And marker = "" Then
-'    Debug.Print file_path
-'    Debug.Print line
-'End If
         CheckMarkerInFile = InStr(line, marker) > 0
         If CheckMarkerInFile Then Exit Do
         If topLinesToCheck > 0 Then If Stream.line > topLinesToCheck Then Exit Do
@@ -621,6 +648,12 @@ Public Function CheckMarkerInFile(file_path As String, marker As String, _
     If Ucs2Convert Then FSO.DeleteFile tempFileName
 End Function
 
+'---------------------------------------------------------------------------------------
+' Procedure : RecogAndImportObject
+' Author    : Marco Salernitano
+' Date      : 14-Nov-2019
+' Purpose   : attempt to recognize and import a given file if it is a serialized object
+'---------------------------------------------------------------------------------------
  Public Function RecogAndImportObject(ObjectImportPath As String, Optional simulate As Boolean, Optional ShowDebugInfo As Boolean) As String
  
     Dim obj_path_split() As String
@@ -632,8 +665,6 @@ End Function
     Dim obj_type_ext As Variant
     Dim obj_type_mark As Variant
     Dim obj_type_topl As Long
-    'Dim obj_count As Integer
-    'Dim FileName As String
     Dim obj_name As String
     Dim ucs2 As Boolean
  
@@ -655,7 +686,7 @@ End Function
         "importspecs|" & "spec" & "|spec;accspc" & "|urn:www.microsoft.com/office/access/imexspec|10" & "," & _
         "references|" & "ref" & "|csv;accref" & "|{"
     
-    'search all types
+    'search for all types
     For Each obj_type In Split(cObjectTypes, ",")
         obj_type_num = Empty
         obj_type_split = Split(obj_type, "|")
@@ -721,29 +752,6 @@ End Function
         Debug.Print PadRight("Unknown object type in:", 24); ObjectImportPath
     End If
  End Function
-
-Public Function ImportObjects(ObjectImportPaths As Collection, Optional simulate As Boolean) As Scripting.Dictionary
-    Dim ObjectImportPath    As Variant
-    Dim importedCount       As Long
-    
-    Dim importedMap         As New Scripting.Dictionary
-    importedMap.Add "Failed", CLng(0)
-    
-    For Each ObjectImportPath In ObjectImportPaths
-        If FSO.FileExists(ObjectImportPath) Then
-            Dim importedObject      As String
-            importedObject = RecogAndImportObject((ObjectImportPath), simulate, True)
-            If importedObject = "" Then importedObject = "Failed"
-            If importedMap.Exists(importedObject) Then
-                importedMap(importedObject) = importedMap(importedObject) + 1
-            Else
-                importedMap.Add importedObject, CLng(1)
-            End If
-        End If
-    Next
-    Set ImportObjects = importedMap
-End Function
-
 
 ' Main entry point for IMPORT. Import all forms, reports, queries,
 ' macros, modules, and lookup tables from `source` folder under the
@@ -1054,6 +1062,102 @@ errorHandler:
 exitHandler:
 End Sub
 
+' Main entry point for ImportProject.
+' Drop all forms, reports, queries, macros, modules.
+' execute ImportAllSource.
+Public Function ResetProject(Optional ShowDebugInfo As Boolean = False) As Boolean
+    
+    On Error GoTo errorHandler
+
+    ' Make sure we are not trying to delete our runing code.
+    If CurrentProject.Name = CodeProject.Name Then
+        MsgBox "Code modules cannot be removed while running." & vbCrLf & "Please update manually", vbCritical, "Unable to import source"
+        Exit Function
+    End If
+
+
+    If MsgBox("This action will delete all existing: " & vbCrLf & _
+              vbCrLf & _
+              Chr(149) & " Tables" & vbCrLf & _
+              Chr(149) & " Forms" & vbCrLf & _
+              Chr(149) & " Macros" & vbCrLf & _
+              Chr(149) & " Modules" & vbCrLf & _
+              Chr(149) & " Queries" & vbCrLf & _
+              Chr(149) & " Reports" & vbCrLf & _
+              vbCrLf & _
+              "Are you sure you want to proceed?", vbCritical + vbYesNo, _
+              "Import Project") <> vbYes Then
+        Exit Function
+    End If
+
+    Dim Db As DAO.Database
+    Set Db = CurrentDb
+    CloseAllFormsReports
+
+    Debug.Print
+    Debug.Print "Deleting Existing Objects"
+    Debug.Print
+    
+    Dim rel As Relation
+    For Each rel In CurrentDb.Relations
+        If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or rel.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+            CurrentDb.Relations.Delete (rel.Name)
+        End If
+    Next
+
+    Dim dbObject As Object
+    For Each dbObject In Db.QueryDefs
+        DoEvents
+        If Left(dbObject.Name, 1) <> "~" Then
+'            Debug.Print dbObject.Name
+            Db.QueryDefs.Delete dbObject.Name
+        End If
+    Next
+    
+    Dim td As TableDef
+    For Each td In CurrentDb.TableDefs
+        If Left$(td.Name, 4) <> "MSys" And _
+            Left(td.Name, 1) <> "~" Then
+            CurrentDb.TableDefs.Delete (td.Name)
+        End If
+    Next
+
+    Dim objType As Variant
+    Dim objTypeArray() As String
+    Dim doc As Object
+    '
+    '  Object Type Constants
+    Const OTNAME = 0
+    Const OTID = 1
+
+    For Each objType In Split( _
+            "Forms|" & acForm & "," & _
+            "Reports|" & acReport & "," & _
+            "Scripts|" & acMacro & "," & _
+            "Modules|" & acModule _
+            , "," _
+        )
+        objTypeArray = Split(objType, "|")
+        DoEvents
+        For Each doc In Db.Containers(objTypeArray(OTNAME)).Documents
+            DoEvents
+            If (Left(doc.Name, 1) <> "~") Then
+'                Debug.Print doc.Name
+                DoCmd.DeleteObject objTypeArray(OTID), doc.Name
+            End If
+        Next
+    Next
+    
+    Debug.Print "================="
+    ResetProject = True
+    GoTo exitHandler
+
+errorHandler:
+  Debug.Print "modImportExport.ResetProject: Error #" & Err.Number & vbCrLf & _
+               Err.Description
+
+exitHandler:
+End Function
 
 ' Expose for use as function, can be called by a query
 Public Function Make()

@@ -23,6 +23,24 @@ Private WithEvents m_evtCommit As VBIDE.CommandBarEvents
 Attribute m_evtCommit.VB_VarHelpID = -1
 Private WithEvents m_evtDiff As VBIDE.CommandBarEvents
 Attribute m_evtDiff.VB_VarHelpID = -1
+'------
+Private WithEvents m_evtExpSel As VBIDE.CommandBarEvents
+Attribute m_evtExpSel.VB_VarHelpID = -1
+Private WithEvents m_evtExpAll As VBIDE.CommandBarEvents
+Attribute m_evtExpAll.VB_VarHelpID = -1
+Private WithEvents m_evtSimImp As VBIDE.CommandBarEvents
+Attribute m_evtSimImp.VB_VarHelpID = -1
+Private WithEvents m_evtImpObj As VBIDE.CommandBarEvents
+Attribute m_evtImpObj.VB_VarHelpID = -1
+Private WithEvents m_evtImpAll As VBIDE.CommandBarEvents
+Attribute m_evtImpAll.VB_VarHelpID = -1
+Private WithEvents m_evtClrPrj As VBIDE.CommandBarEvents
+Attribute m_evtClrPrj.VB_VarHelpID = -1
+Private WithEvents m_evtRstPth As VBIDE.CommandBarEvents
+Attribute m_evtRstPth.VB_VarHelpID = -1
+Private WithEvents m_evtDscVCS As VBIDE.CommandBarEvents
+Attribute m_evtDscVCS.VB_VarHelpID = -1
+
 
 
 '---------------------------------------------------------------------------------------
@@ -95,10 +113,22 @@ Private Sub AddAllButtons()
 
     ' Add buttons with event handlers
     With Application.VBE.Events
-        Set m_evtCommit = .CommandBarEvents(AddButton("Commit Module/Project", 270))
-        Set m_evtDiff = .CommandBarEvents(AddButton("Diff Module/Project", 2042, , True))
-        Set m_evtSave = .CommandBarEvents(AddButton("Export Selected", 3))
-        Set m_evtSaveAll = .CommandBarEvents(AddButton("Export All", 749, , , msoButtonIconAndCaption))
+'        Set m_evtCommit = .CommandBarEvents(AddButton("Commit Module/Project", 270))
+'        Set m_evtDiff = .CommandBarEvents(AddButton("Diff Module/Project", 2042, , True))
+'        Set m_evtSave = .CommandBarEvents(AddButton("Export Selected", 3))
+'        Set m_evtSaveAll = .CommandBarEvents(AddButton("Export All", 749, , , msoButtonIconAndCaption))
+        
+        Set m_evtDscVCS = .CommandBarEvents(AddButton("Disconnect VCS Lib", 2309))
+        Set m_evtClrPrj = .CommandBarEvents(AddButton("Clear Project", 7674))
+        Set m_evtRstPth = .CommandBarEvents(AddButton("Reset Export Path", 19699, , True))
+        
+        Set m_evtImpAll = .CommandBarEvents(AddButton("Import All", 2116, , , msoButtonIconAndCaption))
+        Set m_evtImpObj = .CommandBarEvents(AddButton("Import Objects", 14428))
+        Set m_evtSimImp = .CommandBarEvents(AddButton("Simulate Objects Import", 17267, , True))
+        
+        Set m_evtExpSel = .CommandBarEvents(AddButton("Export Selected", 1679))
+        Set m_evtExpAll = .CommandBarEvents(AddButton("Export All", 2109, , , msoButtonIconAndCaption))
+        
     End With
     
 End Sub
@@ -193,6 +223,56 @@ Private Sub m_evtSaveAll_Click(ByVal CommandBarControl As Object, handled As Boo
     If CloseAllFormsReports Then m_Model.ExportAll
     handled = True
 End Sub
+
+'--------------------------------
+Private Sub m_evtExpAll_Click(ByVal CommandBarControl As Object, handled As Boolean, CancelDefault As Boolean)
+    Debug.Print CommandBarControl.Caption
+    If CloseAllFormsReports Then m_Model.ExportAll
+    handled = True
+End Sub
+Private Sub m_evtExpSel_Click(ByVal CommandBarControl As Object, handled As Boolean, CancelDefault As Boolean)
+    Debug.Print CommandBarControl.Caption
+    If CloseAllFormsReports Then ExportSelected
+    handled = True
+End Sub
+
+Private Sub m_evtSimImp_Click(ByVal CommandBarControl As Object, handled As Boolean, CancelDefault As Boolean)
+    Debug.Print CommandBarControl.Caption
+    pub_LIBVCS_ImportObjects True
+    handled = True
+End Sub
+Private Sub m_evtImpObj_Click(ByVal CommandBarControl As Object, handled As Boolean, CancelDefault As Boolean)
+    Debug.Print CommandBarControl.Caption
+    pub_LIBVCS_ImportObjects
+    handled = True
+End Sub
+Private Sub m_evtImpAll_Click(ByVal CommandBarControl As Object, handled As Boolean, CancelDefault As Boolean)
+    Debug.Print CommandBarControl.Caption
+    MsgBox "pub_LIBVCS_ImportAll not complete yet (i.e.:tables import doesn't work)"
+'    pub_LIBVCS_ImportAll
+    handled = True
+End Sub
+Private Sub m_evtRstPth_Click(ByVal CommandBarControl As Object, handled As Boolean, CancelDefault As Boolean)
+    Debug.Print CommandBarControl.Caption
+    pub_LIBVCS_ChangeExportPath
+    handled = True
+End Sub
+Private Sub m_evtClrPrj_Click(ByVal CommandBarControl As Object, handled As Boolean, CancelDefault As Boolean)
+    Debug.Print CommandBarControl.Caption
+    MsgBox "Temporarily disabled because pub_LIBVCS_ImportAll is not complete yet (i.e.:tables import doesn't work)"
+'    pub_LIBVCS_ResetProject
+    handled = True
+End Sub
+Private Sub m_evtDscVCS_Click(ByVal CommandBarControl As Object, handled As Boolean, CancelDefault As Boolean)
+    Debug.Print CommandBarControl.Caption
+    If pub_LIBVCS_RemoveReferenceByName("MSAccessVCS") Then
+        MsgBox "- Reference to 'MSAccessVCS' has been removed", , "Libray is disconnected!"
+    End If
+    handled = True
+End Sub
+
+
+
 
 
 '---------------------------------------------------------------------------------------
