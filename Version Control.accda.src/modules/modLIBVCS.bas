@@ -50,6 +50,27 @@ Public Function pub_LIBVCS_LoadVCSModel(Optional commaSeparatedListOfNamePartsOf
     End If
 End Function
 
+Public Function pub_LIBVCS_RemoveReferenceByName(LibName As String) As Boolean
+    On Error GoTo err_RemoveByName
+    Dim ref As Reference
+    For Each ref In Application.References
+        If ref.Name = LibName Then
+            Application.References.Remove ref
+            pub_LIBVCS_RemoveReferenceByName = True
+            Exit For
+        End If
+    Next
+ext_RemoveByName:
+    Exit Function
+err_RemoveByName:
+    Select Case Err.Number
+    Case Else
+        MsgBox Err.Number & ": " & Err.Description & vbCrLf & vbCrLf & "Passed parameter LibName: " & vbCrLf & LibName
+        'Err.Raise Err.Number
+    End Select
+    Resume ext_RemoveByName:
+End Function
+
 Public Function pub_LIBVCS_ChangeExportPath()
     ResetExportFolderPath
     pub_LIBVCS_LoadVCSModel UserSettings_Get("VCSParams", "TablesToInclude", ""), UserSettings_Get("VCSParams", "TablesToExclude", "")
@@ -67,6 +88,17 @@ Public Function pub_LIBVCS_ResetProjectAndImportAll()
     If Dir(ImportPath) <> "" Then ImportProject True, ImportPath Else MsgBox "Import path not valid", VbMsgBoxStyle.vbCritical, "Reset/Import aborted"
 End Function
 
+Public Function pub_LIBVCS_ResetProject()
+    If Not ResetProject(True) Then MsgBox "Project reset not successful", VbMsgBoxStyle.vbCritical, "Reset aborted"
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : pub_LIBVCS_ImportObjects
+' Author    : Marco Salernitano
+' Date      : 14-Nov-2019
+' Purpose   : Import multiple objects automatically recognizing their type (public call)
+'---------------------------------------------------------------------------------------
+
 Public Function pub_LIBVCS_ImportObjects(Optional simulate As Boolean) ' it's a function in order to be called by macros
     Dim ObjectImportPaths   As Collection
     Dim ObjectImportCounts  As Scripting.Dictionary
@@ -79,11 +111,11 @@ Public Function pub_LIBVCS_ImportObjects(Optional simulate As Boolean) ' it's a 
             Debug.Print ObjectImportKey, ObjectImportCounts(ObjectImportKey)
             msg = msg & ObjectImportKey & ": " & ObjectImportCounts(ObjectImportKey) & vbCrLf
         Next
+        MsgBox msg, , IIf(simulate, "(Simulation) ", "") & "Import results:"
     End If
-    MsgBox msg, , "Import results:"
 End Function
 
-Public Function getObjectImportPaths() As Collection
+Private Function getObjectImportPaths() As Collection
     Dim StartingFolder
     StartingFolder = LastObjectsImportPath
     If StartingFolder = "" Then StartingFolder = GetExportFolderPath
@@ -99,7 +131,7 @@ Public Function getObjectImportPaths() As Collection
     End If
 End Function
 
-Public Function getExportPath() As String
+Private Function getExportPath() As String
     getExportPath = GetExportFolderPath
     ' If code reaches here, we don't have a copy of the path
     ' in the cached list of verified paths. Verify and add
@@ -135,7 +167,7 @@ Public Function getExportPath() As String
     If Dir(getExportPath, vbDirectory) <> "" Then SetExportFolderPath getExportPath
 End Function
 
-Public Function getImportPath() As String
+Private Function getImportPath() As String
     Dim StartingFolder
     StartingFolder = GetExportFolderPath
     ' If code reaches here, we don't have a copy of the path
@@ -148,12 +180,11 @@ Public Function getImportPath() As String
 End Function
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetSourceFolderPath
+' Procedure : GetExportFolderPath, SetExportFolderPath, ResetExportFolderPath
 ' Author    : Marco Salernitano
 ' Date      : 25-Jun-2019
 ' Purpose   : Returns the saved or default export path
 '---------------------------------------------------------------------------------------
-
 Private Function GetExportFolderPath() As String
     GetExportFolderPath = UserSettings_Get("VCSParams", "ExportFolder", "")
 End Function
@@ -167,6 +198,13 @@ Private Sub ResetExportFolderPath()
     UserSettings_Del "VCSParams", "ExportFolder"
 End Sub
 
+'---------------------------------------------------------------------------------------
+' Procedure : getTablesToSaveData
+' Author    : Marco Salernitano
+' Date      : 25-Jun-2019
+' Purpose   : retrieve list of table for what to export data
+'             (list is set at start time with pub_LIBVCS_LoadVCSModel)
+'---------------------------------------------------------------------------------------
 Private Function getTablesToSaveData(Optional TablesToInclude_List As String, Optional IncludedTablesToExclude_List As String) As Collection
     Dim TablesToSaveData    As New Collection
     Dim Includes            As Variant
@@ -266,6 +304,12 @@ Private Function getProjectName()
     getProjectName = CurrentProject.FullName ' VBE.ActiveVBProject.Name
 End Function
 
+'---------------------------------------------------------------------------------------
+' Procedure : UserSettings_Get/Set/Del
+' Author    : Marco Salernitano
+' Date      : 25-Jun-2019
+' Purpose   : functions to store settings in user registry
+'---------------------------------------------------------------------------------------
 Private Function UserSettings_Get(DBSection As String, DBUserSettingKey As String, Optional default) As Variant
     Dim DbName As String
     Dim DBEnvironment As String
