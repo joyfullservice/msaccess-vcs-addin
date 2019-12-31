@@ -1,5 +1,13 @@
 Change log
 ==========
+Ongoing Development
+-------------------
+joyfullservice:
+
+As this project continues to move forward, many changes and updates are being made but not specifically documented in this change log. For details on updates since 2015, please review the commit messages in this repository.
+
+(If you use this project and would find more detailed change logs to be helpful, please let me know, and I will take that into consideration.)
+
 Version 1.1.0 - 15 May 2015
 ----------------------------
 joyfullservice:
