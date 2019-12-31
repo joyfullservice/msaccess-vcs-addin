@@ -1,0 +1,63 @@
+-------------------------------
+Beginning Export of all Source
+demo.accdb
+VCS Version 1.0.0.18
+12/31/2019 2:11:09 PM
+-------------------------------
+Exporting queries...    
+  demo_query (with SQL)
+    Sanitized in 0.02 seconds.
+[1]
+-------------------------------
+Exporting forms...      
+  people
+    Sanitized in 0.02 seconds.
+[1]
+-------------------------------
+Exporting reports...    
+  people
+    Sanitized in 0.02 seconds.
+[1]
+-------------------------------
+Exporting macros...     
+  demo_macro
+    Sanitized in 0.02 seconds.
+  autoexec
+    Sanitized in 0.02 seconds.
+[2]
+  Removing orphaned file: modVersionControl
+-------------------------------
+Exporting modules...    
+  DemoModule
+  clsPerson
+  VersionControlSystem
+[3]
+-------------------------------
+Exporting references... 
+  VBA 4.2
+  Access 9.0
+  stdole 2.0
+  DAO 12.0
+  [MSAccessVCS]
+[5]
+-------------------------------
+Exporting properties... 
+[31]
+-------------------------------
+Exporting specs...      
+[0]
+-------------------------------
+Exporting tbldef...     
+  color_lookup (with SQL)
+  color_lookup
+  people (with SQL)
+  people
+  unicode_test_lookup (with SQL)
+  unicode_test_lookup
+[3]
+-------------------------------
+Exporting relations...  
+  color_lookuppeople
+[1]
+-------------------------------
+Done. (0.77 seconds)

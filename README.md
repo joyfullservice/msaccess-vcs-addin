@@ -19,7 +19,7 @@ Installation
 
 To use this project, you will need the following two things:
  1. Copy this add-in file (**Version Control.accda**) into the same folder as your Microsoft Access database.
- 2. Then, copy or import **`modVersionControl`** module from `Version Control.accda` into the database you want to track. The defaults should work right out of the box, but you can see below for more advanced usage.
+ 2. Import **`LoadVersionControl.bas`** into the database you want to track. The defaults should work right out of the box, but you can see below for more advanced usage.
  
  ![version-control-module](img/version-control-module.jpg)
 
