@@ -2,7 +2,6 @@ Option Explicit
 Option Private Module
 Option Compare Database
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : InitializeVersionControlSystem
 ' Author    : Adam Waller
@@ -51,7 +50,7 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : InitializeVersionControlSystem
+' Procedure : LoadVersionControl
 ' Author    : Adam Waller
 ' Date      : 5/15/2015
 ' Purpose   : Attempt to relink the MSAccess-VCS library from the current folder

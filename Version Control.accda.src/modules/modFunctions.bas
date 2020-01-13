@@ -372,7 +372,7 @@ Public Function CloseAllFormsReports() As Boolean
     ' Get count of opened objects
     intOpened = Forms.Count + Reports.Count
     If intOpened > 0 Then
-        On Error GoTo errorHandler
+        On Error GoTo ErrorHandler
         Do While Forms.Count > 0
             strName = Forms(0).Name
             DoCmd.Close acForm, strName
@@ -394,7 +394,7 @@ Public Function CloseAllFormsReports() As Boolean
     
     Exit Function
 
-errorHandler:
+ErrorHandler:
     Debug.Print "Error closing " & strName & ": " & Err.Number & vbCrLf & Err.Description
 End Function
 

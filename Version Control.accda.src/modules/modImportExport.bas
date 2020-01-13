@@ -806,7 +806,7 @@ End Sub
 ' execute ImportAllSource.
 Public Sub ImportProject()
     
-    On Error GoTo errorHandler
+    On Error GoTo ErrorHandler
 
     ' Make sure we are not trying to delete our runing code.
     If CurrentProject.Name = CodeProject.Name Then
@@ -892,7 +892,7 @@ Public Sub ImportProject()
     ImportAllSource
     GoTo exitHandler
 
-errorHandler:
+ErrorHandler:
   Debug.Print "modImportExport.ImportProject: Error #" & Err.Number & vbCrLf & _
                Err.Description
 

@@ -36,7 +36,7 @@ Public Sub ExportSpecs(strSourcePath As String, cModel As IVersionControl)
             strXML = oSpec.XML
             .Add oSpec.Name
             .Add vbCrLf
-            .Add oSpec.Description
+            .Add Nz(oSpec.Description, vbNullString)
             .Add vbCrLf
             .Add vbCrLf
             .Add strXML
@@ -47,7 +47,7 @@ Public Sub ExportSpecs(strSourcePath As String, cModel As IVersionControl)
         On Error GoTo 0
         
         ' Determine if this was an import or an export spec.
-        If InStr(1, strXML, "</ImportText>") > 0 Then
+        If InStr(1, strXML, "</Export") = 0 Then
             strFolder = cModel.ExportBaseFolder & "\importspecs"
         Else
             strFolder = cModel.ExportBaseFolder & "\exportspecs"
