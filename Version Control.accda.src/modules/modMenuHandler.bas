@@ -28,7 +28,7 @@ End Function
 '           :  class models in parent applications)
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadVersionControlMenu(colParams As Collection)
+Public Function LoadVersionControlMenu(colParams As Collection) As IVersionControl
 
     Dim cModel As IVersionControl
     Dim varParam As Variant
@@ -112,13 +112,14 @@ Public Sub LoadVersionControlMenu(colParams As Collection)
         
         ' Set model for class
         Set m_Model = cModel
+        Set LoadVersionControlMenu = cModel
         
     Else
         ' Show message if errors were encountered
         MsgBox strMsg, vbExclamation, "Version Control"
     End If
     
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------

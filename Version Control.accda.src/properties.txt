@@ -34,7 +34,7 @@ NavPane Width?215?4
 NavPane View By?0?4
 NavPane Sort By?1?4
 Build?606?4
-ProjVer?141?3
+ProjVer?119?3
 Show Navigation Pane Search Bar?0?4
 AppVersion?1.2.0.19?10
 ClickOnce Deployment?False?10

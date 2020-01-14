@@ -58,6 +58,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         .Log "VCS Version " & GetVCSVersion
         If .FastSave Then .Log "Using Fast Save"
         .Log Now()
+        .Log cstrSpacer
     End With
     
     ' Read in options from model
@@ -349,7 +350,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     End If
 
     ' Show final output and save log
-    cModel.Log cstrSpacer, cModel.ShowDebug
+    cModel.Log cstrSpacer
     cModel.Log "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
     cModel.SaveLogFile strSourcePath & "\Export.log"
     

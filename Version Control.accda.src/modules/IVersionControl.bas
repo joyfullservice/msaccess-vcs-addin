@@ -20,7 +20,8 @@ Public StripPublishOption As Boolean
 
 ' Objects and collections need to be set with wrappers.
 Private m_TablesToSaveData As New Collection
-Private m_Log As New clsConcat
+Private m_Log As New clsConcat      ' Log file output
+Private m_Console As New clsConcat  ' Console output
 
 
 '---------------------------------------------------------------------------------------
@@ -90,18 +91,27 @@ End Property
 Public Sub Log(strText As String, Optional blnPrint As Boolean = True, Optional blnNextOutputOnNewLine As Boolean = True)
 
     Static dblLastLog As Double
+    Dim strLine As String
     
     m_Log.Add strText
     If blnPrint Then
+        ' Use bold/green text for completion line.
+        strLine = strText
+        If InStr(1, strText, "Done. ") = 1 Then
+            strLine = "<font color=green><strong>" & strText & "</strong></font>"
+        End If
+        m_Console.Add strLine
         If blnNextOutputOnNewLine Then
             ' Create new line
             Debug.Print strText
+            m_Console.Add "<br>"
         Else
             ' Continue next printout on this line.
             Debug.Print strText;
         End If
     End If
     
+    ' Add carriage return to log file if specified
     If blnNextOutputOnNewLine Then m_Log.Add vbCrLf
     
     ' Allow an update to the screen every second.
@@ -110,6 +120,16 @@ Public Sub Log(strText As String, Optional blnPrint As Boolean = True, Optional 
     If dblLastLog + 1 < Timer Then
         DoEvents
         dblLastLog = Timer
+    End If
+    
+    ' Update log display on form if open.
+    If blnPrint And (Not Form_frmMain Is Nothing) Then
+        With Form_frmMain.txtLog
+            .Text = m_Console.GetStr
+            ' Move cursor to end of log for scroll effect.
+            .SelStart = Len(.Text)
+            .SelLength = 0
+        End With
     End If
     
 End Sub
