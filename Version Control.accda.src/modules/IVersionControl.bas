@@ -123,7 +123,7 @@ Public Sub Log(strText As String, Optional blnPrint As Boolean = True, Optional 
     End If
     
     ' Update log display on form if open.
-    If blnPrint And (Not Form_frmMain Is Nothing) Then
+    If blnPrint And IsLoaded(acForm, "frmMain") Then
         With Form_frmMain.txtLog
             .Text = m_Console.GetStr
             ' Move cursor to end of log for scroll effect.

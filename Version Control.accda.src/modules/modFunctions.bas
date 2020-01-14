@@ -767,6 +767,56 @@ Public Function UncPath(strPath As String) As String
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : IsLoaded
+' Author    : Adam Waller
+' Date      : 9/22/2017
+' Purpose   : Returns true if the object is loaded and not in design view.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsLoaded(intType As AcObjectType, strName As String, Optional blnAllowDesignView As Boolean = False) As Boolean
+
+    Dim frm As Form
+    Dim ctl As Control
+    
+    If SysCmd(acSysCmdGetObjectState, intType, strName) <> adStateClosed Then
+        If blnAllowDesignView Then
+            IsLoaded = True
+        Else
+            Select Case intType
+                Case acReport
+                    IsLoaded = Reports(strName).CurrentView <> acCurViewDesign
+                Case acForm
+                    IsLoaded = Forms(strName).CurrentView <> acCurViewDesign
+                Case acServerView
+                    IsLoaded = CurrentData.AllViews(strName).CurrentView <> acCurViewDesign
+                Case acStoredProcedure
+                    IsLoaded = CurrentData.AllStoredProcedures(strName).CurrentView <> acCurViewDesign
+                Case Else
+                    ' Other unsupported object
+                    IsLoaded = True
+            End Select
+        End If
+    Else
+        ' Could be loaded as subform
+        If intType = acForm Then
+            For Each frm In Forms
+                For Each ctl In frm.Controls
+                    If TypeOf ctl Is SubForm Then
+                        If ctl.SourceObject = strName Then
+                            IsLoaded = True
+                            Exit For
+                        End If
+                    End If
+                Next ctl
+                If IsLoaded Then Exit For
+            Next frm
+        End If
+    End If
+    
+End Function
+
+
 ' returns substring between e.g. "(" and ")", internal brackets ar skippped
 'Public Function SubString(P As Integer, s As String, startsWith As String, endsWith As String)
 '    Dim start As Integer

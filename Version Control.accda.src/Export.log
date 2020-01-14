@@ -3,15 +3,14 @@ Beginning Export of all Source
 Version Control.accda
 VCS Version 1.2.0.19
 Using Fast Save
-1/14/2020 10:52:26 AM
+1/14/2020 10:56:51 AM
 -------------------------------
 -------------------------------
 Exporting queries...    
 [0]
 -------------------------------
 Exporting forms...      
-  frmMain
-    Sanitized in 0.02 seconds.
+  (Skipping 'frmMain')
 [1]
 -------------------------------
 Exporting reports...    
@@ -67,4 +66,4 @@ Exporting tbldef...
 Exporting relations...  
 [0]
 -------------------------------
-Done. (0.4 seconds)
+Done. (0.39 seconds)
