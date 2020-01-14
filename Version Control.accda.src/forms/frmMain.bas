@@ -19,7 +19,7 @@ Begin Form
     ItemSuffix =14
     Left =-21975
     Top =2430
-    Right =-7290
+    Right =-255
     Bottom =14565
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
@@ -455,6 +455,9 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+' This color scheme can be changed, I just wanted something more aesthetically
+' pleasing than the default wizards and forms.
+' Color scheme: https://coolors.co/383f51-e0e0e6-ffffff-ef8354-d3d7ef
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdClose_Click
