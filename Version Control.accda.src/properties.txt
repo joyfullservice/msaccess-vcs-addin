@@ -28,7 +28,7 @@ Show Values in Remote?0?4
 Auto Compact?0?4
 Row Limit?10000?4
 ANSI Query Mode?0?4
-Picture Property Storage Format?1?4
+Picture Property Storage Format?0?4
 NavPane Closed?0?4
 NavPane Width?215?4
 NavPane View By?0?4
@@ -41,3 +41,6 @@ ClickOnce Deployment?False?10
 Last VCS Version?1.2.0.19?10
 WebDesignMode?0?2
 Theme Resource Name?Office Theme?10
+DesignWithData?True?1
+Show Values Limit?1000?4
+Themed Form Controls?1?4
