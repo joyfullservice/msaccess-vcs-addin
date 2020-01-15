@@ -3,7 +3,7 @@ Beginning Export of all Source
 Version Control.accda
 VCS Version 1.2.0.19
 Using Fast Save
-1/14/2020 1:36:33 PM
+1/15/2020 8:10:04 AM
 -------------------------------
 -------------------------------
 Exporting queries...    
@@ -62,10 +62,10 @@ Exporting specs...
 [0]
 -------------------------------
 Exporting tbldef...     
-  USysRegInfo (with SQL)
+  (Skipping 'USysRegInfo')
 [1]
 -------------------------------
 Exporting relations...  
 [0]
 -------------------------------
-Done. (0.41 seconds)
+Done. (0.38 seconds)
