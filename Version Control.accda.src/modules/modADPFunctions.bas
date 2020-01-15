@@ -29,9 +29,9 @@ Public Function GetSQLObjectModifiedDate(strName As String, ByVal strType As Str
     Dim varItem As Variant
     
     ' Shortcut to clear the cached variable
-    If strName = "" And strType = "" Then
+    If strName = vbNullString And strType = vbNullString Then
         Set colCache = Nothing
-        strLastType = ""
+        strLastType = vbNullString
         dteCacheDate = 0
         Exit Function
     End If
@@ -40,13 +40,13 @@ Public Function GetSQLObjectModifiedDate(strName As String, ByVal strType As Str
     If CurrentProject.ProjectType <> acADP Then Exit Function
     
     ' Simple validation on object name
-    strObject = Replace(strName, ";", "")
+    strObject = Replace(strName, ";", vbNullString)
     
     ' Build schema filter if required
     intPos = InStr(1, strObject, ".")
     If intPos > 0 Then
-        strObject = Mid(strObject, intPos + 1)
-        strSchema = Left(strName, intPos - 1)
+        strObject = Mid$(strObject, intPos + 1)
+        strSchema = Left$(strName, intPos - 1)
         'strSchemaFilter = " AND [schema_id]=schema_id('" & strSchema & "')"
     Else
         strSchema = "dbo"
@@ -61,7 +61,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, ByVal strType As Str
         Case Else
             strType = strType
     End Select
-    If strType <> "" Then strTypeFilter = " AND [type]='" & strType & "'"
+    If strType <> vbNullString Then strTypeFilter = " AND [type]='" & strType & "'"
     
     ' Check to see if we have already cached the results
     If strType = strLastType And (DateDiff("s", dteCacheDate, Now()) < 5) And Not colCache Is Nothing Then
@@ -123,7 +123,7 @@ Public Function GetSQLObjectDefinitionForADP(strName As String) As String
     If CurrentProject.ProjectType <> acADP Then Exit Function
     
     ' Simple validation on object name
-    strObject = Replace(strName, ";", "")
+    strObject = Replace(strName, ";", vbNullString)
     
     strSQL = "SELECT object_definition (OBJECT_ID(N'" & strObject & "'))"
     Set rst = CurrentProject.Connection.Execute(strSQL)
@@ -160,7 +160,7 @@ Public Function GetADPTableDef(strTable As String) As String
     If CurrentProject.ProjectType <> acADP Then Exit Function
     
     ' Simple validation on object name
-    strObject = Replace(strTable, ";", "")
+    strObject = Replace(strTable, ";", vbNullString)
     
     ' Get initial table information
     strSQL = "exec sp_help N'" & strObject & "'"
@@ -254,7 +254,7 @@ Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As S
     
         ' Loop through saved source files, removing ones that no longer exist in the database.
         strFile = Dir(strBaseExportFolder & "*.sql")
-        Do While strFile <> ""
+        Do While strFile <> vbNullString
             blnFound = False
             For Each varTrg In colTriggers
                 If varTrg(3) = strFile Then

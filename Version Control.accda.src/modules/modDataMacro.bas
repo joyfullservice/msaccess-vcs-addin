@@ -62,7 +62,7 @@ Private Sub FormatDataMacro(strFile As String)
     Do While Not stmRead.EOS
         strData = stmRead.ReadText(adReadLine)
         For Each varTag In Split(strData, ">")
-            If varTag <> "" Then
+            If varTag <> vbNullString Then
                 cData.Add CStr(varTag)
                 cData.Add ">"
                 cData.Add vbCrLf

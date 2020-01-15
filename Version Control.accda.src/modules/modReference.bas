@@ -17,7 +17,7 @@ Public Sub ExportReferences(strFolder As String, cModel As IVersionControl)
     Dim intCnt As Integer
     
     For Each ref In Application.References
-        If ref.GUID = "" Then ' references of types mdb,accdb,mde etc don't have a GUID
+        If ref.GUID = vbNullString Then ' references of types mdb,accdb,mde etc don't have a GUID
             cData.Add ref.FullPath
             cData.Add vbCrLf
             cModel.Log "  [" & ref.Name & "]", cModel.ShowDebug
@@ -72,12 +72,12 @@ On Error GoTo failed_guid
         line = InFile.ReadLine
         Item = Split(line, ",")
         If UBound(Item) = 2 Then 'a ref with a guid
-          GUID = Trim(Item(0))
+          GUID = Trim$(Item(0))
           Major = CLng(Item(1))
           Minor = CLng(Item(2))
           Application.References.AddFromGuid GUID, Major, Minor
         Else
-          refName = Trim(Item(0))
+          refName = Trim$(Item(0))
           Application.References.AddFromFile refName
         End If
 go_on:

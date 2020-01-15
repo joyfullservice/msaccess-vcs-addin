@@ -38,14 +38,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     Dim strData As String
     Dim blnSkipFile As Boolean
     Dim strFile As String
-    Dim dteLastCompact As Date
     Dim dteModified As Date
-
-    ' Option used with fast saves
-    If cModel.FastSave Then
-        strData = GetDBProperty("InitiatedCompactRepair")
-        If IsDate(strData) Then dteLastCompact = CDate(strData)
-    End If
     
     Set dbs = CurrentDb
     sngStart = Timer
@@ -80,10 +73,10 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         ClearOrphanedSourceFiles strObjectPath, dbs.QueryDefs, cModel, "bas", "sql"
         cModel.Log cstrSpacer, cModel.ShowDebug
         cModel.Log PadRight("Exporting queries...", 24), True, cModel.ShowDebug
-        cModel.Log "", cModel.ShowDebug
+        cModel.Log vbNullString, cModel.ShowDebug
         intObjCnt = 0
         For Each qry In dbs.QueryDefs
-            If Left(qry.Name, 1) <> "~" Then
+            If Left$(qry.Name, 1) <> "~" Then
                 strFile = strObjectPath & GetSafeFileName(qry.Name) & ".bas"
                 ExportObject acQuery, qry.Name, strFile, cModel
                 intObjCnt = intObjCnt + 1
@@ -113,7 +106,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         ' Process triggers
         cModel.Log cstrSpacer, cModel.ShowDebug
         cModel.Log PadRight("Exporting triggers...", 24), True, cModel.ShowDebug
-        cModel.Log "", cModel.ShowDebug
+        cModel.Log vbNullString, cModel.ShowDebug
         ExportADPTriggers cModel, strSourcePath & "triggers\"
         
         ' Loop through each type, exporting SQL definitions
@@ -128,7 +121,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
             
             cModel.Log cstrSpacer, cModel.ShowDebug
             cModel.Log PadRight("Exporting " & varType(0) & "...", 24), , cModel.ShowDebug
-            cModel.Log "", cModel.ShowDebug
+            cModel.Log vbNullString, cModel.ShowDebug
             intObjCnt = 0
             For Each qry In varType(2)
                 blnSkipFile = False
@@ -174,7 +167,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     End If
 
     ' Clear the cached variables
-    GetSQLObjectModifiedDate "", ""
+    GetSQLObjectModifiedDate vbNullString, vbNullString
     
     ' Get the forms, reports, macros, and modules
     Set colContainers = New Collection
@@ -200,11 +193,11 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         ' Show progress
         cModel.Log cstrSpacer, cModel.ShowDebug
         cModel.Log PadRight("Exporting " & strLabel & "...", 24), , cModel.ShowDebug
-        cModel.Log "", cModel.ShowDebug
+        cModel.Log vbNullString, cModel.ShowDebug
         
         ' Loop through objects in container
         For Each doc In objContainer
-            If (Left(doc.Name, 1) <> "~") Then
+            If (Left$(doc.Name, 1) <> "~") Then
                 ' Get file name (without extension)
                 strFile = strObjectPath & StripDboPrefix(GetSafeFileName(doc.Name))
                 ExportObject intType, doc.Name, strFile & ".bas", cModel
@@ -227,19 +220,19 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     ' Export references
     cModel.Log cstrSpacer, cModel.ShowDebug
     cModel.Log PadRight("Exporting references...", 24), , cModel.ShowDebug
-    cModel.Log "", cModel.ShowDebug
+    cModel.Log vbNullString, cModel.ShowDebug
     ExportReferences strSourcePath, cModel
     
     ' Export database properties
     cModel.Log cstrSpacer, cModel.ShowDebug
     cModel.Log PadRight("Exporting properties...", 24), , cModel.ShowDebug
-    cModel.Log "", cModel.ShowDebug
+    cModel.Log vbNullString, cModel.ShowDebug
     ExportProperties strSourcePath, cModel
     
     ' Export Import/Export Specifications
     cModel.Log cstrSpacer, cModel.ShowDebug
     cModel.Log PadRight("Exporting specs...", 24), , cModel.ShowDebug
-    cModel.Log "", cModel.ShowDebug
+    cModel.Log vbNullString, cModel.ShowDebug
     ExportSpecs strSourcePath, cModel
     
     
@@ -270,12 +263,12 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         
         
         ' Verify path and clear any existing files
-        VerifyPath Left(strObjectPath, InStrRev(strObjectPath, "\"))
+        VerifyPath Left$(strObjectPath, InStrRev(strObjectPath, "\"))
         ClearOrphanedSourceFiles strObjectPath, tds, cModel, "LNKD", "sql", "xml", "bas"
 
         cModel.Log cstrSpacer, cModel.ShowDebug
         cModel.Log PadRight("Exporting " & strLabel & "...", 24), , cModel.ShowDebug
-        cModel.Log "", cModel.ShowDebug
+        cModel.Log vbNullString, cModel.ShowDebug
         
         For Each td In tds
             ' This is not a system table
@@ -313,12 +306,12 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         ' Export relationships (MDB only)
         cModel.Log cstrSpacer, cModel.ShowDebug
         cModel.Log PadRight("Exporting relations...", 24), , cModel.ShowDebug
-        cModel.Log "", cModel.ShowDebug
+        cModel.Log vbNullString, cModel.ShowDebug
         
         intObjCnt = 0
         strObjectPath = strSourcePath & "relations\"
         
-        VerifyPath Left(strObjectPath, InStrRev(strObjectPath, "\"))
+        VerifyPath Left$(strObjectPath, InStrRev(strObjectPath, "\"))
         ClearOrphanedSourceFiles strObjectPath, dbs.Relations, cModel, "txt"
         
         Dim aRelation As Relation
@@ -344,7 +337,7 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     If cModel.IncludeVBE Then
         cModel.Log cstrSpacer, cModel.ShowDebug
         cModel.Log PadRight("Exporting VBE...", 24), , cModel.ShowDebug
-        cModel.Log "", cModel.ShowDebug
+        cModel.Log vbNullString, cModel.ShowDebug
         ExportAllVBE cModel
     End If
 
@@ -357,11 +350,9 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     Set m_FSO = Nothing
     
     ' Save version from last
-    If GetDBProperty("Last VCS Version") <> GetVCSVersion Then
-        SetDBProperty "Last VCS Version", GetVCSVersion
-        ' Reload version control so we can run fast save.
-        'InitializeVersionControlSystem
-    End If
+    SetProperty "Last VCS Version", GetVCSVersion
+    ' Reload version control so we can run fast save.
+    'InitializeVersionControlSystem
     
 End Sub
 
@@ -448,14 +439,14 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionCo
             
             Case vbext_ct_Document
                 ' Class object (Forms, Reports)
-                If Left(.Name, 5) = "Form_" Then
+                If Left$(.Name, 5) = "Form_" Then
                     intType = acForm
-                    strName = Mid(.Name, 6)
+                    strName = Mid$(.Name, 6)
                     strFolder = "forms\"
                     blnSanitize = True
-                ElseIf Left(.Name, 7) = "Report_" Then
+                ElseIf Left$(.Name, 7) = "Report_" Then
                     intType = acReport
-                    strName = Mid(.Name, 8)
+                    strName = Mid$(.Name, 8)
                     strFolder = "reports\"
                     blnSanitize = True
                 End If
@@ -476,7 +467,7 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionCo
     ' Export VBE version
     If cModel.IncludeVBE Then
         strFile = cModel.ExportBaseFolder & "VBE\" & cmpToExport.Name & GetVBEExtByType(cmpToExport)
-        If Dir(strFile) <> "" Then Kill strFile
+        If Dir(strFile) <> vbNullString Then Kill strFile
         cmpToExport.Export strFile
     End If
     DoCmd.Hourglass False
@@ -501,7 +492,7 @@ Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As
     
     On Error GoTo ErrHandler
     
-    strFolder = Left(strPath, InStrRev(strPath, "\"))
+    strFolder = Left$(strPath, InStrRev(strPath, "\"))
     VerifyPath strFolder
     
     ' Check for fast save
@@ -567,7 +558,7 @@ ErrHandler:
     Case Else
         ' Unhandled error
         Debug.Print Err.Number & ": " & Err.Description
-        Stop
+        Err.Raise Err.Number, , Err.Description
     End Select
     
 End Sub
@@ -596,7 +587,6 @@ End Sub
 ' database's folder.
 Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     
-    Dim dbs As DAO.Database
     Dim source_path As String
     Dim obj_path As String
     Dim obj_type As Variant
@@ -613,8 +603,6 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
         MsgBox "Module " & obj_name & "Code modules cannot be updated while running." & vbCrLf & "Please update manually", vbCritical, "Unable to import source"
         Exit Sub
     End If
-
-    Set dbs = CurrentDb
 
     source_path = ProjectPath() & "source\"
     If Not FSO.FolderExists(source_path) Then
@@ -637,7 +625,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
         obj_count = 0
         Do Until Len(FileName) = 0
             DoEvents
-            obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+            obj_name = Mid$(FileName, 1, InStrRev(FileName, ".") - 1)
             ImportObject acQuery, obj_name, obj_path & FileName, modFileAccess.UsingUcs2
             ExportObject acQuery, obj_name, tempFilePath, Nothing
             ImportObject acQuery, obj_name, tempFilePath, modFileAccess.UsingUcs2
@@ -656,7 +644,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
         Debug.Print PadRight("Importing tabledefs...", 24);
         obj_count = 0
         Do Until Len(FileName) = 0
-            obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+            obj_name = Mid$(FileName, 1, InStrRev(FileName, ".") - 1)
             If ShowDebugInfo Then
                 If obj_count = 0 Then
                     Debug.Print
@@ -678,7 +666,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
         Debug.Print PadRight("Importing Linked tabledefs...", 24);
         obj_count = 0
         Do Until Len(FileName) = 0
-            obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+            obj_name = Mid$(FileName, 1, InStrRev(FileName, ".") - 1)
             If ShowDebugInfo Then
                 If obj_count = 0 Then
                     Debug.Print
@@ -703,7 +691,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
         obj_count = 0
         Do Until Len(FileName) = 0
             DoEvents
-            obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+            obj_name = Mid$(FileName, 1, InStrRev(FileName, ".") - 1)
             modTable.ImportTableData CStr(obj_name), obj_path
             obj_count = obj_count + 1
             FileName = Dir()
@@ -719,7 +707,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
         obj_count = 0
         Do Until Len(FileName) = 0
             DoEvents
-            obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+            obj_name = Mid$(FileName, 1, InStrRev(FileName, ".") - 1)
             'modTable.ImportTableData CStr(obj_name), obj_path
             modDataMacro.ImportDataMacros obj_name, obj_path
             obj_count = obj_count + 1
@@ -752,7 +740,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
             obj_count = 0
             Do Until Len(FileName) = 0
                 ' DoEvents no good idea!
-                obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+                obj_name = Mid$(FileName, 1, InStrRev(FileName, ".") - 1)
                 If obj_type_label = "modules" Then
                     ucs2 = False
                 Else
@@ -777,7 +765,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     FileName = Dir(obj_path & "*.pv")
     Do Until Len(FileName) = 0
         DoEvents
-        obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
+        obj_name = Mid$(FileName, 1, InStrRev(FileName, ".") - 1)
         modReport.ImportPrintVars obj_name, obj_path & FileName
         obj_count = obj_count + 1
         FileName = Dir()
@@ -817,12 +805,12 @@ Public Sub ImportProject()
 
     If MsgBox("This action will delete all existing: " & vbCrLf & _
               vbCrLf & _
-              Chr(149) & " Tables" & vbCrLf & _
-              Chr(149) & " Forms" & vbCrLf & _
-              Chr(149) & " Macros" & vbCrLf & _
-              Chr(149) & " Modules" & vbCrLf & _
-              Chr(149) & " Queries" & vbCrLf & _
-              Chr(149) & " Reports" & vbCrLf & _
+              Chr$(149) & " Tables" & vbCrLf & _
+              Chr$(149) & " Forms" & vbCrLf & _
+              Chr$(149) & " Macros" & vbCrLf & _
+              Chr$(149) & " Modules" & vbCrLf & _
+              Chr$(149) & " Queries" & vbCrLf & _
+              Chr$(149) & " Reports" & vbCrLf & _
               vbCrLf & _
               "Are you sure you want to proceed?", vbCritical + vbYesNo, _
               "Import Project") <> vbYes Then
@@ -847,7 +835,7 @@ Public Sub ImportProject()
     Dim dbObject As Object
     For Each dbObject In Db.QueryDefs
         DoEvents
-        If Left(dbObject.Name, 1) <> "~" Then
+        If Left$(dbObject.Name, 1) <> "~" Then
 '            Debug.Print dbObject.Name
             Db.QueryDefs.Delete dbObject.Name
         End If
@@ -856,7 +844,7 @@ Public Sub ImportProject()
     Dim td As TableDef
     For Each td In CurrentDb.TableDefs
         If Left$(td.Name, 4) <> "MSys" And _
-            Left(td.Name, 1) <> "~" Then
+            Left$(td.Name, 1) <> "~" Then
             CurrentDb.TableDefs.Delete (td.Name)
         End If
     Next
@@ -880,7 +868,7 @@ Public Sub ImportProject()
         DoEvents
         For Each doc In Db.Containers(objTypeArray(OTNAME)).Documents
             DoEvents
-            If (Left(doc.Name, 1) <> "~") Then
+            If (Left$(doc.Name, 1) <> "~") Then
 '                Debug.Print doc.Name
                 DoCmd.DeleteObject objTypeArray(OTID), doc.Name
             End If

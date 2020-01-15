@@ -20,9 +20,9 @@ Public Sub ExportRelation(rel As Relation, strFile As String)
         .Add vbCrLf
         .Add rel.Name
         .Add vbCrLf
-        .Add rel.table
+        .Add rel.Table
         .Add vbCrLf
-        .Add rel.foreignTable
+        .Add rel.ForeignTable
         .Add vbCrLf
         For Each fld In rel.Fields
             .Add "Field = Begin"
@@ -48,8 +48,8 @@ Public Sub ImportRelation(filePath As String)
     Dim rel As New Relation
     rel.Attributes = InFile.ReadLine
     rel.Name = InFile.ReadLine
-    rel.table = InFile.ReadLine
-    rel.foreignTable = InFile.ReadLine
+    rel.Table = InFile.ReadLine
+    rel.ForeignTable = InFile.ReadLine
     Dim f As Object ' Field
     Do Until InFile.AtEndOfStream
         If "Field = Begin" = InFile.ReadLine Then

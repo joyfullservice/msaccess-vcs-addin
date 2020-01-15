@@ -83,13 +83,13 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
             If ref.Name = strLibraryName Then
                 If blnUseVersionControl Then
                     ' Make sure the path is valid.
-                    If Dir(ref.FullPath) = "" Then
+                    If Dir(ref.FullPath) = vbNullString Then
                         ' Could not find at current path. Get file name
                         varParts = Split(ref.FullPath, "\")
                         strFile = varParts(UBound(varParts))
                         ' Check in current folder
                         strPath = CodeProject.Path & "\" & strFile
-                        If Dir(strPath) <> "" Then
+                        If Dir(strPath) <> vbNullString Then
                             ' Found in current folder. Relink at this location
                             Application.References.Remove ref
                             Set ref = Nothing
@@ -126,7 +126,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
         If blnUseVersionControl And Not blnLoaded Then
             
             ' Attempt to load the file
-            If strLibraryPath <> "\" And Dir(strLibraryPath, vbDirectory) <> "" Then
+            If strLibraryPath <> "\" And Dir(strLibraryPath, vbDirectory) <> vbNullString Then
                 ' Use specified path
                 strPath = strLibraryPath
             Else
@@ -136,7 +136,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
             
             ' Check to see if the library file exists
             strPath = strPath & strLibraryFile
-            If Dir(strPath) <> "" Then
+            If Dir(strPath) <> vbNullString Then
                 ' File exists
                 If strPath <> CodeProject.FullName Then
                     ' In ADP projects, the first call may not fully load the library.
@@ -145,17 +145,15 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
                     '  load and allows us to continue with calling the VCS functions.)
                     On Error Resume Next
                     References.AddFromFile strPath
-                    If Err Then
-                        If Err.Number = 35021 Then
-                            Err.Clear
-                            ' Try loading it again
-                            References.AddFromFile strPath
-                            If Not Err Then
-                                ' Go ahead and run a compile to just to make sure we can run the VCS command
-                                ' later in this code. (Name conflicts would probably be the reasons for errors here.)
-                                On Error GoTo 0
-                                DoCmd.RunCommand acCmdCompileAllModules
-                            End If
+                    If Err.Number = 35021 Then
+                        Err.Clear
+                        ' Try loading it again
+                        References.AddFromFile strPath
+                        If Not Err Then
+                            ' Go ahead and run a compile to just to make sure we can run the VCS command
+                            ' later in this code. (Name conflicts would probably be the reasons for errors here.)
+                            On Error GoTo 0
+                            DoCmd.RunCommand acCmdCompileAllModules
                         End If
                     End If
                     ' Check for errors and reset error handler
@@ -176,7 +174,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
         If Not blnInitialize Then Run strLibPrefix & "ReleaseObjectReferences"
     End If
     
-    If strError = "" Then
+    If strError = vbNullString Then
         ' Initialize the VBE menu
         ' (Use the Run commmand to avoid compile errors if the library was not loaded)
         If blnInitialize Then Run strLibPrefix & "LoadVersionControlMenu", colParams

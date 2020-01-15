@@ -3,13 +3,25 @@ Transactions?True?1
 Updatable?True?1
 CollatingOrder?1033?3
 QueryTimeout?60?3
-Version?14.0?12
+Version?12.0?12
 RecordsAffected?0?4
 ReplicaID??15
 DesignMasterID??15
 Connection??0
+ANSI Query Mode?0?4
+Themed Form Controls?1?4
+Use Microsoft Access 2007 compatible cache?0?4
+Clear Cache on Close?0?4
+Never Cache?0?4
 AccessVersion?09.50?10
 NavPane Category?0?4
+Show Navigation Pane Search Bar?1?4
+UseMDIMode?0?2
+ShowDocumentTabs?True?1
+Picture Property Storage Format?1?4
+WebDesignMode?0?2
+CheckTruncatedNumFields?1?4
+ProjVer?141?3
 HasOfflineLists?70?3
 StartUpShowDBWindow?True?1
 StartUpShowStatusBar?True?1
@@ -19,25 +31,18 @@ AllowBuiltInToolbars?True?1
 AllowToolbarChanges?True?1
 AllowSpecialKeys?True?1
 UseAppIconForFrmRpt?False?1
-UseMDIMode?0?2
-ShowDocumentTabs?True?1
 AllowDatasheetSchema?True?1
 Show Values in Indexed?1?4
 Show Values in Non-Indexed?1?4
 Show Values in Remote?0?4
 Auto Compact?0?4
 Row Limit?10000?4
-ANSI Query Mode?0?4
-Picture Property Storage Format?1?4
 NavPane Closed?0?4
 NavPane Width?215?4
 NavPane View By?0?4
 NavPane Sort By?1?4
 Build?606?4
-ProjVer?141?3
-Show Navigation Pane Search Bar?0?4
 AppVersion?1.2.0.19?10
 ClickOnce Deployment?False?10
 Last VCS Version?1.2.0.19?10
-WebDesignMode?0?2
 Theme Resource Name?Office Theme?10

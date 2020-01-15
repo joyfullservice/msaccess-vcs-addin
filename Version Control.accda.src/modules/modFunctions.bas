@@ -34,7 +34,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
     sngOverall = sngTimer
         
     '  Setup Block matching Regex.
-    rxBlock.ignoreCase = False
+    rxBlock.IgnoreCase = False
     
     ' Build main search patterns
     With cPattern
@@ -90,7 +90,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
         End If
         
         ' Skip lines starting with line pattern
-        If rxLine.test(strText) Then
+        If rxLine.Test(strText) Then
             
             ' set up initial pattern
             rxIndent.Pattern = "^(\s+)\S"
@@ -110,7 +110,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
             ' Skip lines with deeper indentation
             Do While Not stmInFile.AtEndOfStream
                 strText = stmInFile.ReadLine
-                If rxIndent.test(strText) Then Exit Do
+                If rxIndent.Test(strText) Then Exit Do
             Loop
             
             ' We've moved on at least one line so restart the
@@ -118,7 +118,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
             blnGetLine = False
         
         ' Skip blocks of code matching block pattern
-        ElseIf rxBlock.test(strText) Then
+        ElseIf rxBlock.Test(strText) Then
             Do While Not stmInFile.AtEndOfStream
                 strText = stmInFile.ReadLine
                 If InStr(strText, "End") Then Exit Do
@@ -151,7 +151,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
     WriteFile cData.GetStr, strPath
 
     ' Show stats if debug turned on.
-    cModel.Log "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cModel.ShowDebug
+    cModel.Log "    Sanitized in " & Format$(Timer - sngOverall, "0.00") & " seconds.", cModel.ShowDebug
 
 End Sub
 
@@ -165,7 +165,7 @@ End Sub
 '
 Public Function ProjectPath() As String
     ProjectPath = CurrentProject.Path
-    If Right(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
+    If Right$(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
 End Function
 
 
@@ -190,7 +190,7 @@ End Sub
 '
 Public Sub ClearTextFilesFromDir(ByVal strFolder As String, strExt As String)
     If Not FSO.FolderExists(StripSlash(strFolder)) Then Exit Sub
-    If Dir(strFolder & "*." & strExt) <> "" Then
+    If Dir(strFolder & "*." & strExt) <> vbNullString Then
         FSO.DeleteFile strFolder & "*." & strExt
     End If
 End Sub
@@ -238,7 +238,7 @@ Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, objContainer As Obj
     End If
     
     ' Loop through files in folder
-    strPath = Left(strPath, Len(strPath) - 1)
+    strPath = Left$(strPath, Len(strPath) - 1)
     Set oFolder = FSO.GetFolder(strPath)
     
     For Each oFile In oFolder.Files
@@ -284,8 +284,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function StripSlash(strText As String) As String
-    If Right(strText, 1) = "\" Then
-        StripSlash = Left(strText, Len(strText) - 1)
+    If Right$(strText, 1) = "\" Then
+        StripSlash = Left$(strText, Len(strText) - 1)
     Else
         StripSlash = strText
     End If
@@ -348,7 +348,7 @@ Public Sub VerifyPath(strFolderPath As String)
     
     ' If code reaches here, we don't have a copy of the path
     ' in the cached list of verified paths. Verify and add
-    If Dir(strFolderPath, vbDirectory) = "" Then
+    If Dir(strFolderPath, vbDirectory) = vbNullString Then
         ' Path does not seem to exist. Create it.
         MkDirIfNotExist strFolderPath
     End If
@@ -464,7 +464,7 @@ Public Function GetSafeFileName(strName As String) As String
     ' Use URL encoding for these characters
     ' https://www.w3schools.com/tags/ref_urlencode.asp
     strSafe = Replace(strName, "%", "%25")  ' Since we are using this character for encoding. (Makes decoding easier if we do that at some point in the future.)
-    strSafe = Replace(strName, "<", "%3C")
+    strSafe = Replace(strSafe, "<", "%3C")
     strSafe = Replace(strSafe, ">", "%3E")
     strSafe = Replace(strSafe, ":", "%3A")
     strSafe = Replace(strSafe, """", "%22")
@@ -491,7 +491,7 @@ End Function
 Public Function HasMoreRecentChanges(objItem As Object, strFile As String) As Boolean
     ' File dates could be a second off (between exporting the file and saving the report)
     ' so ignore changes that are less than three seconds apart.
-    If Dir(strFile) <> "" Then
+    If Dir(strFile) <> vbNullString Then
         HasMoreRecentChanges = (DateDiff("s", objItem.DateModified, FileDateTime(strFile)) < -3)
     Else
         HasMoreRecentChanges = True
@@ -512,26 +512,26 @@ Public Sub PreserveModificationStatusBeforeCompact()
 
     Dim colContainers As New Collection
     Dim obj As Object
-    Dim dbs As Database
+    'Dim dbs As Database
     Dim strValue As String
     Dim varContainer As Variant
-    Dim dteOldest As Date
+    'Dim dteOldest As Date
     Dim dteCreated As Date
     Dim dteModified As Date
-    Dim blnExport As Boolean
+    'Dim blnExport As Boolean
     Dim dteLastCompact As Date
     
     ' Start with today and work backwards
-    dteOldest = Now
+    'dteOldest = Now
     
     ' Get date/time when the database was last compacted/repaired.
-    strValue = GetDBProperty("InitiatedCompactRepair")
+    strValue = GetPropertyValue("InitiatedCompactRepair")
     If IsDate(strValue) Then dteLastCompact = CDate(strValue)
     
     ' Add object types to collection
     With colContainers
         If CurrentProject.ProjectType = acMDB Then
-            Set dbs = CurrentDb
+            'Set dbs = CurrentDb
             .Add Forms
             .Add Reports
             '.Add dbs.QueryDefs
@@ -555,7 +555,7 @@ Public Sub PreserveModificationStatusBeforeCompact()
             dteModified = obj.DateModified
             
             ' Default to needing to export the current object.
-            blnExport = True
+            'blnExport = True
             
             ' If dates match, the object has not changed since last compact/repair
             If DatesClose(dteCreated, dteModified) And DatesClose(dteCreated, dteLastCompact, 20) Then
@@ -572,7 +572,7 @@ Public Sub PreserveModificationStatusBeforeCompact()
     Next varContainer
 
     ' Save the current time at the database level
-    SetDBProperty "InitiatedCompactRepair", CStr(Now)
+    SetProperty "InitiatedCompactRepair", CStr(Now)
     
     ' Clean up
     Set obj = Nothing
@@ -661,8 +661,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function StripDboPrefix(strName As String) As String
-    If Left(strName, 4) = "dbo." Then
-        StripDboPrefix = Mid(strName, 5)
+    If Left$(strName, 4) = "dbo." Then
+        StripDboPrefix = Mid$(strName, 5)
     Else
         StripDboPrefix = strName
     End If
@@ -709,7 +709,7 @@ Public Function ProgramFilesFolder() As String
     Dim strFolder As String
     strFolder = Environ$("PROGRAMFILES")
     ' Should always work, but just in case!
-    If strFolder = "" Then strFolder = "C:\Program Files (x86)"
+    If strFolder = vbNullString Then strFolder = "C:\Program Files"
     ProgramFilesFolder = strFolder & "\"
 End Function
 
@@ -756,9 +756,9 @@ Public Function UncPath(strPath As String) As String
         strShare = .GetDrive(strDrive).ShareName
     End With
     
-    If strShare <> "" Then
+    If strShare <> vbNullString Then
         ' Replace drive with UNC path
-        UncPath = strShare & Mid(strPath, Len(strDrive) + 1)
+        UncPath = strShare & Mid$(strPath, Len(strDrive) + 1)
     Else
         ' Return unmodified path
         UncPath = strPath

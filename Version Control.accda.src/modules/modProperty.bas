@@ -162,12 +162,12 @@ Public Function GetProperty(ByVal propertyName As String, _
     Const PropertyNotFound As Integer = 3270
     If thisDB Is Nothing Then Set thisDB = ThisProjectDB
     
-    On Error GoTo Err_PropertyExists
+    On Error GoTo ErrorHandler
     Set GetProperty = thisDB.Properties(propertyName)
 
     Exit Function
      
-Err_PropertyExists:
+ErrorHandler:
     If Err.Number <> PropertyNotFound Then
         Debug.Print "Error getting property: " & propertyName & vbNewLine & Err.Number & " " & Err.Description
     End If
@@ -175,6 +175,20 @@ Err_PropertyExists:
     Err.Clear
 End Function
 
+Public Function GetPropertyValue(ByVal propertyName As String, _
+                            Optional ByRef thisDB As Object) As Variant
+    If thisDB Is Nothing Then Set thisDB = ThisProjectDB
+    
+    Dim theProperty As Property
+    Set theProperty = GetProperty(propertyName, thisDB)
+    
+    If Not theProperty Is Nothing Then
+        GetPropertyValue = theProperty.Value
+    Else
+        GetPropertyValue = vbNullString
+    End If
+End Function
+                            
 '   HERE BE DRAGONS
 ' Return db property type that closely matches VBA varible type
 Private Function DBVal(ByVal intVBVal As Integer) As Integer

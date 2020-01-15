@@ -56,7 +56,7 @@ Private Function BinOpen(file_path As String, mode As String) As BinFile
     Dim f As BinFile
 
     f.file_num = FreeFile
-    f.mode = LCase(mode)
+    f.mode = LCase$(mode)
     If f.mode = "r" Then
         Open file_path For Binary Access Read As f.file_num
         f.file_len = LOF(f.file_num)
@@ -93,7 +93,7 @@ Private Function BinRead(ByRef f As BinFile) As Integer
         Exit Function
     End If
 
-    BinRead = Asc(Mid(f.buffer, f.buffer_pos + 1, 1))
+    BinRead = Asc(Mid$(f.buffer, f.buffer_pos + 1, 1))
 
     f.buffer_pos = f.buffer_pos + 1
     If f.buffer_pos >= f.buffer_len Then
@@ -118,7 +118,7 @@ End Function
 ' Buffered write one byte at a time from a binary file.
 Private Sub BinWrite(ByRef f As BinFile, b As Integer)
 
-    Mid(f.buffer, f.buffer_pos + 1, 1) = Chr(b)
+    Mid(f.buffer, f.buffer_pos + 1, 1) = Chr$(b)
     f.buffer_pos = f.buffer_pos + 1
     If f.buffer_pos >= &H4000 Then
         Put f.file_num, , f.buffer
@@ -130,7 +130,7 @@ End Sub
 ' Close binary file.
 Private Sub BinClose(ByRef f As BinFile)
     If f.mode = "w" And f.buffer_pos > 0 Then
-        f.buffer = Left(f.buffer, f.buffer_pos)
+        f.buffer = Left$(f.buffer, f.buffer_pos)
         Put f.file_num, , f.buffer
     End If
     Close f.file_num
@@ -244,7 +244,7 @@ Public Function UsingUcs2() As Boolean
         End If
     End If
 
-    If obj_name = "" Then
+    If obj_name = vbNullString Then
         ' No objects found that can be used to test UCS2 versus UTF-8
         UsingUcs2 = True
         Exit Function
@@ -256,7 +256,7 @@ Public Function UsingUcs2() As Boolean
     Open tempFileName For Binary Access Read As fn
     bytes = "  "
     Get fn, 1, bytes
-    If Asc(Mid(bytes, 1, 1)) = &HFF And Asc(Mid(bytes, 2, 1)) = &HFE Then
+    If Asc(Mid$(bytes, 1, 1)) = &HFF And Asc(Mid$(bytes, 2, 1)) = &HFE Then
         UsingUcs2 = True
     Else
         UsingUcs2 = False

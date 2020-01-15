@@ -179,23 +179,3 @@ Public Sub SetPageSize(lngNewPageSize As Long, Optional lngNewInitialPages As Lo
         Class_Initialize
     End If
 End Sub
-
-
-' Test the class to make sure we are paging correctly.
-Public Sub SelfTest()
-
-    SetPageSize 10
-    
-    Add "abcdefghij"
-    Add "k"
-    Debug.Assert Len(GetStr) = 11
-    Remove 2
-    Debug.Assert Len(GetStr) = 9
-    Add "jkl"
-    Debug.Assert Len(GetStr) = 12
-    Debug.Assert GetStr = "abcdefghijkl"
-    Add "m123456789"
-    Remove 11
-    Debug.Assert GetStr = "abcdefghijk"
-    
-End Sub

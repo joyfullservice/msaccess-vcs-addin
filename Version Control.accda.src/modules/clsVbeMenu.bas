@@ -15,12 +15,16 @@ Private m_Model As IVersionControl
 Private m_CommandBar As Office.CommandBar
 
 ' Menu button events
+'@MemberAttribute VB_VarHelpID, -1
 Private WithEvents m_evtSaveAll As VBIDE.CommandBarEvents
 Attribute m_evtSaveAll.VB_VarHelpID = -1
+'@MemberAttribute VB_VarHelpID, -1
 Private WithEvents m_evtSave As VBIDE.CommandBarEvents
 Attribute m_evtSave.VB_VarHelpID = -1
+'@MemberAttribute VB_VarHelpID, -1
 Private WithEvents m_evtCommit As VBIDE.CommandBarEvents
 Attribute m_evtCommit.VB_VarHelpID = -1
+'@MemberAttribute VB_VarHelpID, -1
 Private WithEvents m_evtDiff As VBIDE.CommandBarEvents
 Attribute m_evtDiff.VB_VarHelpID = -1
 
@@ -115,7 +119,6 @@ Private Function AddButton(strCaption As String, intFaceID As Integer, _
     Optional intPositionBefore As Integer = 1, Optional blnBeginGroup As Boolean = False, Optional intStyle As MsoButtonStyle) As CommandBarButton
     
     Dim btn As CommandBarButton
-    
     Set btn = m_CommandBar.Controls.Add(msoControlButton, , , intPositionBefore)
     btn.Caption = strCaption
     btn.FaceId = intFaceID
@@ -219,5 +222,5 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Terminate()
-    Call Class_Terminate
+    Class_Terminate
 End Sub

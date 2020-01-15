@@ -90,16 +90,16 @@ Public Sub LoadVersionControlMenu(colParams As Collection)
         Else
             strMsg = "Parameter must be passed as an array."
         End If
-        If strMsg <> "" Then Exit For
+        If strMsg <> vbNullString Then Exit For
     Next varParam
     
-    If strMsg = "" Then
+    If strMsg = vbNullString Then
             
         ' Make sure version matches to enable fast save.
         If Not cModel Is Nothing Then
             If cModel.FastSave Then
                 strCurrent = GetVCSVersion
-                If strCurrent <> "" And strCurrent = GetDBProperty("Last VCS Version") Then
+                If strCurrent <> vbNullString And strCurrent = GetPropertyValue("Last VCS Version") Then
                     ' Only allow fast save if we have run a full export with this
                     ' version of VCS.
                     cModel.FastSave = True
@@ -132,19 +132,11 @@ End Sub
 '
 Public Function GetVCSVersion() As String
     
-    Dim dbs As Database
     Dim objParent As Object
-    Dim prp As Object
-    
     Set objParent = CodeDb
     If objParent Is Nothing Then Set objParent = CurrentProject ' ADP support
-
-    For Each prp In objParent.Properties
-        If prp.Name = "AppVersion" Then
-            ' Return version
-            GetVCSVersion = prp.Value
-        End If
-    Next prp
+    
+    GetVCSVersion = GetPropertyValue("AppVersion", objParent)
 
 End Function
 
@@ -167,7 +159,7 @@ Private Function DefaultModel() As IVersionControl
     
         ' Build path to source files. (Assuming default installation of GitHub)
         strPath = GetDocumentsFolder & "\GitHub\msaccess-vcs-integration\MSAccess-VCS\"
-        If Dir(strPath, vbDirectory) <> "" Then
+        If Dir(strPath, vbDirectory) <> vbNullString Then
             ' Use this folder after verifying with user.
             If MsgBox("Use local GitHub folder?", vbQuestion + vbYesNo) = vbYes Then
                 Set DefaultModel = New clsModelGitHub

@@ -23,7 +23,7 @@ Private m_Menu As clsVbeMenu
 '---------------------------------------------------------------------------------------
 '
 Public Function Terminate()
-    Call Class_Terminate
+    Class_Terminate
 End Function
 
 
@@ -123,7 +123,7 @@ End Sub
 Private Property Get IVersionControl_HasRequiredSoftware(blnWarnUser As Boolean) As Boolean
     Dim strPath As String
     strPath = Environ$("localappdata") & "\GitHubDesktop"
-    If Dir(strPath, vbDirectory) <> "" Then
+    If Dir(strPath, vbDirectory) <> vbNullString Then
         ' Found path
         IVersionControl_HasRequiredSoftware = True
     Else
@@ -158,7 +158,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IVersionControl_Terminate()
-    Call Class_Terminate
+    Class_Terminate
 End Sub
 
 

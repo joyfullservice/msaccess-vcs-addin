@@ -47,7 +47,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function Terminate()
-    Call Class_Terminate
+    Class_Terminate
 End Function
 
 
@@ -74,7 +74,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IVersionControl_Commit()
-    Call IVersionControl_Export
+    IVersionControl_Export
     ' For some reason we have issues when we try to use the VBA Shell command
     ' The VBScript version seems to work fine.
     Shell2 AppPath & cCmdCommit & m_vcs.SelectionSourceFile
@@ -89,7 +89,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IVersionControl_Diff()
-    Call IVersionControl_Export
+    IVersionControl_Export
     Shell AppPath & cCmdDiff & m_vcs.SelectionSourceFile
 End Sub
 
@@ -102,11 +102,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function AppPath() As String
-    Dim strPath As String
-    strPath = ProgramFilesFolder
-    ' Assume we are using the 64-bit version
-    strPath = Replace(strPath, " (x86)", "")
-    AppPath = """" & strPath & cAppPath & """"
+    AppPath = """" & ProgramFilesFolder & cAppPath & """"
 End Function
 
 
@@ -150,13 +146,13 @@ End Sub
 Private Property Get IVersionControl_HasRequiredSoftware(blnWarnUser As Boolean) As Boolean
     Dim strMsg As String
     Dim strPath As String
-    strPath = Replace(AppPath, """", "")
-    If Dir(strPath) <> "" Then
+    strPath = Replace(AppPath, """", vbNullString)
+    If Dir(strPath) <> vbNullString Then
         IVersionControl_HasRequiredSoftware = True
     Else
         strMsg = "Could not find SVN program in " & vbCrLf & strPath
     End If
-    If strMsg <> "" And blnWarnUser Then MsgBox strMsg, vbExclamation, "Version Control"
+    If strMsg <> vbNullString And blnWarnUser Then MsgBox strMsg, vbExclamation, "Version Control"
 End Property
 
 
@@ -168,7 +164,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Sub IVersionControl_Terminate()
-    Call Class_Terminate
+    Class_Terminate
 End Sub
 
 

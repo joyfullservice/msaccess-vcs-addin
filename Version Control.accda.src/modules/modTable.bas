@@ -89,7 +89,7 @@ Public Sub ExportLinkedTable(strTable As String, strFolder As String, cModel As 
                 ' Indexes
                 For Each idx In tdf.Indexes
                     If idx.Primary Then
-                        .Add Mid(idx.Fields, 2)
+                        .Add Mid$(idx.Fields, 2)
                         .Add vbCrLf
                     End If
                 Next idx
@@ -116,13 +116,9 @@ End Sub
 Public Sub ExportTableDef(strTable As String, strFolder As String, cModel As IVersionControl)
 
     Dim strFile As String
-    Dim cData As New clsConcat
     Dim blnSkip As Boolean
     Dim dbs As Database
-    Dim tdf As TableDef
-
     Set dbs = CurrentDb
-    Set tdf = dbs.TableDefs(strTable)
 
     ' Build file name
     strFile = strFolder & GetSafeFileName(strTable) & ".xml"
@@ -268,12 +264,12 @@ Private Sub AddFieldReferences(dbs As Database, fld As Object, strTable As Strin
     Dim fld2 As DAO.Field
     
     For Each rel In dbs.Relations
-        If (rel.foreignTable = strTable) Then
+        If (rel.ForeignTable = strTable) Then
             If FieldsIdentical(fld, rel.Fields) Then
                 
                 ' References
                 cData.Add " REFERENCES "
-                cData.Add rel.table
+                cData.Add rel.Table
                 cData.Add " ("
                 For Each fld2 In rel.Fields
                     cData.Add fld2.Name
@@ -557,7 +553,7 @@ Err_CreateLinkedTable_Fin:
         sql = sql & "[" & Field & "]" & ","
     Next
     'remove extraneous comma
-    sql = Left(sql, Len(sql) - 1)
+    sql = Left$(sql, Len(sql) - 1)
     
     sql = sql & ") WITH PRIMARY"
     CurrentDb.Execute sql
@@ -666,7 +662,7 @@ Public Sub ImportTableData(tblName As String, obj_path As String)
     buf = InFile.ReadLine()
     Do Until InFile.AtEndOfStream
         buf = InFile.ReadLine()
-        If Len(Trim(buf)) > 0 Then
+        If Len(Trim$(buf)) > 0 Then
             Values = Split(buf, vbTab)
             c = 0
             rs.AddNew

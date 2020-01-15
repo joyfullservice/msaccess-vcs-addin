@@ -57,20 +57,20 @@ Public Property Get SelectionSourceFile(Optional UseVBEFile As Boolean = True) A
             strName = strName & GetVBEExtByType(VBE.SelectedVBComponent)
             strPath = Me.ExportBaseFolder & "VBE\" & strName
             ' Fall back to database object if VBE file not found
-            If Dir(strPath) = "" Then strPath = ""
+            If Dir(strPath) = vbNullString Then strPath = vbNullString
         End If
-        If strPath = "" Then
+        If strPath = vbNullString Then
             ' Remove prefixes
-            strName = Replace(strName, "Form_", "", , 1)
-            strName = Replace(strName, "Report_", "", , 1)
+            strName = Replace(strName, "Form_", vbNullString, , 1)
+            strName = Replace(strName, "Report_", vbNullString, , 1)
             strName = strName & ".bas"
             strPath = Me.ExportBaseFolder & strName
-            If Dir(strPath) = "" Then strPath = ""
+            If Dir(strPath) = vbNullString Then strPath = vbNullString
         End If
     End If
     
     ' Return path to source file
-    If strPath = "" Then
+    If strPath = vbNullString Then
         MsgBox "Path to exported source file not found. Please export first.", vbExclamation
     Else
         ' Add quotes to path
