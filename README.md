@@ -28,7 +28,6 @@ To use this project, you will need the following two things:
  To use this add-in, simply type `InitializeVersionControl` from the VBA immediate window. (Ctl+space is a great auto-completion shortcut to use with this.)
  
  ![initialize](img/initialize.jpg)
-
  
  This will load a toolbar with a button to **Export All**. Click this button to export the source code and objects from the current database. 
  
@@ -114,3 +113,21 @@ To load this library automatically when your database opens, include the followi
 ### Renaming Loader Module
 
 You are free to rename the loader module to whatever you like to conform to your project's naming convention. (I.e. you might prefer `basVersionControl` instead of `modVersionControl`)
+
+Development Roadmap
+-------------------
+Since there are several forks of the `msaccess-vcs-integration` project on GitHub, I thought it might be helpful to give some insight into the long-term direction I am taking with this fork. Below are some of the changes I am looking to implement in the future:
+
+* Migrate to a Microsoft Access (application-specific) add-in that is installed on the development machine and can be used with any database without the need for the loader/unloader code. This installed add-in would be very easily updated from the latest versions available on GitHub. (Download the latest version, open the database file, and confirm that you would like to update the installed add-in.)
+
+* Move to a GUI based interface instead of commands that have to be typed from the VBA immediate window. This will offer a more intuitive experience for users, and an easier learning curve for those just getting started with Version Control for Microsoft Access.
+
+![gui-comp-1](img/gui-comp.gif)
+
+* Add a GUI to manage options with both a default set of options stored in the registry for the current user (developer) as well as a set that is specific for the project. (i.e. tables to include, export path, etc...) The options would be included with the export files so they can be maintained with the project. 
+ 
+* Finish out the *Build from Source* functionality so that a database can be fully built (as much as possible) exclusively from source files. This will also allow us to more easily utilize pull requests and code merges on GitHub using the standard Github workflow. (The binary *.accdb file is treated more like a compiled release, rather than working source code.)
+
+* Continue to improve and refactor the code base for better long-term maintenance and extensibility. For example, using a class interface to implement consistent import/export functions among the various types of objects and data contained in the Microsoft Access database.
+
+* Implement some type of automated testing where a complex sample database can be exported, reconstructed, exported again, and compared with the original export to ensure that the build process is fully constructing the database from the exported source files. Along with this, it would be helpful to have a chart that details the database objects that are currently supported for export and import. (I.e. database icon, embedded images, custom properties, etc.)
