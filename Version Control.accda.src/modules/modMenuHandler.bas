@@ -12,7 +12,7 @@ Private m_Model As IVersionControl
 ' Purpose   : Load the VCS model directly
 '---------------------------------------------------------------------------------------
 '
-Public Function LoadVCSModel(Optional cModel As IVersionControl)
+Public Function LoadVCSModel(Optional ByRef cModel As IVersionControl)
     ReleaseObjectReferences
     If cModel Is Nothing Then Set cModel = DefaultModel
     Set m_Model = cModel
@@ -28,7 +28,7 @@ End Function
 '           :  class models in parent applications)
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadVersionControlMenu(colParams As Collection)
+Public Sub LoadVersionControlMenu(ByRef colParams As Collection)
 
     Dim cModel As IVersionControl
     Dim varParam As Variant

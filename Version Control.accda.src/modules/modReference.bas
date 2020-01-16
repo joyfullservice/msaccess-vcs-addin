@@ -10,11 +10,11 @@ Option Private Module
 ' Purpose   : Export references to a csv text file
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportReferences(strFolder As String, cModel As IVersionControl)
+Public Sub ExportReferences(ByRef strFolder As String, ByRef cModel As IVersionControl)
     
     Dim cData As New clsConcat
     Dim ref As Reference
-    Dim intCnt As Integer
+    Dim intCnt As Long
     
     For Each ref In Application.References
         If ref.GUID = vbNullString Then ' references of types mdb,accdb,mde etc don't have a GUID
@@ -51,7 +51,7 @@ End Sub
 
 
 ' Import References from a CSV, true=SUCCESS
-Public Function ImportReferences(obj_path As String) As Boolean
+Public Function ImportReferences(ByRef obj_path As String) As Boolean
     
     Dim InFile As Scripting.TextStream
     Dim line As String

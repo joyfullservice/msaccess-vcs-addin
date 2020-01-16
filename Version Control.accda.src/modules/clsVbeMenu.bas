@@ -15,16 +15,12 @@ Private m_Model As IVersionControl
 Private m_CommandBar As Office.CommandBar
 
 ' Menu button events
-'@MemberAttribute VB_VarHelpID, -1
 Private WithEvents m_evtSaveAll As VBIDE.CommandBarEvents
 Attribute m_evtSaveAll.VB_VarHelpID = -1
-'@MemberAttribute VB_VarHelpID, -1
 Private WithEvents m_evtSave As VBIDE.CommandBarEvents
 Attribute m_evtSave.VB_VarHelpID = -1
-'@MemberAttribute VB_VarHelpID, -1
 Private WithEvents m_evtCommit As VBIDE.CommandBarEvents
 Attribute m_evtCommit.VB_VarHelpID = -1
-'@MemberAttribute VB_VarHelpID, -1
 Private WithEvents m_evtDiff As VBIDE.CommandBarEvents
 Attribute m_evtDiff.VB_VarHelpID = -1
 
@@ -36,7 +32,7 @@ Attribute m_evtDiff.VB_VarHelpID = -1
 ' Purpose   : Construct an instance of this class using a specific model
 '---------------------------------------------------------------------------------------
 '
-Public Sub Construct(cModel As IVersionControl)
+Public Sub Construct(ByRef cModel As IVersionControl)
     
     ' Save reference to model
     If Not m_Model Is Nothing Then m_Model.Terminate
@@ -47,7 +43,7 @@ Public Sub Construct(cModel As IVersionControl)
     
         ' Set up toolbar
         If CommandBarExists(cstrCmdBarName) Then
-            Set m_CommandBar = Application.VBE.CommandBars(cstrCmdBarName)
+            Set m_CommandBar = Application.VBE.CommandBars.Item(cstrCmdBarName)
             ' Reassign buttons so we can capture events
             RemoveAllButtons
         Else
@@ -75,7 +71,7 @@ End Sub
 ' Purpose   : Returns true if the command bar exists. (Is visible)
 '---------------------------------------------------------------------------------------
 '
-Private Function CommandBarExists(strName As String) As Boolean
+Private Function CommandBarExists(ByRef strName As String) As Boolean
     Dim cmdBar As CommandBar
     For Each cmdBar In Application.VBE.CommandBars
         If cmdBar.Name = strName Then
@@ -115,8 +111,8 @@ End Sub
 ' Purpose   : Add a button to the command bar, and connects to event handler
 '---------------------------------------------------------------------------------------
 '
-Private Function AddButton(strCaption As String, intFaceID As Integer, _
-    Optional intPositionBefore As Integer = 1, Optional blnBeginGroup As Boolean = False, Optional intStyle As MsoButtonStyle) As CommandBarButton
+Private Function AddButton(ByRef strCaption As String, ByRef intFaceID As Long, _
+    Optional ByRef intPositionBefore As Long = 1, Optional ByRef blnBeginGroup As Boolean = False, Optional ByRef intStyle As MsoButtonStyle) As CommandBarButton
     
     Dim btn As CommandBarButton
     Set btn = m_CommandBar.Controls.Add(msoControlButton, , , intPositionBefore)

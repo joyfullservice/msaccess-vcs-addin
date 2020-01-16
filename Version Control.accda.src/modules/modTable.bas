@@ -24,7 +24,7 @@ Option Private Module
 ' Purpose   : Export the definition of a linked table
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportLinkedTable(strTable As String, strFolder As String, cModel As IVersionControl)
+Public Sub ExportLinkedTable(ByRef strTable As String, ByRef strFolder As String, ByRef cModel As IVersionControl)
     
     Dim blnSkip As Boolean
     Dim strPath As String
@@ -38,7 +38,7 @@ Public Sub ExportLinkedTable(strTable As String, strFolder As String, cModel As 
     strPath = strFolder & GetSafeFileName(strTable) & ".LNKD"
     
     ' Check for fast save
-    If cModel.FastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strPath))
+    If cModel.FastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables.Item(strTable), strPath))
     
     ' Export linked table definition
     If blnSkip Then
@@ -50,7 +50,7 @@ Public Sub ExportLinkedTable(strTable As String, strFolder As String, cModel As 
         ' Build data string
         With cData
             Set dbs = CurrentDb
-            Set tdf = dbs.TableDefs(strTable)
+            Set tdf = dbs.TableDefs.Item(strTable)
             .Add strTable
             .Add vbCrLf
         
@@ -113,7 +113,7 @@ End Sub
 '           : format is more readable from a code review standpoint.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportTableDef(strTable As String, strFolder As String, cModel As IVersionControl)
+Public Sub ExportTableDef(ByRef strTable As String, ByRef strFolder As String, ByRef cModel As IVersionControl)
 
     Dim strFile As String
     Dim blnSkip As Boolean
@@ -124,7 +124,7 @@ Public Sub ExportTableDef(strTable As String, strFolder As String, cModel As IVe
     strFile = strFolder & GetSafeFileName(strTable) & ".xml"
 
     ' Check for fast save
-    If cModel.FastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strFile))
+    If cModel.FastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables.Item(strTable), strFile))
 
     ' Export table definition
     If blnSkip Then
@@ -156,7 +156,7 @@ End Sub
 '           : (Makes it easier to see table changes in version control systems.)
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As String, cModel As IVersionControl)
+Public Sub SaveTableSqlDef(ByRef dbs As DAO.Database, ByRef strTable As String, ByRef strFolder As String, ByRef cModel As IVersionControl)
 
     Dim cData As New clsConcat
     Dim cAttr As New clsConcat
@@ -165,7 +165,7 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
     Dim strFile As String
     Dim tdf As DAO.TableDef
     
-    Set tdf = dbs.TableDefs(strTable)
+    Set tdf = dbs.TableDefs.Item(strTable)
     
     With cData
         .Add "CREATE TABLE ["
@@ -258,7 +258,7 @@ End Sub
 ' Purpose   : Add references to other fields in table definition.
 '---------------------------------------------------------------------------------------
 '
-Private Sub AddFieldReferences(dbs As Database, fld As Object, strTable As String, cData As clsConcat)
+Private Sub AddFieldReferences(ByRef dbs As Database, ByRef fld As Object, ByRef strTable As String, ByRef cData As clsConcat)
 
     Dim rel As DAO.Relation
     Dim fld2 As DAO.Field
@@ -301,7 +301,7 @@ End Sub
 '           : (Even if the order of the fields is different.)
 '---------------------------------------------------------------------------------------
 '
-Private Function FieldsIdentical(oFields1 As Object, oFields2 As Object) As Boolean
+Private Function FieldsIdentical(ByRef oFields1 As Object, ByRef oFields2 As Object) As Boolean
 
     Dim fld As Object
     Dim fld2 As Object
@@ -340,7 +340,7 @@ End Function
 ' Purpose   : Get the type string used by Access SQL
 '---------------------------------------------------------------------------------------
 '
-Private Function GetTypeString(intType As DAO.DataTypeEnum) As String
+Private Function GetTypeString(ByRef intType As DAO.DataTypeEnum) As String
     Select Case intType
         Case dbLongBinary:      GetTypeString = "LONGBINARY"
         Case dbBinary:          GetTypeString = "BINARY"
@@ -371,7 +371,7 @@ End Function
 '           : significantly slower.
 '---------------------------------------------------------------------------------------
 '
-Private Function TableExists(strName As String) As Boolean
+Private Function TableExists(ByRef strName As String) As Boolean
 
     Dim dbs As Database
     Dim tdf As TableDef
@@ -394,18 +394,18 @@ End Function
 ' Purpose   : Build SQL to export `tbl_name` sorted by each field from first to last
 '---------------------------------------------------------------------------------------
 '
-Private Function GetTableExportSql(strTable As String) As String
+Private Function GetTableExportSql(ByRef strTable As String) As String
 
     Dim tdf As DAO.TableDef
     Dim fld As DAO.Field
-    Dim intCnt As Integer
-    Dim intFields As Integer
+    Dim intCnt As Long
+    Dim intFields As Long
     Dim cText As New clsConcat
     Dim cFieldList As New clsConcat
     Dim dbs As Database
     
     Set dbs = CurrentDb
-    Set tdf = dbs.TableDefs(strTable)
+    Set tdf = dbs.TableDefs.Item(strTable)
     intFields = tdf.Fields.Count
     
     ' Build list of fields
@@ -441,13 +441,13 @@ End Function
 ' Purpose   : Export the data from the table.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportTableData(strTable As String, strFolder As String, cModel As IVersionControl)
+Public Sub ExportTableData(ByRef strTable As String, ByRef strFolder As String, ByRef cModel As IVersionControl)
 
     Dim rst As DAO.Recordset
     Dim fld As DAO.Field
     Dim cData As New clsConcat
-    Dim intFields As Integer
-    Dim intCnt As Integer
+    Dim intFields As Long
+    Dim intCnt As Long
     Dim strText As String
     
     ' Make sure table exists
@@ -496,7 +496,7 @@ End Sub
 '===========================================================
 
 
-Public Sub ImportLinkedTable(tblName As String, obj_path As String)
+Public Sub ImportLinkedTable(ByRef tblName As String, ByRef obj_path As String)
     Dim Db As Database ' DAO.Database
     Dim InFile As Scripting.TextStream
     
@@ -644,7 +644,7 @@ End Sub
 
 
 ' Import the lookup table `tblName` from `source\tables`.
-Public Sub ImportTableData(tblName As String, obj_path As String)
+Public Sub ImportTableData(ByRef tblName As String, ByRef obj_path As String)
     Dim Db As Object ' DAO.Database
     Dim rs As Object ' DAO.Recordset
     Dim fieldObj As Object ' DAO.Field

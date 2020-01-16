@@ -10,7 +10,7 @@ Option Private Module
 ' Purpose   :
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportDataMacros(strTable As String, strFolder As String, cModel As IVersionControl)
+Public Sub ExportDataMacros(ByRef strTable As String, ByRef strFolder As String, ByRef cModel As IVersionControl)
     
     Dim blnSkip As Boolean
     Dim strPath As String
@@ -19,7 +19,7 @@ Public Sub ExportDataMacros(strTable As String, strFolder As String, cModel As I
     strPath = strFolder & GetSafeFileName(strTable) & ".xml"
 
     ' Check for fast save
-    If cModel.FastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strPath))
+    If cModel.FastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables.Item(strTable), strPath))
     
     If Not blnSkip Then
         ' Need to test whether to use Ucs2Convert on data macros.
@@ -30,7 +30,7 @@ Public Sub ExportDataMacros(strTable As String, strFolder As String, cModel As I
 End Sub
 
 
-Public Sub ImportDataMacros(TableName As String, directory As String)
+Public Sub ImportDataMacros(ByRef TableName As String, ByRef directory As String)
     Dim filePath As String: filePath = directory & TableName & ".xml"
     ImportObject acTableDataMacro, TableName, filePath, modFileAccess.UsingUcs2
 End Sub
@@ -45,7 +45,7 @@ End Sub
 '           : Allows git to find changes within lines using diff
 '---------------------------------------------------------------------------------------
 '
-Private Sub FormatDataMacro(strFile As String)
+Private Sub FormatDataMacro(ByRef strFile As String)
 
     Dim stmRead As New ADODB.Stream
     Dim strData As String

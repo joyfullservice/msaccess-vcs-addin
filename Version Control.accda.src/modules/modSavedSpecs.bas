@@ -11,7 +11,7 @@ Option Explicit
 '           : includes the name, description, and XML content.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportSpecs(strSourcePath As String, cModel As IVersionControl)
+Public Sub ExportSpecs(ByRef strSourcePath As String, ByRef cModel As IVersionControl)
     
     Dim strFolder As String
     Dim oSpec As ImportExportSpecification
@@ -43,7 +43,7 @@ Public Sub ExportSpecs(strSourcePath As String, cModel As IVersionControl)
         End With
         
         ' Restore normal error handling
-        If Err Then Err.Clear
+        If Err.Number > 0 Then Err.Clear
         On Error GoTo 0
         
         ' Determine if this was an import or an export spec.

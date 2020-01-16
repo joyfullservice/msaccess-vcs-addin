@@ -51,7 +51,7 @@ End Type
 ' --------------------------------
 
 ' Open a binary file for reading (mode = 'r') or writing (mode = 'w').
-Private Function BinOpen(file_path As String, mode As String) As BinFile
+Private Function BinOpen(ByRef file_path As String, ByRef mode As String) As BinFile
 
     Dim f As BinFile
 
@@ -116,7 +116,7 @@ End Function
 
 
 ' Buffered write one byte at a time from a binary file.
-Private Sub BinWrite(ByRef f As BinFile, b As Integer)
+Private Sub BinWrite(ByRef f As BinFile, ByRef b As Integer)
 
     Mid(f.buffer, f.buffer_pos + 1, 1) = Chr$(b)
     f.buffer_pos = f.buffer_pos + 1
@@ -138,7 +138,7 @@ End Sub
 
 
 ' Binary convert a UCS2-little-endian encoded file to UTF-8.
-Public Sub zConvertUcs2Utf8(Source As String, dest As String)
+Public Sub zConvertUcs2Utf8(ByRef Source As String, ByRef dest As String)
 
     Dim f_in As BinFile, f_out As BinFile
     Dim in_low As Integer, in_high As Integer
@@ -212,7 +212,7 @@ Public Function UsingUcs2() As Boolean
     If CurrentProject.ProjectType = acMDB Then
         If CurrentDb.QueryDefs.Count > 0 Then
             obj_type_num = acQuery
-            obj_name = CurrentDb.QueryDefs(0).Name
+            obj_name = CurrentDb.QueryDefs.Item(0).Name
         Else
             For Each obj_type In Split( _
                 "Forms|" & acForm & "," & _
@@ -224,8 +224,8 @@ Public Function UsingUcs2() As Boolean
                 obj_type_split = Split(obj_type, "|")
                 obj_type_name = obj_type_split(0)
                 obj_type_num = Val(obj_type_split(1))
-                If CurrentDb.Containers(obj_type_name).Documents.Count > 0 Then
-                    obj_name = CurrentDb.Containers(obj_type_name).Documents(0).Name
+                If CurrentDb.Containers.Item(obj_type_name).Documents.Count > 0 Then
+                    obj_name = CurrentDb.Containers.Item(obj_type_name).Documents.Item(0).Name
                     Exit For
                 End If
             Next
@@ -234,11 +234,11 @@ Public Function UsingUcs2() As Boolean
         ' ADP Project
         If CurrentData.AllQueries.Count > 0 Then
             obj_type_num = acServerView
-            obj_name = CurrentData.AllQueries(1).Name
+            obj_name = CurrentData.AllQueries.Item(1).Name
         ElseIf CurrentProject.AllForms.Count > 0 Then
             ' Try a form
             obj_type_num = acForm
-            obj_name = CurrentProject.AllForms(1).Name
+            obj_name = CurrentProject.AllForms.Item(1).Name
         Else
             ' Can add more object types as needed...
         End If
@@ -275,7 +275,7 @@ End Function
 ' Purpose   : Convert the file to unicode format
 '---------------------------------------------------------------------------------------
 '
-Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String)
+Public Sub ConvertUcs2Utf8(ByRef strSourceFile As String, ByRef strDestinationFile As String)
 
     Dim stmNew As New ADODB.Stream
     Dim strText As String
@@ -308,7 +308,7 @@ End Sub
 ' Purpose   : NOT YET WORKING...
 '---------------------------------------------------------------------------------------
 '
-Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String)
+Public Sub ConvertUtf8Ucs2(ByRef strSourceFile As String, ByRef strDestinationFile As String)
 
     Dim stmNew As New ADODB.Stream
     Dim strText As String
@@ -342,7 +342,7 @@ End Sub
 ' Purpose   : Generate Random / Unique temporary file name.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetTempFile(Optional strPrefix As String = "VBA") As String
+Public Function GetTempFile(Optional ByRef strPrefix As String = "VBA") As String
 
     Dim strPath As String * 512
     Dim strName As String * 576

@@ -2,7 +2,7 @@ Option Explicit
 Option Compare Database
 Option Private Module
 
-Private Const UnitSeparator = "?"  ' Chr(31) INFORMATION SEPARATOR ONE
+Private Const UnitSeparator As String = "?"  ' Chr(31) INFORMATION SEPARATOR ONE
 
 Public Function ThisProjectDB(Optional ByRef appInstance As Application) As Object
     If appInstance Is Nothing Then Set appInstance = Application.Application
@@ -20,10 +20,10 @@ End Function
 ' Purpose   : Export database properties to a CSV
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportProperties(strFolder As String, cModel As IVersionControl)
+Public Sub ExportProperties(ByRef strFolder As String, ByRef cModel As IVersionControl)
     
     Dim cData As New clsConcat
-    Dim intCnt As Integer
+    Dim intCnt As Long
     Dim objParent As Object
     Dim prp As Object
     
@@ -48,7 +48,7 @@ Public Sub ExportProperties(strFolder As String, cModel As IVersionControl)
         End Select
     Next prp
     
-    If Err Then Err.Clear
+    If Err.Number > 0 Then Err.Clear
     On Error GoTo 0
     
     ' Write to file
@@ -159,7 +159,7 @@ End Sub
 Public Function GetProperty(ByVal propertyName As String, _
                             Optional ByRef thisDB As Object) As Property
                             
-    Const PropertyNotFound As Integer = 3270
+    Const PropertyNotFound As Long = 3270
     If thisDB Is Nothing Then Set thisDB = ThisProjectDB
     
     On Error GoTo ErrorHandler

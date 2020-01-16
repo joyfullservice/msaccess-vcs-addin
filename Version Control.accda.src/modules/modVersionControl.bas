@@ -11,7 +11,7 @@ Option Compare Database
 '           : loader/unloader of the referenced VCS library.
 '---------------------------------------------------------------------------------------
 '
-Public Sub InitializeVersionControlSystem(Optional blnUseVersionControl As Boolean = True)
+Public Sub InitializeVersionControlSystem(Optional ByRef blnUseVersionControl As Boolean = True)
 
     '//////////////////////////////////////////////////////////
     ' SET THESE VALUES AS NEEDED FOR YOUR ENVIRONMENT
@@ -59,12 +59,12 @@ End Sub
 '           : path of the current folder.
 '---------------------------------------------------------------------------------------
 '
-Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath As String, strLibraryFile As String, strLibraryName As String, colParams As Collection)
+Private Sub LoadVersionControl(ByRef blnUseVersionControl As Boolean, ByRef strLibraryPath As String, ByRef strLibraryFile As String, ByRef strLibraryName As String, ByRef colParams As Collection)
     
     Const VB_PROJECT As Integer = 1
 
     Dim ref As Reference
-    Dim intCnt As Integer
+    Dim intCnt As Long
     Dim strPath As String
     Dim strFile As String
     Dim varParts As Variant
@@ -78,7 +78,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
         
     ' Loop backwards through references, since libraries will be near the end.
     For intCnt = Application.References.Count To 1 Step -1
-        Set ref = Application.References(intCnt)
+        Set ref = Application.References.Item(intCnt)
         If ref.Kind = VB_PROJECT Then
             If ref.Name = strLibraryName Then
                 If blnUseVersionControl Then
@@ -149,7 +149,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
                         Err.Clear
                         ' Try loading it again
                         References.AddFromFile strPath
-                        If Not Err Then
+                        If Err.Number = 0 Then
                             ' Go ahead and run a compile to just to make sure we can run the VCS command
                             ' later in this code. (Name conflicts would probably be the reasons for errors here.)
                             On Error GoTo 0
@@ -157,7 +157,7 @@ Private Sub LoadVersionControl(blnUseVersionControl As Boolean, strLibraryPath A
                         End If
                     End If
                     ' Check for errors and reset error handler
-                    If Err Then
+                    If Err.Number > 0 Then
                         ' Unresolved error after attempting to reload.
                         strError = "Could not load " & strPath & vbCrLf & "Error Number: " & Err.Number & Err.Description
                         Err.Clear

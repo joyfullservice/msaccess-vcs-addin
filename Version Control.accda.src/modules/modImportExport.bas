@@ -17,7 +17,7 @@ Private m_FSO As Scripting.FileSystemObject
 ' Purpose   : Exports all source files for the current project.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportAllSource(cModel As IVersionControl)
+Public Sub ExportAllSource(ByRef cModel As IVersionControl)
     
     Dim dbs As DAO.Database
     Dim strSourcePath As String
@@ -27,8 +27,8 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     Dim strLabel As String
     Dim strType As String
     Dim intType As AcObjectType
-    Dim intObjCnt As Integer
-    Dim intObjDataCnt As Integer
+    Dim intObjCnt As Long
+    Dim intObjDataCnt As Long
     Dim objContainer As Object
     Dim sngStart As Single
     Dim strName As String
@@ -365,7 +365,7 @@ End Sub
 '           : (Allows drag and drop to re-import the objects into the IDE)
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportAllVBE(cModel As IVersionControl)
+Public Sub ExportAllVBE(ByRef cModel As IVersionControl)
     
     ' Declare constants locally to avoid need for reference
     'Const vbext_ct_StdModule As Integer = 1
@@ -374,7 +374,7 @@ Public Sub ExportAllVBE(cModel As IVersionControl)
     Dim cmp As VBIDE.VBComponent
     Dim strExt As String
     Dim strPath As String
-    Dim obj_count As Integer
+    Dim obj_count As Long
     
     Set colVerifiedPaths = New Collection   ' Reset cache
 
@@ -419,7 +419,7 @@ End Sub
 ' Purpose   : Export single object using the VBE component name
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionControl)
+Public Sub ExportByVBEComponent(ByRef cmpToExport As VBComponent, ByRef cModel As IVersionControl)
     
     Dim intType As AcObjectType
     Dim strFolder As String
@@ -482,7 +482,7 @@ End Sub
 ' Purpose   : Export a database object with optional UCS2-to-UTF-8 conversion.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As String, cModel As IVersionControl)
+Public Sub ExportObject(ByRef intType As AcObjectType, ByRef strObject As String, ByRef strPath As String, ByRef cModel As IVersionControl)
         
     Dim blnSkip As Boolean
     Dim strTempFile As String
@@ -499,13 +499,13 @@ Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As
     If cModel.FastSave Then
         Select Case intType
             Case acQuery
-                blnSkip = Not (HasMoreRecentChanges(CurrentData.AllQueries(strObject), strPath))
+                blnSkip = Not (HasMoreRecentChanges(CurrentData.AllQueries.Item(strObject), strPath))
             Case acForm
-                blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllForms(strObject), strPath))
+                blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllForms.Item(strObject), strPath))
             Case acReport
-                blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllReports(strObject), strPath))
+                blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllReports.Item(strObject), strPath))
             Case acMacro
-                blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllMacros(strObject), strPath))
+                blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllMacros.Item(strObject), strPath))
         End Select
     End If
     
@@ -518,7 +518,7 @@ Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As
         If intType = acQuery And cModel.SaveQuerySQL Then
             ' Support for SQL export for queries.
             strFile = strFolder & GetSafeFileName(strObject) & ".sql"
-            WriteFile dbs.QueryDefs(strObject).sql, strFile
+            WriteFile dbs.QueryDefs.Item(strObject).sql, strFile
             cModel.Log "  " & strObject & " (with SQL)", cModel.ShowDebug
             
         ' Log other object
@@ -565,8 +565,8 @@ End Sub
 
 
 ' Import a database object with optional UTF-8-to-UCS2 conversion.
-Public Sub ImportObject(obj_type_num As Integer, obj_name As String, file_path As String, _
-    Optional Ucs2Convert As Boolean = False)
+Public Sub ImportObject(ByRef obj_type_num As Integer, ByRef obj_name As String, ByRef file_path As String, _
+    Optional ByRef Ucs2Convert As Boolean = False)
     
     If Not FSO.FileExists(file_path) Then Exit Sub
     
@@ -585,7 +585,7 @@ End Sub
 ' Main entry point for IMPORT. Import all forms, reports, queries,
 ' macros, modules, and lookup tables from `source` folder under the
 ' database's folder.
-Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
+Public Sub ImportAllSource(Optional ByRef ShowDebugInfo As Boolean = False)
     
     Dim source_path As String
     Dim obj_path As String
@@ -593,7 +593,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     Dim obj_type_split() As String
     Dim obj_type_label As String
     Dim obj_type_num As Integer
-    Dim obj_count As Integer
+    Dim obj_count As Long
     Dim FileName As String
     Dim obj_name As String
     Dim ucs2 As Boolean
@@ -854,8 +854,8 @@ Public Sub ImportProject()
     Dim doc As Object
     '
     '  Object Type Constants
-    Const OTNAME = 0
-    Const OTID = 1
+    Const OTNAME As Integer = 0
+    Const OTID As Integer = 1
 
     For Each objType In Split( _
             "Forms|" & acForm & "," & _
@@ -866,7 +866,7 @@ Public Sub ImportProject()
         )
         objTypeArray = Split(objType, "|")
         DoEvents
-        For Each doc In Db.Containers(objTypeArray(OTNAME)).Documents
+        For Each doc In Db.Containers.Item(objTypeArray(OTNAME)).Documents
             DoEvents
             If (Left$(doc.Name, 1) <> "~") Then
 '                Debug.Print doc.Name

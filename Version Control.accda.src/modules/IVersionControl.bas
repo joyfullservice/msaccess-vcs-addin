@@ -42,7 +42,7 @@ End Property
 ' Purpose   : Returns the full path to the selected component
 '---------------------------------------------------------------------------------------
 '
-Public Property Get SelectionSourceFile(Optional UseVBEFile As Boolean = True) As String
+Public Property Get SelectionSourceFile(Optional ByRef UseVBEFile As Boolean = True) As String
     
     Dim strPath As String
     Dim strName As String
@@ -87,7 +87,7 @@ End Property
 ' Purpose   : Add a log file entry.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Log(strText As String, Optional blnPrint As Boolean = True, Optional blnNextOutputOnNewLine As Boolean = True)
+Public Sub Log(ByRef strText As String, Optional ByRef blnPrint As Boolean = True, Optional ByRef blnNextOutputOnNewLine As Boolean = True)
 
     Static dblLastLog As Double
     
@@ -122,7 +122,7 @@ End Sub
 ' Purpose   : Saves the log data to a file, and resets the log buffer.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveLogFile(strPath As String)
+Public Sub SaveLogFile(ByRef strPath As String)
     WriteFile m_Log.GetStr, strPath
     Set m_Log = New clsConcat
 End Sub
@@ -179,7 +179,7 @@ End Sub
 ' Purpose   : Make sure the user has the software installed to use the VCS.
 '---------------------------------------------------------------------------------------
 '
-Public Property Get HasRequiredSoftware(blnWarnUser As Boolean) As Boolean
+Public Property Get HasRequiredSoftware(ByRef blnWarnUser As Boolean) As Boolean
 End Property
 
 

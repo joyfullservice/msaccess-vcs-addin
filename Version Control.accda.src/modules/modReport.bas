@@ -46,7 +46,7 @@ End Type
 '           : https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportPrintVars(strReport As String, strFile As String, cModel As IVersionControl)
+Public Sub ExportPrintVars(ByRef strReport As String, ByRef strFile As String, ByRef cModel As IVersionControl)
     
     Dim DevModeString As str_DEVMODE
     Dim DevModeExtra As String
@@ -58,7 +58,7 @@ Public Sub ExportPrintVars(strReport As String, strFile As String, cModel As IVe
     'report must be opened in design view to save changes to the print vars
     Application.Echo False
     DoCmd.OpenReport strReport, acViewDesign
-    Set rpt = Reports(strReport)
+    Set rpt = Reports.Item(strReport)
     rpt.Visible = False
     
     ' Move focus back to IDE
@@ -100,7 +100,7 @@ Public Sub ExportPrintVars(strReport As String, strFile As String, cModel As IVe
 End Sub
 
 
-Public Sub ImportPrintVars(obj_name As String, filePath As String)
+Public Sub ImportPrintVars(ByRef obj_name As String, ByRef filePath As String)
 
 
  Dim DevModeString As str_DEVMODE
@@ -114,7 +114,7 @@ Public Sub ImportPrintVars(obj_name As String, filePath As String)
 
   DoCmd.OpenReport obj_name, acViewDesign
 
- Set rpt = Reports(obj_name)
+ Set rpt = Reports.Item(obj_name)
 
 'read print vars into struct
  If Not IsNull(rpt.PrtDevMode) Then

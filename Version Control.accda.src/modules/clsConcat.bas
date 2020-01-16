@@ -47,7 +47,7 @@ End Sub
 
 
 ' Add to the string buffer
-Public Sub Add(strAddString As String)
+Public Sub Add(ByRef strAddString As String)
 
     Dim lngLen          As Long
     Dim lngRemaining    As Long
@@ -104,7 +104,7 @@ End Sub
 
 ' Removes the specified number of chacters from the string.
 ' (Technically just moves the position back)
-Public Sub Remove(lngChars As Long)
+Public Sub Remove(ByRef lngChars As Long)
     
     Dim lngTotalLen As Long
     Dim lngNewPosition As Long
@@ -169,7 +169,7 @@ End Sub
 
 
 ' Manually set page size if you want something different from the default.
-Public Sub SetPageSize(lngNewPageSize As Long, Optional lngNewInitialPages As Long)
+Public Sub SetPageSize(ByRef lngNewPageSize As Long, Optional ByRef lngNewInitialPages As Long)
     If lngCurrentPage > 0 Or lngCurrentPos > 1 Then
         MsgBox "Please set the page size before adding any data", vbExclamation, "Error in clsConcat"
     Else

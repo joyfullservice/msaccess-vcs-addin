@@ -9,7 +9,7 @@ Option Explicit
 ' Purpose   : Get the last modified date for the SQL object
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSQLObjectModifiedDate(strName As String, ByVal strType As String) As Date
+Public Function GetSQLObjectModifiedDate(ByRef strName As String, ByVal strType As String) As Date
 
     ' Use static variables so we can avoid hundreds of repeated calls
     ' for the same object type. Instead use a local array after
@@ -23,7 +23,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, ByVal strType As Str
     Dim strSQL As String
     Dim strObject As String
     Dim strTypeFilter As String
-    Dim intPos As Integer
+    Dim intPos As Long
     Dim strSchema As String
     Dim strSchemaFilter As String
     Dim varItem As Variant
@@ -54,17 +54,17 @@ Public Function GetSQLObjectModifiedDate(strName As String, ByVal strType As Str
     
     ' Build type filter
     Select Case strType
-        Case "V", "VIEW", "views": strType = "V"
-        Case "P", "SQL_STORED_PROCEDURE", "procedures": strType = "P"
-        Case "T", "TABLE", "U", "USER_TABLE", "tables": strType = "U"
-        Case "TR", "SQL_TRIGGER", "triggers": strType = "TR"
+        Case "V", "VIEW", "views": strSchemaFilter = "V"
+        Case "P", "SQL_STORED_PROCEDURE", "procedures": strSchemaFilter = "P"
+        Case "T", "TABLE", "U", "USER_TABLE", "tables": strSchemaFilter = "U"
+        Case "TR", "SQL_TRIGGER", "triggers": strSchemaFilter = "TR"
         Case Else
-            strType = strType
+            strSchemaFilter = strType
     End Select
-    If strType <> vbNullString Then strTypeFilter = " AND [type]='" & strType & "'"
+    If strSchemaFilter <> vbNullString Then strTypeFilter = " AND [type]='" & strSchemaFilter & "'"
     
     ' Check to see if we have already cached the results
-    If strType = strLastType And (DateDiff("s", dteCacheDate, Now()) < 5) And Not colCache Is Nothing Then
+    If strSchemaFilter = strLastType And (DateDiff("s", dteCacheDate, Now()) < 5) And Not colCache Is Nothing Then
         ' Look through cache to find matching date
         For Each varItem In colCache
             If varItem(0) = strName Then
@@ -76,7 +76,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, ByVal strType As Str
         ' Look up from query, and cache results
         Set colCache = New Collection
         dteCacheDate = Now()
-        strLastType = strType
+        strLastType = strSchemaFilter
         
         ' Build SQL query to find object
         strSQL = "SELECT [name], schema_name([schema_id]) as [schema], modify_date FROM sys.objects WHERE 1=1 " & strTypeFilter
@@ -113,9 +113,9 @@ End Function
 '           : certain types of SQL injection attacks. Use at your own risk!
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSQLObjectDefinitionForADP(strName As String) As String
+Public Function GetSQLObjectDefinitionForADP(ByRef strName As String) As String
     
-    Dim rst As ADODB.Recordset
+    Dim rst As Recordset
     Dim strSQL As String
     Dim strObject As String
     
@@ -126,10 +126,13 @@ Public Function GetSQLObjectDefinitionForADP(strName As String) As String
     strObject = Replace(strName, ";", vbNullString)
     
     strSQL = "SELECT object_definition (OBJECT_ID(N'" & strObject & "'))"
-    Set rst = CurrentProject.Connection.Execute(strSQL)
+    With CurrentProject.Connection
+        Set rst = .Execute(strSQL)
+    End With
+    
     If Not rst.EOF Then
         ' Get SQL definition
-        GetSQLObjectDefinitionForADP = Nz(rst(0).Value)
+        GetSQLObjectDefinitionForADP = Nz(rst.Fields().Item(0).Value)
     End If
     
     Set rst = Nothing
@@ -144,12 +147,12 @@ End Function
 ' Purpose   : Get the definition for an ADP table from SQL
 '---------------------------------------------------------------------------------------
 '
-Public Function GetADPTableDef(strTable As String) As String
+Public Function GetADPTableDef(ByRef strTable As String) As String
 
     Dim rst As ADODB.Recordset
     Dim strSQL As String
     Dim strObject As String
-    Dim intRst As Integer
+    Dim intRst As Long
     Dim fld As ADODB.Field
     Dim colText As New clsConcat
     
@@ -208,7 +211,7 @@ End Function
 ' Purpose   : Export the triggers
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As String)
+Public Sub ExportADPTriggers(ByRef cModel As IVersionControl, ByRef strBaseExportFolder As String)
 
     Dim colTriggers As New Collection
     Dim rst As ADODB.Recordset
@@ -219,7 +222,7 @@ Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As S
     Dim blnFound As Boolean
     Dim dteFileModified As Date
     Dim blnSkip As Boolean
-    Dim intObjCnt As Integer
+    Dim intObjCnt As Long
     
     ' Only try this on ADP projects
     If CurrentProject.ProjectType <> acADP Then Exit Sub

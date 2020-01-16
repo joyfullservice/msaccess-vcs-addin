@@ -12,7 +12,7 @@ Public colVerifiedPaths As New Collection
 ' Purpose   : Sanitize the text file (forms and reports)
 '---------------------------------------------------------------------------------------
 '
-Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
+Public Sub SanitizeFile(ByRef strPath As String, ByRef cModel As IVersionControl)
 
     Dim sngOverall As Single
     Dim sngTimer As Single
@@ -103,7 +103,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
                 Case 0
                     rxIndent.Pattern = "^" & vbNullString
                 Case Else
-                    rxIndent.Pattern = "^" & objMatches(0).SubMatches(0)
+                    rxIndent.Pattern = "^" & objMatches.Item(0).SubMatches(0)
             End Select
             rxIndent.Pattern = rxIndent.Pattern & "\S"
             
@@ -176,7 +176,7 @@ End Function
 ' Purpose   : Create folder `Path`. Silently do nothing if it already exists.
 '---------------------------------------------------------------------------------------
 '
-Public Sub MkDirIfNotExist(strPath As String)
+Public Sub MkDirIfNotExist(ByRef strPath As String)
     If Not FSO.FolderExists(StripSlash(strPath)) Then MkDir StripSlash(strPath)
 End Sub
 
@@ -188,7 +188,7 @@ End Sub
 ' Purpose   : Erase all *.`ext` files in `Path`.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ClearTextFilesFromDir(ByVal strFolder As String, strExt As String)
+Public Sub ClearTextFilesFromDir(ByVal strFolder As String, ByRef strExt As String)
     If Not FSO.FolderExists(StripSlash(strFolder)) Then Exit Sub
     If Dir(strFolder & "*." & strExt) <> vbNullString Then
         FSO.DeleteFile strFolder & "*." & strExt
@@ -204,7 +204,7 @@ End Sub
 '           : database.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, objContainer As Object, cModel As IVersionControl, ParamArray StrExtensions())
+Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, ByRef objContainer As Object, ByRef cModel As IVersionControl, ParamArray StrExtensions())
     
     Dim oFolder As Scripting.Folder
     Dim oFile As Scripting.File
@@ -283,7 +283,7 @@ End Sub
 ' Purpose   : Strip the trailing slash
 '---------------------------------------------------------------------------------------
 '
-Public Function StripSlash(strText As String) As String
+Public Function StripSlash(ByRef strText As String) As String
     If Right$(strText, 1) = "\" Then
         StripSlash = Left$(strText, Len(strText) - 1)
     Else
@@ -299,7 +299,7 @@ End Function
 ' Purpose   : Pad a string on the right to make it `count` characters long.
 '---------------------------------------------------------------------------------------
 '
-Public Function PadRight(strText As String, intCharacters As Integer)
+Public Function PadRight(ByRef strText As String, ByRef intCharacters As Integer)
     If Len(strText) < intCharacters Then
         PadRight = strText & Space(intCharacters - Len(strText))
     Else
@@ -315,10 +315,10 @@ End Function
 ' Purpose   : Returns true if the item value is found in the collection
 '---------------------------------------------------------------------------------------
 '
-Public Function InCollection(MyCol As Collection, MyValue) As Boolean
+Public Function InCollection(ByRef MyCol As Collection, ByRef MyValue) As Boolean
     Dim intCnt As Integer
     For intCnt = 1 To MyCol.Count
-        If MyCol(intCnt) = MyValue Then
+        If MyCol.Item(intCnt) = MyValue Then
             InCollection = True
             Exit For
         End If
@@ -334,7 +334,7 @@ End Function
 '           : avoid uneeded calls to the Dir() function.
 '---------------------------------------------------------------------------------------
 '
-Public Sub VerifyPath(strFolderPath As String)
+Public Sub VerifyPath(ByRef strFolderPath As String)
     
     Dim varPath As Variant
     
@@ -374,12 +374,12 @@ Public Function CloseAllFormsReports() As Boolean
     If intOpened > 0 Then
         On Error GoTo ErrorHandler
         Do While Forms.Count > 0
-            strName = Forms(0).Name
+            strName = Forms.Item(0).Name
             DoCmd.Close acForm, strName
             DoEvents
         Loop
         Do While Reports.Count > 0
-            strName = Reports(0).Name
+            strName = Reports.Item(0).Name
             DoCmd.Close acReport, strName
             DoEvents
         Loop
@@ -406,7 +406,7 @@ End Function
 ' Purpose   : Return a standardized VBE component extension by type
 '---------------------------------------------------------------------------------------
 '
-Public Function GetVBEExtByType(cmp As VBComponent) As String
+Public Function GetVBEExtByType(ByRef cmp As VBComponent) As String
     Dim strExt As String
     Select Case cmp.Type
         Case vbext_ct_StdModule:    strExt = ".bas"
@@ -426,7 +426,7 @@ End Function
 '           : TortoiseSVN command line for commits.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Shell2(strCmd As String)
+Public Sub Shell2(ByRef strCmd As String)
     Dim objShell As Object
     Set objShell = CreateObject("WScript.Shell")
     objShell.Exec strCmd
@@ -441,7 +441,7 @@ End Sub
 ' Purpose   : Save string variable to text file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub WriteFile(strContent As String, strPath As String, Optional blnUnicode As Boolean = False)
+Public Sub WriteFile(ByRef strContent As String, ByRef strPath As String, Optional ByRef blnUnicode As Boolean = False)
     With FSO.CreateTextFile(strPath, True, blnUnicode)
         .Write strContent
         .Close
@@ -457,7 +457,7 @@ End Sub
 '           : Sources: http://stackoverflow.com/questions/1976007/what-characters-are-forbidden-in-windows-and-linux-directory-names
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSafeFileName(strName As String) As String
+Public Function GetSafeFileName(ByRef strName As String) As String
 
     Dim strSafe As String
 
@@ -488,7 +488,7 @@ End Function
 '           : than the exported file.
 '---------------------------------------------------------------------------------------
 '
-Public Function HasMoreRecentChanges(objItem As Object, strFile As String) As Boolean
+Public Function HasMoreRecentChanges(ByRef objItem As Object, ByRef strFile As String) As Boolean
     ' File dates could be a second off (between exporting the file and saving the report)
     ' so ignore changes that are less than three seconds apart.
     If Dir(strFile) <> vbNullString Then
@@ -588,12 +588,12 @@ End Sub
 ' Purpose   : Get or set the custom change flag in a database object.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetChangeFlag(obj As AccessObject, Optional intDefault As Integer) As Integer
+Public Function GetChangeFlag(ByRef obj As AccessObject, Optional ByRef intDefault As Integer) As Integer
     Dim strValue As String
     strValue = GetAccessObjectProperty(obj, "GitLabChangeFlag", CStr(intDefault))
     If IsNumeric(strValue) Then GetChangeFlag = CInt(strValue)
 End Function
-Public Sub SetChangeFlag(obj As AccessObject, varValue As Variant)
+Public Sub SetChangeFlag(ByRef obj As AccessObject, ByRef varValue As Variant)
     SetAccessObjectProperty obj, "GitLabChangeFlag", CStr(varValue)
 End Sub
 
@@ -606,7 +606,7 @@ End Sub
 '           : (Used when dates are very similar, but not exact)
 '---------------------------------------------------------------------------------------
 '
-Public Function DatesClose(dte1 As Date, dte2 As Date, Optional lngMaxDiffSeconds As Long = 3) As Boolean
+Public Function DatesClose(ByRef dte1 As Date, ByRef dte2 As Date, Optional ByRef lngMaxDiffSeconds As Long = 3) As Boolean
     DatesClose = (Abs(DateDiff("s", dte1, dte2)) < lngMaxDiffSeconds)
 End Function
 
@@ -618,7 +618,7 @@ End Function
 ' Purpose   : Sets a custom access object property.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SetAccessObjectProperty(objItem As AccessObject, strProperty As String, strValue As String)
+Public Sub SetAccessObjectProperty(ByRef objItem As AccessObject, ByRef strProperty As String, ByRef strValue As String)
     Dim prp As AccessObjectProperty
     For Each prp In objItem.Properties
         If StrComp(prp.Name, strProperty, vbTextCompare) = 0 Then
@@ -639,7 +639,7 @@ End Sub
 ' Purpose   : Get the value of a custom access property
 '---------------------------------------------------------------------------------------
 '
-Public Function GetAccessObjectProperty(objItem As AccessObject, strProperty As String, Optional strDefault As String)
+Public Function GetAccessObjectProperty(ByRef objItem As AccessObject, ByRef strProperty As String, Optional ByRef strDefault As String)
     Dim prp As AccessObjectProperty
     For Each prp In objItem.Properties
         If StrComp(prp.Name, strProperty, vbTextCompare) = 0 Then
@@ -660,7 +660,7 @@ End Function
 '           : depending on the sql permissions of the current user.
 '---------------------------------------------------------------------------------------
 '
-Public Function StripDboPrefix(strName As String) As String
+Public Function StripDboPrefix(ByRef strName As String) As String
     If Left$(strName, 4) = "dbo." Then
         StripDboPrefix = Mid$(strName, 5)
     Else
@@ -677,7 +677,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function MultiReplace(ByVal strText As String, ParamArray varPairs()) As String
-    Dim intPair As Integer
+    Dim intPair As Long
     For intPair = 0 To UBound(varPairs) Step 2
         strText = Replace(strText, varPairs(intPair), varPairs(intPair + 1))
     Next intPair
@@ -745,7 +745,7 @@ End Function
 ' Purpose   : Returns the UNC path of a mapped network drive, if applicable
 '---------------------------------------------------------------------------------------
 '
-Public Function UncPath(strPath As String) As String
+Public Function UncPath(ByRef strPath As String) As String
     
     Dim strDrive As String
     Dim strShare As String

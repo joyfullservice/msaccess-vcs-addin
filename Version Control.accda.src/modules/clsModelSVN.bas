@@ -143,7 +143,7 @@ End Sub
 ' Purpose   : Returns true if the required program files are found
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IVersionControl_HasRequiredSoftware(blnWarnUser As Boolean) As Boolean
+Private Property Get IVersionControl_HasRequiredSoftware(ByRef blnWarnUser As Boolean) As Boolean
     Dim strMsg As String
     Dim strPath As String
     strPath = Replace(AppPath, """", vbNullString)
@@ -199,7 +199,7 @@ End Property
 Private Property Get IVersionControl_IncludeVBE() As Boolean
     IVersionControl_IncludeVBE = m_vcs.IncludeVBE
 End Property
-Private Property Get IVersionControl_SelectionSourceFile(Optional UseVBEFile As Boolean = True) As String
+Private Property Get IVersionControl_SelectionSourceFile(Optional ByRef UseVBEFile As Boolean = True) As String
     IVersionControl_SelectionSourceFile = m_vcs.SelectionSourceFile(UseVBEFile)
 End Property
 Private Property Let IVersionControl_FastSave(ByVal RHS As Boolean)
@@ -214,10 +214,10 @@ End Property
 Private Property Get IVersionControl_SavePrintVars() As Boolean
     IVersionControl_SavePrintVars = m_vcs.SavePrintVars
 End Property
-Private Sub IVersionControl_Log(strText As String, Optional blnPrint As Boolean = True, Optional blnStartNewLine As Boolean = True)
+Private Sub IVersionControl_Log(ByRef strText As String, Optional ByRef blnPrint As Boolean = True, Optional ByRef blnStartNewLine As Boolean = True)
     m_vcs.Log strText, blnPrint, blnStartNewLine
 End Sub
-Private Sub IVersionControl_SaveLogFile(strPath As String)
+Private Sub IVersionControl_SaveLogFile(ByRef strPath As String)
     m_vcs.SaveLogFile strPath
 End Sub
 Private Property Let IVersionControl_StripPublishOption(ByVal RHS As Boolean)

@@ -10,7 +10,7 @@ Option Private Module
 ' Purpose   : Exports the database table relationships
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportRelation(rel As Relation, strFile As String)
+Public Sub ExportRelation(ByRef rel As Relation, ByRef strFile As String)
 
     Dim cData As New clsConcat
     Dim fld As DAO.Field
@@ -40,7 +40,7 @@ Public Sub ExportRelation(rel As Relation, strFile As String)
 End Sub
 
 
-Public Sub ImportRelation(filePath As String)
+Public Sub ImportRelation(ByRef filePath As String)
 
     Dim InFile As Scripting.TextStream
     Set InFile = FSO.OpenTextFile(filePath, 1)
@@ -81,7 +81,7 @@ End Sub
 '           : (Strips the link path from the table name)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetRelationFileName(objRelation As Relation) As String
+Public Function GetRelationFileName(ByRef objRelation As Relation) As String
 
     Dim strName As String
     
