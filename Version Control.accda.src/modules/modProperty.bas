@@ -189,12 +189,28 @@ Public Function GetPropertyValue(ByVal propertyName As String, _
     End If
 End Function
                             
-'   HERE BE DRAGONS
-' Return db property type that closely matches VBA varible type
+' Return DataTypeEnum enumeration (DAO) property type that closely matches VBA varible type passed in
+'   https://docs.microsoft.com/en-us/office/client-developer/access/desktop-database-reference/datatypeenum-enumeration-dao
 Private Function DBVal(ByVal intVBVal As Integer) As Integer
-    Const TypeVBToDB As String = "\2|3\3|4\4|6\5|7\6|5" & _
-                                 "\7|8\8|10\11|1\14|20\17|2"
-    Dim intX As Integer
-    intX = InStr(1, TypeVBToDB, "\" & intVBVal & "|")
-    DBVal = Val(Mid$(TypeVBToDB, intX + Len(intVBVal) + 2))
+    ' Handle arrays
+    If intVBVal > 8192 Then intVBVal = intVBVal - 8192
+    
+    Select Case intVBVal
+        Case vbInteger: DBVal = dbInteger
+        Case vbLong: DBVal = dbLong
+        Case vbSingle: DBVal = dbSingle
+        Case vbDouble: DBVal = dbDouble
+        Case vbCurrency: DBVal = dbCurrency
+        Case vbDate: DBVal = dbDate
+        Case vbString: DBVal = dbText
+        Case vbObject: DBVal = dbAttachment
+        Case vbError: DBVal = dbText
+        Case vbBoolean: DBVal = dbBoolean
+        Case vbVariant: DBVal = dbText
+        Case vbDataObject: DBVal = dbLongBinary
+        Case vbDecimal: DBVal = dbDecimal
+        Case vbByte: DBVal = dbByte
+        Case vbLongLong: DBVal = dbBigInt
+        Case Else: DBVal = dbText
+    End Select
 End Function

@@ -350,7 +350,8 @@ Public Sub ExportAllSource(ByRef cModel As IVersionControl)
     Set m_FSO = Nothing
     
     ' Save version from last
-    SetProperty "Last VCS Version", GetVCSVersion
+    SetProperty "Last VCS Version", GetVCSVersion, dbs, dbText
+    
     ' Reload version control so we can run fast save.
     'InitializeVersionControlSystem
     
