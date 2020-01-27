@@ -2,11 +2,3 @@
 # Set default behavior to automatically normalize line endings.
 ###############################################################################
 * text=auto
-
-# Declare files that will always have CRLF line endings on checkout.
-*.bas	text eol=crlf
-*.spec	text eol=crlf
-*.sql	text eol=crlf
-*.txt	text eol=crlf
-*.pv	text eol=crlf
-*.LNKD	text eol=crlf

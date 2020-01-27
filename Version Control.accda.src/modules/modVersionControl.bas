@@ -30,7 +30,7 @@ Public Sub InitializeVersionControlSystem(Optional ByRef blnUseVersionControl As
         ' Optional parameters
         .Add Array("Show Debug", False)
         .Add Array("Include VBE", False)
-        .Add Array("Fast Save", True)
+        .Add Array("Fast Save", False)
         .Add Array("Save Print Vars", False)
         .Add Array("Save Query SQL", True)
         .Add Array("Save Table SQL", True)
