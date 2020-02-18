@@ -84,8 +84,8 @@ Public Function ImportProperties(ByVal sourcePath As String, Optional ByRef appI
     
     Debug.Print PadRight("Importing Properties...", 24);
     
-    Dim thisDB As Object
-    Set thisDB = ThisProjectDB(appInstance)
+    Dim thisDb As Object
+    Set thisDb = ThisProjectDB(appInstance)
    
     Dim inputFile As Object
     Set inputFile = FSO.OpenTextFile(sourcePath & propertiesFile, ForReading)
@@ -105,7 +105,7 @@ Public Function ImportProperties(ByVal sourcePath As String, Optional ByRef appI
             propertyValue = recordUnit(1)
             propertyType = recordUnit(2)
             
-            SetProperty propertyName, propertyValue, thisDB, propertyType
+            SetProperty propertyName, propertyValue, thisDb, propertyType
         End If
     Loop
     
@@ -139,31 +139,31 @@ End Function
 ' SetProperty() requires either propertyType is set explicitly OR
 '   propertyValue has a valid value and type for a new property to be created.
 Public Sub SetProperty(ByVal propertyName As String, ByVal propertyValue As Variant, _
-                       Optional ByRef thisDB As Object, _
+                       Optional ByRef thisDb As Object, _
                        Optional ByVal propertyType As Integer = -1)
                        
-    If thisDB Is Nothing Then Set thisDB = ThisProjectDB
+    If thisDb Is Nothing Then Set thisDb = ThisProjectDB
     
     Dim newProperty As Property
-    Set newProperty = GetProperty(propertyName, thisDB)
+    Set newProperty = GetProperty(propertyName, thisDb)
     If Not newProperty Is Nothing Then
         If newProperty.Value <> propertyValue Then newProperty.Value = propertyValue
     Else ' Property not found
         If propertyType = -1 Then propertyType = DBVal(varType(propertyValue)) ' Guess the type (Good luck)
-        Set newProperty = thisDB.CreateProperty(propertyName, propertyType, propertyValue)
-        thisDB.Properties.Append newProperty
+        Set newProperty = thisDb.CreateProperty(propertyName, propertyType, propertyValue)
+        thisDb.Properties.Append newProperty
     End If
 End Sub
 
 ' Returns nothing upon Error
 Public Function GetProperty(ByVal propertyName As String, _
-                            Optional ByRef thisDB As Object) As Property
+                            Optional ByRef thisDb As Object) As Property
                             
     Const PropertyNotFound As Integer = 3270
-    If thisDB Is Nothing Then Set thisDB = ThisProjectDB
+    If thisDb Is Nothing Then Set thisDb = ThisProjectDB
     
     On Error GoTo Err_PropertyExists
-    Set GetProperty = thisDB.Properties(propertyName)
+    Set GetProperty = thisDb.Properties(propertyName)
 
     Exit Function
      

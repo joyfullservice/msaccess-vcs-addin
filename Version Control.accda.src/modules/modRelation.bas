@@ -20,9 +20,9 @@ Public Sub ExportRelation(rel As Relation, strFile As String)
         .Add vbCrLf
         .Add rel.Name
         .Add vbCrLf
-        .Add rel.table
+        .Add rel.Table
         .Add vbCrLf
-        .Add rel.foreignTable
+        .Add rel.ForeignTable
         .Add vbCrLf
         For Each fld In rel.Fields
             .Add "Field = Begin"
@@ -40,35 +40,69 @@ Public Sub ExportRelation(rel As Relation, strFile As String)
 End Sub
 
 
-Public Sub ImportRelation(filePath As String)
-
-    Dim InFile As Scripting.TextStream
-    Set InFile = FSO.OpenTextFile(filePath, 1)
+'---------------------------------------------------------------------------------------
+' Procedure : ImportRelation
+' Author    : Adam Kauffman
+' Date      : 02/18/2020
+' Purpose   : Import a table relationship
+'---------------------------------------------------------------------------------------
+'
+Public Sub ImportRelation(ByRef filePath As String, Optional ByRef appInstance As Application)
+    If appInstance Is Nothing Then Set appInstance = Application.Application
     
-    Dim rel As New Relation
-    rel.Attributes = InFile.ReadLine
-    rel.Name = InFile.ReadLine
-    rel.table = InFile.ReadLine
-    rel.foreignTable = InFile.ReadLine
-    Dim f As Object ' Field
-    Do Until InFile.AtEndOfStream
-        If "Field = Begin" = InFile.ReadLine Then
-            'Set f = New Field
-            Set f = CreateObject("ADODB.Field")
-            f.Name = InFile.ReadLine
-            f.ForeignName = InFile.ReadLine
-            If "End" <> InFile.ReadLine Then
-                Set f = Nothing
+    Dim thisDb As Database
+    Set thisDb = appInstance.CurrentDb
+    
+    Dim fileLines() As String
+    With FSO.OpenTextFile(filePath, IOMode:=ForReading, create:=False, Format:=TristateFalse)
+        fileLines = Split(.ReadAll, vbCrLf)
+        .Close
+    End With
+    
+    Dim newRelation As Relation
+    Set newRelation = thisDb.CreateRelation(fileLines(1), fileLines(2), fileLines(3), fileLines(0))
+    
+    Dim newField As Field
+    Dim thisLine As Long
+    For thisLine = 4 To UBound(fileLines)
+        If "Field = Begin" = fileLines(thisLine) Then
+            thisLine = thisLine + 1
+            Set newField = newRelation.CreateField(fileLines(thisLine))  ' Name set here
+            thisLine = thisLine + 1
+            newField.ForeignName = fileLines(thisLine)
+            thisLine = thisLine + 1
+            If "End" <> fileLines(thisLine) Then
+                Set newField = Nothing
                 Err.Raise 40000, "ImportRelation", "Missing 'End' for a 'Begin' in " & filePath
             End If
-            rel.Fields.Append f
+            
+            newRelation.Fields.Append newField
         End If
-    Loop
+    Next thisLine
+        
+    ' Remove conflicting Index entries because adding the relation creates new indexes causing "Error 3284 Index already exists"
+    On Error Resume Next
+    With thisDb
+        .Relations.Delete newRelation.Name  ' Avoid 3012 Relationship already exists
+        .TableDefs(newRelation.Table).Indexes.Delete newRelation.Name
+        .TableDefs(newRelation.ForeignTable).Indexes.Delete newRelation.Name
+    End With
+    On Error GoTo ErrorHandler
     
-    InFile.Close
+    With thisDb.Relations
+        .Append newRelation
+    End With
     
-    CurrentDb.Relations.Append rel
-
+ErrorHandler:
+    Select Case Err.Number
+    Case 0
+    Case 3012
+        Debug.Print "Relationship already exists: """ & newRelation.Name & """ "
+    Case 3284
+        Debug.Print "Index already exists for: """ & newRelation.Name & """ "
+    Case Else
+        Debug.Print "Failed to add: """ & newRelation.Name & """ " & Err.Number & " " & Err.Description
+    End Select
 End Sub
 
 
