@@ -206,7 +206,7 @@ End Sub
 ' Determine if this database imports/exports code as UCS-2-LE. (Older file
 ' formats cause exported objects to use a Windows 8-bit character set.)
 Public Function UsingUcs2() As Boolean
-    Dim obj_name As String, obj_type As Variant, fn As Integer, bytes As String
+    Dim obj_name As String, obj_type As Variant
     Dim obj_type_split() As String, obj_type_name As String, obj_type_num As Integer
 
     If CurrentProject.ProjectType = acMDB Then
@@ -217,8 +217,7 @@ Public Function UsingUcs2() As Boolean
             For Each obj_type In Split( _
                 "Forms|" & acForm & "," & _
                 "Reports|" & acReport & "," & _
-                "Scripts|" & acMacro & "," & _
-                "Modules|" & acModule _
+                "Scripts|" & acMacro & "," _
             )
                 DoEvents
                 obj_type_split = Split(obj_type, "|")
@@ -252,8 +251,10 @@ Public Function UsingUcs2() As Boolean
 
     Dim tempFileName As String: tempFileName = GetTempFile()
     Application.SaveAsText obj_type_num, obj_name, tempFileName
+    Dim fn As Integer
     fn = FreeFile
     Open tempFileName For Binary Access Read As fn
+    Dim bytes As String
     bytes = "  "
     Get fn, 1, bytes
     If Asc(Mid(bytes, 1, 1)) = &HFF And Asc(Mid(bytes, 2, 1)) = &HFE Then
@@ -281,7 +282,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
     Dim strText As String
     
     ' Read file contents
-    With FSO.OpenTextFile(strSourceFile, , , TristateTrue)
+    With FSO.OpenTextFile(strSourceFile, IOMode:=ForReading, Create:=False, Format:=TristateTrue)
         strText = .ReadAll
         .Close
     End With
@@ -314,7 +315,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
     Dim strText As String
     
     ' Read file contents
-    With FSO.OpenTextFile(strSourceFile, , , TristateTrue)
+    With FSO.OpenTextFile(strSourceFile, IOMode:=ForReading, Create:=False, Format:=TristateFalse)
         strText = .ReadAll
         .Close
     End With
@@ -323,8 +324,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
     With stmNew
         .Open
         .Type = adTypeText
-        ' Not sure what to use here...
-        .Charset = "utf-8"
+        .Charset = "unicode"   ' The original Windows "Unicode" was UCS-2
         .WriteText strText
         .SaveToFile strDestinationFile, adSaveCreateOverWrite
         .Close
@@ -353,3 +353,25 @@ Public Function GetTempFile(Optional strPrefix As String = "VBA") As String
     If lngReturn <> 0 Then GetTempFile = Left$(strName, InStr(strName, vbNullChar) - 1)
     
 End Function
+
+
+
+' Test shows that UCS-2 files exported by Access make round trip through our conversions.
+Public Sub TestTextModes()
+    Dim queryName As String
+    queryName = "Temp_Test_Query_Delete_Me"
+    
+    CurrentDb.CreateQueryDef queryName, "SELECT * FROM TEST WHERE TESTING=TRUE"
+    
+    Dim tempFileName As String
+    tempFileName = GetTempFile()
+    
+    Application.SaveAsText acQuery, queryName, tempFileName
+    
+    ConvertUtf8Ucs2 tempFileName, tempFileName & "UCS2UCS"
+    ConvertUcs2Utf8 tempFileName, tempFileName & "UTF8"
+    ConvertUtf8Ucs2 tempFileName & "UTF8", tempFileName & "UTF82UCS"
+    
+    CurrentDb.QueryDefs.Delete queryName
+    ' Compare the 4 files in your temp folder. Note their Encoding should be UCS-2 or UTF-8 as expected.
+End Sub

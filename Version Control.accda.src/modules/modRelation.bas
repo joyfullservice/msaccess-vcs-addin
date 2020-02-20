@@ -54,7 +54,7 @@ Public Sub ImportRelation(ByRef filePath As String, Optional ByRef appInstance A
     Set thisDb = appInstance.CurrentDb
     
     Dim fileLines() As String
-    With FSO.OpenTextFile(filePath, IOMode:=ForReading, create:=False, Format:=TristateFalse)
+    With FSO.OpenTextFile(filePath, IOMode:=ForReading, Create:=False, Format:=TristateFalse)
         fileLines = Split(.ReadAll, vbCrLf)
         .Close
     End With
