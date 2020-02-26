@@ -34,7 +34,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
     sngOverall = sngTimer
         
     '  Setup Block matching Regex.
-    rxBlock.ignoreCase = False
+    rxBlock.IgnoreCase = False
     
     ' Build main search patterns
     With cPattern
@@ -90,7 +90,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
         End If
         
         ' Skip lines starting with line pattern
-        If rxLine.test(strText) Then
+        If rxLine.Test(strText) Then
             
             ' set up initial pattern
             rxIndent.Pattern = "^(\s+)\S"
@@ -110,7 +110,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
             ' Skip lines with deeper indentation
             Do While Not stmInFile.AtEndOfStream
                 strText = stmInFile.ReadLine
-                If rxIndent.test(strText) Then Exit Do
+                If rxIndent.Test(strText) Then Exit Do
             Loop
             
             ' We've moved on at least one line so restart the
@@ -118,7 +118,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
             blnGetLine = False
         
         ' Skip blocks of code matching block pattern
-        ElseIf rxBlock.test(strText) Then
+        ElseIf rxBlock.Test(strText) Then
             Do While Not stmInFile.AtEndOfStream
                 strText = stmInFile.ReadLine
                 If InStr(strText, "End") Then Exit Do
