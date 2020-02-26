@@ -3,7 +3,7 @@ Beginning Export of all Source
 Version Control.accda
 VCS Version 1.2.0.19
 Using Fast Save
-2/26/2020 10:56:42 AM
+2/26/2020 1:08:57 PM
 -------------------------------
 Exporting queries...    
 [0]
@@ -15,22 +15,21 @@ Exporting reports...
 [0]
 -------------------------------
 Exporting macros...     
-  autoexec
-    Sanitized in 0.02 seconds.
+  (Skipping 'autoexec')
 [1]
 -------------------------------
 Exporting modules...    
   clsConcat
   modTable
   clsModelGitHub
-  clsModelSVN
+  modDeploy
   modMenuHandler
   IVersionControl
-  modDeploy
-  clsVbeMenu
+  clsModelSVN
   modDataMacro
-  modADPFunctions
+  clsVbeMenu
   modFunctions
+  modADPFunctions
   modFileAccess
   modImportExport
   modProperty
@@ -66,4 +65,4 @@ Exporting tbldef...
 Exporting relations...  
 [0]
 -------------------------------
-Done. (1.46 seconds)
+Done. (1.38 seconds)

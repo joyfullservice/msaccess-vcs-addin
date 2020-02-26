@@ -200,8 +200,12 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function RemoveUTF8BOM(ByVal fileContents As String) As String
-    Const UTF8BOM As String = "﻿"
-    If Left$(fileContents, 3) = UTF8BOM Then
+    Dim UTF8BOM As String
+    UTF8BOM = Chr(239) & Chr(187) & Chr(191) ' == &HEFBBBF
+    Dim fileBOM As String
+    fileBOM = Left$(fileContents, 3)
+    
+    If fileBOM = UTF8BOM Then
         RemoveUTF8BOM = Right$(fileContents, Len(fileContents) - 3)
     Else ' No BOM detected
         RemoveUTF8BOM = fileContents
