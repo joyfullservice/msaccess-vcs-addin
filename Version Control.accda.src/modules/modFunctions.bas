@@ -90,7 +90,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
         End If
         
         ' Skip lines starting with line pattern
-        If rxLine.test(strText) Then
+        If rxLine.Test(strText) Then
             
             ' set up initial pattern
             rxIndent.Pattern = "^(\s+)\S"
@@ -110,7 +110,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
             ' Skip lines with deeper indentation
             Do While Not stmInFile.AtEndOfStream
                 strText = stmInFile.ReadLine
-                If rxIndent.test(strText) Then Exit Do
+                If rxIndent.Test(strText) Then Exit Do
             Loop
             
             ' We've moved on at least one line so restart the
@@ -118,7 +118,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
             blnGetLine = False
         
         ' Skip blocks of code matching block pattern
-        ElseIf rxBlock.test(strText) Then
+        ElseIf rxBlock.Test(strText) Then
             Do While Not stmInFile.AtEndOfStream
                 strText = stmInFile.ReadLine
                 If InStr(strText, "End") Then Exit Do
@@ -442,11 +442,38 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub WriteFile(strContent As String, strPath As String, Optional blnUnicode As Boolean = False)
-    With FSO.CreateTextFile(strPath, True, blnUnicode)
-        .Write strContent
+    Dim stm As New ADODB.Stream
+    With stm
+        ' Use Unicode file encoding if needed.
+        If StringHasUnicode(strContent) Or blnUnicode Then
+            .Charset = "utf-8"
+        Else
+            ' Use ASCII text.
+            .Charset = "us-ascii"
+        End If
+        .Open
+        .WriteText strContent
+        .SaveToFile strPath, adSaveCreateOverWrite
         .Close
     End With
+    Set stm = Nothing
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StringHasUnicode
+' Author    : Adam Waller
+' Date      : 3/6/2020
+' Purpose   : Returns true if the string contains non-ASCI characters.
+'---------------------------------------------------------------------------------------
+'
+Public Function StringHasUnicode(strText As String) As Boolean
+    Dim reg As New VBScript_RegExp_55.RegExp
+    With reg
+        .Pattern = "[^\u0000-\u007F]"
+        StringHasUnicode = .Test(strText)
+    End With
+End Function
 
 
 '---------------------------------------------------------------------------------------
