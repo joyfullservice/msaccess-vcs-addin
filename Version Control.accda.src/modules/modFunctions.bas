@@ -441,11 +441,11 @@ End Sub
 ' Purpose   : Save string variable to text file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub WriteFile(strContent As String, strPath As String, Optional blnUnicode As Boolean = False)
+Public Sub WriteFile(strContent As String, strPath As String)
     Dim stm As New ADODB.Stream
     With stm
         ' Use Unicode file encoding if needed.
-        If StringHasUnicode(strContent) Or blnUnicode Then
+        If StringHasUnicode(strContent) Then
             .Charset = "utf-8"
         Else
             ' Use ASCII text.
