@@ -1,0 +1,20 @@
+{
+  "Info": {
+    "AddinVersion": "1.2.0.19",
+    "AccessVersion": "14.0 32-bit"
+  },
+  "Options": {
+    "ExportFolder": "",
+    "ShowDebug": false,
+    "IncludeVBE": false,
+    "UseFastSave": true,
+    "SavePrintVars": true,
+    "SaveQuerySQL": true,
+    "SaveTableSQL": true,
+    "StripPublishOption": true,
+    "AggressiveSanitize": true,
+    "TablesToSave": [
+      "USysRegInfo"
+    ]
+  }
+}

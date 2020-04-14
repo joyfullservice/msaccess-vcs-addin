@@ -878,3 +878,14 @@ End Function
 '    SubString = Mid(s, start + 1, cursor - start - 1)
 'End Function
 '
+
+
+Public Sub TestOptions()
+    
+    Dim cOpt As New clsOptions
+    'cOpt.PrintOptionsToDebugWindow
+    cOpt.SaveOptionsForProject
+    cOpt.LoadProjectOptions
+    cOpt.PrintOptionsToDebugWindow
+    
+End Sub

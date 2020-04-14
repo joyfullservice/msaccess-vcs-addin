@@ -38,5 +38,4 @@ Public Sub InstallVCSAddin()
     ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
     FSO.CopyFile strSource, strDest, True
     
-    
 End Sub
