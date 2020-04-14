@@ -23,6 +23,9 @@ Public SaveTableSQL As Boolean
 Public StripPublishOption As Boolean
 Public AggressiveSanitize As Boolean
 Public TablesToSave As New Collection
+Public RunBeforeExport As String
+Public RunAfterExport As String
+Public RunAfterBuild As String
 
 Private m_colOptions As New Collection
 
@@ -32,12 +35,13 @@ Private m_colOptions As New Collection
 ' Author    : Adam Waller
 ' Date      : 2/12/2020
 ' Purpose   : Loads the default values. Define system defaults here.
+'           : (Some values not defined here when they initialize to the default state.)
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadDefaults()
 
     With Me
-        .ExportFolder = ""
+        .ExportFolder = vbNullString
         .ShowDebug = False
         .IncludeVBE = False
         .UseFastSave = True
@@ -274,6 +278,9 @@ Private Sub Class_Initialize()
         .Add "StripPublishOption"
         .Add "AggressiveSanitize"
         .Add "TablesToSave"
+        .Add "RunBeforeExport"
+        .Add "RunAfterExport"
+        .Add "RunAfterBuild"
     End With
     
     ' Load default values

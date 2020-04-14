@@ -15,6 +15,9 @@
     "AggressiveSanitize": true,
     "TablesToSave": [
       "USysRegInfo"
-    ]
+    ],
+    "RunBeforeExport": "",
+    "RunAfterExport": "",
+    "RunAfterBuild": ""
   }
 }
