@@ -19,7 +19,7 @@ Begin Form
     ItemSuffix =17
     Left =3225
     Top =2430
-    Right =22695
+    Right =28545
     Bottom =15015
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
@@ -31,6 +31,7 @@ Begin Form
         0x6801000068010000680100006801000000000000201c0000e010000001000000 ,
         0x010000006801000000000000a10700000100000001000000
     End
+    OnLoad ="[Event Procedure]"
     AllowDatasheetView =0
     AllowPivotTableView =0
     AllowPivotChartView =0
@@ -1480,33 +1481,6 @@ Begin Form
                     WebImagePaddingBottom =10
                     Overlaps =1
                 End
-                Begin TextBox
-                    OldBorderStyle =0
-                    OverlapFlags =215
-                    TextAlign =3
-                    BackStyle =0
-                    IMESentenceMode =3
-                    Left =5820
-                    Top =480
-                    Width =3180
-                    FontSize =10
-                    TabIndex =6
-                    BorderColor =8355711
-                    ForeColor =16777215
-                    Name ="Label45"
-                    ControlSource ="=\"Version \" & GetVCSVersion()"
-                    GridlineColor =10921638
-
-                    LayoutCachedLeft =5820
-                    LayoutCachedTop =480
-                    LayoutCachedWidth =9000
-                    LayoutCachedHeight =720
-                    BorderThemeColorIndex =0
-                    BorderTint =50.0
-                    BorderShade =100.0
-                    ForeThemeColorIndex =1
-                    ForeTint =100.0
-                End
                 Begin Label
                     OverlapFlags =85
                     Left =300
@@ -1535,7 +1509,7 @@ Begin Form
                     Left =8100
                     Top =1200
                     Width =1080
-                    TabIndex =7
+                    TabIndex =6
                     ForeColor =16777215
                     Name ="cmdHelp"
                     Caption =" Help"
@@ -1611,6 +1585,25 @@ Begin Form
                     WebImagePaddingBottom =10
                     Overlaps =1
                 End
+                Begin Label
+                    OverlapFlags =215
+                    TextAlign =3
+                    Left =5820
+                    Top =480
+                    Width =3180
+                    Height =240
+                    FontSize =10
+                    BorderColor =8355711
+                    ForeColor =16777215
+                    Name ="lblVersion"
+                    GridlineColor =10921638
+                    LayoutCachedLeft =5820
+                    LayoutCachedTop =480
+                    LayoutCachedWidth =9000
+                    LayoutCachedHeight =720
+                    ForeThemeColorIndex =1
+                    ForeTint =100.0
+                End
             End
         End
     End
@@ -1646,7 +1639,7 @@ End Sub
 ' Purpose   : Export source code from current database
 '---------------------------------------------------------------------------------------
 '
-Private Sub cmdExport_Click()
+Public Sub cmdExport_Click()
 
     Dim cModel As IVersionControl
     Dim colParams As New Collection
@@ -1715,4 +1708,17 @@ End Sub
 '
 Private Sub cmdOptions_Click()
     DoCmd.OpenForm "frmOptions"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Form_Load
+' Author    : Adam Waller
+' Date      : 4/15/2020
+' Purpose   : Setting the control source causes delayed display. This way the display
+'           : is instant when the form is opened.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Load()
+    lblVersion.Caption = "Version " & GetVCSVersion()
 End Sub

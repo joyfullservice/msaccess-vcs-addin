@@ -889,3 +889,29 @@ Public Sub TestOptions()
     cOpt.PrintOptionsToDebugWindow
     
 End Sub
+
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MsgBox2
+' Author    : Adam Waller
+' Date      : 1/27/2017
+' Purpose   : Alternate message box with bold prompt on first line.
+'---------------------------------------------------------------------------------------
+'
+Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional strLine2 As String, Optional intButtons As VbMsgBoxStyle = vbOKOnly, Optional strTitle As String) As VbMsgBoxResult
+    
+    Dim strMsg As String
+    Dim varLines(0 To 3) As String
+    
+    ' Escape single quotes by doubling them.
+    varLines(0) = Replace(strBold, "'", "''")
+    varLines(1) = Replace(strLine1, "'", "''")
+    varLines(2) = Replace(strLine2, "'", "''")
+    varLines(3) = Replace(strTitle, "'", "''")
+    
+    If varLines(3) = "" Then varLines(3) = Application.VBE.ActiveVBProject.Name
+    strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
+    MsgBox2 = Eval(strMsg)
+    
+End Function
