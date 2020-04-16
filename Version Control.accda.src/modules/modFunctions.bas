@@ -4,6 +4,10 @@ Option Private Module
 
 Public colVerifiedPaths As New Collection
 
+Private m_Log As New clsConcat      ' Log file output
+Private m_Console As New clsConcat  ' Console output
+
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SanitizeFile
@@ -12,7 +16,7 @@ Public colVerifiedPaths As New Collection
 ' Purpose   : Sanitize the text file (forms and reports)
 '---------------------------------------------------------------------------------------
 '
-Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
+Public Sub SanitizeFile(strPath As String, cOptions As clsOptions)
 
     Dim sngOverall As Single
     Dim sngTimer As Single
@@ -40,9 +44,9 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
     With cPattern
     
         '  Match PrtDevNames / Mode with or  without W
-        If cModel.AggressiveSanitize Then .Add "(?:"
+        If cOptions.AggressiveSanitize Then .Add "(?:"
         .Add "PrtDev(?:Names|Mode)[W]?"
-        If cModel.AggressiveSanitize Then
+        If cOptions.AggressiveSanitize Then
           '  Add and group aggressive matches
           .Add "|GUID|""GUID""|NameMap|dbLongBinary ""DOL"""
           .Add ")"
@@ -59,7 +63,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
         .Add "^\s*(?:"
         .Add "Checksum ="
         .Add "|BaseInfo|NoSaveCTIWhenDisabled =1"
-        If cModel.StripPublishOption Then
+        If cOptions.StripPublishOption Then
             .Add "|dbByte ""PublishToWeb"" =""1"""
             .Add "|PublishOption =1"
         End If
@@ -151,7 +155,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
     WriteFile cData.GetStr, strPath
 
     ' Show stats if debug turned on.
-    cModel.Log "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cModel.ShowDebug
+    Log "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cOptions.ShowDebug
 
 End Sub
 
@@ -204,7 +208,7 @@ End Sub
 '           : database.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, objContainer As Object, cModel As IVersionControl, ParamArray StrExtensions())
+Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, objContainer As Object, cOptions As clsOptions, ParamArray StrExtensions())
     
     Dim oFolder As Scripting.Folder
     Dim oFile As Scripting.File
@@ -263,7 +267,7 @@ Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, objContainer As Obj
                 If Not blnFound Then
                     ' Object not found in database. Remove file.
                     Kill oFile.ParentFolder.Path & "\" & oFile.Name
-                    cModel.Log "  Removing orphaned file: " & strFile, cModel.ShowDebug
+                    Log "  Removing orphaned file: " & strFile, cOptions.ShowDebug
                 End If
                 
                 ' No need to check other extensions since we
@@ -914,4 +918,115 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
     MsgBox2 = Eval(strMsg)
     
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Log
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Add a log file entry.
+'---------------------------------------------------------------------------------------
+'
+Public Sub Log(strText As String, Optional blnPrint As Boolean = True, Optional blnNextOutputOnNewLine As Boolean = True)
+
+    Static dblLastLog As Double
+    Dim strLine As String
+    
+    m_Log.Add strText
+    If blnPrint Then
+        ' Use bold/green text for completion line.
+        strLine = strText
+        If InStr(1, strText, "Done. ") = 1 Then
+            strLine = "<font color=green><strong>" & strText & "</strong></font>"
+        End If
+        m_Console.Add strLine
+        If blnNextOutputOnNewLine Then
+            ' Create new line
+            Debug.Print strText
+            m_Console.Add "<br>"
+        Else
+            ' Continue next printout on this line.
+            Debug.Print strText;
+        End If
+    End If
+    
+    ' Add carriage return to log file if specified
+    If blnNextOutputOnNewLine Then m_Log.Add vbCrLf
+    
+    ' Allow an update to the screen every second.
+    ' (This keeps the aplication from an apparent hang while
+    '  running intensive export processes.)
+    If dblLastLog + 1 < Timer Then
+        DoEvents
+        dblLastLog = Timer
+    End If
+    
+    ' Update log display on form if open.
+    If blnPrint And IsLoaded(acForm, "frmMain") Then
+        With Form_frmMain.txtLog
+            .Text = m_Console.GetStr
+            ' Move cursor to end of log for scroll effect.
+            .SelStart = Len(.Text)
+            .SelLength = 0
+        End With
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveLogFile
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Saves the log data to a file, and resets the log buffer.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveLogFile(strPath As String)
+    WriteFile m_Log.GetStr, strPath
+    Set m_Log = New clsConcat
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadOptions
+' Author    : Adam Waller
+' Date      : 4/15/2020
+' Purpose   : Loads the current options from defaults and this project.
+'---------------------------------------------------------------------------------------
+'
+Public Function LoadOptions() As clsOptions
+    Dim cOptions As clsOptions
+    Set cOptions = New clsOptions
+    cOptions.LoadDefaultOptions
+    cOptions.LoadProjectOptions
+    Set LoadOptions = cOptions
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetVCSVersion
+' Author    : Adam Waller
+' Date      : 1/28/2019
+' Purpose   : Gets the version of the version control system. (Used to turn off fast
+'           : save until a full export has been run with the current version of
+'           : the MSAccessVCS addin.)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetVCSVersion() As String
+
+    Dim dbs As Database
+    Dim objParent As Object
+    Dim prp As Object
+
+    Set objParent = CodeDb
+    If objParent Is Nothing Then Set objParent = CurrentProject ' ADP support
+
+    For Each prp In objParent.Properties
+        If prp.Name = "AppVersion" Then
+            ' Return version
+            GetVCSVersion = prp.Value
+        End If
+    Next prp
+
 End Function

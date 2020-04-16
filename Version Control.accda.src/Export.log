@@ -3,7 +3,7 @@ Beginning Export of all Source
 Version Control.accda
 VCS Version 1.2.0.19
 Using Fast Save
-4/15/2020 6:50:38 PM
+4/15/2020 7:59:59 PM
 -------------------------------
 -------------------------------
 Exporting queries...    
@@ -20,31 +20,31 @@ Exporting reports...
 Exporting macros...     
   (Skipping 'autoexec')
 [1]
+  Removing orphaned file: clsModelGitHub
+  Removing orphaned file: clsModelSVN
+  Removing orphaned file: clsVbeMenu
+  Removing orphaned file: IVersionControl
+  Removing orphaned file: modMenuHandler
+  Removing orphaned file: modVersionControl
 -------------------------------
 Exporting modules...    
-  clsVbeMenu
   modDataMacro
   clsOptions
   modFileAccess
   modRelation
   clsConcat
   modAddIn
-  modVersionControl
-  clsModelSVN
-  IVersionControl
   modDeploy
-  modMenuHandler
   modADPFunctions
   modFunctions
   modJsonConverter
-  clsModelGitHub
   modReference
   modSavedSpecs
   modTable
   modImportExport
   modProperty
   modReport
-[22]
+[16]
 -------------------------------
 Exporting references... 
   VBA 4.1
@@ -72,4 +72,4 @@ Exporting tbldef...
 Exporting relations...  
 [0]
 -------------------------------
-Done. (0.56 seconds)
+Done. (0.62 seconds)

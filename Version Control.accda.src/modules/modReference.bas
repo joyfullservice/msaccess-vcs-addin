@@ -10,7 +10,7 @@ Option Private Module
 ' Purpose   : Export references to a csv text file
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportReferences(strFolder As String, cModel As IVersionControl)
+Public Sub ExportReferences(strFolder As String, cOptions As clsOptions)
     
     Dim cData As New clsConcat
     Dim ref As Reference
@@ -20,7 +20,7 @@ Public Sub ExportReferences(strFolder As String, cModel As IVersionControl)
         If ref.GUID = "" Then ' references of types mdb,accdb,mde etc don't have a GUID
             cData.Add ref.FullPath
             cData.Add vbCrLf
-            cModel.Log "  [" & ref.Name & "]", cModel.ShowDebug
+            Log "  [" & ref.Name & "]", cOptions.ShowDebug
        Else
             With cData
                 .Add ref.GUID
@@ -32,7 +32,7 @@ Public Sub ExportReferences(strFolder As String, cModel As IVersionControl)
                 .Add CStr(ref.Minor)
                 .Add vbCrLf
             End With
-            cModel.Log "  " & ref.Name & " " & ref.Major & "." & ref.Minor, cModel.ShowDebug
+            Log "  " & ref.Name & " " & ref.Major & "." & ref.Minor, cOptions.ShowDebug
         End If
         intCnt = intCnt + 1
     Next ref
@@ -41,10 +41,10 @@ Public Sub ExportReferences(strFolder As String, cModel As IVersionControl)
     WriteFile cData.GetStr, strFolder & "references.csv"
 
     ' Show summary
-    If cModel.ShowDebug Then
-        cModel.Log "[" & intCnt & "] references exported."
+    If cOptions.ShowDebug Then
+        Log "[" & intCnt & "] references exported."
     Else
-        cModel.Log "[" & intCnt & "]"
+        Log "[" & intCnt & "]"
     End If
     
 End Sub

@@ -46,7 +46,7 @@ End Type
 '           : https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportPrintVars(strReport As String, strFile As String, cModel As IVersionControl)
+Public Sub ExportPrintVars(strReport As String, strFile As String, cOptions As clsOptions)
     
     Dim DevModeString As str_DEVMODE
     Dim DevModeExtra As String
@@ -86,7 +86,7 @@ Public Sub ExportPrintVars(strReport As String, strFile As String, cModel As IVe
         
     Else
         ' DevMode was null
-        cModel.Log "  Warning: PrtDevMode is null"
+        Log "  Warning: PrtDevMode is null"
     End If
         
     ' Clean up
