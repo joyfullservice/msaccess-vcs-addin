@@ -22,7 +22,7 @@ Public SaveQuerySQL As Boolean
 Public SaveTableSQL As Boolean
 Public StripPublishOption As Boolean
 Public AggressiveSanitize As Boolean
-Public TablesToSave As New Collection
+Public TablesToExportData As Scripting.Dictionary
 Public RunBeforeExport As String
 Public RunAfterExport As String
 Public RunAfterBuild As String
@@ -50,33 +50,36 @@ Public Sub LoadDefaults()
         .SaveTableSQL = True
         .StripPublishOption = True
         .AggressiveSanitize = True
-        Set .TablesToSave = New Collection
+        Set .TablesToExportData = New Scripting.Dictionary
         ' Save specific tables by default
-        SaveTableIfExists "USysRibbons", "USysRegInfo"
+        AddTableToExportData "USysRibbons", etdTabDelimited
+        AddTableToExportData "USysRegInfo", etdTabDelimited
     End With
     
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : SaveTableIfExists
+' Procedure : AddTableToExportData
 ' Author    : Adam Waller
-' Date      : 2/12/2020
-' Purpose   : Function to add table to save list if it exists in the current database
+' Date      : 4/17/2020
+' Purpose   : Add a table to the list of saved tables
 '---------------------------------------------------------------------------------------
 '
-Private Sub SaveTableIfExists(ParamArray varTableNames() As Variant)
+Public Sub AddTableToExportData(strName As String, intExportFormat As eTableDataExportFormat)
     
-    Dim tdf As Access.AccessObject
-    Dim varTable As Variant
+    Dim strFormat(etdTabDelimited To etdXML)
+    Dim dTable As Scripting.Dictionary
     
-    For Each tdf In CurrentData.AllTables
-        For Each varTable In varTableNames
-            If tdf.Name = varTable Then
-                Me.TablesToSave.Add CStr(varTable)
-            End If
-        Next varTable
-    Next tdf
+    Set dTable = New Scripting.Dictionary
+    
+    strFormat(etdTabDelimited) = "TabDelimited"
+    strFormat(etdXML) = "XMLFormat"
+    With Me.TablesToExportData
+        Set .Item(strName) = dTable
+        .Item(strName)("Format") = GetTableExportFormatName(intExportFormat)
+        ' Could add ExcludeColumns here later...
+    End With
     
 End Sub
 
@@ -144,11 +147,8 @@ Public Sub LoadOptionsFromFile(strFile As String)
                 If dOptions.Exists(strKey) Then
                     ' Set class property with value read from file.
                     Select Case strKey
-                        Case "TablesToSave"
-                            Set Me.TablesToSave = New Collection
-                            For Each varItem In dOptions(strKey)
-                                Me.TablesToSave.Add CStr(varItem)
-                            Next varItem
+                        Case "TablesToExportData"
+                            Set Me.TablesToExportData = dOptions(strKey)
                         Case Else
                             ' Regular top-level properties
                             CallByName Me, strKey, VbLet, dOptions(strKey)
@@ -258,6 +258,22 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetTableExportFormatName
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : Return the name used to read and write to the JSON options files.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTableExportFormatName(intFormat As eTableDataExportFormat) As String
+    Select Case intFormat
+        Case etdTabDelimited:   GetTableExportFormatName = "TabDelimited"
+        Case etdXML:            GetTableExportFormatName = "XMLFormat"
+        Case Else:              GetTableExportFormatName = "Unknown"
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Class_Initialize
 ' Author    : Adam Waller
 ' Date      : 2/12/2020
@@ -277,7 +293,7 @@ Private Sub Class_Initialize()
         .Add "SaveTableSQL"
         .Add "StripPublishOption"
         .Add "AggressiveSanitize"
-        .Add "TablesToSave"
+        .Add "TablesToExportData"
         .Add "RunBeforeExport"
         .Add "RunAfterExport"
         .Add "RunAfterBuild"

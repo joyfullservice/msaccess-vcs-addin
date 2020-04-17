@@ -13,8 +13,16 @@
     "SaveTableSQL": true,
     "StripPublishOption": true,
     "AggressiveSanitize": true,
-    "TablesToSave": [
-      "USysRegInfo"
-    ]
+    "TablesToExportData": {
+      "USysRibbons": {
+        "Format": "TabDelimited"
+      },
+      "USysRegInfo": {
+        "Format": "TabDelimited"
+      }
+    },
+    "RunBeforeExport": "",
+    "RunAfterExport": "",
+    "RunAfterBuild": ""
   }
 }

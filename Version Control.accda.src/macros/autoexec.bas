@@ -2,10 +2,6 @@ Version =196611
 ColumnsShown =0
 Begin
     Action ="RunCode"
-    Argument ="LoadVCSModel()"
-End
-Begin
-    Action ="RunCode"
     Argument ="AutoRun()"
 End
 Begin
@@ -16,7 +12,6 @@ Begin
 End
 Begin
     Comment ="_AXL:essservices/2009/11/forms\"><Statements><Action Name=\"RunCode\"><Argument "
-        "Name=\"FunctionName\">LoadVCSModel()</Argument></Action><Action Name=\"RunCode\""
-        "><Argument Name=\"FunctionName\">AutoRun()</Argument></Action></Statements></Use"
-        "rInterfaceMacro>"
+        "Name=\"FunctionName\">AutoRun()</Argument></Action></Statements></UserInterfaceM"
+        "acro>"
 End

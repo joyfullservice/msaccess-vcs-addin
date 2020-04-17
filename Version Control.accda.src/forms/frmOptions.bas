@@ -16,11 +16,11 @@ Begin Form
     GridY =24
     Width =10080
     DatasheetFontHeight =11
-    ItemSuffix =49
-    Left =3225
+    ItemSuffix =89
+    Left =-17265
     Top =2430
-    Right =28545
-    Bottom =15015
+    Right =-255
+    Bottom =10335
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -128,6 +128,15 @@ Begin Form
             GridlineThemeColorIndex =1
             GridlineShade =65.0
         End
+        Begin OptionGroup
+            SpecialEffect =3
+            BorderLineStyle =0
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
         Begin TextBox
             AddColon = NotDefault
             FELineBreak = NotDefault
@@ -142,6 +151,39 @@ Begin Form
             ThemeFontIndex =1
             ForeThemeColorIndex =0
             ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin ListBox
+            BorderLineStyle =0
+            LabelX =-1800
+            FontSize =11
+            FontName ="Calibri"
+            AllowValueListEdits =1
+            InheritValueList =1
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ForeThemeColorIndex =0
+            ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin ComboBox
+            AddColon = NotDefault
+            BorderLineStyle =0
+            LabelX =-1800
+            FontSize =11
+            FontName ="Calibri"
+            AllowValueListEdits =1
+            InheritValueList =1
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ForeThemeColorIndex =2
+            ForeShade =50.0
             GridlineThemeColorIndex =1
             GridlineShade =65.0
         End
@@ -367,7 +409,7 @@ Begin Form
                     WebImagePaddingBottom =9
                 End
                 Begin Tab
-                    OverlapFlags =93
+                    OverlapFlags =85
                     Left =540
                     Top =1500
                     Width =9000
@@ -402,7 +444,7 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4190
+                            Height =4185
                             BorderColor =10921638
                             Name ="pgeGeneral"
                             Caption ="General"
@@ -410,7 +452,7 @@ Begin Form
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6170
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -916,6 +958,366 @@ Begin Form
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
                             WebImagePaddingBottom =2
+                            Begin
+                                Begin ListBox
+                                    ColumnHeads = NotDefault
+                                    RowSourceTypeInt =1
+                                    OverlapFlags =247
+                                    IMESentenceMode =3
+                                    ColumnCount =2
+                                    Left =900
+                                    Top =2280
+                                    Width =5520
+                                    Height =3240
+                                    ForeColor =4210752
+                                    BorderColor =10921638
+                                    Name ="lstTables"
+                                    RowSourceType ="Value List"
+                                    ColumnWidths ="3960;1440"
+                                    GridlineColor =10921638
+                                    AllowValueListEdits =0
+
+                                    LayoutCachedLeft =900
+                                    LayoutCachedTop =2280
+                                    LayoutCachedWidth =6420
+                                    LayoutCachedHeight =5520
+                                End
+                                Begin CheckBox
+                                    OverlapFlags =247
+                                    Left =1020
+                                    Top =5760
+                                    TabIndex =1
+                                    BorderColor =10921638
+                                    Name ="chkTableShowHidden"
+                                    DefaultValue ="False"
+                                    OnClick ="[Event Procedure]"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =1020
+                                    LayoutCachedTop =5760
+                                    LayoutCachedWidth =1280
+                                    LayoutCachedHeight =6000
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =1320
+                                            Top =5700
+                                            Width =1380
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label71"
+                                            Caption ="Show Hidden"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1320
+                                            LayoutCachedTop =5700
+                                            LayoutCachedWidth =2700
+                                            LayoutCachedHeight =6015
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin CheckBox
+                                    OverlapFlags =247
+                                    Left =2940
+                                    Top =5760
+                                    TabIndex =2
+                                    BorderColor =10921638
+                                    Name ="chkTableShowSystem"
+                                    DefaultValue ="False"
+                                    OnClick ="[Event Procedure]"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =2940
+                                    LayoutCachedTop =5760
+                                    LayoutCachedWidth =3200
+                                    LayoutCachedHeight =6000
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =3240
+                                            Top =5700
+                                            Width =1380
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label73"
+                                            Caption ="Show System"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =3240
+                                            LayoutCachedTop =5700
+                                            LayoutCachedWidth =4620
+                                            LayoutCachedHeight =6015
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin TextBox
+                                    Locked = NotDefault
+                                    OverlapFlags =247
+                                    IMESentenceMode =3
+                                    Left =6720
+                                    Top =3720
+                                    Width =2460
+                                    Height =660
+                                    TabIndex =3
+                                    BackColor =15921906
+                                    BorderColor =10921638
+                                    ForeColor =4210752
+                                    Name ="txtTableName"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =6720
+                                    LayoutCachedTop =3720
+                                    LayoutCachedWidth =9180
+                                    LayoutCachedHeight =4380
+                                    BackShade =95.0
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =255
+                                            Left =6720
+                                            Top =3420
+                                            Width =1500
+                                            Height =300
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label79"
+                                            Caption ="Selected Table:"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =6720
+                                            LayoutCachedTop =3420
+                                            LayoutCachedWidth =8220
+                                            LayoutCachedHeight =3720
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin ComboBox
+                                    RowSourceTypeInt =1
+                                    OverlapFlags =247
+                                    IMESentenceMode =3
+                                    ColumnCount =2
+                                    ListWidth =1695
+                                    Left =6720
+                                    Top =4920
+                                    Width =2460
+                                    Height =315
+                                    TabIndex =4
+                                    BorderColor =10921638
+                                    ForeColor =4138256
+                                    Name ="cboTableDataSaveType"
+                                    RowSourceType ="Value List"
+                                    ColumnWidths ="0"
+                                    DefaultValue ="0"
+                                    GridlineColor =10921638
+                                    AllowValueListEdits =0
+
+                                    LayoutCachedLeft =6720
+                                    LayoutCachedTop =4920
+                                    LayoutCachedWidth =9180
+                                    LayoutCachedHeight =5235
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =255
+                                            Left =6720
+                                            Top =4620
+                                            Width =1455
+                                            Height =305
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Data to Export_Label"
+                                            Caption ="Data to Export"
+                                            EventProcPrefix ="Data_to_Export_Label"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =6720
+                                            LayoutCachedTop =4620
+                                            LayoutCachedWidth =8175
+                                            LayoutCachedHeight =4925
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin Label
+                                    OverlapFlags =247
+                                    Left =6720
+                                    Top =2280
+                                    Width =2520
+                                    Height =840
+                                    FontSize =10
+                                    BorderColor =8355711
+                                    ForeColor =5324600
+                                    Name ="Label82"
+                                    Caption ="You may optionally include data from specific tables as part of the export proce"
+                                        "ss."
+                                    GridlineColor =10921638
+                                    LayoutCachedLeft =6720
+                                    LayoutCachedTop =2280
+                                    LayoutCachedWidth =9240
+                                    LayoutCachedHeight =3120
+                                    ForeThemeColorIndex =-1
+                                    ForeTint =100.0
+                                End
+                                Begin CommandButton
+                                    OverlapFlags =247
+                                    Left =6720
+                                    Top =5340
+                                    TabIndex =5
+                                    ForeColor =4210752
+                                    Name ="cmdUpdateTableData"
+                                    Caption =" Update"
+                                    OnClick ="[Event Procedure]"
+                                    LeftPadding =135
+                                    TopPadding =135
+                                    RightPadding =150
+                                    BottomPadding =150
+                                    GridlineColor =10921638
+                                    ImageData = Begin
+                                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x000000000000000000000000d0687050c06860ffb05850ffa05050ffa05050ff ,
+                                        0xa05050ff904850ff904840ff904840ff804040ff803840ff803840ff703840ff ,
+                                        0x703830ff0000000000000000d06870fff09090ffe08080ffb04820ff403020ff ,
+                                        0xc0b8b0ffc0b8b0ffd0c0c0ffd0c8c0ff505050ffa04030ffa04030ffa03830ff ,
+                                        0x703840ff0000000000000000d07070ffff98a0fff08880ffe08080ff705850ff ,
+                                        0x404030ff907870fff0e0e0fff0e8e0ff908070ffa04030ffa04040ffa04030ff ,
+                                        0x803840ff0000000000000000d07870ffffa0a0fff09090fff08880ff705850ff ,
+                                        0x000000ff404030fff0d8d0fff0e0d0ff807860ffb04840ffb04840ffa04040ff ,
+                                        0x804040ff0000000000000000d07880ffffa8b0ffffa0a0fff09090ff705850ff ,
+                                        0x705850ff705850ff705850ff706050ff806860ffc05850ffb05050ffb04840ff ,
+                                        0x804040ff0000000000000000e08080ffffb0b0ffffb0b0ffffa0a0fff09090ff ,
+                                        0xf08880ffe08080ffe07880ffd07070ffd06870ffc06060ffc05850ffb05050ff ,
+                                        0x904840ff0000000000000000e08890ffffb8c0ffffb8b0ffd06060ffc06050ff ,
+                                        0xc05850ffc05040ffb05030ffb04830ffa04020ffa03810ffc06060ffc05850ff ,
+                                        0x904840ff0000000000000000e09090ffffc0c0ffd06860ffffffffffffffffff ,
+                                        0xfff8f0fff0f0f0fff0e8e0fff0d8d0ffe0d0c0ffe0c8c0ffa03810ffc06060ff ,
+                                        0x904850ff0000000000000000e098a0ffffc0c0ffd07070ffffffffffffffffff ,
+                                        0xfffffffffff8f0fff0f0f0fff0e8e0fff0d8d0ffe0d0c0ffa04020ffd06860ff ,
+                                        0xa05050ff0000000000000000f0a0a0ffffc0c0ffe07870ffffffffffffffffff ,
+                                        0xfffffffffffffffffff8f0fff0f0f0fff0e8e0fff0d8d0ffb04830ffd07070ff ,
+                                        0xa05050ff0000000000000000f0a8a0ffffc0c0ffe08080ffffffffffffffffff ,
+                                        0xfffffffffffffffffffffffffff8f0fff0f0f0fff0e8e0ffb05030ffe07880ff ,
+                                        0xa05050ff0000000000000000f0b0b0ffffc0c0fff08890ffffffffffffffffff ,
+                                        0xfffffffffffffffffffffffffffffffffff8f0fff0f0f0ffc05040ff603030ff ,
+                                        0xb05850ff0000000000000000f0b0b0ffffc0c0ffff9090ffffffffffffffffff ,
+                                        0xfffffffffffffffffffffffffffffffffffffffffff8f0ffc05850ffb05860ff ,
+                                        0xb05860ff0000000000000000f0b8b0fff0b8b0fff0b0b0fff0b0b0fff0a8b0ff ,
+                                        0xf0a0a0ffe098a0ffe09090ffe09090ffe08890ffe08080ffd07880ffd07870ff ,
+                                        0xd07070ff00000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000
+                                    End
+
+                                    LayoutCachedLeft =6720
+                                    LayoutCachedTop =5340
+                                    LayoutCachedWidth =8160
+                                    LayoutCachedHeight =5700
+                                    PictureCaptionArrangement =5
+                                    BackColor =14262935
+                                    BackThemeColorIndex =-1
+                                    BackTint =100.0
+                                    BorderColor =15321539
+                                    BorderThemeColorIndex =-1
+                                    BorderTint =100.0
+                                    HoverColor =15321539
+                                    HoverThemeColorIndex =-1
+                                    HoverTint =100.0
+                                    PressedColor =13072231
+                                    PressedThemeColorIndex =-1
+                                    PressedShade =100.0
+                                    HoverForeColor =4210752
+                                    PressedForeColor =4210752
+                                    WebImagePaddingLeft =9
+                                    WebImagePaddingTop =9
+                                    WebImagePaddingRight =9
+                                    WebImagePaddingBottom =9
+                                End
+                                Begin CheckBox
+                                    OverlapFlags =247
+                                    Left =4860
+                                    Top =5760
+                                    TabIndex =6
+                                    BorderColor =10921638
+                                    Name ="chkTableShowOther"
+                                    DefaultValue ="False"
+                                    OnClick ="[Event Procedure]"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =4860
+                                    LayoutCachedTop =5760
+                                    LayoutCachedWidth =5120
+                                    LayoutCachedHeight =6000
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =5160
+                                            Top =5700
+                                            Width =1200
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label85"
+                                            Caption ="Show Other"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =5160
+                                            LayoutCachedTop =5700
+                                            LayoutCachedWidth =6360
+                                            LayoutCachedHeight =6015
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin CommandButton
+                                    FontUnderline = NotDefault
+                                    OverlapFlags =247
+                                    Left =8400
+                                    Top =3420
+                                    Width =840
+                                    Height =300
+                                    FontSize =10
+                                    TabIndex =7
+                                    ForeColor =16711680
+                                    Name ="cmdOtherTable"
+                                    Caption ="Other..."
+                                    OnClick ="[Event Procedure]"
+                                    HyperlinkAddress ="#"
+                                    GridlineColor =10921638
+                                    BackStyle =0
+
+                                    LayoutCachedLeft =8400
+                                    LayoutCachedTop =3420
+                                    LayoutCachedWidth =9240
+                                    LayoutCachedHeight =3720
+                                    PictureCaptionArrangement =4
+                                    ForeThemeColorIndex =10
+                                    ForeTint =100.0
+                                    Gradient =0
+                                    BackColor =14262935
+                                    BackThemeColorIndex =-1
+                                    BackTint =100.0
+                                    OldBorderStyle =0
+                                    BorderColor =15321539
+                                    BorderThemeColorIndex =-1
+                                    BorderTint =100.0
+                                    HoverColor =15321539
+                                    HoverThemeColorIndex =-1
+                                    HoverTint =100.0
+                                    PressedColor =13072231
+                                    PressedThemeColorIndex =-1
+                                    PressedShade =100.0
+                                    HoverForeColor =4210752
+                                    PressedForeColor =4210752
+                                    WebImagePaddingLeft =2
+                                    WebImagePaddingTop =2
+                                    WebImagePaddingRight =2
+                                    WebImagePaddingBottom =2
+                                End
+                            End
                         End
                         Begin Page
                             OverlapFlags =247
@@ -954,6 +1356,376 @@ Begin Form
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
                             WebImagePaddingBottom =2
+                            Begin
+                                Begin CommandButton
+                                    OverlapFlags =255
+                                    Left =1320
+                                    Top =2640
+                                    Width =2160
+                                    Height =420
+                                    ForeColor =4210752
+                                    Name ="cmdSaveAsDefault"
+                                    Caption =" Save as Default"
+                                    OnClick ="[Event Procedure]"
+                                    LeftPadding =135
+                                    TopPadding =135
+                                    RightPadding =150
+                                    BottomPadding =150
+                                    GridlineColor =10921638
+                                    ImageData = Begin
+                                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x000000000000000000000000d0687050c06860ffb05850ffa05050ffa05050ff ,
+                                        0xa05050ff904850ff904840ff904840ff804040ff803840ff803840ff703840ff ,
+                                        0x703830ff0000000000000000d06870fff09090ffe08080ffb04820ff403020ff ,
+                                        0xc0b8b0ffc0b8b0ffd0c0c0ffd0c8c0ff505050ffa04030ffa04030ffa03830ff ,
+                                        0x703840ff0000000000000000d07070ffff98a0fff08880ffe08080ff705850ff ,
+                                        0x404030ff907870fff0e0e0fff0e8e0ff908070ffa04030ffa04040ffa04030ff ,
+                                        0x803840ff0000000000000000d07870ffffa0a0fff09090fff08880ff705850ff ,
+                                        0x000000ff404030fff0d8d0fff0e0d0ff807860ffb04840ffb04840ffa04040ff ,
+                                        0x804040ff0000000000000000d07880ffffa8b0ffffa0a0fff09090ff705850ff ,
+                                        0x705850ff705850ff705850ff706050ff806860ffc05850ffb05050ffb04840ff ,
+                                        0x804040ff0000000000000000e08080ffffb0b0ffffb0b0ffffa0a0fff09090ff ,
+                                        0xf08880ffe08080ffe07880ffd07070ffd06870ffc06060ffc05850ffb05050ff ,
+                                        0x904840ff0000000000000000e08890ffffb8c0ffffb8b0ffd06060ffc06050ff ,
+                                        0xc05850ffc05040ffb05030ffb04830ffa04020ffa03810ffc06060ffc05850ff ,
+                                        0x904840ff0000000000000000e09090ffffc0c0ffd06860ffffffffffffffffff ,
+                                        0xfff8f0fff0f0f0fff0e8e0fff0d8d0ffe0d0c0ffe0c8c0ffa03810ffc06060ff ,
+                                        0x904850ff0000000000000000e098a0ffffc0c0ffd07070ffffffffffffffffff ,
+                                        0xfffffffffff8f0fff0f0f0fff0e8e0fff0d8d0ffe0d0c0ffa04020ffd06860ff ,
+                                        0xa05050ff0000000000000000f0a0a0ffffc0c0ffe07870ffffffffffffffffff ,
+                                        0xfffffffffffffffffff8f0fff0f0f0fff0e8e0fff0d8d0ffb04830ffd07070ff ,
+                                        0xa05050ff0000000000000000f0a8a0ffffc0c0ffe08080ffffffffffffffffff ,
+                                        0xfffffffffffffffffffffffffff8f0fff0f0f0fff0e8e0ffb05030ffe07880ff ,
+                                        0xa05050ff0000000000000000f0b0b0ffffc0c0fff08890ffffffffffffffffff ,
+                                        0xfffffffffffffffffffffffffffffffffff8f0fff0f0f0ffc05040ff603030ff ,
+                                        0xb05850ff0000000000000000f0b0b0ffffc0c0ffff9090ffffffffffffffffff ,
+                                        0xfffffffffffffffffffffffffffffffffffffffffff8f0ffc05850ffb05860ff ,
+                                        0xb05860ff0000000000000000f0b8b0fff0b8b0fff0b0b0fff0b0b0fff0a8b0ff ,
+                                        0xf0a0a0ffe098a0ffe09090ffe09090ffe08890ffe08080ffd07880ffd07870ff ,
+                                        0xd07070ff00000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000
+                                    End
+
+                                    LayoutCachedLeft =1320
+                                    LayoutCachedTop =2640
+                                    LayoutCachedWidth =3480
+                                    LayoutCachedHeight =3060
+                                    PictureCaptionArrangement =5
+                                    BackColor =14262935
+                                    BackThemeColorIndex =-1
+                                    BackTint =100.0
+                                    BorderColor =15321539
+                                    BorderThemeColorIndex =-1
+                                    BorderTint =100.0
+                                    HoverColor =15321539
+                                    HoverThemeColorIndex =-1
+                                    HoverTint =100.0
+                                    PressedColor =13072231
+                                    PressedThemeColorIndex =-1
+                                    PressedShade =100.0
+                                    HoverForeColor =4210752
+                                    PressedForeColor =4210752
+                                    WebImagePaddingLeft =9
+                                    WebImagePaddingTop =9
+                                    WebImagePaddingRight =9
+                                    WebImagePaddingBottom =9
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =255
+                                            Left =3960
+                                            Top =2700
+                                            Width =4500
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label53"
+                                            Caption ="Save these settings as default for new projects."
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =3960
+                                            LayoutCachedTop =2700
+                                            LayoutCachedWidth =8460
+                                            LayoutCachedHeight =3015
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin CommandButton
+                                    OverlapFlags =255
+                                    Left =1320
+                                    Top =3240
+                                    Width =2160
+                                    Height =420
+                                    TabIndex =1
+                                    ForeColor =4210752
+                                    Name ="cmdRestoreDefaults"
+                                    Caption =" Restore Defaults"
+                                    OnClick ="[Event Procedure]"
+                                    LeftPadding =135
+                                    TopPadding =135
+                                    RightPadding =150
+                                    BottomPadding =150
+                                    GridlineColor =10921638
+                                    ImageData = Begin
+                                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000f0906060d0784080b0583010000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000e0785040f08850ffd07040ffa05830500000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000f0906020d0704060f08050ffd07050f0a050300000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x00000000000000000000000000000000c06840d0f08850ffc078508000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0xf0c0b01000000000000000000000000090482040e07840ffe08860ffe0a08000 ,
+                                        0x00000000000000000000000000000000d07040ffd07040ffc06840ffb06030ff ,
+                                        0xb05830ff905030ff0000000000000000b0603020c06840ffe08050ffd0886080 ,
+                                        0x00000000000000000000000000000000d07850ffe07030fff08050fff09870ff ,
+                                        0xe09060fff0a08040000000000000000080402000c06840ffe07840f0e09870c0 ,
+                                        0x00000000000000000000000000000000d08050ffe08050fff09060fff0a070ff ,
+                                        0x904830b0b0603040000000000000000080402000c06840ffd07040f0e09870d0 ,
+                                        0x00000000000000000000000000000000d08860ffe09060fff09870fff08850f0 ,
+                                        0xb06040ffb06040ffb060307000000000b0805020a05830f0d07840f0e09070d0 ,
+                                        0x000000000000000000000000e0b09010c08060ffd09870e0d0886090d09070ff ,
+                                        0xd08050ffc07040ffc06840ffb06030c0b07040e0a06040ffe08050ffd0a080e0 ,
+                                        0x00000000000000000000000000000000c08860ffd0a0804000000000d08860c0 ,
+                                        0xd08860ffd08050f0c06840ffb06840ffb06030f0e07840f0e0a080f0d09880e0 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0xf0a880c0e09880ffe09870f0e09070f0e09070e0e0a080f0e0a890f0f0b8a020 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x00000000f0b89060f0b090c0f0b8a0e0f0c0a0c0f0c0a090f0c0b02000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000
+                                    End
+
+                                    LayoutCachedLeft =1320
+                                    LayoutCachedTop =3240
+                                    LayoutCachedWidth =3480
+                                    LayoutCachedHeight =3660
+                                    PictureCaptionArrangement =5
+                                    BackColor =14262935
+                                    BackThemeColorIndex =-1
+                                    BackTint =100.0
+                                    BorderColor =15321539
+                                    BorderThemeColorIndex =-1
+                                    BorderTint =100.0
+                                    HoverColor =15321539
+                                    HoverThemeColorIndex =-1
+                                    HoverTint =100.0
+                                    PressedColor =13072231
+                                    PressedThemeColorIndex =-1
+                                    PressedShade =100.0
+                                    HoverForeColor =4210752
+                                    PressedForeColor =4210752
+                                    WebImagePaddingLeft =9
+                                    WebImagePaddingTop =9
+                                    WebImagePaddingRight =9
+                                    WebImagePaddingBottom =9
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =255
+                                            Left =3960
+                                            Top =3300
+                                            Width =4500
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label57"
+                                            Caption ="Apply system defaults to this project."
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =3960
+                                            LayoutCachedTop =3300
+                                            LayoutCachedWidth =8460
+                                            LayoutCachedHeight =3615
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin CommandButton
+                                    OverlapFlags =255
+                                    Left =1320
+                                    Top =5040
+                                    Width =2160
+                                    Height =420
+                                    TabIndex =2
+                                    ForeColor =4210752
+                                    Name ="cmdClearDefaults"
+                                    Caption =" Clear Defaults"
+                                    OnClick ="[Event Procedure]"
+                                    LeftPadding =135
+                                    TopPadding =135
+                                    RightPadding =150
+                                    BottomPadding =150
+                                    GridlineColor =10921638
+                                    ImageData = Begin
+                                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000b0989070605040e0403020ff ,
+                                        0x403020ff403020ff503830ff503830ff504030e0604830806050401000000000 ,
+                                        0x0000000000000000000000000000000070585000a08880d0e0c8b0f0fff0d0ff ,
+                                        0xffffe0fffff0d0ffffe8c0ffffd8a0fff0d0b0ff604830e06048302000000000 ,
+                                        0x0000000000000000000000000000000090807040a08880fffffffffffff8ffff ,
+                                        0xfff8f0fffff0e0fffff0d0ffffe8c0ffffe0c0ff806850ff6048307000000000 ,
+                                        0x00000000000000000000000000000000a0888070b0a8a0f0f0f8e0ff70b860ff ,
+                                        0x006000ff004800ff004800ff309040fff0d8b0ffb09070ff604030b000000000 ,
+                                        0x00000000000000000000000000000000a08880b0e0d8d0f0d0f0d0ff209820ff ,
+                                        0xe0d0d0ffffffffffb0c090ff107020ffc0c890ffe0b8a0ff504030e060504000 ,
+                                        0x000000000000000000000000a0908010a08880f0f0f0f0fff0f8f0ff80d880ff ,
+                                        0x209820ffffffffff308030ff107010ffffe0c0fff0d0b0ff604830ff60484010 ,
+                                        0x000000000000000000000000a0908050b09890ffffffffffffffffffffffffff ,
+                                        0x20c020ff006800ff006010ffc0e0a0fffff0d0ffffe0b0ff706050ff60483040 ,
+                                        0x000000000000000000000000a08880b0c0b0b0ffffffffffffffffffffffffff ,
+                                        0xe0ffd0ff10b010ff90d890fffffff0fffff0d0ffffe8c0ffa08870ff504030a0 ,
+                                        0x000000000000000000000000a08880f0e0d0d0ffffffffffffffffffffffffff ,
+                                        0xfffffffffffffffffffffffffff8e0fffff0e0fffff0d0ffd0b090ff504030d0 ,
+                                        0x0000000000000000a0908000a08880fff0f0f0fffff8ffffffffffffffffffff ,
+                                        0xfffffffffffffffffffffffffff8f0fffff0e0fffff0e0fff0d0b0ff504030f0 ,
+                                        0x0000000000000000a0908010a08880f0a08880ffa09080ff908880ffa09080ff ,
+                                        0xa09080ffa09080ffa09080ffa09080ffa08880ffa08880ff706050ff504030ff ,
+                                        0x70584000000000009078600090786090806860e0807060ffb0a090ffe0d8d0ff ,
+                                        0xf0f0f0fffff8f0fffffffffffffffffff0f0f0ffd0c8c0ffe0d0d0ff504030c0 ,
+                                        0x50383000000000000000000090786010807060c0907860d0c0c0c0fff0f0f0ff ,
+                                        0xfff8ffffffffffffffffffffffffffffe0e0e0ffd0c0c0ff705840c050383010 ,
+                                        0x0000000000000000000000000000000090787010807860b0908070f0907870ff ,
+                                        0x908070ff907870ff907870ff807060ff705840ff504030d05038301000000000 ,
+                                        0x000000000000000000000000000000000000000090807000a0888000a0888010 ,
+                                        0xa088800000000000000000000000000000000000503830000000000000000000 ,
+                                        0x0000000000000000
+                                    End
+
+                                    LayoutCachedLeft =1320
+                                    LayoutCachedTop =5040
+                                    LayoutCachedWidth =3480
+                                    LayoutCachedHeight =5460
+                                    PictureCaptionArrangement =5
+                                    BackColor =14262935
+                                    BackThemeColorIndex =-1
+                                    BackTint =100.0
+                                    BorderColor =15321539
+                                    BorderThemeColorIndex =-1
+                                    BorderTint =100.0
+                                    HoverColor =15321539
+                                    HoverThemeColorIndex =-1
+                                    HoverTint =100.0
+                                    PressedColor =13072231
+                                    PressedThemeColorIndex =-1
+                                    PressedShade =100.0
+                                    HoverForeColor =4210752
+                                    PressedForeColor =4210752
+                                    WebImagePaddingLeft =9
+                                    WebImagePaddingTop =9
+                                    WebImagePaddingRight =9
+                                    WebImagePaddingBottom =9
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =255
+                                            Left =3960
+                                            Top =5100
+                                            Width =4440
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label59"
+                                            Caption ="Reset all default settings to original values."
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =3960
+                                            LayoutCachedTop =5100
+                                            LayoutCachedWidth =8400
+                                            LayoutCachedHeight =5415
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin OptionGroup
+                                    OverlapFlags =247
+                                    Left =960
+                                    Top =2280
+                                    Width =8160
+                                    Height =1740
+                                    TabIndex =3
+                                    BorderColor =10921638
+                                    Name ="Frame62"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =960
+                                    LayoutCachedTop =2280
+                                    LayoutCachedWidth =9120
+                                    LayoutCachedHeight =4020
+                                    Begin
+                                        Begin Label
+                                            BackStyle =1
+                                            OverlapFlags =247
+                                            Left =1080
+                                            Top =2100
+                                            Width =1200
+                                            Height =315
+                                            BackColor =15130848
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label63"
+                                            Caption =" This Project"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1080
+                                            LayoutCachedTop =2100
+                                            LayoutCachedWidth =2280
+                                            LayoutCachedHeight =2415
+                                            BackThemeColorIndex =-1
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin OptionGroup
+                                    OverlapFlags =247
+                                    Left =960
+                                    Top =4620
+                                    Width =8160
+                                    Height =1200
+                                    TabIndex =4
+                                    BorderColor =10921638
+                                    Name ="Frame65"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =960
+                                    LayoutCachedTop =4620
+                                    LayoutCachedWidth =9120
+                                    LayoutCachedHeight =5820
+                                    Begin
+                                        Begin Label
+                                            BackStyle =1
+                                            OverlapFlags =247
+                                            Left =1080
+                                            Top =4440
+                                            Width =1620
+                                            Height =315
+                                            BackColor =15130848
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label66"
+                                            Caption =" System Defaults"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1080
+                                            LayoutCachedTop =4440
+                                            LayoutCachedWidth =2700
+                                            LayoutCachedHeight =4755
+                                            BackThemeColorIndex =-1
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                            End
                         End
                     End
                 End
@@ -1083,6 +1855,33 @@ Begin Form
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                 End
+                Begin Line
+                    LineSlant = NotDefault
+                    OverlapFlags =87
+                    Left =9540
+                    Top =6240
+                    Width =300
+                    Name ="Line76"
+                    GridlineColor =10921638
+                    LayoutCachedLeft =9540
+                    LayoutCachedTop =6240
+                    LayoutCachedWidth =9840
+                    LayoutCachedHeight =6240
+                End
+                Begin Line
+                    LineSlant = NotDefault
+                    OverlapFlags =87
+                    Left =540
+                    Top =6240
+                    Width =0
+                    Height =240
+                    Name ="Line77"
+                    GridlineColor =10921638
+                    LayoutCachedLeft =540
+                    LayoutCachedTop =6240
+                    LayoutCachedWidth =540
+                    LayoutCachedHeight =6480
+                End
             End
         End
     End
@@ -1108,10 +1907,41 @@ Option Explicit
 
 Private cOptions As clsOptions
 
+' Use a collection to represent tables, since the user can filter which ones they
+' want to see while updating items in the list. We don't want to save till the very
+' end when we write this information back to the json options file.
+Private m_colTables As Collection
+
+Private Enum eTableCol
+    etcName
+    etcType
+    etcHidden
+    etcSystem
+    etcOther
+End Enum
+
 Private Enum eMapAction
     emaClassToForm
     emaFormToClass
 End Enum
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : chkTableShowHidden_Click
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : Update the list of tables
+'---------------------------------------------------------------------------------------
+'
+Private Sub chkTableShowHidden_Click()
+    RefreshTableDisplay
+End Sub
+Private Sub chkTableShowOther_Click()
+    RefreshTableDisplay
+End Sub
+Private Sub chkTableShowSystem_Click()
+    RefreshTableDisplay
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -1123,6 +1953,211 @@ End Enum
 '
 Private Sub cmdCancel_Click()
     DoCmd.Close acForm, Me.Name
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdClearDefaults_Click
+' Author    : Adam Waller
+' Date      : 4/16/2020
+' Purpose   : Clear the default and project settings.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdClearDefaults_Click()
+    Dim cDefaults As clsOptions
+    Set cDefaults = New clsOptions
+    cDefaults.SaveOptionsAsDefault
+    If MsgBox2("Apply to this Project?", _
+        "The default options have been reset. Would you like these applied to this project as well?", _
+        "Click 'Yes' to apply the default options, or 'No' to leave the current options.", _
+        vbQuestion + vbYesNo, "Version Control System") = VbMsgBoxResult.vbYes Then
+        cmdRestoreDefaults_Click
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdOtherTable_Click
+' Author    : Adam Waller
+' Date      : 4/16/2020
+' Purpose   : Select another table not used in the current database
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdOtherTable_Click()
+    Dim strTable As String
+    strTable = InputBox("Enter the name of a table that doesn't exist in this database, " & _
+        "but from which you would like to export data if it is found.", "Enter Table Name")
+    chkTableShowOther = True
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadTableList
+' Author    : Adam Waller
+' Date      : 4/16/2020
+' Purpose   : Load the list of tables in the current database, and merge in the list
+'           : of tables where we are opting to save data.
+'---------------------------------------------------------------------------------------
+'
+Private Function LoadTableList()
+
+    Dim tbl As AccessObject
+    Dim blnHidden As Boolean
+    Dim blnSystem As Boolean
+    Dim blnShow As Boolean
+    Dim blnOther As Boolean
+    Dim intIndex As Integer
+    Dim dTable As Dictionary
+    Dim varTable As Variant
+    Dim varKey As Variant
+    
+    ' Reset list of tables
+    Set m_colTables = New Collection
+    
+    ' Get list of tables
+    For Each tbl In CurrentData.AllTables
+        ' Read table attributes
+        blnHidden = Application.GetHiddenAttribute(acTable, tbl.Name)
+        blnSystem = (tbl.Attributes And dbSystemObject)
+        blnOther = cOptions.TablesToExportData.Exists(tbl.Name)
+        ' Add array record to represent table.
+        m_colTables.Add Array(tbl.Name, vbNullString, blnHidden, blnSystem, blnOther)
+    Next tbl
+    
+    ' Add in the list of saved tables, adding into the sorted location
+    If Not cOptions.TablesToExportData Is Nothing Then
+        For Each varKey In cOptions.TablesToExportData.Keys
+            SetTableExportType CStr(varKey), TableExportFormatKeyToEnum(CStr(cOptions.TablesToExportData.Item(varKey)("Format")))
+        Next varKey
+    End If
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TableExportFormatKeyToEnum
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : Translate the table export format key to the corresponding enum value.
+'---------------------------------------------------------------------------------------
+'
+Private Function TableExportFormatKeyToEnum(strKey As String) As eTableDataExportFormat
+    Dim intFormat As eTableDataExportFormat
+    Dim strName As String
+    For intFormat = etdNoData To eTableDataExportFormat.[_last]
+        strName = cOptions.GetTableExportFormatName(intFormat)
+        If strName = strKey Then
+            TableExportFormatKeyToEnum = intFormat
+            Exit For
+        End If
+    Next intFormat
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetTableExportType
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : Set the export type for the table
+'---------------------------------------------------------------------------------------
+'
+Private Function SetTableExportType(strTable As String, intFormat As eTableDataExportFormat)
+
+    Dim varTable As Variant
+    Dim varNew As Variant
+    Dim strType As String
+    Dim intIndex As Integer
+    
+    For Each varTable In m_colTables
+        intIndex = intIndex + 1
+        If varTable(etcName) = strTable Then
+            If intFormat <> 0 Then strType = GetTableFormatName(intFormat)
+            ' Create new record
+            varNew = Array(strTable, strType, varTable(etcHidden), varTable(etcSystem), varTable(etcOther))
+            ' Replace with new record
+            m_colTables.Add varNew, strTable, intIndex
+            m_colTables.Remove intIndex + 1
+            Exit For
+        End If
+    Next varTable
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTableFormatName
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : Return the friendly name for the table export format.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetTableFormatName(intFormat As eTableDataExportFormat) As String
+    Select Case intFormat
+        Case etdNoData:         GetTableFormatName = "No Data"
+        Case etdTabDelimited:   GetTableFormatName = "Tab Delimited"
+        Case etdXML:            GetTableFormatName = "XML Format"
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RefreshTableDisplay
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : The master list of tables is stored in the m_colTables
+'---------------------------------------------------------------------------------------
+'
+Private Function RefreshTableDisplay()
+    
+    Dim varTable As Variant
+    Dim varValue As Variant
+    Dim blnShow As Boolean
+    
+    ' Update the list box of table names from the collection.
+    With Me.lstTables
+
+        ' Add header row
+        .RowSource = ""
+        .AddItem "Table Name;Save Data"
+        
+        ' Get list of tables
+        For Each varTable In m_colTables
+            
+            ' Show all, unless hidden by options
+            blnShow = Not (varTable(etcHidden) Or varTable(etcSystem))
+            
+            ' Evaluate hidden attribute
+            If Me.chkTableShowHidden And varTable(etcHidden) Then blnShow = True
+            
+            ' Check system attribute
+            If Me.chkTableShowSystem And varTable(etcSystem) Then blnShow = True
+            
+            ' Check for other tables
+            If Me.chkTableShowOther And varTable(etcOther) Then blnShow = True
+            
+            ' Add to list
+            If blnShow Then .AddItem varTable(etcName) & ";" & varTable(etcType)
+            
+        Next varTable
+    End With
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdRestoreDefaults_Click
+' Author    : Adam Waller
+' Date      : 4/16/2020
+' Purpose   : Restore the default options to this project.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdRestoreDefaults_Click()
+    cOptions.LoadDefaultOptions
+    MapControlsToOptions emaClassToForm
+    MsgBox2 "Default Options Restored", _
+        "The system default options have been restored to this project.", _
+        "Be sure to click Save and Close when you are finished making changes.", _
+        vbInformation, "Version Control System"
 End Sub
 
 
@@ -1141,6 +2176,45 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : cmdSaveAsDefault_Click
+' Author    : Adam Waller
+' Date      : 4/16/2020
+' Purpose   : Save current options as default for projects.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdSaveAsDefault_Click()
+    cOptions.SaveOptionsAsDefault
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdUpdateTableData_Click
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : Update the table in the list
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdUpdateTableData_Click()
+    
+    Dim strSaveType As String
+    Dim intIndex As Integer
+    Dim strTable As String
+    
+    ' Grab type of data to save
+    If cboTableDataSaveType <> "No Data" Then strSaveType = cboTableDataSaveType
+    
+    With lstTables
+        ' Update list
+        intIndex = .ListIndex + 1 ' Add row for header
+        strTable = .Value
+        .AddItem strTable & ";" & strSaveType, intIndex
+        .RemoveItem intIndex + 1    ' Add for header row and inserted row.
+    End With
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Form_Load
 ' Author    : Adam Waller
 ' Date      : 4/14/2020
@@ -1148,9 +2222,20 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Form_Load()
+
+    Dim intFormat As eTableDataExportFormat
+    
     Set cOptions = New clsOptions
     cOptions.LoadProjectOptions
     MapControlsToOptions emaClassToForm
+    LoadTableList
+    RefreshTableDisplay
+    
+    ' Load list of table data export formats
+    For intFormat = etdNoData To 2
+        cboTableDataSaveType.AddItem intFormat & ";" & GetTableFormatName(intFormat)
+    Next intFormat
+    
 End Sub
 
 
@@ -1172,13 +2257,18 @@ Private Function MapControlsToOptions(eAction As eMapAction)
         For Each ctl In pge.Controls
             Select Case TypeName(ctl)
                 Case "CheckBox", "TextBox"
-                    ' Get option name from control name following prefix.
-                    strKey = Mid(ctl.Name, 4)
-                    If eAction = emaClassToForm Then
-                        ctl = CallByName(cOptions, strKey, VbGet)
-                    ElseIf eAction = emaFormToClass Then
-                        CallByName cOptions, strKey, VbLet, ctl.Value
-                    End If
+                    Select Case ctl.Name
+                        Case "chkTableShowHidden", "chkTableShowSystem", "chkTableShowOther", "txtTableName"
+                            ' Skip these exceptions.
+                        Case Else
+                            ' Get option name from control name following prefix.
+                            strKey = Mid(ctl.Name, 4)
+                            If eAction = emaClassToForm Then
+                                ctl = CallByName(cOptions, strKey, VbGet)
+                            ElseIf eAction = emaFormToClass Then
+                                CallByName cOptions, strKey, VbLet, ctl.Value
+                            End If
+                    End Select
                 Case "ListBox"
                     ' Special handling for lists
                 Case Else

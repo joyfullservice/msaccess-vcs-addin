@@ -44,3 +44,4 @@ Theme Resource Name?Office Theme?10
 DesignWithData?True?1
 Show Values Limit?1000?4
 Themed Form Controls?1?4
+AppTitle?Version Control System?10

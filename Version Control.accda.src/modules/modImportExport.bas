@@ -4,6 +4,7 @@ Option Private Module
 
 
 Private Const cstrSpacer As String = "-------------------------------"
+Public Const cintPad As Integer = 25
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -18,6 +19,7 @@ Private m_FSO As Scripting.FileSystemObject
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportAllSource()
+    
     
     Dim dbs As DAO.Database
     Dim strSourcePath As String
@@ -42,8 +44,9 @@ Public Sub ExportAllSource()
     Dim dteModified As Date
     Dim cOptions As clsOptions
     
-    ' Load the project options
+    ' Load the project options and reset the logs
     Set cOptions = LoadOptions
+    ClearLogs
 
     ' Option used with fast saves
     If cOptions.UseFastSave Then
@@ -84,7 +87,7 @@ Public Sub ExportAllSource()
         strObjectPath = strSourcePath & "queries\"
         ClearOrphanedSourceFiles strObjectPath, dbs.QueryDefs, cOptions, "bas", "sql"
         Log cstrSpacer, cOptions.ShowDebug
-        Log PadRight("Exporting queries...", 24), True, cOptions.ShowDebug
+        Log PadRight("Exporting queries...", cintPad), True, cOptions.ShowDebug
         Log "", cOptions.ShowDebug
         intObjCnt = 0
         For Each qry In dbs.QueryDefs
@@ -117,7 +120,7 @@ Public Sub ExportAllSource()
         
         ' Process triggers
         Log cstrSpacer, cOptions.ShowDebug
-        Log PadRight("Exporting triggers...", 24), True, cOptions.ShowDebug
+        Log PadRight("Exporting triggers...", cintPad), True, cOptions.ShowDebug
         Log "", cOptions.ShowDebug
         ExportADPTriggers cOptions, strSourcePath & "triggers\"
         
@@ -132,7 +135,7 @@ Public Sub ExportAllSource()
             ClearOrphanedSourceFiles strObjectPath, objContainer, cOptions, varType(1)
             
             Log cstrSpacer, cOptions.ShowDebug
-            Log PadRight("Exporting " & varType(0) & "...", 24), , cOptions.ShowDebug
+            Log PadRight("Exporting " & varType(0) & "...", cintPad), , cOptions.ShowDebug
             Log "", cOptions.ShowDebug
             intObjCnt = 0
             For Each qry In varType(2)
@@ -165,7 +168,7 @@ Public Sub ExportAllSource()
                 End If
                 intObjCnt = intObjCnt + 1
                 ' Check for table/query data export
-                If InCollection(cOptions.TablesToSave, qry.Name) Then
+                If cOptions.TablesToExportData.Exists(qry.Name) Then
                     DoCmd.OutputTo acOutputServerView, qry.Name, acFormatTXT, strObjectPath & GetSafeFileName(StripDboPrefix(qry.Name)) & ".txt", False
                     Log "    Data exported", cOptions.ShowDebug
                 End If
@@ -204,7 +207,7 @@ Public Sub ExportAllSource()
         
         ' Show progress
         Log cstrSpacer, cOptions.ShowDebug
-        Log PadRight("Exporting " & strLabel & "...", 24), , cOptions.ShowDebug
+        Log PadRight("Exporting " & strLabel & "...", cintPad), , cOptions.ShowDebug
         Log "", cOptions.ShowDebug
         
         ' Loop through objects in container
@@ -231,19 +234,19 @@ Public Sub ExportAllSource()
 
     ' Export references
     Log cstrSpacer, cOptions.ShowDebug
-    Log PadRight("Exporting references...", 24), , cOptions.ShowDebug
+    Log PadRight("Exporting references...", cintPad), , cOptions.ShowDebug
     Log "", cOptions.ShowDebug
     ExportReferences strSourcePath, cOptions
     
     ' Export database properties
     Log cstrSpacer, cOptions.ShowDebug
-    Log PadRight("Exporting properties...", 24), , cOptions.ShowDebug
+    Log PadRight("Exporting properties...", cintPad), , cOptions.ShowDebug
     Log "", cOptions.ShowDebug
     ExportProperties strSourcePath, cOptions
     
     ' Export Import/Export Specifications
     Log cstrSpacer, cOptions.ShowDebug
-    Log PadRight("Exporting specs...", 24), , cOptions.ShowDebug
+    Log PadRight("Exporting specs...", cintPad), , cOptions.ShowDebug
     Log "", cOptions.ShowDebug
     ExportSpecs strSourcePath, cOptions
     
@@ -257,7 +260,7 @@ Public Sub ExportAllSource()
         Dim tds As TableDefs
         Set tds = dbs.TableDefs
     
-        If cOptions.TablesToSave.Count = 0 Then
+        If cOptions.TablesToExportData.Count = 0 Then
             strObjectPath = strSourcePath & "tables"
             If FSO.FolderExists(strObjectPath) Then ClearOrphanedSourceFiles strObjectPath & "\", Nothing, cOptions, "txt"
         Else
@@ -279,7 +282,7 @@ Public Sub ExportAllSource()
         ClearOrphanedSourceFiles strObjectPath, tds, cOptions, "LNKD", "sql", "xml", "bas"
 
         Log cstrSpacer, cOptions.ShowDebug
-        Log PadRight("Exporting " & strLabel & "...", 24), , cOptions.ShowDebug
+        Log PadRight("Exporting " & strLabel & "...", cintPad), , cOptions.ShowDebug
         Log "", cOptions.ShowDebug
         
         For Each td In tds
@@ -289,12 +292,12 @@ Public Sub ExportAllSource()
                 Left$(td.Name, 1) <> "~" Then
                 If Len(td.connect) = 0 Then ' this is not an external table
                     ExportTableDef td.Name, strObjectPath, cOptions
-                    If InCollection(cOptions.TablesToSave, "*") Then
+                    If cOptions.TablesToExportData.Exists("*") Then
                         ExportTableData CStr(td.Name), strSourcePath & "tables\", cOptions
                         If Len(Dir(strSourcePath & "tables\" & td.Name & ".txt")) > 0 Then
                             intObjDataCnt = intObjDataCnt + 1
                         End If
-                    ElseIf InCollection(cOptions.TablesToSave, td.Name) Then
+                    ElseIf cOptions.TablesToExportData.Exists(td.Name) Then
                         modTable.ExportTableData CStr(td.Name), strSourcePath & "tables\", cOptions
                         intObjDataCnt = intObjDataCnt + 1
                     'else don't export table data
@@ -317,7 +320,7 @@ Public Sub ExportAllSource()
     
         ' Export relationships (MDB only)
         Log cstrSpacer, cOptions.ShowDebug
-        Log PadRight("Exporting relations...", 24), , cOptions.ShowDebug
+        Log PadRight("Exporting relations...", cintPad), , cOptions.ShowDebug
         Log "", cOptions.ShowDebug
         
         intObjCnt = 0
@@ -348,7 +351,7 @@ Public Sub ExportAllSource()
     ' VBE objects
     If cOptions.IncludeVBE Then
         Log cstrSpacer, cOptions.ShowDebug
-        Log PadRight("Exporting VBE...", 24), , cOptions.ShowDebug
+        Log PadRight("Exporting VBE...", cintPad), , cOptions.ShowDebug
         Log "", cOptions.ShowDebug
         ExportAllVBE cOptions
     End If
@@ -638,7 +641,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     FileName = Dir(obj_path & "*.bas")
     Dim tempFilePath As String: tempFilePath = modFileAccess.GetTempFile()
     If Len(FileName) > 0 Then
-        Debug.Print PadRight("Importing queries...", 24);
+        Debug.Print PadRight("Importing queries...", cintPad);
         obj_count = 0
         Do Until Len(FileName) = 0
             DoEvents
@@ -658,7 +661,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     obj_path = source_path & "tbldefs\"
     FileName = Dir(obj_path & "*.sql")
     If Len(FileName) > 0 Then
-        Debug.Print PadRight("Importing tabledefs...", 24);
+        Debug.Print PadRight("Importing tabledefs...", cintPad);
         obj_count = 0
         Do Until Len(FileName) = 0
             obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
@@ -680,7 +683,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     ' restore linked tables - we must have access to the remote store to import these!
     FileName = Dir(obj_path & "*.LNKD")
     If Len(FileName) > 0 Then
-        Debug.Print PadRight("Importing Linked tabledefs...", 24);
+        Debug.Print PadRight("Importing Linked tabledefs...", cintPad);
         obj_count = 0
         Do Until Len(FileName) = 0
             obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
@@ -704,7 +707,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     obj_path = source_path & "tables\"
     FileName = Dir(obj_path & "*.txt")
     If Len(FileName) > 0 Then
-        Debug.Print PadRight("Importing tables...", 24);
+        Debug.Print PadRight("Importing tables...", cintPad);
         obj_count = 0
         Do Until Len(FileName) = 0
             DoEvents
@@ -720,7 +723,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     obj_path = source_path & "tbldefs\"
     FileName = Dir(obj_path & "*.xml")
     If Len(FileName) > 0 Then
-        Debug.Print PadRight("Importing Data Macros...", 24);
+        Debug.Print PadRight("Importing Data Macros...", cintPad);
         obj_count = 0
         Do Until Len(FileName) = 0
             DoEvents
@@ -753,7 +756,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     
         FileName = Dir(obj_path & "*.bas")
         If Len(FileName) > 0 Then
-            Debug.Print PadRight("Importing " & obj_type_label & "...", 24);
+            Debug.Print PadRight("Importing " & obj_type_label & "...", cintPad);
             obj_count = 0
             Do Until Len(FileName) = 0
                 ' DoEvents no good idea!
@@ -775,7 +778,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     Next
     
     'import Print Variables
-    Debug.Print PadRight("Importing Print Vars...", 24);
+    Debug.Print PadRight("Importing Print Vars...", cintPad);
     obj_count = 0
     
     obj_path = source_path & "reports\"
@@ -790,7 +793,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     Debug.Print "[" & obj_count & "]"
     
     'import relations
-    Debug.Print PadRight("Importing Relations...", 24);
+    Debug.Print PadRight("Importing Relations...", cintPad);
     obj_count = 0
     obj_path = source_path & "relations\"
     FileName = Dir(obj_path & "*.txt")

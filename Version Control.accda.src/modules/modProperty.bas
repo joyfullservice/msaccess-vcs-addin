@@ -82,7 +82,7 @@ Public Function ImportProperties(ByVal sourcePath As String, Optional ByRef appI
         Exit Function
     End If
     
-    Debug.Print PadRight("Importing Properties...", 24);
+    Debug.Print PadRight("Importing Properties...", cintPad);
     
     Dim thisDB As Object
     Set thisDB = ThisProjectDB(appInstance)

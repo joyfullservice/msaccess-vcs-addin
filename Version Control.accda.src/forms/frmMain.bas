@@ -19,7 +19,7 @@ Begin Form
     ItemSuffix =17
     Left =3225
     Top =2430
-    Right =28545
+    Right =22695
     Bottom =15015
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
@@ -1640,25 +1640,6 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub cmdExport_Click()
-
-    Dim cModel As IVersionControl
-    Dim colParams As New Collection
-
-    Set cModel = New clsModelGitHub
-    
-    ' VCS Settings for this database (Additional parameters may be added as needed)
-    With colParams
-        .Add Array("System", "GitHub")  ' IMPORTANT: Set this first, before other settings.
-        .Add Array("Export Folder", CurrentProject.Path & "\" & CurrentProject.Name & ".src\")
-        ' Optional parameters
-        .Add Array("Show Debug", False)
-        .Add Array("Include VBE", False)
-        .Add Array("Fast Save", True)
-        .Add Array("Save Print Vars", False)
-        .Add Array("Save Query SQL", True)
-        .Add Array("Save Table SQL", True)
-        '.Add Array("Save Table", "vObjectPermissions")
-    End With
     
     cmdClose.SetFocus
     HideActionButtons
@@ -1667,7 +1648,7 @@ Public Sub cmdExport_Click()
     txtLog.SetFocus
     
     ' Export the source code
-    LoadVersionControlMenu(colParams).ExportAll
+    modImportExport.ExportAllSource
     
 End Sub
 

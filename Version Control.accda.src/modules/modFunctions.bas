@@ -4,9 +4,16 @@ Option Private Module
 
 Public colVerifiedPaths As New Collection
 
+Public Enum eTableDataExportFormat
+    etdNoData = 0
+    etdTabDelimited = 1
+    etdXML = 2
+    [_last] = 2
+End Enum
+
+
 Private m_Log As New clsConcat      ' Log file output
 Private m_Console As New clsConcat  ' Console output
-
 
 
 '---------------------------------------------------------------------------------------
@@ -922,6 +929,19 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearLog
+' Author    : Adam Waller
+' Date      : 4/16/2020
+' Purpose   : Clear the log buffers
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearLogs()
+    Set m_Console = New clsConcat
+    Set m_Log = New clsConcat
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Log
 ' Author    : Adam Waller
 ' Date      : 1/18/2019
@@ -1029,4 +1049,31 @@ Public Function GetVCSVersion() As String
         End If
     Next prp
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TimerIcon
+' Author    : Adam Waller
+' Date      : 4/16/2020
+' Purpose   : Return the next increment of a timer icon, updating no more than a half
+'           : second between increments.
+'           : https://emojipedia.org/search/?q=clock
+'---------------------------------------------------------------------------------------
+'
+Public Function TimerIcon() As String
+    
+    Static intHour As Integer
+    Static sngLast As Single
+    
+    Dim strClocks As String
+    
+    ' Build list of clock characters
+    ' (Need to figure out the AscW value for the clock characters)
+    
+    If (Timer - sngLast > 0.5) Or (Timer < sngLast) Then
+        If intHour = 12 Then intHour = 0
+        intHour = intHour + 1
+    End If
+    
 End Function
