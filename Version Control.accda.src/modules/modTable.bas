@@ -268,12 +268,12 @@ Private Sub AddFieldReferences(dbs As Database, fld As Object, strTable As Strin
     Dim fld2 As DAO.Field
     
     For Each rel In dbs.Relations
-        If (rel.foreignTable = strTable) Then
+        If (rel.ForeignTable = strTable) Then
             If FieldsIdentical(fld, rel.Fields) Then
                 
                 ' References
                 cData.Add " REFERENCES "
-                cData.Add rel.table
+                cData.Add rel.Table
                 cData.Add " ("
                 For Each fld2 In rel.Fields
                     cData.Add fld2.Name
