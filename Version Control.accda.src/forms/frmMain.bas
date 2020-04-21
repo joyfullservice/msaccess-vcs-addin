@@ -17,10 +17,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =17
-    Left =3225
-    Top =2430
-    Right =22695
-    Bottom =15015
+    Left =-14970
+    Top =1290
+    Right =-5610
+    Bottom =7755
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1341,10 +1341,7 @@ Begin Form
                     TabIndex =3
                     BorderColor =8355711
                     ForeColor =5324600
-                    Name ="lblDescription"
-                    ControlSource ="=\"<strong><em>Export</em></strong> source to generate source files from the cur"
-                        "rent database.<br><br><strong><em>Import</em></strong> source files to rebuild t"
-                        "his database from source.\""
+                    Name ="txtDescription"
                     GridlineColor =10921638
                     TextFormat =1
 
@@ -1647,8 +1644,14 @@ Public Sub cmdExport_Click()
     txtLog.Visible = True
     txtLog.SetFocus
     
+    ' Show the status
+    SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
+    
     ' Export the source code
     modImportExport.ExportAllSource
+    
+    SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
+    cmdClose.SetFocus
     
 End Sub
 
@@ -1702,4 +1705,22 @@ End Sub
 '
 Private Sub Form_Load()
     lblVersion.Caption = "Version " & GetVCSVersion()
+    SetStatusText "Choose Action", "What would you like to do?", _
+        "<strong><em>Export</em></strong> source to generate source files from the current database." & _
+        "<br><br><strong><em>Import</em></strong> source files to rebuild this database from source."
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetStatusText
+' Author    : Adam Waller
+' Date      : 4/21/2020
+' Purpose   : Update the status text to direct the user to the next task, or show the
+'           : status of the current operation.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SetStatusText(strHeading As String, strSubHeading As String, strDescriptionHtml As String)
+    lblHeading.Caption = strHeading
+    lblSubheading.Caption = strSubHeading
+    txtDescription.Value = strDescriptionHtml
 End Sub

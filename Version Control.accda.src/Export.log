@@ -3,7 +3,7 @@ Beginning Export of all Source
 Version Control.accda
 VCS Version 1.2.0.22
 Using Fast Save
-4/21/2020 11:29:52 AM
+4/21/2020 11:52:36 AM
 -------------------------------
 -------------------------------
 Exporting queries...     
@@ -65,4 +65,4 @@ Exporting tbldef...
 Exporting relations...   
 [0]
 -------------------------------
-Done. (0.79 seconds)
+Done. (0.7 seconds)
