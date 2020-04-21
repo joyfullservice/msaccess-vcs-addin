@@ -48,6 +48,9 @@ Public Sub ExportAllSource()
     Set cOptions = LoadOptions
     ClearLogs
 
+    ' Run any custom sub before export
+    If cOptions.RunBeforeExport <> vbNullString Then Run cOptions.RunBeforeExport
+
     ' Option used with fast saves
     If cOptions.UseFastSave Then
         strData = GetDBProperty("InitiatedCompactRepair")
@@ -370,7 +373,10 @@ Public Sub ExportAllSource()
         ' Reload version control so we can run fast save.
         'InitializeVersionControlSystem
     End If
-    
+
+    ' Run any custom sub before export
+    If cOptions.RunAfterExport <> vbNullString Then Run cOptions.RunAfterExport
+
 End Sub
 
 

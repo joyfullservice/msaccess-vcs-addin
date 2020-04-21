@@ -1,6 +1,6 @@
 {
   "Info": {
-    "AddinVersion": "1.2.0.26",
+    "AddinVersion": "1.2.0.27",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
@@ -21,7 +21,7 @@
         "Format": "Tab Delimited"
       }
     },
-    "RunBeforeExport": "",
+    "RunBeforeExport": "Deploy",
     "RunAfterExport": "",
     "RunAfterBuild": ""
   }
