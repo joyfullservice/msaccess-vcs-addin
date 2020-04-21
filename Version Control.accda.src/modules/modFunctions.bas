@@ -45,7 +45,7 @@ Public Sub SanitizeFile(strPath As String, cOptions As clsOptions)
     sngOverall = sngTimer
         
     '  Setup Block matching Regex.
-    rxBlock.ignoreCase = False
+    rxBlock.IgnoreCase = False
     
     ' Build main search patterns
     With cPattern
