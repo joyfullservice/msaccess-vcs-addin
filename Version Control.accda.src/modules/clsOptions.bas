@@ -266,9 +266,9 @@ End Function
 '
 Public Function GetTableExportFormatName(intFormat As eTableDataExportFormat) As String
     Select Case intFormat
-        Case etdTabDelimited:   GetTableExportFormatName = "TabDelimited"
-        Case etdXML:            GetTableExportFormatName = "XMLFormat"
-        Case Else:              GetTableExportFormatName = "Unknown"
+        Case etdTabDelimited:   GetTableExportFormatName = "Tab Delimited"
+        Case etdXML:            GetTableExportFormatName = "XML Format"
+        Case Else:              GetTableExportFormatName = vbNullString
     End Select
 End Function
 

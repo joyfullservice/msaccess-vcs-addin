@@ -1,6 +1,6 @@
 {
   "Info": {
-    "AddinVersion": "1.2.0.19",
+    "AddinVersion": "1.2.0.26",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
@@ -14,11 +14,8 @@
     "StripPublishOption": true,
     "AggressiveSanitize": true,
     "TablesToExportData": {
-      "USysRibbons": {
-        "Format": "TabDelimited"
-      },
       "USysRegInfo": {
-        "Format": "TabDelimited"
+        "Format": "Tab Delimited"
       }
     },
     "RunBeforeExport": "",

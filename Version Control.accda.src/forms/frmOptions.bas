@@ -16,11 +16,11 @@ Begin Form
     GridY =24
     Width =10080
     DatasheetFontHeight =11
-    ItemSuffix =89
-    Left =-17265
-    Top =2430
-    Right =-255
-    Bottom =10335
+    ItemSuffix =91
+    Left =-15330
+    Top =1050
+    Right =-5250
+    Bottom =8235
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -849,7 +849,7 @@ Begin Form
                                     OverlapFlags =215
                                     IMESentenceMode =3
                                     Left =3480
-                                    Top =4740
+                                    Top =5040
                                     Width =2640
                                     Height =315
                                     TabIndex =10
@@ -859,14 +859,14 @@ Begin Form
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =3480
-                                    LayoutCachedTop =4740
+                                    LayoutCachedTop =5040
                                     LayoutCachedWidth =6120
-                                    LayoutCachedHeight =5055
+                                    LayoutCachedHeight =5355
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
                                             Left =1200
-                                            Top =4740
+                                            Top =5040
                                             Width =2205
                                             Height =315
                                             BorderColor =8355711
@@ -875,9 +875,9 @@ Begin Form
                                             Caption ="Run Sub Before Export:"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =1200
-                                            LayoutCachedTop =4740
+                                            LayoutCachedTop =5040
                                             LayoutCachedWidth =3405
-                                            LayoutCachedHeight =5055
+                                            LayoutCachedHeight =5355
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -904,7 +904,7 @@ Begin Form
                                     OverlapFlags =215
                                     IMESentenceMode =3
                                     Left =3480
-                                    Top =5160
+                                    Top =5460
                                     Width =2640
                                     Height =315
                                     TabIndex =11
@@ -914,14 +914,14 @@ Begin Form
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =3480
-                                    LayoutCachedTop =5160
+                                    LayoutCachedTop =5460
                                     LayoutCachedWidth =6120
-                                    LayoutCachedHeight =5475
+                                    LayoutCachedHeight =5775
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
                                             Left =1200
-                                            Top =5160
+                                            Top =5460
                                             Width =2055
                                             Height =315
                                             BorderColor =8355711
@@ -930,9 +930,9 @@ Begin Form
                                             Caption ="Run Sub After Export:"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =1200
-                                            LayoutCachedTop =5160
+                                            LayoutCachedTop =5460
                                             LayoutCachedWidth =3255
-                                            LayoutCachedHeight =5475
+                                            LayoutCachedHeight =5775
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -974,6 +974,7 @@ Begin Form
                                     Name ="lstTables"
                                     RowSourceType ="Value List"
                                     ColumnWidths ="3960;1440"
+                                    OnClick ="[Event Procedure]"
                                     GridlineColor =10921638
                                     AllowValueListEdits =0
 
@@ -1099,7 +1100,6 @@ Begin Form
                                     RowSourceTypeInt =1
                                     OverlapFlags =247
                                     IMESentenceMode =3
-                                    ColumnCount =2
                                     ListWidth =1695
                                     Left =6720
                                     Top =4920
@@ -1110,8 +1110,6 @@ Begin Form
                                     ForeColor =4138256
                                     Name ="cboTableDataSaveType"
                                     RowSourceType ="Value List"
-                                    ColumnWidths ="0"
-                                    DefaultValue ="0"
                                     GridlineColor =10921638
                                     AllowValueListEdits =0
 
@@ -1272,50 +1270,31 @@ Begin Form
                                         End
                                     End
                                 End
-                                Begin CommandButton
+                                Begin Label
                                     FontUnderline = NotDefault
                                     OverlapFlags =247
-                                    Left =8400
+                                    Left =8460
                                     Top =3420
-                                    Width =840
-                                    Height =300
+                                    Width =720
+                                    Height =240
                                     FontSize =10
-                                    TabIndex =7
+                                    BackColor =14262935
+                                    BorderColor =15321539
                                     ForeColor =16711680
-                                    Name ="cmdOtherTable"
+                                    Name ="lblAddOtherTable"
                                     Caption ="Other..."
                                     OnClick ="[Event Procedure]"
                                     HyperlinkAddress ="#"
                                     GridlineColor =10921638
-                                    BackStyle =0
-
-                                    LayoutCachedLeft =8400
+                                    LayoutCachedLeft =8460
                                     LayoutCachedTop =3420
-                                    LayoutCachedWidth =9240
-                                    LayoutCachedHeight =3720
-                                    PictureCaptionArrangement =4
-                                    ForeThemeColorIndex =10
-                                    ForeTint =100.0
-                                    Gradient =0
-                                    BackColor =14262935
+                                    LayoutCachedWidth =9180
+                                    LayoutCachedHeight =3660
                                     BackThemeColorIndex =-1
-                                    BackTint =100.0
-                                    OldBorderStyle =0
-                                    BorderColor =15321539
                                     BorderThemeColorIndex =-1
                                     BorderTint =100.0
-                                    HoverColor =15321539
-                                    HoverThemeColorIndex =-1
-                                    HoverTint =100.0
-                                    PressedColor =13072231
-                                    PressedThemeColorIndex =-1
-                                    PressedShade =100.0
-                                    HoverForeColor =4210752
-                                    PressedForeColor =4210752
-                                    WebImagePaddingLeft =2
-                                    WebImagePaddingTop =2
-                                    WebImagePaddingRight =2
-                                    WebImagePaddingBottom =2
+                                    ForeThemeColorIndex =10
+                                    ForeTint =100.0
                                 End
                             End
                         End
@@ -1856,6 +1835,7 @@ Begin Form
                     ForeTint =100.0
                 End
                 Begin Line
+                    Visible = NotDefault
                     LineSlant = NotDefault
                     OverlapFlags =87
                     Left =9540
@@ -1869,6 +1849,7 @@ Begin Form
                     LayoutCachedHeight =6240
                 End
                 Begin Line
+                    Visible = NotDefault
                     LineSlant = NotDefault
                     OverlapFlags =87
                     Left =540
@@ -1913,11 +1894,11 @@ Private cOptions As clsOptions
 Private m_colTables As Collection
 
 Private Enum eTableCol
-    etcName
-    etcType
-    etcHidden
-    etcSystem
-    etcOther
+    etcName = 0
+    etcType = 1
+    etcHidden = 2
+    etcSystem = 3
+    etcOther = 4
 End Enum
 
 Private Enum eMapAction
@@ -1977,21 +1958,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : cmdOtherTable_Click
-' Author    : Adam Waller
-' Date      : 4/16/2020
-' Purpose   : Select another table not used in the current database
-'---------------------------------------------------------------------------------------
-'
-Private Sub cmdOtherTable_Click()
-    Dim strTable As String
-    strTable = InputBox("Enter the name of a table that doesn't exist in this database, " & _
-        "but from which you would like to export data if it is found.", "Enter Table Name")
-    chkTableShowOther = True
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : LoadTableList
 ' Author    : Adam Waller
 ' Date      : 4/16/2020
@@ -2010,6 +1976,9 @@ Private Function LoadTableList()
     Dim dTable As Dictionary
     Dim varTable As Variant
     Dim varKey As Variant
+    Dim intFormat As eTableDataExportFormat
+    Dim strFormat As String
+    Dim strName As String
     
     ' Reset list of tables
     Set m_colTables = New Collection
@@ -2019,19 +1988,59 @@ Private Function LoadTableList()
         ' Read table attributes
         blnHidden = Application.GetHiddenAttribute(acTable, tbl.Name)
         blnSystem = (tbl.Attributes And dbSystemObject)
-        blnOther = cOptions.TablesToExportData.Exists(tbl.Name)
+        blnOther = False    ' Other represents tables not in this database.
         ' Add array record to represent table.
         m_colTables.Add Array(tbl.Name, vbNullString, blnHidden, blnSystem, blnOther)
     Next tbl
     
     ' Add in the list of saved tables, adding into the sorted location
     If Not cOptions.TablesToExportData Is Nothing Then
+        ' Loop through each table in the saved table list
         For Each varKey In cOptions.TablesToExportData.Keys
-            SetTableExportType CStr(varKey), TableExportFormatKeyToEnum(CStr(cOptions.TablesToExportData.Item(varKey)("Format")))
+            strFormat = CStr(cOptions.TablesToExportData.Item(varKey)("Format"))
+            intFormat = TableExportFormatKeyToEnum(strFormat)
+            strName = CStr(varKey)
+            AddUpdateTableInList strName, strFormat, False, False, True
         Next varKey
     End If
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddUpdateTableInList
+' Author    : Adam Waller
+' Date      : 4/21/2020
+' Purpose   : Updates the a table in the collection, adding it if it does not exist.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddUpdateTableInList(strName As String, strFormat As String, blnHidden As Boolean, blnSystem As Boolean, blnOther As Boolean)
+
+    Dim intIndex As Integer
+    Dim varTable As Variant
+    
+    ' Now loop through the collection of tables, inserting it into the alphabetical position.
+    For intIndex = 1 To m_colTables.Count
+        ' First, see if the table name was already loaded into the collection.
+        varTable = m_colTables(intIndex)
+        If varTable(etcName) = strName Then
+            ' Found matching table name. Update the existing record
+            SetTableExportType strName, strFormat
+            Exit Sub
+        Else
+            ' Check alphabetical position.
+            If (varTable(etcName) > strName) Then
+                ' Our saved table should be inserted before this record.
+                m_colTables.Add Array(strName, strFormat, False, False, True), strName, intIndex
+                Exit Sub
+            End If
+        End If
+    Next intIndex
+    
+    ' The table might need to be added to the very end of the list.
+    m_colTables.Add Array(strName, strFormat, False, False, True), strName
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -2055,13 +2064,33 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TableExportFormatNameToEnum
+' Author    : Adam Waller
+' Date      : 4/21/2020
+' Purpose   : Translate the friendly name of the table export format to the enum.
+'---------------------------------------------------------------------------------------
+'
+Private Function TableExportFormatNameToEnum(strKey As String) As eTableDataExportFormat
+    Dim intFormat As eTableDataExportFormat
+    Dim strName As String
+    For intFormat = etdNoData To eTableDataExportFormat.[_last]
+        strName = cOptions.GetTableExportFormatName(intFormat)
+        If strName = strKey Then
+            TableExportFormatNameToEnum = intFormat
+            Exit For
+        End If
+    Next intFormat
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SetTableExportType
 ' Author    : Adam Waller
 ' Date      : 4/17/2020
 ' Purpose   : Set the export type for the table
 '---------------------------------------------------------------------------------------
 '
-Private Function SetTableExportType(strTable As String, intFormat As eTableDataExportFormat)
+Private Function SetTableExportType(strTable As String, strFormat As String)
 
     Dim varTable As Variant
     Dim varNew As Variant
@@ -2071,32 +2100,20 @@ Private Function SetTableExportType(strTable As String, intFormat As eTableDataE
     For Each varTable In m_colTables
         intIndex = intIndex + 1
         If varTable(etcName) = strTable Then
-            If intFormat <> 0 Then strType = GetTableFormatName(intFormat)
             ' Create new record
+            strType = Replace(strFormat, "No Data", vbNullString)
             varNew = Array(strTable, strType, varTable(etcHidden), varTable(etcSystem), varTable(etcOther))
             ' Replace with new record
-            m_colTables.Add varNew, strTable, intIndex
-            m_colTables.Remove intIndex + 1
+            m_colTables.Remove intIndex
+            If intIndex = 1 Then
+                m_colTables.Add varNew, strTable, intIndex
+            Else
+                m_colTables.Add varNew, strTable, , intIndex - 1
+            End If
             Exit For
         End If
     Next varTable
 
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetTableFormatName
-' Author    : Adam Waller
-' Date      : 4/17/2020
-' Purpose   : Return the friendly name for the table export format.
-'---------------------------------------------------------------------------------------
-'
-Private Function GetTableFormatName(intFormat As eTableDataExportFormat) As String
-    Select Case intFormat
-        Case etdNoData:         GetTableFormatName = "No Data"
-        Case etdTabDelimited:   GetTableFormatName = "Tab Delimited"
-        Case etdXML:            GetTableFormatName = "XML Format"
-    End Select
 End Function
 
 
@@ -2121,24 +2138,20 @@ Private Function RefreshTableDisplay()
         .AddItem "Table Name;Save Data"
         
         ' Get list of tables
-        For Each varTable In m_colTables
-            
-            ' Show all, unless hidden by options
-            blnShow = Not (varTable(etcHidden) Or varTable(etcSystem))
-            
-            ' Evaluate hidden attribute
-            If Me.chkTableShowHidden And varTable(etcHidden) Then blnShow = True
-            
-            ' Check system attribute
-            If Me.chkTableShowSystem And varTable(etcSystem) Then blnShow = True
-            
-            ' Check for other tables
-            If Me.chkTableShowOther And varTable(etcOther) Then blnShow = True
-            
-            ' Add to list
-            If blnShow Then .AddItem varTable(etcName) & ";" & varTable(etcType)
-            
-        Next varTable
+        If Not m_colTables Is Nothing Then
+            For Each varTable In m_colTables
+                ' Show all, unless hidden by options
+                blnShow = Not (varTable(etcHidden) Or varTable(etcSystem))
+                ' Evaluate hidden attribute
+                If Me.chkTableShowHidden And varTable(etcHidden) Then blnShow = True
+                ' Check system attribute
+                If Me.chkTableShowSystem And varTable(etcSystem) Then blnShow = True
+                ' Check for other tables
+                If Me.chkTableShowOther And varTable(etcOther) Then blnShow = True
+                ' Add to list
+                If blnShow Then .AddItem varTable(etcName) & ";" & varTable(etcType)
+            Next varTable
+        End If
     End With
     
 End Function
@@ -2195,22 +2208,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdUpdateTableData_Click()
-    
-    Dim strSaveType As String
-    Dim intIndex As Integer
-    Dim strTable As String
-    
-    ' Grab type of data to save
-    If cboTableDataSaveType <> "No Data" Then strSaveType = cboTableDataSaveType
-    
-    With lstTables
-        ' Update list
-        intIndex = .ListIndex + 1 ' Add row for header
-        strTable = .Value
-        .AddItem strTable & ";" & strSaveType, intIndex
-        .RemoveItem intIndex + 1    ' Add for header row and inserted row.
-    End With
-    
+    If Nz(lstTables, 0) > 0 Then
+        SetTableExportType lstTables, Nz(cboTableDataSaveType)
+        RefreshTableDisplay
+    End If
 End Sub
 
 
@@ -2228,12 +2229,12 @@ Private Sub Form_Load()
     Set cOptions = New clsOptions
     cOptions.LoadProjectOptions
     MapControlsToOptions emaClassToForm
-    LoadTableList
     RefreshTableDisplay
     
     ' Load list of table data export formats
-    For intFormat = etdNoData To 2
-        cboTableDataSaveType.AddItem intFormat & ";" & GetTableFormatName(intFormat)
+    cboTableDataSaveType.AddItem "No Data"
+    For intFormat = 1 To eTableDataExportFormat.[_last]
+        cboTableDataSaveType.AddItem cOptions.GetTableExportFormatName(intFormat)
     Next intFormat
     
 End Sub
@@ -2251,6 +2252,9 @@ Private Function MapControlsToOptions(eAction As eMapAction)
     Dim pge As Access.Page
     Dim ctl As Control
     Dim strKey As String
+    Dim varItem As Variant
+    Dim dTables As Scripting.Dictionary
+    Dim dTable As Scripting.Dictionary
     
     ' Loop through each page
     For Each pge In tabOptions.Pages
@@ -2266,7 +2270,7 @@ Private Function MapControlsToOptions(eAction As eMapAction)
                             If eAction = emaClassToForm Then
                                 ctl = CallByName(cOptions, strKey, VbGet)
                             ElseIf eAction = emaFormToClass Then
-                                CallByName cOptions, strKey, VbLet, ctl.Value
+                                CallByName cOptions, strKey, VbLet, Nz(ctl.Value)
                             End If
                     End Select
                 Case "ListBox"
@@ -2277,4 +2281,64 @@ Private Function MapControlsToOptions(eAction As eMapAction)
         Next ctl
     Next
 
+    ' Table list for selecting tables to save data.
+    If eAction = emaClassToForm Then
+        LoadTableList
+    ElseIf eAction = emaFormToClass Then
+        ' Save list of tables to export data
+        Set dTables = New Scripting.Dictionary
+        For Each varItem In m_colTables
+            If varItem(etcType) <> vbNullString Then
+                Set dTable = New Scripting.Dictionary
+                dTable("Format") = varItem(etcType)
+                'dTable("ObjectType") = "Table"  ' Could add queries later
+                dTables.Add varItem(etcName), dTable
+            End If
+        Next varItem
+        Set cOptions.TablesToExportData = dTables
+    End If
+    
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : lblAddOtherTable_Click
+' Author    : Adam Waller
+' Date      : 4/16/2020
+' Purpose   : Select another table not used in the current database
+'---------------------------------------------------------------------------------------
+'
+Private Sub lblAddOtherTable_Click()
+    Dim strTable As String
+    If Nz(cboTableDataSaveType, "No Data") = "No Data" Then
+        MsgBox2 "Please select format", "Select the format to save table data before adding the table to the list.", , vbInformation
+    Else
+        strTable = InputBox("Enter the name of a table that doesn't exist in this database, " & _
+            "but from which you would like to export data if it is found.", "Enter Table Name")
+        If strTable <> vbNullString Then
+            AddUpdateTableInList strTable, Nz(cboTableDataSaveType), False, False, True
+            chkTableShowOther = True
+            RefreshTableDisplay
+        End If
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : lstTables_Click
+' Author    : Adam Waller
+' Date      : 4/21/2020
+' Purpose   : Update the data type selection to match the table row
+'---------------------------------------------------------------------------------------
+'
+Private Sub lstTables_Click()
+    With lstTables
+        If Nz(.Value) = vbNullString Then
+            cboTableDataSaveType = vbNullString
+        Else
+            cboTableDataSaveType = .Column(1, .ListIndex + 1)
+        End If
+        If Nz(cboTableDataSaveType) = vbNullString Then cboTableDataSaveType = "No Data"
+        txtTableName = Nz(.Value)
+    End With
+End Sub
