@@ -64,6 +64,7 @@ Public Function AutoRun()
             ' so the user can uninstall the add-in later if desired.
             RegisterMenuItem "&Version Control", "=AddInMenuItemLaunch()"
             RegisterMenuItem "&Export All Source", "=AddInMenuItemExport()"
+            InstalledVersion = AppVersion
             
             ' Give success message and quit Access
             If IsAlreadyInstalled Then
@@ -80,13 +81,15 @@ Public Function AutoRun()
         ' and updated version of the addin. In that case, we are either trying
         ' to install it for the first time, or trying to upgrade it.
         If IsAlreadyInstalled Then
-            If MsgBox2("Upgrade Version Control?", _
-                "Would you like to upgrade to version " & AppVersion & "?", _
-                "Click 'Yes' to continue or 'No' to cancel.", vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then
-                If InstallVCSAddin Then
-                    MsgBox2 "Success!", "Version Control System addin has been updated to " & AppVersion & ".", _
-                        "Please restart any open instances of Microsoft Access before using the addin.", vbInformation, "Version Control Add-in"
-                    DoCmd.Quit
+            If InstalledVersion < AppVersion Then
+                If MsgBox2("Upgrade Version Control?", _
+                    "Would you like to upgrade to version " & AppVersion & "?", _
+                    "Click 'Yes' to continue or 'No' to cancel.", vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then
+                    If InstallVCSAddin Then
+                        MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
+                            "Please restart any open instances of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
+                        DoCmd.Quit
+                    End If
                 End If
             End If
         Else
@@ -94,7 +97,7 @@ Public Function AutoRun()
             If MsgBox2("Install Version Control?", _
                 "Would you like to install version " & AppVersion & "?", _
                 "Click 'Yes' to continue or 'No' to cancel.", vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then
-                RelaunchAsAdmin
+                If InstallVCSAddin Then RelaunchAsAdmin
                 DoCmd.Quit
             End If
         End If
@@ -131,6 +134,8 @@ Private Function InstallVCSAddin()
     If Err Then
         Err.Clear
     Else
+        ' Update installed version number
+        InstalledVersion = AppVersion
         ' Return success
         InstallVCSAddin = True
     End If
@@ -164,21 +169,25 @@ Private Function IsAlreadyInstalled() As Boolean
     Dim oShell As IWshRuntimeLibrary.WshShell
     Dim strTest As String
     
-    ' Check for addin file
-    If Dir(GetAddinFileName) = CodeProject.Name Then
+    ' Check for registry key of installed version
+    If InstalledVersion <> vbNullString Then
         
-        ' Check registry key
-        Set oShell = New IWshRuntimeLibrary.WshShell
-        strPath = GetAddinRegPath & "&Version Control\Library"
-        On Error Resume Next
-        ' We should have a value here if the install ran in the past.
-        strTest = oShell.RegRead(strPath)
-        If Err Then Err.Clear
-        On Error GoTo 0
-        Set oShell = Nothing
-    
-        ' Return our determination
-        IsAlreadyInstalled = (strTest <> vbNullString)
+        ' Check for addin file
+        If Dir(GetAddinFileName) = CodeProject.Name Then
+            
+            ' Check HKLM registry key
+            Set oShell = New IWshRuntimeLibrary.WshShell
+            strPath = GetAddinRegPath & "&Version Control\Library"
+            On Error Resume Next
+            ' We should have a value here if the install ran in the past.
+            strTest = oShell.RegRead(strPath)
+            If Err Then Err.Clear
+            On Error GoTo 0
+            Set oShell = Nothing
+        
+            ' Return our determination
+            IsAlreadyInstalled = (strTest <> vbNullString)
+        End If
     End If
     
 End Function
@@ -201,7 +210,7 @@ End Function
 ' Procedure : RegisterMenuItem
 ' Author    : Adam Waller
 ' Date      : 4/15/2020
-' Purpose   : Add the menu item through the registry
+' Purpose   : Add the menu item through the registry (HKLM, requires admin)
 '---------------------------------------------------------------------------------------
 '
 Private Function RegisterMenuItem(strName, Optional strFunction As String = "=LaunchMe()")
@@ -232,24 +241,6 @@ End Function
 '
 Private Sub RelaunchAsAdmin()
     ShellExecute 0, "runas", SysCmd(acSysCmdAccessDir) & "\msaccess.exe", """" & GetAddinFileName & """", vbNullString, SW_SHOWNORMAL
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetInstalledVersion
-' Author    : Adam Waller
-' Date      : 4/21/2020
-' Purpose   : Returns the installed version of the add-in from the registry.
-'           : (We are saving this in the user hive, since it requires admin rights
-'           :  to change the keys actually used by Access to register the add-in)
-'---------------------------------------------------------------------------------------
-'
-Public Sub GetInstalledVersion()
-    
-    Dim strVersion As String
-    
-    'strversion = getsetting(
-    
 End Sub
 
 
@@ -396,3 +387,20 @@ Public Sub SetDBProperty(strName As String, varValue, Optional prpType = DB_TEXT
     Set dbs = Nothing
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InstalledVersion
+' Author    : Adam Waller
+' Date      : 4/21/2020
+' Purpose   : Returns the installed version of the add-in from the registry.
+'           : (We are saving this in the user hive, since it requires admin rights
+'           :  to change the keys actually used by Access to register the add-in)
+'---------------------------------------------------------------------------------------
+'
+Private Property Let InstalledVersion(strVersion As String)
+    SaveSetting VBE.ActiveVBProject.Name, "Add-in", "Installed Version", strVersion
+End Property
+Private Property Get InstalledVersion() As String
+    InstalledVersion = GetSetting(VBE.ActiveVBProject.Name, "Add-in", "Installed Version", vbNullString)
+End Property
