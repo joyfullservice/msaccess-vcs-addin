@@ -4,6 +4,7 @@ Option Private Module
 
 
 Private Const cstrSpacer As String = "-------------------------------"
+Public Const cintPad As Integer = 25
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -17,7 +18,8 @@ Private m_FSO As Scripting.FileSystemObject
 ' Purpose   : Exports all source files for the current project.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportAllSource(cModel As IVersionControl)
+Public Sub ExportAllSource()
+    
     
     Dim dbs As DAO.Database
     Dim strSourcePath As String
@@ -40,9 +42,17 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     Dim strFile As String
     Dim dteLastCompact As Date
     Dim dteModified As Date
+    Dim cOptions As clsOptions
+    
+    ' Load the project options and reset the logs
+    Set cOptions = LoadOptions
+    ClearLogs
+
+    ' Run any custom sub before export
+    If cOptions.RunBeforeExport <> vbNullString Then Run cOptions.RunBeforeExport
 
     ' Option used with fast saves
-    If cModel.FastSave Then
+    If cOptions.UseFastSave Then
         strData = GetDBProperty("InitiatedCompactRepair")
         If IsDate(strData) Then dteLastCompact = CDate(strData)
     End If
@@ -51,17 +61,18 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     sngStart = Timer
     Set colVerifiedPaths = New Collection   ' Reset cache
 
-    With cModel
-        .Log cstrSpacer
-        .Log "Beginning Export of all Source", False
-        .Log CurrentProject.Name
-        .Log "VCS Version " & GetVCSVersion
-        If .FastSave Then .Log "Using Fast Save"
-        .Log Now()
+    With cOptions
+        Log cstrSpacer
+        Log "Beginning Export of all Source", False
+        Log CurrentProject.Name
+        Log "VCS Version " & GetVCSVersion
+        If .UseFastSave Then Log "Using Fast Save"
+        Log Now()
+        Log cstrSpacer
     End With
     
     ' Read in options from model
-    strSourcePath = cModel.ExportBaseFolder
+    strSourcePath = cOptions.GetExportFolder
 
     ' Make sure we have a path for the source files
     VerifyPath strSourcePath
@@ -77,22 +88,22 @@ Public Sub ExportAllSource(cModel As IVersionControl)
     If CurrentProject.ProjectType = acMDB Then
         ' Standard Access Project
         strObjectPath = strSourcePath & "queries\"
-        ClearOrphanedSourceFiles strObjectPath, dbs.QueryDefs, cModel, "bas", "sql"
-        cModel.Log cstrSpacer, cModel.ShowDebug
-        cModel.Log PadRight("Exporting queries...", 24), True, cModel.ShowDebug
-        cModel.Log "", cModel.ShowDebug
+        ClearOrphanedSourceFiles strObjectPath, dbs.QueryDefs, cOptions, "bas", "sql"
+        Log cstrSpacer, cOptions.ShowDebug
+        Log PadRight("Exporting queries...", cintPad), True, cOptions.ShowDebug
+        Log "", cOptions.ShowDebug
         intObjCnt = 0
         For Each qry In dbs.QueryDefs
             If Left(qry.Name, 1) <> "~" Then
                 strFile = strObjectPath & GetSafeFileName(qry.Name) & ".bas"
-                ExportObject acQuery, qry.Name, strFile, cModel
+                ExportObject acQuery, qry.Name, strFile, cOptions
                 intObjCnt = intObjCnt + 1
             End If
         Next
-        If cModel.ShowDebug Then
-            cModel.Log "[" & intObjCnt & "] queries exported."
+        If cOptions.ShowDebug Then
+            Log "[" & intObjCnt & "] queries exported."
         Else
-            cModel.Log "[" & intObjCnt & "]"
+            Log "[" & intObjCnt & "]"
         End If
     Else
         ' ADP project (Several types of 'queries' involved)
@@ -107,14 +118,14 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         
         ' Clear any triggers if the triggers folder exists.
         If FSO.FolderExists(strObjectPath & "triggers\") Then
-            If Not cModel.FastSave Then ClearTextFilesFromDir strObjectPath & "triggers\", "sql"
+            If Not cOptions.UseFastSave Then ClearTextFilesFromDir strObjectPath & "triggers\", "sql"
         End If
         
         ' Process triggers
-        cModel.Log cstrSpacer, cModel.ShowDebug
-        cModel.Log PadRight("Exporting triggers...", 24), True, cModel.ShowDebug
-        cModel.Log "", cModel.ShowDebug
-        ExportADPTriggers cModel, strSourcePath & "triggers\"
+        Log cstrSpacer, cOptions.ShowDebug
+        Log PadRight("Exporting triggers...", cintPad), True, cOptions.ShowDebug
+        Log "", cOptions.ShowDebug
+        ExportADPTriggers cOptions, strSourcePath & "triggers\"
         
         ' Loop through each type, exporting SQL definitions
         For Each varType In colADO
@@ -124,17 +135,17 @@ Public Sub ExportAllSource(cModel As IVersionControl)
             
             ''''' Wait to clear tables (or other objects) since we need to check the modified date of the file.
             Set objContainer = varType(2)
-            ClearOrphanedSourceFiles strObjectPath, objContainer, cModel, varType(1)
+            ClearOrphanedSourceFiles strObjectPath, objContainer, cOptions, varType(1)
             
-            cModel.Log cstrSpacer, cModel.ShowDebug
-            cModel.Log PadRight("Exporting " & varType(0) & "...", 24), , cModel.ShowDebug
-            cModel.Log "", cModel.ShowDebug
+            Log cstrSpacer, cOptions.ShowDebug
+            Log PadRight("Exporting " & varType(0) & "...", cintPad), , cOptions.ShowDebug
+            Log "", cOptions.ShowDebug
             intObjCnt = 0
             For Each qry In varType(2)
                 blnSkipFile = False
                 strFile = strObjectPath & GetSafeFileName(StripDboPrefix(qry.Name)) & "." & varType(1)
                 ' Fast save options
-                If cModel.FastSave Then
+                If cOptions.UseFastSave Then
                     dteModified = GetSQLObjectModifiedDate(qry.Name, varType(0))
                     'dteModified = #1/1/2000#
                     If FSO.FileExists(strFile) Then
@@ -153,22 +164,22 @@ Public Sub ExportAllSource(cModel As IVersionControl)
                 End If
 
                 If blnSkipFile Then
-                    cModel.Log "  (Skipping '" & qry.Name & "')", cModel.ShowDebug
+                    Log "  (Skipping '" & qry.Name & "')", cOptions.ShowDebug
                 Else
                     WriteFile strData, strFile
-                    cModel.Log "  " & qry.Name, cModel.ShowDebug
+                    Log "  " & qry.Name, cOptions.ShowDebug
                 End If
                 intObjCnt = intObjCnt + 1
                 ' Check for table/query data export
-                If InCollection(cModel.TablesToSaveData, qry.Name) Then
+                If cOptions.TablesToExportData.Exists(qry.Name) Then
                     DoCmd.OutputTo acOutputServerView, qry.Name, acFormatTXT, strObjectPath & GetSafeFileName(StripDboPrefix(qry.Name)) & ".txt", False
-                    cModel.Log "    Data exported", cModel.ShowDebug
+                    Log "    Data exported", cOptions.ShowDebug
                 End If
             Next qry
-            If cModel.ShowDebug Then
-                cModel.Log "[" & intObjCnt & "] " & varType(0) & " exported."
+            If cOptions.ShowDebug Then
+                Log "[" & intObjCnt & "] " & varType(0) & " exported."
             Else
-                cModel.Log "[" & intObjCnt & "]"
+                Log "[" & intObjCnt & "]"
             End If
         Next varType
     End If
@@ -195,52 +206,52 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         intObjCnt = 0
     
         ' Clear out any orphaned source files
-        ClearOrphanedSourceFiles strObjectPath, objContainer, cModel, "bas", "pv"
+        ClearOrphanedSourceFiles strObjectPath, objContainer, cOptions, "bas", "pv"
         
         ' Show progress
-        cModel.Log cstrSpacer, cModel.ShowDebug
-        cModel.Log PadRight("Exporting " & strLabel & "...", 24), , cModel.ShowDebug
-        cModel.Log "", cModel.ShowDebug
+        Log cstrSpacer, cOptions.ShowDebug
+        Log PadRight("Exporting " & strLabel & "...", cintPad), , cOptions.ShowDebug
+        Log "", cOptions.ShowDebug
         
         ' Loop through objects in container
         For Each doc In objContainer
             If (Left(doc.Name, 1) <> "~") Then
                 ' Get file name (without extension)
                 strFile = strObjectPath & StripDboPrefix(GetSafeFileName(doc.Name))
-                ExportObject intType, doc.Name, strFile & ".bas", cModel
+                ExportObject intType, doc.Name, strFile & ".bas", cOptions
                 If intType = acReport Then
-                    If cModel.SavePrintVars Then ExportPrintVars doc.Name, strFile & ".pv", cModel
+                    If cOptions.SavePrintVars Then ExportPrintVars doc.Name, strFile & ".pv", cOptions
                 End If
                 intObjCnt = intObjCnt + 1
             End If
         Next
         
         ' Show total number of objects
-        If cModel.ShowDebug Then
-            cModel.Log "[" & intObjCnt & "] " & strLabel & " exported."
+        If cOptions.ShowDebug Then
+            Log "[" & intObjCnt & "] " & strLabel & " exported."
         Else
-            cModel.Log "[" & intObjCnt & "]"
+            Log "[" & intObjCnt & "]"
         End If
 
     Next varType
 
     ' Export references
-    cModel.Log cstrSpacer, cModel.ShowDebug
-    cModel.Log PadRight("Exporting references...", 24), , cModel.ShowDebug
-    cModel.Log "", cModel.ShowDebug
-    ExportReferences strSourcePath, cModel
+    Log cstrSpacer, cOptions.ShowDebug
+    Log PadRight("Exporting references...", cintPad), , cOptions.ShowDebug
+    Log "", cOptions.ShowDebug
+    ExportReferences strSourcePath, cOptions
     
     ' Export database properties
-    cModel.Log cstrSpacer, cModel.ShowDebug
-    cModel.Log PadRight("Exporting properties...", 24), , cModel.ShowDebug
-    cModel.Log "", cModel.ShowDebug
-    ExportProperties strSourcePath, cModel
+    Log cstrSpacer, cOptions.ShowDebug
+    Log PadRight("Exporting properties...", cintPad), , cOptions.ShowDebug
+    Log "", cOptions.ShowDebug
+    ExportProperties strSourcePath, cOptions
     
     ' Export Import/Export Specifications
-    cModel.Log cstrSpacer, cModel.ShowDebug
-    cModel.Log PadRight("Exporting specs...", 24), , cModel.ShowDebug
-    cModel.Log "", cModel.ShowDebug
-    ExportSpecs strSourcePath, cModel
+    Log cstrSpacer, cOptions.ShowDebug
+    Log PadRight("Exporting specs...", cintPad), , cOptions.ShowDebug
+    Log "", cOptions.ShowDebug
+    ExportSpecs strSourcePath, cOptions
     
     
 
@@ -252,13 +263,13 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         Dim tds As TableDefs
         Set tds = dbs.TableDefs
     
-        If cModel.TablesToSaveData.Count = 0 Then
+        If cOptions.TablesToExportData.Count = 0 Then
             strObjectPath = strSourcePath & "tables"
-            If FSO.FolderExists(strObjectPath) Then ClearOrphanedSourceFiles strObjectPath & "\", Nothing, cModel, "txt"
+            If FSO.FolderExists(strObjectPath) Then ClearOrphanedSourceFiles strObjectPath & "\", Nothing, cOptions, "txt"
         Else
             ' Only create this folder if we are actually saving table data
             MkDirIfNotExist strSourcePath & "tables\"
-            ClearOrphanedSourceFiles strSourcePath & "tables\", dbs.TableDefs, cModel, "txt"
+            ClearOrphanedSourceFiles strSourcePath & "tables\", dbs.TableDefs, cOptions, "txt"
         End If
         
         strLabel = "tbldef"
@@ -271,11 +282,11 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         
         ' Verify path and clear any existing files
         VerifyPath Left(strObjectPath, InStrRev(strObjectPath, "\"))
-        ClearOrphanedSourceFiles strObjectPath, tds, cModel, "LNKD", "sql", "xml", "bas"
+        ClearOrphanedSourceFiles strObjectPath, tds, cOptions, "LNKD", "sql", "xml", "bas"
 
-        cModel.Log cstrSpacer, cModel.ShowDebug
-        cModel.Log PadRight("Exporting " & strLabel & "...", 24), , cModel.ShowDebug
-        cModel.Log "", cModel.ShowDebug
+        Log cstrSpacer, cOptions.ShowDebug
+        Log PadRight("Exporting " & strLabel & "...", cintPad), , cOptions.ShowDebug
+        Log "", cOptions.ShowDebug
         
         For Each td In tds
             ' This is not a system table
@@ -283,20 +294,20 @@ Public Sub ExportAllSource(cModel As IVersionControl)
             If Left$(td.Name, 4) <> "MSys" And _
                 Left$(td.Name, 1) <> "~" Then
                 If Len(td.connect) = 0 Then ' this is not an external table
-                    ExportTableDef td.Name, strObjectPath, cModel
-                    If InCollection(cModel.TablesToSaveData, "*") Then
-                        ExportTableData CStr(td.Name), strSourcePath & "tables\", cModel
+                    ExportTableDef td.Name, strObjectPath, cOptions
+                    If cOptions.TablesToExportData.Exists("*") Then
+                        ExportTableData CStr(td.Name), strSourcePath & "tables\", cOptions
                         If Len(Dir(strSourcePath & "tables\" & td.Name & ".txt")) > 0 Then
                             intObjDataCnt = intObjDataCnt + 1
                         End If
-                    ElseIf InCollection(cModel.TablesToSaveData, td.Name) Then
-                        modTable.ExportTableData CStr(td.Name), strSourcePath & "tables\", cModel
+                    ElseIf cOptions.TablesToExportData.Exists(td.Name) Then
+                        modTable.ExportTableData CStr(td.Name), strSourcePath & "tables\", cOptions
                         intObjDataCnt = intObjDataCnt + 1
                     'else don't export table data
                     End If
     
                 Else
-                    modTable.ExportLinkedTable td.Name, strObjectPath, cModel
+                    modTable.ExportLinkedTable td.Name, strObjectPath, cOptions
                 End If
                 
                 intObjCnt = intObjCnt + 1
@@ -304,54 +315,54 @@ Public Sub ExportAllSource(cModel As IVersionControl)
             End If
         Next
         
-        If cModel.ShowDebug Then
-            cModel.Log "[" & intObjCnt & "] tbldefs exported."
+        If cOptions.ShowDebug Then
+            Log "[" & intObjCnt & "] tbldefs exported."
         Else
-            cModel.Log "[" & intObjCnt & "]"
+            Log "[" & intObjCnt & "]"
         End If
     
         ' Export relationships (MDB only)
-        cModel.Log cstrSpacer, cModel.ShowDebug
-        cModel.Log PadRight("Exporting relations...", 24), , cModel.ShowDebug
-        cModel.Log "", cModel.ShowDebug
+        Log cstrSpacer, cOptions.ShowDebug
+        Log PadRight("Exporting relations...", cintPad), , cOptions.ShowDebug
+        Log "", cOptions.ShowDebug
         
         intObjCnt = 0
         strObjectPath = strSourcePath & "relations\"
         
         VerifyPath Left(strObjectPath, InStrRev(strObjectPath, "\"))
-        ClearOrphanedSourceFiles strObjectPath, dbs.Relations, cModel, "txt"
+        ClearOrphanedSourceFiles strObjectPath, dbs.Relations, cOptions, "txt"
         
         Dim aRelation As Relation
         For Each aRelation In CurrentDb.Relations
             strName = aRelation.Name
             If Not (strName = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" Or strName = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
-                cModel.Log "  " & strName, cModel.ShowDebug
+                Log "  " & strName, cOptions.ShowDebug
                 strName = GetRelationFileName(aRelation)
                 modRelation.ExportRelation aRelation, strObjectPath & strName & ".txt"
                 intObjCnt = intObjCnt + 1
             End If
         Next aRelation
     
-        If cModel.ShowDebug Then
-            cModel.Log "[" & intObjCnt & "] relations exported."
+        If cOptions.ShowDebug Then
+            Log "[" & intObjCnt & "] relations exported."
         Else
-            cModel.Log "[" & intObjCnt & "]"
+            Log "[" & intObjCnt & "]"
         End If
     End If
     
     
     ' VBE objects
-    If cModel.IncludeVBE Then
-        cModel.Log cstrSpacer, cModel.ShowDebug
-        cModel.Log PadRight("Exporting VBE...", 24), , cModel.ShowDebug
-        cModel.Log "", cModel.ShowDebug
-        ExportAllVBE cModel
+    If cOptions.IncludeVBE Then
+        Log cstrSpacer, cOptions.ShowDebug
+        Log PadRight("Exporting VBE...", cintPad), , cOptions.ShowDebug
+        Log "", cOptions.ShowDebug
+        ExportAllVBE cOptions
     End If
 
     ' Show final output and save log
-    cModel.Log cstrSpacer, cModel.ShowDebug
-    cModel.Log "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
-    cModel.SaveLogFile strSourcePath & "\Export.log"
+    Log cstrSpacer
+    Log "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
+    SaveLogFile strSourcePath & "\Export.log"
     
     ' Clean up after completion
     Set m_FSO = Nothing
@@ -362,7 +373,10 @@ Public Sub ExportAllSource(cModel As IVersionControl)
         ' Reload version control so we can run fast save.
         'InitializeVersionControlSystem
     End If
-    
+
+    ' Run any custom sub before export
+    If cOptions.RunAfterExport <> vbNullString Then Run cOptions.RunAfterExport
+
 End Sub
 
 
@@ -374,7 +388,7 @@ End Sub
 '           : (Allows drag and drop to re-import the objects into the IDE)
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportAllVBE(cModel As IVersionControl)
+Public Sub ExportAllVBE(cOptions As clsOptions)
     
     ' Declare constants locally to avoid need for reference
     'Const vbext_ct_StdModule As Integer = 1
@@ -388,7 +402,7 @@ Public Sub ExportAllVBE(cModel As IVersionControl)
     Set colVerifiedPaths = New Collection   ' Reset cache
 
     
-    strPath = cModel.ExportBaseFolder
+    strPath = cOptions.GetExportFolder
     VerifyPath strPath
     strPath = strPath & "VBE\"
     
@@ -407,13 +421,13 @@ Public Sub ExportAllVBE(cModel As IVersionControl)
             obj_count = obj_count + 1
             strExt = GetVBEExtByType(cmp)
             cmp.Export strPath & cmp.Name & strExt
-            cModel.Log "  " & cmp.Name, cModel.ShowDebug
+            Log "  " & cmp.Name, cOptions.ShowDebug
         Next cmp
         
-        If cModel.ShowDebug Then
-            cModel.Log "[" & obj_count & "] components exported."
+        If cOptions.ShowDebug Then
+            Log "[" & obj_count & "] components exported."
         Else
-            cModel.Log "[" & obj_count & "]"
+            Log "[" & obj_count & "]"
         End If
     End If
 
@@ -428,7 +442,7 @@ End Sub
 ' Purpose   : Export single object using the VBE component name
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionControl)
+Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cOptions As clsOptions)
     
     Dim intType As AcObjectType
     Dim strFolder As String
@@ -465,17 +479,17 @@ Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cModel As IVersionCo
     
     DoCmd.Hourglass True
     If intType > 0 Then
-        strFolder = cModel.ExportBaseFolder & strFolder
+        strFolder = cOptions.GetExportFolder & strFolder
         strFile = strFolder & GetSafeFileName(strName) & ".bas"
         ' Export the single object
-        ExportObject intType, strName, strFile, cModel
+        ExportObject intType, strName, strFile, cOptions
         ' Sanitize object if needed
-        If blnSanitize Then SanitizeFile strFile, cModel
+        If blnSanitize Then SanitizeFile strFile, cOptions
     End If
     
     ' Export VBE version
-    If cModel.IncludeVBE Then
-        strFile = cModel.ExportBaseFolder & "VBE\" & cmpToExport.Name & GetVBEExtByType(cmpToExport)
+    If cOptions.IncludeVBE Then
+        strFile = cOptions.GetExportFolder & "VBE\" & cmpToExport.Name & GetVBEExtByType(cmpToExport)
         If Dir(strFile) <> "" Then Kill strFile
         cmpToExport.Export strFile
     End If
@@ -491,7 +505,7 @@ End Sub
 ' Purpose   : Export a database object with optional UCS2-to-UTF-8 conversion.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As String, cModel As IVersionControl)
+Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As String, cOptions As clsOptions)
         
     Dim blnSkip As Boolean
     Dim strTempFile As String
@@ -505,7 +519,7 @@ Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As
     VerifyPath strFolder
     
     ' Check for fast save
-    If cModel.FastSave Then
+    If cOptions.UseFastSave Then
         Select Case intType
             Case acQuery
                 blnSkip = Not (HasMoreRecentChanges(CurrentData.AllQueries(strObject), strPath))
@@ -519,20 +533,20 @@ Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As
     End If
     
     If blnSkip Then
-        cModel.Log "  (Skipping '" & strObject & "')", cModel.ShowDebug
+        Log "  (Skipping '" & strObject & "')", cOptions.ShowDebug
     Else
         Set dbs = CurrentDb
     
         ' Special options for SQL queries
-        If intType = acQuery And cModel.SaveQuerySQL Then
+        If intType = acQuery And cOptions.SaveQuerySQL Then
             ' Support for SQL export for queries.
             strFile = strFolder & GetSafeFileName(strObject) & ".sql"
             WriteFile dbs.QueryDefs(strObject).sql, strFile
-            cModel.Log "  " & strObject & " (with SQL)", cModel.ShowDebug
+            Log "  " & strObject & " (with SQL)", cOptions.ShowDebug
             
         ' Log other object
         Else
-            cModel.Log "  " & strObject, cModel.ShowDebug
+            Log "  " & strObject, cOptions.ShowDebug
         End If
     
         ' Export object as text (sanitize if needed.)
@@ -548,7 +562,7 @@ Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As
                     ConvertUcs2Utf8 strTempFile, strPath
                     Kill strTempFile
                 End If
-                SanitizeFile strPath, cModel
+                SanitizeFile strPath, cOptions
             Case Else
                 ' Other object type
                 Application.SaveAsText intType, strObject, strPath
@@ -633,7 +647,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     FileName = Dir(obj_path & "*.bas")
     Dim tempFilePath As String: tempFilePath = modFileAccess.GetTempFile()
     If Len(FileName) > 0 Then
-        Debug.Print PadRight("Importing queries...", 24);
+        Debug.Print PadRight("Importing queries...", cintPad);
         obj_count = 0
         Do Until Len(FileName) = 0
             DoEvents
@@ -653,7 +667,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     obj_path = source_path & "tbldefs\"
     FileName = Dir(obj_path & "*.sql")
     If Len(FileName) > 0 Then
-        Debug.Print PadRight("Importing tabledefs...", 24);
+        Debug.Print PadRight("Importing tabledefs...", cintPad);
         obj_count = 0
         Do Until Len(FileName) = 0
             obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
@@ -675,7 +689,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     ' restore linked tables - we must have access to the remote store to import these!
     FileName = Dir(obj_path & "*.LNKD")
     If Len(FileName) > 0 Then
-        Debug.Print PadRight("Importing Linked tabledefs...", 24);
+        Debug.Print PadRight("Importing Linked tabledefs...", cintPad);
         obj_count = 0
         Do Until Len(FileName) = 0
             obj_name = Mid(FileName, 1, InStrRev(FileName, ".") - 1)
@@ -699,7 +713,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     obj_path = source_path & "tables\"
     FileName = Dir(obj_path & "*.txt")
     If Len(FileName) > 0 Then
-        Debug.Print PadRight("Importing tables...", 24);
+        Debug.Print PadRight("Importing tables...", cintPad);
         obj_count = 0
         Do Until Len(FileName) = 0
             DoEvents
@@ -715,7 +729,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     obj_path = source_path & "tbldefs\"
     FileName = Dir(obj_path & "*.xml")
     If Len(FileName) > 0 Then
-        Debug.Print PadRight("Importing Data Macros...", 24);
+        Debug.Print PadRight("Importing Data Macros...", cintPad);
         obj_count = 0
         Do Until Len(FileName) = 0
             DoEvents
@@ -748,7 +762,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     
         FileName = Dir(obj_path & "*.bas")
         If Len(FileName) > 0 Then
-            Debug.Print PadRight("Importing " & obj_type_label & "...", 24);
+            Debug.Print PadRight("Importing " & obj_type_label & "...", cintPad);
             obj_count = 0
             Do Until Len(FileName) = 0
                 ' DoEvents no good idea!
@@ -770,7 +784,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     Next
     
     'import Print Variables
-    Debug.Print PadRight("Importing Print Vars...", 24);
+    Debug.Print PadRight("Importing Print Vars...", cintPad);
     obj_count = 0
     
     obj_path = source_path & "reports\"
@@ -785,7 +799,7 @@ Public Sub ImportAllSource(Optional ShowDebugInfo As Boolean = False)
     Debug.Print "[" & obj_count & "]"
     
     'import relations
-    Debug.Print PadRight("Importing Relations...", 24);
+    Debug.Print PadRight("Importing Relations...", cintPad);
     obj_count = 0
     obj_path = source_path & "relations\"
     FileName = Dir(obj_path & "*.txt")

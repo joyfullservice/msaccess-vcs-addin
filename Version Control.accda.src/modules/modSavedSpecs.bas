@@ -11,7 +11,7 @@ Option Explicit
 '           : includes the name, description, and XML content.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportSpecs(strSourcePath As String, cModel As IVersionControl)
+Public Sub ExportSpecs(strSourcePath As String, cOptions As clsOptions)
     
     Dim strFolder As String
     Dim oSpec As ImportExportSpecification
@@ -48,9 +48,9 @@ Public Sub ExportSpecs(strSourcePath As String, cModel As IVersionControl)
         
         ' Determine if this was an import or an export spec.
         If InStr(1, strXML, "</Export") = 0 Then
-            strFolder = cModel.ExportBaseFolder & "\importspecs"
+            strFolder = cOptions.GetExportFolder & "\importspecs"
         Else
-            strFolder = cModel.ExportBaseFolder & "\exportspecs"
+            strFolder = cOptions.GetExportFolder & "\exportspecs"
         End If
         
         ' Build folder and file name
@@ -60,14 +60,14 @@ Public Sub ExportSpecs(strSourcePath As String, cModel As IVersionControl)
         ' Save as file (including more than just xml)
         WriteFile cData.GetStr, strFolder & "\" & strFile
         cData.Clear
-        cModel.Log "  " & oSpec.Name, cModel.ShowDebug
+        Log "  " & oSpec.Name, cOptions.ShowDebug
         
     Next oSpec
     
-    If cModel.ShowDebug Then
-        cModel.Log "[" & CurrentProject.ImportExportSpecifications.Count & "] specs exported."
+    If cOptions.ShowDebug Then
+        Log "[" & CurrentProject.ImportExportSpecifications.Count & "] specs exported."
     Else
-        cModel.Log "[" & CurrentProject.ImportExportSpecifications.Count & "]"
+        Log "[" & CurrentProject.ImportExportSpecifications.Count & "]"
     End If
     
 End Sub

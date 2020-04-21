@@ -208,7 +208,7 @@ End Function
 ' Purpose   : Export the triggers
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As String)
+Public Sub ExportADPTriggers(cOptions As clsOptions, strBaseExportFolder As String)
 
     Dim colTriggers As New Collection
     Dim rst As ADODB.Recordset
@@ -250,7 +250,7 @@ Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As S
     If Not FSO.FolderExists(strBaseExportFolder) Then VerifyPath strBaseExportFolder
     
     ' Clear all existing files unless we are using fast save.
-    If cModel.FastSave Then
+    If cOptions.UseFastSave Then
     
         ' Loop through saved source files, removing ones that no longer exist in the database.
         strFile = Dir(strBaseExportFolder & "*.sql")
@@ -279,7 +279,7 @@ Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As S
     For Each varTrg In colTriggers
         
         ' Check for fast save, to see if we can just export the newly changed triggers
-        If cModel.FastSave Then
+        If cOptions.UseFastSave Then
             strFile = strBaseExportFolder & varTrg(3)
             If Not FSO.FileExists(strFile) Then
                 blnSkip = False
@@ -296,13 +296,13 @@ Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As S
         End If
         
         If blnSkip Then
-            cModel.Log "    (Skipping) [Trigger] - " & varTrg(0), cModel.ShowDebug
+            Log "    (Skipping) [Trigger] - " & varTrg(0), cOptions.ShowDebug
         Else
             ' Export the trigger definition
             strDef = GetSQLObjectDefinitionForADP(varTrg(2) & "." & varTrg(0))
             WriteFile strDef, strBaseExportFolder & varTrg(3)
             ' Show output
-            cModel.Log "  " & varTrg(0), cModel.ShowDebug
+            Log "  " & varTrg(0), cOptions.ShowDebug
         End If
         
         ' Increment counter
@@ -311,10 +311,10 @@ Public Sub ExportADPTriggers(cModel As IVersionControl, strBaseExportFolder As S
     Next varTrg
     
     ' Display totals
-    If cModel.ShowDebug Then
-        cModel.Log "[" & intObjCnt & "] triggers exported."
+    If cOptions.ShowDebug Then
+        Log "[" & intObjCnt & "] triggers exported."
     Else
-        cModel.Log "[" & intObjCnt & "]"
+        Log "[" & intObjCnt & "]"
     End If
     
 End Sub

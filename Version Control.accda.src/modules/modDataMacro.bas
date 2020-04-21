@@ -10,7 +10,7 @@ Option Private Module
 ' Purpose   :
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportDataMacros(strTable As String, strFolder As String, cModel As IVersionControl)
+Public Sub ExportDataMacros(strTable As String, strFolder As String, cOptions As clsOptions)
     
     Dim blnSkip As Boolean
     Dim strPath As String
@@ -19,11 +19,11 @@ Public Sub ExportDataMacros(strTable As String, strFolder As String, cModel As I
     strPath = strFolder & GetSafeFileName(strTable) & ".xml"
 
     ' Check for fast save
-    If cModel.FastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strPath))
+    If cOptions.UseFastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strPath))
     
     If Not blnSkip Then
         ' Need to test whether to use Ucs2Convert on data macros.
-        ExportObject acTableDataMacro, strTable, strPath, cModel
+        ExportObject acTableDataMacro, strTable, strPath, cOptions
         If FSO.FileExists(strPath) Then FormatDataMacro strPath
     End If
         

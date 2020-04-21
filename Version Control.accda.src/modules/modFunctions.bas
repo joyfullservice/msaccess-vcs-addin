@@ -4,6 +4,17 @@ Option Private Module
 
 Public colVerifiedPaths As New Collection
 
+Public Enum eTableDataExportFormat
+    etdNoData = 0
+    etdTabDelimited = 1
+    etdXML = 2
+    [_last] = 2
+End Enum
+
+
+Private m_Log As New clsConcat      ' Log file output
+Private m_Console As New clsConcat  ' Console output
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SanitizeFile
@@ -12,7 +23,7 @@ Public colVerifiedPaths As New Collection
 ' Purpose   : Sanitize the text file (forms and reports)
 '---------------------------------------------------------------------------------------
 '
-Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
+Public Sub SanitizeFile(strPath As String, cOptions As clsOptions)
 
     Dim sngOverall As Single
     Dim sngTimer As Single
@@ -40,9 +51,9 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
     With cPattern
     
         '  Match PrtDevNames / Mode with or  without W
-        If cModel.AggressiveSanitize Then .Add "(?:"
+        If cOptions.AggressiveSanitize Then .Add "(?:"
         .Add "PrtDev(?:Names|Mode)[W]?"
-        If cModel.AggressiveSanitize Then
+        If cOptions.AggressiveSanitize Then
           '  Add and group aggressive matches
           .Add "|GUID|""GUID""|NameMap|dbLongBinary ""DOL"""
           .Add ")"
@@ -59,7 +70,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
         .Add "^\s*(?:"
         .Add "Checksum ="
         .Add "|BaseInfo|NoSaveCTIWhenDisabled =1"
-        If cModel.StripPublishOption Then
+        If cOptions.StripPublishOption Then
             .Add "|dbByte ""PublishToWeb"" =""1"""
             .Add "|PublishOption =1"
         End If
@@ -90,7 +101,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
         End If
         
         ' Skip lines starting with line pattern
-        If rxLine.test(strText) Then
+        If rxLine.Test(strText) Then
             
             ' set up initial pattern
             rxIndent.Pattern = "^(\s+)\S"
@@ -110,7 +121,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
             ' Skip lines with deeper indentation
             Do While Not stmInFile.AtEndOfStream
                 strText = stmInFile.ReadLine
-                If rxIndent.test(strText) Then Exit Do
+                If rxIndent.Test(strText) Then Exit Do
             Loop
             
             ' We've moved on at least one line so restart the
@@ -118,7 +129,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
             blnGetLine = False
         
         ' Skip blocks of code matching block pattern
-        ElseIf rxBlock.test(strText) Then
+        ElseIf rxBlock.Test(strText) Then
             Do While Not stmInFile.AtEndOfStream
                 strText = stmInFile.ReadLine
                 If InStr(strText, "End") Then Exit Do
@@ -151,7 +162,7 @@ Public Sub SanitizeFile(strPath As String, cModel As IVersionControl)
     WriteFile cData.GetStr, strPath
 
     ' Show stats if debug turned on.
-    cModel.Log "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cModel.ShowDebug
+    Log "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cOptions.ShowDebug
 
 End Sub
 
@@ -204,7 +215,7 @@ End Sub
 '           : database.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, objContainer As Object, cModel As IVersionControl, ParamArray StrExtensions())
+Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, objContainer As Object, cOptions As clsOptions, ParamArray StrExtensions())
     
     Dim oFolder As Scripting.Folder
     Dim oFile As Scripting.File
@@ -263,7 +274,7 @@ Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, objContainer As Obj
                 If Not blnFound Then
                     ' Object not found in database. Remove file.
                     Kill oFile.ParentFolder.Path & "\" & oFile.Name
-                    cModel.Log "  Removing orphaned file: " & strFile, cModel.ShowDebug
+                    Log "  Removing orphaned file: " & strFile, cOptions.ShowDebug
                 End If
                 
                 ' No need to check other extensions since we
@@ -441,12 +452,39 @@ End Sub
 ' Purpose   : Save string variable to text file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub WriteFile(strContent As String, strPath As String, Optional blnUnicode As Boolean = False)
-    With FSO.CreateTextFile(strPath, True, blnUnicode)
-        .Write strContent
+Public Sub WriteFile(strContent As String, strPath As String)
+    Dim stm As New ADODB.Stream
+    With stm
+        ' Use Unicode file encoding if needed.
+        If StringHasUnicode(strContent) Then
+            .Charset = "utf-8"
+        Else
+            ' Use ASCII text.
+            .Charset = "us-ascii"
+        End If
+        .Open
+        .WriteText strContent
+        .SaveToFile strPath, adSaveCreateOverWrite
         .Close
     End With
+    Set stm = Nothing
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StringHasUnicode
+' Author    : Adam Waller
+' Date      : 3/6/2020
+' Purpose   : Returns true if the string contains non-ASCI characters.
+'---------------------------------------------------------------------------------------
+'
+Public Function StringHasUnicode(strText As String) As Boolean
+    Dim reg As New VBScript_RegExp_55.RegExp
+    With reg
+        .Pattern = "[^\u0000-\u007F]"
+        StringHasUnicode = .Test(strText)
+    End With
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -767,6 +805,56 @@ Public Function UncPath(strPath As String) As String
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : IsLoaded
+' Author    : Adam Waller
+' Date      : 9/22/2017
+' Purpose   : Returns true if the object is loaded and not in design view.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsLoaded(intType As AcObjectType, strName As String, Optional blnAllowDesignView As Boolean = False) As Boolean
+
+    Dim frm As Form
+    Dim ctl As Control
+    
+    If SysCmd(acSysCmdGetObjectState, intType, strName) <> adStateClosed Then
+        If blnAllowDesignView Then
+            IsLoaded = True
+        Else
+            Select Case intType
+                Case acReport
+                    IsLoaded = Reports(strName).CurrentView <> acCurViewDesign
+                Case acForm
+                    IsLoaded = Forms(strName).CurrentView <> acCurViewDesign
+                Case acServerView
+                    IsLoaded = CurrentData.AllViews(strName).CurrentView <> acCurViewDesign
+                Case acStoredProcedure
+                    IsLoaded = CurrentData.AllStoredProcedures(strName).CurrentView <> acCurViewDesign
+                Case Else
+                    ' Other unsupported object
+                    IsLoaded = True
+            End Select
+        End If
+    Else
+        ' Could be loaded as subform
+        If intType = acForm Then
+            For Each frm In Forms
+                For Each ctl In frm.Controls
+                    If TypeOf ctl Is SubForm Then
+                        If ctl.SourceObject = strName Then
+                            IsLoaded = True
+                            Exit For
+                        End If
+                    End If
+                Next ctl
+                If IsLoaded Then Exit For
+            Next frm
+        End If
+    End If
+    
+End Function
+
+
 ' returns substring between e.g. "(" and ")", internal brackets ar skippped
 'Public Function SubString(P As Integer, s As String, startsWith As String, endsWith As String)
 '    Dim start As Integer
@@ -801,3 +889,191 @@ End Function
 '    SubString = Mid(s, start + 1, cursor - start - 1)
 'End Function
 '
+
+
+Public Sub TestOptions()
+    
+    Dim cOpt As New clsOptions
+    'cOpt.PrintOptionsToDebugWindow
+    cOpt.SaveOptionsForProject
+    cOpt.LoadProjectOptions
+    cOpt.PrintOptionsToDebugWindow
+    
+End Sub
+
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MsgBox2
+' Author    : Adam Waller
+' Date      : 1/27/2017
+' Purpose   : Alternate message box with bold prompt on first line.
+'---------------------------------------------------------------------------------------
+'
+Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional strLine2 As String, Optional intButtons As VbMsgBoxStyle = vbOKOnly, Optional strTitle As String) As VbMsgBoxResult
+    
+    Dim strMsg As String
+    Dim varLines(0 To 3) As String
+    
+    ' Escape single quotes by doubling them.
+    varLines(0) = Replace(strBold, "'", "''")
+    varLines(1) = Replace(strLine1, "'", "''")
+    varLines(2) = Replace(strLine2, "'", "''")
+    varLines(3) = Replace(strTitle, "'", "''")
+    
+    If varLines(3) = "" Then varLines(3) = Application.VBE.ActiveVBProject.Name
+    strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
+    MsgBox2 = Eval(strMsg)
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearLog
+' Author    : Adam Waller
+' Date      : 4/16/2020
+' Purpose   : Clear the log buffers
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearLogs()
+    Set m_Console = New clsConcat
+    Set m_Log = New clsConcat
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Log
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Add a log file entry.
+'---------------------------------------------------------------------------------------
+'
+Public Sub Log(strText As String, Optional blnPrint As Boolean = True, Optional blnNextOutputOnNewLine As Boolean = True)
+
+    Static dblLastLog As Double
+    Dim strLine As String
+    
+    m_Log.Add strText
+    If blnPrint Then
+        ' Use bold/green text for completion line.
+        strLine = strText
+        If InStr(1, strText, "Done. ") = 1 Then
+            strLine = "<font color=green><strong>" & strText & "</strong></font>"
+        End If
+        m_Console.Add strLine
+        If blnNextOutputOnNewLine Then
+            ' Create new line
+            Debug.Print strText
+            m_Console.Add "<br>"
+        Else
+            ' Continue next printout on this line.
+            Debug.Print strText;
+        End If
+    End If
+    
+    ' Add carriage return to log file if specified
+    If blnNextOutputOnNewLine Then m_Log.Add vbCrLf
+    
+    ' Allow an update to the screen every second.
+    ' (This keeps the aplication from an apparent hang while
+    '  running intensive export processes.)
+    If dblLastLog + 1 < Timer Then
+        DoEvents
+        dblLastLog = Timer
+    End If
+    
+    ' Update log display on form if open.
+    If blnPrint And IsLoaded(acForm, "frmMain") Then
+        With Form_frmMain.txtLog
+            .Text = m_Console.GetStr
+            ' Move cursor to end of log for scroll effect.
+            .SelStart = Len(.Text)
+            .SelLength = 0
+        End With
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveLogFile
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Saves the log data to a file, and resets the log buffer.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveLogFile(strPath As String)
+    WriteFile m_Log.GetStr, strPath
+    Set m_Log = New clsConcat
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadOptions
+' Author    : Adam Waller
+' Date      : 4/15/2020
+' Purpose   : Loads the current options from defaults and this project.
+'---------------------------------------------------------------------------------------
+'
+Public Function LoadOptions() As clsOptions
+    Dim cOptions As clsOptions
+    Set cOptions = New clsOptions
+    cOptions.LoadDefaultOptions
+    cOptions.LoadProjectOptions
+    Set LoadOptions = cOptions
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetVCSVersion
+' Author    : Adam Waller
+' Date      : 1/28/2019
+' Purpose   : Gets the version of the version control system. (Used to turn off fast
+'           : save until a full export has been run with the current version of
+'           : the MSAccessVCS addin.)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetVCSVersion() As String
+
+    Dim dbs As Database
+    Dim objParent As Object
+    Dim prp As Object
+
+    Set objParent = CodeDb
+    If objParent Is Nothing Then Set objParent = CurrentProject ' ADP support
+
+    For Each prp In objParent.Properties
+        If prp.Name = "AppVersion" Then
+            ' Return version
+            GetVCSVersion = prp.Value
+        End If
+    Next prp
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TimerIcon
+' Author    : Adam Waller
+' Date      : 4/16/2020
+' Purpose   : Return the next increment of a timer icon, updating no more than a half
+'           : second between increments.
+'           : https://emojipedia.org/search/?q=clock
+'---------------------------------------------------------------------------------------
+'
+Public Function TimerIcon() As String
+    
+    Static intHour As Integer
+    Static sngLast As Single
+    
+    Dim strClocks As String
+    
+    ' Build list of clock characters
+    ' (Need to figure out the AscW value for the clock characters)
+    
+    If (Timer - sngLast > 0.5) Or (Timer < sngLast) Then
+        If intHour = 12 Then intHour = 0
+        intHour = intHour + 1
+    End If
+    
+End Function

@@ -1,0 +1,28 @@
+{
+  "Info": {
+    "AddinVersion": "1.2.0.27",
+    "AccessVersion": "14.0 32-bit"
+  },
+  "Options": {
+    "ExportFolder": "",
+    "ShowDebug": false,
+    "IncludeVBE": false,
+    "UseFastSave": true,
+    "SavePrintVars": true,
+    "SaveQuerySQL": true,
+    "SaveTableSQL": true,
+    "StripPublishOption": true,
+    "AggressiveSanitize": true,
+    "TablesToExportData": {
+      "USysRegInfo": {
+        "Format": "Tab Delimited"
+      },
+      "USysRibbons": {
+        "Format": "Tab Delimited"
+      }
+    },
+    "RunBeforeExport": "Deploy",
+    "RunAfterExport": "",
+    "RunAfterBuild": ""
+  }
+}

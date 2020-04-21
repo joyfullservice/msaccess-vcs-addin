@@ -20,7 +20,7 @@ End Function
 ' Purpose   : Export database properties to a CSV
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportProperties(strFolder As String, cModel As IVersionControl)
+Public Sub ExportProperties(strFolder As String, cOptions As clsOptions)
     
     Dim cData As New clsConcat
     Dim intCnt As Integer
@@ -55,10 +55,10 @@ Public Sub ExportProperties(strFolder As String, cModel As IVersionControl)
     WriteFile cData.GetStr, strFolder & "properties.txt"
     
     ' Display summary.
-    If cModel.ShowDebug Then
-        cModel.Log "[" & intCnt & "] database properties exported."
+    If cOptions.ShowDebug Then
+        Log "[" & intCnt & "] database properties exported."
     Else
-        cModel.Log "[" & intCnt & "]"
+        Log "[" & intCnt & "]"
     End If
     
 End Sub
@@ -82,7 +82,7 @@ Public Function ImportProperties(ByVal sourcePath As String, Optional ByRef appI
         Exit Function
     End If
     
-    Debug.Print PadRight("Importing Properties...", 24);
+    Debug.Print PadRight("Importing Properties...", cintPad);
     
     Dim thisDB As Object
     Set thisDB = ThisProjectDB(appInstance)

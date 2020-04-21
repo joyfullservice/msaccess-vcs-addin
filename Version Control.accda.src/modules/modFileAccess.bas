@@ -286,15 +286,8 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
         .Close
     End With
     
-    ' Write as UTF-8
-    With stmNew
-        .Open
-        .Type = adTypeText
-        .Charset = "utf-8"
-        .WriteText strText
-        .SaveToFile strDestinationFile, adSaveCreateOverWrite
-        .Close
-    End With
+    ' Write as UTF-8 (If required)
+    WriteFile strText, strDestinationFile
     
     Set stmNew = Nothing
     

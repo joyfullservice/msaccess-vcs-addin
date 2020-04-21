@@ -24,7 +24,7 @@ Option Private Module
 ' Purpose   : Export the definition of a linked table
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportLinkedTable(strTable As String, strFolder As String, cModel As IVersionControl)
+Public Sub ExportLinkedTable(strTable As String, strFolder As String, cOptions As clsOptions)
     
     Dim blnSkip As Boolean
     Dim strPath As String
@@ -38,11 +38,11 @@ Public Sub ExportLinkedTable(strTable As String, strFolder As String, cModel As 
     strPath = strFolder & GetSafeFileName(strTable) & ".LNKD"
     
     ' Check for fast save
-    If cModel.FastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strPath))
+    If cOptions.UseFastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strPath))
     
     ' Export linked table definition
     If blnSkip Then
-        If cModel.ShowDebug Then Debug.Print "  (Skipping '" & strTable & "')"
+        If cOptions.ShowDebug Then Debug.Print "  (Skipping '" & strTable & "')"
     Else
         ' Make sure folder exists
         MkDirIfNotExist strFolder
@@ -113,7 +113,7 @@ End Sub
 '           : format is more readable from a code review standpoint.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportTableDef(strTable As String, strFolder As String, cModel As IVersionControl)
+Public Sub ExportTableDef(strTable As String, strFolder As String, cOptions As clsOptions)
 
     Dim strFile As String
     Dim cData As New clsConcat
@@ -128,25 +128,25 @@ Public Sub ExportTableDef(strTable As String, strFolder As String, cModel As IVe
     strFile = strFolder & GetSafeFileName(strTable) & ".xml"
 
     ' Check for fast save
-    If cModel.FastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strFile))
+    If cOptions.UseFastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strFile))
 
     ' Export table definition
     If blnSkip Then
-        cModel.Log "  (Skipping '" & strTable & "')", cModel.ShowDebug
+        Log "  (Skipping '" & strTable & "')", cOptions.ShowDebug
     Else
-        If cModel.SaveTableSQL Then
+        If cOptions.SaveTableSQL Then
             ' Option for SQL output for accdb tables
-            cModel.Log "  " & strTable & " (with SQL)", cModel.ShowDebug
-            SaveTableSqlDef dbs, strTable, strFolder, cModel
+            Log "  " & strTable & " (with SQL)", cOptions.ShowDebug
+            SaveTableSqlDef dbs, strTable, strFolder, cOptions
         Else
-            cModel.Log "  " & strTable, cModel.ShowDebug
+            Log "  " & strTable, cOptions.ShowDebug
         End If
         
         ' Tables are export as XML files
         Application.ExportXML acExportTable, strTable, , strFile
 
         'exort Data Macros
-        ExportDataMacros strTable, strFolder, cModel
+        ExportDataMacros strTable, strFolder, cOptions
     End If
 
 End Sub
@@ -160,7 +160,7 @@ End Sub
 '           : (Makes it easier to see table changes in version control systems.)
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As String, cModel As IVersionControl)
+Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As String, cOptions As clsOptions)
 
     Dim cData As New clsConcat
     Dim cAttr As New clsConcat
@@ -445,7 +445,7 @@ End Function
 ' Purpose   : Export the data from the table.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportTableData(strTable As String, strFolder As String, cModel As IVersionControl)
+Public Sub ExportTableData(strTable As String, strFolder As String, cOptions As clsOptions)
 
     Dim rst As DAO.Recordset
     Dim fld As DAO.Field
@@ -456,7 +456,7 @@ Public Sub ExportTableData(strTable As String, strFolder As String, cModel As IV
     
     ' Make sure table exists
     If Not TableExists(strTable) Then
-        cModel.Log "Error: Table " & strTable & " missing"
+        Log "Error: Table " & strTable & " missing"
         Exit Sub
     End If
     
