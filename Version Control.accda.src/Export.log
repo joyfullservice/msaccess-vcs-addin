@@ -1,9 +1,9 @@
 -------------------------------
 Beginning Export of all Source
 Version Control.accda
-VCS Version 1.2.0.19
+VCS Version 1.2.0.22
 Using Fast Save
-4/17/2020 10:13:32 AM
+4/21/2020 11:29:52 AM
 -------------------------------
 -------------------------------
 Exporting queries...     
@@ -11,8 +11,7 @@ Exporting queries...
 -------------------------------
 Exporting forms...       
   (Skipping 'frmMain')
-  frmOptions
-    Sanitized in 0.06 seconds.
+  (Skipping 'frmOptions')
 [2]
 -------------------------------
 Exporting reports...     
@@ -29,7 +28,6 @@ Exporting modules...
   modRelation
   clsConcat
   modAddIn
-  modDeploy
   modADPFunctions
   modFunctions
   modJsonConverter
@@ -39,7 +37,7 @@ Exporting modules...
   modImportExport
   modProperty
   modReport
-[16]
+[15]
 -------------------------------
 Exporting references...  
   VBA 4.1
@@ -67,4 +65,4 @@ Exporting tbldef...
 Exporting relations...   
 [0]
 -------------------------------
-Done. (0.73 seconds)
+Done. (0.79 seconds)

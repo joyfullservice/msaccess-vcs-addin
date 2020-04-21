@@ -38,6 +38,7 @@ End Function
 '
 Public Function AddInMenuItemExport()
     DoCmd.OpenForm "frmMain"
+    DoEvents
     Form_frmMain.cmdExport_Click
 End Function
 
@@ -231,4 +232,167 @@ End Function
 '
 Private Sub RelaunchAsAdmin()
     ShellExecute 0, "runas", SysCmd(acSysCmdAccessDir) & "\msaccess.exe", """" & GetAddinFileName & """", vbNullString, SW_SHOWNORMAL
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetInstalledVersion
+' Author    : Adam Waller
+' Date      : 4/21/2020
+' Purpose   : Returns the installed version of the add-in from the registry.
+'           : (We are saving this in the user hive, since it requires admin rights
+'           :  to change the keys actually used by Access to register the add-in)
+'---------------------------------------------------------------------------------------
+'
+Public Sub GetInstalledVersion()
+    
+    Dim strVersion As String
+    
+    'strversion = getsetting(
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Deploy
+' Author    : Adam Waller
+' Date      : 4/21/2020
+' Purpose   : Increments the build version and updates the project description.
+'           : This can be run from the debug window when making updates to the project.
+'           : (More significant updates to the version number can be made using the
+'           :  `AppVersion` property defined below.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub Deploy()
+    
+    Const cstrSpacer As String = "--------------------------------------------------------------"
+        
+    ' Make sure we don't run ths function while it is loaded in another project.
+    If CodeProject.FullName <> CurrentProject.FullName Then
+        Debug.Print "This can only be run from a top-level project."
+        Debug.Print "Please open " & CodeProject.FullName & " and try again."
+        Exit Sub
+    End If
+    
+    ' Increment build number
+    IncrementBuildVersion
+    
+    ' List project and new build number
+    Debug.Print cstrSpacer
+    
+    ' Update project description
+    VBE.ActiveVBProject.Description = "Version " & AppVersion & " deployed on " & Date
+    Debug.Print " ~ " & VBE.ActiveVBProject.Name & " ~ Version " & AppVersion
+    Debug.Print cstrSpacer
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IncrementBuildVersion
+' Author    : Adam Waller
+' Date      : 1/6/2017
+' Purpose   : Increments the build version (1.0.0.x)
+'---------------------------------------------------------------------------------------
+'
+Public Sub IncrementBuildVersion()
+    Dim varParts As Variant
+    Dim intVer As Integer
+    varParts = Split(AppVersion, ".")
+    If UBound(varParts) < 3 Then Exit Sub
+    intVer = varParts(UBound(varParts))
+    varParts(UBound(varParts)) = intVer + 1
+    AppVersion = Join(varParts, ".")
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AppVersion
+' Author    : Adam Waller
+' Date      : 1/5/2017
+' Purpose   : Get the version from the database property.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get AppVersion() As String
+    Dim strVersion As String
+    strVersion = GetDBProperty("AppVersion")
+    If strVersion = "" Then strVersion = "1.0.0.0"
+    AppVersion = strVersion
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AppVersion
+' Author    : Adam Waller
+' Date      : 1/5/2017
+' Purpose   : Set version property in current database.
+'---------------------------------------------------------------------------------------
+'
+Public Property Let AppVersion(strVersion As String)
+    SetDBProperty "AppVersion", strVersion
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDBProperty
+' Author    : Adam Waller
+' Date      : 9/1/2017
+' Purpose   : Get a database property
+'---------------------------------------------------------------------------------------
+'
+Public Function GetDBProperty(strName As String) As Variant
+
+    Dim prp As DAO.Property
+    
+    For Each prp In CodeDb.Properties
+        If prp.Name = strName Then
+            GetDBProperty = prp.Value
+            Exit For
+        End If
+    Next prp
+    
+    Set prp = Nothing
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetDBProperty
+' Author    : Adam Waller
+' Date      : 9/1/2017
+' Purpose   : Set a database property
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetDBProperty(strName As String, varValue, Optional prpType = DB_TEXT)
+
+    Dim prp As DAO.Property
+    Dim blnFound As Boolean
+    Dim dbs As DAO.Database
+    
+    Set dbs = CodeDb
+    
+    For Each prp In dbs.Properties
+        If prp.Name = strName Then
+            blnFound = True
+            ' Skip set on matching value
+            If prp.Value = varValue Then
+                Set dbs = Nothing
+                Exit Sub
+            End If
+            Exit For
+        End If
+    Next prp
+    
+    On Error Resume Next
+    If blnFound Then
+        dbs.Properties(strName).Value = varValue
+    Else
+        Set prp = dbs.CreateProperty(strName, DB_TEXT, varValue)
+        dbs.Properties.Append prp
+    End If
+    If Err Then Err.Clear
+    On Error GoTo 0
+    
+    Set dbs = Nothing
+    
 End Sub
