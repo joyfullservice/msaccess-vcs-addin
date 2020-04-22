@@ -49,7 +49,7 @@ Public Sub ExportAllSource()
     ClearLogs
 
     ' Run any custom sub before export
-    If cOptions.RunBeforeExport <> vbNullString Then Run cOptions.RunBeforeExport
+    If cOptions.RunBeforeExport <> vbNullString Then RunSubInCurrentProject cOptions.RunBeforeExport
 
     ' Option used with fast saves
     If cOptions.UseFastSave Then
@@ -375,7 +375,7 @@ Public Sub ExportAllSource()
     End If
 
     ' Run any custom sub before export
-    If cOptions.RunAfterExport <> vbNullString Then Run cOptions.RunAfterExport
+    If cOptions.RunAfterExport <> vbNullString Then RunSubInCurrentProject cOptions.RunAfterExport
 
 End Sub
 

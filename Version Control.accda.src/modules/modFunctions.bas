@@ -1077,3 +1077,66 @@ Public Function TimerIcon() As String
     End If
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetVBProjectForCurrentDB
+' Author    : Adam Waller
+' Date      : 7/25/2017
+' Purpose   : Get the actual VBE project for the current top-level database.
+'           : (This is harder than you would think!)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetVBProjectForCurrentDB() As VBProject
+
+    Dim objProj As Object
+    Dim strPath As String
+    
+    strPath = CurrentProject.FullName
+    If VBE.ActiveVBProject.FileName = strPath Then
+        ' Use currently active project
+        Set GetVBProjectForCurrentDB = VBE.ActiveVBProject
+    Else
+        ' Search for project with matching filename.
+        For Each objProj In VBE.VBProjects
+            If objProj.FileName = strPath Then
+                Set GetVBProjectForCurrentDB = objProj
+                Exit For
+            End If
+        Next objProj
+    End If
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunInCurrentProject
+' Author    : Adam Waller
+' Date      : 4/22/2020
+' Purpose   : Use the Run command but make sure it is running in the context of the
+'           : current project, not the add-in file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RunSubInCurrentProject(strSubName As String)
+
+    Dim strCmd As String
+    
+    ' Don't need the parentheses after the sub name
+    strCmd = Replace(strSubName, "()", "")
+    
+    ' Make sure we are not trying to run a function with arguments
+    If InStr(strCmd, "(") > 0 Then
+        MsgBox2 "Unable to Run Command", _
+            "Parameters are not supported for this command.", _
+            "If you need to use parameters, please create a wrapper sub or function with" & vbCrLf & _
+            "no parameters that you can call instead of " & strSubName & ".", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Add project name so we can run it from the current datbase
+    strCmd = "[" & GetVBProjectForCurrentDB.Name & "]." & strCmd
+    
+    ' Run the sub
+    Application.Run strCmd
+
+End Sub
