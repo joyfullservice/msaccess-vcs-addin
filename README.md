@@ -27,7 +27,7 @@ Installation
 
 Contributing
 ------------
-Interested in adding a feature or fixing a bug? [Issues](https://github.com/joyfullservice/msaccess-vcs-integration/issues) and [pull requests](https://github.com/joyfullservice/msaccess-vcs-integration/pulls) are welcome for this project. [This page](/CHANGELOG.md) describes some guidelines and the types of contributions would be most helpful.
+Interested in adding a feature or fixing a bug? [Issues](https://github.com/joyfullservice/msaccess-vcs-integration/issues) and [pull requests](https://github.com/joyfullservice/msaccess-vcs-integration/pulls) are welcome for this project. [This page](/CONTRIBUTING.md) describes some guidelines and the types of contributions would be most helpful.
 
 Development Roadmap
 -------------------
