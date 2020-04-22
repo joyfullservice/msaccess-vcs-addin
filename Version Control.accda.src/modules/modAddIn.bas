@@ -2,6 +2,12 @@ Option Compare Database
 Option Explicit
 Option Private Module
 
+Public Enum eReleaseType
+    Major_Vxx = 0
+    Minor_xVx = 1
+    Build_xxV = 2
+End Enum
+
 ' Used to determine if Access is running as administrator. (Required for installing the add-in)
 Private Declare PtrSafe Function IsUserAnAdmin Lib "shell32" () As Long
 
@@ -14,7 +20,7 @@ Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( 
     ByVal lpDirectory As String, _
     ByVal nShowCmd As Long) As Long
 
-Const SW_SHOWNORMAL = 1
+Private Const SW_SHOWNORMAL = 1
 
 
 '---------------------------------------------------------------------------------------
@@ -254,7 +260,7 @@ End Sub
 '           :  `AppVersion` property defined below.)
 '---------------------------------------------------------------------------------------
 '
-Public Sub Deploy()
+Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     
     Const cstrSpacer As String = "--------------------------------------------------------------"
         
@@ -266,7 +272,7 @@ Public Sub Deploy()
     End If
     
     ' Increment build number
-    IncrementBuildVersion
+    IncrementBuildVersion ReleaseType
     
     ' List project and new build number
     Debug.Print cstrSpacer
@@ -283,17 +289,28 @@ End Sub
 ' Procedure : IncrementBuildVersion
 ' Author    : Adam Waller
 ' Date      : 1/6/2017
-' Purpose   : Increments the build version (1.0.0.x)
+' Purpose   : Increments the build version (1.0.12)
 '---------------------------------------------------------------------------------------
 '
-Public Sub IncrementBuildVersion()
+Public Sub IncrementBuildVersion(ReleaseType As eReleaseType)
+
     Dim varParts As Variant
-    Dim intVer As Integer
+    
     varParts = Split(AppVersion, ".")
-    If UBound(varParts) < 3 Then Exit Sub
-    intVer = varParts(UBound(varParts))
-    varParts(UBound(varParts)) = intVer + 1
-    AppVersion = Join(varParts, ".")
+    
+    If UBound(varParts) <> 2 Then
+        Debug.Print "Unexpected version format"
+        Stop
+    End If
+    
+    If Not IsNumeric(varParts(ReleaseType)) Then
+        Debug.Print "Expecting numeric value"
+        Stop
+    Else
+        varParts(ReleaseType) = varParts(ReleaseType) + 1
+        AppVersion = Join(varParts, ".")
+    End If
+
 End Sub
 
 
@@ -307,7 +324,7 @@ End Sub
 Public Property Get AppVersion() As String
     Dim strVersion As String
     strVersion = GetDBProperty("AppVersion")
-    If strVersion = "" Then strVersion = "1.0.0.0"
+    If strVersion = "" Then strVersion = "1.0.0"
     AppVersion = strVersion
 End Property
 
