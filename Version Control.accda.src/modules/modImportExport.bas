@@ -78,10 +78,12 @@ Public Sub ExportAllSource()
     VerifyPath strSourcePath
 
     ' Display header in debug output
-    Debug.Print
-    Debug.Print cstrSpacer
-    Debug.Print "  Exporting All Source"
-    Debug.Print cstrSpacer
+    If Not IsLoaded(acForm, "frmMain") Then
+        Debug.Print
+        Debug.Print cstrSpacer
+        Debug.Print "  Exporting All Source"
+        Debug.Print cstrSpacer
+    End If
 
     ' Process queries
     

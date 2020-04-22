@@ -961,13 +961,17 @@ Public Sub Log(strText As String, Optional blnPrint As Boolean = True, Optional 
             strLine = "<font color=green><strong>" & strText & "</strong></font>"
         End If
         m_Console.Add strLine
-        If blnNextOutputOnNewLine Then
-            ' Create new line
-            Debug.Print strText
-            m_Console.Add "<br>"
-        Else
-            ' Continue next printout on this line.
-            Debug.Print strText;
+        If blnNextOutputOnNewLine Then m_Console.Add "<br>"
+        ' Only print debug output if not running from the GUI.
+        If Not IsLoaded(acForm, "frmMain") Then
+            If blnNextOutputOnNewLine Then
+                ' Create new line
+                Debug.Print strText
+                
+            Else
+                ' Continue next printout on this line.
+                Debug.Print strText;
+            End If
         End If
     End If
     

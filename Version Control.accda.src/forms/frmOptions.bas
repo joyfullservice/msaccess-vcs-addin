@@ -1,4 +1,4 @@
-Version =20
+﻿ï»¿Version =20
 VersionRequired =20
 Begin Form
     PopUp = NotDefault
@@ -17,10 +17,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =91
-    Left =-15330
-    Top =1050
-    Right =-5250
-    Bottom =8235
+    Left =-17265
+    Top =2430
+    Right =-6105
+    Bottom =10335
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -458,6 +458,78 @@ Begin Form
                             WebImagePaddingRight =2
                             WebImagePaddingBottom =2
                             Begin
+                                Begin TextBox
+                                    OverlapFlags =215
+                                    IMESentenceMode =3
+                                    Left =2700
+                                    Top =2340
+                                    Width =3420
+                                    Height =315
+                                    TabIndex =4
+                                    BorderColor =10921638
+                                    ForeColor =4210752
+                                    Name ="txtExportFolder"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =2700
+                                    LayoutCachedTop =2340
+                                    LayoutCachedWidth =6120
+                                    LayoutCachedHeight =2655
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =1200
+                                            Top =2340
+                                            Width =1380
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label31"
+                                            Caption ="Export Folder:"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1200
+                                            LayoutCachedTop =2340
+                                            LayoutCachedWidth =2580
+                                            LayoutCachedHeight =2655
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin CheckBox
+                                    OverlapFlags =215
+                                    Left =1260
+                                    Top =3000
+                                    TabIndex =1
+                                    BorderColor =10921638
+                                    Name ="chkUseFastSave"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =1260
+                                    LayoutCachedTop =3000
+                                    LayoutCachedWidth =1520
+                                    LayoutCachedHeight =3240
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =1560
+                                            Top =2940
+                                            Width =2640
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label25"
+                                            Caption ="Use Fast Save"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1560
+                                            LayoutCachedTop =2940
+                                            LayoutCachedWidth =4200
+                                            LayoutCachedHeight =3255
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
                                 Begin CheckBox
                                     OverlapFlags =215
                                     Left =1260
@@ -494,32 +566,66 @@ Begin Form
                                 Begin CheckBox
                                     OverlapFlags =215
                                     Left =1260
-                                    Top =3000
-                                    TabIndex =1
+                                    Top =3840
+                                    TabIndex =5
                                     BorderColor =10921638
-                                    Name ="chkUseFastSave"
+                                    Name ="chkStripPublishOption"
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =1260
-                                    LayoutCachedTop =3000
+                                    LayoutCachedTop =3840
                                     LayoutCachedWidth =1520
-                                    LayoutCachedHeight =3240
+                                    LayoutCachedHeight =4080
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
                                             Left =1560
-                                            Top =2940
+                                            Top =3780
                                             Width =2640
                                             Height =315
                                             BorderColor =8355711
                                             ForeColor =5324600
-                                            Name ="Label25"
-                                            Caption ="Use Fast Save"
+                                            Name ="Label34"
+                                            Caption ="Strip out Publish Option"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =1560
-                                            LayoutCachedTop =2940
+                                            LayoutCachedTop =3780
                                             LayoutCachedWidth =4200
-                                            LayoutCachedHeight =3255
+                                            LayoutCachedHeight =4095
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin CheckBox
+                                    OverlapFlags =215
+                                    Left =1260
+                                    Top =4260
+                                    TabIndex =8
+                                    BorderColor =10921638
+                                    Name ="chkAggressiveSanitize"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =1260
+                                    LayoutCachedTop =4260
+                                    LayoutCachedWidth =1520
+                                    LayoutCachedHeight =4500
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =1560
+                                            Top =4200
+                                            Width =2640
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label40"
+                                            Caption ="Aggressive Sanitize"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1560
+                                            LayoutCachedTop =4200
+                                            LayoutCachedWidth =4200
+                                            LayoutCachedHeight =4515
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -593,73 +699,35 @@ Begin Form
                                         End
                                     End
                                 End
-                                Begin TextBox
-                                    OverlapFlags =215
-                                    IMESentenceMode =3
-                                    Left =2700
-                                    Top =2340
-                                    Width =3420
-                                    Height =315
-                                    TabIndex =4
-                                    BorderColor =10921638
-                                    ForeColor =4210752
-                                    Name ="txtExportFolder"
-                                    GridlineColor =10921638
-
-                                    LayoutCachedLeft =2700
-                                    LayoutCachedTop =2340
-                                    LayoutCachedWidth =6120
-                                    LayoutCachedHeight =2655
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =215
-                                            Left =1200
-                                            Top =2340
-                                            Width =1380
-                                            Height =315
-                                            BorderColor =8355711
-                                            ForeColor =5324600
-                                            Name ="Label31"
-                                            Caption ="Export Folder:"
-                                            GridlineColor =10921638
-                                            LayoutCachedLeft =1200
-                                            LayoutCachedTop =2340
-                                            LayoutCachedWidth =2580
-                                            LayoutCachedHeight =2655
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
-                                End
                                 Begin CheckBox
                                     OverlapFlags =215
-                                    Left =1260
-                                    Top =3840
-                                    TabIndex =5
+                                    Left =4740
+                                    Top =3780
+                                    TabIndex =7
                                     BorderColor =10921638
-                                    Name ="chkStripPublishOption"
+                                    Name ="chkSaveTableSQL"
                                     GridlineColor =10921638
 
-                                    LayoutCachedLeft =1260
-                                    LayoutCachedTop =3840
-                                    LayoutCachedWidth =1520
-                                    LayoutCachedHeight =4080
+                                    LayoutCachedLeft =4740
+                                    LayoutCachedTop =3780
+                                    LayoutCachedWidth =5000
+                                    LayoutCachedHeight =4020
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
-                                            Left =1560
-                                            Top =3780
+                                            Left =5040
+                                            Top =3720
                                             Width =2640
                                             Height =315
                                             BorderColor =8355711
                                             ForeColor =5324600
-                                            Name ="Label34"
-                                            Caption ="Strip out Publish Option"
+                                            Name ="Label38"
+                                            Caption ="Save Table SQL"
                                             GridlineColor =10921638
-                                            LayoutCachedLeft =1560
-                                            LayoutCachedTop =3780
-                                            LayoutCachedWidth =4200
-                                            LayoutCachedHeight =4095
+                                            LayoutCachedLeft =5040
+                                            LayoutCachedTop =3720
+                                            LayoutCachedWidth =7680
+                                            LayoutCachedHeight =4035
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -699,69 +767,77 @@ Begin Form
                                         End
                                     End
                                 End
-                                Begin CheckBox
+                                Begin TextBox
                                     OverlapFlags =215
-                                    Left =4740
-                                    Top =3780
-                                    TabIndex =7
+                                    IMESentenceMode =3
+                                    Left =3480
+                                    Top =5040
+                                    Width =2640
+                                    Height =315
+                                    TabIndex =10
                                     BorderColor =10921638
-                                    Name ="chkSaveTableSQL"
+                                    ForeColor =4210752
+                                    Name ="txtRunBeforeExport"
                                     GridlineColor =10921638
 
-                                    LayoutCachedLeft =4740
-                                    LayoutCachedTop =3780
-                                    LayoutCachedWidth =5000
-                                    LayoutCachedHeight =4020
+                                    LayoutCachedLeft =3480
+                                    LayoutCachedTop =5040
+                                    LayoutCachedWidth =6120
+                                    LayoutCachedHeight =5355
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
-                                            Left =5040
-                                            Top =3720
-                                            Width =2640
+                                            Left =1200
+                                            Top =5040
+                                            Width =2205
                                             Height =315
                                             BorderColor =8355711
                                             ForeColor =5324600
-                                            Name ="Label38"
-                                            Caption ="Save Table SQL"
+                                            Name ="Label44"
+                                            Caption ="Run Sub Before Export:"
                                             GridlineColor =10921638
-                                            LayoutCachedLeft =5040
-                                            LayoutCachedTop =3720
-                                            LayoutCachedWidth =7680
-                                            LayoutCachedHeight =4035
+                                            LayoutCachedLeft =1200
+                                            LayoutCachedTop =5040
+                                            LayoutCachedWidth =3405
+                                            LayoutCachedHeight =5355
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
                                     End
                                 End
-                                Begin CheckBox
+                                Begin TextBox
                                     OverlapFlags =215
-                                    Left =1260
-                                    Top =4260
-                                    TabIndex =8
+                                    IMESentenceMode =3
+                                    Left =3480
+                                    Top =5460
+                                    Width =2640
+                                    Height =315
+                                    TabIndex =11
                                     BorderColor =10921638
-                                    Name ="chkAggressiveSanitize"
+                                    ForeColor =4210752
+                                    Name ="txtRunAfterExport"
                                     GridlineColor =10921638
 
-                                    LayoutCachedLeft =1260
-                                    LayoutCachedTop =4260
-                                    LayoutCachedWidth =1520
-                                    LayoutCachedHeight =4500
+                                    LayoutCachedLeft =3480
+                                    LayoutCachedTop =5460
+                                    LayoutCachedWidth =6120
+                                    LayoutCachedHeight =5775
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
-                                            Left =1560
-                                            Top =4200
-                                            Width =2640
+                                            Left =1200
+                                            Top =5460
+                                            Width =2055
                                             Height =315
                                             BorderColor =8355711
                                             ForeColor =5324600
-                                            Name ="Label40"
-                                            Caption ="Aggressive Sanitize"
+                                            Name ="Label48"
+                                            Caption ="Run Sub After Export:"
                                             GridlineColor =10921638
-                                            LayoutCachedLeft =1560
-                                            LayoutCachedTop =4200
-                                            LayoutCachedWidth =4200
-                                            LayoutCachedHeight =4515
+                                            LayoutCachedLeft =1200
+                                            LayoutCachedTop =5460
+                                            LayoutCachedWidth =3255
+                                            LayoutCachedHeight =5775
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -775,9 +851,10 @@ Begin Form
                                     Width =2340
                                     TabIndex =9
                                     ForeColor =16711680
-                                    Name ="Command42"
+                                    Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
-                                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation"
+                                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation#op"
+                                        "tions"
                                     GridlineColor =10921638
                                     ImageData = Begin
                                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
@@ -845,44 +922,6 @@ Begin Form
                                     WebImagePaddingRight =2
                                     WebImagePaddingBottom =2
                                 End
-                                Begin TextBox
-                                    OverlapFlags =215
-                                    IMESentenceMode =3
-                                    Left =3480
-                                    Top =5040
-                                    Width =2640
-                                    Height =315
-                                    TabIndex =10
-                                    BorderColor =10921638
-                                    ForeColor =4210752
-                                    Name ="txtRunBeforeExport"
-                                    GridlineColor =10921638
-
-                                    LayoutCachedLeft =3480
-                                    LayoutCachedTop =5040
-                                    LayoutCachedWidth =6120
-                                    LayoutCachedHeight =5355
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =215
-                                            Left =1200
-                                            Top =5040
-                                            Width =2205
-                                            Height =315
-                                            BorderColor =8355711
-                                            ForeColor =5324600
-                                            Name ="Label44"
-                                            Caption ="Run Sub Before Export:"
-                                            GridlineColor =10921638
-                                            LayoutCachedLeft =1200
-                                            LayoutCachedTop =5040
-                                            LayoutCachedWidth =3405
-                                            LayoutCachedHeight =5355
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
-                                End
                                 Begin Label
                                     OverlapFlags =215
                                     Left =6420
@@ -899,44 +938,6 @@ Begin Form
                                     LayoutCachedTop =2400
                                     LayoutCachedWidth =8580
                                     LayoutCachedHeight =2640
-                                End
-                                Begin TextBox
-                                    OverlapFlags =215
-                                    IMESentenceMode =3
-                                    Left =3480
-                                    Top =5460
-                                    Width =2640
-                                    Height =315
-                                    TabIndex =11
-                                    BorderColor =10921638
-                                    ForeColor =4210752
-                                    Name ="txtRunAfterExport"
-                                    GridlineColor =10921638
-
-                                    LayoutCachedLeft =3480
-                                    LayoutCachedTop =5460
-                                    LayoutCachedWidth =6120
-                                    LayoutCachedHeight =5775
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =215
-                                            Left =1200
-                                            Top =5460
-                                            Width =2055
-                                            Height =315
-                                            BorderColor =8355711
-                                            ForeColor =5324600
-                                            Name ="Label48"
-                                            Caption ="Run Sub After Export:"
-                                            GridlineColor =10921638
-                                            LayoutCachedLeft =1200
-                                            LayoutCachedTop =5460
-                                            LayoutCachedWidth =3255
-                                            LayoutCachedHeight =5775
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
                                 End
                             End
                         End

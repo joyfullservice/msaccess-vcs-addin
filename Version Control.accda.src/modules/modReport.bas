@@ -61,9 +61,6 @@ Public Sub ExportPrintVars(strReport As String, strFile As String, cOptions As c
     Set rpt = Reports(strReport)
     rpt.Visible = False
     
-    ' Move focus back to IDE
-    VBE.ActiveCodePane.Show
-    
     ' Make sure we don't have a null devmode
     If Not IsNull(rpt.PrtDevMode) Then
         
@@ -93,9 +90,6 @@ Public Sub ExportPrintVars(strReport As String, strFile As String, cOptions As c
     Set rpt = Nothing
     DoCmd.Close acReport, strReport, acSaveNo
     Application.Echo True
-    
-    ' Go back to the VBA IDE if we are not there already.
-    VBE.ActiveCodePane.Show
     
 End Sub
 
