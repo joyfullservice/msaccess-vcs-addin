@@ -87,7 +87,7 @@ Public Function AutoRun()
         ' and updated version of the addin. In that case, we are either trying
         ' to install it for the first time, or trying to upgrade it.
         If IsAlreadyInstalled Then
-            If InstalledVersion < AppVersion Then
+            If InstalledVersion <> AppVersion Then
                 If MsgBox2("Upgrade Version Control?", _
                     "Would you like to upgrade to version " & AppVersion & "?", _
                     "Click 'Yes' to continue or 'No' to cancel.", vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then

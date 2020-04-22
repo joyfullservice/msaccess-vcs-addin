@@ -1,4 +1,4 @@
-Version =20
+﻿ï»¿Version =20
 VersionRequired =20
 Begin Form
     PopUp = NotDefault
@@ -17,10 +17,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =17
-    Left =-14970
-    Top =1290
-    Right =-5610
-    Bottom =7755
+    Left =-13845
+    Top =2505
+    Right =-4485
+    Bottom =8970
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -757,6 +757,7 @@ Begin Form
                     ForeTint =100.0
                 End
                 Begin CommandButton
+                    Enabled = NotDefault
                     OverlapFlags =247
                     Left =4740
                     Top =3780
