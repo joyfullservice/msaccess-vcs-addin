@@ -208,7 +208,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Upgrade()
-    ' No upgrade needed for forms.
+    ' No upgrade needed.
 End Sub
 
 

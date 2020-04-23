@@ -12,7 +12,7 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private m_Module As AccessObject
+Private m_Query As AccessObject
 Private m_Options As clsOptions
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -33,11 +33,31 @@ Private Sub IDbComponent_Export()
     
     Dim strFile As String
     Dim strTempFile As String
+    Dim dbs As DAO.Database
 
-    ' Remove any existing file before saving the new one.
+    ' Remove any existing file
     strFile = IDbComponent_SourceFile
     If FSO.FileExists(strFile) Then Kill strFile
-    Application.SaveAsText acModule, m_Module.Name, strFile
+
+    If CurrentProject.ProjectType = acADP Then
+        ' No UCS conversion needed.
+        Application.SaveAsText acForm, m_Query.Name, strFile
+    Else
+        ' Convert UCS to UTF-8
+        strTempFile = GetTempFile
+        Application.SaveAsText acForm, m_Query.Name, strTempFile
+        ConvertUcs2Utf8 strTempFile, strFile
+        Kill strTempFile
+    End If
+    SanitizeFile strFile, IDbComponent_Options
+    
+    ' Export as SQL (if using that option)
+    If IDbComponent_Options.SaveQuerySQL Then
+        Set dbs = CurrentDb
+        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
+        WriteFile dbs.QueryDefs(m_Query.Name).sql, strFile
+        Log "  " & m_Query.Name & " (SQL)", IDbComponent_Options.ShowDebug
+    End If
     
 End Sub
 
@@ -63,19 +83,19 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
     
-    Dim oMod As AccessObject
-    Dim cModule As IDbComponent
+    Dim qry As AccessObject
+    Dim cQuery As IDbComponent
 
     ' Use parameter options if provided.
     If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
 
     Set IDbComponent_GetAllFromDB = New Collection
-    For Each oMod In CurrentProject.AllModules
-        Set cModule = New clsDbModule
-        Set cModule.DbObject = oMod
-        Set cModule.Options = IDbComponent_Options
-        IDbComponent_GetAllFromDB.Add cModule, oMod.Name
-    Next oMod
+    For Each qry In CurrentData.AllQueries
+        Set cQuery = New clsDbForm
+        Set cQuery.DbObject = qry
+        Set cQuery.Options = IDbComponent_Options
+        IDbComponent_GetAllFromDB.Add cQuery, qry.Name
+    Next qry
         
 End Function
 
@@ -100,7 +120,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentProject.AllModules, IDbComponent_Options, "bas"
+    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentData.AllQueries, IDbComponent_Options, "bas", "sql"
 End Function
 
 
@@ -114,7 +134,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = m_Module.DateModified
+    IDbComponent_DateModified = m_Query.DateModified
 End Function
 
 
@@ -126,7 +146,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "modules"
+    IDbComponent_Category = "queries"
 End Property
 
 
@@ -137,7 +157,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "modules\"
+    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "queries\"
 End Property
 
 
@@ -149,7 +169,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
-    IDbComponent_Name = m_Module.Name
+    IDbComponent_Name = m_Query.Name
 End Property
 
 
@@ -161,7 +181,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & ".bas"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".bas"
 End Property
 
 
@@ -173,7 +193,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    IDbComponent_Count = CurrentProject.AllModules.Count
+    IDbComponent_Count = CurrentData.AllQueries.Count
 End Property
 
 
@@ -185,7 +205,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
-    IDbComponent_ComponentType = edbModule
+    IDbComponent_ComponentType = edbQuery
 End Property
 
 
@@ -197,7 +217,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Upgrade()
-    ' No upgrade needed for modules.
+    ' No upgrade needed.
 End Sub
 
 
@@ -225,8 +245,8 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_DbObject() As Object
-    Set IDbComponent_DbObject = m_Module
+    Set IDbComponent_DbObject = m_Query
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
-    Set m_Module = RHS
+    Set m_Query = RHS
 End Property

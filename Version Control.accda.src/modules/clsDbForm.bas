@@ -34,7 +34,7 @@ Private Sub IDbComponent_Export()
     Dim strFile As String
     Dim strTempFile As String
     
-    ' Check for fast save option
+    ' Remove any existing file
     strFile = IDbComponent_SourceFile
     If FSO.FileExists(strFile) Then Kill strFile
     

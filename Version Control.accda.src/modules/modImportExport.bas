@@ -48,6 +48,11 @@ Public Sub NewExport()
         .Add New clsDbForm
         .Add New clsDbMacro
         .Add New clsDbModule
+        If CurrentProject.ProjectType = acADP Then
+            ' Some types of objects only exist in ADP projects
+        Else
+            .Add New clsDbQuery
+        End If
     End With
     
     ' Loop through all categ
@@ -66,6 +71,7 @@ Public Sub NewExport()
             If cOptions.UseFastSave Then
                 If HasMoreRecentChanges(cDbObject, cDbObject.SourceFile) Then
                     cDbObject.Export
+                    Log "  " & cDbObject.Name, cOptions.ShowDebug
                 Else
                     Log "  (Skipping '" & cDbObject.Name & "')", cOptions.ShowDebug
                 End If
