@@ -12,7 +12,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-
 Private m_Form As AccessObject
 Private m_Options As clsOptions
 
@@ -21,18 +20,6 @@ Private m_Options As clsOptions
 ' and import process. The implemented functions should be kept private as they are called
 ' from the implementing class, not this class.
 Implements IDbComponent
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Category
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return a category name for this type. (I.e. forms, queries, macros)
-'---------------------------------------------------------------------------------------
-'
-Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "forms"
-End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -63,6 +50,18 @@ Private Sub IDbComponent_Export()
     End If
     SanitizeFile strFile, IDbComponent_Options
     
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Import
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Import the individual database component from a file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Import(strFile As String)
+
 End Sub
 
 
@@ -105,15 +104,15 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Import
+' Procedure : ClearOrphanedSourceFiles
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
-' Purpose   : Import the individual database component from a file.
+' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Import(strFile As String)
-
-End Sub
+Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentProject.AllForms, IDbComponent_Options, "bas"
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -128,6 +127,18 @@ End Sub
 Private Function IDbComponent_DateModified() As Date
     IDbComponent_DateModified = m_Form.DateModified
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Category
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return a category name for this type. (I.e. forms, queries, macros)
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_Category() As String
+    IDbComponent_Category = "forms"
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -162,6 +173,18 @@ End Property
 '
 Private Property Get IDbComponent_SourceFile() As String
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".bas"
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Count
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return a count of how many items are in this category.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_Count() As Long
+    IDbComponent_Count = CurrentProject.AllForms.Count
 End Property
 
 

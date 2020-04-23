@@ -37,6 +37,17 @@ Public DbObject As Object
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedSourceFiles
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Remove any source files for objects not in the current database.
+'---------------------------------------------------------------------------------------
+'
+Public Function ClearOrphanedSourceFiles()
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Export
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -145,6 +156,17 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Category() As String
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Count
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return a count of how many items are in this category.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Count() As Long
 End Property
 
 

@@ -50,6 +50,14 @@ Public Sub NewExport()
     
     ' Loop through all categ
     For Each cCategory In colContainers
+        
+        ' Show category header and clear out any orphaned files.
+        Log cstrSpacer, cOptions.ShowDebug
+        Log PadRight("Exporting " & cCategory.Category & "...", cintPad), , cOptions.ShowDebug
+        Log vbNullString, cOptions.ShowDebug
+        cCategory.ClearOrphanedSourceFiles
+    
+        ' Loop through each object in this category.
         For Each cDbObject In cCategory.GetAllFromDB(cOptions)
             
             ' Check for fast save option
@@ -65,6 +73,10 @@ Public Sub NewExport()
             End If
     
         Next cDbObject
+        
+        ' Show category wrap-up.
+        Log "[" & cCategory.Count & "]" & IIf(cOptions.ShowDebug, " queries exported.", vbNullString)
+        
     Next cCategory
 
     ' Show final output and save log
