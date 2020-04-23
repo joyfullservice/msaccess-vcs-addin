@@ -32,6 +32,7 @@ Public Sub NewExport()
 
     ' Display heading
     With cOptions
+        .ShowDebug = True
         Log cstrSpacer
         Log "Beginning Export of all Source", False
         Log CurrentProject.Name
@@ -52,6 +53,7 @@ Public Sub NewExport()
         If CurrentProject.ProjectType = acADP Then
             ' Some types of objects only exist in ADP projects
         Else
+            .Add New clsDbTableDef
             .Add New clsDbQuery
         End If
     End With
@@ -84,7 +86,7 @@ Public Sub NewExport()
         Next cDbObject
         
         ' Show category wrap-up.
-        Log "[" & cCategory.Count & "]" & IIf(cOptions.ShowDebug, " queries exported.", vbNullString)
+        Log "[" & cCategory.Count & "]" & IIf(cOptions.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
         
     Next cCategory
 

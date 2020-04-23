@@ -24,12 +24,14 @@ Public Enum eDatabaseComponentType
     edbReport
     edbTable
     edbTableDataMacro
+    edbLinkedTable
     ' ADP specific
     edbAdpDiagram
     edbAdpFunction
     edbAdpServerView
     edbAdpStoredProcedure
     ' Custom object types we are also handling.
+    edbTableData
     edbRelation
     edbDbProperty
     edbFileProperty
