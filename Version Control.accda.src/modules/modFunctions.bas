@@ -1198,11 +1198,13 @@ End Function
 
 Public Sub TestClass()
 
-    Dim cForm As New IDbComponent
+    Dim cForm As IDbComponent
 
     Set cForm = New clsDbForm
-
-    Debug.Print cForm.GetAllFromDB()(2).Item.Name
-    Debug.Print cForm.GetFileList("test").Count
+    Set cForm.DbObject = CurrentProject.AllForms("frmMain")
+    Debug.Print cForm.SourceFile
+    cForm.Export
+    
+    'Debug.Print cForm.GetFileList("test").Count
     
 End Sub

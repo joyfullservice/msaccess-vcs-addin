@@ -860,12 +860,12 @@ Public Sub ImportProject()
         End If
     Next
 
-    Dim dbObject As Object
-    For Each dbObject In Db.QueryDefs
+    Dim DbObject As Object
+    For Each DbObject In Db.QueryDefs
         DoEvents
-        If Left(dbObject.Name, 1) <> "~" Then
+        If Left(DbObject.Name, 1) <> "~" Then
 '            Debug.Print dbObject.Name
-            Db.QueryDefs.Delete dbObject.Name
+            Db.QueryDefs.Delete DbObject.Name
         End If
     Next
     

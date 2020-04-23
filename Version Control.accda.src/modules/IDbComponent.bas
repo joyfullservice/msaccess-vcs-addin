@@ -17,6 +17,26 @@ Option Explicit
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Options
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return or set the options being used in this context.
+'---------------------------------------------------------------------------------------
+'
+Public Options As clsOptions
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DbObject
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : This represents the database object we are dealing with.
+'---------------------------------------------------------------------------------------
+'
+Public DbObject As Object
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Export
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -60,6 +80,27 @@ End Function
 '
 Public Function ModifiedDate() As Date
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BaseFolder
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return the base folder for import/export of this component.
+'---------------------------------------------------------------------------------------
+Public Property Get BaseFolder() As String
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SourceFile
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return the full path of the source file for the current object.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SourceFile() As String
+End Property
 
 
 '---------------------------------------------------------------------------------------
