@@ -46,6 +46,7 @@ Public Sub NewExport()
     Set colContainers = New Collection
     With colContainers
         .Add New clsDbForm
+        .Add New clsDbMacro
     End With
     
     ' Loop through all categ
