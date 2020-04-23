@@ -11,6 +11,81 @@ Public Const cintPad As Integer = 25
 Private m_FSO As Scripting.FileSystemObject
 
 
+
+Public Sub NewExport()
+
+    Dim colContainers As Collection
+    Dim cCategory As IDbComponent
+    Dim cDbObject As IDbComponent
+    Dim cOptions As clsOptions
+    Dim sngStart As Single
+    
+    ' Load the project options and reset the logs
+    Set cOptions = LoadOptions
+    ClearLogs
+
+    ' Run any custom sub before export
+    If cOptions.RunBeforeExport <> vbNullString Then RunSubInCurrentProject cOptions.RunBeforeExport
+
+    sngStart = Timer
+    Set colVerifiedPaths = New Collection   ' Reset cache
+
+    ' Display heading
+    With cOptions
+        Log cstrSpacer
+        Log "Beginning Export of all Source", False
+        Log CurrentProject.Name
+        Log "VCS Version " & GetVCSVersion
+        If .UseFastSave Then Log "Using Fast Save"
+        Log Now()
+        Log cstrSpacer
+    End With
+    
+    
+    ' Build containers of object types
+    Set colContainers = New Collection
+    With colContainers
+        .Add New clsDbForm
+    End With
+    
+    ' Loop through all categ
+    For Each cCategory In colContainers
+        For Each cDbObject In cCategory.GetAllFromDB(cOptions)
+            
+            ' Check for fast save option
+            If cOptions.UseFastSave Then
+                If HasMoreRecentChanges(cDbObject, cDbObject.SourceFile) Then
+                    cDbObject.Export
+                Else
+                    Log "  (Skipping '" & cDbObject.Name & "')", cOptions.ShowDebug
+                End If
+            Else
+                ' Always export object
+                cDbObject.Export
+            End If
+    
+        Next cDbObject
+    Next cCategory
+
+    ' Show final output and save log
+    Log cstrSpacer
+    Log "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
+    SaveLogFile cOptions.GetExportFolder & "\Export.log"
+    
+    ' Clean up after completion
+    Set m_FSO = Nothing
+    
+    ' Save property with the version of Version Control we used for the export.
+    If GetDBProperty("Last VCS Version") <> GetVCSVersion Then SetDBProperty "Last VCS Version", GetVCSVersion
+
+    ' Run any custom sub before export
+    If cOptions.RunAfterExport <> vbNullString Then RunSubInCurrentProject cOptions.RunAfterExport
+
+End Sub
+
+
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : ExportAllSource
 ' Author    : Adam Waller

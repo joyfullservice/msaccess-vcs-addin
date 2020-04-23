@@ -24,6 +24,18 @@ Implements IDbComponent
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Category
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return a category name for this type. (I.e. forms, queries, macros)
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_Category() As String
+    IDbComponent_Category = "forms"
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Export
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -35,6 +47,7 @@ Private Sub IDbComponent_Export()
     Dim strFile As String
     Dim strTempFile As String
     
+    ' Check for fast save option
     strFile = IDbComponent_SourceFile
     If FSO.FileExists(strFile) Then Kill strFile
     
@@ -104,7 +117,7 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ModifiedDate
+' Procedure : DateModified
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : The date/time the object was modified. (If possible to retrieve)
@@ -112,8 +125,8 @@ End Sub
 '           : properties) then this function will return 0.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ModifiedDate() As Date
-    IDbComponent_ModifiedDate = m_Form.DateModified
+Private Function IDbComponent_DateModified() As Date
+    IDbComponent_DateModified = m_Form.DateModified
 End Function
 
 
@@ -125,6 +138,18 @@ End Function
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
     IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "forms\"
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Name
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return a name to reference the object for use in logs and screen output.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_Name() As String
+    IDbComponent_Name = m_Form.Name
 End Property
 
 

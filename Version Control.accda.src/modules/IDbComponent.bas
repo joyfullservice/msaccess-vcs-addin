@@ -70,7 +70,7 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ModifiedDate
+' Procedure : DateModified
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : The date/time the object was modified. (If possible to retrieve)
@@ -78,7 +78,7 @@ End Function
 '           : properties) then this function will return 0.
 '---------------------------------------------------------------------------------------
 '
-Public Function ModifiedDate() As Date
+Public Function DateModified() As Date
 End Function
 
 
@@ -123,6 +123,28 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get ComponentType() As eDatabaseComponentType
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Name
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return a name to reference the object for use in logs and screen output.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Name() As String
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Category
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return a category name for this type. (I.e. forms, queries, macros)
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Category() As String
 End Property
 
 

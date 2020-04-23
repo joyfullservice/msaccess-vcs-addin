@@ -1194,17 +1194,3 @@ Public Function GetFilePathsInFolder(strDirPath As String, Optional Attributes A
     Loop
     
 End Function
-
-
-Public Sub TestClass()
-
-    Dim cForm As IDbComponent
-
-    Set cForm = New clsDbForm
-    Set cForm.DbObject = CurrentProject.AllForms("frmMain")
-    Debug.Print cForm.SourceFile
-    cForm.Export
-    
-    'Debug.Print cForm.GetFileList("test").Count
-    
-End Sub
