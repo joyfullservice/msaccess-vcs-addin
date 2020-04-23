@@ -38,7 +38,7 @@ ProjVer?119?3
 Show Navigation Pane Search Bar?0?4
 AppVersion?2.0.4?10
 ClickOnce Deployment?False?10
-Last VCS Version?2.0.13?10
+Last VCS Version?2.0.4?10
 WebDesignMode?0?2
 Theme Resource Name?Office Theme?10
 DesignWithData?True?1

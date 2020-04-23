@@ -3,7 +3,7 @@ Beginning Export of all Source
 Version Control.accda
 VCS Version 2.0.4
 Using Fast Save
-4/22/2020 5:41:21 PM
+4/23/2020 1:00:56 PM
 -------------------------------
 -------------------------------
 Exporting queries...     
@@ -22,6 +22,7 @@ Exporting macros...
 [1]
 -------------------------------
 Exporting modules...     
+  clsDbTEMPLATE
   modDataMacro
   clsOptions
   modFileAccess
@@ -34,11 +35,13 @@ Exporting modules...
   modReference
   modSavedSpecs
   modTable
+  clsDbForm
+  IDbComponent
   modImportExport
   modProperty
   modReport
   modUnitTesting
-[16]
+[19]
 -------------------------------
 Exporting references...  
   VBA 4.1
@@ -66,4 +69,4 @@ Exporting tbldef...
 Exporting relations...   
 [0]
 -------------------------------
-Done. (0.5 seconds)
+Done. (0.54 seconds)

@@ -11,6 +11,33 @@ Public Enum eTableDataExportFormat
     [_last] = 2
 End Enum
 
+' Types of objects that can be exported/imported from a database.
+' (Use corresponding constants wherever possible)
+' Be careful not to create collisions with two members sharing the
+' same value.
+Public Enum eDatabaseComponentType
+    ' Standard database objects
+    edbForm
+    edbMacro
+    edbModule
+    edbQuery
+    edbReport
+    edbTable
+    edbTableDataMacro
+    ' ADP specific
+    edbAdpDiagram
+    edbAdpFunction
+    edbAdpServerView
+    edbAdpStoredProcedure
+    ' Custom object types we are also handling.
+    edbRelation
+    edbDbProperty
+    edbFileProperty
+    edbGalleryImage
+    edbImportExportSpec
+    edbVbeProject
+    edbVbeReference
+End Enum
 
 Private m_Log As New clsConcat      ' Log file output
 Private m_Console As New clsConcat  ' Console output
@@ -1143,4 +1170,39 @@ Public Sub RunSubInCurrentProject(strSubName As String)
     ' Run the sub
     Application.Run strCmd
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFilePathsInFolder
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Returns a collection containing the full paths of files in a folder.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFilePathsInFolder(strDirPath As String, Optional Attributes As VbFileAttribute = vbNormal) As Collection
+    
+    Dim strBaseFolder As String
+    Dim strFile As String
+    
+    strBaseFolder = FSO.GetParentFolderName(strDirPath) & "\"
+    Set GetFilePathsInFolder = New Collection
+    strFile = Dir(strDirPath, Attributes)
+    Do While strFile <> vbNullString
+        GetFilePathsInFolder.Add strFile
+        strFile = Dir()
+    Loop
+    
+End Function
+
+
+Public Sub TestClass()
+
+    Dim cForm As New IDbComponent
+
+    Set cForm = New clsDbForm
+
+    Debug.Print cForm.GetAllFromDB()(2).Item.Name
+    Debug.Print cForm.GetFileList("test").Count
+    
 End Sub
