@@ -47,6 +47,7 @@ Public Sub NewExport()
     With colContainers
         .Add New clsDbForm
         .Add New clsDbMacro
+        .Add New clsDbModule
     End With
     
     ' Loop through all categ

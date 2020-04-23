@@ -40,7 +40,7 @@ Private Sub IDbComponent_Export()
     
     If CurrentProject.ProjectType = acADP Then
         ' No UCS conversion needed.
-        Application.SaveAsText acForm, m_Form, strFile
+        Application.SaveAsText acForm, m_Form.Name, strFile
     Else
         ' Convert UCS to UTF-8
         strTempFile = GetTempFile

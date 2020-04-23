@@ -12,7 +12,7 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-'Private m_Form As AccessObject
+Private m_Module As AccessObject
 Private m_Options As clsOptions
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -31,24 +31,13 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     
-'    Dim strFile As String
-'    Dim strTempFile As String
-'
-'    ' Check for fast save option
-'    strFile = IDbComponent_SourceFile
-'    If FSO.FileExists(strFile) Then Kill strFile
-'
-'    If CurrentProject.ProjectType = acADP Then
-'        ' No UCS conversion needed.
-'        Application.SaveAsText acForm, m_Form.Name, strFile
-'    Else
-'        ' Convert UCS to UTF-8
-'        strTempFile = GetTempFile
-'        Application.SaveAsText acForm, m_Form.Name, strTempFile
-'        ConvertUcs2Utf8 strTempFile, strFile
-'        Kill strTempFile
-'    End If
-'    SanitizeFile strFile, IDbComponent_Options
+    Dim strFile As String
+    Dim strTempFile As String
+
+    ' Check for fast save option
+    strFile = IDbComponent_SourceFile
+    If FSO.FileExists(strFile) Then Kill strFile
+    Application.SaveAsText acModule, m_Module.Name, strFile
     
 End Sub
 
@@ -74,19 +63,19 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
     
-'    Dim frm As AccessObject
-'    Dim cForm As IDbComponent
-'
-'    ' Use parameter options if provided.
-'    If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-'
-'    Set IDbComponent_GetAllFromDB = New Collection
-'    For Each frm In CurrentProject.AllForms
-'        Set cForm = New clsDbForm
-'        Set cForm.DbObject = frm
-'        Set cForm.Options = IDbComponent_Options
-'        IDbComponent_GetAllFromDB.Add cForm, frm.Name
-'    Next frm
+    Dim oMod As AccessObject
+    Dim cModule As IDbComponent
+
+    ' Use parameter options if provided.
+    If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
+
+    Set IDbComponent_GetAllFromDB = New Collection
+    For Each oMod In CurrentProject.AllModules
+        Set cModule = New clsDbModule
+        Set cModule.DbObject = oMod
+        Set cModule.Options = IDbComponent_Options
+        IDbComponent_GetAllFromDB.Add cModule, oMod.Name
+    Next oMod
         
 End Function
 
@@ -99,7 +88,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Collection
-    'Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder & "*.bas")
+    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder & "*.bas")
 End Function
 
 
@@ -111,7 +100,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-    'ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentProject.AllForms, IDbComponent_Options, "bas"
+    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentProject.AllModules, IDbComponent_Options, "bas"
 End Function
 
 
@@ -125,7 +114,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    'IDbComponent_DateModified = m_Form.DateModified
+    IDbComponent_DateModified = m_Module.DateModified
 End Function
 
 
@@ -137,7 +126,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    'IDbComponent_Category = "forms"
+    IDbComponent_Category = "modules"
 End Property
 
 
@@ -148,7 +137,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    'IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "forms\"
+    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "modules\"
 End Property
 
 
@@ -160,7 +149,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
-    'IDbComponent_Name = m_Form.Name
+    IDbComponent_Name = m_Module.Name
 End Property
 
 
@@ -172,7 +161,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    'IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".bas"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & ".bas"
 End Property
 
 
@@ -184,7 +173,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    'IDbComponent_Count = CurrentProject.AllForms.Count
+    IDbComponent_Count = CurrentProject.AllModules.Count
 End Property
 
 
@@ -196,7 +185,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
-    'IDbComponent_ComponentType = edbForm
+    IDbComponent_ComponentType = edbModule
 End Property
 
 
@@ -208,7 +197,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Upgrade()
-    ' No upgrade needed for forms.
+    ' No upgrade needed for modules.
 End Sub
 
 
@@ -236,8 +225,8 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_DbObject() As Object
-    'Set IDbComponent_DbObject = m_Form
+    Set IDbComponent_DbObject = m_Module
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
-    'Set m_Form = RHS
+    Set m_Module = RHS
 End Property
