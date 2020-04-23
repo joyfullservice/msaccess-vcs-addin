@@ -48,6 +48,7 @@ Public Sub NewExport()
         .Add New clsDbForm
         .Add New clsDbMacro
         .Add New clsDbModule
+        .Add New clsDbReport
         If CurrentProject.ProjectType = acADP Then
             ' Some types of objects only exist in ADP projects
         Else
