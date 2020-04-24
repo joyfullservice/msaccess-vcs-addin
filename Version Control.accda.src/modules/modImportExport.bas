@@ -54,6 +54,7 @@ Public Sub NewExport()
         .Add New clsDbProjProperty
         .Add New clsDbVbeReference
         .Add New clsDbSavedSpec
+        .Add New clsDbVbeProject
         If CurrentProject.ProjectType = acADP Then
             ' Some types of objects only exist in ADP projects
         Else
