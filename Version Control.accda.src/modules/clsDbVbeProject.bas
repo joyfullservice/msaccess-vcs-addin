@@ -123,7 +123,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = m_Project.DateModified
+    IDbComponent_DateModified = 0
 End Function
 
 

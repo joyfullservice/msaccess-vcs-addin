@@ -3,8 +3,8 @@ Option Explicit
 Option Private Module
 
 
-Private Const cstrSpacer As String = "-------------------------------"
-Public Const cintPad As Integer = 25
+Private Const cstrSpacer As String = "---------------------------------------"
+Public Const cintPad As Integer = 30
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -12,7 +12,14 @@ Private m_FSO As Scripting.FileSystemObject
 
 
 
-Public Sub NewExport()
+'---------------------------------------------------------------------------------------
+' Procedure : ExportSource
+' Author    : Adam Waller
+' Date      : 4/24/2020
+' Purpose   : Export source files from the currently open database.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportSource()
 
     Dim colContainers As Collection
     Dim cCategory As IDbComponent
@@ -32,14 +39,15 @@ Public Sub NewExport()
 
     ' Display heading
     With cOptions
-        .ShowDebug = True
-        .UseFastSave = False
+        '.ShowDebug = True
+        '.UseFastSave = False
         Log cstrSpacer
         Log "Beginning Export of all Source", False
         Log CurrentProject.Name
         Log "VCS Version " & GetVCSVersion
         If .UseFastSave Then Log "Using Fast Save"
         Log Now()
+        Log cstrSpacer, .UseFastSave
     End With
     
     
@@ -137,7 +145,7 @@ End Sub
 ' Purpose   : Exports all source files for the current project.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportAllSource()
+Public Sub LegacyExportAllSource()
     
     
     Dim dbs As DAO.Database

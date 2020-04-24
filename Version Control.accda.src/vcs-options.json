@@ -1,14 +1,14 @@
 {
   "Info": {
-    "AddinVersion": "2.0.4",
+    "AddinVersion": "2.1.0",
     "AccessVersion": "14.0 32-bit",
     "Hash": "515A52AFF74E3AC977AC838F5B1F7D0C307A5F0D2A42DB9E"
   },
   "Options": {
     "ExportFolder": "",
-    "ShowDebug": true,
+    "ShowDebug": false,
     "IncludeVBE": false,
-    "UseFastSave": false,
+    "UseFastSave": true,
     "SavePrintVars": true,
     "SaveQuerySQL": true,
     "SaveTableSQL": true,

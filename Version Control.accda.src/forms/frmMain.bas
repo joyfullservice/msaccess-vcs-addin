@@ -17,10 +17,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =17
-    Left =-13845
-    Top =2505
-    Right =-4485
-    Bottom =8970
+    Left =3225
+    Top =2430
+    Right =22695
+    Bottom =15015
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -170,36 +170,6 @@ Begin Form
                     LayoutCachedHeight =1680
                     BackThemeColorIndex =-1
                 End
-                Begin TextBox
-                    Visible = NotDefault
-                    EnterKeyBehavior = NotDefault
-                    SpecialEffect =2
-                    OldBorderStyle =0
-                    OverlapFlags =223
-                    TextFontFamily =49
-                    IMESentenceMode =3
-                    Left =3120
-                    Top =1140
-                    Width =5160
-                    Height =4620
-                    FontSize =10
-                    LeftMargin =144
-                    TopMargin =144
-                    RightMargin =144
-                    BottomMargin =144
-                    BorderColor =10921638
-                    Name ="txtLog"
-                    FontName ="Lucida Console"
-                    GridlineColor =10921638
-                    TextFormat =1
-
-                    LayoutCachedLeft =3120
-                    LayoutCachedTop =1140
-                    LayoutCachedWidth =8280
-                    LayoutCachedHeight =5760
-                    ThemeFontIndex =-1
-                    ForeTint =100.0
-                End
                 Begin Label
                     OverlapFlags =223
                     Left =360
@@ -221,7 +191,7 @@ Begin Form
                     ForeTint =100.0
                 End
                 Begin CommandButton
-                    OverlapFlags =247
+                    OverlapFlags =93
                     Left =4740
                     Top =2400
                     Width =2880
@@ -758,7 +728,7 @@ Begin Form
                 End
                 Begin CommandButton
                     Enabled = NotDefault
-                    OverlapFlags =247
+                    OverlapFlags =93
                     Left =4740
                     Top =3780
                     Width =2880
@@ -1399,7 +1369,7 @@ Begin Form
                     Overlaps =1
                 End
                 Begin CommandButton
-                    OverlapFlags =247
+                    OverlapFlags =223
                     Left =6480
                     Top =1200
                     Width =1560
@@ -1503,7 +1473,7 @@ Begin Form
                     ForeShade =50.0
                 End
                 Begin CommandButton
-                    OverlapFlags =247
+                    OverlapFlags =223
                     Left =8100
                     Top =1200
                     Width =1080
@@ -1602,6 +1572,36 @@ Begin Form
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                 End
+                Begin TextBox
+                    Visible = NotDefault
+                    EnterKeyBehavior = NotDefault
+                    SpecialEffect =2
+                    OldBorderStyle =0
+                    OverlapFlags =215
+                    TextFontFamily =49
+                    IMESentenceMode =3
+                    Left =3120
+                    Top =1140
+                    Width =5160
+                    Height =4620
+                    FontSize =10
+                    LeftMargin =144
+                    TopMargin =144
+                    RightMargin =144
+                    BottomMargin =144
+                    BorderColor =10921638
+                    Name ="txtLog"
+                    FontName ="Lucida Console"
+                    GridlineColor =10921638
+                    TextFormat =1
+
+                    LayoutCachedLeft =3120
+                    LayoutCachedTop =1140
+                    LayoutCachedWidth =8280
+                    LayoutCachedHeight =5760
+                    ThemeFontIndex =-1
+                    ForeTint =100.0
+                End
             End
         End
     End
@@ -1649,7 +1649,7 @@ Public Sub cmdExport_Click()
     SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
     
     ' Export the source code
-    modImportExport.ExportAllSource
+    modImportExport.ExportSource
     
     SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
     cmdClose.SetFocus

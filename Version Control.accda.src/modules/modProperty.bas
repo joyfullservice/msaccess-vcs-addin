@@ -9,7 +9,7 @@ Public Function ThisProjectDB(Optional ByRef appInstance As Application) As Obje
     If CurrentProject.ProjectType = acMDB Then
         Set ThisProjectDB = appInstance.CurrentDb
     Else  ' ADP project
-        Set ThisProjectDB = appInstance.CurrentProject
+        Set ThisProjectDB = appInstance.CurrentProject.Properties
     End If
 End Function
 
