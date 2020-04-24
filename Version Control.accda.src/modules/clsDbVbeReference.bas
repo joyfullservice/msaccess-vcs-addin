@@ -12,9 +12,9 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-'Private m_Form As AccessObject
+Private m_Ref As VBIDE.Reference
 Private m_Options As clsOptions
-'Private m_Count As Long (uncomment if needed)
+Private m_Count As Long
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -31,25 +31,33 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
+
+    Dim dRef As Scripting.Dictionary
+    Dim dItems As Scripting.Dictionary
+    Dim ref As VBIDE.Reference
     
-'    Dim strFile As String
-'    Dim strTempFile As String
-'
-'    ' Check for existing file
-'    strFile = IDbComponent_SourceFile
-'    If FSO.FileExists(strFile) Then Kill strFile
-'
-'    If CurrentProject.ProjectType = acADP Then
-'        ' No UCS conversion needed.
-'        Application.SaveAsText acForm, m_Form.Name, strFile
-'    Else
-'        ' Convert UCS to UTF-8
-'        strTempFile = GetTempFile
-'        Application.SaveAsText acForm, m_Form.Name, strTempFile
-'        ConvertUcs2Utf8 strTempFile, strFile
-'        Kill strTempFile
-'    End If
-'    SanitizeFile strFile, IDbComponent_Options
+    Set dItems = New Scripting.Dictionary
+    
+    ' Loop through references
+    For Each ref In GetVBProjectForCurrentDB.References
+        Set dRef = New Scripting.Dictionary
+        With dRef
+            If Not ref.BuiltIn Then
+                If ref.Type = vbext_rk_Project Then
+                    ' references of types mdb,accdb,mde etc don't have a GUID
+                    .Add "File", FSO.GetFileName(ref.FullPath)
+                    .Add "FullPath", Encrypt(ref.FullPath)
+                Else
+                    If ref.GUID <> vbNullString Then .Add "GUID", ref.GUID
+                    .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
+                End If
+            End If
+        End With
+        dItems.Add ref.Name, dRef
+    Next ref
+    
+    ' Write to a json file.
+    WriteJsonFile Me, dItems, IDbComponent_SourceFile, "VBE References"
     
 End Sub
 
@@ -75,19 +83,24 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
     
-'    Dim frm As AccessObject
-'    Dim cForm As IDbComponent
-'
-'    ' Use parameter options if provided.
-'    If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-'
-'    Set IDbComponent_GetAllFromDB = New Collection
-'    For Each frm In CurrentProject.AllForms
-'        Set cForm = New
-'        Set cForm.DbObject = frm
-'        Set cForm.Options = IDbComponent_Options
-'        IDbComponent_GetAllFromDB.Add cForm, frm.Name
-'    Next frm
+    Dim ref As VBIDE.Reference
+    Dim cRef As IDbComponent
+
+    ' Use parameter options if provided.
+    If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
+
+    Set IDbComponent_GetAllFromDB = New Collection
+    For Each ref In GetVBProjectForCurrentDB.References
+        If Not ref.BuiltIn Then
+            Set cRef = New clsDbVbeReference
+            Set cRef.DbObject = ref
+            Set cRef.Options = IDbComponent_Options
+            IDbComponent_GetAllFromDB.Add cRef, ref.Name
+        End If
+    Next ref
+    
+    ' Save count of references not automatically built in.
+    m_Count = IDbComponent_GetAllFromDB.Count
         
 End Function
 
@@ -100,7 +113,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Collection
-    'Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder & "*.bas")
+    Set IDbComponent_GetFileList = New Collection
+    IDbComponent_GetFileList.Add IDbComponent_SourceFile
 End Function
 
 
@@ -112,7 +126,6 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-    'ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentProject.AllForms, IDbComponent_Options, "bas"
 End Function
 
 
@@ -126,7 +139,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    'IDbComponent_DateModified = m_Form.DateModified
+    ' No date value here.
+    IDbComponent_DateModified = 0
 End Function
 
 
@@ -138,7 +152,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    'IDbComponent_Category = "forms"
+    IDbComponent_Category = "vbe references"
 End Property
 
 
@@ -149,7 +163,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    'IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "forms\"
+    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder
 End Property
 
 
@@ -161,7 +175,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
-    'IDbComponent_Name = m_Form.Name
+    IDbComponent_Name = m_Ref.Name
 End Property
 
 
@@ -173,7 +187,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    'IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".bas"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & "vbe-references.json"
 End Property
 
 
@@ -185,7 +199,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    'IDbComponent_Count = CurrentProject.AllForms.Count
+    IDbComponent_Count = GetVBProjectForCurrentDB.References.Count
 End Property
 
 
@@ -197,7 +211,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
-    'IDbComponent_ComponentType = edbForm
+    IDbComponent_ComponentType = edbVbeReference
 End Property
 
 
@@ -237,10 +251,10 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_DbObject() As Object
-    'Set IDbComponent_DbObject = m_Form
+    Set IDbComponent_DbObject = m_Ref
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
-    'Set m_Form = RHS
+    Set m_Ref = RHS
 End Property
 
 
@@ -253,6 +267,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get IDbComponent_SingleFile() As Boolean
+    IDbComponent_SingleFile = True
 End Property
 
 
@@ -260,11 +275,11 @@ End Property
 ' Procedure : Class_Initialize
 ' Author    : Adam Waller
 ' Date      : 4/24/2020
-' Purpose   : Helps us know whether we have already counted the objects.
+' Purpose   : Helps us know whether we have already counted the references.
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Initialize()
-    'm_Count = -1
+    m_Count = -1
 End Sub
 
 
