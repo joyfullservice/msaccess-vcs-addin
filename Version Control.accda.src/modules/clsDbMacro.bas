@@ -244,6 +244,18 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SingleFile
+' Author    : Adam Waller
+' Date      : 4/24/2020
+' Purpose   : Returns true if the export of all items is done as a single file instead
+'           : of individual files for each component. (I.e. properties, references)
+'---------------------------------------------------------------------------------------
+'
+Public Property Get IDbComponent_SingleFile() As Boolean
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Parent
 ' Author    : Adam Waller
 ' Date      : 4/24/2020

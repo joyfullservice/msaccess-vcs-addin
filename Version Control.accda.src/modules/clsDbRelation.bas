@@ -35,7 +35,7 @@ Private Sub IDbComponent_Export()
     Dim strFile As String
     Dim strTempFile As String
 
-    ' Check for fast save option
+    ' Check for existing file
     strFile = IDbComponent_SourceFile
     If FSO.FileExists(strFile) Then Kill strFile
     ExportRelation m_Relation, strFile
@@ -369,6 +369,18 @@ Private Property Get IDbComponent_DbObject() As Object
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     Set m_Relation = RHS
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SingleFile
+' Author    : Adam Waller
+' Date      : 4/24/2020
+' Purpose   : Returns true if the export of all items is done as a single file instead
+'           : of individual files for each component. (I.e. properties, references)
+'---------------------------------------------------------------------------------------
+'
+Public Property Get IDbComponent_SingleFile() As Boolean
 End Property
 
 

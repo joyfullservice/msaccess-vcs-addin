@@ -44,7 +44,6 @@ Private Sub IDbComponent_Export()
     Dim dbs As Database
     Dim intFormat As eTableDataExportFormat
 
-    ' Check for fast save option
     strFile = IDbComponent_SourceFile
 
     ' Save as selected format, and remove other formats if they exist.
@@ -274,6 +273,18 @@ Private Property Get IDbComponent_Options() As clsOptions
 End Property
 Private Property Set IDbComponent_Options(ByVal RHS As clsOptions)
     Set m_Options = RHS
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SingleFile
+' Author    : Adam Waller
+' Date      : 4/24/2020
+' Purpose   : Returns true if the export of all items is done as a single file instead
+'           : of individual files for each component. (I.e. properties, references)
+'---------------------------------------------------------------------------------------
+'
+Public Property Get IDbComponent_SingleFile() As Boolean
 End Property
 
 
