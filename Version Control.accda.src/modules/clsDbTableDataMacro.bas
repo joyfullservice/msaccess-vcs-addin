@@ -219,7 +219,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
-    IDbComponent_ComponentType = edbTable
+    IDbComponent_ComponentType = edbTableDataMacro
 End Property
 
 

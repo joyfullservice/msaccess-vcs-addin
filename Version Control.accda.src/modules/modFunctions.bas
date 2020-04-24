@@ -22,7 +22,7 @@ Public Enum eDatabaseComponentType
     edbModule
     edbQuery
     edbReport
-    edbTable
+    edbTableDef
     edbTableDataMacro
     edbLinkedTable
     ' ADP specific
@@ -368,6 +368,21 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MergeCollection
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Adds a collection into another collection.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeCollection(ByRef colOriginal As Collection, ByVal colToAdd As Collection)
+    Dim varItem As Variant
+    For Each varItem In colToAdd
+        colOriginal.Add varItem
+    Next varItem
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : VerifyPath
 ' Author    : Adam Waller
 ' Date      : 5/15/2015
@@ -559,7 +574,7 @@ End Function
 Public Function HasMoreRecentChanges(objItem As Object, strFile As String) As Boolean
     ' File dates could be a second off (between exporting the file and saving the report)
     ' so ignore changes that are less than three seconds apart.
-    If Dir(strFile) <> "" Then
+    If strFile <> "" And Dir(strFile) <> "" Then
         HasMoreRecentChanges = (DateDiff("s", objItem.DateModified, FileDateTime(strFile)) < -3)
     Else
         HasMoreRecentChanges = True

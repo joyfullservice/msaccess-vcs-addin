@@ -12,6 +12,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+Public Format As eTableDataExportFormat
+
 Private m_Table As AccessObject
 Private m_Options As clsOptions
 Private m_Count As Long
@@ -40,21 +42,25 @@ Private Sub IDbComponent_Export()
     Dim strFile As String
     Dim strTempFile As String
     Dim dbs As Database
+    Dim intFormat As eTableDataExportFormat
 
     ' Check for fast save option
     strFile = IDbComponent_SourceFile
-    If FSO.FileExists(strFile) Then Kill strFile
 
-    ' Save structure in XML format
-    Application.ExportXML acExportTable, m_Table.Name, , strFile
-
-    ' Optionally save in SQL format
-    If IDbComponent_Options.SaveTableSQL Then
-        Set dbs = CurrentDb
-        Log "  " & m_Table.Name & " (SQL)", IDbComponent_Options.ShowDebug
-        SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder, IDbComponent_Options
-    End If
-
+    ' Save as selected format, and remove other formats if they exist.
+    For intFormat = 1 To eTableDataExportFormat.[_last]
+        ' Build file name for this format
+        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(etdXML)
+        If FSO.FileExists(strFile) Then Kill strFile
+        If intFormat = Me.Format Then
+            ' Export the table using this format.
+            Select Case intFormat
+                Case etdTabDelimited:   ExportTableData m_Table.Name, IDbComponent_BaseFolder, IDbComponent_Options
+                Case etdXML:            Application.ExportXML acExportTable, m_Table.Name, strFile
+            End Select
+        End If
+    Next intFormat
+    
 End Sub
 
 
@@ -79,32 +85,32 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
     
-    Dim dbs As Database
-    Dim tdf As TableDef
-    Dim cTable As IDbComponent
+    Dim tbl As AccessObject
+    Dim cTable As clsDbTableData
+    Dim cComponent As IDbComponent
 
     ' Use parameter options if provided.
     If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-
     Set IDbComponent_GetAllFromDB = New Collection
-    Set dbs = CurrentDb
+
+    ' No need to go any further if we don't have any saved tables defined
+    If IDbComponent_Options.TablesToExportData.Count > 0 Then
         
-    For Each tdf In dbs.TableDefs
-        ' Skip system, temp, and linked tables
-        If Left$(tdf.Name, 4) <> "MSys" Then
-            If Left$(tdf.Name, 1) <> "~" Then
-                If Len(tdf.connect) = 0 Then
-                    Set cTable = New clsDbTableDef
-                    Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
-                    Set cTable.Options = IDbComponent_Options
-                    IDbComponent_GetAllFromDB.Add cTable, tdf.Name
+        ' We have at least one table defined. Loop through the tables looking
+        ' for a matching name.
+        With IDbComponent_Options
+            For Each tbl In CurrentData.AllTables
+                If .TablesToExportData.Exists(tbl.Name) Then
+                    Set cTable = New clsDbTableData
+                    cTable.Format = .GetTableExportFormat(CStr(.TablesToExportData(tbl.Name)("Format")))
+                    Set cComponent = cTable
+                    Set cComponent.DbObject = tbl
+                    Set cComponent.Options = IDbComponent_Options
+                    IDbComponent_GetAllFromDB.Add cComponent, tbl.Name
                 End If
-            End If
-        End If
-    Next tdf
-    
-    Set tdf = Nothing
-    Set dbs = Nothing
+            Next tbl
+        End With
+    End If
     
     ' Set count of table objects we found.
     m_Count = IDbComponent_GetAllFromDB.Count
@@ -116,11 +122,30 @@ End Function
 ' Procedure : GetFileList
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
-' Purpose   : Return a list of file names to import for this component type.
+' Purpose   : Return a list of file names to import for this component type. (Could be
+'           : a couple different file extensions involved.
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Collection
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder & "*.xml")
+    Dim colFiles As Collection
+    Set colFiles = GetFilePathsInFolder(IDbComponent_BaseFolder & "*." & GetExtByFormat(etdTabDelimited))
+    MergeCollection colFiles, GetFilePathsInFolder(IDbComponent_BaseFolder & "*." & GetExtByFormat(etdXML))
+    Set IDbComponent_GetFileList = colFiles
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetExtByFormat
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return the expected file extension by format.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetExtByFormat(intFormat As eTableDataExportFormat) As String
+    Select Case intFormat
+        Case etdTabDelimited:   GetExtByFormat = "txt"
+        Case etdXML:            GetExtByFormat = "xml"
+    End Select
 End Function
 
 
@@ -132,7 +157,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentData.AllTables, IDbComponent_Options, "LNKD", "bas", "sql", "xml", "tdf", "json"
+    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentData.AllTables, IDbComponent_Options, "xml", "txt"
 End Function
 
 
@@ -158,7 +183,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "tables"
+    IDbComponent_Category = "table data"
 End Property
 
 
@@ -169,7 +194,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "tbldefs\"
+    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "tables\"
 End Property
 
 
@@ -193,7 +218,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".xml"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(Me.Format)
 End Property
 
 
@@ -219,7 +244,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
-    IDbComponent_ComponentType = edbTableDef
+    IDbComponent_ComponentType = edbTableData
 End Property
 
 

@@ -19,7 +19,7 @@ Begin Form
     ItemSuffix =91
     Left =-17265
     Top =2430
-    Right =-6105
+    Right =-255
     Bottom =10335
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
@@ -1999,7 +1999,7 @@ Private Function LoadTableList()
         ' Loop through each table in the saved table list
         For Each varKey In cOptions.TablesToExportData.Keys
             strFormat = CStr(cOptions.TablesToExportData.Item(varKey)("Format"))
-            intFormat = TableExportFormatKeyToEnum(strFormat)
+            intFormat = cOptions.GetTableExportFormat(strFormat)
             strName = CStr(varKey)
             AddUpdateTableInList strName, strFormat, False, False, True
         Next varKey
@@ -2042,26 +2042,6 @@ Private Sub AddUpdateTableInList(strName As String, strFormat As String, blnHidd
     m_colTables.Add Array(strName, strFormat, False, False, True), strName
 
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : TableExportFormatKeyToEnum
-' Author    : Adam Waller
-' Date      : 4/17/2020
-' Purpose   : Translate the table export format key to the corresponding enum value.
-'---------------------------------------------------------------------------------------
-'
-Private Function TableExportFormatKeyToEnum(strKey As String) As eTableDataExportFormat
-    Dim intFormat As eTableDataExportFormat
-    Dim strName As String
-    For intFormat = etdNoData To eTableDataExportFormat.[_last]
-        strName = cOptions.GetTableExportFormatName(intFormat)
-        If strName = strKey Then
-            TableExportFormatKeyToEnum = intFormat
-            Exit For
-        End If
-    Next intFormat
-End Function
 
 
 '---------------------------------------------------------------------------------------

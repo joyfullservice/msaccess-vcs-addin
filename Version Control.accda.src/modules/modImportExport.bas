@@ -32,8 +32,8 @@ Public Sub NewExport()
 
     ' Display heading
     With cOptions
-        '.ShowDebug = True
-        '.UseFastSave = False
+        .ShowDebug = True
+        .UseFastSave = False
         Log cstrSpacer
         Log "Beginning Export of all Source", False
         Log CurrentProject.Name
@@ -50,6 +50,7 @@ Public Sub NewExport()
         .Add New clsDbMacro
         .Add New clsDbModule
         .Add New clsDbReport
+        .Add New clsDbTableData
         If CurrentProject.ProjectType = acADP Then
             ' Some types of objects only exist in ADP projects
         Else

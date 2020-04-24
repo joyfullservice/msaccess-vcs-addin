@@ -274,6 +274,25 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetTableExportFormat
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : Translate the table export format key to the corresponding enum value.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTableExportFormat(strKey As String) As eTableDataExportFormat
+    Dim intFormat As eTableDataExportFormat
+    Dim strName As String
+    For intFormat = etdNoData To eTableDataExportFormat.[_last]
+        strName = Me.GetTableExportFormatName(intFormat)
+        If strName = strKey Then
+            GetTableExportFormat = intFormat
+            Exit For
+        End If
+    Next intFormat
+End Function
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Class_Initialize
 ' Author    : Adam Waller
 ' Date      : 2/12/2020
