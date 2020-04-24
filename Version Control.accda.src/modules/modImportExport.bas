@@ -32,14 +32,14 @@ Public Sub NewExport()
 
     ' Display heading
     With cOptions
-        .ShowDebug = True
+        '.ShowDebug = True
+        '.UseFastSave = False
         Log cstrSpacer
         Log "Beginning Export of all Source", False
         Log CurrentProject.Name
         Log "VCS Version " & GetVCSVersion
         If .UseFastSave Then Log "Using Fast Save"
         Log Now()
-        Log cstrSpacer
     End With
     
     
@@ -54,6 +54,7 @@ Public Sub NewExport()
             ' Some types of objects only exist in ADP projects
         Else
             .Add New clsDbTableDef
+            .Add New clsDbTableDataMacro
             .Add New clsDbQuery
         End If
     End With
@@ -61,33 +62,39 @@ Public Sub NewExport()
     ' Loop through all categ
     For Each cCategory In colContainers
         
-        ' Show category header and clear out any orphaned files.
-        Log cstrSpacer, cOptions.ShowDebug
-        Log PadRight("Exporting " & cCategory.Category & "...", cintPad), , cOptions.ShowDebug
-        Log vbNullString, cOptions.ShowDebug
-        cCategory.ClearOrphanedSourceFiles
-    
-        ' Loop through each object in this category.
-        For Each cDbObject In cCategory.GetAllFromDB(cOptions)
-            
-            ' Check for fast save option
-            If cOptions.UseFastSave Then
-                If HasMoreRecentChanges(cDbObject, cDbObject.SourceFile) Then
-                    cDbObject.Export
-                    Log "  " & cDbObject.Name, cOptions.ShowDebug
+        ' Only show category details when it contains objects
+        If cCategory.Count = 0 Then
+            Log cstrSpacer, cOptions.ShowDebug
+            Log "No " & cCategory.Category & " found in this database.", cOptions.ShowDebug
+        Else
+            ' Show category header and clear out any orphaned files.
+            Log cstrSpacer, cOptions.ShowDebug
+            Log PadRight("Exporting " & cCategory.Category & "...", cintPad), , cOptions.ShowDebug
+            cCategory.ClearOrphanedSourceFiles
+        
+            ' Loop through each object in this category.
+            For Each cDbObject In cCategory.GetAllFromDB(cOptions)
+                
+                ' Check for fast save option
+                If cOptions.UseFastSave Then
+                    If HasMoreRecentChanges(cDbObject, cDbObject.SourceFile) Then
+                        Log "  " & cDbObject.Name, cOptions.ShowDebug
+                        cDbObject.Export
+                    Else
+                        Log "  (Skipping '" & cDbObject.Name & "')", cOptions.ShowDebug
+                    End If
                 Else
-                    Log "  (Skipping '" & cDbObject.Name & "')", cOptions.ShowDebug
+                    ' Always export object
+                    Log "  " & cDbObject.Name, cOptions.ShowDebug
+                    cDbObject.Export
                 End If
-            Else
-                ' Always export object
-                cDbObject.Export
-            End If
-    
-        Next cDbObject
         
-        ' Show category wrap-up.
-        Log "[" & cCategory.Count & "]" & IIf(cOptions.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
-        
+            Next cDbObject
+            
+            ' Show category wrap-up.
+            Log "[" & cCategory.Count & "]" & IIf(cOptions.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
+            
+        End If
     Next cCategory
 
     ' Show final output and save log
