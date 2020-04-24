@@ -1164,6 +1164,35 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetCodeVBProject
+' Author    : Adam Waller
+' Date      : 4/24/2020
+' Purpose   : Get a reference to the VB Project for the running code.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetCodeVBProject() As VBProject
+
+    Dim objProj As VBIDE.VBProject
+    Dim strPath As String
+    
+    strPath = CodeProject.FullName
+    If VBE.ActiveVBProject.FileName = strPath Then
+        ' Use currently active project
+        Set GetCodeVBProject = VBE.ActiveVBProject
+    Else
+        ' Search for project with matching filename.
+        For Each objProj In VBE.VBProjects
+            If objProj.FileName = strPath Then
+                Set GetCodeVBProject = objProj
+                Exit For
+            End If
+        Next objProj
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RunInCurrentProject
 ' Author    : Adam Waller
 ' Date      : 4/22/2020
@@ -1258,4 +1287,14 @@ Public Function TestParentClass()
         .Export
     End With
     
+End Function
+
+
+Public Function GetEncryptionKey() As String
+
+End Function
+
+
+Public Function SetEncryptionKey() As String
+
 End Function

@@ -242,6 +242,7 @@ Private Function SerializeOptions() As Scripting.Dictionary
     #End If
     dInfo.Add "AddinVersion", AppVersion
     dInfo.Add "AccessVersion", Application.Version & strBit
+    dInfo.Add "Hash", modEncrypt.Encrypt(CodeProject.Name)
     
     For Each varOption In m_colOptions
         strOption = CStr(varOption)

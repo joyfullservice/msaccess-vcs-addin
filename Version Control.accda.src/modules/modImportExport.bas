@@ -109,6 +109,9 @@ Public Sub NewExport()
     Log "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
     SaveLogFile cOptions.GetExportFolder & "\Export.log"
     
+    ' Save options with project
+    cOptions.SaveOptionsForProject
+    
     ' Clean up after completion
     Set m_FSO = Nothing
     
