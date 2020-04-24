@@ -1272,7 +1272,7 @@ Public Sub WriteJsonFile(ClassMe As Object, dItems As Scripting.Dictionary, strF
     dContents.Add "Items", dItems
     
     ' Write to file in Json format
-    WriteFile ConvertToJson(dContents, JSON_WHITESPACE), strFile
+    WriteFile ConvertToJson(dContents, JSON_WHITESPACE) & vbCrLf, strFile
     
 End Sub
 
