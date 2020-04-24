@@ -58,6 +58,7 @@ Public Sub NewExport()
             .Add New clsDbTableDataMacro
             .Add New clsDbQuery
             .Add New clsDbRelation
+            .Add New clsDbProperty
         End If
     End With
     
@@ -73,7 +74,7 @@ Public Sub NewExport()
             Log cstrSpacer, cOptions.ShowDebug
             Log PadRight("Exporting " & cCategory.Category & "...", cintPad), , cOptions.ShowDebug
             cCategory.ClearOrphanedSourceFiles
-        
+
             ' Loop through each object in this category.
             For Each cDbObject In cCategory.GetAllFromDB(cOptions)
                 
@@ -90,7 +91,11 @@ Public Sub NewExport()
                     Log "  " & cDbObject.Name, cOptions.ShowDebug
                     cDbObject.Export
                 End If
-        
+                    
+                ' Some kinds of objects are combined into a single export file, such
+                ' as database properties. For these, we just need to run the export once.
+                If cCategory.SingleFile Then Exit For
+                
             Next cDbObject
             
             ' Show category wrap-up.

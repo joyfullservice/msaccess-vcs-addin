@@ -2,8 +2,11 @@ Option Explicit
 Option Compare Database
 Option Private Module
 
+Public Const JSON_WHITESPACE As String = "    "
+
 Public colVerifiedPaths As New Collection
 
+' Formats used when exporting table data.
 Public Enum eTableDataExportFormat
     etdNoData = 0
     etdTabDelimited = 1
@@ -33,7 +36,8 @@ Public Enum eDatabaseComponentType
     ' Custom object types we are also handling.
     edbTableData
     edbRelation
-    edbDbProperty
+    edbDbsProperty
+    edbProjectProperty
     edbFileProperty
     edbGalleryImage
     edbDocumentObject
@@ -1213,6 +1217,35 @@ Public Function GetFilePathsInFolder(strDirPath As String, Optional Attributes A
     Loop
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteJsonFile
+' Author    : Adam Waller
+' Date      : 4/24/2020
+' Purpose   : Creates a json file with an info header giving some clues about the
+'           : contents of the file. (Helps with upgrades or changes later.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub WriteJsonFile(ClassMe As Object, dItems As Scripting.Dictionary, strFile As String, strDescription As String)
+    
+    Dim dContents As Scripting.Dictionary
+    Dim dHeader As Scripting.Dictionary
+    
+    Set dContents = New Scripting.Dictionary
+    Set dHeader = New Scripting.Dictionary
+    
+    ' Build dictionary structure
+    dHeader.Add "Class", TypeName(ClassMe)
+    dHeader.Add "Description", strDescription
+    dHeader.Add "VCS Version", AppVersion
+    dContents.Add "Info", dHeader
+    dContents.Add "Items", dItems
+    
+    ' Write to file in Json format
+    WriteFile ConvertToJson(dContents, JSON_WHITESPACE), strFile
+    
+End Sub
 
 
 Public Function TestParentClass()

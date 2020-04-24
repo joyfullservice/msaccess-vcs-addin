@@ -1,0 +1,193 @@
+{
+ "Info": {
+  "Class": "clsDbProperty",
+  "Description": "Database Properties (DAO)",
+  "VCS Version": "2.0.4"
+ },
+ "Items": {
+  "Connect": {
+   "Value": "",
+   "Type": 12
+  },
+  "Transactions": {
+   "Value": true,
+   "Type": 1
+  },
+  "Updatable": {
+   "Value": true,
+   "Type": 1
+  },
+  "CollatingOrder": {
+   "Value": 1033,
+   "Type": 3
+  },
+  "QueryTimeout": {
+   "Value": 60,
+   "Type": 3
+  },
+  "Version": {
+   "Value": "14.0",
+   "Type": 12
+  },
+  "RecordsAffected": {
+   "Value": 0,
+   "Type": 4
+  },
+  "ReplicaID": {
+   "Value": "",
+   "Type": 15
+  },
+  "DesignMasterID": {
+   "Value": "",
+   "Type": 15
+  },
+  "AccessVersion": {
+   "Value": "09.50",
+   "Type": 10
+  },
+  "NavPane Category": {
+   "Value": 0,
+   "Type": 4
+  },
+  "HasOfflineLists": {
+   "Value": 70,
+   "Type": 3
+  },
+  "StartUpShowDBWindow": {
+   "Value": true,
+   "Type": 1
+  },
+  "StartUpShowStatusBar": {
+   "Value": true,
+   "Type": 1
+  },
+  "AllowShortcutMenus": {
+   "Value": true,
+   "Type": 1
+  },
+  "AllowFullMenus": {
+   "Value": true,
+   "Type": 1
+  },
+  "AllowBuiltInToolbars": {
+   "Value": true,
+   "Type": 1
+  },
+  "AllowToolbarChanges": {
+   "Value": true,
+   "Type": 1
+  },
+  "AllowSpecialKeys": {
+   "Value": true,
+   "Type": 1
+  },
+  "UseAppIconForFrmRpt": {
+   "Value": false,
+   "Type": 1
+  },
+  "UseMDIMode": {
+   "Value": 0,
+   "Type": 2
+  },
+  "ShowDocumentTabs": {
+   "Value": true,
+   "Type": 1
+  },
+  "AllowDatasheetSchema": {
+   "Value": true,
+   "Type": 1
+  },
+  "Show Values in Indexed": {
+   "Value": 1,
+   "Type": 4
+  },
+  "Show Values in Non-Indexed": {
+   "Value": 1,
+   "Type": 4
+  },
+  "Show Values in Remote": {
+   "Value": 0,
+   "Type": 4
+  },
+  "Auto Compact": {
+   "Value": 0,
+   "Type": 4
+  },
+  "Row Limit": {
+   "Value": 10000,
+   "Type": 4
+  },
+  "ANSI Query Mode": {
+   "Value": 0,
+   "Type": 4
+  },
+  "Picture Property Storage Format": {
+   "Value": 0,
+   "Type": 4
+  },
+  "NavPane Closed": {
+   "Value": 0,
+   "Type": 4
+  },
+  "NavPane Width": {
+   "Value": 215,
+   "Type": 4
+  },
+  "NavPane View By": {
+   "Value": 0,
+   "Type": 4
+  },
+  "NavPane Sort By": {
+   "Value": 1,
+   "Type": 4
+  },
+  "Build": {
+   "Value": 606,
+   "Type": 4
+  },
+  "ProjVer": {
+   "Value": 119,
+   "Type": 3
+  },
+  "Show Navigation Pane Search Bar": {
+   "Value": 0,
+   "Type": 4
+  },
+  "AppVersion": {
+   "Value": "2.0.4",
+   "Type": 10
+  },
+  "ClickOnce Deployment": {
+   "Value": "False",
+   "Type": 10
+  },
+  "Last VCS Version": {
+   "Value": "2.0.4",
+   "Type": 10
+  },
+  "WebDesignMode": {
+   "Value": 0,
+   "Type": 2
+  },
+  "Theme Resource Name": {
+   "Value": "Office Theme",
+   "Type": 10
+  },
+  "DesignWithData": {
+   "Value": true,
+   "Type": 1
+  },
+  "Show Values Limit": {
+   "Value": 1000,
+   "Type": 4
+  },
+  "Themed Form Controls": {
+   "Value": 1,
+   "Type": 4
+  },
+  "AppTitle": {
+   "Value": "Version Control System",
+   "Type": 10
+  }
+ }
+}
