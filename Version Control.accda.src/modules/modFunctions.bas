@@ -41,7 +41,7 @@ Public Enum eDatabaseComponentType
     edbFileProperty
     edbGalleryImage
     edbDocumentObject
-    edbImportExportSpec
+    edbSavedSpec
     edbNavPaneGroups
     edbVbeProject
     edbVbeReference
