@@ -50,7 +50,7 @@ Private Sub IDbComponent_Export()
     ' Save as selected format, and remove other formats if they exist.
     For intFormat = 1 To eTableDataExportFormat.[_last]
         ' Build file name for this format
-        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(etdXML)
+        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat)
         If FSO.FileExists(strFile) Then Kill strFile
         If intFormat = Me.Format Then
             ' Export the table using this format.
@@ -154,6 +154,7 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Remove any source files for objects not in the current database.
+'           : Note that alternate formats may stay here till the next export.
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
@@ -288,4 +289,18 @@ Private Property Get IDbComponent_DbObject() As Object
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     Set m_Table = RHS
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Parent
+' Author    : Adam Waller
+' Date      : 4/24/2020
+' Purpose   : Return a reference to this class as an IDbComponent. This allows you
+'           : to reference the public methods of the parent class without needing
+'           : to create a new class object.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Parent() As IDbComponent
+    Set Parent = Me
 End Property

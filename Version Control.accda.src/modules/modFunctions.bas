@@ -1212,3 +1212,16 @@ Public Function GetFilePathsInFolder(strDirPath As String, Optional Attributes A
     Loop
     
 End Function
+
+
+Public Function TestParentClass()
+
+    Dim cForm As New clsDbForm
+
+    With cForm.Parent
+        Set .DbObject = CurrentProject.AllForms("frmMain")
+        .Options.UseFastSave = False
+        .Export
+    End With
+    
+End Function

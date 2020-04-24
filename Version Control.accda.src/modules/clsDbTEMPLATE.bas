@@ -241,3 +241,17 @@ End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     'Set m_Form = RHS
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Parent
+' Author    : Adam Waller
+' Date      : 4/24/2020
+' Purpose   : Return a reference to this class as an IDbComponent. This allows you
+'           : to reference the public methods of the parent class without needing
+'           : to create a new class object.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Parent() As IDbComponent
+    Set Parent = Me
+End Property
