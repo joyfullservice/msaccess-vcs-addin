@@ -38,6 +38,7 @@ Public Enum eDatabaseComponentType
     edbGalleryImage
     edbDocumentObject
     edbImportExportSpec
+    edbNavPaneGroups
     edbVbeProject
     edbVbeReference
 End Enum

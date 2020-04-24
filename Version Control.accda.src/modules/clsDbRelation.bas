@@ -12,7 +12,7 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private m_Table As AccessObject
+Private m_Relation As DAO.Relation
 Private m_Options As clsOptions
 Private m_Count As Long
 
@@ -34,22 +34,12 @@ Private Sub IDbComponent_Export()
     
     Dim strFile As String
     Dim strTempFile As String
-    Dim dbs As Database
 
     ' Check for fast save option
     strFile = IDbComponent_SourceFile
     If FSO.FileExists(strFile) Then Kill strFile
-
-    ' Save structure in XML format
-    Application.ExportXML acExportTable, m_Table.Name, , strFile
-
-    ' Optionally save in SQL format
-    If IDbComponent_Options.SaveTableSQL Then
-        Set dbs = CurrentDb
-        Log "  " & m_Table.Name & " (SQL)", IDbComponent_Options.ShowDebug
-        SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder, IDbComponent_Options
-    End If
-
+    ExportRelation m_Relation, strFile
+    
 End Sub
 
 
@@ -61,7 +51,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-
+    ImportRelation strFile
 End Sub
 
 
@@ -75,35 +65,156 @@ End Sub
 Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
     
     Dim dbs As Database
-    Dim tdf As TableDef
-    Dim cTable As IDbComponent
+    Dim rel As Relation
+    Dim cRelation As IDbComponent
 
     ' Use parameter options if provided.
     If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-
-    Set IDbComponent_GetAllFromDB = New Collection
     Set dbs = CurrentDb
-        
-    For Each tdf In dbs.TableDefs
-        ' Skip system, temp, and linked tables
-        If Left$(tdf.Name, 4) <> "MSys" Then
-            If Left$(tdf.Name, 1) <> "~" Then
-                If Len(tdf.connect) = 0 Then
-                    Set cTable = New clsDbTableDef
-                    Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
-                    Set cTable.Options = IDbComponent_Options
-                    IDbComponent_GetAllFromDB.Add cTable, tdf.Name
-                End If
-            End If
+    
+    Set IDbComponent_GetAllFromDB = New Collection
+    For Each rel In CurrentDb.Relations
+        ' Navigation pane groups are handled separately
+        If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
+            Or rel.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+            Set cRelation = New clsDbRelation
+            Set cRelation.DbObject = rel
+            Set cRelation.Options = IDbComponent_Options
+            IDbComponent_GetAllFromDB.Add cRelation, rel.Name
         End If
-    Next tdf
-    
-    Set tdf = Nothing
-    Set dbs = Nothing
-    
+    Next rel
+        
     ' Set count of table objects we found.
     m_Count = IDbComponent_GetAllFromDB.Count
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportRelation
+' Author    : Adam Waller
+' Date      : 1/24/2019
+' Purpose   : Exports the database table relationships
+'---------------------------------------------------------------------------------------
+'
+Private Sub ExportRelation(rel As Relation, strFile As String)
+
+    Dim cData As New clsConcat
+    Dim fld As DAO.Field
+    
+    With cData
+        .Add rel.Attributes 'RelationAttributeEnum
+        .Add vbCrLf
+        .Add rel.Name
+        .Add vbCrLf
+        .Add rel.Table
+        .Add vbCrLf
+        .Add rel.ForeignTable
+        .Add vbCrLf
+        For Each fld In rel.Fields
+            .Add "Field = Begin"
+            .Add vbCrLf
+            .Add fld.Name
+            .Add vbCrLf
+            .Add fld.ForeignName
+            .Add vbCrLf
+            .Add "End"
+            .Add vbCrLf
+        Next
+    End With
+    WriteFile cData.GetStr, strFile
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportRelation
+' Author    : Adam Kauffman
+' Date      : 02/18/2020
+' Purpose   : Import a table relationship
+'---------------------------------------------------------------------------------------
+'
+Private Sub ImportRelation(ByRef filePath As String, Optional ByRef appInstance As Application)
+    If appInstance Is Nothing Then Set appInstance = Application.Application
+    
+    Dim thisDb As Database
+    Set thisDb = appInstance.CurrentDb
+    
+    Dim fileLines() As String
+    With FSO.OpenTextFile(filePath, IOMode:=ForReading, Create:=False, Format:=TristateFalse)
+        fileLines = Split(.ReadAll, vbCrLf)
+        .Close
+    End With
+    
+    Dim newRelation As Relation
+    Set newRelation = thisDb.CreateRelation(fileLines(1), fileLines(2), fileLines(3), fileLines(0))
+    
+    Dim newField As Field
+    Dim thisLine As Long
+    For thisLine = 4 To UBound(fileLines)
+        If "Field = Begin" = fileLines(thisLine) Then
+            thisLine = thisLine + 1
+            Set newField = newRelation.CreateField(fileLines(thisLine))  ' Name set here
+            thisLine = thisLine + 1
+            newField.ForeignName = fileLines(thisLine)
+            thisLine = thisLine + 1
+            If "End" <> fileLines(thisLine) Then
+                Set newField = Nothing
+                Err.Raise 40000, "ImportRelation", "Missing 'End' for a 'Begin' in " & filePath
+            End If
+            
+            newRelation.Fields.Append newField
+        End If
+    Next thisLine
         
+    ' Remove conflicting Index entries because adding the relation creates new indexes causing "Error 3284 Index already exists"
+    On Error Resume Next
+    With thisDb
+        .Relations.Delete newRelation.Name  ' Avoid 3012 Relationship already exists
+        .TableDefs(newRelation.Table).Indexes.Delete newRelation.Name
+        .TableDefs(newRelation.ForeignTable).Indexes.Delete newRelation.Name
+    End With
+    On Error GoTo ErrorHandler
+    
+    With thisDb.Relations
+        .Append newRelation
+    End With
+    
+ErrorHandler:
+    Select Case Err.Number
+    Case 0
+    Case 3012
+        Debug.Print "Relationship already exists: """ & newRelation.Name & """ "
+    Case 3284
+        Debug.Print "Index already exists for: """ & newRelation.Name & """ "
+    Case Else
+        Debug.Print "Failed to add: """ & newRelation.Name & """ " & Err.Number & " " & Err.Description
+    End Select
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetRelationFileName
+' Author    : Adam Waller
+' Date      : 6/4/2015
+' Purpose   : Build file name based on relation name, including support for linked
+'           : tables that would put a slash in the relation name.
+'           : (Strips the link path from the table name)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetRelationFileName(objRelation As Relation) As String
+
+    Dim strName As String
+    
+    strName = objRelation.Name
+    
+    If InStr(1, strName, "].") > 0 Then
+        ' Need to remove path to linked file
+        GetRelationFileName = GetSafeFileName(CStr(Split(strName, "].")(1)))
+    Else
+        GetRelationFileName = GetSafeFileName(strName)
+    End If
+
 End Function
 
 
@@ -115,7 +226,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Collection
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder & "*.xml")
+    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder & "*.txt")
 End Function
 
 
@@ -127,7 +238,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentData.AllTables, IDbComponent_Options, "LNKD", "bas", "sql", "xml", "tdf", "json"
+    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentDb.Relations, IDbComponent_Options, "txt"
 End Function
 
 
@@ -141,7 +252,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = m_Table.DateModified
+    ' No modification date available for relations
 End Function
 
 
@@ -153,7 +264,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "tables"
+    IDbComponent_Category = "relations"
 End Property
 
 
@@ -164,7 +275,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "tbldefs\"
+    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "relations\"
 End Property
 
 
@@ -176,7 +287,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
-    IDbComponent_Name = m_Table.Name
+    IDbComponent_Name = m_Relation.Name
 End Property
 
 
@@ -188,7 +299,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".xml"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetRelationFileName(m_Relation) & ".txt"
 End Property
 
 
@@ -200,7 +311,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    ' We don't count all the tables in the database for this object type.
+    ' We don't count all the relations in the database for this object type.
     If m_Count = -1 Then m_Count = IDbComponent_GetAllFromDB.Count
     IDbComponent_Count = m_Count
 End Property
@@ -214,7 +325,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
-    IDbComponent_ComponentType = edbTableDef
+    IDbComponent_ComponentType = edbRelation
 End Property
 
 
@@ -254,10 +365,10 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_DbObject() As Object
-    Set IDbComponent_DbObject = m_Table
+    Set IDbComponent_DbObject = m_Relation
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
-    Set m_Table = RHS
+    Set m_Relation = RHS
 End Property
 
 

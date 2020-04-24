@@ -14,6 +14,7 @@ Option Explicit
 
 'Private m_Form As AccessObject
 Private m_Options As clsOptions
+'Private m_Count As Long (uncomment if needed)
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -241,6 +242,18 @@ End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     'Set m_Form = RHS
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Initialize
+' Author    : Adam Waller
+' Date      : 4/24/2020
+' Purpose   : Helps us know whether we have already counted the tables.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Initialize()
+    'm_Count = -1
+End Sub
 
 
 '---------------------------------------------------------------------------------------

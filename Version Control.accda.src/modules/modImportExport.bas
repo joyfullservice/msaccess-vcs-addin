@@ -57,6 +57,7 @@ Public Sub NewExport()
             .Add New clsDbTableDef
             .Add New clsDbTableDataMacro
             .Add New clsDbQuery
+            .Add New clsDbRelation
         End If
     End With
     
