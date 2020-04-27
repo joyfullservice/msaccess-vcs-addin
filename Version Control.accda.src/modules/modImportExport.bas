@@ -49,7 +49,8 @@ Public Sub ExportSource()
         SetDBProperty "Last VCS Version", GetVCSVersion
         blnFullExport = True
     End If
-    SetDBProperty "Last VCS Export", Now, dbDate
+    ' Set this as text to save display in current user's locale rather than Zulu time.
+    SetDBProperty "Last VCS Export", Now, dbText ' dbDate
 
     sngStart = Timer
     Set colVerifiedPaths = New Collection   ' Reset cache
