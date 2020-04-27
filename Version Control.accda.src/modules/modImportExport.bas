@@ -87,6 +87,7 @@ Public Sub ExportSource()
             .Add New clsAdpFunction
             .Add New clsAdpServerView
             .Add New clsAdpProcedure
+            .Add New clsAdpTable
         Else
             ' These objects only exist in DAO databases
             .Add New clsDbTableDef
@@ -306,7 +307,7 @@ Public Sub LegacyExportAllSource()
                 End If
                 If Not blnSkipFile Then
                     If varType(0) = "tables" Then
-                        strData = GetADPTableDef(qry.Name)
+                        'strData = 'GetADPTableDef(qry.Name)
                     Else
                         strData = GetSQLObjectDefinitionForADP(qry.Name)
                     End If

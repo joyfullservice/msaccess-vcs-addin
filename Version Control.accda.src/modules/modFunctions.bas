@@ -38,7 +38,7 @@ Public Enum eDatabaseComponentType
     edbTableDataMacro
     edbLinkedTable
     ' ADP specific
-    edbAdpDiagram
+    edbAdpTable
     edbAdpFunction
     edbAdpServerView
     edbAdpStoredProcedure
