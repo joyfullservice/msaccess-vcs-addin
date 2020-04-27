@@ -291,7 +291,7 @@ Public Sub LegacyExportAllSource()
                 strFile = strObjectPath & GetSafeFileName(StripDboPrefix(qry.Name)) & "." & varType(1)
                 ' Fast save options
                 If cOptions.UseFastSave Then
-                    dteModified = GetSQLObjectModifiedDate(qry.Name, varType(0))
+                    dteModified = GetSQLObjectModifiedDate(qry.Name, estView) ' varType(0))
                     'dteModified = #1/1/2000#
                     If FSO.FileExists(strFile) Then
                         If dteModified < FileDateTime(strFile) Then

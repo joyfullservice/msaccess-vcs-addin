@@ -14,6 +14,15 @@ Public Enum eTableDataExportFormat
     [_last] = 2
 End Enum
 
+' Object types used when determining SQL modification date.
+Public Enum eSqlObjectType
+    estView
+    estStoredProcedure
+    estTable
+    estTrigger
+    estOther
+End Enum
+
 ' Types of objects that can be exported/imported from a database.
 ' (Use corresponding constants wherever possible)
 ' Be careful not to create collisions with two members sharing the
@@ -47,6 +56,7 @@ Public Enum eDatabaseComponentType
     edbVbeProject
     edbVbeReference
 End Enum
+
 
 Private m_Log As New clsConcat      ' Log file output
 Private m_Console As New clsConcat  ' Console output
@@ -1464,7 +1474,7 @@ End Function
 ' Purpose   : Get the last modified date for the SQL object
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSQLObjectModifiedDate(strName As String, ByVal strType As String) As Date
+Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectType) As Date
 
     ' Use static variables so we can avoid hundreds of repeated calls
     ' for the same object type. Instead use a local array after
@@ -1482,6 +1492,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, ByVal strType As Str
     Dim strSchema As String
     Dim strSchemaFilter As String
     Dim varItem As Variant
+    Dim strType As String
     
     ' Shortcut to clear the cached variable
     If strName = "" And strType = "" Then
@@ -1508,15 +1519,13 @@ Public Function GetSQLObjectModifiedDate(strName As String, ByVal strType As Str
     End If
     
     ' Build type filter
-    Select Case strType
-        Case "V", "VIEW", "views": strType = "V"
-        Case "P", "SQL_STORED_PROCEDURE", "procedures": strType = "P"
-        Case "T", "TABLE", "U", "USER_TABLE", "tables": strType = "U"
-        Case "TR", "SQL_TRIGGER", "triggers": strType = "TR"
-        Case Else
-            strType = strType
+    Select Case eType
+        Case estView: strType = "V"
+        Case estStoredProcedure: strType = "P"
+        Case estTable: strType = "U"
+        Case estTrigger: strType = "TR"
     End Select
-    If strType <> "" Then strTypeFilter = " AND [type]='" & strType & "'"
+    If strType <> vbNullString Then strTypeFilter = " AND [type]='" & strType & "'"
     
     ' Check to see if we have already cached the results
     If strType = strLastType And (DateDiff("s", dteCacheDate, Now()) < 5) And Not colCache Is Nothing Then
