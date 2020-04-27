@@ -72,6 +72,7 @@ Public Sub ExportSource()
     ' Build containers of object types
     Set colContainers = New Collection
     With colContainers
+        ' Shared objects in both MDB and ADP formats
         .Add New clsDbForm
         .Add New clsDbMacro
         .Add New clsDbModule
@@ -85,7 +86,9 @@ Public Sub ExportSource()
             ' Some types of objects only exist in ADP projects
             .Add New clsAdpFunction
             .Add New clsAdpServerView
+            .Add New clsAdpProcedure
         Else
+            ' These objects only exist in DAO databases
             .Add New clsDbTableDef
             .Add New clsDbTableDataMacro
             .Add New clsDbQuery
