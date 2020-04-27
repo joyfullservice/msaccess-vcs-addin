@@ -19,7 +19,7 @@ Public Sub ExportDataMacros(strTable As String, strFolder As String, cOptions As
     strPath = strFolder & GetSafeFileName(strTable) & ".xml"
 
     ' Check for fast save
-    If cOptions.UseFastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strPath))
+    'If cOptions.UseFastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strPath))
     
     If Not blnSkip Then
         ' Need to test whether to use Ucs2Convert on data macros.

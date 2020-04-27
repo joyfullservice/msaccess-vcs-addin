@@ -94,6 +94,20 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SourceModified
+' Author    : Adam Waller
+' Date      : 4/27/2020
+' Purpose   : The date/time the source object was modified. In most cases, this would
+'           : be the date/time of the source file, but it some cases like SQL objects
+'           : the date can be determined through other means, so this function
+'           : allows either approach to be taken.
+'---------------------------------------------------------------------------------------
+'
+Public Function SourceModified() As Date
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : BaseFolder
 ' Author    : Adam Waller
 ' Date      : 4/23/2020

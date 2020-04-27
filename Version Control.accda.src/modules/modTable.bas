@@ -38,7 +38,7 @@ Public Sub ExportLinkedTable(strTable As String, strFolder As String, cOptions A
     strPath = strFolder & GetSafeFileName(strTable) & ".LNKD"
     
     ' Check for fast save
-    If cOptions.UseFastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strPath))
+    'If cOptions.UseFastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strPath))
     
     ' Export linked table definition
     If blnSkip Then
@@ -128,7 +128,7 @@ Public Sub ExportTableDef(strTable As String, strFolder As String, cOptions As c
     strFile = strFolder & GetSafeFileName(strTable) & ".xml"
 
     ' Check for fast save
-    If cOptions.UseFastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strFile))
+    'If cOptions.UseFastSave Then blnSkip = Not (HasMoreRecentChanges(CurrentData.AllTables(strTable), strFile))
 
     ' Export table definition
     If blnSkip Then
