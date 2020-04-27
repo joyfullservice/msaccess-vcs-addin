@@ -11,7 +11,6 @@ Public Const cintPad As Integer = 30
 Private m_FSO As Scripting.FileSystemObject
 
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : ExportSource
 ' Author    : Adam Waller
@@ -26,6 +25,17 @@ Public Sub ExportSource()
     Dim cDbObject As IDbComponent
     Dim cOptions As clsOptions
     Dim sngStart As Single
+    Dim blnFullExport As Boolean
+    
+    ' Close any open forms or reports unless we are running from the add-in file.
+    If CurrentProject.FullName <> CodeProject.FullName Then
+        If Not CloseAllFormsReports Then
+            MsgBox2 "Please close forms and reports", _
+                "All forms and reports must be closed to export source code.", _
+                , vbExclamation
+            Exit Sub
+        End If
+    End If
     
     ' Load the project options and reset the logs
     Set cOptions = LoadOptions
@@ -33,6 +43,13 @@ Public Sub ExportSource()
 
     ' Run any custom sub before export
     If cOptions.RunBeforeExport <> vbNullString Then RunSubInCurrentProject cOptions.RunBeforeExport
+
+    ' Save property with the version of Version Control we used for the export.
+    If GetDBProperty("Last VCS Version") <> GetVCSVersion Then
+        SetDBProperty "Last VCS Version", GetVCSVersion
+        blnFullExport = True
+    End If
+    SetDBProperty "Last VCS Export", Now, dbDate
 
     sngStart = Timer
     Set colVerifiedPaths = New Collection   ' Reset cache
@@ -65,6 +82,7 @@ Public Sub ExportSource()
         .Add New clsDbVbeProject
         If CurrentProject.ProjectType = acADP Then
             ' Some types of objects only exist in ADP projects
+            .Add New clsAdpFunction
         Else
             .Add New clsDbTableDef
             .Add New clsDbTableDataMacro
@@ -91,8 +109,8 @@ Public Sub ExportSource()
             For Each cDbObject In cCategory.GetAllFromDB(cOptions)
                 
                 ' Check for fast save option
-                If cOptions.UseFastSave Then
-                    If HasMoreRecentChanges(cDbObject, cDbObject.SourceFile) Then
+                If cOptions.UseFastSave And Not blnFullExport Then
+                    If HasMoreRecentChanges(cDbObject) Then
                         Log "  " & cDbObject.Name, cOptions.ShowDebug
                         cDbObject.Export
                     Else
@@ -121,15 +139,12 @@ Public Sub ExportSource()
     Log "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
     SaveLogFile cOptions.GetExportFolder & "\Export.log"
     
-    ' Save options with project
+    ' Restore original fast save option, and save options with project
     cOptions.SaveOptionsForProject
     
     ' Clean up after completion
     Set m_FSO = Nothing
     
-    ' Save property with the version of Version Control we used for the export.
-    If GetDBProperty("Last VCS Version") <> GetVCSVersion Then SetDBProperty "Last VCS Version", GetVCSVersion
-
     ' Run any custom sub before export
     If cOptions.RunAfterExport <> vbNullString Then RunSubInCurrentProject cOptions.RunAfterExport
 
@@ -651,13 +666,13 @@ Public Sub ExportObject(intType As AcObjectType, strObject As String, strPath As
     If cOptions.UseFastSave Then
         Select Case intType
             Case acQuery
-                blnSkip = Not (HasMoreRecentChanges(CurrentData.AllQueries(strObject), strPath))
+                'blnSkip = Not (HasMoreRecentChanges(CurrentData.AllQueries(strObject), strPath))
             Case acForm
-                blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllForms(strObject), strPath))
+                'blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllForms(strObject), strPath))
             Case acReport
-                blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllReports(strObject), strPath))
+                'blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllReports(strObject), strPath))
             Case acMacro
-                blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllMacros(strObject), strPath))
+                'blnSkip = Not (HasMoreRecentChanges(CurrentProject.AllMacros(strObject), strPath))
         End Select
     End If
     

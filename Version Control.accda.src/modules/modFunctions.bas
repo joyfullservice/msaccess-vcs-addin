@@ -33,6 +33,7 @@ Public Enum eDatabaseComponentType
     edbAdpFunction
     edbAdpServerView
     edbAdpStoredProcedure
+    edbAdpTrigger
     ' Custom object types we are also handling.
     edbTableData
     edbRelation
@@ -85,7 +86,7 @@ Public Sub SanitizeFile(strPath As String, cOptions As clsOptions)
     ' Build main search patterns
     With cPattern
     
-        '  Match PrtDevNames / Mode with or  without W
+        '  Match PrtDevNames / Mode with or without W
         If cOptions.AggressiveSanitize Then .Add "(?:"
         .Add "PrtDev(?:Names|Mode)[W]?"
         If cOptions.AggressiveSanitize Then
@@ -186,6 +187,82 @@ Public Sub SanitizeFile(strPath As String, cOptions As clsOptions)
             cData.Add vbCrLf
         End If
         
+    Loop
+    
+    ' Close and delete original file
+    stmInFile.Close
+    FSO.DeleteFile strPath
+    
+    ' Write file all at once, rather than line by line.
+    ' (Otherwise the code can bog down with tens of thousands of write operations)
+    WriteFile cData.GetStr, strPath
+
+    ' Show stats if debug turned on.
+    Log "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cOptions.ShowDebug
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SanitizeXML
+' Author    : Adam Waller
+' Date      : 4/27/2020
+' Purpose   : Remove non-essential data that changes every time the file is exported.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SanitizeXML(strPath As String, cOptions As clsOptions)
+
+    Dim sngOverall As Single
+    Dim sngTimer As Single
+    Dim cData As clsConcat
+    Dim strText As String
+    Dim rxLine As VBScript_RegExp_55.RegExp
+    Dim objMatches As VBScript_RegExp_55.MatchCollection
+    Dim blnIsReport As Boolean
+    Dim stmInFile As Scripting.TextStream
+    Dim blnFound As Boolean
+    
+    On Error GoTo 0
+    
+    Set cData = New clsConcat
+    Set rxLine = New VBScript_RegExp_55.RegExp
+    
+    ' Timers to monitor performance
+    sngTimer = Timer
+    sngOverall = sngTimer
+    
+    ' Set line search pattern (To remove generated timestamp)
+    '<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" generated="2020-04-27T10:28:32">
+    rxLine.Pattern = "^\s*(?:<dataroot xmlns:(.+))( generated="".+"")"
+    'rxLine.Pattern = "^\s*(?:<dataroot xmlns:(.+))( generated="".+"")"
+    
+    ' Open file to read contents line by line.
+    Set stmInFile = FSO.OpenTextFile(strPath, ForReading)
+
+    ' Loop through all the lines in the file
+    Do Until stmInFile.AtEndOfStream
+        
+        ' Read line from file
+        strText = stmInFile.ReadLine
+                 
+        ' Just looking for the first match.
+        If Not blnFound Then
+        
+            ' Check for matching pattern
+            If rxLine.Test(strText) Then
+                
+                ' Return actual matches
+                Set objMatches = rxLine.Execute(strText)
+                
+                ' Replace with empty string
+                strText = Replace(strText, objMatches(0).SubMatches(1), vbNullString, , 1)
+                blnFound = True
+            End If
+        End If
+        
+        ' Add to return string
+        cData.Add strText
+        cData.Add vbCrLf
     Loop
     
     ' Close and delete original file
@@ -419,6 +496,96 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetDBProperty
+' Author    : Adam Waller
+' Date      : 9/1/2017
+' Purpose   : Get a database property (Default to MDB version)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetDBProperty(strName As String) As Variant
+
+    Dim prp As Object ' DAO.Property
+    Dim oParent As Object
+    
+    ' Get parent container for properties
+    If CurrentProject.ProjectType = acADP Then
+        Set oParent = CurrentProject.Properties
+    Else
+        Set oParent = CurrentDb.Properties
+    End If
+    
+    ' Look for property by name
+    For Each prp In oParent
+        If prp.Name = strName Then
+            GetDBProperty = prp.Value
+            Exit For
+        End If
+    Next prp
+    Set prp = Nothing
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetDBProperty
+' Author    : Adam Waller
+' Date      : 9/1/2017
+' Purpose   : Set a database property
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetDBProperty(strName As String, varValue, Optional prpType = dbText)
+
+    Dim prp As Object ' DAO.Property
+    Dim blnFound As Boolean
+    Dim dbs As DAO.Database
+    Dim oParent As Object
+    
+    ' Properties set differently for databases and ADP projects
+    If CurrentProject.ProjectType = acADP Then
+        Set oParent = CurrentProject.Properties
+    Else
+        Set dbs = CurrentDb
+        Set oParent = dbs.Properties
+    End If
+    
+    ' Look for property in collection
+    For Each prp In oParent
+        If prp.Name = strName Then
+            ' Check for matching type
+            If Not dbs Is Nothing Then
+                If prp.Type <> prpType Then
+                    ' Remove so we can add it back in with the correct type.
+                    dbs.Properties.Delete strName
+                    Exit For
+                End If
+            End If
+            blnFound = True
+            ' Skip set on matching value
+            If prp.Value = varValue Then
+                Set dbs = Nothing
+            Else
+                ' Update value
+                prp.Value = varValue
+            End If
+            Exit Sub
+        End If
+    Next prp
+    
+    ' Add new property
+    If Not blnFound Then
+        If CurrentProject.ProjectType = acADP Then
+            CurrentProject.Properties.Add strName, varValue
+        Else
+            Set prp = dbs.CreateProperty(strName, prpType, varValue)
+            dbs.Properties.Append prp
+            Set dbs = Nothing
+        End If
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CloseAllFormsReports
 ' Author    : Adam Waller
 ' Date      : 1/25/2019
@@ -571,17 +738,19 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : HasMoreRecentChanges
 ' Author    : Adam Waller
-' Date      : 12/14/2016
+' Date      : 4/27/2020
 ' Purpose   : Returns true if the database object has been modified more recently
-'           : than the exported file.
+'           : than the exported file or source object.
 '---------------------------------------------------------------------------------------
 '
-Public Function HasMoreRecentChanges(objItem As Object, strFile As String) As Boolean
+Public Function HasMoreRecentChanges(objItem As IDbComponent) As Boolean
     ' File dates could be a second off (between exporting the file and saving the report)
     ' so ignore changes that are less than three seconds apart.
-    If strFile <> "" And Dir(strFile) <> "" Then
-        HasMoreRecentChanges = (DateDiff("s", objItem.DateModified, FileDateTime(strFile)) < -3)
+    If objItem.DateModified > 0 And objItem.SourceModified > 0 Then
+        HasMoreRecentChanges = (DateDiff("s", objItem.DateModified, objItem.SourceModified) < -3)
     Else
+        ' If we can't determine one or both of the dates, return true so the
+        ' item is processed as though more recent changes were detected.
         HasMoreRecentChanges = True
     End If
 End Function
@@ -1090,13 +1259,11 @@ End Function
 Public Function GetVCSVersion() As String
 
     Dim dbs As Database
-    Dim objParent As Object
-    Dim prp As Object
+    Dim prp As DAO.Property
 
-    Set objParent = CodeDb
-    If objParent Is Nothing Then Set objParent = CurrentProject ' ADP support
+    Set dbs = CodeDb
 
-    For Each prp In objParent.Properties
+    For Each prp In dbs.Properties
         If prp.Name = "AppVersion" Then
             ' Return version
             GetVCSVersion = prp.Value
@@ -1267,7 +1434,7 @@ Public Sub WriteJsonFile(ClassMe As Object, dItems As Scripting.Dictionary, strF
     ' Build dictionary structure
     dHeader.Add "Class", TypeName(ClassMe)
     dHeader.Add "Description", strDescription
-    dHeader.Add "VCS Version", AppVersion
+    dHeader.Add "VCS Version", GetVCSVersion
     dContents.Add "Info", dHeader
     dContents.Add "Items", dItems
     
@@ -1290,11 +1457,136 @@ Public Function TestParentClass()
 End Function
 
 
-Public Function GetEncryptionKey() As String
+'---------------------------------------------------------------------------------------
+' Procedure : GetSQLObjectModifiedDate
+' Author    : Adam Waller
+' Date      : 10/11/2017
+' Purpose   : Get the last modified date for the SQL object
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSQLObjectModifiedDate(strName As String, ByVal strType As String) As Date
 
+    ' Use static variables so we can avoid hundreds of repeated calls
+    ' for the same object type. Instead use a local array after
+    ' pulling the initial values.
+    ' (Makes a significant performance gain in complex databases)
+    Static colCache As Collection
+    Static strLastType As String
+    Static dteCacheDate As Date
+
+    Dim rst As ADODB.Recordset
+    Dim strSQL As String
+    Dim strObject As String
+    Dim strTypeFilter As String
+    Dim intPos As Integer
+    Dim strSchema As String
+    Dim strSchemaFilter As String
+    Dim varItem As Variant
+    
+    ' Shortcut to clear the cached variable
+    If strName = "" And strType = "" Then
+        Set colCache = Nothing
+        strLastType = ""
+        dteCacheDate = 0
+        Exit Function
+    End If
+    
+    ' Only try this on ADP projects
+    If CurrentProject.ProjectType <> acADP Then Exit Function
+    
+    ' Simple validation on object name
+    strObject = Replace(strName, ";", "")
+    
+    ' Build schema filter if required
+    intPos = InStr(1, strObject, ".")
+    If intPos > 0 Then
+        strObject = Mid(strObject, intPos + 1)
+        strSchema = Left(strName, intPos - 1)
+        'strSchemaFilter = " AND [schema_id]=schema_id('" & strSchema & "')"
+    Else
+        strSchema = "dbo"
+    End If
+    
+    ' Build type filter
+    Select Case strType
+        Case "V", "VIEW", "views": strType = "V"
+        Case "P", "SQL_STORED_PROCEDURE", "procedures": strType = "P"
+        Case "T", "TABLE", "U", "USER_TABLE", "tables": strType = "U"
+        Case "TR", "SQL_TRIGGER", "triggers": strType = "TR"
+        Case Else
+            strType = strType
+    End Select
+    If strType <> "" Then strTypeFilter = " AND [type]='" & strType & "'"
+    
+    ' Check to see if we have already cached the results
+    If strType = strLastType And (DateDiff("s", dteCacheDate, Now()) < 5) And Not colCache Is Nothing Then
+        ' Look through cache to find matching date
+        For Each varItem In colCache
+            If varItem(0) = strName Then
+                GetSQLObjectModifiedDate = varItem(1)
+                Exit For
+            End If
+        Next varItem
+    Else
+        ' Look up from query, and cache results
+        Set colCache = New Collection
+        dteCacheDate = Now()
+        strLastType = strType
+        
+        ' Build SQL query to find object
+        strSQL = "SELECT [name], schema_name([schema_id]) as [schema], modify_date FROM sys.objects WHERE 1=1 " & strTypeFilter
+        Set rst = New ADODB.Recordset
+        With rst
+            .Open strSQL, CurrentProject.Connection, adOpenForwardOnly, adLockReadOnly
+            Do While Not .EOF
+                ' Return date when name matches. (But continue caching additional results)
+                If Nz(!Name) = strObject And Nz(!schema) = strSchema Then GetSQLObjectModifiedDate = Nz(!modify_date)
+                If Nz(!schema) = "dbo" Then
+                    colCache.Add Array(Nz(!Name), Nz(!modify_date))
+                Else
+                    ' Include schema name in object name
+                    colCache.Add Array(Nz(!schema) & "." & Nz(!Name), Nz(!modify_date))
+                End If
+                .MoveNext
+            Loop
+            .Close
+        End With
+        Set rst = Nothing
+    End If
+    
 End Function
 
 
-Public Function SetEncryptionKey() As String
-
+'---------------------------------------------------------------------------------------
+' Procedure : GetSQLObjectDefinitionForADP
+' Author    : awaller
+' Date      : 12/12/2016
+' Purpose   : Returns the SQL definition for the ADP project item.
+'           : (Queries, Views, Tables, etc... are not stored in Access but on the
+'           :  SQL server.)
+'           : NOTE: This takes a simplistic approach, which does not guard againts
+'           : certain types of SQL injection attacks. Use at your own risk!
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSQLObjectDefinitionForADP(strName As String) As String
+    
+    Dim rst As ADODB.Recordset
+    Dim strSQL As String
+    Dim strObject As String
+    
+    ' Only try this on ADP projects
+    If CurrentProject.ProjectType <> acADP Then Exit Function
+    
+    ' Simple validation on object name
+    strObject = Replace(strName, ";", "")
+    
+    strSQL = "SELECT object_definition (OBJECT_ID(N'" & strObject & "'))"
+    Set rst = CurrentProject.Connection.Execute(strSQL)
+    If Not rst.EOF Then
+        ' Get SQL definition
+        GetSQLObjectDefinitionForADP = Nz(rst(0).Value)
+    End If
+    
+    Set rst = Nothing
+    
 End Function

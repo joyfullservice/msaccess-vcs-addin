@@ -55,7 +55,9 @@ Private Sub IDbComponent_Export()
             ' Export the table using this format.
             Select Case intFormat
                 Case etdTabDelimited:   ExportTableData m_Table.Name, IDbComponent_BaseFolder, IDbComponent_Options
-                Case etdXML:            Application.ExportXML acExportTable, m_Table.Name, strFile
+                Case etdXML:
+                    Application.ExportXML acExportTable, m_Table.Name, strFile
+                    SanitizeXML strFile, IDbComponent_Options
             End Select
         End If
     Next intFormat
