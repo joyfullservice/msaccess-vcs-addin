@@ -12,7 +12,7 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private m_Function As AccessObject
+Private m_View As AccessObject
 Private m_Options As clsOptions
 'Private m_Count As Long (uncomment if needed)
 
@@ -31,7 +31,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    WriteFile GetSQLObjectDefinitionForADP(m_Function.Name), IDbComponent_SourceFile
+    WriteFile GetSQLObjectDefinitionForADP(m_View.Name), IDbComponent_SourceFile
 End Sub
 
 
@@ -56,19 +56,19 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
     
-    Dim fn As AccessObject
-    Dim cFn As IDbComponent
+    Dim view As AccessObject
+    Dim cView As IDbComponent
 
     ' Use parameter options if provided.
     If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
 
     Set IDbComponent_GetAllFromDB = New Collection
-    For Each fn In CurrentData.AllFunctions
-        Set cFn = New clsAdpFunction
-        Set cFn.DbObject = fn
-        Set cFn.Options = IDbComponent_Options
-        IDbComponent_GetAllFromDB.Add cFn, fn.Name
-    Next fn
+    For Each view In CurrentData.AllViews
+        Set cView = New clsAdpServerView
+        Set cView.DbObject = view
+        Set cView.Options = IDbComponent_Options
+        IDbComponent_GetAllFromDB.Add cView, view.Name
+    Next view
         
 End Function
 
@@ -107,7 +107,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = m_Function.DateModified
+    IDbComponent_DateModified = m_View.DateModified
 End Function
 
 
@@ -122,7 +122,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_SourceModified() As Date
-    IDbComponent_SourceModified = GetSQLObjectModifiedDate(m_Function.Name, estOther)
+    IDbComponent_SourceModified = GetSQLObjectModifiedDate(m_View.Name, estView)
 End Function
 
 
@@ -134,7 +134,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "functions"
+    IDbComponent_Category = "views"
 End Property
 
 
@@ -145,7 +145,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "functions\"
+    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "views\"
 End Property
 
 
@@ -157,7 +157,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
-    IDbComponent_Name = m_Function.Name
+    IDbComponent_Name = m_View.Name
 End Property
 
 
@@ -169,7 +169,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(StripDboPrefix(m_Function.Name)) & ".sql"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(StripDboPrefix(m_View.Name)) & ".sql"
 End Property
 
 
@@ -181,7 +181,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    IDbComponent_Count = CurrentData.AllFunctions.Count
+    IDbComponent_Count = CurrentData.AllViews.Count
 End Property
 
 
@@ -193,7 +193,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
-    IDbComponent_ComponentType = edbAdpFunction
+    IDbComponent_ComponentType = edbAdpServerView
 End Property
 
 
@@ -233,10 +233,10 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_DbObject() As Object
-    Set IDbComponent_DbObject = m_Function
+    Set IDbComponent_DbObject = m_View
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
-    Set m_Function = RHS
+    Set m_View = RHS
 End Property
 
 

@@ -84,6 +84,7 @@ Public Sub ExportSource()
         If CurrentProject.ProjectType = acADP Then
             ' Some types of objects only exist in ADP projects
             .Add New clsAdpFunction
+            .Add New clsAdpServerView
         Else
             .Add New clsDbTableDef
             .Add New clsDbTableDataMacro

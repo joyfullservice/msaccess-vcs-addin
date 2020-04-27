@@ -1454,19 +1454,6 @@ Public Sub WriteJsonFile(ClassMe As Object, dItems As Scripting.Dictionary, strF
 End Sub
 
 
-Public Function TestParentClass()
-
-    Dim cForm As New clsDbForm
-
-    With cForm.Parent
-        Set .DbObject = CurrentProject.AllForms("frmMain")
-        .Options.UseFastSave = False
-        .Export
-    End With
-    
-End Function
-
-
 '---------------------------------------------------------------------------------------
 ' Procedure : GetSQLObjectModifiedDate
 ' Author    : Adam Waller
