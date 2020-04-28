@@ -153,7 +153,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = m_Table.DateModified
+    IDbComponent_DateModified = GetSQLObjectModifiedDate(m_Table.Name, estTable)
 End Function
 
 
@@ -168,7 +168,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_SourceModified() As Date
-    IDbComponent_SourceModified = GetSQLObjectModifiedDate(m_Table.Name, estTable)
+    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = FileDateTime(IDbComponent_SourceFile)
 End Function
 
 

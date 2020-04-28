@@ -64,7 +64,7 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
     
-    Dim prp As DAO.Property
+    Dim prp As AccessObjectProperty
     Dim cProp As IDbComponent
 
     ' Use parameter options if provided.

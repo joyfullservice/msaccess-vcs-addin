@@ -1,16 +1,19 @@
 ---------------------------------------
 Beginning Export of all Source
 Version Control.accda
-VCS Version 2.1.0
+VCS Version 2.1.2
 Using Fast Save
-4/28/2020 10:50:56 AM
+4/28/2020 2:33:41 PM
 ---------------------------------------
 ---------------------------------------
-Exporting forms...              (Skipping 'frmMain')
-  (Skipping 'frmOptions')
+Exporting forms...              frmMain
+    Sanitized in 0.03 seconds.
+  frmOptions
+    Sanitized in 0.03 seconds.
 [2]
 ---------------------------------------
-Exporting macros...             (Skipping 'autoexec')
+Exporting macros...             autoexec
+    Sanitized in 0.00 seconds.
 [1]
 ---------------------------------------
 Exporting modules...            clsDbTableData
@@ -54,7 +57,8 @@ Exporting modules...            clsDbTableData
 ---------------------------------------
 No reports found in this database.
 ---------------------------------------
-Exporting table data...         (Skipping 'USysRegInfo')
+Exporting table data...         USysRegInfo
+    Sanitized in 0.00 seconds.
 [1]
 ---------------------------------------
 No proj properties found in this database.
@@ -67,7 +71,8 @@ No saved specs found in this database.
 Exporting VB project...         MSAccessVCS
 [1]
 ---------------------------------------
-Exporting tables...             (Skipping 'USysRegInfo')
+Exporting tables...             USysRegInfo
+  USysRegInfo (SQL)
 [1]
 ---------------------------------------
 No table data macros found in this database.
@@ -79,4 +84,4 @@ No relations found in this database.
 Exporting db properties...      Database Properties (DAO)
 [48]
 ---------------------------------------
-Done. (1.55 seconds)
+Done. (0.83 seconds)

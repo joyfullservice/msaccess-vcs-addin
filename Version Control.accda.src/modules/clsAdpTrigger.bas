@@ -82,14 +82,14 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
         Do While Not .EOF
             Set cTrigger = New clsAdpTrigger
             With cTrigger
-                .TriggerName = Nz(!Name)
-                .TableName = Nz(!parent_name)
-                .SchemaName = Nz(!schema_name)
-                .SqlModifyDate = Nz(!modify_date)
+                .TriggerName = Nz(rst!Name)
+                .TableName = Nz(rst!parent_name)
+                .SchemaName = Nz(rst!schema_name)
+                .SqlModifyDate = Nz(rst!modify_date)
             End With
             Set cComponent = cTrigger
             Set cComponent.Options = IDbComponent_Options
-            IDbComponent_GetAllFromDB.Add cComponent, Me.TriggerName
+            IDbComponent_GetAllFromDB.Add cComponent, cTrigger.TriggerName
             .MoveNext
         Loop
         .Close
@@ -133,7 +133,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = 0
+    IDbComponent_DateModified = GetSQLObjectModifiedDate(Me.TriggerName, estTrigger)
 End Function
 
 
@@ -148,7 +148,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_SourceModified() As Date
-    IDbComponent_SourceModified = GetSQLObjectModifiedDate(Me.TriggerName, estTrigger)
+    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = FileDateTime(IDbComponent_SourceFile)
 End Function
 
 

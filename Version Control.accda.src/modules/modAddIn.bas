@@ -124,7 +124,6 @@ Private Function InstallVCSAddin()
     
     Dim strSource As String
     Dim strDest As String
-
     Dim blnExists As Boolean
     
     strSource = CodeProject.FullName
@@ -138,6 +137,9 @@ Private Function InstallVCSAddin()
     On Error Resume Next
     FSO.CopyFile strSource, strDest, True
     If Err Then
+        MsgBox2 "Unable to update file", _
+            "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
+            "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
         Err.Clear
     Else
         ' Update installed version number
@@ -146,7 +148,7 @@ Private Function InstallVCSAddin()
         InstallVCSAddin = True
     End If
     On Error GoTo 0
-    
+
 End Function
 
 
