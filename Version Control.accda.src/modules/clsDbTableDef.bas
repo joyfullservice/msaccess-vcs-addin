@@ -46,7 +46,7 @@ Private Sub IDbComponent_Export()
     ' Optionally save in SQL format
     If IDbComponent_Options.SaveTableSQL Then
         Set dbs = CurrentDb
-        Log "  " & m_Table.Name & " (SQL)", IDbComponent_Options.ShowDebug
+        Log.Add "  " & m_Table.Name & " (SQL)", IDbComponent_Options.ShowDebug
         SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder, IDbComponent_Options
     End If
 

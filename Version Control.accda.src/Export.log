@@ -3,62 +3,59 @@ Beginning Export of all Source
 Version Control.accda
 VCS Version 2.1.2
 Using Fast Save
-4/28/2020 2:33:41 PM
+4/28/2020 3:13:31 PM
 ---------------------------------------
 ---------------------------------------
-Exporting forms...              frmMain
-    Sanitized in 0.03 seconds.
-  frmOptions
-    Sanitized in 0.03 seconds.
+Exporting forms...              (Skipping 'frmMain')
+  (Skipping 'frmOptions')
 [2]
 ---------------------------------------
-Exporting macros...             autoexec
-    Sanitized in 0.00 seconds.
+Exporting macros...             (Skipping 'autoexec')
 [1]
 ---------------------------------------
-Exporting modules...            clsDbTableData
-  clsDbVbeReference
-  modReference
-  clsAdpProcedure
-  clsDbTableDef
-  clsDbSavedSpec
-  modDataMacro
-  modAddIn
-  modFunctions
-  clsDbRelation
-  modSavedSpecs
-  modReport
-  clsOptions
-  modFileAccess
-  clsDbVbeProject
-  clsConcat
-  clsDbQuery
-  clsAdpServerView
-  modTable
-  clsDbModule
-  clsDbTEMPLATE
-  clsAdpTable
-  clsDbForm
-  modUnitTesting
-  clsDbMacro
-  modRelation
-  clsAdpFunction
-  clsAdpTrigger
-  clsDbTableDataMacro
-  modJsonConverter
-  clsDbReport
-  IDbComponent
-  modImportExport
-  modEncrypt
-  clsDbProjProperty
-  clsDbProperty
-  modProperty
-[37]
+Exporting modules...            (Skipping 'clsDbTableData')
+  (Skipping 'clsDbVbeReference')
+  (Skipping 'modReference')
+  (Skipping 'clsAdpProcedure')
+  (Skipping 'clsDbTableDef')
+  (Skipping 'clsDbSavedSpec')
+  (Skipping 'modDataMacro')
+  (Skipping 'modAddIn')
+  (Skipping 'modFunctions')
+  (Skipping 'clsDbRelation')
+  (Skipping 'modSavedSpecs')
+  (Skipping 'modReport')
+  (Skipping 'clsOptions')
+  (Skipping 'modFileAccess')
+  (Skipping 'clsDbVbeProject')
+  (Skipping 'clsConcat')
+  (Skipping 'clsDbQuery')
+  (Skipping 'clsAdpServerView')
+  (Skipping 'modTable')
+  (Skipping 'clsDbModule')
+  (Skipping 'clsDbTEMPLATE')
+  (Skipping 'clsAdpTable')
+  (Skipping 'clsLog')
+  (Skipping 'clsDbForm')
+  (Skipping 'modUnitTesting')
+  (Skipping 'clsDbMacro')
+  (Skipping 'modRelation')
+  (Skipping 'clsAdpFunction')
+  (Skipping 'clsAdpTrigger')
+  (Skipping 'clsDbTableDataMacro')
+  (Skipping 'modJsonConverter')
+  (Skipping 'clsDbReport')
+  (Skipping 'IDbComponent')
+  (Skipping 'modImportExport')
+  (Skipping 'modEncrypt')
+  (Skipping 'clsDbProjProperty')
+  (Skipping 'clsDbProperty')
+  (Skipping 'modProperty')
+[38]
 ---------------------------------------
 No reports found in this database.
 ---------------------------------------
-Exporting table data...         USysRegInfo
-    Sanitized in 0.00 seconds.
+Exporting table data...         (Skipping 'USysRegInfo')
 [1]
 ---------------------------------------
 No proj properties found in this database.
@@ -71,8 +68,7 @@ No saved specs found in this database.
 Exporting VB project...         MSAccessVCS
 [1]
 ---------------------------------------
-Exporting tables...             USysRegInfo
-  USysRegInfo (SQL)
+Exporting tables...             (Skipping 'USysRegInfo')
 [1]
 ---------------------------------------
 No table data macros found in this database.
@@ -84,4 +80,4 @@ No relations found in this database.
 Exporting db properties...      Database Properties (DAO)
 [48]
 ---------------------------------------
-Done. (0.83 seconds)
+Done. (0.52 seconds)

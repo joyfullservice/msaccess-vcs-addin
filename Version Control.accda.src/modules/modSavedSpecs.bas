@@ -60,14 +60,14 @@ Public Sub ExportSpecs(strSourcePath As String, cOptions As clsOptions)
         ' Save as file (including more than just xml)
         WriteFile cData.GetStr, strFolder & "\" & strFile
         cData.Clear
-        Log "  " & oSpec.Name, cOptions.ShowDebug
+        Log.Add "  " & oSpec.Name, cOptions.ShowDebug
         
     Next oSpec
     
     If cOptions.ShowDebug Then
-        Log "[" & CurrentProject.ImportExportSpecifications.Count & "] specs exported."
+        Log.Add "[" & CurrentProject.ImportExportSpecifications.Count & "] specs exported."
     Else
-        Log "[" & CurrentProject.ImportExportSpecifications.Count & "]"
+        Log.Add "[" & CurrentProject.ImportExportSpecifications.Count & "]"
     End If
     
 End Sub

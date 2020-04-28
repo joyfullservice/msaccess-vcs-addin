@@ -56,7 +56,7 @@ Private Sub IDbComponent_Export()
         Set dbs = CurrentDb
         strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
         WriteFile dbs.QueryDefs(m_Query.Name).sql, strFile
-        Log "  " & m_Query.Name & " (SQL)", IDbComponent_Options.ShowDebug
+        Log.Add "  " & m_Query.Name & " (SQL)", IDbComponent_Options.ShowDebug
     End If
     
 End Sub

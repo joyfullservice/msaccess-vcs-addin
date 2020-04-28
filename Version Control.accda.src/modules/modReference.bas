@@ -20,7 +20,7 @@ Public Sub ExportReferences(strFolder As String, cOptions As clsOptions)
         If ref.GUID = "" Then ' references of types mdb,accdb,mde etc don't have a GUID
             cData.Add ref.FullPath
             cData.Add vbCrLf
-            Log "  [" & ref.Name & "]", cOptions.ShowDebug
+            Log.Add "  [" & ref.Name & "]", cOptions.ShowDebug
        Else
             With cData
                 .Add ref.GUID
@@ -32,7 +32,7 @@ Public Sub ExportReferences(strFolder As String, cOptions As clsOptions)
                 .Add CStr(ref.Minor)
                 .Add vbCrLf
             End With
-            Log "  " & ref.Name & " " & ref.Major & "." & ref.Minor, cOptions.ShowDebug
+            Log.Add "  " & ref.Name & " " & ref.Major & "." & ref.Minor, cOptions.ShowDebug
         End If
         intCnt = intCnt + 1
     Next ref
@@ -42,9 +42,9 @@ Public Sub ExportReferences(strFolder As String, cOptions As clsOptions)
 
     ' Show summary
     If cOptions.ShowDebug Then
-        Log "[" & intCnt & "] references exported."
+        Log.Add "[" & intCnt & "] references exported."
     Else
-        Log "[" & intCnt & "]"
+        Log.Add "[" & intCnt & "]"
     End If
     
 End Sub

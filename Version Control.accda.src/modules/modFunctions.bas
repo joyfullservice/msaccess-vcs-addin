@@ -58,8 +58,8 @@ Public Enum eDatabaseComponentType
 End Enum
 
 
-Private m_Log As New clsConcat      ' Log file output
-Private m_Console As New clsConcat  ' Console output
+' Logging class
+Private m_Log As clsLog
 
 
 '---------------------------------------------------------------------------------------
@@ -208,7 +208,7 @@ Public Sub SanitizeFile(strPath As String, cOptions As clsOptions)
     WriteFile cData.GetStr, strPath
 
     ' Show stats if debug turned on.
-    Log "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cOptions.ShowDebug
+    Log.Add "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cOptions.ShowDebug
 
 End Sub
 
@@ -284,7 +284,7 @@ Public Sub SanitizeXML(strPath As String, cOptions As clsOptions)
     WriteFile cData.GetStr, strPath
 
     ' Show stats if debug turned on.
-    Log "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cOptions.ShowDebug
+    Log.Add "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cOptions.ShowDebug
 
 End Sub
 
@@ -396,7 +396,7 @@ Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, objContainer As Obj
                 If Not blnFound Then
                     ' Object not found in database. Remove file.
                     Kill oFile.ParentFolder.Path & "\" & oFile.Name
-                    Log "  Removing orphaned file: " & strFile, cOptions.ShowDebug
+                    Log.Add "  Removing orphaned file: " & strFile, cOptions.ShowDebug
                 End If
                 
                 ' No need to check other extensions since we
@@ -421,22 +421,6 @@ Public Function StripSlash(strText As String) As String
         StripSlash = Left(strText, Len(strText) - 1)
     Else
         StripSlash = strText
-    End If
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : PadRight
-' Author    : Adam Waller
-' Date      : 1/25/2019
-' Purpose   : Pad a string on the right to make it `count` characters long.
-'---------------------------------------------------------------------------------------
-'
-Public Function PadRight(strText As String, intCharacters As Integer)
-    If Len(strText) < intCharacters Then
-        PadRight = strText & Space(intCharacters - Len(strText))
-    Else
-        PadRight = strText
     End If
 End Function
 
@@ -1084,54 +1068,6 @@ Public Function IsLoaded(intType As AcObjectType, strName As String, Optional bl
 End Function
 
 
-' returns substring between e.g. "(" and ")", internal brackets ar skippped
-'Public Function SubString(P As Integer, s As String, startsWith As String, endsWith As String)
-'    Dim start As Integer
-'    Dim cursor As Integer
-'    Dim p1 As Integer
-'    Dim p2 As Integer
-'    Dim level As Integer
-'    start = InStr(P, s, startsWith)
-'    level = 1
-'    p1 = InStr(start + 1, s, startsWith)
-'    p2 = InStr(start + 1, s, endsWith)
-'    While level > 0
-'        If p1 > p2 And p2 > 0 Then
-'            cursor = p2
-'            level = level - 1
-'        ElseIf p2 > p1 And p1 > 0 Then
-'            cursor = p1
-'            level = level + 1
-'        ElseIf p2 > 0 And p1 = 0 Then
-'            cursor = p2
-'            level = level - 1
-'        ElseIf p1 > 0 And p1 = 0 Then
-'            cursor = p1
-'            level = level + 1
-'        ElseIf p1 = 0 And p2 = 0 Then
-'            SubString = ""
-'            Exit Function
-'        End If
-'        p1 = InStr(cursor + 1, s, startsWith)
-'        p2 = InStr(cursor + 1, s, endsWith)
-'    Wend
-'    SubString = Mid(s, start + 1, cursor - start - 1)
-'End Function
-'
-
-
-Public Sub TestOptions()
-    
-    Dim cOpt As New clsOptions
-    'cOpt.PrintOptionsToDebugWindow
-    cOpt.SaveOptionsForProject
-    cOpt.LoadProjectOptions
-    cOpt.PrintOptionsToDebugWindow
-    
-End Sub
-
-
-
 '---------------------------------------------------------------------------------------
 ' Procedure : MsgBox2
 ' Author    : Adam Waller
@@ -1155,90 +1091,6 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     MsgBox2 = Eval(strMsg)
     
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ClearLog
-' Author    : Adam Waller
-' Date      : 4/16/2020
-' Purpose   : Clear the log buffers
-'---------------------------------------------------------------------------------------
-'
-Public Sub ClearLogs()
-    Set m_Console = New clsConcat
-    Set m_Log = New clsConcat
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Log
-' Author    : Adam Waller
-' Date      : 1/18/2019
-' Purpose   : Add a log file entry.
-'---------------------------------------------------------------------------------------
-'
-Public Sub Log(strText As String, Optional blnPrint As Boolean = True, Optional blnNextOutputOnNewLine As Boolean = True)
-
-    Static dblLastLog As Double
-    Dim strLine As String
-    
-    m_Log.Add strText
-    If blnPrint Then
-        ' Use bold/green text for completion line.
-        strLine = strText
-        If InStr(1, strText, "Done. ") = 1 Then
-            strLine = "<font color=green><strong>" & strText & "</strong></font>"
-        End If
-        m_Console.Add strLine
-        If blnNextOutputOnNewLine Then m_Console.Add "<br>"
-        ' Only print debug output if not running from the GUI.
-        If Not IsLoaded(acForm, "frmMain") Then
-            If blnNextOutputOnNewLine Then
-                ' Create new line
-                Debug.Print strText
-                
-            Else
-                ' Continue next printout on this line.
-                Debug.Print strText;
-            End If
-        End If
-    End If
-    
-    ' Add carriage return to log file if specified
-    If blnNextOutputOnNewLine Then m_Log.Add vbCrLf
-    
-    ' Allow an update to the screen every second.
-    ' (This keeps the aplication from an apparent hang while
-    '  running intensive export processes.)
-    If dblLastLog + 1 < Timer Then
-        DoEvents
-        dblLastLog = Timer
-    End If
-    
-    ' Update log display on form if open.
-    If blnPrint And IsLoaded(acForm, "frmMain") Then
-        With Form_frmMain.txtLog
-            .Text = m_Console.GetStr
-            ' Move cursor to end of log for scroll effect.
-            .SelStart = Len(.Text)
-            .SelLength = 0
-        End With
-    End If
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SaveLogFile
-' Author    : Adam Waller
-' Date      : 1/18/2019
-' Purpose   : Saves the log data to a file, and resets the log buffer.
-'---------------------------------------------------------------------------------------
-'
-Public Sub SaveLogFile(strPath As String)
-    WriteFile m_Log.GetStr, strPath
-    Set m_Log = New clsConcat
-End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -1585,4 +1437,17 @@ Public Function GetSQLObjectDefinitionForADP(strName As String) As String
     
     Set rst = Nothing
     
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Log
+' Author    : Adam Waller
+' Date      : 4/28/2020
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Public Function Log() As clsLog
+    If m_Log Is Nothing Then Set m_Log = New clsLog
+    Set Log = m_Log
 End Function

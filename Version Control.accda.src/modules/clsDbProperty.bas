@@ -160,9 +160,9 @@ Public Sub ExportProperties(strFolder As String, cOptions As clsOptions)
     
     ' Display summary.
     If cOptions.ShowDebug Then
-        Log "[" & intCnt & "] database properties exported."
+        Log.Add "[" & intCnt & "] database properties exported."
     Else
-        Log "[" & intCnt & "]"
+        Log.Add "[" & intCnt & "]"
     End If
     
 End Sub
@@ -188,7 +188,7 @@ Private Function ImportProperties(ByVal sourcePath As String, Optional ByRef app
         Exit Function
     End If
     
-    Debug.Print PadRight("Importing Properties...", cintPad);
+    Log.PadRight "Importing Properties..."
     
     Dim thisDb As Object
     Set thisDb = ThisProjectDB(appInstance)

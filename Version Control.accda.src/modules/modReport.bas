@@ -83,7 +83,7 @@ Public Sub ExportPrintVars(strReport As String, strFile As String, cOptions As c
         
     Else
         ' DevMode was null
-        Log "  Warning: PrtDevMode is null"
+        Log.Add "  Warning: PrtDevMode is null"
     End If
         
     ' Clean up

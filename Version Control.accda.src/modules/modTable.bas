@@ -132,14 +132,14 @@ Public Sub ExportTableDef(strTable As String, strFolder As String, cOptions As c
 
     ' Export table definition
     If blnSkip Then
-        Log "  (Skipping '" & strTable & "')", cOptions.ShowDebug
+        Log.Add "  (Skipping '" & strTable & "')", cOptions.ShowDebug
     Else
         If cOptions.SaveTableSQL Then
             ' Option for SQL output for accdb tables
-            Log "  " & strTable & " (with SQL)", cOptions.ShowDebug
+            Log.Add "  " & strTable & " (with SQL)", cOptions.ShowDebug
             SaveTableSqlDef dbs, strTable, strFolder, cOptions
         Else
-            Log "  " & strTable, cOptions.ShowDebug
+            Log.Add "  " & strTable, cOptions.ShowDebug
         End If
         
         ' Tables are export as XML files
@@ -456,7 +456,7 @@ Public Sub ExportTableData(strTable As String, strFolder As String, cOptions As 
     
     ' Make sure table exists
     If Not TableExists(strTable) Then
-        Log "Error: Table " & strTable & " missing"
+        Log.Add "Error: Table " & strTable & " missing"
         Exit Sub
     End If
     
