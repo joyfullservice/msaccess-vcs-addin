@@ -12,9 +12,14 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private m_Table As AccessObject
+' Values from sys.objects SQL table
+Public TriggerName As String
+Public TableName As String
+Public SchemaName As String
+Public SqlModifyDate As Date
+
 Private m_Options As clsOptions
-'Private m_Count As Long (uncomment if needed)
+Private m_Count As Long
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -32,51 +37,8 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
 
-    Dim strSQL As String
-    Dim rst As ADODB.Recordset
-    Dim intRst As Integer
-    Dim fld As ADODB.Field
-    Dim colText As New clsConcat
-    
-    ' Initialize counter
-    intRst = 2
-    
-    ' Get initial table information
-    strSQL = "exec sp_help N'" & m_Table.Name & "'"
-    Set rst = CurrentProject.Connection.Execute(strSQL)
-    colText.Add "-- sp_help Recordset 1" & vbCrLf & vbCrLf
-    For Each fld In rst.Fields
-        colText.Add fld.Name
-        colText.Add vbTab
-    Next fld
-    colText.Add vbCrLf
-    colText.Add rst.GetString(, , vbTab, vbCrLf)
-    
-    ' Loop through additional recordsets for columns, keys and other data
-    Do
-        Set rst = rst.NextRecordset
-        If rst Is Nothing Then Exit Do
-        If rst.State = adStateClosed Then Exit Do
-        
-        colText.Add vbCrLf & vbCrLf & "-- sp_help Recordset " & intRst & vbCrLf & vbCrLf
-        For Each fld In rst.Fields
-            colText.Add fld.Name
-            colText.Add vbTab
-        Next fld
-        If Not rst.EOF Then
-            colText.Add vbCrLf
-            colText.Add rst.GetString(, , vbTab, vbCrLf)
-        End If
-        
-        intRst = intRst + 1
-    Loop
-    
-    ' Clear references
-    Set fld = Nothing
-    Set rst = Nothing
-    
     ' Write SQL text to file
-    WriteFile colText.GetStr, IDbComponent_SourceFile
+    WriteFile GetSQLObjectDefinitionForADP(Me.TriggerName), IDbComponent_SourceFile
     
 End Sub
 
@@ -102,19 +64,37 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
     
-    Dim tbl As AccessObject
-    Dim cTable As IDbComponent
+    Dim cTrigger As clsAdpTrigger
+    Dim cComponent As IDbComponent
 
+    Dim rst As ADODB.Recordset
+    Dim strSQL As String
+    
     ' Use parameter options if provided.
     If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-
     Set IDbComponent_GetAllFromDB = New Collection
-    For Each tbl In CurrentData.AllTables
-        Set cTable = New clsAdpTable
-        Set cTable.DbObject = tbl
-        Set cTable.Options = IDbComponent_Options
-        IDbComponent_GetAllFromDB.Add cTable, tbl.Name
-    Next tbl
+    
+    ' Build list of triggers in database (from sysobjects)
+    strSQL = "SELECT [name],object_name(parent_object_id) AS parent_name, schema_name([schema_id]) AS [schema_name], modify_date FROM sys.objects WHERE type='TR'"
+    Set rst = New ADODB.Recordset
+    With rst
+        .Open strSQL, CurrentProject.Connection, adOpenForwardOnly, adLockReadOnly
+        Do While Not .EOF
+            Set cTrigger = New clsAdpTrigger
+            With cTrigger
+                .TriggerName = Nz(!Name)
+                .TableName = Nz(!parent_name)
+                .SchemaName = Nz(!schema_name)
+                .SqlModifyDate = Nz(!modify_date)
+            End With
+            Set cComponent = cTrigger
+            Set cComponent.Options = IDbComponent_Options
+            IDbComponent_GetAllFromDB.Add cComponent, Me.TriggerName
+            .MoveNext
+        Loop
+        .Close
+    End With
+    Set rst = Nothing
 
 End Function
 
@@ -153,7 +133,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = m_Table.DateModified
+    IDbComponent_DateModified = 0
 End Function
 
 
@@ -168,7 +148,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_SourceModified() As Date
-    IDbComponent_SourceModified = GetSQLObjectModifiedDate(m_Table.Name, estTable)
+    IDbComponent_SourceModified = GetSQLObjectModifiedDate(Me.TriggerName, estTrigger)
 End Function
 
 
@@ -180,7 +160,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "tables"
+    IDbComponent_Category = "triggers"
 End Property
 
 
@@ -191,7 +171,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "tables\"
+    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "triggers\"
 End Property
 
 
@@ -203,7 +183,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
-    IDbComponent_Name = m_Table.Name
+    IDbComponent_Name = Me.TriggerName
 End Property
 
 
@@ -215,7 +195,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(StripDboPrefix(m_Table.Name)) & ".sql"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(Me.SchemaName & "_" & Me.TriggerName) & ".sql"
 End Property
 
 
@@ -227,7 +207,8 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    IDbComponent_Count = CurrentData.AllTables.Count
+    If m_Count = -1 Then m_Count = IDbComponent_GetAllFromDB.Count
+    IDbComponent_Count = m_Count
 End Property
 
 
@@ -239,7 +220,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
-    IDbComponent_ComponentType = edbAdpTable
+    IDbComponent_ComponentType = edbAdpTrigger
 End Property
 
 
@@ -279,10 +260,8 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_DbObject() As Object
-    Set IDbComponent_DbObject = m_Table
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
-    Set m_Table = RHS
 End Property
 
 
@@ -306,7 +285,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Initialize()
-    'm_Count = -1
+    m_Count = -1
 End Sub
 
 

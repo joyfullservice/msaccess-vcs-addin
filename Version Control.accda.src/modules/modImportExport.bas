@@ -88,6 +88,7 @@ Public Sub ExportSource()
             .Add New clsAdpServerView
             .Add New clsAdpProcedure
             .Add New clsAdpTable
+            .Add New clsAdpTrigger
         Else
             ' These objects only exist in DAO databases
             .Add New clsDbTableDef
@@ -275,7 +276,7 @@ Public Sub LegacyExportAllSource()
         Log cstrSpacer, cOptions.ShowDebug
         Log PadRight("Exporting triggers...", cintPad), True, cOptions.ShowDebug
         Log "", cOptions.ShowDebug
-        ExportADPTriggers cOptions, strSourcePath & "triggers\"
+        'ExportADPTriggers cOptions, strSourcePath & "triggers\"
         
         ' Loop through each type, exporting SQL definitions
         For Each varType In colADO

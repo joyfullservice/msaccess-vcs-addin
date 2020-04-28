@@ -2,7 +2,7 @@
   "Info": {
     "AddinVersion": "2.1.0",
     "AccessVersion": "14.0 32-bit",
-    "Hash": "515A52AFF74E3AC977AC838F5B1F7D0C307A5F0D2A42DB9E"
+    "Hash": "@{515a52aff74e3ac977ac838f5b1f7d0c307a5f0d2a42db9e}"
   },
   "Options": {
     "ExportFolder": "",

@@ -3,7 +3,7 @@ Beginning Export of all Source
 Version Control.accda
 VCS Version 2.1.0
 Using Fast Save
-4/24/2020 5:29:58 PM
+4/28/2020 10:50:56 AM
 ---------------------------------------
 ---------------------------------------
 Exporting forms...              (Skipping 'frmMain')
@@ -16,11 +16,11 @@ Exporting macros...             (Skipping 'autoexec')
 Exporting modules...            clsDbTableData
   clsDbVbeReference
   modReference
+  clsAdpProcedure
   clsDbTableDef
   clsDbSavedSpec
   modDataMacro
   modAddIn
-  modADPFunctions
   modFunctions
   clsDbRelation
   modSavedSpecs
@@ -30,13 +30,17 @@ Exporting modules...            clsDbTableData
   clsDbVbeProject
   clsConcat
   clsDbQuery
+  clsAdpServerView
   modTable
   clsDbModule
   clsDbTEMPLATE
+  clsAdpTable
   clsDbForm
   modUnitTesting
   clsDbMacro
   modRelation
+  clsAdpFunction
+  clsAdpTrigger
   clsDbTableDataMacro
   modJsonConverter
   clsDbReport
@@ -46,7 +50,7 @@ Exporting modules...            clsDbTableData
   clsDbProjProperty
   clsDbProperty
   modProperty
-[33]
+[37]
 ---------------------------------------
 No reports found in this database.
 ---------------------------------------
@@ -55,12 +59,12 @@ Exporting table data...         (Skipping 'USysRegInfo')
 ---------------------------------------
 No proj properties found in this database.
 ---------------------------------------
-Exporting vbe references...     (Skipping 'stdole')
+Exporting vbe references...     stdole
 [10]
 ---------------------------------------
 No saved specs found in this database.
 ---------------------------------------
-Exporting VB project...         (Skipping 'MSAccessVCS')
+Exporting VB project...         MSAccessVCS
 [1]
 ---------------------------------------
 Exporting tables...             (Skipping 'USysRegInfo')
@@ -72,7 +76,7 @@ No queries found in this database.
 ---------------------------------------
 No relations found in this database.
 ---------------------------------------
-Exporting db properties...      (Skipping 'Database Properties (DAO)')
-[47]
+Exporting db properties...      Database Properties (DAO)
+[48]
 ---------------------------------------
-Done. (1.49 seconds)
+Done. (1.55 seconds)
