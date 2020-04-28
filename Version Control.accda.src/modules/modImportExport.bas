@@ -62,7 +62,7 @@ Public Sub ExportSource()
         Log.Add "VCS Version " & GetVCSVersion
         If .UseFastSave Then Log.Add "Using Fast Save"
         Log.Add Now()
-        Log.Spacer .UseFastSave
+        Log.Spacer
     End With
     
     
@@ -115,6 +115,7 @@ Public Sub ExportSource()
                 ' Check for fast save option
                 If cOptions.UseFastSave And Not blnFullExport Then
                     If HasMoreRecentChanges(cDbObject) Then
+                        Log.Increment
                         Log.Add "  " & cDbObject.Name, cOptions.ShowDebug
                         cDbObject.Export
                     Else
@@ -122,6 +123,7 @@ Public Sub ExportSource()
                     End If
                 Else
                     ' Always export object
+                    Log.Increment
                     Log.Add "  " & cDbObject.Name, cOptions.ShowDebug
                     cDbObject.Export
                 End If

@@ -1642,8 +1642,12 @@ Public Sub cmdExport_Click()
     cmdClose.SetFocus
     HideActionButtons
     DoEvents
-    txtLog.Visible = True
-    txtLog.SetFocus
+    With txtLog
+        .ScrollBars = 0
+        .Visible = True
+        .SetFocus
+    End With
+    Log.SetConsole Me.txtLog
     
     ' Show the status
     SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
@@ -1652,7 +1656,10 @@ Public Sub cmdExport_Click()
     modImportExport.ExportSource
     
     SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
+    
+    ' Set focus to close button and turn on scroll bars in case the user wants to scroll back through the log.
     cmdClose.SetFocus
+    txtLog.ScrollBars = 2
     
 End Sub
 

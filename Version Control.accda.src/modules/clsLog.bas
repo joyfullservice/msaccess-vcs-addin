@@ -7,11 +7,13 @@ Option Explicit
 
 Public PadLength As Integer
 
-Private Const cstrSpacer As String = "---------------------------------------"
+Private Const cstrSpacer As String = "-------------------------------------"
 
 Private m_Log As clsConcat      ' Log file output
 Private m_Console As clsConcat  ' Console output
 Private m_RichText As TextBox   ' Text box to display HTML
+Private m_blnProgressActive As Boolean
+Private m_sngLastUpdate As Single
 
 
 '---------------------------------------------------------------------------------------
@@ -24,6 +26,8 @@ Private m_RichText As TextBox   ' Text box to display HTML
 Public Sub Clear()
     Set m_Console = New clsConcat
     Set m_Log = New clsConcat
+    m_blnProgressActive = False
+    m_sngLastUpdate = 0
 End Sub
 
 
@@ -48,24 +52,30 @@ End Sub
 '
 Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional blnNextOutputOnNewLine As Boolean = True)
 
-    Static dblLastLog As Double
     Dim strLine As String
+    Dim strHtml As String
     
+    ' Add to log file output
     m_Log.Add strText
+    
+    ' See if we want to print the output of this message.
     If blnPrint Then
+        ' Remove existing progress indicator if in use.
+        If m_blnProgressActive Then RemoveProgressIndicator
+    
         ' Use bold/green text for completion line.
-        strLine = strText
+        strHtml = Replace(strText, " ", "&nbsp;")
         If InStr(1, strText, "Done. ") = 1 Then
-            strLine = "<font color=green><strong>" & strText & "</strong></font>"
+            strHtml = "<font color=green><strong>" & strText & "</strong></font>"
         End If
-        m_Console.Add strLine
+        m_Console.Add strHtml
+        ' Add line break for HTML
         If blnNextOutputOnNewLine Then m_Console.Add "<br>"
         ' Only print debug output if not running from the GUI.
         If Not IsLoaded(acForm, "frmMain") Then
             If blnNextOutputOnNewLine Then
                 ' Create new line
                 Debug.Print strText
-                
             Else
                 ' Continue next printout on this line.
                 Debug.Print strText;
@@ -79,21 +89,37 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional 
     ' Allow an update to the screen every second.
     ' (This keeps the aplication from an apparent hang while
     '  running intensive export processes.)
-    If dblLastLog + 1 < Timer Then
+    If m_sngLastUpdate + 1 < Timer Then
         DoEvents
-        dblLastLog = Timer
+        m_sngLastUpdate = Timer
     End If
     
     ' Update log display on form if open.
     If blnPrint And IsLoaded(acForm, "frmMain") Then
         With Form_frmMain.txtLog
-            .Text = m_Console.GetStr
-            ' Move cursor to end of log for scroll effect.
-            .SelStart = Len(.Text)
-            .SelLength = 0
+            m_blnProgressActive = False
+            ' Set value, not text to avoid errors with large text strings.
+            .SelStart = Len(.Text & vbNullString)
+            Echo False
+            .Value = m_Console.GetStr
+            .SelStart = Len(.Text & vbNullString)
+            Echo True
         End With
     End If
     
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetConsole
+' Author    : Adam Waller
+' Date      : 4/28/2020
+' Purpose   : Set a reference to the text box.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetConsole(txtRichText As TextBox)
+    Set m_RichText = txtRichText
+    m_RichText.AllowAutoCorrect = False
 End Sub
 
 
@@ -119,8 +145,6 @@ End Sub
 '
 Private Sub Class_Initialize()
     Me.PadLength = 30
-    Set m_Log = New clsConcat
-    Set m_Console = New clsConcat
 End Sub
 
 
@@ -138,4 +162,75 @@ Public Sub PadRight(strText As String, Optional blnPrint As Boolean = True, Opti
     Else
         Me.Add strText, blnPrint, blnNextOutputOnNewLine
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveProgressIndicator
+' Author    : Adam Waller
+' Date      : 4/28/2020
+' Purpose   : Remove the progress indicator if found at the end of the console output.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveProgressIndicator()
+    m_Console.Remove 2 + 4 ' (For unicode) plus <br>
+    m_blnProgressActive = False
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Increment
+' Author    : Adam Waller
+' Date      : 4/28/2020
+' Purpose   : Increment the clock icon
+'---------------------------------------------------------------------------------------
+'
+Public Sub Increment()
+
+    ' Ongoing progress of clock
+    Static intProgress As Integer
+
+    Dim strClock As String
+    
+    ' Ignore if we are not using the form
+    If m_RichText Is Nothing Then Exit Sub
+    
+    ' Allow an update to the screen every x seconds.
+    ' Find the balance between good progress feedback
+    ' without slowing down the overall export time.
+    If m_sngLastUpdate + 0.1 > Timer Then Exit Sub
+
+    ' Check the current status.
+    If m_blnProgressActive Then
+        ' Remove any existing character
+        RemoveProgressIndicator
+    Else
+        ' Restart progress indicator when activating.
+        intProgress = 11
+    End If
+        
+
+    ' Rotate through the hours
+    intProgress = intProgress + 1
+    If intProgress = 13 Then intProgress = 1
+    
+    ' Status is now active
+    m_blnProgressActive = True
+    
+    ' Set clock characters 1-12
+    ' https://www.fileformat.info/info/unicode/char/1f552/index.htm
+    strClock = ChrW(55357) & ChrW(56655 + intProgress)
+    m_Console.Add strClock
+    m_Console.Add "<br>"
+    
+    ' Update the log display
+    With m_RichText
+        Echo False
+        .Value = m_Console.GetStr
+        .SelStart = Len(.Text & vbNullString)
+        Echo True
+    End With
+    DoEvents
+    m_sngLastUpdate = Timer
+    
 End Sub

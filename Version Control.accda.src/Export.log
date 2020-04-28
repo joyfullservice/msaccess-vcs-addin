@@ -1,18 +1,18 @@
----------------------------------------
+-------------------------------------
 Beginning Export of all Source
 Version Control.accda
-VCS Version 2.1.2
+VCS Version 2.1.3
 Using Fast Save
-4/28/2020 3:13:31 PM
----------------------------------------
----------------------------------------
+4/28/2020 6:18:16 PM
+-------------------------------------
+-------------------------------------
 Exporting forms...              (Skipping 'frmMain')
   (Skipping 'frmOptions')
 [2]
----------------------------------------
+-------------------------------------
 Exporting macros...             (Skipping 'autoexec')
 [1]
----------------------------------------
+-------------------------------------
 Exporting modules...            (Skipping 'clsDbTableData')
   (Skipping 'clsDbVbeReference')
   (Skipping 'modReference')
@@ -52,32 +52,32 @@ Exporting modules...            (Skipping 'clsDbTableData')
   (Skipping 'clsDbProperty')
   (Skipping 'modProperty')
 [38]
----------------------------------------
+-------------------------------------
 No reports found in this database.
----------------------------------------
+-------------------------------------
 Exporting table data...         (Skipping 'USysRegInfo')
 [1]
----------------------------------------
+-------------------------------------
 No proj properties found in this database.
----------------------------------------
+-------------------------------------
 Exporting vbe references...     stdole
 [10]
----------------------------------------
+-------------------------------------
 No saved specs found in this database.
----------------------------------------
+-------------------------------------
 Exporting VB project...         MSAccessVCS
 [1]
----------------------------------------
+-------------------------------------
 Exporting tables...             (Skipping 'USysRegInfo')
 [1]
----------------------------------------
+-------------------------------------
 No table data macros found in this database.
----------------------------------------
+-------------------------------------
 No queries found in this database.
----------------------------------------
+-------------------------------------
 No relations found in this database.
----------------------------------------
+-------------------------------------
 Exporting db properties...      Database Properties (DAO)
 [48]
----------------------------------------
-Done. (0.52 seconds)
+-------------------------------------
+Done. (0.99 seconds)
