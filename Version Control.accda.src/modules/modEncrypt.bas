@@ -47,7 +47,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function Encrypt(strText As String) As String
-    Encrypt = EncryptRC4("RC4" & strText, GetKey)
+    Encrypt = "@{" & LCase(EncryptRC4("RC4" & strText, GetKey)) & "}"
 End Function
 
 
@@ -60,7 +60,7 @@ End Function
 '
 Public Function Decrypt(ByRef strToDecrypt As String) As Boolean
     Dim strDecrypted As String
-    strDecrypted = DecryptRC4(strToDecrypt, GetKey)
+    strDecrypted = DecryptRC4(Mid(UCase(strToDecrypt), 3, Len(strToDecrypt) - 4), GetKey)
     If Left$(strDecrypted, 3) = "RC4" Then
         ' Successfully decrypted.
         strToDecrypt = Mid$(strDecrypted, 4)
