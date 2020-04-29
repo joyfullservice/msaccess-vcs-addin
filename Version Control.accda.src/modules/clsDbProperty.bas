@@ -246,6 +246,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+    Dim strFile As String
+    strFile = IDbComponent_BaseFolder & "properties.txt"
+    If FSO.FileExists(strFile) Then Kill strFile    ' Remove legacy file
 End Function
 
 

@@ -131,6 +131,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+    Dim strFile As String
+    strFile = IDbComponent_BaseFolder & "references.csv"
+    If FSO.FileExists(strFile) Then Kill strFile    ' Remove legacy file
 End Function
 
 
