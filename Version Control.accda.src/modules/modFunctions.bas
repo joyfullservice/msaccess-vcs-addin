@@ -61,6 +61,10 @@ End Enum
 ' Logging class
 Private m_Log As clsLog
 
+' Keep a persistent reference to file system object after initializing version control.
+' This way we don't have to recreate this object dozens of times while using VCS.
+Private m_FSO As Scripting.FileSystemObject
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SanitizeFile
@@ -1441,3 +1445,20 @@ Public Function Log() As clsLog
     If m_Log Is Nothing Then Set m_Log = New clsLog
     Set Log = m_Log
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FSO
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Wrapper for file system object. A property allows us to clear the object
+'           : reference when we have completed an export or import operation.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get FSO() As Scripting.FileSystemObject
+    If m_FSO Is Nothing Then Set m_FSO = New Scripting.FileSystemObject
+    Set FSO = m_FSO
+End Property
+Public Property Set FSO(ByVal RHS As Scripting.FileSystemObject)
+    Set m_FSO = RHS
+End Property

@@ -54,6 +54,220 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SaveTableSqlDef
+' Author    : Adam Waller
+' Date      : 1/28/2019
+' Purpose   : Save a version of the table formatted as a SQL statement.
+'           : (Makes it easier to see table changes in version control systems.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As String, cOptions As clsOptions)
+
+    Dim cData As New clsConcat
+    Dim cAttr As New clsConcat
+    Dim idx As DAO.Index
+    Dim fld As DAO.Field
+    Dim strFile As String
+    Dim tdf As DAO.TableDef
+
+    Set tdf = dbs.TableDefs(strTable)
+
+    With cData
+        .Add "CREATE TABLE ["
+        .Add strTable
+        .Add "] ("
+        .Add vbCrLf
+
+        ' Loop through fields
+        For Each fld In tdf.Fields
+            .Add "  ["
+            .Add fld.Name
+            .Add "] "
+            If (fld.Attributes And dbAutoIncrField) Then
+                .Add "AUTOINCREMENT"
+            Else
+                .Add GetTypeString(fld.Type)
+                .Add " "
+            End If
+            Select Case fld.Type
+                Case dbText, dbVarBinary
+                    .Add "("
+                    .Add fld.Size
+                    .Add ")"
+            End Select
+
+            ' Indexes
+            For Each idx In tdf.Indexes
+                Set cAttr = New clsConcat
+                If idx.Fields.Count = 1 And idx.Fields(0).Name = fld.Name Then
+                    If idx.Primary Then cAttr.Add " PRIMARY KEY"
+                    If idx.Unique Then cAttr.Add " UNIQUE"
+                    If idx.Required Then cAttr.Add " NOT NULL"
+                    If idx.Foreign Then AddFieldReferences dbs, idx.Fields, strTable, cAttr
+                    If Len(cAttr.GetStr) > 0 Then
+                        .Add " CONSTRAINT ["
+                        .Add idx.Name
+                        .Add "]"
+                    End If
+                End If
+                .Add cAttr.GetStr
+            Next
+            .Add ","
+            .Add vbCrLf
+        Next fld
+        .Remove 3   ' strip off last comma and crlf
+
+        ' Constraints
+        Set cAttr = New clsConcat
+        For Each idx In tdf.Indexes
+            If idx.Fields.Count > 1 Then
+                If Len(cAttr.GetStr) = 0 Then cAttr.Add " CONSTRAINT "
+                If idx.Primary Then
+                    cAttr.Add "["
+                    cAttr.Add idx.Name
+                    cAttr.Add "] PRIMARY KEY ("
+                    For Each fld In idx.Fields
+                        cAttr.Add fld.Name
+                        cAttr.Add ", "
+                    Next fld
+                    cAttr.Remove 2
+                    cAttr.Add ")"
+                End If
+                If Not idx.Foreign Then
+                    If Len(cAttr.GetStr) > 0 Then
+                        .Add ","
+                        .Add vbCrLf
+                        .Add "  "
+                        .Add cAttr.GetStr
+                        AddFieldReferences dbs, idx.Fields, strTable, cData
+                    End If
+                End If
+            End If
+        Next
+        .Add vbCrLf
+        .Add ")"
+
+        ' Build file name and create file.
+        strFile = strFolder & GetSafeFileName(strTable) & ".sql"
+        WriteFile .GetStr, strFile
+
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddFieldReferences
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Add references to other fields in table definition.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddFieldReferences(dbs As Database, fld As Object, strTable As String, cData As clsConcat)
+
+    Dim rel As DAO.Relation
+    Dim fld2 As DAO.Field
+
+    For Each rel In dbs.Relations
+        If (rel.ForeignTable = strTable) Then
+            If FieldsIdentical(fld, rel.Fields) Then
+
+                ' References
+                cData.Add " REFERENCES "
+                cData.Add rel.Table
+                cData.Add " ("
+                For Each fld2 In rel.Fields
+                    cData.Add fld2.Name
+                    cData.Add ","
+                Next fld2
+                ' Remove trailing comma
+                If rel.Fields.Count > 0 Then cData.Remove 1
+                cData.Add ")"
+
+                ' Attributes for cascade update or delete
+                If rel.Attributes And dbRelationUpdateCascade Then cData.Add " ON UPDATE CASCADE "
+                If rel.Attributes And dbRelationDeleteCascade Then cData.Add " ON DELETE CASCADE "
+
+                ' Exit now that we have found the matching relationship.
+                Exit For
+
+            End If
+        End If
+    Next rel
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FieldsIdentical
+' Author    : Adam Waller
+' Date      : 1/21/2019
+' Purpose   : Return true if the two collections of fields have the same field names.
+'           : (Even if the order of the fields is different.)
+'---------------------------------------------------------------------------------------
+'
+Private Function FieldsIdentical(oFields1 As Object, oFields2 As Object) As Boolean
+
+    Dim fld As Object
+    Dim fld2 As Object
+    Dim blnMismatch As Boolean
+    Dim blnFound As Boolean
+
+    If oFields1.Count <> oFields2.Count Then
+        blnMismatch = True
+    Else
+        ' Set this flag to false after going through each field.
+        For Each fld In oFields1
+            blnFound = False
+            For Each fld2 In oFields2
+                If fld.Name = fld2.Name Then
+                    blnFound = True
+                    Exit For
+                End If
+            Next fld2
+            If Not blnFound Then
+                blnMismatch = True
+                Exit For
+            End If
+        Next
+    End If
+
+    ' Return result
+    FieldsIdentical = Not blnMismatch
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTypeString
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Get the type string used by Access SQL
+'---------------------------------------------------------------------------------------
+'
+Private Function GetTypeString(intType As DAO.DataTypeEnum) As String
+    Select Case intType
+        Case dbLongBinary:      GetTypeString = "LONGBINARY"
+        Case dbBinary:          GetTypeString = "BINARY"
+        Case dbBoolean:         GetTypeString = "BIT"
+        Case dbAutoIncrField:   GetTypeString = "COUNTER"
+        Case dbCurrency:        GetTypeString = "CURRENCY"
+        Case dbDate, dbTime:    GetTypeString = "DATETIME"
+        Case dbGUID:            GetTypeString = "GUID"
+        Case dbMemo:            GetTypeString = "LONGTEXT"
+        Case dbDouble:          GetTypeString = "DOUBLE"
+        Case dbSingle:          GetTypeString = "SINGLE"
+        Case dbByte:            GetTypeString = "UNSIGNED BYTE"
+        Case dbInteger:         GetTypeString = "SHORT"
+        Case dbLong:            GetTypeString = "LONG"
+        Case dbNumeric:         GetTypeString = "NUMERIC"
+        Case dbText:            GetTypeString = "VARCHAR"
+        Case Else:              GetTypeString = "VARCHAR"
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Import
 ' Author    : Adam Waller
 ' Date      : 4/23/2020

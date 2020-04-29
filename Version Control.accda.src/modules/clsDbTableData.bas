@@ -54,7 +54,7 @@ Private Sub IDbComponent_Export()
         If intFormat = Me.Format Then
             ' Export the table using this format.
             Select Case intFormat
-                Case etdTabDelimited:   ExportTableData m_Table.Name, IDbComponent_BaseFolder, IDbComponent_Options
+                Case etdTabDelimited:   ExportTableData m_Table.Name
                 Case etdXML:
                     Application.ExportXML acExportTable, m_Table.Name, strFile
                     SanitizeXML strFile, IDbComponent_Options
@@ -63,6 +63,101 @@ Private Sub IDbComponent_Export()
     Next intFormat
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportTableData
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Export the data from the table.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportTableData(strTable As String)
+
+    Dim rst As DAO.Recordset
+    Dim fld As DAO.Field
+    Dim cData As New clsConcat
+    Dim intFields As Integer
+    Dim intCnt As Integer
+    Dim strText As String
+
+    ' Open table in fast read-only view
+    Set rst = CurrentDb.OpenRecordset(GetTableExportSql(strTable), dbOpenSnapshot, dbOpenForwardOnly)
+    intFields = rst.Fields.Count
+
+    ' Add header row
+    For Each fld In rst.Fields
+        cData.Add fld.Name
+        intCnt = intCnt + 1
+        If intCnt < intFields Then cData.Add vbTab
+    Next fld
+    cData.Add vbCrLf
+
+    ' Add data rows
+    Do While Not rst.EOF
+        intCnt = 0
+        For Each fld In rst.Fields
+            ' Format for TDF format without line breaks
+            strText = MultiReplace(Nz(fld.Value), "\", "\\", vbCrLf, "\n", vbCr, "\n", vbLf, "\n", vbTab, "\t")
+            cData.Add strText
+            intCnt = intCnt + 1
+            If intCnt < intFields Then cData.Add vbTab
+        Next fld
+        cData.Add vbCrLf
+        rst.MoveNext
+    Loop
+
+    ' Save output file
+    WriteFile cData.GetStr, IDbComponent_BaseFolder & GetSafeFileName(StripDboPrefix(strTable)) & ".txt"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTableExportSql
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Build SQL to export `tbl_name` sorted by each field from first to last
+'---------------------------------------------------------------------------------------
+'
+Private Function GetTableExportSql(strTable As String) As String
+
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim intCnt As Integer
+    Dim intFields As Integer
+    Dim cText As New clsConcat
+    Dim cFieldList As New clsConcat
+    Dim dbs As Database
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.TableDefs(strTable)
+    intFields = tdf.Fields.Count
+
+    ' Build list of fields
+    With cFieldList
+        For Each fld In tdf.Fields
+            .Add "["
+            .Add fld.Name
+            .Add "]"
+            intCnt = intCnt + 1
+            If intCnt < intFields Then .Add ", "
+        Next fld
+    End With
+
+    ' Build select statement
+    With cText
+        .Add "SELECT "
+        .Add cFieldList.GetStr
+        .Add " FROM ["
+        .Add strTable
+        .Add "] ORDER BY "
+        .Add cFieldList.GetStr
+    End With
+
+    GetTableExportSql = cText.GetStr
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

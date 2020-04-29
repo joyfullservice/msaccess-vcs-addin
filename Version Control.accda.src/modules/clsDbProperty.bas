@@ -116,59 +116,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ExportProperties
-' Author    : Adam Waller
-' Date      : 1/24/2019
-' Purpose   : Export database properties to a CSV
-'---------------------------------------------------------------------------------------
-'
-Public Sub ExportProperties(strFolder As String, cOptions As clsOptions)
-    
-    Const UnitSeparator = "?"  ' Chr(31) INFORMATION SEPARATOR ONE
-    
-    Dim cData As New clsConcat
-    Dim intCnt As Integer
-    Dim objParent As Object
-    Dim prp As Object
-    
-    Set objParent = ThisProjectDB
-    
-    On Error Resume Next
-    For Each prp In objParent.Properties
-        Select Case prp.Name
-            Case "Name"
-                ' Ignore file name property, since this could contain PI and can't be set anyway.
-            Case Else
-                With cData
-                    .Add prp.Name
-                    .Add UnitSeparator
-                    .Add prp.Value
-                    .Add UnitSeparator
-                    .Add prp.Type
-                    .Add vbCrLf
-                End With
-                
-                intCnt = intCnt + 1
-        End Select
-    Next prp
-    
-    If Err Then Err.Clear
-    On Error GoTo 0
-    
-    ' Write to file
-    WriteFile cData.GetStr, strFolder & "properties.txt"
-    
-    ' Display summary.
-    If cOptions.ShowDebug Then
-        Log.Add "[" & intCnt & "] database properties exported."
-    Else
-        Log.Add "[" & intCnt & "]"
-    End If
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Module    : ImportProperties
 ' Author    : Adam Kauffman
 ' Date      : 2020-01-10
@@ -191,7 +138,7 @@ Private Function ImportProperties(ByVal sourcePath As String, Optional ByRef app
     Log.PadRight "Importing Properties..."
     
     Dim thisDb As Object
-    Set thisDb = ThisProjectDB(appInstance)
+    Set thisDb = CurrentDb
    
     Dim inputFile As Object
     Set inputFile = FSO.OpenTextFile(sourcePath & propertiesFile, ForReading)
@@ -248,7 +195,7 @@ Private Sub SetProperty(ByVal propertyName As String, ByVal propertyValue As Var
                        Optional ByRef thisDb As Object, _
                        Optional ByVal propertyType As Integer = -1)
                        
-    If thisDb Is Nothing Then Set thisDb = ThisProjectDB
+    If thisDb Is Nothing Then Set thisDb = CurrentDb
     
     Dim newProperty As Property
     Set newProperty = GetProperty(propertyName, thisDb)
@@ -266,7 +213,7 @@ Private Function GetProperty(ByVal propertyName As String, _
                             Optional ByRef thisDb As Object) As Property
                             
     Const PropertyNotFound As Integer = 3270
-    If thisDb Is Nothing Then Set thisDb = ThisProjectDB
+    If thisDb Is Nothing Then Set thisDb = CurrentDb
     
     On Error GoTo Err_PropertyExists
     Set GetProperty = thisDb.Properties(propertyName)
