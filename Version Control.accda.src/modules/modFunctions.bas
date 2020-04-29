@@ -347,6 +347,9 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     Dim varExt As Variant
     Dim strPrimaryExt As String
     
+    ' No orphaned files if the folder doesn't exist.
+    If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
+    
     ' Cache a list of source file names
     Set colNames = cType.GetFileList
     If colNames.Count > 0 Then strPrimaryExt = "." & FSO.GetExtensionName(colNames(1))
@@ -641,11 +644,16 @@ End Sub
 ' Procedure : WriteFile
 ' Author    : Adam Waller
 ' Date      : 1/23/2019
-' Purpose   : Save string variable to text file.
+' Purpose   : Save string variable to text file. (Building the folder path if needed)
 '---------------------------------------------------------------------------------------
 '
 Public Sub WriteFile(strContent As String, strPath As String)
+
     Dim stm As New ADODB.Stream
+    
+    ' Make sure the path exists before we write a file.
+    VerifyPath FSO.GetParentFolderName(strPath)
+    
     With stm
         ' Use Unicode file encoding if needed.
         If StringHasUnicode(strContent) Then
@@ -660,6 +668,7 @@ Public Sub WriteFile(strContent As String, strPath As String)
         .Close
     End With
     Set stm = Nothing
+    
 End Sub
 
 
