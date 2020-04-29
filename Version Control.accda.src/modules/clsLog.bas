@@ -81,18 +81,19 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional 
                 Debug.Print strText;
             End If
         End If
+        
+        ' Allow an update to the screen every second.
+        ' (This keeps the aplication from an apparent hang while
+        '  running intensive export processes.)
+        If m_sngLastUpdate + 1 < Timer Then
+            DoEvents
+            m_sngLastUpdate = Timer
+            Debug.Print Timer
+        End If
     End If
     
     ' Add carriage return to log file if specified
     If blnNextOutputOnNewLine Then m_Log.Add vbCrLf
-    
-    ' Allow an update to the screen every second.
-    ' (This keeps the aplication from an apparent hang while
-    '  running intensive export processes.)
-    If m_sngLastUpdate + 1 < Timer Then
-        DoEvents
-        m_sngLastUpdate = Timer
-    End If
     
     ' Update log display on form if open.
     If blnPrint And IsLoaded(acForm, "frmMain") Then
@@ -189,16 +190,23 @@ Public Sub Increment()
 
     ' Ongoing progress of clock
     Static intProgress As Integer
-
+    
+    ' Track the last time we did an increment
+    Static sngLastIncrement As Single
+    
     Dim strClock As String
     
     ' Ignore if we are not using the form
     If m_RichText Is Nothing Then Exit Sub
     
+    ' Don't run the incrementer unless it has been 1
+    ' second since the last displayed output refresh.
+    If m_sngLastUpdate > Timer - 1 Then Exit Sub
+    
     ' Allow an update to the screen every x seconds.
     ' Find the balance between good progress feedback
     ' without slowing down the overall export time.
-    If m_sngLastUpdate + 0.1 > Timer Then Exit Sub
+    If sngLastIncrement > Timer - 0.2 Then Exit Sub
 
     ' Check the current status.
     If m_blnProgressActive Then
@@ -209,7 +217,6 @@ Public Sub Increment()
         intProgress = 11
     End If
         
-
     ' Rotate through the hours
     intProgress = intProgress + 1
     If intProgress = 13 Then intProgress = 1
@@ -230,7 +237,7 @@ Public Sub Increment()
         .SelStart = Len(.Text & vbNullString)
         Echo True
     End With
+    sngLastIncrement = Timer
     DoEvents
-    m_sngLastUpdate = Timer
     
 End Sub
