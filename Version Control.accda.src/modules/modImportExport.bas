@@ -134,6 +134,7 @@ Public Sub ExportSource()
             
             ' Show category wrap-up.
             Log.Add "[" & cCategory.Count & "]" & IIf(cOptions.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
+            'Log.Flush  ' Gives smoother output, but slows down export.
             
         End If
     Next cCategory

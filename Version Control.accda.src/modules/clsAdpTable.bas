@@ -188,7 +188,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "tables"
+    IDbComponent_Category = "sql tables"
 End Property
 
 
@@ -199,7 +199,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "tables\"
+    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "sqltables\"
 End Property
 
 
@@ -304,18 +304,6 @@ End Property
 '
 Public Property Get IDbComponent_SingleFile() As Boolean
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Class_Initialize
-' Author    : Adam Waller
-' Date      : 4/24/2020
-' Purpose   : Helps us know whether we have already counted the objects.
-'---------------------------------------------------------------------------------------
-'
-Private Sub Class_Initialize()
-    'm_Count = -1
-End Sub
 
 
 '---------------------------------------------------------------------------------------

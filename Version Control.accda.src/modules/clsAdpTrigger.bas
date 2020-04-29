@@ -74,7 +74,8 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     
         ' Use parameter options if provided.
         If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-        
+        Set m_AllItems = New Collection
+
         ' Build list of triggers in database (from sysobjects)
         strSQL = "SELECT [name],object_name(parent_object_id) AS parent_name, schema_name([schema_id]) AS [schema_name], modify_date FROM sys.objects WHERE type='TR'"
         Set rst = New ADODB.Recordset
