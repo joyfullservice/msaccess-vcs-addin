@@ -100,7 +100,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentProject.AllModules, IDbComponent_Options, "bas"
+    ClearOrphanedSourceFiles Me, "bas"
 End Function
 
 

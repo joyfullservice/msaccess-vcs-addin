@@ -127,7 +127,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentData.AllTables, IDbComponent_Options, "LNKD", "bas", "sql", "xml", "tdf", "json"
+    ClearOrphanedSourceFiles Me, "LNKD", "bas", "sql", "xml", "tdf", "json"
 End Function
 
 

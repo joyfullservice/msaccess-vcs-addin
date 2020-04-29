@@ -337,66 +337,39 @@ End Sub
 '           : database.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ClearOrphanedSourceFiles(ByVal strPath As String, objContainer As Object, cOptions As clsOptions, ParamArray StrExtensions())
+Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensions())
     
     Dim oFolder As Scripting.Folder
     Dim oFile As Scripting.File
-    Dim colNames As New Collection
-    Dim objItem As Object
+    Dim colNames As Collection
     Dim strFile As String
     Dim varName As Variant
-    Dim blnFound As Boolean
     Dim varExt As Variant
+    Dim strPrimaryExt As String
     
-    ' Continue with more in-depth review, clearing any file that
-    ' is not represented by a database object.
-    If Not FSO.FolderExists(strPath) Then Exit Sub
-
-    ' Build list of database objects
-    If Not objContainer Is Nothing Then
-        For Each objItem In objContainer
-            If TypeOf objItem Is Relation Then
-                ' Exclude specific names
-                Select Case objItem.Name
-                    Case "MSysNavPaneGroupsMSysNavPaneGroupToObjects", "MSysNavPaneGroupCategoriesMSysNavPaneGroups"
-                        ' Skip these built-in relationships
-                    Case Else
-                        ' Relationship names can't be used directly as file names.
-                        colNames.Add GetRelationFileName(objItem)
-                End Select
-            Else
-                colNames.Add GetSafeFileName(StripDboPrefix(objItem.Name))
-            End If
-        Next objItem
-    End If
+    ' Cache a list of source file names
+    Set colNames = cType.GetFileList
+    If colNames.Count > 0 Then strPrimaryExt = "." & FSO.GetExtensionName(colNames(1))
     
     ' Loop through files in folder
-    strPath = Left(strPath, Len(strPath) - 1)
-    Set oFolder = FSO.GetFolder(strPath)
-    
+    Set oFolder = FSO.GetFolder(cType.BaseFolder)
     For Each oFile In oFolder.Files
+    
         ' Check against list of extensions
         For Each varExt In StrExtensions
         
             ' Check for matching extension on wanted list.
             If FSO.GetExtensionName(oFile.Path) = varExt Then
                 
-                ' Get file name
-                strFile = FSO.GetBaseName(oFile.Name)
+                ' Build a file name using the primary extension to
+                ' match the list of source files.
+                strFile = FSO.GetBaseName(oFile.Name) & strPrimaryExt
                 
-                ' Loop through list of names to see if this one exists
-                blnFound = False
-                For Each varName In colNames
-                    If strFile = varName Then
-                        blnFound = True
-                        Exit For
-                    End If
-                Next varName
-                
-                If Not blnFound Then
+                ' Remove any file that doesn't have a matching name.
+                If Not InCollection(colNames, strFile) Then
                     ' Object not found in database. Remove file.
                     Kill oFile.ParentFolder.Path & "\" & oFile.Name
-                    Log.Add "  Removing orphaned file: " & strFile, cOptions.ShowDebug
+                    Log.Add "  Removing orphaned file: " & strFile, cType.Options.ShowDebug
                 End If
                 
                 ' No need to check other extensions since we

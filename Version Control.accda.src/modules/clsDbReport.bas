@@ -118,7 +118,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentProject.AllReports, IDbComponent_Options, "rpt", "pv", "json"
+    ClearOrphanedSourceFiles Me, "rpt", "pv", "json"
 End Function
 
 

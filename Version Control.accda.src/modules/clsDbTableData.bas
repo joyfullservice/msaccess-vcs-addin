@@ -159,7 +159,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentData.AllTables, IDbComponent_Options, "xml", "txt"
+    ClearOrphanedSourceFiles Me, "xml", "txt"
 End Function
 
 

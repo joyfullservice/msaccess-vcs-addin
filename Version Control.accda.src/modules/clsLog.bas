@@ -88,7 +88,6 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional 
         If m_sngLastUpdate + 1 < Timer Then
             DoEvents
             m_sngLastUpdate = Timer
-            Debug.Print Timer
         End If
     End If
     

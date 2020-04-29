@@ -238,7 +238,7 @@ Public Sub LegacyExportAllSource()
     If CurrentProject.ProjectType = acMDB Then
         ' Standard Access Project
         strObjectPath = strSourcePath & "queries\"
-        ClearOrphanedSourceFiles strObjectPath, dbs.QueryDefs, cOptions, "bas", "sql"
+        'ClearOrphanedSourceFiles strObjectPath, dbs.QueryDefs, cOptions, "bas", "sql"
         Log.Spacer cOptions.ShowDebug
         'Log.Add PadRight("Exporting queries...", cintPad), True, cOptions.ShowDebug
         Log.Add "", cOptions.ShowDebug
@@ -285,7 +285,7 @@ Public Sub LegacyExportAllSource()
             
             ''''' Wait to clear tables (or other objects) since we need to check the modified date of the file.
             Set objContainer = varType(2)
-            ClearOrphanedSourceFiles strObjectPath, objContainer, cOptions, varType(1)
+            'ClearOrphanedSourceFiles strObjectPath, objContainer, cOptions, varType(1)
             
             Log.Spacer cOptions.ShowDebug
             'Log.Add PadRight("Exporting " & varType(0) & "...", cintPad), , cOptions.ShowDebug
@@ -356,7 +356,7 @@ Public Sub LegacyExportAllSource()
         intObjCnt = 0
     
         ' Clear out any orphaned source files
-        ClearOrphanedSourceFiles strObjectPath, objContainer, cOptions, "bas", "pv"
+        'ClearOrphanedSourceFiles strObjectPath, objContainer, cOptions, "bas", "pv"
         
         ' Show progress
         Log.Spacer cOptions.ShowDebug
@@ -415,11 +415,11 @@ Public Sub LegacyExportAllSource()
     
         If cOptions.TablesToExportData.Count = 0 Then
             strObjectPath = strSourcePath & "tables"
-            If FSO.FolderExists(strObjectPath) Then ClearOrphanedSourceFiles strObjectPath & "\", Nothing, cOptions, "txt"
+            'If FSO.FolderExists(strObjectPath) Then ClearOrphanedSourceFiles strObjectPath & "\", Nothing, cOptions, "txt"
         Else
             ' Only create this folder if we are actually saving table data
             MkDirIfNotExist strSourcePath & "tables\"
-            ClearOrphanedSourceFiles strSourcePath & "tables\", dbs.TableDefs, cOptions, "txt"
+            'ClearOrphanedSourceFiles strSourcePath & "tables\", dbs.TableDefs, cOptions, "txt"
         End If
         
         strLabel = "tbldef"
@@ -432,7 +432,7 @@ Public Sub LegacyExportAllSource()
         
         ' Verify path and clear any existing files
         VerifyPath Left(strObjectPath, InStrRev(strObjectPath, "\"))
-        ClearOrphanedSourceFiles strObjectPath, tds, cOptions, "LNKD", "sql", "xml", "bas"
+        'ClearOrphanedSourceFiles strObjectPath, tds, cOptions, "LNKD", "sql", "xml", "bas"
 
         Log.Spacer cOptions.ShowDebug
         'Log.Add PadRight("Exporting " & strLabel & "...", cintPad), , cOptions.ShowDebug
@@ -480,7 +480,7 @@ Public Sub LegacyExportAllSource()
         strObjectPath = strSourcePath & "relations\"
         
         VerifyPath Left(strObjectPath, InStrRev(strObjectPath, "\"))
-        ClearOrphanedSourceFiles strObjectPath, dbs.Relations, cOptions, "txt"
+        'ClearOrphanedSourceFiles strObjectPath, dbs.Relations, cOptions, "txt"
         
         Dim aRelation As Relation
         For Each aRelation In CurrentDb.Relations
