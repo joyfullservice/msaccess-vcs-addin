@@ -15,7 +15,6 @@ Private Const cstrOptionsFilename As String = "vcs-options.json"
 ' Options
 Public ExportFolder As String
 Public ShowDebug As Boolean
-Public IncludeVBE As Boolean
 Public UseFastSave As Boolean
 Public SavePrintVars As Boolean
 Public SaveQuerySQL As Boolean
@@ -43,7 +42,6 @@ Public Sub LoadDefaults()
     With Me
         .ExportFolder = vbNullString
         .ShowDebug = False
-        .IncludeVBE = False
         .UseFastSave = True
         .SavePrintVars = True
         .SaveQuerySQL = True
@@ -306,7 +304,6 @@ Private Sub Class_Initialize()
     With m_colOptions
         .Add "ExportFolder"
         .Add "ShowDebug"
-        .Add "IncludeVBE"
         .Add "UseFastSave"
         .Add "SavePrintVars"
         .Add "SaveQuerySQL"

@@ -465,7 +465,6 @@ Begin Form
                                     Top =2340
                                     Width =3420
                                     Height =315
-                                    TabIndex =4
                                     BorderColor =10921638
                                     ForeColor =4210752
                                     Name ="txtExportFolder"
@@ -534,6 +533,7 @@ Begin Form
                                     OverlapFlags =215
                                     Left =1260
                                     Top =3420
+                                    TabIndex =2
                                     BorderColor =10921638
                                     Name ="chkShowDebug"
                                     GridlineColor =10921638
@@ -567,7 +567,7 @@ Begin Form
                                     OverlapFlags =215
                                     Left =1260
                                     Top =3840
-                                    TabIndex =5
+                                    TabIndex =3
                                     BorderColor =10921638
                                     Name ="chkStripPublishOption"
                                     GridlineColor =10921638
@@ -601,7 +601,7 @@ Begin Form
                                     OverlapFlags =215
                                     Left =1260
                                     Top =4260
-                                    TabIndex =8
+                                    TabIndex =4
                                     BorderColor =10921638
                                     Name ="chkAggressiveSanitize"
                                     GridlineColor =10921638
@@ -635,7 +635,7 @@ Begin Form
                                     OverlapFlags =215
                                     Left =4740
                                     Top =2935
-                                    TabIndex =2
+                                    TabIndex =5
                                     BorderColor =10921638
                                     Name ="chkSavePrintVars"
                                     GridlineColor =10921638
@@ -669,7 +669,7 @@ Begin Form
                                     OverlapFlags =215
                                     Left =4740
                                     Top =3360
-                                    TabIndex =3
+                                    TabIndex =6
                                     BorderColor =10921638
                                     Name ="chkSaveQuerySQL"
                                     GridlineColor =10921638
@@ -733,40 +733,6 @@ Begin Form
                                         End
                                     End
                                 End
-                                Begin CheckBox
-                                    OverlapFlags =215
-                                    Left =4740
-                                    Top =4200
-                                    TabIndex =6
-                                    BorderColor =10921638
-                                    Name ="chkIncludeVBE"
-                                    GridlineColor =10921638
-
-                                    LayoutCachedLeft =4740
-                                    LayoutCachedTop =4200
-                                    LayoutCachedWidth =5000
-                                    LayoutCachedHeight =4440
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =215
-                                            Left =5040
-                                            Top =4140
-                                            Width =2640
-                                            Height =315
-                                            BorderColor =8355711
-                                            ForeColor =5324600
-                                            Name ="Label36"
-                                            Caption ="Export VBE Objects"
-                                            GridlineColor =10921638
-                                            LayoutCachedLeft =5040
-                                            LayoutCachedTop =4140
-                                            LayoutCachedWidth =7680
-                                            LayoutCachedHeight =4455
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
-                                End
                                 Begin TextBox
                                     OverlapFlags =215
                                     IMESentenceMode =3
@@ -774,7 +740,7 @@ Begin Form
                                     Top =5040
                                     Width =2640
                                     Height =315
-                                    TabIndex =10
+                                    TabIndex =9
                                     BorderColor =10921638
                                     ForeColor =4210752
                                     Name ="txtRunBeforeExport"
@@ -812,7 +778,7 @@ Begin Form
                                     Top =5460
                                     Width =2640
                                     Height =315
-                                    TabIndex =11
+                                    TabIndex =10
                                     BorderColor =10921638
                                     ForeColor =4210752
                                     Name ="txtRunAfterExport"
@@ -849,7 +815,7 @@ Begin Form
                                     Left =6780
                                     Top =5580
                                     Width =2340
-                                    TabIndex =9
+                                    TabIndex =11
                                     ForeColor =16711680
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."

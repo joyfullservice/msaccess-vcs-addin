@@ -501,13 +501,13 @@ Public Sub LegacyExportAllSource()
     End If
     
     
-    ' VBE objects
-    If cOptions.IncludeVBE Then
-        Log.Spacer cOptions.ShowDebug
-        'Log.Add PadRight("Exporting VBE...", cintPad), , cOptions.ShowDebug
-        Log.Add "", cOptions.ShowDebug
-        ExportAllVBE cOptions
-    End If
+'     VBE objects
+'    If cOptions.IncludeVBE Then
+'        Log.Spacer cOptions.ShowDebug
+'        Log.Add PadRight("Exporting VBE...", cintPad), , cOptions.ShowDebug
+'        Log.Add "", cOptions.ShowDebug
+'        ExportAllVBE cOptions
+'    End If
 
     ' Show final output and save log
     Log.Spacer
@@ -527,124 +527,6 @@ Public Sub LegacyExportAllSource()
     ' Run any custom sub before export
     If cOptions.RunAfterExport <> vbNullString Then RunSubInCurrentProject cOptions.RunAfterExport
 
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ExportVBE
-' Author    : Adam Waller
-' Date      : 5/15/2015
-' Purpose   : Exports all objects from the Visual Basic Editor.
-'           : (Allows drag and drop to re-import the objects into the IDE)
-'---------------------------------------------------------------------------------------
-'
-Public Sub ExportAllVBE(cOptions As clsOptions)
-    
-    ' Declare constants locally to avoid need for reference
-    'Const vbext_ct_StdModule As Integer = 1
-    'Const vbext_ct_MSForm As Integer = 3
-    
-    Dim cmp As VBIDE.VBComponent
-    Dim strExt As String
-    Dim strPath As String
-    Dim obj_count As Integer
-    
-    Set colVerifiedPaths = New Collection   ' Reset cache
-
-    
-    strPath = cOptions.GetExportFolder
-    VerifyPath strPath
-    strPath = strPath & "VBE\"
-    
-    ' Clear existing files
-    ClearFilesByExtension strPath, "bas"
-    ClearFilesByExtension strPath, "frm"
-    ClearFilesByExtension strPath, "cls"
-    
-    If VBE.ActiveVBProject.VBComponents.Count > 0 Then
-    
-        ' Verify path (creating if needed)
-        VerifyPath strPath
-       
-        ' Loop through all components in the active project
-        For Each cmp In VBE.ActiveVBProject.VBComponents
-            obj_count = obj_count + 1
-            strExt = GetVBEExtByType(cmp)
-            cmp.Export strPath & cmp.Name & strExt
-            Log.Add "  " & cmp.Name, cOptions.ShowDebug
-        Next cmp
-        
-        If cOptions.ShowDebug Then
-            Log.Add "[" & obj_count & "] components exported."
-        Else
-            Log.Add "[" & obj_count & "]"
-        End If
-    End If
-
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ExportByVBEComponentName
-' Author    : Adam Waller
-' Date      : 5/15/2015
-' Purpose   : Export single object using the VBE component name
-'---------------------------------------------------------------------------------------
-'
-Public Sub ExportByVBEComponent(cmpToExport As VBComponent, cOptions As clsOptions)
-    
-    Dim intType As AcObjectType
-    Dim strFolder As String
-    Dim strName As String
-    Dim blnSanitize As Boolean
-    Dim strFile As String
-    
-    ' Determine the type of object, and get name of item
-    ' in Microsoft Access. (Can be different from VBE)
-    With cmpToExport
-        Select Case .Type
-            Case vbext_ct_StdModule, vbext_ct_ClassModule
-                ' Code modules
-                intType = acModule
-                strName = .Name
-                strFolder = "modules\"
-            
-            Case vbext_ct_Document
-                ' Class object (Forms, Reports)
-                If Left(.Name, 5) = "Form_" Then
-                    intType = acForm
-                    strName = Mid(.Name, 6)
-                    strFolder = "forms\"
-                    blnSanitize = True
-                ElseIf Left(.Name, 7) = "Report_" Then
-                    intType = acReport
-                    strName = Mid(.Name, 8)
-                    strFolder = "reports\"
-                    blnSanitize = True
-                End If
-                
-        End Select
-    End With
-    
-    DoCmd.Hourglass True
-    If intType > 0 Then
-        strFolder = cOptions.GetExportFolder & strFolder
-        strFile = strFolder & GetSafeFileName(strName) & ".bas"
-        ' Export the single object
-        ExportObject intType, strName, strFile, cOptions
-        ' Sanitize object if needed
-        If blnSanitize Then SanitizeFile strFile, cOptions
-    End If
-    
-    ' Export VBE version
-    If cOptions.IncludeVBE Then
-        strFile = cOptions.GetExportFolder & "VBE\" & cmpToExport.Name & GetVBEExtByType(cmpToExport)
-        If Dir(strFile) <> "" Then Kill strFile
-        cmpToExport.Export strFile
-    End If
-    DoCmd.Hourglass False
-    
 End Sub
 
 
