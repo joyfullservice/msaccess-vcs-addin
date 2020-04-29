@@ -21,8 +21,8 @@ Public Sub ExportSpecs(strSourcePath As String, cOptions As clsOptions)
     Dim strFile As String
     
     ' Clear any existing files
-    ClearTextFilesFromDir strSourcePath & "\importspecs", "spec"
-    ClearTextFilesFromDir strSourcePath & "\exportspecs", "spec"
+    ClearFilesByExtension strSourcePath & "\importspecs", "spec"
+    ClearFilesByExtension strSourcePath & "\exportspecs", "spec"
     
     ' Loop through specs
     For Each oSpec In CurrentProject.ImportExportSpecifications

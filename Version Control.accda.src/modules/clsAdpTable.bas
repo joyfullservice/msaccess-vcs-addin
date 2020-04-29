@@ -139,6 +139,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+    ClearFilesByExtension IDbComponent_BaseFolder, "tdf"    ' Legacy extension
     ClearOrphanedSourceFiles Me, "txt"
 End Function
 

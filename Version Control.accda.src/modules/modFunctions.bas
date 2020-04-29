@@ -315,13 +315,13 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ClearTextFilesFromDir
+' Procedure : clearfilesbyextension
 ' Author    : Adam Waller
 ' Date      : 1/25/2019
 ' Purpose   : Erase all *.`ext` files in `Path`.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ClearTextFilesFromDir(ByVal strFolder As String, strExt As String)
+Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
     If Not FSO.FolderExists(StripSlash(strFolder)) Then Exit Sub
     If Dir(strFolder & "*." & strExt) <> "" Then
         FSO.DeleteFile strFolder & "*." & strExt
@@ -378,6 +378,9 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
             End If
         Next varExt
     Next oFile
+    
+    ' Remove base folder if we don't have any files in it
+    If oFolder.Files.Count = 0 Then oFolder.Delete
     
 End Sub
 

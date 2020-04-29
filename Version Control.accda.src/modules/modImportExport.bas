@@ -268,7 +268,7 @@ Public Sub LegacyExportAllSource()
         
         ' Clear any triggers if the triggers folder exists.
         If FSO.FolderExists(strObjectPath & "triggers\") Then
-            If Not cOptions.UseFastSave Then ClearTextFilesFromDir strObjectPath & "triggers\", "sql"
+            If Not cOptions.UseFastSave Then ClearFilesByExtension strObjectPath & "triggers\", "sql"
         End If
         
         ' Process triggers
@@ -557,9 +557,9 @@ Public Sub ExportAllVBE(cOptions As clsOptions)
     strPath = strPath & "VBE\"
     
     ' Clear existing files
-    ClearTextFilesFromDir strPath, "bas"
-    ClearTextFilesFromDir strPath, "frm"
-    ClearTextFilesFromDir strPath, "cls"
+    ClearFilesByExtension strPath, "bas"
+    ClearFilesByExtension strPath, "frm"
+    ClearFilesByExtension strPath, "cls"
     
     If VBE.ActiveVBProject.VBComponents.Count > 0 Then
     
