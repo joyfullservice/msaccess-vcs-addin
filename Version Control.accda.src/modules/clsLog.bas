@@ -71,8 +71,10 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional 
         m_Console.Add strHtml
         ' Add line break for HTML
         If blnNextOutputOnNewLine Then m_Console.Add "<br>"
-        ' Only print debug output if not running from the GUI.
-        If Not IsLoaded(acForm, "frmMain") Then
+        
+        ' Run debug output
+        If m_RichText Is Nothing Then
+            ' Only print debug output if not running from the GUI.
             If blnNextOutputOnNewLine Then
                 ' Create new line
                 Debug.Print strText
@@ -86,16 +88,28 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional 
         ' (This keeps the aplication from an apparent hang while
         '  running intensive export processes.)
         If m_sngLastUpdate + 1 < Timer Then
-            DoEvents
+            Me.Flush
             m_sngLastUpdate = Timer
         End If
     End If
-    
+ 
     ' Add carriage return to log file if specified
     If blnNextOutputOnNewLine Then m_Log.Add vbCrLf
     
-    ' Update log display on form if open.
-    If blnPrint And IsLoaded(acForm, "frmMain") Then
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Flush
+' Author    : Adam Waller
+' Date      : 4/29/2020
+' Purpose   : Flushes the buffer to the console
+'---------------------------------------------------------------------------------------
+'
+Public Sub Flush()
+
+    ' See if the GUI form is loaded.
+    If IsLoaded(acForm, "frmMain") Then
         With Form_frmMain.txtLog
             m_blnProgressActive = False
             ' Set value, not text to avoid errors with large text strings.
@@ -106,6 +120,9 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional 
             Echo True
         End With
     End If
+    
+    ' Update the display (especially for immediate window)
+    DoEvents
     
 End Sub
 

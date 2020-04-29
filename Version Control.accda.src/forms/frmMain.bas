@@ -17,10 +17,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =17
-    Left =3225
-    Top =2430
-    Right =22695
-    Bottom =15015
+    Left =9675
+    Top =2850
+    Right =19035
+    Bottom =9315
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1654,6 +1654,7 @@ Public Sub cmdExport_Click()
     
     ' Export the source code
     modImportExport.ExportSource
+    Log.Flush
     
     SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
     

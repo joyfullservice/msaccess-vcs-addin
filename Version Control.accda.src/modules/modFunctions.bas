@@ -371,7 +371,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
                 ' Build a file name using the primary extension to
                 ' match the list of source files.
                 strFile = FSO.GetBaseName(oFile.Name) & strPrimaryExt
-                If strFile = "modsavedSpecs.bas" Then Stop
+                'If strFile = "modsavedSpecs.bas" Then Stop
                 ' Remove any file that doesn't have a matching name.
                 If Not InCollection(colNames, strFile) Then
                     ' Object not found in database. Remove file.
