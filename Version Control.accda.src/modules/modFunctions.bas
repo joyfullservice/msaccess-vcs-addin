@@ -590,25 +590,30 @@ Public Function CloseAllFormsReports() As Boolean
 
     Dim strName As String
     Dim intOpened As Integer
+    Dim intItem As Integer
+    Dim frm As Form
+    Dim rpt As Report
     
     ' Get count of opened objects
     intOpened = Forms.Count + Reports.Count
     If intOpened > 0 Then
         On Error GoTo ErrorHandler
-        Do While Forms.Count > 0
-            strName = Forms(0).Name
-            DoCmd.Close acForm, strName
-            DoEvents
-        Loop
+        ' Loop through forms
+        For intItem = Forms.Count - 1 To 0 Step -1
+            If Forms(intItem).Name <> "frmMain" Then
+                DoCmd.Close acForm, Forms(intItem).Name
+                DoEvents
+            End If
+            intOpened = intOpened - 1
+        Next intItem
+        ' Loop through reports
         Do While Reports.Count > 0
             strName = Reports(0).Name
             DoCmd.Close acReport, strName
             DoEvents
+            intOpened = intOpened - 1
         Loop
-        If (Forms.Count + Reports.Count) = 0 Then CloseAllFormsReports = True
-        
-        ' Switch back to IDE window
-        ShowIDE
+        If intOpened = 0 Then CloseAllFormsReports = True
     Else
         ' No forms or reports currently open.
         CloseAllFormsReports = True
