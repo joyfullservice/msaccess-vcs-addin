@@ -94,6 +94,9 @@ Public Sub ExportSource()
     ' Loop through all categ
     For Each cCategory In colContainers
         
+        ' Clear any source files for nonexistant objects
+        cCategory.ClearOrphanedSourceFiles
+            
         ' Only show category details when it contains objects
         If cCategory.Count = 0 Then
             Log.Spacer cOptions.ShowDebug
@@ -102,7 +105,6 @@ Public Sub ExportSource()
             ' Show category header and clear out any orphaned files.
             Log.Spacer cOptions.ShowDebug
             Log.PadRight "Exporting " & cCategory.Category & "...", , cOptions.ShowDebug
-            cCategory.ClearOrphanedSourceFiles
 
             ' Loop through each object in this category.
             For Each cDbObject In cCategory.GetAllFromDB(cOptions)

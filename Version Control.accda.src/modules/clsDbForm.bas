@@ -14,6 +14,7 @@ Option Explicit
 
 Private m_Form As AccessObject
 Private m_Options As clsOptions
+Private m_AllItems As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -77,17 +78,24 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     Dim frm As AccessObject
     Dim cForm As IDbComponent
     
-    ' Use parameter options if provided.
-    If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
+    ' Build collection if not already cached
+    If m_AllItems Is Nothing Then
     
-    Set IDbComponent_GetAllFromDB = New Collection
-    For Each frm In CurrentProject.AllForms
-        Set cForm = New clsDbForm
-        Set cForm.DbObject = frm
-        Set cForm.Options = IDbComponent_Options
-        IDbComponent_GetAllFromDB.Add cForm, frm.Name
-    Next frm
+        ' Use parameter options if provided.
+        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
         
+        Set m_AllItems = New Collection
+        For Each frm In CurrentProject.AllForms
+            Set cForm = New clsDbForm
+            Set cForm.DbObject = frm
+            Set cForm.Options = IDbComponent_Options
+            m_AllItems.Add cForm, frm.Name
+        Next frm
+    End If
+
+    ' Return cached collection
+    Set IDbComponent_GetAllFromDB = m_AllItems
+
 End Function
 
 
@@ -199,7 +207,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    IDbComponent_Count = CurrentProject.AllForms.Count
+    IDbComponent_Count = IDbComponent_GetAllFromDB.Count
 End Property
 
 

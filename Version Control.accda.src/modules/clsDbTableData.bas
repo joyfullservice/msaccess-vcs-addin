@@ -16,7 +16,8 @@ Public Format As eTableDataExportFormat
 
 Private m_Table As AccessObject
 Private m_Options As clsOptions
-Private m_Count As Long
+Private m_AllItems As Collection
+
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -24,11 +25,6 @@ Private m_Count As Long
 ' from the implementing class, not this class.
 Implements IDbComponent
 
-
-Private Sub Class_Initialize()
-    ' Helps us know whether we have already counted the tables.
-    m_Count = -1
-End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Export
@@ -184,32 +180,36 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     Dim tbl As AccessObject
     Dim cTable As clsDbTableData
     Dim cComponent As IDbComponent
-
-    ' Use parameter options if provided.
-    If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-    Set IDbComponent_GetAllFromDB = New Collection
-
-    ' No need to go any further if we don't have any saved tables defined
-    If IDbComponent_Options.TablesToExportData.Count > 0 Then
-        
-        ' We have at least one table defined. Loop through the tables looking
-        ' for a matching name.
-        With IDbComponent_Options
-            For Each tbl In CurrentData.AllTables
-                If .TablesToExportData.Exists(tbl.Name) Then
-                    Set cTable = New clsDbTableData
-                    cTable.Format = .GetTableExportFormat(CStr(.TablesToExportData(tbl.Name)("Format")))
-                    Set cComponent = cTable
-                    Set cComponent.DbObject = tbl
-                    Set cComponent.Options = IDbComponent_Options
-                    IDbComponent_GetAllFromDB.Add cComponent, tbl.Name
-                End If
-            Next tbl
-        End With
-    End If
     
-    ' Set count of table objects we found.
-    m_Count = IDbComponent_GetAllFromDB.Count
+    ' Build collection if not already cached
+    If m_AllItems Is Nothing Then
+        
+        ' Use parameter options if provided.
+        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
+        Set m_AllItems = New Collection
+    
+        ' No need to go any further if we don't have any saved tables defined
+        If IDbComponent_Options.TablesToExportData.Count > 0 Then
+            
+            ' We have at least one table defined. Loop through the tables looking
+            ' for a matching name.
+            With IDbComponent_Options
+                For Each tbl In CurrentData.AllTables
+                    If .TablesToExportData.Exists(tbl.Name) Then
+                        Set cTable = New clsDbTableData
+                        cTable.Format = .GetTableExportFormat(CStr(.TablesToExportData(tbl.Name)("Format")))
+                        Set cComponent = cTable
+                        Set cComponent.DbObject = tbl
+                        Set cComponent.Options = IDbComponent_Options
+                        m_AllItems.Add cComponent, tbl.Name
+                    End If
+                Next tbl
+            End With
+        End If
+    End If
+
+    ' Return cached collection
+    Set IDbComponent_GetAllFromDB = m_AllItems
         
 End Function
 
@@ -342,9 +342,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    ' We don't count all the tables in the database for this object type.
-    If m_Count = -1 Then m_Count = IDbComponent_GetAllFromDB.Count
-    IDbComponent_Count = m_Count
+    IDbComponent_Count = IDbComponent_GetAllFromDB.Count
 End Property
 
 

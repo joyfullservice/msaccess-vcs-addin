@@ -14,7 +14,7 @@ Option Explicit
 
 Private m_Function As AccessObject
 Private m_Options As clsOptions
-'Private m_Count As Long (uncomment if needed)
+Private m_AllItems As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -58,17 +58,24 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     
     Dim fn As AccessObject
     Dim cFn As IDbComponent
+    
+    ' Build collection if not already cached
+    If m_AllItems Is Nothing Then
+        
+        ' Use parameter options if provided.
+        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
+    
+        Set m_AllItems = New Collection
+        For Each fn In CurrentData.AllFunctions
+            Set cFn = New clsAdpFunction
+            Set cFn.DbObject = fn
+            Set cFn.Options = IDbComponent_Options
+            m_AllItems.Add cFn, fn.Name
+        Next fn
+    End If
 
-    ' Use parameter options if provided.
-    If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-
-    Set IDbComponent_GetAllFromDB = New Collection
-    For Each fn In CurrentData.AllFunctions
-        Set cFn = New clsAdpFunction
-        Set cFn.DbObject = fn
-        Set cFn.Options = IDbComponent_Options
-        IDbComponent_GetAllFromDB.Add cFn, fn.Name
-    Next fn
+    ' Return cached collection
+    Set IDbComponent_GetAllFromDB = m_AllItems
         
 End Function
 
@@ -181,7 +188,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    IDbComponent_Count = CurrentData.AllFunctions.Count
+    IDbComponent_Count = IDbComponent_GetAllFromDB.Count
 End Property
 
 

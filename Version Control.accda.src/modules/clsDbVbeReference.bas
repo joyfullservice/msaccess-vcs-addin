@@ -14,7 +14,8 @@ Option Explicit
 
 Private m_Ref As VBIDE.Reference
 Private m_Options As clsOptions
-Private m_Count As Long
+Private m_AllItems As Collection
+
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -86,21 +87,25 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     Dim ref As VBIDE.Reference
     Dim cRef As IDbComponent
 
-    ' Use parameter options if provided.
-    If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-
-    Set IDbComponent_GetAllFromDB = New Collection
-    For Each ref In GetVBProjectForCurrentDB.References
-        If Not ref.BuiltIn Then
-            Set cRef = New clsDbVbeReference
-            Set cRef.DbObject = ref
-            Set cRef.Options = IDbComponent_Options
-            IDbComponent_GetAllFromDB.Add cRef, ref.Name
-        End If
-    Next ref
+    ' Build collection if not already cached
+    If m_AllItems Is Nothing Then
     
-    ' Save count of references not automatically built in.
-    m_Count = IDbComponent_GetAllFromDB.Count
+        ' Use parameter options if provided.
+        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
+    
+        Set m_AllItems = New Collection
+        For Each ref In GetVBProjectForCurrentDB.References
+            If Not ref.BuiltIn Then
+                Set cRef = New clsDbVbeReference
+                Set cRef.DbObject = ref
+                Set cRef.Options = IDbComponent_Options
+                m_AllItems.Add cRef, ref.Name
+            End If
+        Next ref
+    End If
+
+    ' Return cached collection
+    Set IDbComponent_GetAllFromDB = m_AllItems
         
 End Function
 
@@ -214,7 +219,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    IDbComponent_Count = GetVBProjectForCurrentDB.References.Count
+    IDbComponent_Count = IDbComponent_GetAllFromDB.Count
 End Property
 
 
@@ -284,18 +289,6 @@ End Property
 Public Property Get IDbComponent_SingleFile() As Boolean
     IDbComponent_SingleFile = True
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Class_Initialize
-' Author    : Adam Waller
-' Date      : 4/24/2020
-' Purpose   : Helps us know whether we have already counted the references.
-'---------------------------------------------------------------------------------------
-'
-Private Sub Class_Initialize()
-    m_Count = -1
-End Sub
 
 
 '---------------------------------------------------------------------------------------

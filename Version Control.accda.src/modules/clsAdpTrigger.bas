@@ -19,8 +19,7 @@ Public SchemaName As String
 Public SqlModifyDate As Date
 
 Private m_Options As clsOptions
-Private m_Count As Long
-Private m_AllTriggers As Collection
+Private m_AllItems As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -67,48 +66,40 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     
     Dim cTrigger As clsAdpTrigger
     Dim cComponent As IDbComponent
-
     Dim rst As ADODB.Recordset
     Dim strSQL As String
-    
-    ' Used cached collection if possible
-    If m_AllTriggers Is Nothing Then
-        Set m_AllTriggers = New Collection
-    Else
-        ' Return cached collection
-        ' (We may have pulled this already when counting objects
-        '  or checking for orphaned files)
-        Set IDbComponent_GetAllFromDB = m_AllTriggers
-        Exit Function
-    End If
-    
-    ' Use parameter options if provided.
-    If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-    
-    ' Build list of triggers in database (from sysobjects)
-    strSQL = "SELECT [name],object_name(parent_object_id) AS parent_name, schema_name([schema_id]) AS [schema_name], modify_date FROM sys.objects WHERE type='TR'"
-    Set rst = New ADODB.Recordset
-    With rst
-        .Open strSQL, CurrentProject.Connection, adOpenForwardOnly, adLockReadOnly
-        Do While Not .EOF
-            Set cTrigger = New clsAdpTrigger
-            With cTrigger
-                .TriggerName = Nz(rst!Name)
-                .TableName = Nz(rst!parent_name)
-                .SchemaName = Nz(rst!schema_name)
-                .SqlModifyDate = Nz(rst!modify_date)
-            End With
-            Set cComponent = cTrigger
-            Set cComponent.Options = IDbComponent_Options
-            m_AllTriggers.Add cComponent, cTrigger.TriggerName
-            .MoveNext
-        Loop
-        .Close
-    End With
-    Set rst = Nothing
 
-    ' Return reference to cached collection.
-    Set IDbComponent_GetAllFromDB = m_AllTriggers
+    ' Build collection if not already cached
+    If m_AllItems Is Nothing Then
+    
+        ' Use parameter options if provided.
+        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
+        
+        ' Build list of triggers in database (from sysobjects)
+        strSQL = "SELECT [name],object_name(parent_object_id) AS parent_name, schema_name([schema_id]) AS [schema_name], modify_date FROM sys.objects WHERE type='TR'"
+        Set rst = New ADODB.Recordset
+        With rst
+            .Open strSQL, CurrentProject.Connection, adOpenForwardOnly, adLockReadOnly
+            Do While Not .EOF
+                Set cTrigger = New clsAdpTrigger
+                With cTrigger
+                    .TriggerName = Nz(rst!Name)
+                    .TableName = Nz(rst!parent_name)
+                    .SchemaName = Nz(rst!schema_name)
+                    .SqlModifyDate = Nz(rst!modify_date)
+                End With
+                Set cComponent = cTrigger
+                Set cComponent.Options = IDbComponent_Options
+                m_AllItems.Add cComponent, cTrigger.TriggerName
+                .MoveNext
+            Loop
+            .Close
+        End With
+        Set rst = Nothing
+    End If
+
+    ' Return cached collection
+    Set IDbComponent_GetAllFromDB = m_AllItems
     
 End Function
 
@@ -221,8 +212,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    If m_Count = -1 Then m_Count = IDbComponent_GetAllFromDB.Count
-    IDbComponent_Count = m_Count
+    IDbComponent_Count = IDbComponent_GetAllFromDB.Count
 End Property
 
 
@@ -289,18 +279,6 @@ End Property
 '
 Public Property Get IDbComponent_SingleFile() As Boolean
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Class_Initialize
-' Author    : Adam Waller
-' Date      : 4/24/2020
-' Purpose   : Helps us know whether we have already counted the objects.
-'---------------------------------------------------------------------------------------
-'
-Private Sub Class_Initialize()
-    m_Count = -1
-End Sub
 
 
 '---------------------------------------------------------------------------------------

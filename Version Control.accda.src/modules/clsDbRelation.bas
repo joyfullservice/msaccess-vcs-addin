@@ -14,7 +14,7 @@ Option Explicit
 
 Private m_Relation As DAO.Relation
 Private m_Options As clsOptions
-Private m_Count As Long
+Private m_AllItems As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -68,24 +68,28 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     Dim rel As Relation
     Dim cRelation As IDbComponent
 
-    ' Use parameter options if provided.
-    If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-    Set dbs = CurrentDb
-    
-    Set IDbComponent_GetAllFromDB = New Collection
-    For Each rel In CurrentDb.Relations
-        ' Navigation pane groups are handled separately
-        If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
-            Or rel.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
-            Set cRelation = New clsDbRelation
-            Set cRelation.DbObject = rel
-            Set cRelation.Options = IDbComponent_Options
-            IDbComponent_GetAllFromDB.Add cRelation, rel.Name
-        End If
-    Next rel
+    ' Build collection if not already cached
+    If m_AllItems Is Nothing Then
+
+        ' Use parameter options if provided.
+        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
+        Set dbs = CurrentDb
         
-    ' Set count of table objects we found.
-    m_Count = IDbComponent_GetAllFromDB.Count
+        Set m_AllItems = New Collection
+        For Each rel In CurrentDb.Relations
+            ' Navigation pane groups are handled separately
+            If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
+                Or rel.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+                Set cRelation = New clsDbRelation
+                Set cRelation.DbObject = rel
+                Set cRelation.Options = IDbComponent_Options
+                m_AllItems.Add cRelation, rel.Name
+            End If
+        Next rel
+    End If
+
+    ' Return cached collection
+    Set IDbComponent_GetAllFromDB = m_AllItems
     
 End Function
 
@@ -326,9 +330,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    ' We don't count all the relations in the database for this object type.
-    If m_Count = -1 Then m_Count = IDbComponent_GetAllFromDB.Count
-    IDbComponent_Count = m_Count
+    IDbComponent_Count = IDbComponent_GetAllFromDB.Count
 End Property
 
 
@@ -397,18 +399,6 @@ End Property
 '
 Public Property Get IDbComponent_SingleFile() As Boolean
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Class_Initialize
-' Author    : Adam Waller
-' Date      : 4/24/2020
-' Purpose   : Helps us know whether we have already counted the tables.
-'---------------------------------------------------------------------------------------
-'
-Private Sub Class_Initialize()
-    m_Count = -1
-End Sub
 
 
 '---------------------------------------------------------------------------------------

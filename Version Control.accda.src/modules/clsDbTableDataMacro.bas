@@ -14,7 +14,7 @@ Option Explicit
 
 Private m_Table As AccessObject
 Private m_Options As clsOptions
-Private m_Count As Long
+Private m_AllItems As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -22,11 +22,6 @@ Private m_Count As Long
 ' from the implementing class, not this class.
 Implements IDbComponent
 
-
-Private Sub Class_Initialize()
-    ' Helps us know whether we have already counted the tables.
-    m_Count = -1
-End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Export
@@ -78,36 +73,42 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     Dim tdf As TableDef
     Dim cTable As IDbComponent
     Dim strSQL As String
-    
-    ' Use parameter options if provided.
-    If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
 
-    Set IDbComponent_GetAllFromDB = New Collection
-    Set dbs = CurrentDb
-        
-    For Each tdf In dbs.TableDefs
-        ' Skip system, temp, and linked tables
-        If Left$(tdf.Name, 4) <> "MSys" Then
-            If Left$(tdf.Name, 1) <> "~" Then
-                If Len(tdf.connect) = 0 Then
-                    ' Check to see if the table has a data macro
-                    strSQL = "Not IsNull(LvExtra) and Type = 1 and [Name] = '" & tdf.Name & "'"
-                    If DCount("[Name]", "MSysObjects", strSQL) > 0 Then
-                        Set cTable = New clsDbTableDataMacro
-                        Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
-                        Set cTable.Options = IDbComponent_Options
-                        IDbComponent_GetAllFromDB.Add cTable, tdf.Name
+
+    ' Build collection if not already cached
+    If m_AllItems Is Nothing Then
+    
+        ' Use parameter options if provided.
+        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
+    
+        Set m_AllItems = New Collection
+        Set dbs = CurrentDb
+            
+        For Each tdf In dbs.TableDefs
+            ' Skip system, temp, and linked tables
+            If Left$(tdf.Name, 4) <> "MSys" Then
+                If Left$(tdf.Name, 1) <> "~" Then
+                    If Len(tdf.connect) = 0 Then
+                        ' Check to see if the table has a data macro
+                        strSQL = "Not IsNull(LvExtra) and Type = 1 and [Name] = '" & tdf.Name & "'"
+                        If DCount("[Name]", "MSysObjects", strSQL) > 0 Then
+                            Set cTable = New clsDbTableDataMacro
+                            Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
+                            Set cTable.Options = IDbComponent_Options
+                            m_AllItems.Add cTable, tdf.Name
+                        End If
                     End If
                 End If
             End If
-        End If
-    Next tdf
-    
-    Set tdf = Nothing
-    Set dbs = Nothing
-    
-    ' Set count of table objects we found.
-    m_Count = IDbComponent_GetAllFromDB.Count
+        Next tdf
+        
+        Set tdf = Nothing
+        Set dbs = Nothing
+        
+    End If
+
+    ' Return cached collection
+    Set IDbComponent_GetAllFromDB = m_AllItems
         
 End Function
 
@@ -220,9 +221,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count() As Long
-    ' We don't count all the tables in the database for this object type.
-    If m_Count = -1 Then m_Count = IDbComponent_GetAllFromDB.Count
-    IDbComponent_Count = m_Count
+    IDbComponent_Count = IDbComponent_GetAllFromDB.Count
 End Property
 
 
