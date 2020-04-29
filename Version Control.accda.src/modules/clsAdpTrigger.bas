@@ -20,6 +20,7 @@ Public SqlModifyDate As Date
 
 Private m_Options As clsOptions
 Private m_Count As Long
+Private m_AllTriggers As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -70,9 +71,19 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     Dim rst As ADODB.Recordset
     Dim strSQL As String
     
+    ' Used cached collection if possible
+    If m_AllTriggers Is Nothing Then
+        Set m_AllTriggers = New Collection
+    Else
+        ' Return cached collection
+        ' (We may have pulled this already when counting objects
+        '  or checking for orphaned files)
+        Set IDbComponent_GetAllFromDB = m_AllTriggers
+        Exit Function
+    End If
+    
     ' Use parameter options if provided.
     If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-    Set IDbComponent_GetAllFromDB = New Collection
     
     ' Build list of triggers in database (from sysobjects)
     strSQL = "SELECT [name],object_name(parent_object_id) AS parent_name, schema_name([schema_id]) AS [schema_name], modify_date FROM sys.objects WHERE type='TR'"
@@ -89,13 +100,16 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
             End With
             Set cComponent = cTrigger
             Set cComponent.Options = IDbComponent_Options
-            IDbComponent_GetAllFromDB.Add cComponent, cTrigger.TriggerName
+            m_AllTriggers.Add cComponent, cTrigger.TriggerName
             .MoveNext
         Loop
         .Close
     End With
     Set rst = Nothing
 
+    ' Return reference to cached collection.
+    Set IDbComponent_GetAllFromDB = m_AllTriggers
+    
 End Function
 
 
@@ -119,7 +133,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-    ClearOrphanedSourceFiles IDbComponent_BaseFolder, CurrentData.AllFunctions, IDbComponent_Options, "sql"
+    ClearOrphanedSourceFiles IDbComponent_BaseFolder, IDbComponent_GetAllFromDB, IDbComponent_Options, "sql"
 End Function
 
 
