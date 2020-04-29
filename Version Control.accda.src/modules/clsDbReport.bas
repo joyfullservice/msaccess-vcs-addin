@@ -77,7 +77,7 @@ Private Sub IDbComponent_Export()
     ' Export print vars if selected
     If IDbComponent_Options.SavePrintVars Then
         '// TODO: Move the print vars into this class and change to json file for output.
-        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Report.Name) & ".pv"
+        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Report.Name) & ".json"
         ExportPrintVars m_Report.Name, strFile, IDbComponent_Options
     End If
     
@@ -98,7 +98,7 @@ Public Sub ExportPrintVars(strReport As String, strFile As String, cOptions As c
     Dim DevModeExtra As String
     Dim DM As type_DEVMODE
     Dim rpt As Report
-    Dim cData As New clsConcat
+    Dim dItems As Scripting.Dictionary
 
     'report must be open to access Report object
     'report must be opened in design view to save changes to the print vars
@@ -115,17 +115,17 @@ Public Sub ExportPrintVars(strReport As String, strFile As String, cOptions As c
         DevModeString.RGB = DevModeExtra
         LSet DM = DevModeString
 
-        ' Print out print var values
-        With cData
-            .Add "Orientation=":    .Add CStr(DM.intOrientation)
-            .Add "PaperSize=":      .Add CStr(DM.intPaperSize)
-            .Add "PaperLength=":    .Add CStr(DM.intPaperLength)
-            .Add "PaperWidth=":     .Add CStr(DM.intPaperWidth)
-            .Add "Scale=":          .Add CStr(DM.intScale)
+        Set dItems = New Scripting.Dictionary
+        With dItems
+            .Add "Orientation", DM.intOrientation
+            .Add "PaperSize", DM.intPaperSize
+            .Add "PaperLength", DM.intPaperLength
+            .Add "PaperWidth", DM.intPaperWidth
+            .Add "Scale", DM.intScale
         End With
 
         ' Write output to file
-        WriteFile cData.GetStr, strFile
+        WriteJsonFile Me, dItems, strFile, "Report Print Settings"
 
     Else
         ' DevMode was null
@@ -265,7 +265,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-    ClearOrphanedSourceFiles Me, "rpt", "pv", "json"
+    ClearFilesByExtension IDbComponent_BaseFolder, "pv"
+    ClearOrphanedSourceFiles Me, "rpt", "json"
 End Function
 
 
