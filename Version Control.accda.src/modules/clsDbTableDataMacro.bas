@@ -31,18 +31,8 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    
-    Dim strFile As String
-    Dim strTempFile As String
-    Dim dbs As Database
-
-    ' Check for existing file
-    strFile = IDbComponent_SourceFile
-    If FSO.FileExists(strFile) Then Kill strFile
-
     ' Save structure in XML format
-    Application.SaveAsText acTableDataMacro, m_Table.Name, strFile
-
+    SaveComponentAsText acTableDataMacro, m_Table.Name, IDbComponent_SourceFile
 End Sub
 
 

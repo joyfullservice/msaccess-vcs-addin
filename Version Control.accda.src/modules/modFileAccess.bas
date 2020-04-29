@@ -126,6 +126,10 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String)
+
+    ' Make sure the path exists before we write a file.
+    VerifyPath FSO.GetParentFolderName(strDestinationFile)
+
     If FileIsUCS2Format(strSourceFile) Then
         Dim stmNew As Object
         Set stmNew = CreateObject("ADODB.Stream")

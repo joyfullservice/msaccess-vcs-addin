@@ -33,24 +33,11 @@ Implements IDbComponent
 Private Sub IDbComponent_Export()
     
     Dim strFile As String
-    Dim strTempFile As String
     Dim dbs As DAO.Database
 
-    ' Remove any existing file
-    strFile = IDbComponent_SourceFile
-    If FSO.FileExists(strFile) Then Kill strFile
-
-    If CurrentProject.ProjectType = acADP Then
-        ' No UCS conversion needed.
-        Application.SaveAsText acForm, m_Query.Name, strFile
-    Else
-        ' Convert UCS to UTF-8
-        strTempFile = GetTempFile
-        Application.SaveAsText acForm, m_Query.Name, strTempFile
-        ConvertUcs2Utf8 strTempFile, strFile
-        Kill strTempFile
-    End If
-    SanitizeFile strFile, IDbComponent_Options
+    ' Save and sanitize file
+    SaveComponentAsText acQuery, m_Query.Name, IDbComponent_SourceFile, (CurrentProject.ProjectType = acMDB)
+    SanitizeFile IDbComponent_SourceFile, IDbComponent_Options
     
     ' Export as SQL (if using that option)
     If IDbComponent_Options.SaveQuerySQL Then

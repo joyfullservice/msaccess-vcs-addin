@@ -39,6 +39,7 @@ Private Sub IDbComponent_Export()
     ' Check for existing file
     strFile = IDbComponent_SourceFile
     If FSO.FileExists(strFile) Then Kill strFile
+    VerifyPath FSO.GetParentFolderName(strFile)
 
     ' Save structure in XML format
     Application.ExportXML acExportTable, m_Table.Name, , strFile

@@ -31,26 +31,8 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    
-    Dim strFile As String
-    Dim strTempFile As String
-    
-    ' Remove any existing file
-    strFile = IDbComponent_SourceFile
-    If FSO.FileExists(strFile) Then Kill strFile
-    
-    If CurrentProject.ProjectType = acADP Then
-        ' No UCS conversion needed.
-        Application.SaveAsText acForm, m_Form.Name, strFile
-    Else
-        ' Convert UCS to UTF-8
-        strTempFile = GetTempFile
-        Application.SaveAsText acForm, m_Form.Name, strTempFile
-        ConvertUcs2Utf8 strTempFile, strFile
-        Kill strTempFile
-    End If
-    SanitizeFile strFile, IDbComponent_Options
-    
+    SaveComponentAsText acForm, m_Form.Name, IDbComponent_SourceFile, (CurrentProject.ProjectType = acMDB)
+    SanitizeFile IDbComponent_SourceFile, IDbComponent_Options
 End Sub
 
 

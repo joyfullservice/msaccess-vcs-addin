@@ -31,15 +31,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    
-    Dim strFile As String
-    Dim strTempFile As String
-
-    ' Remove any existing file before saving the new one.
-    strFile = IDbComponent_SourceFile
-    If FSO.FileExists(strFile) Then Kill strFile
-    Application.SaveAsText acModule, m_Module.Name, strFile
-    
+    SaveComponentAsText acModule, m_Module.Name, IDbComponent_SourceFile
 End Sub
 
 

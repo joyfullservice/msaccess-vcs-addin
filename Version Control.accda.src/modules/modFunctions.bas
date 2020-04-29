@@ -350,12 +350,16 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     Dim varName As Variant
     Dim varExt As Variant
     Dim strPrimaryExt As String
+    Dim cItem As IDbComponent
     
     ' No orphaned files if the folder doesn't exist.
     If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
     
-    ' Cache a list of source file names
-    Set colNames = cType.GetFileList
+    ' Cache a list of source file names for actual database objects
+    Set colNames = New Collection
+    For Each cItem In cType.GetAllFromDB
+        colNames.Add FSO.GetFileName(cItem.SourceFile)
+    Next cItem
     If colNames.Count > 0 Then strPrimaryExt = "." & FSO.GetExtensionName(colNames(1))
     
     ' Loop through files in folder
@@ -371,7 +375,6 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
                 ' Build a file name using the primary extension to
                 ' match the list of source files.
                 strFile = FSO.GetBaseName(oFile.Name) & strPrimaryExt
-                'If strFile = "modsavedSpecs.bas" Then Stop
                 ' Remove any file that doesn't have a matching name.
                 If Not InCollection(colNames, strFile) Then
                     ' Object not found in database. Remove file.
@@ -1462,3 +1465,35 @@ End Property
 Public Property Set FSO(ByVal RHS As Scripting.FileSystemObject)
     Set m_FSO = RHS
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveComponentAsText
+' Author    : Adam Waller
+' Date      : 4/29/2020
+' Purpose   : Wrapper for Application.SaveAsText that verifies that the path exists,
+'           : and then removes any existing file before saving the object as text.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFile As String, Optional ConvertUCS As Boolean = False)
+    
+    Dim strTempFile As String
+    
+    ' Make sure the path exists before we write a file.
+    VerifyPath FSO.GetParentFolderName(strFile)
+
+    ' Remove any existing file before saving the new one.
+    If FSO.FileExists(strFile) Then Kill strFile
+    
+    If ConvertUCS Then
+        ' Convert UCS to UTF-8
+        strTempFile = GetTempFile
+        Application.SaveAsText intType, strName, strTempFile
+        ConvertUcs2Utf8 strTempFile, strFile
+        Kill strTempFile
+    Else
+        ' No conversion needed
+        Application.SaveAsText intType, strName, strFile
+    End If
+    
+End Sub

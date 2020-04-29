@@ -32,13 +32,22 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     
-    Dim strFile As String
-    Dim strTempFile As String
-
-    ' Check for existing file
-    strFile = IDbComponent_SourceFile
-    If FSO.FileExists(strFile) Then Kill strFile
-    ExportPropertiesJson
+    Dim prp As AccessObjectProperty
+    Dim dCollection As Scripting.Dictionary
+    
+    Set dCollection = New Scripting.Dictionary
+    
+    ' Loop through all properties
+    For Each prp In CurrentProject.Properties
+        Select Case prp.Name
+            Case "zzzz":    ' Add exceptions here.
+            Case Else
+                dCollection.Add prp.Name, prp.Value
+        End Select
+    Next prp
+    
+    ' Write to file
+    WriteJsonFile Me, dCollection, IDbComponent_SourceFile, "Project Properties (Access)"
     
 End Sub
 
@@ -86,35 +95,6 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     Set IDbComponent_GetAllFromDB = m_AllItems
         
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ExportProperties
-' Author    : Adam Waller
-' Date      : 1/24/2019
-' Purpose   : Export database properties to a CSV
-'---------------------------------------------------------------------------------------
-'
-Public Sub ExportPropertiesJson()
-    
-    Dim prp As AccessObjectProperty
-    Dim dCollection As Scripting.Dictionary
-    
-    Set dCollection = New Scripting.Dictionary
-    
-    ' Loop through all properties
-    For Each prp In CurrentProject.Properties
-        Select Case prp.Name
-            Case "zzzz":    ' Add exceptions here.
-            Case Else
-                dCollection.Add prp.Name, prp.Value
-        End Select
-    Next prp
-    
-    ' Write to file
-    WriteJsonFile Me, dCollection, IDbComponent_SourceFile, "Project Properties (Access)"
-    
-End Sub
 
 
 '---------------------------------------------------------------------------------------

@@ -32,13 +32,27 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     
-    Dim strFile As String
-    Dim strTempFile As String
-
-    ' Check for existing file
-    strFile = IDbComponent_SourceFile
-    If FSO.FileExists(strFile) Then Kill strFile
-    ExportPropertiesJson
+    Dim prp As DAO.Property
+    Dim dCollection As Scripting.Dictionary
+    Dim dItem As Scripting.Dictionary
+    
+    Set dCollection = New Scripting.Dictionary
+    
+    ' Loop through all properties
+    For Each prp In CurrentDb.Properties
+        Select Case prp.Name
+            Case "Name"         ' Ignore file name property, since this could contain PI and can't be set anyway.
+            Case "Connection"   ' Connection object for ODBCDirect workspaces. Not needed.
+            Case Else
+                Set dItem = New Scripting.Dictionary
+                dItem.Add "Value", prp.Value
+                dItem.Add "Type", prp.Type
+                dCollection.Add prp.Name, dItem
+        End Select
+    Next prp
+    
+    ' Write to file
+    WriteJsonFile Me, dCollection, IDbComponent_SourceFile, "Database Properties (DAO)"
     
 End Sub
 
@@ -86,40 +100,6 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     Set IDbComponent_GetAllFromDB = m_AllItems
         
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ExportProperties
-' Author    : Adam Waller
-' Date      : 1/24/2019
-' Purpose   : Export database properties to a CSV
-'---------------------------------------------------------------------------------------
-'
-Public Sub ExportPropertiesJson()
-    
-    Dim prp As DAO.Property
-    Dim dCollection As Scripting.Dictionary
-    Dim dItem As Scripting.Dictionary
-    
-    Set dCollection = New Scripting.Dictionary
-    
-    ' Loop through all properties
-    For Each prp In CurrentDb.Properties
-        Select Case prp.Name
-            Case "Name"         ' Ignore file name property, since this could contain PI and can't be set anyway.
-            Case "Connection"   ' Connection object for ODBCDirect workspaces. Not needed.
-            Case Else
-                Set dItem = New Scripting.Dictionary
-                dItem.Add "Value", prp.Value
-                dItem.Add "Type", prp.Type
-                dCollection.Add prp.Name, dItem
-        End Select
-    Next prp
-    
-    ' Write to file
-    WriteJsonFile Me, dCollection, IDbComponent_SourceFile, "Database Properties (DAO)"
-    
-End Sub
 
 
 '---------------------------------------------------------------------------------------

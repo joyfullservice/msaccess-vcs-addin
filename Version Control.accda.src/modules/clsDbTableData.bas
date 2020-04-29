@@ -36,11 +36,11 @@ Implements IDbComponent
 Private Sub IDbComponent_Export()
     
     Dim strFile As String
-    Dim strTempFile As String
     Dim dbs As Database
     Dim intFormat As eTableDataExportFormat
 
-    strFile = IDbComponent_SourceFile
+    ' Make sure the path exists.
+    VerifyPath FSO.GetParentFolderName(IDbComponent_SourceFile)
 
     ' Save as selected format, and remove other formats if they exist.
     For intFormat = 1 To eTableDataExportFormat.[_last]

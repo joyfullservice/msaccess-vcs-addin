@@ -58,6 +58,7 @@ Public Sub ExportSource()
         If .UseFastSave Then Log.Add "Using Fast Save"
         Log.Add Now()
         Log.Spacer
+        Log.Flush
     End With
     
     
