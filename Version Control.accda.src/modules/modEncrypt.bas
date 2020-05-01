@@ -67,17 +67,66 @@ End Function
 ' Procedure : Decrypt
 ' Author    : Adam Waller
 ' Date      : 4/24/2020
-' Purpose   : Decrypt the string using the saved key.
+' Purpose   : Decrypt the string using the saved key. (Keep in mind that only part(s) of
+'           : the string may be encrypted.)
 '---------------------------------------------------------------------------------------
 '
-Public Function Decrypt(ByRef strToDecrypt As String) As Boolean
+Public Function Decrypt(strToDecrypt As String) As String
+
+    Dim strSegment As String
+    Dim strTest As String
     Dim strDecrypted As String
-    strDecrypted = DecryptRC4(Mid(UCase(strToDecrypt), 3, Len(strToDecrypt) - 4), GetKey)
-    If Left$(strDecrypted, 3) = "RC4" Then
-        ' Successfully decrypted.
-        strToDecrypt = Mid$(strDecrypted, 4)
-        Decrypt = True
-    End If
+    Dim lngStart As Long
+    Dim lngEnd As Long
+    
+    ' Start search at first character in string
+    lngStart = 1
+    lngEnd = 1
+    
+    ' Loop through each encrypted part of the string
+    Do
+        ' Identify encrypted portion of the string.
+        lngStart = InStr(lngStart, strToDecrypt, "@{")
+    
+        ' Any more tags found?
+        If lngStart < 1 Then
+            If lngEnd < 1 Then
+                ' Might not have been anything to decrypt
+                strDecrypted = strToDecrypt
+            Else
+                ' Add any remaining portion of the string
+                strDecrypted = strDecrypted & Mid(strToDecrypt, lngEnd)
+            End If
+            Exit Do
+        End If
+    
+        ' Add any intermediate text
+        If lngStart > lngEnd Then
+            strDecrypted = strDecrypted & Mid$(strToDecrypt, lngEnd, lngStart - lngEnd)
+        End If
+        
+        ' Look for ending termination
+        lngEnd = InStr(lngStart + 3, strToDecrypt, "}") + 1
+        If lngEnd > 1 Then
+            ' Get full encrypted segment
+            strSegment = Mid$(strToDecrypt, lngStart, lngEnd - lngStart)
+            ' Decrypt this segment.
+            strTest = DecryptRC4(Mid(UCase(strSegment), 3, lngEnd - lngStart - 3), GetKey)
+            If Left$(strTest, 3) = "RC4" Then
+                ' Successfully decrypted.
+                strDecrypted = strDecrypted & Mid$(strTest, 4)
+            Else
+                ' Leave encrypted string
+                strDecrypted = strDecrypted & strSegment
+            End If
+            ' Move to next position
+            lngStart = lngEnd
+        End If
+    Loop
+    
+    ' Return decrypted value
+    Decrypt = strDecrypted
+    
 End Function
 
 
