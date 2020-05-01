@@ -109,7 +109,7 @@ End Sub
 Public Sub Flush()
 
     ' See if the GUI form is loaded.
-    If IsLoaded(acForm, "frmMain") Then
+    If Not m_RichText Is Nothing Then
         With Form_frmMain.txtLog
             m_blnProgressActive = False
             ' Set value, not text to avoid errors with large text strings.
@@ -136,7 +136,9 @@ End Sub
 '
 Public Sub SetConsole(txtRichText As TextBox)
     Set m_RichText = txtRichText
-    m_RichText.AllowAutoCorrect = False
+    If Not m_RichText Is Nothing Then
+        m_RichText.AllowAutoCorrect = False
+    End If
 End Sub
 
 

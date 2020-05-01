@@ -39,7 +39,7 @@ Private Sub IDbComponent_Export()
     With dProject
         .Add "Name", m_Project.Name
         .Add "Description", m_Project.Description
-        .Add "ProjectFile", FSO.GetFileName(m_Project.FileName)
+        .Add "FileName", EncryptPath(m_Project.FileName)
         .Add "FullPath", Encrypt(m_Project.FileName)
         .Add "HelpContextId", m_Project.HelpContextId
         .Add "HelpFile", m_Project.HelpFile

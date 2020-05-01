@@ -17,10 +17,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =17
-    Left =9675
-    Top =2850
-    Right =19035
-    Bottom =9315
+    Left =-17265
+    Top =2430
+    Right =-255
+    Bottom =10335
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1626,6 +1626,7 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdClose_Click()
+    Log.SetConsole Nothing
     DoCmd.Close acForm, Me.Name
 End Sub
 

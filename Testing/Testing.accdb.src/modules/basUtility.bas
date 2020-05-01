@@ -14,7 +14,6 @@ Public Sub RunAfterBuild()
     ' Compile and save VBA code. Should prompt for any errors here.
     DoCmd.RunCommand acCmdCompileAndSaveAllModules
     
-    
 End Sub
 
 

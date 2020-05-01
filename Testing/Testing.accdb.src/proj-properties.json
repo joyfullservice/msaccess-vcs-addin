@@ -2,7 +2,7 @@
  "Info": {
   "Class": "clsDbProjProperty",
   "Description": "Project Properties (Access)",
-  "VCS Version": "2.1.11"
+  "VCS Version": "2.1.23"
  },
  "Items": {
   "ProjectProperty": "TestValue"
