@@ -1,8 +1,0 @@
-2
-color_lookuppeople
-color_lookup
-people
-Field = Begin
-id
-favorite_color
-End

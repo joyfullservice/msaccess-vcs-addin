@@ -1,0 +1,17 @@
+{
+ "Info": {
+  "Class": "clsDbVbeReference",
+  "Description": "VBE References",
+  "VCS Version": "2.1.11"
+ },
+ "Items": {
+  "stdole": {
+   "GUID": "{00020430-0000-0000-C000-000000000046}",
+   "Version": "2.0"
+  },
+  "DAO": {
+   "GUID": "{4AC9E1DA-5BAD-4AC7-86E3-24F4CDCECA28}",
+   "Version": "12.0"
+  }
+ }
+}
