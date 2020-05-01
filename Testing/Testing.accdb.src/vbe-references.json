@@ -12,6 +12,14 @@
   "DAO": {
    "GUID": "{4AC9E1DA-5BAD-4AC7-86E3-24F4CDCECA28}",
    "Version": "12.0"
+  },
+  "VBIDE": {
+   "GUID": "{0002E157-0000-0000-C000-000000000046}",
+   "Version": "5.3"
+  },
+  "VBScript_RegExp_55": {
+   "GUID": "{3F4DACA7-160D-11D2-A8E9-00104B365C9F}",
+   "Version": "5.5"
   }
  }
 }
