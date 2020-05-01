@@ -144,7 +144,7 @@ End Function
 '           : allows either approach to be taken.
 '---------------------------------------------------------------------------------------
 '
-Public Function IDbComponent_SourceModified() As Date
+Private Function IDbComponent_SourceModified() As Date
     If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = FileDateTime(IDbComponent_SourceFile)
 End Function
 
@@ -271,7 +271,7 @@ End Property
 '           : of individual files for each component. (I.e. properties, references)
 '---------------------------------------------------------------------------------------
 '
-Public Property Get IDbComponent_SingleFile() As Boolean
+Private Property Get IDbComponent_SingleFile() As Boolean
 End Property
 
 
