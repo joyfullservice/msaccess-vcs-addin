@@ -14,7 +14,7 @@ Option Explicit
 
 Private m_Ref As VBIDE.Reference
 Private m_Options As clsOptions
-Private m_AllItems As Collection
+Public AllItems As Collection
 
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -35,27 +35,27 @@ Private Sub IDbComponent_Export()
 
     Dim dRef As Scripting.Dictionary
     Dim dItems As Scripting.Dictionary
+    Dim cRef As clsDbVbeReference
     Dim ref As VBIDE.Reference
     
     Set dItems = New Scripting.Dictionary
     
-    ' Loop through references
-    For Each ref In GetVBProjectForCurrentDB.References
+    ' Loop through cached references (Duplicates have already been removed)
+    For Each cRef In Me.AllItems
         Set dRef = New Scripting.Dictionary
+        Set ref = cRef.Parent.DbObject
         With dRef
-            If Not ref.BuiltIn Then
-                If ref.Type = vbext_rk_Project Then
-                    ' references of types mdb,accdb,mde etc don't have a GUID
-                    .Add "File", FSO.GetFileName(ref.FullPath)
-                    .Add "FullPath", Encrypt(ref.FullPath)
-                Else
-                    If ref.GUID <> vbNullString Then .Add "GUID", ref.GUID
-                    .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
-                End If
+            If ref.Type = vbext_rk_Project Then
+                ' references of types mdb,accdb,mde etc don't have a GUID
+                .Add "File", FSO.GetFileName(ref.FullPath)
+                .Add "FullPath", Encrypt(ref.FullPath)
+            Else
+                If ref.GUID <> vbNullString Then .Add "GUID", ref.GUID
+                .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
             End If
         End With
         dItems.Add ref.Name, dRef
-    Next ref
+    Next cRef
     
     ' Write to a json file.
     WriteJsonFile Me, dItems, IDbComponent_SourceFile, "VBE References"
@@ -85,27 +85,37 @@ End Sub
 Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
     
     Dim ref As VBIDE.Reference
-    Dim cRef As IDbComponent
+    Dim cRef As clsDbVbeReference
+    Dim colNames As Collection
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If Me.AllItems Is Nothing Then
     
         ' Use parameter options if provided.
         If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
     
-        Set m_AllItems = New Collection
+        Set Me.AllItems = New Collection
+        Set colNames = New Collection
         For Each ref In GetVBProjectForCurrentDB.References
             If Not ref.BuiltIn Then
                 Set cRef = New clsDbVbeReference
-                Set cRef.DbObject = ref
-                Set cRef.Options = IDbComponent_Options
-                m_AllItems.Add cRef, ref.Name
+                Set cRef.Parent.DbObject = ref
+                ' Export outputs single file, so every item needs a reference
+                ' to the whole collection of references.
+                Set cRef.AllItems = Me.AllItems
+                Set cRef.Parent.Options = IDbComponent_Options
+                ' Don't attempt add two references with the same name.
+                ' (Take the first one, but ignore subsequent ones with the same name.)
+                If Not InCollection(colNames, ref.Name) Then
+                    Me.AllItems.Add cRef, ref.Name
+                    colNames.Add ref.Name
+                End If
             End If
         Next ref
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = Me.AllItems
         
 End Function
 

@@ -15,12 +15,26 @@ Option Explicit
 Private m_Relation As DAO.Relation
 Private m_Options As clsOptions
 Private m_AllItems As Collection
+Private m_Dbs As DAO.Database
+
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
 ' and import process. The implemented functions should be kept private as they are called
 ' from the implementing class, not this class.
 Implements IDbComponent
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Terminate
+' Author    : Adam Waller
+' Date      : 4/30/2020
+' Purpose   : Release reference to current db
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Terminate()
+    Set m_Dbs = Nothing
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -64,7 +78,6 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
     
-    Dim dbs As Database
     Dim rel As Relation
     Dim cRelation As IDbComponent
 
@@ -73,10 +86,14 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
 
         ' Use parameter options if provided.
         If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-        Set dbs = CurrentDb
+        
+        ' Maintain persistent reference to database object so we don't
+        ' lose the reference to the relation object with this procedure
+        ' goes out of scope. (Make sure we release this on termination)
+        Set m_Dbs = CurrentDb
         
         Set m_AllItems = New Collection
-        For Each rel In CurrentDb.Relations
+        For Each rel In m_Dbs.Relations
             ' Navigation pane groups are handled separately
             If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
                 Or rel.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then

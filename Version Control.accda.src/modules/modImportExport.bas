@@ -46,6 +46,7 @@ Public Sub ExportSource()
 
     sngStart = Timer
     Set colVerifiedPaths = New Collection   ' Reset cache
+    VerifyPath cOptions.GetExportFolder
 
     ' Display heading
     With cOptions
@@ -92,7 +93,7 @@ Public Sub ExportSource()
         End If
     End With
     
-    ' Loop through all categ
+    ' Loop through all categories
     For Each cCategory In colContainers
         
         ' Clear any source files for nonexistant objects

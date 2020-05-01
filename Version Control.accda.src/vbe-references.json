@@ -2,13 +2,9 @@
  "Info": {
   "Class": "clsDbVbeReference",
   "Description": "VBE References",
-  "VCS Version": "2.1.7"
+  "VCS Version": "2.1.11"
  },
  "Items": {
-  "VBA": {
-  },
-  "Access": {
-  },
   "stdole": {
    "GUID": "{00020430-0000-0000-C000-000000000046}",
    "Version": "2.0"
