@@ -31,7 +31,7 @@ Private Const SW_SHOWNORMAL = 1
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemLaunch()
-    DoCmd.OpenForm "frmMain"
+    Form_frmMain.Visible = True
 End Function
 
 
@@ -43,7 +43,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemExport()
-    DoCmd.OpenForm "frmMain"
+    Form_frmMain.Visible = True
     DoEvents
     Form_frmMain.cmdExport_Click
 End Function
@@ -97,6 +97,9 @@ Public Function AutoRun()
                         DoCmd.Quit
                     End If
                 End If
+            Else
+                ' Go to visual basic editor, since that is the most likely destination.
+                DoCmd.RunCommand acCmdVisualBasicEditor
             End If
         Else
             ' Not yet installed. Offer to install.
@@ -124,7 +127,6 @@ Private Function InstallVCSAddin()
     
     Dim strSource As String
     Dim strDest As String
-    Dim blnExists As Boolean
     
     strSource = CodeProject.FullName
     strDest = GetAddinFileName
@@ -274,45 +276,40 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     End If
     
     ' Increment build number
-    IncrementBuildVersion ReleaseType
+    IncrementAppVersion ReleaseType
     
     ' List project and new build number
     Debug.Print cstrSpacer
     
     ' Update project description
     VBE.ActiveVBProject.Description = "Version " & AppVersion & " deployed on " & Date
-    Debug.Print " ~ " & VBE.ActiveVBProject.Name & " ~ Version " & AppVersion
-    Debug.Print cstrSpacer
+    
+    ' Save all code modules
+    DoCmd.RunCommand acCmdCompileAndSaveAllModules
+    
+    ' Export the source code to version control
+    ExportSource
+    
+    ' Deploy latest version on this machine
+    If InstallVCSAddin Then Debug.Print "Version " & AppVersion & " installed."
     
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : IncrementBuildVersion
+' Procedure : IncrementAppVersion
 ' Author    : Adam Waller
 ' Date      : 1/6/2017
 ' Purpose   : Increments the build version (1.0.12)
 '---------------------------------------------------------------------------------------
 '
-Public Sub IncrementBuildVersion(ReleaseType As eReleaseType)
-
+Public Sub IncrementAppVersion(ReleaseType As eReleaseType)
     Dim varParts As Variant
-    
     varParts = Split(AppVersion, ".")
-    
-    If UBound(varParts) <> 2 Then
-        Debug.Print "Unexpected version format"
-        Stop
-    End If
-    
-    If Not IsNumeric(varParts(ReleaseType)) Then
-        Debug.Print "Expecting numeric value"
-        Stop
-    Else
-        varParts(ReleaseType) = varParts(ReleaseType) + 1
-        AppVersion = Join(varParts, ".")
-    End If
-
+    varParts(ReleaseType) = varParts(ReleaseType) + 1
+    If ReleaseType < Minor_xVx Then varParts(Minor_xVx) = 0
+    If ReleaseType < Build_xxV Then varParts(Build_xxV) = 0
+    AppVersion = Join(varParts, ".")
 End Sub
 
 
