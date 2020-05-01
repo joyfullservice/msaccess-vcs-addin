@@ -46,13 +46,35 @@ End Sub
 '
 Private Sub IDbComponent_Export()
     
-    Dim strFile As String
-    Dim strTempFile As String
-
-    ' Check for existing file
-    strFile = IDbComponent_SourceFile
-    If FSO.FileExists(strFile) Then Kill strFile
-    ExportRelation m_Relation, strFile
+    Dim dItem As Scripting.Dictionary
+    Dim dField As Scripting.Dictionary
+    Dim colItems As Collection
+    Dim fld As DAO.Field
+    
+    ' Relation properties
+    Set dItem = New Scripting.Dictionary
+    With dItem
+        .Add "Name", m_Relation.Name
+        .Add "Attributes", m_Relation.Attributes
+        .Add "Table", m_Relation.Table
+        .Add "ForeignTable", m_Relation.ForeignTable
+        .Add "PartialReplica", m_Relation.PartialReplica
+    End With
+    
+    ' Fields
+    Set colItems = New Collection
+    For Each fld In m_Relation.Fields
+        Set dField = New Dictionary
+        With dField
+            .Add "Name", fld.Name
+            .Add "ForeignName", fld.ForeignName
+        End With
+        colItems.Add dField
+    Next fld
+    dItem.Add m_Relation.Name, colItems
+    
+    ' Write to json file
+    WriteJsonFile Me, dItem, IDbComponent_SourceFile, "Database relationship"
     
 End Sub
 
@@ -109,43 +131,6 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     Set IDbComponent_GetAllFromDB = m_AllItems
     
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ExportRelation
-' Author    : Adam Waller
-' Date      : 1/24/2019
-' Purpose   : Exports the database table relationships
-'---------------------------------------------------------------------------------------
-'
-Private Sub ExportRelation(rel As Relation, strFile As String)
-
-    Dim cData As New clsConcat
-    Dim fld As DAO.Field
-    
-    With cData
-        .Add rel.Attributes 'RelationAttributeEnum
-        .Add vbCrLf
-        .Add rel.Name
-        .Add vbCrLf
-        .Add rel.Table
-        .Add vbCrLf
-        .Add rel.ForeignTable
-        .Add vbCrLf
-        For Each fld In rel.Fields
-            .Add "Field = Begin"
-            .Add vbCrLf
-            .Add fld.Name
-            .Add vbCrLf
-            .Add fld.ForeignName
-            .Add vbCrLf
-            .Add "End"
-            .Add vbCrLf
-        Next
-    End With
-    WriteFile cData.GetStr, strFile
-    
-End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -247,7 +232,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Collection
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder & "*.txt")
+    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder & "*.json")
 End Function
 
 
@@ -259,7 +244,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-    ClearOrphanedSourceFiles Me, "txt"
+    ClearFilesByExtension IDbComponent_BaseFolder, "txt"
+    ClearOrphanedSourceFiles Me, "json"
 End Function
 
 
@@ -335,7 +321,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetRelationFileName(m_Relation) & ".txt"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetRelationFileName(m_Relation) & ".json"
 End Property
 
 
