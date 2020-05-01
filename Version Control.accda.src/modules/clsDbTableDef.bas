@@ -12,9 +12,10 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private m_Table As AccessObject
+Private m_Table As DAO.TableDef
 Private m_Options As clsOptions
 Private m_AllItems As Collection
+Private m_Dbs
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -34,18 +35,45 @@ Private Sub IDbComponent_Export()
     
     Dim strFile As String
     Dim dbs As Database
-
-    ' Check for existing file
+    Dim tbl As DAO.TableDef
+    Dim idx As DAO.Index
+    Dim dItem As Dictionary
+    
+    Set dbs = CurrentDb
+    Set tbl = dbs.TableDefs(m_Table.Name)
     strFile = IDbComponent_SourceFile
-    If FSO.FileExists(strFile) Then Kill strFile
-    VerifyPath FSO.GetParentFolderName(strFile)
-
-    ' Save structure in XML format
-    Application.ExportXML acExportTable, m_Table.Name, , strFile
-
+    
+    ' For internal tables, we can export them as XML.
+    If tbl.Connect = vbNullString Then
+    
+        ' Check for existing file
+        If FSO.FileExists(strFile) Then Kill strFile
+        VerifyPath FSO.GetParentFolderName(strFile)
+    
+        ' Save structure in XML format
+        Application.ExportXML acExportTable, m_Table.Name, , strFile
+    
+    Else
+        ' Linked table - Save as JSON
+        Set dItem = New Dictionary
+        With dItem
+            .Add "Name", tbl.Name
+            .Add "Connect", Encrypt(tbl.Connect)
+            .Add "SourceTableName", tbl.SourceTableName
+            ' indexes (Find primary key)
+            For Each idx In tbl.Indexes
+                If idx.Primary Then
+                    .Add "PrimaryKey", Replace(CStr(idx.Fields), "+", "")
+                    Exit For
+                End If
+            Next idx
+        End With
+        WriteJsonFile Me, dItem, strFile, "Linked Table"
+    End If
+    
+    
     ' Optionally save in SQL format
     If IDbComponent_Options.SaveTableSQL Then
-        Set dbs = CurrentDb
         Log.Add "  " & m_Table.Name & " (SQL)", IDbComponent_Options.ShowDebug
         SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder
     End If
@@ -288,7 +316,6 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
     
-    Dim dbs As Database
     Dim tdf As TableDef
     Dim cTable As IDbComponent
 
@@ -299,25 +326,19 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
         If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
     
         Set m_AllItems = New Collection
-        Set dbs = CurrentDb
+        Set m_Dbs = CurrentDb
             
-        For Each tdf In dbs.TableDefs
-            ' Skip system, temp, and linked tables
+        For Each tdf In m_Dbs.TableDefs
+            ' Skip system and temp tables
             If Left$(tdf.Name, 4) <> "MSys" Then
                 If Left$(tdf.Name, 1) <> "~" Then
-                    If Len(tdf.connect) = 0 Then
-                        Set cTable = New clsDbTableDef
-                        Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
-                        Set cTable.Options = IDbComponent_Options
-                        m_AllItems.Add cTable, tdf.Name
-                    End If
+                    Set cTable = New clsDbTableDef
+                    Set cTable.DbObject = tdf
+                    Set cTable.Options = IDbComponent_Options
+                    m_AllItems.Add cTable, tdf.Name
                 End If
             End If
         Next tdf
-        
-        Set tdf = Nothing
-        Set dbs = Nothing
-
     End If
 
     ' Return cached collection
@@ -335,6 +356,7 @@ End Function
 '
 Private Function IDbComponent_GetFileList() As Collection
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder & "*.xml")
+    MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder & "*.json")
 End Function
 
 
@@ -346,6 +368,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+    ClearFilesByExtension IDbComponent_BaseFolder, "LNKD"
     ClearOrphanedSourceFiles Me, "LNKD", "bas", "sql", "xml", "tdf", "json"
 End Function
 
@@ -360,7 +383,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = m_Table.DateModified
+    IDbComponent_DateModified = CurrentData.AllTables(m_Table.Name).DateModified
 End Function
 
 
@@ -422,7 +445,12 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".xml"
+    If m_Table.Connect = vbNullString Then
+        IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".xml"
+    Else
+        ' Linked table
+        IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".json"
+    End If
 End Property
 
 
