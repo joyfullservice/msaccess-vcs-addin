@@ -130,7 +130,6 @@ Public Sub LoadOptionsFromFile(strFile As String)
     Dim dOptions As Scripting.Dictionary
     Dim varOption As Variant
     Dim strKey As String
-    Dim varItem As Variant
     
     If FSO.FileExists(strFile) Then
         ' Read file contents

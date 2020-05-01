@@ -17,10 +17,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =99
-    Left =3225
+    Left =-17265
     Top =2430
-    Right =22695
-    Bottom =15015
+    Right =-255
+    Bottom =10335
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -2184,11 +2184,8 @@ Private Function LoadTableList()
     Dim tbl As AccessObject
     Dim blnHidden As Boolean
     Dim blnSystem As Boolean
-    Dim blnShow As Boolean
     Dim blnOther As Boolean
-    Dim intIndex As Integer
     Dim dTable As Dictionary
-    Dim varTable As Variant
     Dim varKey As Variant
     Dim intFormat As eTableDataExportFormat
     Dim strFormat As String
@@ -2245,36 +2242,16 @@ Private Sub AddUpdateTableInList(strName As String, strFormat As String, blnHidd
             ' Check alphabetical position.
             If (varTable(etcName) > strName) Then
                 ' Our saved table should be inserted before this record.
-                m_colTables.Add Array(strName, strFormat, False, False, True), strName, intIndex
+                m_colTables.Add Array(strName, strFormat, blnHidden, blnSystem, blnOther), strName, intIndex
                 Exit Sub
             End If
         End If
     Next intIndex
     
     ' The table might need to be added to the very end of the list.
-    m_colTables.Add Array(strName, strFormat, False, False, True), strName
+    m_colTables.Add Array(strName, strFormat, blnHidden, blnSystem, blnOther), strName
 
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : TableExportFormatNameToEnum
-' Author    : Adam Waller
-' Date      : 4/21/2020
-' Purpose   : Translate the friendly name of the table export format to the enum.
-'---------------------------------------------------------------------------------------
-'
-Private Function TableExportFormatNameToEnum(strKey As String) As eTableDataExportFormat
-    Dim intFormat As eTableDataExportFormat
-    Dim strName As String
-    For intFormat = etdNoData To eTableDataExportFormat.[_last]
-        strName = cOptions.GetTableExportFormatName(intFormat)
-        If strName = strKey Then
-            TableExportFormatNameToEnum = intFormat
-            Exit For
-        End If
-    Next intFormat
-End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -2321,7 +2298,6 @@ End Function
 Private Function RefreshTableDisplay()
     
     Dim varTable As Variant
-    Dim varValue As Variant
     Dim blnShow As Boolean
     
     ' Update the list box of table names from the collection.

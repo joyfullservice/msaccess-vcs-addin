@@ -76,9 +76,8 @@ Private Sub IDbComponent_Export()
     
     ' Export print vars if selected
     If IDbComponent_Options.SavePrintVars Then
-        '// TODO: Move the print vars into this class and change to json file for output.
         strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Report.Name) & ".json"
-        ExportPrintVars m_Report.Name, strFile, IDbComponent_Options
+        ExportPrintVars m_Report.Name, strFile
     End If
     
 End Sub
@@ -92,7 +91,7 @@ End Sub
 '           : https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportPrintVars(strReport As String, strFile As String, cOptions As clsOptions)
+Public Sub ExportPrintVars(strReport As String, strFile As String)
 
     Dim DevModeString As str_DEVMODE
     Dim DevModeExtra As String

@@ -36,7 +36,6 @@ Implements IDbComponent
 Private Sub IDbComponent_Export()
     
     Dim strFile As String
-    Dim dbs As Database
     Dim intFormat As eTableDataExportFormat
 
     ' Make sure the path exists.

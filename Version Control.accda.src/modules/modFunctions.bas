@@ -232,7 +232,6 @@ Public Sub SanitizeXML(strPath As String, cOptions As clsOptions)
     Dim strText As String
     Dim rxLine As VBScript_RegExp_55.RegExp
     Dim objMatches As VBScript_RegExp_55.MatchCollection
-    Dim blnIsReport As Boolean
     Dim stmInFile As Scripting.TextStream
     Dim blnFound As Boolean
     
@@ -248,7 +247,6 @@ Public Sub SanitizeXML(strPath As String, cOptions As clsOptions)
     ' Set line search pattern (To remove generated timestamp)
     '<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" generated="2020-04-27T10:28:32">
     rxLine.Pattern = "^\s*(?:<dataroot xmlns:(.+))( generated="".+"")"
-    'rxLine.Pattern = "^\s*(?:<dataroot xmlns:(.+))( generated="".+"")"
     
     ' Open file to read contents line by line.
     Set stmInFile = FSO.OpenTextFile(strPath, ForReading)
@@ -347,7 +345,6 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     Dim oFile As Scripting.File
     Dim colNames As Collection
     Dim strFile As String
-    Dim varName As Variant
     Dim varExt As Variant
     Dim strPrimaryExt As String
     Dim cItem As IDbComponent
@@ -577,8 +574,6 @@ Public Function CloseAllFormsReports() As Boolean
     Dim strName As String
     Dim intOpened As Integer
     Dim intItem As Integer
-    Dim frm As Form
-    Dim rpt As Report
     
     ' Get count of opened objects
     intOpened = Forms.Count + Reports.Count
@@ -1133,33 +1128,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : TimerIcon
-' Author    : Adam Waller
-' Date      : 4/16/2020
-' Purpose   : Return the next increment of a timer icon, updating no more than a half
-'           : second between increments.
-'           : https://emojipedia.org/search/?q=clock
-'---------------------------------------------------------------------------------------
-'
-Public Function TimerIcon() As String
-    
-    Static intHour As Integer
-    Static sngLast As Single
-    
-    Dim strClocks As String
-    
-    ' Build list of clock characters
-    ' (Need to figure out the AscW value for the clock characters)
-    
-    If (Timer - sngLast > 0.5) Or (Timer < sngLast) Then
-        If intHour = 12 Then intHour = 0
-        intHour = intHour + 1
-    End If
-    
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetVBProjectForCurrentDB
 ' Author    : Adam Waller
 ' Date      : 7/25/2017
@@ -1326,7 +1294,6 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
     Dim strTypeFilter As String
     Dim intPos As Integer
     Dim strSchema As String
-    Dim strSchemaFilter As String
     Dim varItem As Variant
     Dim strType As String
     

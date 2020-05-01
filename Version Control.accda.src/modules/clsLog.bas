@@ -52,7 +52,6 @@ End Sub
 '
 Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional blnNextOutputOnNewLine As Boolean = True)
 
-    Dim strLine As String
     Dim strHtml As String
     
     ' Add to log file output

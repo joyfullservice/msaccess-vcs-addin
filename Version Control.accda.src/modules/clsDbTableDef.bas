@@ -33,7 +33,6 @@ Implements IDbComponent
 Private Sub IDbComponent_Export()
     
     Dim strFile As String
-    Dim strTempFile As String
     Dim dbs As Database
 
     ' Check for existing file
@@ -48,7 +47,7 @@ Private Sub IDbComponent_Export()
     If IDbComponent_Options.SaveTableSQL Then
         Set dbs = CurrentDb
         Log.Add "  " & m_Table.Name & " (SQL)", IDbComponent_Options.ShowDebug
-        SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder, IDbComponent_Options
+        SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder
     End If
 
 End Sub
@@ -62,7 +61,7 @@ End Sub
 '           : (Makes it easier to see table changes in version control systems.)
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As String, cOptions As clsOptions)
+Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As String)
 
     Dim cData As New clsConcat
     Dim cAttr As New clsConcat
