@@ -41,6 +41,9 @@ Private Sub IDbComponent_Export()
     For Each prp In CurrentProject.Properties
         Select Case prp.Name
             Case "zzzz":    ' Add exceptions here.
+            Case "AppIcon"
+                ' ADP projects may have this property
+                dCollection.Add prp.Name, EncryptPath(prp.Value)
             Case Else
                 dCollection.Add prp.Name, prp.Value
         End Select
