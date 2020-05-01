@@ -35,17 +35,24 @@ Private Sub IDbComponent_Export()
     Dim prp As DAO.Property
     Dim dCollection As Scripting.Dictionary
     Dim dItem As Scripting.Dictionary
+    Dim varValue As Variant
     
     Set dCollection = New Scripting.Dictionary
     
     ' Loop through all properties
     For Each prp In CurrentDb.Properties
         Select Case prp.Name
-            Case "Name"         ' Ignore file name property, since this could contain PI and can't be set anyway.
             Case "Connection"   ' Connection object for ODBCDirect workspaces. Not needed.
             Case Else
+                varValue = prp.Value
+                If prp.Name = "AppIcon" Or prp.Name = "Name" Then
+                    If Len(varValue) > 0 Then
+                        ' The full path may contain sensitive info. Encrypt the path but not the file name.
+                        varValue = EncryptPath(CStr(varValue))
+                    End If
+                End If
                 Set dItem = New Scripting.Dictionary
-                dItem.Add "Value", prp.Value
+                dItem.Add "Value", varValue
                 dItem.Add "Type", prp.Type
                 dCollection.Add prp.Name, dItem
         End Select

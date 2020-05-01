@@ -586,7 +586,7 @@ Public Function CloseAllFormsReports() As Boolean
         On Error GoTo ErrorHandler
         ' Loop through forms
         For intItem = Forms.Count - 1 To 0 Step -1
-            If Forms(intItem).Name <> "frmMain" Then
+            If Forms(intItem).Caption <> "MSAccessVCS" Then
                 DoCmd.Close acForm, Forms(intItem).Name
                 DoEvents
             End If
@@ -1497,3 +1497,15 @@ Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFi
     End If
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EncryptPath
+' Author    : Adam Waller
+' Date      : 5/1/2020
+' Purpose   : Encrypts just the folder path, not the filename.
+'---------------------------------------------------------------------------------------
+'
+Public Function EncryptPath(strPath As String) As String
+    EncryptPath = Encrypt(FSO.GetParentFolderName(strPath)) & "\" & FSO.GetFileName(strPath)
+End Function
