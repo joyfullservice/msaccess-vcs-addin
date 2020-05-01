@@ -17,10 +17,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =99
-    Left =-17265
+    Left =3225
     Top =2430
-    Right =-255
-    Bottom =10335
+    Right =28545
+    Bottom =15015
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -2185,7 +2185,6 @@ Private Function LoadTableList()
     Dim blnHidden As Boolean
     Dim blnSystem As Boolean
     Dim blnOther As Boolean
-    Dim dTable As Dictionary
     Dim varKey As Variant
     Dim intFormat As eTableDataExportFormat
     Dim strFormat As String

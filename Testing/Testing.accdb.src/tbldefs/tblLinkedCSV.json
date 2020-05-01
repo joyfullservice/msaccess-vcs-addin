@@ -1,0 +1,12 @@
+{
+ "Info": {
+  "Class": "clsDbTableDef",
+  "Description": "Linked Table",
+  "VCS Version": "2.1.31"
+ },
+ "Items": {
+  "Name": "tblLinkedCSV",
+  "Connect": "@{515a52adf7443d9b5c91edf1781867153a725120204fd4df01d9891b18f33aa9650ff0f5154c479244cf3ff08dc32c9539b5ae13e55d4bfd31a1db318828893f977e94e52c9b01204458ed070e46ccf598431b6159dae05d1a80b63ce9dd9b5125969834e455397e4b85a482f1fa89c5a47eccd3c713d5e7d33f736f677a1a53cee06f1de0a30496a36f9efeae0b702455870d4bcc5742d98bd4eae1ab8d36240dda}",
+  "SourceTableName": "Linked.csv"
+ }
+}
