@@ -264,7 +264,8 @@ End Function
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
     ClearFilesByExtension IDbComponent_BaseFolder, "pv"
-    ClearOrphanedSourceFiles Me, "rpt", "json"
+    If Not IDbComponent_Options.SavePrintVars Then ClearFilesByExtension IDbComponent_BaseFolder, "json"
+    ClearOrphanedSourceFiles Me, "bas", "json"
 End Function
 
 
