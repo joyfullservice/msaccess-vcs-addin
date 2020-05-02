@@ -2,7 +2,7 @@
  "Info": {
   "Class": "clsDbProperty",
   "Description": "Database Properties (DAO)",
-  "VCS Version": "3.0.0"
+  "VCS Version": "3.0.1"
  },
  "Items": {
   "Name": {
@@ -158,7 +158,7 @@
    "Type": 4
   },
   "AppVersion": {
-   "Value": "3.0.0",
+   "Value": "3.0.1",
    "Type": 10
   },
   "ClickOnce Deployment": {
@@ -166,7 +166,7 @@
    "Type": 10
   },
   "Last VCS Version": {
-   "Value": "3.0.0",
+   "Value": "3.0.1",
    "Type": 10
   },
   "WebDesignMode": {
@@ -194,7 +194,7 @@
    "Type": 10
   },
   "Last VCS Export": {
-   "Value": "5/1/2020 7:03:13 PM",
+   "Value": "5/2/2020 9:19:31 AM",
    "Type": 10
   }
  }

@@ -127,35 +127,40 @@ End Function
 '
 Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String)
 
+    Dim stmNew As ADODB.Stream
+    Dim strText As String
+
     ' Make sure the path exists before we write a file.
     VerifyPath FSO.GetParentFolderName(strDestinationFile)
 
+    ' Check the first couple characters in the file for a UCS BOM.
     If FileIsUCS2Format(strSourceFile) Then
-        Dim stmNew As Object
-        Set stmNew = CreateObject("ADODB.Stream")
-        Dim strText As String
-        
-        ' Read file contents
+    
+        ' Read file contents and delete (temp) source file
         With FSO.OpenTextFile(strSourceFile, , , TristateTrue)
             strText = .ReadAll
             .Close
         End With
+        Kill strSourceFile
         
         ' Write as UTF-8
+        Set stmNew = New ADODB.Stream
         With stmNew
             .Open
-            .Type = 2 'adTypeText
+            .Type = adTypeText
             .Charset = "utf-8"
             .WriteText strText
-            .SaveToFile strDestinationFile, 2 'adSaveCreateOverWrite
+            .SaveToFile strDestinationFile, adSaveCreateOverWrite
             .Close
         End With
         
         Set stmNew = Nothing
     Else
-        ' No conversion needed, send to destination as is
-        FSO.CopyFile strSourceFile, strDestinationFile
+        ' No conversion needed, move to destination.
+        If FSO.FileExists(strDestinationFile) Then Kill strDestinationFile
+        FSO.MoveFile strSourceFile, strDestinationFile
     End If
+    
 End Sub
 
 
@@ -167,13 +172,14 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String)
+
+    Dim stmNew As ADODB.Stream
+    Dim strText As String
+
     If FileIsUCS2Format(strSourceFile) Then
         ' No conversion needed, send to destination as is
         FSO.CopyFile strSourceFile, strDestinationFile
     Else
-        Dim stmNew As Object
-        Set stmNew = CreateObject("ADODB.Stream")
-        Dim strText As String
         
         ' Read file contents
         With FSO.OpenTextFile(strSourceFile, , , TristateFalse)
@@ -182,17 +188,19 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
         End With
         
         ' Write as UCS-2 LE (BOM)
+        Set stmNew = New ADODB.Stream
         With stmNew
             .Open
-            .Type = 2 'adTypeText
+            .Type = adTypeText
             .Charset = "unicode"  ' The original Windows "Unicode" was UCS-2
             .WriteText strText
-            .SaveToFile strDestinationFile, 2  'adSaveCreateOverWrite
+            .SaveToFile strDestinationFile, adSaveCreateOverWrite
             .Close
         End With
         
         Set stmNew = Nothing
     End If
+    
 End Sub
 
 

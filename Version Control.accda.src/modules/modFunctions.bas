@@ -74,7 +74,7 @@ Private m_FSO As Scripting.FileSystemObject
 '---------------------------------------------------------------------------------------
 '
 Public Sub SanitizeFile(strPath As String, cOptions As clsOptions)
-
+    
     Dim sngOverall As Single
     Dim sngTimer As Single
     Dim cData As New clsConcat
@@ -132,16 +132,16 @@ Public Sub SanitizeFile(strPath As String, cOptions As clsOptions)
     
     ' Open file to read contents line by line.
     Set stmInFile = FSO.OpenTextFile(strPath, ForReading)
+    
+    ' Skip past UTF-8 BOM header
+    strText = stmInFile.ReadLine
+    If Left(strText, 3) = "﻿" Then strText = Mid(strText, 4)
 
-    blnGetLine = True
+    ' Loop through lines in file
     Do Until stmInFile.AtEndOfStream
     
-        ' Only call DoEvents once per second.
-        ' (Drastic performance gains)
-        If Timer - sngTimer > 1 Then
-            DoEvents
-            sngTimer = Timer
-        End If
+        ' Show progress increment during longer conversions
+        Log.Increment
     
         ' Check if we need to get a new line of text
         If blnGetLine Then
@@ -1442,25 +1442,26 @@ End Property
 '           : and then removes any existing file before saving the object as text.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFile As String, Optional ConvertUCS As Boolean = False)
+Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFile As String, cOptions As clsOptions)
     
     Dim strTempFile As String
     
     ' Make sure the path exists before we write a file.
     VerifyPath FSO.GetParentFolderName(strFile)
-
-    ' Remove any existing file before saving the new one.
-    If FSO.FileExists(strFile) Then Kill strFile
+        
+    ' Export to temporary file
+    strTempFile = GetTempFile
+    Application.SaveAsText intType, strName, strTempFile
     
-    If ConvertUCS Then
-        ' Convert UCS to UTF-8
-        strTempFile = GetTempFile
-        Application.SaveAsText intType, strName, strTempFile
-        ConvertUcs2Utf8 strTempFile, strFile
-        Kill strTempFile
-    Else
-        ' No conversion needed
-        Application.SaveAsText intType, strName, strFile
+    ' Handle UCS conversion if needed
+    ConvertUcs2Utf8 strTempFile, strFile
+    
+    ' Sanitize certain object types for accdb files
+    If CurrentProject.ProjectType = acMDB Then
+        Select Case intType
+            Case acForm, acReport, acQuery, acMacro
+                SanitizeFile strFile, cOptions
+        End Select
     End If
     
 End Sub

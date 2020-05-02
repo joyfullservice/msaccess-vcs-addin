@@ -1,4 +1,4 @@
-﻿ï»¿Version =20
+Version =20
 VersionRequired =20
 Begin Form
     PopUp = NotDefault

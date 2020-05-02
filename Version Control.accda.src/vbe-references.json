@@ -2,7 +2,7 @@
  "Info": {
   "Class": "clsDbVbeReference",
   "Description": "VBE References",
-  "VCS Version": "3.0.0"
+  "VCS Version": "3.0.1"
  },
  "Items": {
   "stdole": {

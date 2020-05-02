@@ -31,8 +31,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    SaveComponentAsText acMacro, m_Macro.Name, IDbComponent_SourceFile, (CurrentProject.ProjectType = acMDB)
-    SanitizeFile IDbComponent_SourceFile, IDbComponent_Options
+    SaveComponentAsText acMacro, m_Macro.Name, IDbComponent_SourceFile, IDbComponent_Options
 End Sub
 
 

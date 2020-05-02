@@ -31,7 +31,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    SaveComponentAsText acModule, m_Module.Name, IDbComponent_SourceFile
+    SaveComponentAsText acModule, m_Module.Name, IDbComponent_SourceFile, IDbComponent_Options
 End Sub
 
 

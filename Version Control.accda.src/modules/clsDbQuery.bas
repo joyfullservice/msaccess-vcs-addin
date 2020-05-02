@@ -37,8 +37,7 @@ Private Sub IDbComponent_Export()
     Dim dbs As DAO.Database
 
     ' Save and sanitize file
-    SaveComponentAsText acQuery, m_Query.Name, IDbComponent_SourceFile, (CurrentProject.ProjectType = acMDB)
-    SanitizeFile IDbComponent_SourceFile, IDbComponent_Options
+    SaveComponentAsText acQuery, m_Query.Name, IDbComponent_SourceFile, IDbComponent_Options
     
     ' Export as SQL (if using that option)
     If IDbComponent_Options.SaveQuerySQL Then

@@ -32,7 +32,7 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     ' Save structure in XML format
-    SaveComponentAsText acTableDataMacro, m_Table.Name, IDbComponent_SourceFile
+    SaveComponentAsText acTableDataMacro, m_Table.Name, IDbComponent_SourceFile, IDbComponent_Options
 End Sub
 
 

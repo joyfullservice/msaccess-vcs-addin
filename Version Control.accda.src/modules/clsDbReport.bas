@@ -71,8 +71,7 @@ Private Sub IDbComponent_Export()
     Dim strFile As String
     
     ' Export main report object
-    SaveComponentAsText acReport, m_Report.Name, IDbComponent_SourceFile, (CurrentProject.ProjectType = acMDB)
-    SanitizeFile IDbComponent_SourceFile, IDbComponent_Options
+    SaveComponentAsText acReport, m_Report.Name, IDbComponent_SourceFile, IDbComponent_Options
     
     ' Export print vars if selected
     If IDbComponent_Options.SavePrintVars Then
