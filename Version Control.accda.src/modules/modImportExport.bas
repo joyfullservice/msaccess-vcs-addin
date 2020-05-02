@@ -15,7 +15,6 @@ Public Sub ExportSource()
     Dim colContainers As Collection
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
-    Dim cOptions As clsOptions
     Dim sngStart As Single
     Dim blnFullExport As Boolean
     
@@ -29,12 +28,12 @@ Public Sub ExportSource()
         End If
     End If
     
-    ' Load the project options and reset the logs
-    Set cOptions = LoadOptions
+    ' Reload the project options and reset the logs
+    Set Options = Nothing
     Log.Clear
 
     ' Run any custom sub before export
-    If cOptions.RunBeforeExport <> vbNullString Then RunSubInCurrentProject cOptions.RunBeforeExport
+    If Options.RunBeforeExport <> vbNullString Then RunSubInCurrentProject Options.RunBeforeExport
 
     ' Save property with the version of Version Control we used for the export.
     If GetDBProperty("Last VCS Version") <> GetVCSVersion Then
@@ -46,10 +45,10 @@ Public Sub ExportSource()
 
     sngStart = Timer
     Set colVerifiedPaths = New Collection   ' Reset cache
-    VerifyPath cOptions.GetExportFolder
+    VerifyPath Options.GetExportFolder
 
     ' Display heading
-    With cOptions
+    With Options
         '.ShowDebug = True
         '.UseFastSave = False
         Log.Spacer
@@ -101,29 +100,29 @@ Public Sub ExportSource()
             
         ' Only show category details when it contains objects
         If cCategory.Count = 0 Then
-            Log.Spacer cOptions.ShowDebug
-            Log.Add "No " & cCategory.Category & " found in this database.", cOptions.ShowDebug
+            Log.Spacer Options.ShowDebug
+            Log.Add "No " & cCategory.Category & " found in this database.", Options.ShowDebug
         Else
             ' Show category header and clear out any orphaned files.
-            Log.Spacer cOptions.ShowDebug
-            Log.PadRight "Exporting " & cCategory.Category & "...", , cOptions.ShowDebug
+            Log.Spacer Options.ShowDebug
+            Log.PadRight "Exporting " & cCategory.Category & "...", , Options.ShowDebug
 
             ' Loop through each object in this category.
-            For Each cDbObject In cCategory.GetAllFromDB(cOptions)
+            For Each cDbObject In cCategory.GetAllFromDB()
                 
                 ' Check for fast save option
-                If cOptions.UseFastSave And Not blnFullExport Then
+                If Options.UseFastSave And Not blnFullExport Then
                     If HasMoreRecentChanges(cDbObject) Then
                         Log.Increment
-                        Log.Add "  " & cDbObject.Name, cOptions.ShowDebug
+                        Log.Add "  " & cDbObject.Name, Options.ShowDebug
                         cDbObject.Export
                     Else
-                        Log.Add "  (Skipping '" & cDbObject.Name & "')", cOptions.ShowDebug
+                        Log.Add "  (Skipping '" & cDbObject.Name & "')", Options.ShowDebug
                     End If
                 Else
                     ' Always export object
                     Log.Increment
-                    Log.Add "  " & cDbObject.Name, cOptions.ShowDebug
+                    Log.Add "  " & cDbObject.Name, Options.ShowDebug
                     cDbObject.Export
                 End If
                     
@@ -134,7 +133,7 @@ Public Sub ExportSource()
             Next cDbObject
             
             ' Show category wrap-up.
-            Log.Add "[" & cCategory.Count & "]" & IIf(cOptions.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
+            Log.Add "[" & cCategory.Count & "]" & IIf(Options.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
             'Log.Flush  ' Gives smoother output, but slows down export.
             
         End If
@@ -143,15 +142,15 @@ Public Sub ExportSource()
     ' Show final output and save log
     Log.Spacer
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
-    Log.SaveFile cOptions.GetExportFolder & "\Export.log"
+    Log.SaveFile Options.GetExportFolder & "\Export.log"
     
     ' Restore original fast save option, and save options with project
-    cOptions.SaveOptionsForProject
+    Options.SaveOptionsForProject
     
     ' Clear reference to FileSystemObject
     Set FSO = Nothing
     
     ' Run any custom sub before export
-    If cOptions.RunAfterExport <> vbNullString Then RunSubInCurrentProject cOptions.RunAfterExport
+    If Options.RunAfterExport <> vbNullString Then RunSubInCurrentProject Options.RunAfterExport
 
 End Sub

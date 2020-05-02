@@ -13,7 +13,6 @@ Option Compare Database
 Option Explicit
 
 Private m_Relation As DAO.Relation
-Private m_Options As clsOptions
 Private m_AllItems As Collection
 Private m_Dbs As DAO.Database
 
@@ -98,17 +97,14 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
+Private Function IDbComponent_GetAllFromDB() As Collection
     
     Dim rel As Relation
     Dim cRelation As IDbComponent
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
-
-        ' Use parameter options if provided.
-        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-        
+    
         ' Maintain persistent reference to database object so we don't
         ' lose the reference to the relation object with this procedure
         ' goes out of scope. (Make sure we release this on termination)
@@ -121,7 +117,6 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
                 Or rel.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
                 Set cRelation = New clsDbRelation
                 Set cRelation.DbObject = rel
-                Set cRelation.Options = IDbComponent_Options
                 m_AllItems.Add cRelation, rel.Name
             End If
         Next rel
@@ -297,7 +292,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "relations\"
+    IDbComponent_BaseFolder = Options.GetExportFolder & "relations\"
 End Property
 
 
@@ -359,22 +354,6 @@ End Property
 Private Sub IDbComponent_Upgrade()
     ' No upgrade needed.
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Options
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return or set the options being used in this context.
-'---------------------------------------------------------------------------------------
-'
-Private Property Get IDbComponent_Options() As clsOptions
-    If m_Options Is Nothing Then Set m_Options = LoadOptions
-    Set IDbComponent_Options = m_Options
-End Property
-Private Property Set IDbComponent_Options(ByVal RHS As clsOptions)
-    Set m_Options = RHS
-End Property
 
 
 '---------------------------------------------------------------------------------------

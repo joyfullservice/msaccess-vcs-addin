@@ -17,16 +17,6 @@ Option Explicit
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Options
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return or set the options being used in this context.
-'---------------------------------------------------------------------------------------
-'
-Public Options As clsOptions
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : DbObject
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -76,7 +66,7 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetAllFromDB(Optional cOptions As clsOptions) As Collection
+Public Function GetAllFromDB() As Collection
 End Function
 
 

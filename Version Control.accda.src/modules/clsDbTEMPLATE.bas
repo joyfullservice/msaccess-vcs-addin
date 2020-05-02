@@ -13,7 +13,6 @@ Option Compare Database
 Option Explicit
 
 'Private m_Form As AccessObject
-Private m_Options As clsOptions
 Private m_AllItems As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -49,7 +48,7 @@ Private Sub IDbComponent_Export()
 '        ConvertUcs2Utf8 strTempFile, strFile
 '        Kill strTempFile
 '    End If
-'    SanitizeFile strFile, IDbComponent_Options
+'    SanitizeFile strFile, Options
     
 End Sub
 
@@ -73,7 +72,7 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
+Private Function IDbComponent_GetAllFromDB() As Collection
     
 '    Dim frm As AccessObject
 '    Dim cForm As IDbComponent
@@ -82,13 +81,13 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
 '    If m_AllItems Is Nothing Then
 '
 '        ' Use parameter options if provided.
-'        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
+'        If Not Options Is Nothing Then Set Options = Options
 '
 '        Set m_AllItems = New Collection
 '        For Each frm In CurrentProject.AllForms
 '            Set cForm = New
 '            Set cForm.DbObject = frm
-'            Set cForm.Options = IDbComponent_Options
+'            Set cForm.Options = Options
 '            m_AllItems.Add cForm, frm.Name
 '        Next frm
 '
@@ -172,7 +171,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    'IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "forms\"
+    'IDbComponent_BaseFolder = Options.GetExportFolder & "forms\"
 End Property
 
 
@@ -234,22 +233,6 @@ End Property
 Private Sub IDbComponent_Upgrade()
     ' No upgrade needed.
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Options
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return or set the options being used in this context.
-'---------------------------------------------------------------------------------------
-'
-Private Property Get IDbComponent_Options() As clsOptions
-    If m_Options Is Nothing Then Set m_Options = LoadOptions
-    Set IDbComponent_Options = m_Options
-End Property
-Private Property Set IDbComponent_Options(ByVal RHS As clsOptions)
-    Set m_Options = RHS
-End Property
 
 
 '---------------------------------------------------------------------------------------

@@ -13,7 +13,6 @@ Option Compare Database
 Option Explicit
 
 Private m_Table As AccessObject
-Private m_Options As clsOptions
 Private m_AllItems As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -100,22 +99,17 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
+Private Function IDbComponent_GetAllFromDB() As Collection
     
     Dim tbl As AccessObject
     Dim cTable As IDbComponent
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
-
-        ' Use parameter options if provided.
-        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-    
         Set m_AllItems = New Collection
         For Each tbl In CurrentData.AllTables
             Set cTable = New clsAdpTable
             Set cTable.DbObject = tbl
-            Set cTable.Options = IDbComponent_Options
             m_AllItems.Add cTable, tbl.Name
         Next tbl
     End If
@@ -199,7 +193,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "sqltables\"
+    IDbComponent_BaseFolder = Options.GetExportFolder & "sqltables\"
 End Property
 
 
@@ -261,22 +255,6 @@ End Property
 Private Sub IDbComponent_Upgrade()
     ' No upgrade needed.
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Options
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return or set the options being used in this context.
-'---------------------------------------------------------------------------------------
-'
-Private Property Get IDbComponent_Options() As clsOptions
-    If m_Options Is Nothing Then Set m_Options = LoadOptions
-    Set IDbComponent_Options = m_Options
-End Property
-Private Property Set IDbComponent_Options(ByVal RHS As clsOptions)
-    Set m_Options = RHS
-End Property
 
 
 '---------------------------------------------------------------------------------------

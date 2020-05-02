@@ -58,8 +58,9 @@ Public Enum eDatabaseComponentType
 End Enum
 
 
-' Logging class
+' Logging and options classes
 Private m_Log As clsLog
+Private m_Options As clsOptions
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -73,7 +74,7 @@ Private m_FSO As Scripting.FileSystemObject
 ' Purpose   : Sanitize the text file (forms and reports)
 '---------------------------------------------------------------------------------------
 '
-Public Sub SanitizeFile(strPath As String, cOptions As clsOptions)
+Public Sub SanitizeFile(strPath As String)
     
     Dim sngOverall As Single
     Dim sngTimer As Single
@@ -101,9 +102,9 @@ Public Sub SanitizeFile(strPath As String, cOptions As clsOptions)
     With cPattern
     
         '  Match PrtDevNames / Mode with or without W
-        If cOptions.AggressiveSanitize Then .Add "(?:"
+        If Options.AggressiveSanitize Then .Add "(?:"
         .Add "PrtDev(?:Names|Mode)[W]?"
-        If cOptions.AggressiveSanitize Then
+        If Options.AggressiveSanitize Then
           '  Add and group aggressive matches
           .Add "|GUID|""GUID""|NameMap|dbLongBinary ""DOL"""
           .Add ")"
@@ -120,7 +121,7 @@ Public Sub SanitizeFile(strPath As String, cOptions As clsOptions)
         .Add "^\s*(?:"
         .Add "Checksum ="
         .Add "|BaseInfo|NoSaveCTIWhenDisabled =1"
-        If cOptions.StripPublishOption Then
+        If Options.StripPublishOption Then
             .Add "|dbByte ""PublishToWeb"" =""1"""
             .Add "|PublishOption =1"
         End If
@@ -212,7 +213,7 @@ Public Sub SanitizeFile(strPath As String, cOptions As clsOptions)
     WriteFile cData.GetStr, strPath
 
     ' Show stats if debug turned on.
-    Log.Add "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cOptions.ShowDebug
+    Log.Add "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", Options.ShowDebug
 
 End Sub
 
@@ -224,7 +225,7 @@ End Sub
 ' Purpose   : Remove non-essential data that changes every time the file is exported.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SanitizeXML(strPath As String, cOptions As clsOptions)
+Public Sub SanitizeXML(strPath As String, Options As clsOptions)
 
     Dim sngOverall As Single
     Dim sngTimer As Single
@@ -286,7 +287,7 @@ Public Sub SanitizeXML(strPath As String, cOptions As clsOptions)
     WriteFile cData.GetStr, strPath
 
     ' Show stats if debug turned on.
-    Log.Add "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", cOptions.ShowDebug
+    Log.Add "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", Options.ShowDebug
 
 End Sub
 
@@ -376,7 +377,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
                 If Not InCollection(colNames, strFile) Then
                     ' Object not found in database. Remove file.
                     Kill oFile.ParentFolder.Path & "\" & oFile.Name
-                    Log.Add "  Removing orphaned file: " & strFile, cType.Options.ShowDebug
+                    Log.Add "  Removing orphaned file: " & strFile, Options.ShowDebug
                 End If
                 
                 ' No need to check other extensions since we
@@ -1093,12 +1094,33 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function LoadOptions() As clsOptions
-    Dim cOptions As clsOptions
-    Set cOptions = New clsOptions
-    cOptions.LoadDefaultOptions
-    cOptions.LoadProjectOptions
-    Set LoadOptions = cOptions
+    Dim Options As clsOptions
+    Set Options = New clsOptions
+    Options.LoadDefaultOptions
+    Options.LoadProjectOptions
+    Set LoadOptions = Options
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Options
+' Author    : Adam Waller
+' Date      : 5/2/2020
+' Purpose   : A global property to access options from anywhere in code.
+'           : (Avoiding a global state is better OO programming, but this approach keeps
+'           :  the coding simpler when you don't have to tie everything back to the
+'           :  primary object.) I.e. You can just use `Encrypt("text")` instead of
+'           :  having to use `Options.Encrypt("text")`
+'           : To clear the current set of options, simply set the property to nothing.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Options() As clsOptions
+    If m_Options Is Nothing Then Set m_Options = LoadOptions
+    Set Options = m_Options
+End Property
+Public Property Set Options(cNewOptions As clsOptions)
+    Set m_Options = cNewOptions
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -1442,7 +1464,7 @@ End Property
 '           : and then removes any existing file before saving the object as text.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFile As String, cOptions As clsOptions)
+Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFile As String)
     
     Dim strTempFile As String
     
@@ -1459,7 +1481,7 @@ Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFi
     ' Sanitize certain object types
     Select Case intType
         Case acForm, acReport, acQuery, acMacro
-            SanitizeFile strFile, cOptions
+            SanitizeFile strFile
     End Select
     
 End Sub

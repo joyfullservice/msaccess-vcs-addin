@@ -15,9 +15,7 @@ Option Explicit
 Public Format As eTableDataExportFormat
 
 Private m_Table As AccessObject
-Private m_Options As clsOptions
 Private m_AllItems As Collection
-
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -52,7 +50,7 @@ Private Sub IDbComponent_Export()
                 Case etdTabDelimited:   ExportTableData m_Table.Name
                 Case etdXML:
                     Application.ExportXML acExportTable, m_Table.Name, strFile
-                    SanitizeXML strFile, IDbComponent_Options
+                    SanitizeXML strFile, Options
             End Select
         End If
     Next intFormat
@@ -174,7 +172,7 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
+Private Function IDbComponent_GetAllFromDB() As Collection
     
     Dim tbl As AccessObject
     Dim cTable As clsDbTableData
@@ -182,24 +180,20 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
-        
-        ' Use parameter options if provided.
-        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
         Set m_AllItems = New Collection
-    
+        
         ' No need to go any further if we don't have any saved tables defined
-        If IDbComponent_Options.TablesToExportData.Count > 0 Then
+        If Options.TablesToExportData.Count > 0 Then
             
             ' We have at least one table defined. Loop through the tables looking
             ' for a matching name.
-            With IDbComponent_Options
+            With Options
                 For Each tbl In CurrentData.AllTables
                     If .TablesToExportData.Exists(tbl.Name) Then
                         Set cTable = New clsDbTableData
                         cTable.Format = .GetTableExportFormat(CStr(.TablesToExportData(tbl.Name)("Format")))
                         Set cComponent = cTable
                         Set cComponent.DbObject = tbl
-                        Set cComponent.Options = IDbComponent_Options
                         m_AllItems.Add cComponent, tbl.Name
                     End If
                 Next tbl
@@ -305,7 +299,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "tables\"
+    IDbComponent_BaseFolder = Options.GetExportFolder & "tables\"
 End Property
 
 
@@ -367,22 +361,6 @@ End Property
 Private Sub IDbComponent_Upgrade()
     ' No upgrade needed.
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Options
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return or set the options being used in this context.
-'---------------------------------------------------------------------------------------
-'
-Private Property Get IDbComponent_Options() As clsOptions
-    If m_Options Is Nothing Then Set m_Options = LoadOptions
-    Set IDbComponent_Options = m_Options
-End Property
-Private Property Set IDbComponent_Options(ByVal RHS As clsOptions)
-    Set m_Options = RHS
-End Property
 
 
 '---------------------------------------------------------------------------------------

@@ -13,7 +13,6 @@ Option Compare Database
 Option Explicit
 
 Private m_Ref As VBIDE.Reference
-Private m_Options As clsOptions
 Public AllItems As Collection
 
 
@@ -82,7 +81,7 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
+Private Function IDbComponent_GetAllFromDB() As Collection
     
     Dim ref As VBIDE.Reference
     Dim cRef As clsDbVbeReference
@@ -90,10 +89,6 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
 
     ' Build collection if not already cached
     If Me.AllItems Is Nothing Then
-    
-        ' Use parameter options if provided.
-        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-    
         Set Me.AllItems = New Collection
         Set colNames = New Collection
         For Each ref In GetVBProjectForCurrentDB.References
@@ -103,7 +98,6 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
                 ' Export outputs single file, so every item needs a reference
                 ' to the whole collection of references.
                 Set cRef.AllItems = Me.AllItems
-                Set cRef.Parent.Options = IDbComponent_Options
                 ' Don't attempt add two references with the same name.
                 ' (Take the first one, but ignore subsequent ones with the same name.)
                 If Not InCollection(colNames, ref.Name) Then
@@ -196,7 +190,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder
+    IDbComponent_BaseFolder = Options.GetExportFolder
 End Property
 
 
@@ -258,22 +252,6 @@ End Property
 Private Sub IDbComponent_Upgrade()
     ' No upgrade needed.
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Options
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return or set the options being used in this context.
-'---------------------------------------------------------------------------------------
-'
-Private Property Get IDbComponent_Options() As clsOptions
-    If m_Options Is Nothing Then Set m_Options = LoadOptions
-    Set IDbComponent_Options = m_Options
-End Property
-Private Property Set IDbComponent_Options(ByVal RHS As clsOptions)
-    Set m_Options = RHS
-End Property
 
 
 '---------------------------------------------------------------------------------------

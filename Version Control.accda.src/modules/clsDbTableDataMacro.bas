@@ -13,7 +13,6 @@ Option Compare Database
 Option Explicit
 
 Private m_Table As AccessObject
-Private m_Options As clsOptions
 Private m_AllItems As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -32,7 +31,7 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     ' Save structure in XML format
-    SaveComponentAsText acTableDataMacro, m_Table.Name, IDbComponent_SourceFile, IDbComponent_Options
+    SaveComponentAsText acTableDataMacro, m_Table.Name, IDbComponent_SourceFile
 End Sub
 
 
@@ -57,7 +56,7 @@ End Sub
 '           : a data macro. https://stackoverflow.com/questions/31755802/
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As Collection
+Private Function IDbComponent_GetAllFromDB() As Collection
     
     Dim dbs As Database
     Dim tdf As TableDef
@@ -67,13 +66,8 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
-    
-        ' Use parameter options if provided.
-        If Not cOptions Is Nothing Then Set IDbComponent_Options = cOptions
-    
         Set m_AllItems = New Collection
         Set dbs = CurrentDb
-            
         For Each tdf In dbs.TableDefs
             ' Skip system, temp, and linked tables
             If Left$(tdf.Name, 4) <> "MSys" Then
@@ -84,7 +78,6 @@ Private Function IDbComponent_GetAllFromDB(Optional cOptions As clsOptions) As C
                         If DCount("[Name]", "MSysObjects", strSQL) > 0 Then
                             Set cTable = New clsDbTableDataMacro
                             Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
-                            Set cTable.Options = IDbComponent_Options
                             m_AllItems.Add cTable, tdf.Name
                         End If
                     End If
@@ -175,7 +168,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = IDbComponent_Options.GetExportFolder & "tdmacros\"
+    IDbComponent_BaseFolder = Options.GetExportFolder & "tdmacros\"
 End Property
 
 
@@ -237,22 +230,6 @@ End Property
 Private Sub IDbComponent_Upgrade()
     ' No upgrade needed.
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Options
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return or set the options being used in this context.
-'---------------------------------------------------------------------------------------
-'
-Private Property Get IDbComponent_Options() As clsOptions
-    If m_Options Is Nothing Then Set m_Options = LoadOptions
-    Set IDbComponent_Options = m_Options
-End Property
-Private Property Set IDbComponent_Options(ByVal RHS As clsOptions)
-    Set m_Options = RHS
-End Property
 
 
 '---------------------------------------------------------------------------------------
