@@ -1456,13 +1456,11 @@ Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFi
     ' Handle UCS conversion if needed
     ConvertUcs2Utf8 strTempFile, strFile
     
-    ' Sanitize certain object types for accdb files
-    If CurrentProject.ProjectType = acMDB Then
-        Select Case intType
-            Case acForm, acReport, acQuery, acMacro
-                SanitizeFile strFile, cOptions
-        End Select
-    End If
+    ' Sanitize certain object types
+    Select Case intType
+        Case acForm, acReport, acQuery, acMacro
+            SanitizeFile strFile, cOptions
+    End Select
     
 End Sub
 
