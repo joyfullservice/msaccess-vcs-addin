@@ -15,7 +15,6 @@ Private Const cstrOptionsFilename As String = "vcs-options.json"
 ' Options
 Public ExportFolder As String
 Public ShowDebug As Boolean
-Public IncludeVBE As Boolean
 Public UseFastSave As Boolean
 Public SavePrintVars As Boolean
 Public SaveQuerySQL As Boolean
@@ -43,7 +42,6 @@ Public Sub LoadDefaults()
     With Me
         .ExportFolder = vbNullString
         .ShowDebug = False
-        .IncludeVBE = False
         .UseFastSave = True
         .SavePrintVars = True
         .SaveQuerySQL = True
@@ -132,7 +130,6 @@ Public Sub LoadOptionsFromFile(strFile As String)
     Dim dOptions As Scripting.Dictionary
     Dim varOption As Variant
     Dim strKey As String
-    Dim varItem As Variant
     
     If FSO.FileExists(strFile) Then
         ' Read file contents
@@ -242,6 +239,7 @@ Private Function SerializeOptions() As Scripting.Dictionary
     #End If
     dInfo.Add "AddinVersion", AppVersion
     dInfo.Add "AccessVersion", Application.Version & strBit
+    dInfo.Add "Hash", Encrypt(CodeProject.Name)
     
     For Each varOption In m_colOptions
         strOption = CStr(varOption)
@@ -274,6 +272,25 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetTableExportFormat
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : Translate the table export format key to the corresponding enum value.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTableExportFormat(strKey As String) As eTableDataExportFormat
+    Dim intFormat As eTableDataExportFormat
+    Dim strName As String
+    For intFormat = etdNoData To eTableDataExportFormat.[_last]
+        strName = Me.GetTableExportFormatName(intFormat)
+        If strName = strKey Then
+            GetTableExportFormat = intFormat
+            Exit For
+        End If
+    Next intFormat
+End Function
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Class_Initialize
 ' Author    : Adam Waller
 ' Date      : 2/12/2020
@@ -286,7 +303,6 @@ Private Sub Class_Initialize()
     With m_colOptions
         .Add "ExportFolder"
         .Add "ShowDebug"
-        .Add "IncludeVBE"
         .Add "UseFastSave"
         .Add "SavePrintVars"
         .Add "SaveQuerySQL"

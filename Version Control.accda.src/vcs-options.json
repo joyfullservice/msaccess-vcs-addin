@@ -1,12 +1,12 @@
 {
   "Info": {
-    "AddinVersion": "2.0.14",
-    "AccessVersion": "14.0 32-bit"
+    "AddinVersion": "3.0.0",
+    "AccessVersion": "14.0 32-bit",
+    "Hash": "@{515a52aff74e3ac977ac838f5b1f7d0c307a5f0d2a42db9e}"
   },
   "Options": {
     "ExportFolder": "",
     "ShowDebug": false,
-    "IncludeVBE": false,
     "UseFastSave": true,
     "SavePrintVars": true,
     "SaveQuerySQL": true,
@@ -15,9 +15,6 @@
     "AggressiveSanitize": true,
     "TablesToExportData": {
       "USysRegInfo": {
-        "Format": "Tab Delimited"
-      },
-      "USysRibbons": {
         "Format": "Tab Delimited"
       }
     },

@@ -1,0 +1,17 @@
+{
+ "Info": {
+  "Class": "clsDbVbeProject",
+  "Description": "VBE Project",
+  "VCS Version": "2.1.31"
+ },
+ "Items": {
+  "Name": "VCS Testing",
+  "Description": "",
+  "FileName": "@{515a52baa8601cd37db0d090751568137f41106c2544cda315c0983004f70fa7771afaf91e0472f2669108b888c435992aa2ab5cc476779c2b8b930cac03b6}\\Testing.accdb",
+  "HelpContextId": 0,
+  "HelpFile": "",
+  "Mode": 0,
+  "Protection": 0,
+  "Type": 100
+ }
+}

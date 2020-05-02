@@ -31,7 +31,7 @@ Private Const SW_SHOWNORMAL = 1
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemLaunch()
-    DoCmd.OpenForm "frmMain"
+    Form_frmMain.Visible = True
 End Function
 
 
@@ -43,7 +43,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemExport()
-    DoCmd.OpenForm "frmMain"
+    Form_frmMain.Visible = True
     DoEvents
     Form_frmMain.cmdExport_Click
 End Function
@@ -97,6 +97,9 @@ Public Function AutoRun()
                         DoCmd.Quit
                     End If
                 End If
+            Else
+                ' Go to visual basic editor, since that is the most likely destination.
+                DoCmd.RunCommand acCmdVisualBasicEditor
             End If
         Else
             ' Not yet installed. Offer to install.
@@ -124,8 +127,6 @@ Private Function InstallVCSAddin()
     
     Dim strSource As String
     Dim strDest As String
-
-    Dim blnExists As Boolean
     
     strSource = CodeProject.FullName
     strDest = GetAddinFileName
@@ -138,6 +139,9 @@ Private Function InstallVCSAddin()
     On Error Resume Next
     FSO.CopyFile strSource, strDest, True
     If Err Then
+        MsgBox2 "Unable to update file", _
+            "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
+            "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
         Err.Clear
     Else
         ' Update installed version number
@@ -146,7 +150,7 @@ Private Function InstallVCSAddin()
         InstallVCSAddin = True
     End If
     On Error GoTo 0
-    
+
 End Function
 
 
@@ -272,45 +276,40 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     End If
     
     ' Increment build number
-    IncrementBuildVersion ReleaseType
+    IncrementAppVersion ReleaseType
     
     ' List project and new build number
     Debug.Print cstrSpacer
     
     ' Update project description
     VBE.ActiveVBProject.Description = "Version " & AppVersion & " deployed on " & Date
-    Debug.Print " ~ " & VBE.ActiveVBProject.Name & " ~ Version " & AppVersion
-    Debug.Print cstrSpacer
+    
+    ' Save all code modules
+    DoCmd.RunCommand acCmdCompileAndSaveAllModules
+    
+    ' Export the source code to version control
+    ExportSource
+    
+    ' Deploy latest version on this machine
+    If InstallVCSAddin Then Debug.Print "Version " & AppVersion & " installed."
     
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : IncrementBuildVersion
+' Procedure : IncrementAppVersion
 ' Author    : Adam Waller
 ' Date      : 1/6/2017
 ' Purpose   : Increments the build version (1.0.12)
 '---------------------------------------------------------------------------------------
 '
-Public Sub IncrementBuildVersion(ReleaseType As eReleaseType)
-
+Public Sub IncrementAppVersion(ReleaseType As eReleaseType)
     Dim varParts As Variant
-    
     varParts = Split(AppVersion, ".")
-    
-    If UBound(varParts) <> 2 Then
-        Debug.Print "Unexpected version format"
-        Stop
-    End If
-    
-    If Not IsNumeric(varParts(ReleaseType)) Then
-        Debug.Print "Expecting numeric value"
-        Stop
-    Else
-        varParts(ReleaseType) = varParts(ReleaseType) + 1
-        AppVersion = Join(varParts, ".")
-    End If
-
+    varParts(ReleaseType) = varParts(ReleaseType) + 1
+    If ReleaseType < Minor_xVx Then varParts(Minor_xVx) = 0
+    If ReleaseType < Build_xxV Then varParts(Build_xxV) = 0
+    AppVersion = Join(varParts, ".")
 End Sub
 
 
@@ -339,71 +338,6 @@ End Property
 Public Property Let AppVersion(strVersion As String)
     SetDBProperty "AppVersion", strVersion
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetDBProperty
-' Author    : Adam Waller
-' Date      : 9/1/2017
-' Purpose   : Get a database property
-'---------------------------------------------------------------------------------------
-'
-Public Function GetDBProperty(strName As String) As Variant
-
-    Dim prp As DAO.Property
-    
-    For Each prp In CodeDb.Properties
-        If prp.Name = strName Then
-            GetDBProperty = prp.Value
-            Exit For
-        End If
-    Next prp
-    
-    Set prp = Nothing
-    
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SetDBProperty
-' Author    : Adam Waller
-' Date      : 9/1/2017
-' Purpose   : Set a database property
-'---------------------------------------------------------------------------------------
-'
-Public Sub SetDBProperty(strName As String, varValue, Optional prpType = DB_TEXT)
-
-    Dim prp As DAO.Property
-    Dim blnFound As Boolean
-    Dim dbs As DAO.Database
-    
-    Set dbs = CodeDb
-    
-    For Each prp In dbs.Properties
-        If prp.Name = strName Then
-            blnFound = True
-            ' Skip set on matching value
-            If prp.Value = varValue Then
-                Set dbs = Nothing
-                Exit Sub
-            End If
-            Exit For
-        End If
-    Next prp
-    
-    On Error Resume Next
-    If blnFound Then
-        dbs.Properties(strName).Value = varValue
-    Else
-        Set prp = dbs.CreateProperty(strName, DB_TEXT, varValue)
-        dbs.Properties.Append prp
-    End If
-    If Err Then Err.Clear
-    On Error GoTo 0
-    
-    Set dbs = Nothing
-    
-End Sub
 
 
 '---------------------------------------------------------------------------------------
