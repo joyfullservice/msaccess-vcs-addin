@@ -1,8 +1,8 @@
 {
   "Info": {
-    "AddinVersion": "3.0.3",
+    "AddinVersion": "3.0.4",
     "AccessVersion": "14.0 32-bit",
-    "Hash": "@{515a52aff74e3ac977ac838f5b1f7d0c307a5f0d2a42db9e}"
+    "Hash": "@{7206d6328b5c80f8ceae447eb65c6abd23260569ff1ffc94}"
   },
   "Options": {
     "ExportFolder": "",
@@ -20,6 +20,7 @@
     },
     "RunBeforeExport": "",
     "RunAfterExport": "",
-    "RunAfterBuild": ""
+    "RunAfterBuild": "",
+    "KeyName": "VCS"
   }
 }

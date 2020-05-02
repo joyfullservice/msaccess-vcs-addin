@@ -14,17 +14,8 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
-
-'---------------------------------------------------------------------------------------
-' Procedure : SetEncryptionKey
-' Author    : Adam Waller
-' Date      : 4/24/2020
-' Purpose   : Sets the encryption key in the current user's registry.
-'---------------------------------------------------------------------------------------
-'
-Public Sub SetEncryptionKey(strKey As String)
-    SaveSetting GetCodeVBProject.Name, "Add-in", "Encryption Key", strKey
-End Sub
+Private m_Name As String
+Private m_Key As String
 
 
 '---------------------------------------------------------------------------------------
@@ -131,6 +122,19 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SetEncryptionKey
+' Author    : Adam Waller
+' Date      : 4/24/2020
+' Purpose   : Sets the encryption key in the current user's registry.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetEncryptionKey(strName As String, strKey As String)
+    SaveSetting GetCodeVBProject.Name, "Private Keys", strName, strKey
+    m_Key = strKey
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetKey
 ' Author    : Adam Waller
 ' Date      : 4/24/2020
@@ -138,7 +142,11 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetKey() As String
-    GetKey = GetSetting(GetCodeVBProject.Name, "Add-in", "Encryption Key", CodeProject.Name)
+    If m_Name = vbNullString Then m_Name = Options.KeyName
+    If m_Name = vbNullString Then m_Name = "MSAccessVCS"
+    If m_Key = vbNullString Then m_Key = GetSetting(GetCodeVBProject.Name, "Private Keys", m_Name, CodeProject.Name)
+    ' Return cached key name, rather than looking it up from the registry each time.
+    GetKey = m_Key
 End Function
 
 

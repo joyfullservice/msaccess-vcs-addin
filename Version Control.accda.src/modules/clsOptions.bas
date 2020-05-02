@@ -25,6 +25,7 @@ Public TablesToExportData As Scripting.Dictionary
 Public RunBeforeExport As String
 Public RunAfterExport As String
 Public RunAfterBuild As String
+Public KeyName As String
 
 Private m_colOptions As New Collection
 
@@ -48,6 +49,7 @@ Public Sub LoadDefaults()
         .SaveTableSQL = True
         .StripPublishOption = True
         .AggressiveSanitize = True
+        .KeyName = "MSAccessVCS"
         Set .TablesToExportData = New Scripting.Dictionary
         ' Save specific tables by default
         AddTableToExportData "USysRibbons", etdTabDelimited
@@ -313,6 +315,7 @@ Private Sub Class_Initialize()
         .Add "RunBeforeExport"
         .Add "RunAfterExport"
         .Add "RunAfterBuild"
+        .Add "KeyName"
     End With
     
     ' Load default values

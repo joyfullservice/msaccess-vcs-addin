@@ -1,12 +1,12 @@
 {
   "Info": {
-    "AddinVersion": "1.2.0.26",
-    "AccessVersion": "14.0 32-bit"
+    "AddinVersion": "3.0.3",
+    "AccessVersion": "14.0 32-bit",
+    "Hash": "@{7206d6328b5c80f8ceae447eb65c6abd23260569ff1ffc94}"
   },
   "Options": {
     "ExportFolder": "",
     "ShowDebug": false,
-    "IncludeVBE": false,
     "UseFastSave": true,
     "SavePrintVars": true,
     "SaveQuerySQL": true,
@@ -20,6 +20,7 @@
     },
     "RunBeforeExport": "",
     "RunAfterExport": "",
-    "RunAfterBuild": ""
+    "RunAfterBuild": "",
+    "KeyName": "VCS"
   }
 }

@@ -16,7 +16,7 @@ Begin Form
     GridY =24
     Width =10080
     DatasheetFontHeight =11
-    ItemSuffix =99
+    ItemSuffix =101
     Left =3225
     Top =2430
     Right =28545
@@ -444,7 +444,7 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4190
                             BorderColor =10921638
                             Name ="pgeGeneral"
                             Caption ="General"
@@ -452,7 +452,7 @@ Begin Form
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6170
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -740,7 +740,7 @@ Begin Form
                                     Top =5040
                                     Width =2640
                                     Height =315
-                                    TabIndex =9
+                                    TabIndex =8
                                     BorderColor =10921638
                                     ForeColor =4210752
                                     Name ="txtRunBeforeExport"
@@ -778,7 +778,7 @@ Begin Form
                                     Top =5460
                                     Width =2640
                                     Height =315
-                                    TabIndex =10
+                                    TabIndex =9
                                     BorderColor =10921638
                                     ForeColor =4210752
                                     Name ="txtRunAfterExport"
@@ -815,7 +815,7 @@ Begin Form
                                     Left =6780
                                     Top =5580
                                     Width =2340
-                                    TabIndex =11
+                                    TabIndex =10
                                     ForeColor =16711680
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
@@ -1390,8 +1390,8 @@ Begin Form
                                     FontUnderline = NotDefault
                                     TabStop = NotDefault
                                     OverlapFlags =247
-                                    Left =1200
-                                    Top =5280
+                                    Left =7200
+                                    Top =4860
                                     Width =1560
                                     TabIndex =1
                                     ForeColor =16711680
@@ -1437,10 +1437,10 @@ Begin Form
                                     End
                                     BackStyle =0
 
-                                    LayoutCachedLeft =1200
-                                    LayoutCachedTop =5280
-                                    LayoutCachedWidth =2760
-                                    LayoutCachedHeight =5640
+                                    LayoutCachedLeft =7200
+                                    LayoutCachedTop =4860
+                                    LayoutCachedWidth =8760
+                                    LayoutCachedHeight =5220
                                     PictureCaptionArrangement =4
                                     ForeThemeColorIndex =10
                                     ForeTint =100.0
@@ -1504,7 +1504,7 @@ Begin Form
                                 Begin Label
                                     OverlapFlags =247
                                     Left =6840
-                                    Top =5160
+                                    Top =5340
                                     Width =2400
                                     Height =600
                                     BorderColor =8355711
@@ -1513,9 +1513,48 @@ Begin Form
                                     Caption ="test"
                                     GridlineColor =10921638
                                     LayoutCachedLeft =6840
-                                    LayoutCachedTop =5160
+                                    LayoutCachedTop =5340
                                     LayoutCachedWidth =9240
-                                    LayoutCachedHeight =5760
+                                    LayoutCachedHeight =5940
+                                End
+                                Begin TextBox
+                                    Enabled = NotDefault
+                                    OverlapFlags =247
+                                    IMESentenceMode =3
+                                    Left =1140
+                                    Top =5460
+                                    Width =2040
+                                    Height =315
+                                    TabIndex =3
+                                    BorderColor =10921638
+                                    ForeColor =4210752
+                                    Name ="txtKeyName"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =1140
+                                    LayoutCachedTop =5460
+                                    LayoutCachedWidth =3180
+                                    LayoutCachedHeight =5775
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =1140
+                                            Top =5100
+                                            Width =1140
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label100"
+                                            Caption ="Key Name:"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1140
+                                            LayoutCachedTop =5100
+                                            LayoutCachedWidth =2280
+                                            LayoutCachedHeight =5415
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
                                 End
                             End
                         End
@@ -2082,13 +2121,11 @@ Attribute VB_Exposed = False
 '           : back to the class (and subsequently project) when the user clicks the
 '           : save and close button. Most options will not require event coding since
 '           : they are mapped to their appropriate option using the control name.
-'           : I.e. chkUseFastSave = cOptions.UseFastSave
+'           : I.e. chkUseFastSave = Options.UseFastSave
 '---------------------------------------------------------------------------------------
 
 Option Compare Database
 Option Explicit
-
-Private cOptions As clsOptions
 
 ' Use a collection to represent tables, since the user can filter which ones they
 ' want to see while updating items in the list. We don't want to save till the very
@@ -2118,6 +2155,7 @@ End Enum
 '
 Private Sub chkIUnderstand_Click()
     cmdSetEncryptionKey.Enabled = chkIUnderstand
+    txtKeyName.Enabled = chkIUnderstand
 End Sub
 
 
@@ -2204,11 +2242,11 @@ Private Function LoadTableList()
     Next tbl
     
     ' Add in the list of saved tables, adding into the sorted location
-    If Not cOptions.TablesToExportData Is Nothing Then
+    If Not Options.TablesToExportData Is Nothing Then
         ' Loop through each table in the saved table list
-        For Each varKey In cOptions.TablesToExportData.Keys
-            strFormat = CStr(cOptions.TablesToExportData.Item(varKey)("Format"))
-            intFormat = cOptions.GetTableExportFormat(strFormat)
+        For Each varKey In Options.TablesToExportData.Keys
+            strFormat = CStr(Options.TablesToExportData.Item(varKey)("Format"))
+            intFormat = Options.GetTableExportFormat(strFormat)
             strName = CStr(varKey)
             AddUpdateTableInList strName, strFormat, False, False, True
         Next varKey
@@ -2334,7 +2372,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdRestoreDefaults_Click()
-    cOptions.LoadDefaultOptions
+    Options.LoadDefaultOptions
     MapControlsToOptions emaClassToForm
     MsgBox2 "Default Options Restored", _
         "The system default options have been restored to this project.", _
@@ -2354,7 +2392,7 @@ Private Sub cmdSaveAndClose_Click()
     
     ' Encourage user to set encryption key.
     If Not modEncrypt.EncryptionKeySet Then
-        If MsgBox2("Encryption Key Not Set", "An encryption key has not been set for the current user." & vbCrLf & _
+        If MsgBox2("Encryption Key Not Set", "No encryption key has been set for the current user." & vbCrLf & _
             "This is used to mask sensitive data when exporting source.", "Would you like to do this now?", vbQuestion + vbYesNo) = vbYes Then
             pgeEncrypt.SetFocus
             Exit Sub
@@ -2363,7 +2401,7 @@ Private Sub cmdSaveAndClose_Click()
 
     ' Save options and close.
     MapControlsToOptions emaFormToClass
-    cOptions.SaveOptionsForProject
+    Options.SaveOptionsForProject
     DoCmd.Close acForm, Me.Name
     
 End Sub
@@ -2377,7 +2415,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdSaveAsDefault_Click()
-    cOptions.SaveOptionsAsDefault
+    MapControlsToOptions emaFormToClass
+    Options.SaveOptionsAsDefault
 End Sub
 
 
@@ -2385,21 +2424,63 @@ End Sub
 ' Procedure : cmdSetEncryptionKey_Click
 ' Author    : Adam Waller
 ' Date      : 4/24/2020
-' Purpose   :
+' Purpose   : Set a named encryption key.
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdSetEncryptionKey_Click()
+
+    Dim strName As String
     Dim strKey As String
+    
+    ' Prompt the user to enter a name for the key. The name will be stored in options.
+    If Nz(txtKeyName) = vbNullString Then
+        MsgBox2 "Key Name Required", "Please enter a friendly name for this encryption key.", _
+            "Developers will need to use the same *name* and *key* to decrypt secured items." & vbCrLf & _
+            "A named key can be used on multiple computers and/or multiple projects, depending" & vbCrLf & _
+            "on your development requirements. See online documentation for more details.", vbInformation
+        txtKeyName.SetFocus
+        Exit Sub
+    Else
+        strName = txtKeyName
+    End If
+    
+    ' Now prompt for the key itself.
     strKey = InputBox("Enter new encryption key:" & vbCrLf & "(At least 32 characters long)")
     If strKey = vbNullString Then
         Exit Sub
     ElseIf Len(strKey) < 32 Then
         MsgBox2 "Must be at least 32 characters", "Please enter a longer string of characters to set the key.", , vbExclamation
     Else
-        modEncrypt.SetEncryptionKey strKey
+        modEncrypt.SetEncryptionKey strName, strKey
+        If MsgBox2("Use this key by default?", "Would you like to use '" & strName & "' as the default key name for new projects?", _
+            "In most environments you will use the same key for all your projects.", vbYesNo + vbQuestion) = vbYes Then
+            SetDefaultKeyName strKey
+        End If
         MsgBox2 "Encryption Key Set", "Please save this key in a safe place. It is not saved with the project or options file.", "You will need to have this key to import encrypted data.", vbInformation
     End If
     SetKeyStatusDisplay
+    cmdSaveAndClose.SetFocus
+    chkIUnderstand = False
+    chkIUnderstand_Click
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetDefaultKeyName
+' Author    : Adam Waller
+' Date      : 5/2/2020
+' Purpose   : Sets the key name as default for projects.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SetDefaultKeyName(strName As String)
+    Dim cOptions As clsOptions
+    Set cOptions = New clsOptions
+    With cOptions
+        .LoadDefaultOptions
+        .KeyName = strName
+        .SaveOptionsAsDefault
+    End With
 End Sub
 
 
@@ -2429,15 +2510,13 @@ Private Sub Form_Load()
 
     Dim intFormat As eTableDataExportFormat
     
-    Set cOptions = New clsOptions
-    cOptions.LoadProjectOptions
     MapControlsToOptions emaClassToForm
     RefreshTableDisplay
     
     ' Load list of table data export formats
     cboTableDataSaveType.AddItem "No Data"
     For intFormat = 1 To eTableDataExportFormat.[_last]
-        cboTableDataSaveType.AddItem cOptions.GetTableExportFormatName(intFormat)
+        cboTableDataSaveType.AddItem Options.GetTableExportFormatName(intFormat)
     Next intFormat
     
     ' Load encryption key status
@@ -2474,9 +2553,9 @@ Private Function MapControlsToOptions(eAction As eMapAction)
                             ' Get option name from control name following prefix.
                             strKey = Mid(ctl.Name, 4)
                             If eAction = emaClassToForm Then
-                                ctl = CallByName(cOptions, strKey, VbGet)
+                                ctl = CallByName(Options, strKey, VbGet)
                             ElseIf eAction = emaFormToClass Then
-                                CallByName cOptions, strKey, VbLet, Nz(ctl.Value)
+                                CallByName Options, strKey, VbLet, Nz(ctl.Value)
                             End If
                     End Select
                 Case "ListBox"
@@ -2501,7 +2580,7 @@ Private Function MapControlsToOptions(eAction As eMapAction)
                 dTables.Add varItem(etcName), dTable
             End If
         Next varItem
-        Set cOptions.TablesToExportData = dTables
+        Set Options.TablesToExportData = dTables
     End If
     
 End Function
