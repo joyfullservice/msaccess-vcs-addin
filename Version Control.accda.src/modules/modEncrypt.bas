@@ -9,6 +9,7 @@
 '           : If you need something more secure, please utilize actual cryptography
 '           : API calls or functions. This is intended simply as a basic way of masking
 '           : semi-secure data in source code.
+'           : See: https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Encryption
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Private Module
@@ -130,6 +131,7 @@ End Function
 '
 Public Sub SetEncryptionKey(strName As String, strKey As String)
     SaveSetting GetCodeVBProject.Name, "Private Keys", strName, strKey
+    m_Name = strName
     m_Key = strKey
 End Sub
 
