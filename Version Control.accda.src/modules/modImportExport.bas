@@ -12,7 +12,6 @@ Option Private Module
 '
 Public Sub ExportSource()
 
-    Dim colContainers As Collection
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
     Dim sngStart As Single
@@ -61,39 +60,8 @@ Public Sub ExportSource()
         Log.Flush
     End With
     
-    
-    ' Build containers of object types
-    Set colContainers = New Collection
-    With colContainers
-        ' Shared objects in both MDB and ADP formats
-        .Add New clsDbForm
-        .Add New clsDbMacro
-        .Add New clsDbModule
-        .Add New clsDbReport
-        .Add New clsDbTableData
-        .Add New clsDbProjProperty
-        .Add New clsDbVbeReference
-        .Add New clsDbSavedSpec
-        .Add New clsDbVbeProject
-        If CurrentProject.ProjectType = acADP Then
-            ' Some types of objects only exist in ADP projects
-            .Add New clsAdpFunction
-            .Add New clsAdpServerView
-            .Add New clsAdpProcedure
-            .Add New clsAdpTable
-            .Add New clsAdpTrigger
-        Else
-            ' These objects only exist in DAO databases
-            .Add New clsDbTableDef
-            .Add New clsDbTableDataMacro
-            .Add New clsDbQuery
-            .Add New clsDbRelation
-            .Add New clsDbProperty
-        End If
-    End With
-    
     ' Loop through all categories
-    For Each cCategory In colContainers
+    For Each cCategory In GetAllContainers
         
         ' Clear any source files for nonexistant objects
         cCategory.ClearOrphanedSourceFiles
@@ -154,3 +122,137 @@ Public Sub ExportSource()
     If Options.RunAfterExport <> vbNullString Then RunSubInCurrentProject Options.RunAfterExport
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Build
+' Author    : Adam Waller
+' Date      : 5/4/2020
+' Purpose   : Build the project from source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub Build()
+
+    Dim strCodeVBProjName As String
+    Dim strPath As String
+    Dim dbs As DAO.Database
+    Dim blnCloseFirst As Boolean
+    
+    strCodeVBProjName = GetCodeVBProject.Name
+    
+    ' Close the current database if it is currently open.
+    If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
+        ' Need to close the current database before we can replace it.
+        SaveSetting strCodeVBProjName, "Build", "FileName", CurrentProject.FullName
+        SaveSetting strCodeVBProjName, "Build", "Type", CurrentProject.ProjectType
+        RunBuildAfterClose
+        Exit Sub
+    End If
+    
+    ' Read file name from registry
+    strPath = GetSetting(strCodeVBProjName, "Build", "FileName")
+
+    ' Make sure we have a file path
+    If strPath = vbNullString Then
+
+    Else
+        ' Clear the saved file name so we don't accidentially resume the wrong build.
+        SaveSetting strCodeVBProjName, "Build", "FileName", vbNullString
+    End If
+    
+    ' Rename original file as a backup
+    Name strPath As GetBackupFileName(strPath)
+    
+    ' Create a new database with the original name
+    If GetSetting(strCodeVBProjName, "Build", "Type") = acADP Then
+        ' ADP project
+        Application.NewAccessProject strPath
+    Else
+        ' Regular Access database
+        Application.NewCurrentDatabase strPath
+    End If
+    
+    
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAllContainers
+' Author    : Adam Waller
+' Date      : 5/4/2020
+' Purpose   : Return a collection of all containers.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetAllContainers() As Collection
+    
+    Set GetAllContainers = New Collection
+    With GetAllContainers
+        ' Shared objects in both MDB and ADP formats
+        .Add New clsDbForm
+        .Add New clsDbMacro
+        .Add New clsDbModule
+        .Add New clsDbReport
+        .Add New clsDbTableData
+        .Add New clsDbProjProperty
+        .Add New clsDbVbeReference
+        .Add New clsDbSavedSpec
+        .Add New clsDbVbeProject
+        If CurrentProject.ProjectType = acADP Then
+            ' Some types of objects only exist in ADP projects
+            .Add New clsAdpFunction
+            .Add New clsAdpServerView
+            .Add New clsAdpProcedure
+            .Add New clsAdpTable
+            .Add New clsAdpTrigger
+        Else
+            ' These objects only exist in DAO databases
+            .Add New clsDbTableDef
+            .Add New clsDbTableDataMacro
+            .Add New clsDbQuery
+            .Add New clsDbRelation
+            .Add New clsDbProperty
+        End If
+    End With
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetBackupFileName
+' Author    : Adam Waller
+' Date      : 5/4/2020
+' Purpose   : Return an unused filename for the database backup befor build
+'---------------------------------------------------------------------------------------
+'
+Private Function GetBackupFileName(strPath As String)
+    
+    Const cstrSuffix As String = "_VCSBackup"
+    
+    Dim strFile As String
+    Dim intCnt As Integer
+    Dim strTest As String
+    Dim strBase As String
+    Dim strExt As String
+    Dim strFolder As String
+    Dim strIncrement As String
+    
+    strFolder = FSO.GetParentFolderName(strPath) & "\"
+    strFile = FSO.GetFileName(strPath)
+    strBase = FSO.GetBaseName(strFile) & cstrSuffix
+    strExt = "." & FSO.GetExtensionName(strFile)
+    
+    ' Attempt up to 100 versions of the file name. (i.e. Database_VSBackup45.accdb)
+    For intCnt = 1 To 100
+        strTest = strFolder & strBase & strIncrement & strExt
+        If FSO.FileExists(strTest) Then
+            ' Try next number
+            strIncrement = CStr(intCnt)
+        Else
+            ' Return file name
+            GetBackupFileName = strTest
+            Exit Function
+        End If
+    Next intCnt
+    
+End Function
