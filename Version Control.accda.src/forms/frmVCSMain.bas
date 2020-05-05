@@ -1827,6 +1827,8 @@ Private Sub Form_Load()
     SetStatusText "Choose Action", "What would you like to do?", _
         "<strong><em>Export</em></strong> source to generate source files from the current database." & _
         "<br><br><strong><em>Import</em></strong> source files to rebuild this database from source."
+    ' You can only export if you have a database open.
+    cmdExport.Enabled = Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing)
 End Sub
 
 

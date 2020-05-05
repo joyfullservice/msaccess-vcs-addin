@@ -16,6 +16,9 @@ Public Sub ExportSource()
     Dim cDbObject As IDbComponent
     Dim sngStart As Single
     Dim blnFullExport As Boolean
+
+    ' Can't export without an open database
+    If CurrentDb Is Nothing And CurrentProject.Connection Is Nothing Then Exit Sub
     
     ' Close any open forms or reports unless we are running from the add-in file.
     If CurrentProject.FullName <> CodeProject.FullName Then
