@@ -2,7 +2,7 @@ Option Explicit
 Option Compare Database
 Option Private Module
 
-Public Const JSON_WHITESPACE As String = "    "
+Public Const JSON_WHITESPACE As Integer = 2
 
 Public colVerifiedPaths As New Collection
 
@@ -667,6 +667,8 @@ Public Sub WriteFile(strContent As String, strPath As String)
         End If
         .Open
         .WriteText strContent
+        ' Ensure that we are ending the content with a vbcrlf
+        If Right$(strContent, 2) <> vbCrLf Then .WriteText vbCrLf
         .SaveToFile strPath, adSaveCreateOverWrite
         .Close
     End With
@@ -1288,7 +1290,7 @@ Public Sub WriteJsonFile(ClassMe As Object, dItems As Scripting.Dictionary, strF
     dContents.Add "Items", dItems
     
     ' Write to file in Json format
-    WriteFile ConvertToJson(dContents, JSON_WHITESPACE) & vbCrLf, strFile
+    WriteFile ConvertToJson(dContents, JSON_WHITESPACE), strFile
     
 End Sub
 

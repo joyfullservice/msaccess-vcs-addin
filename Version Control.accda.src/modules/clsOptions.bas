@@ -92,7 +92,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub SaveOptionsToFile(strPath As String)
-    WriteFile modJsonConverter.ConvertToJson(SerializeOptions, 2) & vbCrLf, strPath
+    WriteFile modJsonConverter.ConvertToJson(SerializeOptions, JSON_WHITESPACE) & vbCrLf, strPath
 End Sub
 
 
@@ -192,7 +192,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub PrintOptionsToDebugWindow()
-    Debug.Print modJsonConverter.ConvertToJson(SerializeOptions, 2)
+    Debug.Print modJsonConverter.ConvertToJson(SerializeOptions, JSON_WHITESPACE)
 End Sub
 
 
