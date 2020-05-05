@@ -13,7 +13,7 @@ Private Declare PtrSafe Function IsUserAnAdmin Lib "shell32" () As Long
 
 ' Used to relaunch Access as an administrator to install the addin.
 Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
-    ByVal hWnd As Long, _
+    ByVal hwnd As Long, _
     ByVal lpOperation As String, _
     ByVal lpFile As String, _
     ByVal lpParameters As String, _
@@ -31,7 +31,7 @@ Private Const SW_SHOWNORMAL = 1
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemLaunch()
-    Form_frmMain.Visible = True
+    Form_frmVCSMain.Visible = True
 End Function
 
 
@@ -43,9 +43,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemExport()
-    Form_frmMain.Visible = True
+    Form_frmVCSMain.Visible = True
     DoEvents
-    Form_frmMain.cmdExport_Click
+    Form_frmVCSMain.cmdExport_Click
 End Function
 
 
@@ -350,8 +350,8 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Let InstalledVersion(strVersion As String)
-    SaveSetting VBE.ActiveVBProject.Name, "Add-in", "Installed Version", strVersion
+    SaveSetting GetCodeVBProject.Name, "Add-in", "Installed Version", strVersion
 End Property
 Private Property Get InstalledVersion() As String
-    InstalledVersion = GetSetting(VBE.ActiveVBProject.Name, "Add-in", "Installed Version", vbNullString)
+    InstalledVersion = GetSetting(GetCodeVBProject.Name, "Add-in", "Installed Version", vbNullString)
 End Property

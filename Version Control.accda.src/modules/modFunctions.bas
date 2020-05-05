@@ -1294,6 +1294,26 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ReadJsonFile
+' Author    : Adam Waller
+' Date      : 5/5/2020
+' Purpose   : Reads a Json file into a dictionary object
+'---------------------------------------------------------------------------------------
+'
+Public Function ReadJsonFile(strPath As String) As Dictionary
+    Dim strText As String
+    If FSO.FileExists(strPath) Then
+        With FSO.OpenTextFile(strPath)
+            strText = .ReadAll
+            .Close
+        End With
+        ' If it looks like json content, then parse into a dictionary object.
+        If Left(strText, 1) = "{" Then Set ReadJsonFile = ParseJson(strText)
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetSQLObjectModifiedDate
 ' Author    : Adam Waller
 ' Date      : 10/11/2017
@@ -1496,4 +1516,133 @@ End Sub
 '
 Public Function EncryptPath(strPath As String) As String
     EncryptPath = Encrypt(FSO.GetParentFolderName(strPath)) & "\" & FSO.GetFileName(strPath)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FolderHasVcsOptionsFile
+' Author    : Adam Waller
+' Date      : 5/5/2020
+' Purpose   : Returns true if the folder as a vcs-options.json file, which is required
+'           : to build a project from source files.
+'---------------------------------------------------------------------------------------
+'
+Public Function FolderHasVcsOptionsFile(strFolder As String) As Boolean
+    FolderHasVcsOptionsFile = FSO.FileExists(StripSlash(strFolder) & "\vcs-options.json")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetOriginalDbFullPathFromSource
+' Author    : Adam Waller
+' Date      : 5/5/2020
+' Purpose   : Determine the original full path of the database, based on the files
+'           : in the source folder.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
+    
+    Dim strPath As String
+    Dim dContents As Dictionary
+    Dim strFile As String
+    
+    strPath = StripSlash(strFolder) & "\vbe-project.json"
+    If FSO.FileExists(strPath) Then
+        Set dContents = ReadJsonFile(strPath)
+        strFile = Decrypt(dNZ(dContents, "Items\FileName"))
+        If InStr(1, strFile, "@{") > 0 Then
+            ' Decryption failed.
+            ' We might be able to figure out a relative path from the export path.
+            strPath = StripSlash(strFolder) & "\vcs-options.json"
+            If FSO.FileExists(strPath) Then
+                Set dContents = ReadJsonFile(strPath)
+                ' Make sure we can read something, but that the export folder is blank.
+                ' (Default, which indicates that it would be in the parent folder of the
+                '  source directory.)
+                If dNZ(dContents, "Info\AddinVersion") <> vbNullString _
+                    And dNZ(dContents, "Options\ExportFolder") = vbNullString Then
+                    ' Use parent folder of source directory
+                    GetOriginalDbFullPathFromSource = StripSlash(strFolder) & "\..\" & FSO.GetFileName(strFile)
+                End If
+            End If
+        Else
+            ' Return full path to file.
+            GetOriginalDbFullPathFromSource = strFile
+        End If
+    End If
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : dNZ
+' Author    : Adam Waller
+' Date      : 3/23/2020
+' Purpose   : Like the NZ function but for dictionary elements
+'---------------------------------------------------------------------------------------
+'
+Public Function dNZ(dObject As Dictionary, strPath As String, Optional strDelimiter As String = "\") As String
+
+    Dim varPath As Variant
+    Dim intCnt As Integer
+    Dim dblVal As Double
+    Dim strKey As String
+    Dim varSegment As Variant
+    Dim dBase As New Dictionary
+        
+    ' Split path into parts
+    varPath = Split(strPath, strDelimiter)
+    Set varSegment = dObject
+
+    For intCnt = LBound(varPath) To UBound(varPath)
+
+        strKey = varPath(intCnt)
+        If dObject Is Nothing Then
+            ' No object found
+            Exit For
+        ElseIf TypeOf varSegment Is Collection Then
+            ' Expect index (integer)
+            If IsNumeric(strKey) Then
+                ' Looks like an array index
+                dblVal = CDbl(strKey)
+                ' Do a couple more checks to see if this looks like a valid index
+                If dblVal < 1 Or dblVal > 32000 Or dblVal <> CInt(dblVal) Then Exit For
+                ' See if this is the last segment
+                If intCnt = UBound(varPath) Then
+                    If TypeOf varSegment(dblVal) Is Dictionary Then
+                        ' Need a named key
+                        Exit For
+                    Else
+                        ' Could be an array of values
+                        dNZ = Nz(varSegment(dblVal))
+                    End If
+                Else
+                    ' Move out to next segment
+                    Set varSegment = varSegment(dblVal)
+                End If
+            End If
+        ElseIf TypeOf varSegment Is Dictionary Then
+            ' Expect key (string)
+            If intCnt = UBound(varPath) Then
+                ' Reached last segment
+                If varSegment.Exists(strKey) Then
+                    If TypeOf varSegment Is Dictionary Then
+                        dNZ = Nz(varSegment(strKey))
+                    Else
+                        ' Might be array
+                        Exit For
+                    End If
+                End If
+            Else
+                ' Move out to next segment
+                If varSegment.Exists(strKey) And Not IsEmpty(varSegment(strKey)) Then
+                    Set varSegment = varSegment(strKey)
+                Else
+                    ' Path not found
+                    Exit For
+                End If
+            End If
+        End If
+    Next intCnt
+
 End Function

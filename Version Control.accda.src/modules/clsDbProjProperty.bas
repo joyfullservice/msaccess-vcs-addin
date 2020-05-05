@@ -102,6 +102,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Collection
+    Set IDbComponent_GetFileList = New Collection
     IDbComponent_GetFileList.Add IDbComponent_SourceFile
 End Function
 

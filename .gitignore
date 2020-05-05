@@ -3,5 +3,6 @@
 *.accdb
 *.laccdb
 
-# Comment out the following line if you wish to include the log file in git.
+# Comment out the following line if you wish to include the log files in git.
 Export.log
+Import.log

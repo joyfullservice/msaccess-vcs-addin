@@ -131,48 +131,109 @@ End Sub
 ' Purpose   : Build the project from source files.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Build()
+Public Sub Build(strSourceFolder As String)
 
     Dim strCodeVBProjName As String
     Dim strPath As String
     Dim dbs As DAO.Database
     Dim blnCloseFirst As Boolean
+    Dim strText As String
+    Dim cCategory As IDbComponent
+    Dim cDbObject As IDbComponent
+    Dim sngStart As Single
+    Dim colFiles As Collection
+    Dim varFile As Variant
     
-    strCodeVBProjName = GetCodeVBProject.Name
     
     ' Close the current database if it is currently open.
     If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
         ' Need to close the current database before we can replace it.
-        SaveSetting strCodeVBProjName, "Build", "FileName", CurrentProject.FullName
-        SaveSetting strCodeVBProjName, "Build", "Type", CurrentProject.ProjectType
-        RunBuildAfterClose
+        RunBuildAfterClose strSourceFolder
         Exit Sub
     End If
     
-    ' Read file name from registry
-    strPath = GetSetting(strCodeVBProjName, "Build", "FileName")
-
-    ' Make sure we have a file path
-    If strPath = vbNullString Then
-
-    Else
-        ' Clear the saved file name so we don't accidentially resume the wrong build.
-        SaveSetting strCodeVBProjName, "Build", "FileName", vbNullString
+    ' Now reset the options and logs
+    Set Options = Nothing
+    Log.Clear
+    sngStart = Timer
+    
+    ' Make sure we can find the source files
+    If Not FolderHasVcsOptionsFile(strSourceFolder) Then
+        MsgBox2 "Source files not found", "Required source files were not found in the following folder:", strSourceFolder, vbExclamation
+        Exit Sub
     End If
     
+    ' Build original file name for database
+    strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
+    
+    ' Launch the GUI and display the build header.
+    DoCmd.Hourglass True
+    Form_frmVCSMain.StartBuild
+    With Log
+        .Spacer
+        .Add "Beginning Build from Source", False
+        .Add FSO.GetFileName(strPath)
+        .Add "VCS Version " & GetVCSVersion
+        .Add Now()
+        .Spacer
+        .Flush
+    End With
+    
     ' Rename original file as a backup
-    Name strPath As GetBackupFileName(strPath)
+    strText = GetBackupFileName(strPath)
+    Name strPath As strText
+    Log.Add "Saving backup of original database..."
+    Log.Add "Saved as " & FSO.GetFileName(strText) & "."
     
     ' Create a new database with the original name
-    If GetSetting(strCodeVBProjName, "Build", "Type") = acADP Then
+    If LCase(FSO.GetExtensionName(strPath)) = "adp" Then
         ' ADP project
         Application.NewAccessProject strPath
     Else
         ' Regular Access database
         Application.NewCurrentDatabase strPath
     End If
+    Log.Add "Created blank database for import."
+    Log.Spacer
     
-    
+
+    ' Loop through all categories
+    For Each cCategory In GetAllContainers
+        
+        ' Get collection of source files
+        Set colFiles = cCategory.GetFileList
+        
+        ' Only show category details when source files are found
+        If colFiles.Count = 0 Then
+            Log.Spacer Options.ShowDebug
+            Log.Add "No " & cCategory.Category & " source files found.", Options.ShowDebug
+        Else
+            ' Show category header
+            Log.Spacer Options.ShowDebug
+            Log.PadRight "Importing " & cCategory.Category & "...", , Options.ShowDebug
+
+            ' Loop through each file in this category.
+            For Each varFile In colFiles
+                ' Import the file
+                Log.Increment
+                Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+                cCategory.Import CStr(varFile)
+            Next varFile
+            
+            ' Show category wrap-up.
+            Log.Add "[" & cCategory.Count & "]" & IIf(Options.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
+            'Log.Flush  ' Gives smoother output, but slows down the import.
+        End If
+    Next cCategory
+
+    ' Show final output and save log
+    Log.Spacer
+    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
+    Log.SaveFile Options.GetExportFolder & "\Import.log"
+
+    ' Finish up on GUI
+    Form_frmVCSMain.FinishBuild
+    DoCmd.Hourglass False
     
 End Sub
 
@@ -182,6 +243,8 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 5/4/2020
 ' Purpose   : Return a collection of all containers.
+'           : NOTE: The order doesn't matter for export, but is VERY important
+'           : when building the project from source.
 '---------------------------------------------------------------------------------------
 '
 Private Function GetAllContainers() As Collection
@@ -189,15 +252,15 @@ Private Function GetAllContainers() As Collection
     Set GetAllContainers = New Collection
     With GetAllContainers
         ' Shared objects in both MDB and ADP formats
+        .Add New clsDbVbeProject
+        .Add New clsDbVbeReference
+        .Add New clsDbProjProperty
         .Add New clsDbForm
         .Add New clsDbMacro
         .Add New clsDbModule
         .Add New clsDbReport
         .Add New clsDbTableData
-        .Add New clsDbProjProperty
-        .Add New clsDbVbeReference
         .Add New clsDbSavedSpec
-        .Add New clsDbVbeProject
         If CurrentProject.ProjectType = acADP Then
             ' Some types of objects only exist in ADP projects
             .Add New clsAdpFunction
@@ -207,11 +270,11 @@ Private Function GetAllContainers() As Collection
             .Add New clsAdpTrigger
         Else
             ' These objects only exist in DAO databases
+            .Add New clsDbProperty
             .Add New clsDbTableDef
             .Add New clsDbTableDataMacro
             .Add New clsDbQuery
             .Add New clsDbRelation
-            .Add New clsDbProperty
         End If
     End With
     

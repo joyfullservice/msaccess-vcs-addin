@@ -14,10 +14,11 @@ Private m_lngBuildTimerID As Long
 ' Purpose   : Schedule a timer to fire 1 second after closing the current database.
 '---------------------------------------------------------------------------------------
 '
-Public Sub RunBuildAfterClose()
+Public Sub RunBuildAfterClose(strSourceFolder As String)
     m_lngBuildTimerID = SetTimer(0, 0, 1000, AddressOf BuildTimerCallback)
     ' We will also lose the TimerID private variable value, so save it to registry as well.
     SaveSetting GetCodeVBProject.Name, "Build", "TimerID", m_lngBuildTimerID
+    SaveSetting GetCodeVBProject.Name, "Build", "SourceFolder", strSourceFolder
     ' Now we should be ready to close the current database
     Application.CloseCurrentDatabase
 End Sub
@@ -33,6 +34,8 @@ End Sub
 '
 Public Sub BuildTimerCallback()
 
+    Dim strFolder As String
+    
     ' Look up the existing timer to make sure we kill it properly.
     If m_lngBuildTimerID = 0 Then m_lngBuildTimerID = GetSetting(GetCodeVBProject.Name, "Build", "TimerID", 0)
     If m_lngBuildTimerID <> 0 Then
@@ -42,7 +45,11 @@ Public Sub BuildTimerCallback()
         SaveSetting GetCodeVBProject.Name, "Build", "TimerID", 0
     End If
     
-    ' Now, with the timer killed, we can relaunch the build.
-    Build
+    ' Now, with the timer killed, we can clear the saved value and relaunch the build.
+    strFolder = GetSetting(GetCodeVBProject.Name, "Build", "SourceFolder")
+    SaveSetting GetCodeVBProject.Name, "Build", "SourceFolder", vbNullString
+    If strFolder <> vbNullString Then
+        Build strFolder
+    End If
     
 End Sub

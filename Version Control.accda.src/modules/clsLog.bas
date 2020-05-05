@@ -109,7 +109,7 @@ Public Sub Flush()
 
     ' See if the GUI form is loaded.
     If Not m_RichText Is Nothing Then
-        With Form_frmMain.txtLog
+        With Form_frmVCSMain.txtLog
             m_blnProgressActive = False
             ' Set value, not text to avoid errors with large text strings.
             .SelStart = Len(.Text & vbNullString)

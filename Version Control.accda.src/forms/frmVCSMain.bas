@@ -727,7 +727,6 @@ Begin Form
                     ForeTint =100.0
                 End
                 Begin CommandButton
-                    Enabled = NotDefault
                     OverlapFlags =93
                     Left =4740
                     Top =3780
@@ -735,7 +734,7 @@ Begin Form
                     Height =900
                     TabIndex =2
                     ForeColor =4210752
-                    Name ="cmdImport"
+                    Name ="cmdBuild"
                     Caption ="  Build From Source"
                     OnClick ="[Event Procedure]"
                     Picture ="Build.png"
@@ -1611,12 +1610,122 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = True
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-Option Compare Database
-Option Explicit
-
 ' This color scheme can be changed, I just wanted something more aesthetically
 ' pleasing than the default wizards and forms.
 ' Color scheme: https://coolors.co/383f51-e0e0e6-ffffff-ef8354-d3d7ef
+
+Option Compare Database
+Option Explicit
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdBuild_Click
+' Author    : Adam Waller
+' Date      : 5/4/2020
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdBuild_Click()
+
+    Dim strFolder As String
+    Dim strFileName As String
+    Dim intChoice As VbMsgBoxResult
+    
+    ' Close the current database if it is currently open.
+    DoCmd.Hourglass True
+    If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) _
+        And FolderHasVcsOptionsFile(Options.GetExportFolder) Then
+        DoCmd.Hourglass False
+        intChoice = MsgBox2("Build " & GetVBProjectForCurrentDB.Name & " (" & CurrentProject.Name & ") from source?", _
+            "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
+            "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)", _
+            "Click 'No' to select another project, or 'Cancel' to go back to the previous screen.", _
+            vbYesNoCancel + vbQuestion + vbDefaultButton3)
+        If intChoice = vbYes Then
+            ' Rebuild the open project
+            strFolder = Options.GetExportFolder
+        ElseIf intChoice = vbCancel Then
+            ' Canceled out of build option.
+            Exit Sub
+        End If
+    End If
+    
+    ' If we aren't doing the current database, then prompt user to find a folder
+    ' with source files to use for the build.
+    DoCmd.Hourglass False
+    If strFolder = vbNullString Then
+    
+        ' Show a folder picker to select the file with source code.
+        With Application.FileDialog(msoFileDialogFolderPicker)
+            .AllowMultiSelect = False
+            .ButtonName = "Select Source Files Folder"
+            .InitialFileName = Options.GetExportFolder
+            .Title = "Select Source Folder"
+            .Show
+            If .SelectedItems.Count > 0 Then
+                ' Selected a folder
+                If FolderHasVcsOptionsFile(.SelectedItems(1)) Then
+                    ' Has source files
+                    strFolder = .SelectedItems(1)
+                Else
+                    MsgBox2 "Source files not found", "Required source files were not found in this folder.", _
+                        "You selected: " & .SelectedItems(1), vbExclamation
+                End If
+            End If
+        End With
+    End If
+
+    ' Build using selected folder
+    Build strFolder
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildFromSource
+' Author    : Adam Waller
+' Date      : 5/4/2020
+' Purpose   : Show the GUI for building the database from source.
+'---------------------------------------------------------------------------------------
+'
+Public Sub StartBuild()
+
+    cmdClose.SetFocus
+    HideActionButtons
+    DoEvents
+    With txtLog
+        .ScrollBars = 0
+        .Visible = True
+        .SetFocus
+    End With
+    Log.SetConsole Me.txtLog
+    Me.Visible = True
+    
+    ' Show the status
+    SetStatusText "Running...", "Building From Source", "A summary of the build progress can be seen on this screen, and additional details are included in the log file."
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FinishBuild
+' Author    : Adam Waller
+' Date      : 5/4/2020
+' Purpose   : Finish the build process
+'---------------------------------------------------------------------------------------
+'
+Public Sub FinishBuild()
+
+    ' Display final UI messages.
+    Log.Flush
+    SetStatusText "Finished", "Build Complete", "Additional details can be found in the project build log file.<br><br>You may now close this window."
+    
+    ' Set focus to close button and turn on scroll bars in case the user wants to scroll back through the log.
+    cmdClose.SetFocus
+    txtLog.ScrollBars = 2
+    
+End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdClose_Click
@@ -1675,7 +1784,7 @@ End Sub
 '
 Private Sub HideActionButtons()
     cmdExport.Visible = False
-    cmdImport.Visible = False
+    cmdBuild.Visible = False
     cmdOptions.Visible = False
     cmdHelp.Visible = False
 End Sub
@@ -1701,7 +1810,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdOptions_Click()
-    DoCmd.OpenForm "frmOptions"
+    DoCmd.OpenForm "frmVCSOptions"
 End Sub
 
 
