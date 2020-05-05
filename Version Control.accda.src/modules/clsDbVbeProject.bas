@@ -61,6 +61,22 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Dim dProject As Dictionary
+    
+    ' Update project properties
+    Set dProject = ReadJsonFile(strFile)
+    With GetVBProjectForCurrentDB
+        .Name = dNZ(dProject, "Items\Name")
+        .Description = dNZ(dProject, "Items\Description")
+        .HelpContextId = dNZ(dProject, "Items\HelpContextId")
+        .HelpFile = dNZ(dProject, "Items\HelpFile")
+        ' // Read-only properties
+        '.FileName = dNZ(dProject, "Items\FileName")
+        '.Mode = dNZ(dProject, "Items\Mode")
+        '.Protection = dNZ(dProject, "Items\Protection")
+        '.Type = dNZ(dProject, "Items\Type")
+    End With
+
 End Sub
 
 
