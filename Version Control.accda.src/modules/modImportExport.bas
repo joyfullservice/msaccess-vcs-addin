@@ -168,6 +168,10 @@ Public Sub Build(strSourceFolder As String)
     
     ' Build original file name for database
     strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
+    If strPath = vbNullString Then
+        MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
+        Exit Sub
+    End If
     
     ' Launch the GUI and display the build header.
     DoCmd.Hourglass True

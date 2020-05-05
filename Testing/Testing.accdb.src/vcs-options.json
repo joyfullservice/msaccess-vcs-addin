@@ -2,7 +2,7 @@
   "Info": {
     "AddinVersion": "1.0.0",
     "AccessVersion": "14.0 32-bit",
-    "Hash": "@{515a52afd76e1ae9578c838f7b3f5d2c105a5f2d0a62fbbe}"
+    "Hash": "@{527ac65f27c6277e43d124563081faf0c6b789cfd0584e13}"
   },
   "Options": {
     "ExportFolder": "",
@@ -23,6 +23,7 @@
     },
     "RunBeforeExport": "",
     "RunAfterExport": "",
-    "RunAfterBuild": ""
+    "RunAfterBuild": "",
+    "KeyName": "MSAccessVCS"
   }
 }
