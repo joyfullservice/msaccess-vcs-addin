@@ -63,6 +63,47 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Dim dExisting As Dictionary
+    Dim prp As AccessObjectProperty
+    Dim dImport As Dictionary
+    Dim dItems As Dictionary
+    Dim projCurrent As CurrentProject
+    Dim varKey As Variant
+    
+    Set projCurrent = CurrentProject
+    
+    ' Pull a list of the existing properties so we know whether
+    ' to add or update the existing property.
+    Set dExisting = New Dictionary
+    For Each prp In projCurrent.Properties
+        Select Case prp.Name
+            Case "Connection"
+            Case Else
+                dExisting.Add prp.Name, prp.Value
+        End Select
+    Next prp
+
+    ' Read properties from source file
+    Set dImport = ReadJsonFile(strFile)
+    If Not dImport Is Nothing Then
+        Set dItems = dImport("Items")
+        For Each varKey In dItems.Keys
+            Select Case varKey
+                Case "Name", "Connection"
+                Case Else
+                    If dExisting.Exists(varKey) Then
+                        If dItems(varKey) <> dExisting(varKey) Then
+                            ' Update value of existing property if different.
+                            projCurrent.Properties(varKey).Value = Decrypt(dItems(varKey))
+                        End If
+                    Else
+                        ' Add properties that don't exist.
+                        projCurrent.Properties.Add varKey, Decrypt(dItems(varKey))
+                    End If
+            End Select
+        Next varKey
+    End If
+    
 End Sub
 
 
@@ -257,18 +298,6 @@ End Property
 Private Property Get IDbComponent_SingleFile() As Boolean
     IDbComponent_SingleFile = True
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Class_Initialize
-' Author    : Adam Waller
-' Date      : 4/24/2020
-' Purpose   : Helps us know whether we have already counted the tables.
-'---------------------------------------------------------------------------------------
-'
-Private Sub Class_Initialize()
-    'm_Count = -1
-End Sub
 
 
 '---------------------------------------------------------------------------------------

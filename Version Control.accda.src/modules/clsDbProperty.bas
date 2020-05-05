@@ -71,7 +71,65 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
+    
+    Dim dExisting As Dictionary
+    Dim prp As DAO.Property
+    Dim dImport As Dictionary
+    Dim dItems As Dictionary
+    Dim dbs As DAO.Database
+    Dim varKey As Variant
+    Dim varValue As Variant
+    Dim strDecrypted As String
+    Dim blnAdd As Boolean
+    
+    Set dbs = CurrentDb
+    
+    ' Pull a list of the existing properties so we know whether
+    ' to add or update the existing property.
+    Set dExisting = New Dictionary
+    For Each prp In dbs.Properties
+        dExisting.Add prp.Name, Array(prp.Value, prp.Type)
+    Next prp
 
+    ' Read properties from source file
+    Set dImport = ReadJsonFile(strFile)
+    If Not dImport Is Nothing Then
+        Set dItems = dImport("Items")
+        For Each varKey In dItems.Keys
+            Select Case varKey
+                Case "Connection", "Name" ' Can't set name property (filename)
+                Case Else
+                    blnAdd = False
+                    varValue = dItems(varKey)("Value")
+                    ' Check for encryption
+                    strDecrypted = Decrypt(CStr(varValue))
+                    If CStr(varValue) <> strDecrypted Then varValue = strDecrypted
+                    ' Check for existing value
+                    If dExisting.Exists(varKey) Then
+                        If dItems(varKey)("Type") <> dExisting(varKey)(1) Then
+                            ' Type is different. Need to remove and add as correct type.
+                            dbs.Properties.Delete varKey
+                            blnAdd = True
+                        Else
+                            ' Check the value, and update if different
+                            If varValue <> dExisting(varKey)(0) Then
+                                ' Update value of existing property if different.
+                                dbs.Properties(varKey).Value = varValue
+                            End If
+                        End If
+                    Else
+                        ' Add properties that don't exist.
+                        blnAdd = True
+                    End If
+                    If blnAdd Then
+                        ' Create property, then append to collection
+                        Set prp = dbs.CreateProperty(varKey, dItems(varKey)("Type"), varValue)
+                        dbs.Properties.Append prp
+                    End If
+            End Select
+        Next varKey
+    End If
+    
 End Sub
 
 
