@@ -1628,19 +1628,21 @@ Option Explicit
 Private Sub cmdBuild_Click()
 
     Dim strFolder As String
-    Dim strFileName As String
+    Dim strMsg(0 To 2) As String
     Dim intChoice As VbMsgBoxResult
     
     ' Close the current database if it is currently open.
     DoCmd.Hourglass True
+    DoEvents
     If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) _
         And FolderHasVcsOptionsFile(Options.GetExportFolder) Then
+        ' Build message text before we turn off the hourglass since first access may take a second.
+        strMsg(0) = "Build " & GetVBProjectForCurrentDB.Name & " (" & CurrentProject.Name & ") from source?"
+        strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
+            "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)"
+        strMsg(2) = "Click 'No' to select another project, or 'Cancel' to go back to the previous screen."
         DoCmd.Hourglass False
-        intChoice = MsgBox2("Build " & GetVBProjectForCurrentDB.Name & " (" & CurrentProject.Name & ") from source?", _
-            "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
-            "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)", _
-            "Click 'No' to select another project, or 'Cancel' to go back to the previous screen.", _
-            vbYesNoCancel + vbQuestion + vbDefaultButton3)
+        intChoice = MsgBox2(strMsg(0), strMsg(1), strMsg(2), vbYesNoCancel + vbQuestion + vbDefaultButton3)
         If intChoice = vbYes Then
             ' Rebuild the open project
             strFolder = Options.GetExportFolder

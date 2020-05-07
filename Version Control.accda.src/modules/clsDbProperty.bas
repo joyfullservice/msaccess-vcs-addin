@@ -88,7 +88,11 @@ Private Sub IDbComponent_Import(strFile As String)
     ' to add or update the existing property.
     Set dExisting = New Dictionary
     For Each prp In dbs.Properties
-        dExisting.Add prp.Name, Array(prp.Value, prp.Type)
+        Select Case prp.Name
+            Case "Connection"   ' This is an object.
+            Case Else
+                dExisting.Add prp.Name, Array(prp.Value, prp.Type)
+        End Select
     Next prp
 
     ' Read properties from source file
