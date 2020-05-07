@@ -42,7 +42,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-
+    LoadComponentFromText acForm, GetObjectNameFromFileName(strFile), strFile
 End Sub
 
 

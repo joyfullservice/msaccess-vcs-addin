@@ -52,6 +52,7 @@ Public Enum eDatabaseComponentType
     edbGalleryImage
     edbDocumentObject
     edbSavedSpec
+    edbImexSpec
     edbNavPaneGroups
     edbVbeProject
     edbVbeReference
@@ -707,8 +708,8 @@ Public Function GetSafeFileName(strName As String) As String
 
     ' Use URL encoding for these characters
     ' https://www.w3schools.com/tags/ref_urlencode.asp
-    strSafe = Replace(strName, "%", "%25")  ' Since we are using this character for encoding. (Makes decoding easier if we do that at some point in the future.)
-    strSafe = Replace(strName, "<", "%3C")
+    strSafe = Replace(strName, "%", "%25")  ' This should be done first.
+    strSafe = Replace(strSafe, "<", "%3C")
     strSafe = Replace(strSafe, ">", "%3E")
     strSafe = Replace(strSafe, ":", "%3A")
     strSafe = Replace(strSafe, """", "%22")
@@ -720,6 +721,37 @@ Public Function GetSafeFileName(strName As String) As String
 
     ' Return the sanitized file name.
     GetSafeFileName = strSafe
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetObjectNameFromFileName
+' Author    : Adam Waller
+' Date      : 5/6/2020
+' Purpose   : Return the object name after translating the HTML encoding back to normal
+'           : file name characters.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetObjectNameFromFileName(strFile As String) As String
+
+    Dim strName As String
+    
+    strName = FSO.GetBaseName(strFile)
+    ' Make sure the following list matches the one above.
+    strName = Replace(strName, "%3C", "<")
+    strName = Replace(strName, "%3E", ">")
+    strName = Replace(strName, "%3A", ":")
+    strName = Replace(strName, "%22", """")
+    strName = Replace(strName, "%2F", "/")
+    strName = Replace(strName, "%5C", "\")
+    strName = Replace(strName, "%7C", "|")
+    strName = Replace(strName, "%3F", "?")
+    strName = Replace(strName, "%2A", "*")
+    strName = Replace(strName, "%25", "%")  ' This should be done last.
+    
+    ' Return the object name
+    GetObjectNameFromFileName = strName
     
 End Function
 
@@ -1259,7 +1291,7 @@ Public Function GetFilePathsInFolder(strDirPath As String, Optional Attributes A
     Set GetFilePathsInFolder = New Collection
     strFile = Dir(strDirPath, Attributes)
     Do While strFile <> vbNullString
-        GetFilePathsInFolder.Add strFile
+        GetFilePathsInFolder.Add strBaseFolder & strFile
         strFile = Dir()
     Loop
     
@@ -1510,6 +1542,32 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : LoadComponentFromText
+' Author    : Adam Waller
+' Date      : 5/5/2020
+' Purpose   : Load the object into the database from the saved source file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, strFile As String)
+
+    Dim strTempFile As String
+    
+    ' Check UCS-2-LE requirement for the current database.
+    ' (Cached after first call)
+    If RequiresUcs2 Then
+        ' Perform file conversion, and import from temp file.
+        strTempFile = GetTempFile
+        ConvertUtf8Ucs2 strFile, strTempFile
+        Application.LoadFromText intType, strName, strTempFile
+    Else
+        ' Load UTF-8 file
+        Application.LoadFromText intType, strName, strFile
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : EncryptPath
 ' Author    : Adam Waller
 ' Date      : 5/1/2020
@@ -1590,7 +1648,6 @@ Public Function dNZ(dObject As Dictionary, strPath As String, Optional strDelimi
     Dim dblVal As Double
     Dim strKey As String
     Dim varSegment As Variant
-    Dim dBase As New Dictionary
         
     ' Split path into parts
     varPath = Split(strPath, strDelimiter)
