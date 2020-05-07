@@ -56,6 +56,40 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : EncryptBetween
+' Author    : Adam Waller
+' Date      : 5/6/2020
+' Purpose   : Encrypt an embedded string. (Such as the path in an XML document)
+'---------------------------------------------------------------------------------------
+'
+Public Function EncryptBetween(strText As String, strStartAfter As String, strEndBefore As String, Optional Compare As VbCompareMethod) As String
+    
+    Dim lngPos As Long
+    Dim lngStart As Long
+    Dim lngLen As Long
+    
+    lngPos = InStr(1, strText, strStartAfter, Compare)
+    If lngPos > 0 Then
+        lngStart = lngPos + Len(strStartAfter) - 1
+        lngPos = InStr(lngStart + 1, strText, strEndBefore)
+        If lngPos > 0 Then
+            lngLen = lngPos - lngStart
+        End If
+    End If
+    
+    If lngLen = 0 Then
+        ' No tags found. Return original string
+        EncryptBetween = strText
+    Else
+        EncryptBetween = Left$(strText, lngStart) & _
+            Encrypt(Mid$(strText, lngStart, lngLen)) & _
+            Mid$(strText, lngStart + lngLen)
+    End If
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Decrypt
 ' Author    : Adam Waller
 ' Date      : 4/24/2020
