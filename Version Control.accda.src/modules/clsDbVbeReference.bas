@@ -71,6 +71,36 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Dim dRef As Dictionary
+    Dim dItems As Dictionary
+    Dim varKey As Variant
+    Dim ref As VBIDE.Reference
+    Dim dFile As Dictionary
+    Dim proj As VBProject
+    Dim varVersion As Variant
+    Dim strPath As String
+    
+    ' Read in references from file
+    Set dFile = ReadJsonFile(strFile)
+    If Not dFile Is Nothing Then
+        Set proj = GetVBProjectForCurrentDB
+        Set dItems = dFile("Items")
+        For Each varKey In dItems.Keys
+            Set dRef = dItems(varKey)
+            If dRef.Exists("GUID") Then
+                varVersion = Split(dRef("Version"), ".")
+                Set ref = proj.References.AddFromGuid(dRef("GUID"), varVersion(0), varVersion(1))
+            ElseIf dRef.Exists("FullPath") Then
+                strPath = Decrypt(dRef("FullPath"))
+                If FSO.FileExists(strPath) Then
+                    proj.References.AddFromFile strPath
+                Else
+                    Log.Add "ERROR: Failed to add reference " & strPath
+                End If
+            End If
+        Next varKey
+    End If
+    
 End Sub
 
 
