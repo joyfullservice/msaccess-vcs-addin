@@ -70,7 +70,7 @@ Private Sub IDbComponent_Export()
         End With
         colItems.Add dField
     Next fld
-    dItem.Add m_Relation.Name, colItems
+    dItem.Add "Fields", colItems
     
     ' Write to json file
     WriteJsonFile Me, dItem, IDbComponent_SourceFile, "Database relationship"
@@ -86,7 +86,37 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    ImportRelation strFile
+    
+    Dim dItem As Scripting.Dictionary
+    Dim dFile As Dictionary
+    Dim dField As Scripting.Dictionary
+    Dim colItems As Collection
+    Dim fld As DAO.Field
+    Dim dbs As DAO.Database
+    Dim rel As DAO.Relation
+    
+    ' Parse json file
+    Set dFile = ReadJsonFile(strFile)
+    If Not dFile Is Nothing Then
+        
+        ' Create new relation
+        Set dbs = CurrentDb
+        Set dItem = dFile("Items")
+        Set rel = dbs.CreateRelation(dItem("Name"), dItem("Table"), dItem("ForeignTable"))
+        rel.Attributes = dItem("Attributes")
+        rel.PartialReplica = dItem("PartialReplica")
+        
+        ' Add fields, and append to relation
+        For Each dField In dFile("Fields")
+            Set fld = rel.CreateField(dField("Name"))
+            fld.ForeignName = dField("ForeignName")
+        Next dField
+        rel.Fields.Append fld
+        
+        ' Add relationship to database
+        dbs.Relations.Append rel
+    End If
+    
 End Sub
 
 
