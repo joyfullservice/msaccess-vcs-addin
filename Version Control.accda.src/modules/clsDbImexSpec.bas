@@ -172,7 +172,7 @@ Private Function IDbComponent_GetAllFromDB() As Collection
         Set m_AllItems = New Collection
         
         ' This table may not (yet) exist.
-        If HasTable("MSysIMEXSpecs") Then
+        If TableExists("MSysIMEXSpecs") Then
             ' Look up specs from table
             Set dbs = CurrentDb
             Set rst = dbs.OpenRecordset("MSysIMEXSpecs", dbOpenSnapshot, dbReadOnly)
@@ -222,22 +222,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub ImportMissingTableFromAddIn(strTable As String)
-    If Not HasTable(strTable) Then
+    If Not TableExists(strTable) Then
         DoCmd.TransferDatabase acImport, "Microsoft Access", CodeProject.FullName, acTable, strTable, strTable, True
     End If
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : HasTable
-' Author    : Adam Waller
-' Date      : 5/7/2020
-' Purpose   : Returns true if the table object is found in the dabase.
-'---------------------------------------------------------------------------------------
-'
-Private Function HasTable(strName As String) As Boolean
-    HasTable = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type=1") = 0)
-End Function
 
 
 '---------------------------------------------------------------------------------------

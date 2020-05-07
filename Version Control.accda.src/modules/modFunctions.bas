@@ -1705,3 +1705,15 @@ Public Function dNZ(dObject As Dictionary, strPath As String, Optional strDelimi
     Next intCnt
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TableExists
+' Author    : Adam Waller
+' Date      : 5/7/2020
+' Purpose   : Returns true if the table object is found in the dabase.
+'---------------------------------------------------------------------------------------
+'
+Public Function TableExists(strName As String) As Boolean
+    TableExists = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type=1") = 0)
+End Function

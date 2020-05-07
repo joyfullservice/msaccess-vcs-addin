@@ -90,7 +90,6 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim dItem As Scripting.Dictionary
     Dim dFile As Dictionary
     Dim dField As Scripting.Dictionary
-    Dim colItems As Collection
     Dim fld As DAO.Field
     Dim dbs As DAO.Database
     Dim rel As DAO.Relation

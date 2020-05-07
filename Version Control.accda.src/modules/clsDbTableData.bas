@@ -47,7 +47,7 @@ Private Sub IDbComponent_Export()
         If intFormat = Me.Format Then
             ' Export the table using this format.
             Select Case intFormat
-                Case etdTabDelimited:   ExportTableData m_Table.Name
+                Case etdTabDelimited:   ExportTableDataAsTDF m_Table.Name
                 Case etdXML:
                     Application.ExportXML acExportTable, m_Table.Name, strFile
                     SanitizeXML strFile, Options
@@ -65,7 +65,7 @@ End Sub
 ' Purpose   : Export the data from the table.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportTableData(strTable As String)
+Public Sub ExportTableDataAsTDF(strTable As String)
 
     Dim rst As DAO.Recordset
     Dim fld As DAO.Field
@@ -91,18 +91,93 @@ Public Sub ExportTableData(strTable As String)
         intCnt = 0
         For Each fld In rst.Fields
             ' Format for TDF format without line breaks
-            strText = MultiReplace(Nz(fld.Value), "\", "\\", vbCrLf, "\n", vbCr, "\n", vbLf, "\n", vbTab, "\t")
+            strText = MultiReplace(Nz(fld.Value), "\", "\\", vbCrLf, "\r\n", vbCr, "\r", vbLf, "\n", vbTab, "\t")
             cData.Add strText
             intCnt = intCnt + 1
             If intCnt < intFields Then cData.Add vbTab
         Next fld
         cData.Add vbCrLf
         rst.MoveNext
+        Log.Increment ' Increment log, in case this takes a while
     Loop
 
     ' Save output file
     WriteFile cData.GetStr, IDbComponent_BaseFolder & GetSafeFileName(StripDboPrefix(strTable)) & ".txt"
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportTableDataTDF
+' Author    : Adam Waller
+' Date      : 5/7/2020
+' Purpose   : Imports the data from a TDF file, loading it into the table
+'---------------------------------------------------------------------------------------
+'
+Private Sub ImportTableDataTDF(strFile As String)
+
+    Dim strTable As String
+    Dim dCols As Dictionary
+    Dim fld As DAO.Field
+    Dim dbs As DAO.Database
+    Dim rst As Recordset
+    Dim stm As ADODB.Stream
+    Dim strLine As String
+    Dim varLine As Variant
+    Dim varHeader As Variant
+    Dim intCol As Integer
+    Dim strValue As String
+    
+    ' Build a dictionary of column names so we can load the data
+    ' into the matching columns.
+    strTable = GetObjectNameFromFileName(strFile)
+    Set dbs = CurrentDb
+    For Each fld In dbs.TableDefs(strTable)
+        dCols.Add fld.Name, fld.Name
+    Next fld
+    
+    ' Clear any existing records before importing this data.
+    dbs.Execute "delete from " & strTable, dbFailOnError
+    Set rst = dbs.OpenRecordset(strTable)
+    
+    ' Read file line by line
+    Set stm = FSO.OpenTextFile(strFile)
+    Set rst = dbs.OpenRecordset(strTable)
+    Do While Not stm.EOS
+        strLine = stm.ReadText(adReadLine)
+        If Not IsArray(varHeader) Then
+            ' Read header line
+            varHeader = Split(strLine, vbTab)
+        Else
+            ' Data line
+            varLine = Split(strLine, vbTab)
+            rst.AddNew
+                ' Loop through fields
+                For intCol = 0 To UBound(varHeader)
+                    ' Check to see if field exists in the table
+                    If dCols.Exists(varHeader(intCol)) Then
+                        ' Perform any needed replacements
+                        strValue = MultiReplace(CStr(varLine(intCol)), _
+                            "\\", "\", "\r\n", vbCrLf, "\r", vbCr, "\n", vbLf, "\t", vbTab)
+                        If strValue <> CStr(varLine(intCol)) Then
+                            ' Use replaced string value
+                            rst.Fields(varHeader(intCol)).Value = strValue
+                        Else
+                            ' Use variant value without the string conversion
+                            rst.Fields(varHeader(intCol)).Value = varLine(intCol)
+                        End If
+                    End If
+                Next intCol
+            rst.Update
+        End If
+        ' Increment log, just in case this takes a while.
+        Log.Increment
+    Loop
+    stm.Close
+    Set stm = Nothing
+    rst.Close
+    Set rst = Nothing
+    
 End Sub
 
 
@@ -157,10 +232,22 @@ End Function
 ' Procedure : Import
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
-' Purpose   : Import the individual database component from a file.
+' Purpose   : Import the table data from a file.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
+
+    Dim strTable As String
+
+    ' Import from different formats (XML is preferred for data integrity)
+    Select Case GetFormatByExt(strFile)
+        Case etdXML
+            strTable = GetObjectNameFromFileName(strFile)
+            If TableExists(strTable) Then DoCmd.DeleteObject acTable, strTable
+            Application.ImportXML strFile, acStructureAndData
+        Case etdTabDelimited
+            ImportTableDataTDF strFile
+    End Select
 
 End Sub
 
@@ -234,6 +321,21 @@ Private Function GetExtByFormat(intFormat As eTableDataExportFormat) As String
     Select Case intFormat
         Case etdTabDelimited:   GetExtByFormat = "txt"
         Case etdXML:            GetExtByFormat = "xml"
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFormatByExt
+' Author    : Adam Waller
+' Date      : 5/7/2020
+' Purpose   : Look up the format from the extension name
+'---------------------------------------------------------------------------------------
+'
+Private Function GetFormatByExt(strFile As String) As eTableDataExportFormat
+    Select Case FSO.GetExtensionName(strFile)
+        Case "txt": GetFormatByExt = etdTabDelimited
+        Case "xml": GetFormatByExt = etdXML
     End Select
 End Function
 
