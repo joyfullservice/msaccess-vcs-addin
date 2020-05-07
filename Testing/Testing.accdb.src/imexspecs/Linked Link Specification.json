@@ -1,0 +1,39 @@
+{
+  "Info": {
+    "Class": "clsDbIMEXSpec",
+    "Description": "Import/Export Specification from MSysIMEXSpecs",
+    "VCS Version": "3.0.38"
+  },
+  "Items": {
+    "DateDelim": "/",
+    "DateFourDigitYear": true,
+    "DateLeadingZeros": false,
+    "DateOrder": 2,
+    "DecimalPoint": ".",
+    "FieldSeparator": ",",
+    "FileType": 437,
+    "SpecName": "Linked Link Specification",
+    "SpecType": 1,
+    "StartRow": 1,
+    "TextDelim": "",
+    "TimeDelim": ":",
+    "Columns": {
+      "ID": {
+        "Attributes": 0,
+        "DataType": 4,
+        "IndexType": 0,
+        "SkipColumn": false,
+        "Start": 1,
+        "Width": 3
+      },
+      "Color": {
+        "Attributes": 0,
+        "DataType": 10,
+        "IndexType": 0,
+        "SkipColumn": false,
+        "Start": 4,
+        "Width": 7
+      }
+    }
+  }
+}

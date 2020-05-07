@@ -1,10 +1,10 @@
 {
- "Info": {
-  "Class": "clsDbProjProperty",
-  "Description": "Project Properties (Access)",
-  "VCS Version": "3.0.18"
- },
- "Items": {
-  "ProjectProperty": "TestValue"
- }
+  "Info": {
+    "Class": "clsDbProjProperty",
+    "Description": "Project Properties (Access)",
+    "VCS Version": "3.0.38"
+  },
+  "Items": {
+    "ProjectProperty": "TestValue"
+  }
 }

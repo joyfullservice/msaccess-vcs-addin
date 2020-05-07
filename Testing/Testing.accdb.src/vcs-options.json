@@ -7,17 +7,17 @@
   "Options": {
     "ExportFolder": "",
     "ShowDebug": false,
-    "UseFastSave": true,
+    "UseFastSave": false,
     "SavePrintVars": true,
     "SaveQuerySQL": true,
     "SaveTableSQL": true,
     "StripPublishOption": true,
     "AggressiveSanitize": true,
     "TablesToExportData": {
-      "USysRibbons": {
+      "USysRegInfo": {
         "Format": "Tab Delimited"
       },
-      "USysRegInfo": {
+      "USysRibbons": {
         "Format": "Tab Delimited"
       }
     },

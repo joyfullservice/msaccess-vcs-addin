@@ -1,12 +1,13 @@
 {
- "Info": {
-  "Class": "clsDbTableDef",
-  "Description": "Linked Table",
-  "VCS Version": "3.0.18"
- },
- "Items": {
-  "Name": "tblLinkedCSV",
-  "Connect": "@{527ac65d07ec740c48cc4a2833a6c0c9ec9f87c2fa756172178d8a7f6bd7373a721256638b4e6191c952f5c4491d3c7e5a37df2bcfac6654ed91a36c4e79c67f2394e4fb9fc2aa6b3e8190aee4e7caa08a6e2c01ca42d834985e218e5b93a8bfdc97fed508295b3ddcb89d1afd25b46fc5e71dd6db1e225c54a54b5249040de80df473573b34c8c6afffc1d4d8d1e8857e9a4d8ce80cf4333af280903146d5e7211d}",
-  "SourceTableName": "Linked.csv"
- }
+  "Info": {
+    "Class": "clsDbTableDef",
+    "Description": "Linked Table",
+    "VCS Version": "3.0.38"
+  },
+  "Items": {
+    "Name": "tblLinkedCSV",
+    "Connect": "@{527ac65d07ec740c48cc4a2833a6c0c9ec9f87c2fa756172178d8a7f6bd7373a721256638b4e6191c952f5c4491d3c7e5a37df2bcfac6654ed91a36c4e79c67f2394e4fb9fc2aa6b3e8190aee4e7caa08a6e2c01ca42d834985e218e5b93a8bfdc97fed508295b3ddcb89d1afd25b46fc5e71dd6db1e225c54a54b5249040de80df473573b34c8c6afffc1d4d8d1e8857e9a4d8ce80cf4333af280903146d5e7211d}",
+    "SourceTableName": "Linked.csv",
+    "Attributes": 1073741824
+  }
 }

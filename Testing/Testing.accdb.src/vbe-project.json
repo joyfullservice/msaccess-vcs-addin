@@ -1,17 +1,17 @@
 {
- "Info": {
-  "Class": "clsDbVbeProject",
-  "Description": "VBE Project",
-  "VCS Version": "3.0.18"
- },
- "Items": {
-  "Name": "VCS Testing",
-  "Description": "",
-  "FileName": "@{527ac64a58c8214469ed77493eabcfcfa9acc6e2ff7e780e03949b5477d3023460075c6f800654f1eb0cc28c4c1a25724920da64ee875a35f7bbeb516a52f9}\\Testing.accdb",
-  "HelpContextId": 0,
-  "HelpFile": "",
-  "Mode": 0,
-  "Protection": 0,
-  "Type": 100
- }
+  "Info": {
+    "Class": "clsDbVbeProject",
+    "Description": "VBE Project",
+    "VCS Version": "3.0.38"
+  },
+  "Items": {
+    "Name": "VCS Testing",
+    "Description": "",
+    "FileName": "@{527ac64a58c8214469ed77493eabcfcfa9acc6e2ff7e780e03949b5477d3023460075c6f800654f1eb0cc28c4c1a25724920da64ee875a35f7bbeb516a52f9}\\Testing.accdb",
+    "HelpContextId": 0,
+    "HelpFile": "",
+    "Mode": 0,
+    "Protection": 0,
+    "Type": 100
+  }
 }
