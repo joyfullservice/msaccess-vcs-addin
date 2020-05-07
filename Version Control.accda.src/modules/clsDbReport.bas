@@ -66,16 +66,13 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    
-    Dim strFile As String
-    
+
     ' Export main report object
     SaveComponentAsText acReport, m_Report.Name, IDbComponent_SourceFile
     
     ' Export print vars if selected
     If Options.SavePrintVars Then
-        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Report.Name) & ".json"
-        ExportPrintVars m_Report.Name, strFile
+        ExportPrintVars m_Report.Name, GetPrintVarsFileName(m_Report.Name)
     End If
     
 End Sub
@@ -107,19 +104,11 @@ Public Sub ExportPrintVars(strReport As String, strFile As String)
     ' Make sure we don't have a null devmode
     If Not IsNull(rpt.PrtDevMode) Then
 
-        ' Read report devmode into structure
+        ' Read report devmode into structure and convert to dictionary
         DevModeExtra = rpt.PrtDevMode
         DevModeString.RGB = DevModeExtra
         LSet DM = DevModeString
-
-        Set dItems = New Scripting.Dictionary
-        With dItems
-            .Add "Orientation", DM.intOrientation
-            .Add "PaperSize", DM.intPaperSize
-            .Add "PaperLength", DM.intPaperLength
-            .Add "PaperWidth", DM.intPaperWidth
-            .Add "Scale", DM.intScale
-        End With
+        Set dItems = DevModeToDictionary(DM)
 
         ' Write output to file
         WriteJsonFile Me, dItems, strFile, "Report Print Settings"
@@ -137,63 +126,37 @@ Public Sub ExportPrintVars(strReport As String, strFile As String)
 End Sub
 
 
-Public Sub ImportPrintVars(obj_name As String, filePath As String)
+'---------------------------------------------------------------------------------------
+' Procedure : ImportPrintVars
+' Author    : Adam Waller
+' Date      : 5/7/2020
+' Purpose   : Import the print vars back into the report.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ImportPrintVars(strFile As String)
     
     Dim DevModeString As str_DEVMODE
+    Dim tDevMode As type_DEVMODE
     Dim DevModeExtra As String
-    Dim varLine As Variant
+    Dim dFile As Dictionary
+    Dim strReport As String
     
-    Dim DM As type_DEVMODE
-     Dim rpt As Report
-    'report must be open to access Report object
-    'report must be opened in design view to save changes to the print vars
+    Set dFile = ReadJsonFile(strFile)
+    If Not dFile Is Nothing Then
     
-     DoCmd.OpenReport obj_name, acViewDesign
+        ' Prepare data structures
+        tDevMode = DictionaryToDevMode(dFile("Items"))
+        LSet DevModeString = tDevMode
+        Mid(DevModeExtra, 1, 94) = DevModeString.RGB
     
-    Set rpt = Reports(obj_name)
-    
-    'read print vars into struct
-    If Not IsNull(rpt.PrtDevMode) Then
-       DevModeExtra = rpt.PrtDevMode
-       DevModeString.RGB = DevModeExtra
-       LSet DM = DevModeString
-    Else
-       Set rpt = Nothing
-       DoCmd.Close acReport, obj_name, acSaveNo
-       Debug.Print "Warning: PrtDevMode is null"
-       Exit Sub
+        ' Apply to report
+        strReport = GetObjectNameFromFileName(strFile)
+        DoCmd.Echo False
+        DoCmd.OpenReport strReport, acViewDesign
+        Reports(strReport).PrtDevMode = DevModeExtra
+        DoCmd.Close acReport, strReport, acSaveYes
     End If
     
-    Dim InFile As Scripting.TextStream ' Object
-    Set InFile = FSO.OpenTextFile(filePath, ForReading)
-    
-    ' Loop through lines
-    Do While Not InFile.AtEndOfStream
-       varLine = Split(InFile.ReadLine, "=")
-       If UBound(varLine) = 1 Then
-           Select Case varLine(0)
-               Case "Orientation":     DM.intOrientation = varLine(1)
-               Case "PaperSize":       DM.intPaperSize = varLine(1)
-               Case "PaperLength":     DM.intPaperLength = varLine(1)
-               Case "PaperWidth":      DM.intPaperWidth = varLine(1)
-               Case "Scale":           DM.intScale = varLine(1)
-               Case Else
-                   Debug.Print "* Unknown print var: '" & varLine(0) & "'"
-           End Select
-       End If
-    Loop
-    
-    InFile.Close
-    
-    'write print vars back into report
-    LSet DevModeString = DM
-    Mid(DevModeExtra, 1, 94) = DevModeString.RGB
-    rpt.PrtDevMode = DevModeExtra
-    
-    Set rpt = Nothing
-    
-    DoCmd.Close acReport, obj_name, acSaveYes
-
 End Sub
 
 
@@ -205,7 +168,18 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-
+    
+    Dim strReport As String
+    
+    ' Import the report object
+    strReport = GetObjectNameFromFileName(strFile)
+    LoadComponentFromText acReport, strReport, strFile
+    
+    ' Import the print vars if specified
+    If Options.SavePrintVars Then
+        ImportPrintVars GetPrintVarsFileName(strReport)
+    End If
+    
 End Sub
 
 
@@ -234,6 +208,97 @@ Private Function IDbComponent_GetAllFromDB() As Collection
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_AllItems
         
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DevModeToDictionary
+' Author    : Adam Waller
+' Date      : 5/7/2020
+' Purpose   : Convert a DEVMODE type to a dictionary.
+'---------------------------------------------------------------------------------------
+'
+Private Function DevModeToDictionary(cDev As type_DEVMODE) As Dictionary
+    Set DevModeToDictionary = New Dictionary
+    With DevModeToDictionary
+        .Add "DeviceName", cDev.strDeviceName
+        .Add "SpecVersion", cDev.intSpecVersion
+        .Add "DriverVersion", cDev.intDriverVersion
+        .Add "Size", cDev.intSize
+        .Add "DriverExtra", cDev.intDriverExtra
+        .Add "Fields", cDev.lngFields
+        .Add "Orientation", cDev.intOrientation
+        .Add "PaperSize", cDev.intPaperSize
+        .Add "PaperLength", cDev.intPaperLength
+        .Add "PaperWidth", cDev.intPaperWidth
+        .Add "Scale", cDev.intScale
+        .Add "Copies", cDev.intCopies
+        .Add "DefaultSource", cDev.intDefaultSource
+        .Add "PrintQuality", cDev.intPrintQuality
+        .Add "Color", cDev.intColor
+        .Add "Duplex", cDev.intDuplex
+        .Add "Resolution", cDev.intResolution
+        .Add "TTOption", cDev.intTTOption
+        .Add "Collate", cDev.intCollate
+        .Add "FormName", cDev.strFormName
+        .Add "Pad", cDev.lngPad
+        .Add "Bits", cDev.lngBits
+        .Add "PW", cDev.lngPW
+        .Add "PH", cDev.lngPH
+        .Add "DFI", cDev.lngDFI
+        .Add "DFr", cDev.lngDFr
+    End With
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DictionaryToDevMode
+' Author    : Adam Waller
+' Date      : 5/7/2020
+' Purpose   : Excel formulas make it easy to edit these!
+'---------------------------------------------------------------------------------------
+'
+Private Function DictionaryToDevMode(dDevMode As Dictionary) As type_DEVMODE
+    With DictionaryToDevMode
+        .strDeviceName = dDevMode("DeviceName")
+        .intSpecVersion = dDevMode("SpecVersion")
+        .intDriverVersion = dDevMode("DriverVersion")
+        .intSize = dDevMode("Size")
+        .intDriverExtra = dDevMode("DriverExtra")
+        .lngFields = dDevMode("Fields")
+        .intOrientation = dDevMode("Orientation")
+        .intPaperSize = dDevMode("PaperSize")
+        .intPaperLength = dDevMode("PaperLength")
+        .intPaperWidth = dDevMode("PaperWidth")
+        .intScale = dDevMode("Scale")
+        .intCopies = dDevMode("Copies")
+        .intDefaultSource = dDevMode("DefaultSource")
+        .intPrintQuality = dDevMode("PrintQuality")
+        .intColor = dDevMode("Color")
+        .intDuplex = dDevMode("Duplex")
+        .intResolution = dDevMode("Resolution")
+        .intTTOption = dDevMode("TTOption")
+        .intCollate = dDevMode("Collate")
+        .strFormName = dDevMode("FormName")
+        .lngPad = dDevMode("Pad")
+        .lngBits = dDevMode("Bits")
+        .lngPW = dDevMode("PW")
+        .lngPH = dDevMode("PH")
+        .lngDFI = dDevMode("DFI")
+        .lngDFr = dDevMode("DFr")
+    End With
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetPrintVarsFileName
+' Author    : Adam Waller
+' Date      : 5/7/2020
+' Purpose   : Return the file name used to export/import print vars
+'---------------------------------------------------------------------------------------
+'
+Private Function GetPrintVarsFileName(strReport As String) As String
+    GetPrintVarsFileName = IDbComponent_BaseFolder & GetSafeFileName(strReport) & ".json"
 End Function
 
 
