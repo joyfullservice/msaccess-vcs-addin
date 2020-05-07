@@ -30,6 +30,70 @@ Option Private Module
 #End If
 
 
+' Cache the Ucs2 requirement for this database
+Private m_blnUcs2 As Boolean
+Private m_strDbPath As String
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RequiresUcs2
+' Author    : Adam Waller
+' Date      : 5/5/2020
+' Purpose   : Returns true if the current database requires objects to be converted
+'           : to Ucs2 format before importing. (Caching value for subsequent calls.)
+'           : While this involves creating a new querydef object each time, the idea
+'           : is that this would be faster than exporting a form if no queries exist
+'           : in the current database.
+'---------------------------------------------------------------------------------------
+'
+Public Function RequiresUcs2(Optional blnUseCache As Boolean = True) As Boolean
+
+    Dim strTempFile As String
+    Dim frm As Access.Form
+    Dim strName As String
+    Dim dbs As DAO.Database
+    
+    ' See if we already have a cached value
+    If (m_strDbPath <> CurrentProject.FullName) Or Not blnUseCache Then
+    
+        ' Get temp file name
+        strTempFile = GetTempFile
+        
+        ' Can't create querydef objects in ADP databases, so we have to use something else.
+        If CurrentProject.ProjectType = acMDB Then
+            ' Create and export a blank form object.
+            ' Turn of screen updates to improve performance and avoid flash.
+            DoCmd.Echo False
+            'strName = "frmTEMP_UCS2_" & Round(Timer)
+            Set frm = Application.CreateForm
+            strName = frm.Name
+            DoCmd.Close acForm, strName, acSaveYes
+            Application.SaveAsText acForm, strName, strTempFile
+            DoCmd.DeleteObject acForm, strName
+            DoCmd.Echo True
+        Else
+            ' Standard MDB database.
+            ' Create and export a querydef object. Fast and light.
+            strName = "qryTEMP_UCS2_" & Round(Timer)
+            Set dbs = CurrentDb
+            dbs.CreateQueryDef strName, "SELECT 1"
+            Application.SaveAsText acQuery, strName, strTempFile
+            dbs.QueryDefs.Delete strName
+        End If
+        
+        ' Test and delete temp file
+        m_strDbPath = CurrentProject.FullName
+        m_blnUcs2 = FileIsUCS2Format(strTempFile)
+        Kill strTempFile
+
+    End If
+
+    ' Return cached value
+    RequiresUcs2 = m_blnUcs2
+    
+End Function
+
+
 ' Determine if this database imports/exports code as UCS-2-LE. (Older file
 ' formats cause exported objects to use a Windows 8-bit character set.)
 Public Function UsingUcs2(Optional ByRef appInstance As Application) As Boolean
@@ -218,7 +282,7 @@ Public Function RemoveUTF8BOM(ByVal fileContents As String) As String
     fileBOM = Left$(fileContents, 3)
     
     If fileBOM = UTF8BOM Then
-        RemoveUTF8BOM = Right$(fileContents, Len(fileContents) - 3)
+        RemoveUTF8BOM = Mid$(fileContents, 4)
     Else ' No BOM detected
         RemoveUTF8BOM = fileContents
     End If
