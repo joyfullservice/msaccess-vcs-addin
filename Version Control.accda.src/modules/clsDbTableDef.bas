@@ -59,10 +59,12 @@ Private Sub IDbComponent_Export()
             .Add "Name", tbl.Name
             .Add "Connect", Encrypt(tbl.Connect)
             .Add "SourceTableName", tbl.SourceTableName
+            .Add "Attributes", tbl.Attributes
             ' indexes (Find primary key)
             For Each idx In tbl.Indexes
                 If idx.Primary Then
-                    .Add "PrimaryKey", Replace(CStr(idx.Fields), "+", "")
+                    ' Add the primary key columns, using brackets just in case the field names have spaces.
+                    .Add "PrimaryKey", "[" & MultiReplace(CStr(idx.Fields), "+", "", ";", "], [") & "]"
                     Exit For
                 End If
             Next idx
@@ -303,6 +305,64 @@ End Function
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Select Case LCase(FSO.GetExtensionName(strFile))
+        Case "json"
+            ImportLinkedTable strFile
+        Case "xml"
+            Application.ImportXML strFile, acStructureAndData
+    End Select
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportLinkedTable
+' Author    : Adam Waller
+' Date      : 5/6/2020
+' Purpose   : Recreate a linked table from the JSON source file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ImportLinkedTable(strFile As String)
+
+    Dim dTable As Dictionary
+    Dim dItem As Dictionary
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim strSQL As String
+    
+    ' Read json file
+    Set dTable = ReadJsonFile(strFile)
+    If Not dTable Is Nothing Then
+    
+        ' Link the table
+        Set dItem = dTable("Items")
+        Set dbs = CurrentDb
+        Set tdf = dbs.CreateTableDef(dItem("Name"))
+        With tdf
+            .Connect = Decrypt(dItem("Connect"))
+            .SourceTableName = dItem("SourceTableName")
+        End With
+        dbs.TableDefs.Append tdf
+        dbs.TableDefs.Refresh
+        
+        ' Might have to set this after adding the table?
+        If tdf.Attributes <> dItem("Attributes") Then tdf.Attributes = dItem("Attributes")
+        
+        ' Set index on linked table.
+        If InStr(1, tdf.Connect, ";DATABASE=", vbTextCompare) = 1 Then
+            ' Can't create a key on a linked Access database table.
+            ' Presumably this would use the Access index instead of needing the pseudo index
+        Else
+            ' Check for a primary key index
+            If dItem.Exists("PrimaryKey") Then
+                ' Create a pseudo index on the linked table
+                strSQL = "CREATE UNIQUE INDEX PrimaryKey ON [" & tdf.Name & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
+                dbs.Execute strSQL, dbFailOnError
+                dbs.TableDefs.Refresh
+            End If
+        End If
+        
+    End If
+     
 End Sub
 
 

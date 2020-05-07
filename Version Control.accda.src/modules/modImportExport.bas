@@ -136,13 +136,9 @@ End Sub
 '
 Public Sub Build(strSourceFolder As String)
 
-    Dim strCodeVBProjName As String
     Dim strPath As String
-    Dim dbs As DAO.Database
-    Dim blnCloseFirst As Boolean
     Dim strText As String
     Dim cCategory As IDbComponent
-    Dim cDbObject As IDbComponent
     Dim sngStart As Single
     Dim colFiles As Collection
     Dim varFile As Variant
@@ -262,6 +258,7 @@ Private Function GetAllContainers() As Collection
         .Add New clsDbVbeProject
         .Add New clsDbVbeReference
         .Add New clsDbProjProperty
+        .Add New clsDbIMEXSpec
         .Add New clsDbForm
         .Add New clsDbMacro
         .Add New clsDbModule

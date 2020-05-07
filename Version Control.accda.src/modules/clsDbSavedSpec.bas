@@ -41,7 +41,7 @@ Private Sub IDbComponent_Export()
     With dSpec
         .Add "Name", m_Spec.Name
         .Add "Description", m_Spec.Description
-        .Add "XML", m_Spec.XML
+        .Add "XML", EncryptBetween(m_Spec.XML, "<ImportExportSpecification Path = """, """")
     End With
     If Err Then Err.Clear
     On Error GoTo 0
@@ -61,6 +61,20 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Dim proj As CurrentProject
+    Dim dSpec As Dictionary
+    Dim dItem As Dictionary
+    
+    Set dSpec = ReadJsonFile(strFile)
+    If Not dSpec Is Nothing Then
+        Set dItem = dSpec("Items")
+        Set proj = CurrentProject
+        With proj.ImportExportSpecifications.Add(dItem("Name"), dItem("XML"))
+            ' Set description if provided.
+            If Nz(dItem("Description")) <> vbNullString Then .Description = dItem("Description")
+        End With
+    End If
+    
 End Sub
 
 
