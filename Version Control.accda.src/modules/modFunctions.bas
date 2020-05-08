@@ -50,7 +50,7 @@ Public Enum eDatabaseComponentType
     edbProjectProperty
     edbFileProperty
     edbGalleryImage
-    edbDocumentObject
+    edbDocument
     edbSavedSpec
     edbImexSpec
     edbNavPaneGroups
@@ -1551,10 +1551,17 @@ End Sub
 Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, strFile As String)
 
     Dim strTempFile As String
+    Dim blnConvert As Boolean
     
     ' Check UCS-2-LE requirement for the current database.
     ' (Cached after first call)
-    If RequiresUcs2 Then
+    Select Case intType
+        Case acForm, acReport, acQuery, acMacro, acTableDataMacro
+            blnConvert = RequiresUcs2
+    End Select
+    
+    ' Only run conversion if needed.
+    If blnConvert Then
         ' Perform file conversion, and import from temp file.
         strTempFile = GetTempFile
         ConvertUtf8Ucs2 strFile, strTempFile
@@ -1717,3 +1724,131 @@ End Function
 Public Function TableExists(strName As String) As Boolean
     TableExists = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type=1") = 0)
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SortDictionaryByKeys
+' Author    : Adam Waller
+' Date      : 5/8/2020
+' Purpose   : Rebuilds a dictionary object by adding all the items to a new dictionary
+'           : sorted by keys.
+'---------------------------------------------------------------------------------------
+'
+Public Function SortDictionaryByKeys(dSource As Dictionary) As Dictionary
+
+    Dim dSorted As Dictionary
+    Dim varKeys() As Variant
+    Dim varKey As Variant
+    Dim lngCnt As Long
+    
+    ' Don't need to sort empty dictionary or single item
+    If dSource.Count < 2 Then
+        Set SortDictionaryByKeys = dSource
+        Exit Function
+    End If
+    
+    ' Build and sort array of keys
+    ReDim varKeys(0 To dSource.Count - 1)
+    For Each varKey In dSource.Keys
+        varKeys(lngCnt) = varKey
+        lngCnt = lngCnt + 1
+    Next varKey
+    QuickSort varKeys
+    
+    ' Build and return new dictionary using sorted keys
+    Set dSorted = New Dictionary
+    For lngCnt = 0 To UBound(varKeys)
+        dSorted.Add varKeys(lngCnt), dSource(varKeys(lngCnt))
+    Next lngCnt
+    Set SortDictionaryByKeys = dSorted
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickSort
+' Author    : Stack Overflow
+' Date      : 5/8/2020
+' Purpose   : Adapted from https://stackoverflow.com/a/152325/4121863
+' Usage     : QuickSort MyArray
+'---------------------------------------------------------------------------------------
+'
+Public Sub QuickSort(vArray As Variant, Optional inLow, Optional inHi)
+
+    Dim pivot   As Variant
+    Dim tmpSwap As Variant
+    Dim tmpLow  As Long
+    Dim tmpHi   As Long
+    
+    If IsMissing(inLow) Then inLow = LBound(vArray)
+    If IsMissing(inHi) Then inHi = UBound(vArray)
+    
+    tmpLow = inLow
+    tmpHi = inHi
+    
+    pivot = vArray((inLow + inHi) \ 2)
+    
+    While (tmpLow <= tmpHi)
+        While (vArray(tmpLow) < pivot And tmpLow < inHi)
+            tmpLow = tmpLow + 1
+        Wend
+        
+        While (pivot < vArray(tmpHi) And tmpHi > inLow)
+            tmpHi = tmpHi - 1
+        Wend
+        
+        If (tmpLow <= tmpHi) Then
+            tmpSwap = vArray(tmpLow)
+            vArray(tmpLow) = vArray(tmpHi)
+            vArray(tmpHi) = tmpSwap
+            tmpLow = tmpLow + 1
+            tmpHi = tmpHi - 1
+        End If
+    Wend
+    
+    If (inLow < tmpHi) Then QuickSort vArray, inLow, tmpHi
+    If (tmpLow < inHi) Then QuickSort vArray, tmpLow, inHi
+  
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetDAOProperty
+' Author    : Adam Waller
+' Date      : 5/8/2020
+' Purpose   : Updates a DAO property, adding if it does not exist or is the wrong type.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetDAOProperty(objParent As Object, intType As Integer, strName As String, varValue As Variant)
+
+    Dim prp As DAO.Property
+    Dim blnFound As Boolean
+    
+    ' Look through existing properties.
+    For Each prp In objParent.Properties
+        If prp.Name = strName Then
+            blnFound = True
+            Exit For
+        End If
+    Next prp
+
+    ' Verify type, and update value if found.
+    If blnFound Then
+        If prp.Type <> intType Then
+            objParent.Properties.Delete strName
+            blnFound = False
+        Else
+            If objParent.Properties(strName).Value <> varValue Then
+                objParent.Properties(strName).Value = varValue
+            End If
+        End If
+    End If
+        
+    ' Add new property if needed
+    If Not blnFound Then
+        ' Create property, then append to collection
+        Set prp = objParent.CreateProperty(strName, intType, varValue)
+        objParent.Properties.Append prp
+    End If
+
+End Sub

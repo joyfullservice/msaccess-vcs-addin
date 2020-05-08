@@ -57,8 +57,8 @@ Private Sub IDbComponent_Export()
         End Select
     Next prp
     
-    ' Write to file
-    WriteJsonFile Me, dCollection, IDbComponent_SourceFile, "Database Properties (DAO)"
+    ' Write to file. The order of properties may change, so sort them to keep the order consistent.
+    WriteJsonFile Me, SortDictionaryByKeys(dCollection), IDbComponent_SourceFile, "Database Properties (DAO)"
     
 End Sub
 
@@ -101,7 +101,7 @@ Private Sub IDbComponent_Import(strFile As String)
         Set dItems = dImport("Items")
         For Each varKey In dItems.Keys
             Select Case varKey
-                Case "Connection", "Name" ' Can't set name property (filename)
+                Case "Connection", "Name", "Version" ' Can't set these properties
                 Case Else
                     blnAdd = False
                     varValue = dItems(varKey)("Value")

@@ -2,36 +2,124 @@
   "Info": {
     "Class": "clsDbProperty",
     "Description": "Database Properties (DAO)",
-    "VCS Version": "3.0.42"
+    "VCS Version": "3.0.51"
   },
   "Items": {
-    "Name": {
-      "Value": "@{7206d627d472a6e2c4b2176198567fa26c1d4a64f019eaa99605f1b18392994de549dae3795a27fe1a3725870cda26d7d1a2b96ce67669}\\Version Control.accda",
-      "Type": 12
+    "AccessVersion": {
+      "Value": "09.50",
+      "Type": 10
     },
-    "Connect": {
-      "Value": "",
-      "Type": 12
-    },
-    "Transactions": {
+    "AllowBuiltInToolbars": {
       "Value": true,
       "Type": 1
     },
-    "Updatable": {
+    "AllowDatasheetSchema": {
       "Value": true,
       "Type": 1
+    },
+    "AllowFullMenus": {
+      "Value": true,
+      "Type": 1
+    },
+    "AllowShortcutMenus": {
+      "Value": true,
+      "Type": 1
+    },
+    "AllowSpecialKeys": {
+      "Value": true,
+      "Type": 1
+    },
+    "AllowToolbarChanges": {
+      "Value": true,
+      "Type": 1
+    },
+    "ANSI Query Mode": {
+      "Value": 0,
+      "Type": 4
+    },
+    "AppTitle": {
+      "Value": "Version Control System",
+      "Type": 10
+    },
+    "AppVersion": {
+      "Value": "3.0.51",
+      "Type": 10
+    },
+    "Auto Compact": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Build": {
+      "Value": 606,
+      "Type": 4
+    },
+    "ClickOnce Deployment": {
+      "Value": "False",
+      "Type": 10
     },
     "CollatingOrder": {
       "Value": 1033,
       "Type": 3
     },
+    "Connect": {
+      "Value": "",
+      "Type": 12
+    },
+    "DesignMasterID": {
+      "Value": "",
+      "Type": 15
+    },
+    "DesignWithData": {
+      "Value": true,
+      "Type": 1
+    },
+    "HasOfflineLists": {
+      "Value": 70,
+      "Type": 3
+    },
+    "Last VCS Export": {
+      "Value": "5/8/2020 5:04:48 PM",
+      "Type": 10
+    },
+    "Last VCS Version": {
+      "Value": "3.0.51",
+      "Type": 10
+    },
+    "Name": {
+      "Value": "@{7206d627d472a6e2c4b2176198567fa26c1d4a64f019eaa99605f1b18392994de549dae3795a27fe1a3725870cda26d7d1a2b96ce67669}\\Version Control.accda",
+      "Type": 12
+    },
+    "NavPane Category": {
+      "Value": 0,
+      "Type": 4
+    },
+    "NavPane Closed": {
+      "Value": 0,
+      "Type": 4
+    },
+    "NavPane Sort By": {
+      "Value": 1,
+      "Type": 4
+    },
+    "NavPane View By": {
+      "Value": 0,
+      "Type": 4
+    },
+    "NavPane Width": {
+      "Value": 215,
+      "Type": 4
+    },
+    "Picture Property Storage Format": {
+      "Value": 0,
+      "Type": 4
+    },
+    "ProjVer": {
+      "Value": 119,
+      "Type": 3
+    },
     "QueryTimeout": {
       "Value": 60,
       "Type": 3
-    },
-    "Version": {
-      "Value": "14.0",
-      "Type": 12
     },
     "RecordsAffected": {
       "Value": 0,
@@ -41,65 +129,13 @@
       "Value": "",
       "Type": 15
     },
-    "DesignMasterID": {
-      "Value": "",
-      "Type": 15
-    },
-    "AccessVersion": {
-      "Value": "09.50",
-      "Type": 10
-    },
-    "NavPane Category": {
-      "Value": 0,
+    "Row Limit": {
+      "Value": 10000,
       "Type": 4
     },
-    "HasOfflineLists": {
-      "Value": 70,
-      "Type": 3
-    },
-    "StartUpShowDBWindow": {
-      "Value": true,
-      "Type": 1
-    },
-    "StartUpShowStatusBar": {
-      "Value": true,
-      "Type": 1
-    },
-    "AllowShortcutMenus": {
-      "Value": true,
-      "Type": 1
-    },
-    "AllowFullMenus": {
-      "Value": true,
-      "Type": 1
-    },
-    "AllowBuiltInToolbars": {
-      "Value": true,
-      "Type": 1
-    },
-    "AllowToolbarChanges": {
-      "Value": true,
-      "Type": 1
-    },
-    "AllowSpecialKeys": {
-      "Value": true,
-      "Type": 1
-    },
-    "UseAppIconForFrmRpt": {
-      "Value": false,
-      "Type": 1
-    },
-    "UseMDIMode": {
+    "Show Navigation Pane Search Bar": {
       "Value": 0,
-      "Type": 2
-    },
-    "ShowDocumentTabs": {
-      "Value": true,
-      "Type": 1
-    },
-    "AllowDatasheetSchema": {
-      "Value": true,
-      "Type": 1
+      "Type": 4
     },
     "Show Values in Indexed": {
       "Value": 1,
@@ -113,89 +149,53 @@
       "Value": 0,
       "Type": 4
     },
-    "Auto Compact": {
-      "Value": 0,
+    "Show Values Limit": {
+      "Value": 1000,
       "Type": 4
     },
-    "Row Limit": {
-      "Value": 10000,
-      "Type": 4
+    "ShowDocumentTabs": {
+      "Value": true,
+      "Type": 1
     },
-    "ANSI Query Mode": {
-      "Value": 0,
-      "Type": 4
+    "StartUpShowDBWindow": {
+      "Value": true,
+      "Type": 1
     },
-    "Picture Property Storage Format": {
-      "Value": 0,
-      "Type": 4
-    },
-    "NavPane Closed": {
-      "Value": 0,
-      "Type": 4
-    },
-    "NavPane Width": {
-      "Value": 215,
-      "Type": 4
-    },
-    "NavPane View By": {
-      "Value": 0,
-      "Type": 4
-    },
-    "NavPane Sort By": {
-      "Value": 1,
-      "Type": 4
-    },
-    "Build": {
-      "Value": 606,
-      "Type": 4
-    },
-    "ProjVer": {
-      "Value": 119,
-      "Type": 3
-    },
-    "Show Navigation Pane Search Bar": {
-      "Value": 0,
-      "Type": 4
-    },
-    "AppVersion": {
-      "Value": "3.0.42",
-      "Type": 10
-    },
-    "ClickOnce Deployment": {
-      "Value": "False",
-      "Type": 10
-    },
-    "Last VCS Version": {
-      "Value": "3.0.42",
-      "Type": 10
-    },
-    "WebDesignMode": {
-      "Value": 0,
-      "Type": 2
+    "StartUpShowStatusBar": {
+      "Value": true,
+      "Type": 1
     },
     "Theme Resource Name": {
       "Value": "Office Theme",
       "Type": 10
     },
-    "DesignWithData": {
-      "Value": true,
-      "Type": 1
-    },
-    "Show Values Limit": {
-      "Value": 1000,
-      "Type": 4
-    },
     "Themed Form Controls": {
       "Value": 1,
       "Type": 4
     },
-    "AppTitle": {
-      "Value": "Version Control System",
-      "Type": 10
+    "Transactions": {
+      "Value": true,
+      "Type": 1
     },
-    "Last VCS Export": {
-      "Value": "5/7/2020 3:03:55 PM",
-      "Type": 10
+    "Updatable": {
+      "Value": true,
+      "Type": 1
+    },
+    "UseAppIconForFrmRpt": {
+      "Value": false,
+      "Type": 1
+    },
+    "UseMDIMode": {
+      "Value": 0,
+      "Type": 2
+    },
+    "Version": {
+      "Value": "14.0",
+      "Type": 12
+    },
+    "WebDesignMode": {
+      "Value": 0,
+      "Type": 2
     }
   }
 }
