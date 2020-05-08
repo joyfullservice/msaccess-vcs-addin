@@ -1,0 +1,21 @@
+{
+  "Info": {
+    "Class": "clsDbDocument",
+    "Description": "Database Documents Properties (DAO)",
+    "VCS Version": "3.0.51"
+  },
+  "Items": {
+    "Databases": {
+      "SummaryInfo": {
+        "Comments": "Export source code and database objects for tracking in Version Control Systems like GitHub and GitLab. Also used for building a database from source files.",
+        "Company": "https://github.com/joyfullservice/msaccess-vcs-integration",
+        "Title": "Version Control"
+      }
+    },
+    "Tables": {
+      "USysRegInfo": {
+        "Description": "Used to register or unregister the Microsoft Access Add-in in the registry."
+      }
+    }
+  }
+}
