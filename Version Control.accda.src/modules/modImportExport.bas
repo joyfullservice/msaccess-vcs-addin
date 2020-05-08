@@ -153,6 +153,7 @@ Public Sub Build(strSourceFolder As String)
     
     ' Now reset the options and logs
     Set Options = Nothing
+    Options.LoadOptionsFromFile strSourceFolder & "vcs-options.json"
     Log.Clear
     sngStart = Timer
     
@@ -252,6 +253,12 @@ End Sub
 '
 Private Function GetAllContainers() As Collection
     
+    Dim blnADP As Boolean
+    Dim blnMDB As Boolean
+    
+    blnADP = (CurrentProject.ProjectType = acADP)
+    blnMDB = (CurrentProject.ProjectType = acMDB)
+    
     Set GetAllContainers = New Collection
     With GetAllContainers
         ' Shared objects in both MDB and ADP formats
@@ -259,26 +266,30 @@ Private Function GetAllContainers() As Collection
         .Add New clsDbVbeReference
         .Add New clsDbProjProperty
         .Add New clsDbIMEXSpec
-        .Add New clsDbForm
-        .Add New clsDbMacro
-        .Add New clsDbModule
-        .Add New clsDbReport
-        .Add New clsDbTableData
         .Add New clsDbSavedSpec
-        If CurrentProject.ProjectType = acADP Then
+        If blnADP Then
             ' Some types of objects only exist in ADP projects
             .Add New clsAdpFunction
             .Add New clsAdpServerView
             .Add New clsAdpProcedure
             .Add New clsAdpTable
             .Add New clsAdpTrigger
-        Else
+        ElseIf blnMDB Then
             ' These objects only exist in DAO databases
             .Add New clsDbProperty
             .Add New clsDbTableDef
             .Add New clsDbTableDataMacro
             .Add New clsDbQuery
+        End If
+        ' Additional objects to import after ADP/MDB specific items
+        .Add New clsDbForm
+        .Add New clsDbMacro
+        .Add New clsDbModule
+        .Add New clsDbReport
+        .Add New clsDbTableData
+        If blnMDB Then
             .Add New clsDbRelation
+            .Add New clsDbDocument
         End If
     End With
     

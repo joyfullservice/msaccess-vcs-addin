@@ -13,8 +13,8 @@ Begin Form
     Width =8520
     DatasheetFontHeight =11
     ItemSuffix =7
-    Right =17265
-    Bottom =7905
+    Right =25575
+    Bottom =12585
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x18691eff0b76e540
@@ -336,6 +336,9 @@ Private Sub cmdRunTests_Click()
 
     Dim strTest As String
     Dim intTest As Integer
+    Dim dbs As DAO.Database
+    
+    Set dbs = CurrentDb
     
     ' Clear list and totals
     lstResults.RowSource = ""
@@ -350,7 +353,42 @@ Private Sub cmdRunTests_Click()
     '   BEGIN TESTS
     '========================
     
-    ' Form
+    ' Tables
+    strTest = dbs.TableDefs("tblInternal").Name
+    ShowResult "Access Table exists", (strTest = "tblInternal")
+    
+    intTest = 0
+    intTest = DCount("*", "tblInternal")
+    ShowResult "tblInternal has data", (intTest > 0)
+    
+    strTest = dbs.TableDefs("tblLinkedCSV").Name
+    ShowResult "Linked Table exists", (strTest = "tblLinkedCSV")
+
+    intTest = 0
+    intTest = DCount("*", "tblLinkedCSV")
+    ShowResult "tblLinkedCSV has data", (intTest > 0)
+    
+    ShowResult "Saved Table Data (TDF)", FSO.FileExists(ExportFolder & "tables\tblInternal.txt")
+    
+    ShowResult "Saved Table Data (XML)", FSO.FileExists(ExportFolder & "tables\tblSaveXML.xml")
+    
+    ShowResult "Table SQL", FSO.FileExists(ExportFolder & "tbldefs\tblInternal.sql")
+
+    ShowResult "Linked Table JSON", FSO.FileExists(ExportFolder & "tbldefs\tblLinkedCSV.json")
+    
+    ShowResult "Linked Table structure", FSO.FileExists(ExportFolder & "tbldefs\tblLinkedCSV.sql")
+
+    intTest = 0
+    intTest = dbs.Relations("tblInternaltblSaveXML").Fields.Count
+    ShowResult "Table Relationship", (intTest = 1)
+    
+    intTest = 0
+    intTest = DCount("*", "MSysObjects", "Not IsNull(LvExtra) and Type = 1 and [Name] = 'tblSaveXML'")
+    ShowResult "Table Data Macro Exists", (intTest > 0)
+    
+    
+    
+    ' Forms
     strTest = CurrentProject.AllForms("frmMain").Name
     ShowResult "Form exists", (strTest = "frmMain")
     
@@ -401,6 +439,7 @@ Private Function ShowResult(strText As String, blnPassed As Boolean)
     End If
     lstResults.AddItem strIcon & ";" & strText
     m_Totals(blnPassed) = m_Totals(blnPassed) + 1
+    DoEvents
 End Function
 
 
@@ -423,3 +462,15 @@ Private Sub cmdEditTests_Click()
     End With
     AppActivate VBE.MainWindow.Caption
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportFolder
+' Author    : Adam Waller
+' Date      : 5/7/2020
+' Purpose   : Return base export folder for testing for source files.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExportFolder() As String
+    ExportFolder = CurrentProject.FullName & ".src\"
+End Function

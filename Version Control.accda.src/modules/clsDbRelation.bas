@@ -103,10 +103,10 @@ Private Sub IDbComponent_Import(strFile As String)
         Set dItem = dFile("Items")
         Set rel = dbs.CreateRelation(dItem("Name"), dItem("Table"), dItem("ForeignTable"))
         rel.Attributes = dItem("Attributes")
-        rel.PartialReplica = dItem("PartialReplica")
+        'rel.PartialReplica = dItem("PartialReplica")
         
         ' Add fields, and append to relation
-        For Each dField In dFile("Fields")
+        For Each dField In dItem("Fields")
             Set fld = rel.CreateField(dField("Name"))
             fld.ForeignName = dField("ForeignName")
         Next dField

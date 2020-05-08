@@ -14,6 +14,12 @@
     "StripPublishOption": true,
     "AggressiveSanitize": true,
     "TablesToExportData": {
+      "tblInternal": {
+        "Format": "Tab Delimited"
+      },
+      "tblSaveXML": {
+        "Format": "XML Format"
+      },
       "USysRegInfo": {
         "Format": "Tab Delimited"
       },
@@ -24,6 +30,6 @@
     "RunBeforeExport": "",
     "RunAfterExport": "",
     "RunAfterBuild": "",
-    "KeyName": "MSAccessVCS"
+    "KeyName": "VCS"
   }
 }

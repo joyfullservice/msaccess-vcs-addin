@@ -2,36 +2,136 @@
   "Info": {
     "Class": "clsDbProperty",
     "Description": "Database Properties (DAO)",
-    "VCS Version": "3.0.38"
+    "VCS Version": "3.0.51"
   },
   "Items": {
-    "Name": {
-      "Value": "@{527ac64a58c8214469ed77493eabcfcfa9acc6e2ff7e780e03949b5477d3023460075c6f800654f1eb0cc28c4c1a25724920da64ee875a35f7bbeb516a52f9}\\Testing.accdb",
-      "Type": 12
+    "AccessVersion": {
+      "Value": "09.50",
+      "Type": 10
     },
-    "Connect": {
-      "Value": "",
-      "Type": 12
-    },
-    "Transactions": {
+    "AllowBuiltInToolbars": {
       "Value": true,
       "Type": 1
     },
-    "Updatable": {
+    "AllowDatasheetSchema": {
       "Value": true,
       "Type": 1
+    },
+    "AllowFullMenus": {
+      "Value": true,
+      "Type": 1
+    },
+    "AllowShortcutMenus": {
+      "Value": true,
+      "Type": 1
+    },
+    "AllowSpecialKeys": {
+      "Value": true,
+      "Type": 1
+    },
+    "AllowToolbarChanges": {
+      "Value": true,
+      "Type": 1
+    },
+    "ANSI Query Mode": {
+      "Value": 0,
+      "Type": 4
+    },
+    "AppIcon": {
+      "Value": "@{527ac64a58c8214469ed77493eabcfcfa9acc6e2ff7e780e03949b5477d3023460075c6f800654f1eb0cc28c4c1a25724920da64ee875a35f7bbeb516a52f9}\\App Icon.ico",
+      "Type": 10
+    },
+    "AppTitle": {
+      "Value": "Version Control Testing",
+      "Type": 10
+    },
+    "Auto Compact": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Build": {
+      "Value": 720,
+      "Type": 4
+    },
+    "CheckTruncatedNumFields": {
+      "Value": 1,
+      "Type": 4
+    },
+    "Clear Cache on Close": {
+      "Value": 0,
+      "Type": 4
     },
     "CollatingOrder": {
       "Value": 1033,
       "Type": 3
     },
+    "Connect": {
+      "Value": "",
+      "Type": 12
+    },
+    "DAOProperty": {
+      "Value": "DAO",
+      "Type": 10
+    },
+    "DesignMasterID": {
+      "Value": "",
+      "Type": 15
+    },
+    "DesignWithData": {
+      "Value": true,
+      "Type": 1
+    },
+    "HasOfflineLists": {
+      "Value": 70,
+      "Type": 3
+    },
+    "Last VCS Export": {
+      "Value": "5/8/2020 5:48:26 PM",
+      "Type": 10
+    },
+    "Last VCS Version": {
+      "Value": "3.0.51",
+      "Type": 10
+    },
+    "Name": {
+      "Value": "@{527ac64a58c8214469ed77493eabcfcfa9acc6e2ff7e780e03949b5477d3023460075c6f800654f1eb0cc28c4c1a25724920da64ee875a35f7bbeb516a52f9}\\Testing.accdb",
+      "Type": 12
+    },
+    "NavPane Category": {
+      "Value": 0,
+      "Type": 4
+    },
+    "NavPane Closed": {
+      "Value": 0,
+      "Type": 4
+    },
+    "NavPane Sort By": {
+      "Value": 1,
+      "Type": 4
+    },
+    "NavPane View By": {
+      "Value": 0,
+      "Type": 4
+    },
+    "NavPane Width": {
+      "Value": 215,
+      "Type": 4
+    },
+    "Never Cache": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Picture Property Storage Format": {
+      "Value": 0,
+      "Type": 4
+    },
+    "ProjVer": {
+      "Value": 119,
+      "Type": 3
+    },
     "QueryTimeout": {
       "Value": 60,
       "Type": 3
-    },
-    "Version": {
-      "Value": "12.0",
-      "Type": 12
     },
     "RecordsAffected": {
       "Value": 0,
@@ -41,120 +141,8 @@
       "Value": "",
       "Type": 15
     },
-    "DesignMasterID": {
-      "Value": "",
-      "Type": 15
-    },
-    "ANSI Query Mode": {
-      "Value": 0,
-      "Type": 4
-    },
-    "Themed Form Controls": {
-      "Value": 1,
-      "Type": 4
-    },
-    "Use Microsoft Access 2007 compatible cache": {
-      "Value": 0,
-      "Type": 4
-    },
-    "Clear Cache on Close": {
-      "Value": 0,
-      "Type": 4
-    },
-    "Never Cache": {
-      "Value": 0,
-      "Type": 4
-    },
-    "AccessVersion": {
-      "Value": "09.50",
-      "Type": 10
-    },
-    "NavPane Category": {
-      "Value": 0,
-      "Type": 4
-    },
     "Show Navigation Pane Search Bar": {
       "Value": 1,
-      "Type": 4
-    },
-    "Build": {
-      "Value": 720,
-      "Type": 4
-    },
-    "ProjVer": {
-      "Value": 119,
-      "Type": 3
-    },
-    "HasOfflineLists": {
-      "Value": 70,
-      "Type": 3
-    },
-    "UseMDIMode": {
-      "Value": 0,
-      "Type": 2
-    },
-    "ShowDocumentTabs": {
-      "Value": true,
-      "Type": 1
-    },
-    "Picture Property Storage Format": {
-      "Value": 0,
-      "Type": 4
-    },
-    "WebDesignMode": {
-      "Value": 0,
-      "Type": 2
-    },
-    "CheckTruncatedNumFields": {
-      "Value": 1,
-      "Type": 4
-    },
-    "Theme Resource Name": {
-      "Value": "Office Theme",
-      "Type": 10
-    },
-    "StartUpShowDBWindow": {
-      "Value": true,
-      "Type": 1
-    },
-    "StartUpShowStatusBar": {
-      "Value": true,
-      "Type": 1
-    },
-    "AllowShortcutMenus": {
-      "Value": true,
-      "Type": 1
-    },
-    "AllowFullMenus": {
-      "Value": true,
-      "Type": 1
-    },
-    "AllowBuiltInToolbars": {
-      "Value": true,
-      "Type": 1
-    },
-    "AllowToolbarChanges": {
-      "Value": true,
-      "Type": 1
-    },
-    "AllowSpecialKeys": {
-      "Value": true,
-      "Type": 1
-    },
-    "UseAppIconForFrmRpt": {
-      "Value": true,
-      "Type": 1
-    },
-    "AllowDatasheetSchema": {
-      "Value": true,
-      "Type": 1
-    },
-    "DesignWithData": {
-      "Value": true,
-      "Type": 1
-    },
-    "Show Values Limit": {
-      "Value": 1000,
       "Type": 4
     },
     "Show Values in Indexed": {
@@ -169,49 +157,61 @@
       "Value": 0,
       "Type": 4
     },
-    "Auto Compact": {
-      "Value": 0,
+    "Show Values Limit": {
+      "Value": 1000,
       "Type": 4
     },
-    "NavPane Closed": {
-      "Value": 0,
-      "Type": 4
-    },
-    "NavPane Width": {
-      "Value": 215,
-      "Type": 4
-    },
-    "NavPane View By": {
-      "Value": 0,
-      "Type": 4
-    },
-    "NavPane Sort By": {
-      "Value": 1,
-      "Type": 4
-    },
-    "AppTitle": {
-      "Value": "Version Control Testing",
-      "Type": 10
-    },
-    "AppIcon": {
-      "Value": "@{527ac64a58c8214469ed77493eabcfcfa9acc6e2ff7e780e03949b5477d3023460075c6f800654f1eb0cc28c4c1a25724920da64ee875a35f7bbeb516a52f9}\\App Icon.ico",
-      "Type": 10
+    "ShowDocumentTabs": {
+      "Value": true,
+      "Type": 1
     },
     "StartUpForm": {
       "Value": "frmMain",
       "Type": 10
     },
-    "Last VCS Version": {
-      "Value": "3.0.38",
+    "StartUpShowDBWindow": {
+      "Value": true,
+      "Type": 1
+    },
+    "StartUpShowStatusBar": {
+      "Value": true,
+      "Type": 1
+    },
+    "Theme Resource Name": {
+      "Value": "Office Theme",
       "Type": 10
     },
-    "Last VCS Export": {
-      "Value": "5/7/2020 10:25:56 AM",
-      "Type": 10
+    "Themed Form Controls": {
+      "Value": 1,
+      "Type": 4
     },
-    "DAOProperty": {
-      "Value": "DAO",
-      "Type": 10
+    "Transactions": {
+      "Value": true,
+      "Type": 1
+    },
+    "Updatable": {
+      "Value": true,
+      "Type": 1
+    },
+    "Use Microsoft Access 2007 compatible cache": {
+      "Value": 0,
+      "Type": 4
+    },
+    "UseAppIconForFrmRpt": {
+      "Value": true,
+      "Type": 1
+    },
+    "UseMDIMode": {
+      "Value": 0,
+      "Type": 2
+    },
+    "Version": {
+      "Value": "14.0",
+      "Type": 12
+    },
+    "WebDesignMode": {
+      "Value": 0,
+      "Type": 2
     }
   }
 }

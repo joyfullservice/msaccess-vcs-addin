@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbSavedSpec",
     "Description": "Saved Import/Export Specification",
-    "VCS Version": "3.0.38"
+    "VCS Version": "3.0.51"
   },
   "Items": {
     "Name": "Export-MSysIMEXColumns",

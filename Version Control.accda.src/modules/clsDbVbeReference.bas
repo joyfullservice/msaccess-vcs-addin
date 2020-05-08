@@ -49,7 +49,7 @@ Private Sub IDbComponent_Export()
                 .Add "File", FSO.GetFileName(ref.FullPath)
                 .Add "FullPath", Encrypt(ref.FullPath)
             Else
-                If ref.GUID <> vbNullString Then .Add "GUID", ref.GUID
+                If ref.Guid <> vbNullString Then .Add "GUID", ref.Guid
                 .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
             End If
         End With
@@ -79,23 +79,34 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim proj As VBProject
     Dim varVersion As Variant
     Dim strPath As String
+    Dim dExisting As Dictionary
     
     ' Read in references from file
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
+        
+        ' Build list of current references so we can avoid conflicts
         Set proj = GetVBProjectForCurrentDB
+        Set dExisting = New Dictionary
+        For Each ref In proj.References
+            dExisting.Add ref.Name, ref.Guid
+        Next ref
+        
+        ' Add any references from file that don't already exist
         Set dItems = dFile("Items")
         For Each varKey In dItems.Keys
             Set dRef = dItems(varKey)
-            If dRef.Exists("GUID") Then
-                varVersion = Split(dRef("Version"), ".")
-                Set ref = proj.References.AddFromGuid(dRef("GUID"), varVersion(0), varVersion(1))
-            ElseIf dRef.Exists("FullPath") Then
-                strPath = Decrypt(dRef("FullPath"))
-                If FSO.FileExists(strPath) Then
-                    proj.References.AddFromFile strPath
-                Else
-                    Log.Add "ERROR: Failed to add reference " & strPath
+            If Not dExisting.Exists(CStr(varKey)) Then
+                If dRef.Exists("GUID") Then
+                    varVersion = Split(dRef("Version"), ".")
+                    Set ref = proj.References.AddFromGuid(dRef("GUID"), varVersion(0), varVersion(1))
+                ElseIf dRef.Exists("FullPath") Then
+                    strPath = Decrypt(dRef("FullPath"))
+                    If FSO.FileExists(strPath) Then
+                        proj.References.AddFromFile strPath
+                    Else
+                        Log.Add "ERROR: Failed to add reference " & strPath
+                    End If
                 End If
             End If
         Next varKey

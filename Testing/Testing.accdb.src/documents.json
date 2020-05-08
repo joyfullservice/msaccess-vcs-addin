@@ -1,0 +1,27 @@
+{
+  "Info": {
+    "Class": "clsDbDocument",
+    "Description": "Database Documents Properties (DAO)",
+    "VCS Version": "3.0.51"
+  },
+  "Items": {
+    "Databases": {
+      "SummaryInfo": {
+        "Title": "Database"
+      }
+    },
+    "Modules": {
+      "basUtility": {
+        "Description": "My special description on the code module."
+      }
+    },
+    "Tables": {
+      "tblLinkedCSV": {
+        "Description": "This is simply a test CSV file that were are linking to."
+      },
+      "tblSaveXML": {
+        "Description": "Saved description in XML table."
+      }
+    }
+  }
+}

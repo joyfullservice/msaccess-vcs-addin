@@ -13,6 +13,7 @@
 <xsd:appinfo>
 <od:index index-name="ID" index-key="ID " primary="no" unique="no" clustered="no" order="asc"/>
 <od:index index-name="PrimaryKey" index-key="ID ObjectType " primary="yes" unique="yes" clustered="no" order="asc asc"/>
+<od:index index-name="tblInternalObjectType" index-key="ObjectType " primary="no" unique="no" clustered="no" order="asc"/>
 </xsd:appinfo>
 </xsd:annotation>
 <xsd:complexType>

@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbIMEXSpec",
     "Description": "Import/Export Specification from MSysIMEXSpecs",
-    "VCS Version": "3.0.38"
+    "VCS Version": "3.0.51"
   },
   "Items": {
     "DateDelim": "/",
@@ -18,14 +18,6 @@
     "TextDelim": "",
     "TimeDelim": ":",
     "Columns": {
-      "ID": {
-        "Attributes": 0,
-        "DataType": 4,
-        "IndexType": 0,
-        "SkipColumn": false,
-        "Start": 1,
-        "Width": 3
-      },
       "Color": {
         "Attributes": 0,
         "DataType": 10,
@@ -33,6 +25,14 @@
         "SkipColumn": false,
         "Start": 4,
         "Width": 7
+      },
+      "ID": {
+        "Attributes": 0,
+        "DataType": 4,
+        "IndexType": 0,
+        "SkipColumn": false,
+        "Start": 1,
+        "Width": 3
       }
     }
   }

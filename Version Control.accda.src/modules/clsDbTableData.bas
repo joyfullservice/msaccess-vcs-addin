@@ -121,7 +121,7 @@ Private Sub ImportTableDataTDF(strFile As String)
     Dim fld As DAO.Field
     Dim dbs As DAO.Database
     Dim rst As Recordset
-    Dim stm As ADODB.Stream
+    Dim stm As Scripting.TextStream
     Dim strLine As String
     Dim varLine As Variant
     Dim varHeader As Variant
@@ -132,7 +132,8 @@ Private Sub ImportTableDataTDF(strFile As String)
     ' into the matching columns.
     strTable = GetObjectNameFromFileName(strFile)
     Set dbs = CurrentDb
-    For Each fld In dbs.TableDefs(strTable)
+    Set dCols = New Dictionary
+    For Each fld In dbs.TableDefs(strTable).Fields
         dCols.Add fld.Name, fld.Name
     Next fld
     
@@ -143,8 +144,8 @@ Private Sub ImportTableDataTDF(strFile As String)
     ' Read file line by line
     Set stm = FSO.OpenTextFile(strFile)
     Set rst = dbs.OpenRecordset(strTable)
-    Do While Not stm.EOS
-        strLine = stm.ReadText(adReadLine)
+    Do While Not stm.AtEndOfStream
+        strLine = stm.ReadLine
         If Not IsArray(varHeader) Then
             ' Read header line
             varHeader = Split(strLine, vbTab)
