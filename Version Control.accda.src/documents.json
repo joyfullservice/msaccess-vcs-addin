@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbDocument",
     "Description": "Database Documents Properties (DAO)",
-    "VCS Version": "3.0.51"
+    "VCS Version": "3.0.54"
   },
   "Items": {
     "Databases": {

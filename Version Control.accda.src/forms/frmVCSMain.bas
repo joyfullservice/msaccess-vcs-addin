@@ -1722,8 +1722,7 @@ Public Sub FinishBuild()
     Log.Flush
     SetStatusText "Finished", "Build Complete", "Additional details can be found in the project build log file.<br><br>You may now close this window."
     
-    ' Set focus to close button and turn on scroll bars in case the user wants to scroll back through the log.
-    cmdClose.SetFocus
+    ' Turn on scroll bars in case the user wants to scroll back through the log.
     txtLog.ScrollBars = 2
     
 End Sub

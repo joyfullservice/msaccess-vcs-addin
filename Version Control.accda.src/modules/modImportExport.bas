@@ -32,6 +32,7 @@ Public Sub ExportSource()
     
     ' Reload the project options and reset the logs
     Set Options = Nothing
+    Options.LoadProjectOptions
     Log.Clear
 
     ' Run any custom sub before export
@@ -278,7 +279,6 @@ Private Function GetAllContainers() As Collection
             ' These objects only exist in DAO databases
             .Add New clsDbProperty
             .Add New clsDbTableDef
-            .Add New clsDbTableDataMacro
             .Add New clsDbQuery
         End If
         ' Additional objects to import after ADP/MDB specific items
@@ -288,6 +288,7 @@ Private Function GetAllContainers() As Collection
         .Add New clsDbReport
         .Add New clsDbTableData
         If blnMDB Then
+            .Add New clsDbTableDataMacro
             .Add New clsDbRelation
             .Add New clsDbDocument
         End If

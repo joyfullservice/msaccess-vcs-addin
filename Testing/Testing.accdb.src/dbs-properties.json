@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbProperty",
     "Description": "Database Properties (DAO)",
-    "VCS Version": "3.0.51"
+    "VCS Version": "3.0.54"
   },
   "Items": {
     "AccessVersion": {
@@ -38,7 +38,7 @@
       "Type": 4
     },
     "AppIcon": {
-      "Value": "@{527ac64a58c8214469ed77493eabcfcfa9acc6e2ff7e780e03949b5477d3023460075c6f800654f1eb0cc28c4c1a25724920da64ee875a35f7bbeb516a52f9}\\App Icon.ico",
+      "Value": "@{7206d627d472a6e2c4b2176198567fa26c1d4a64f019eaa99605f1b18392994de549dae3795a27fe1a3725870cda26d7d1a2b96ce676697dba551a5a445ec9}\\App Icon.ico",
       "Type": 10
     },
     "AppTitle": {
@@ -86,15 +86,15 @@
       "Type": 3
     },
     "Last VCS Export": {
-      "Value": "5/8/2020 5:48:26 PM",
+      "Value": "5/8/2020 8:08:34 PM",
       "Type": 10
     },
     "Last VCS Version": {
-      "Value": "3.0.51",
+      "Value": "3.0.54",
       "Type": 10
     },
     "Name": {
-      "Value": "@{527ac64a58c8214469ed77493eabcfcfa9acc6e2ff7e780e03949b5477d3023460075c6f800654f1eb0cc28c4c1a25724920da64ee875a35f7bbeb516a52f9}\\Testing.accdb",
+      "Value": "@{7206d627d472a6e2c4b2176198567fa26c1d4a64f019eaa99605f1b18392994de549dae3795a27fe1a3725870cda26d7d1a2b96ce676697dba551a5a445ec9}\\Testing.accdb",
       "Type": 12
     },
     "NavPane Category": {

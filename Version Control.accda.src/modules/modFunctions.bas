@@ -1566,6 +1566,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
         strTempFile = GetTempFile
         ConvertUtf8Ucs2 strFile, strTempFile
         Application.LoadFromText intType, strName, strTempFile
+        Kill strTempFile
     Else
         ' Load UTF-8 file
         Application.LoadFromText intType, strName, strFile

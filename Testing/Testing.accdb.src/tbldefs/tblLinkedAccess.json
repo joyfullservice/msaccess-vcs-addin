@@ -2,11 +2,11 @@
   "Info": {
     "Class": "clsDbTableDef",
     "Description": "Linked Table",
-    "VCS Version": "3.0.51"
+    "VCS Version": "3.0.54"
   },
   "Items": {
     "Name": "tblLinkedAccess",
-    "Connect": "@{527ac63226d520764ede5750428c94fedc88c2fce0474b362590cf4b63dd323c613a7865913d52bec102c2c0461734645d7fcd73f4c55d07d7bbff576248f72d7ff3f3f68dc4a2662db8b698f2e79efade777623ea65fe}",
+    "Connect": "@{7206d65faa6fa7d0e3813778e471249319394e7aef20d991b001a5ae979ca945e474fee9686121b1303925cb06d737c1c5fdae7bfc346e4f9a550e5c4c44c72798bbc4ef8b9082f44b1ee4b489e7ef900960178a0ddd89}",
     "SourceTableName": "tblInternal",
     "Attributes": 1073741824,
     "PrimaryKey": "[ID], [ObjectType]"

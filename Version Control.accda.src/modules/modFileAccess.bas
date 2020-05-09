@@ -60,7 +60,7 @@ Public Function RequiresUcs2(Optional blnUseCache As Boolean = True) As Boolean
         strTempFile = GetTempFile
         
         ' Can't create querydef objects in ADP databases, so we have to use something else.
-        If CurrentProject.ProjectType = acMDB Then
+        If CurrentProject.ProjectType = acADP Then
             ' Create and export a blank form object.
             ' Turn of screen updates to improve performance and avoid flash.
             DoCmd.Echo False
