@@ -33,6 +33,8 @@ Private Sub IDbComponent_Export()
     
     Dim prp As AccessObjectProperty
     Dim dCollection As Scripting.Dictionary
+    Dim strPath As String
+    Dim varValue As Variant
     
     Set dCollection = New Scripting.Dictionary
     
@@ -41,8 +43,16 @@ Private Sub IDbComponent_Export()
         Select Case prp.Name
             Case "zzzz":    ' Add exceptions here.
             Case "AppIcon"
+                ' Try to use a relative path
+                strPath = GetRelativePath(CStr(prp.Value))
+                If Len(strPath) > 0 Then
+                    varValue = strPath
+                Else
+                    ' The full path may contain sensitive info. Encrypt the path but not the file name.
+                    varValue = EncryptPath(CStr(varValue))
+                End If
                 ' ADP projects may have this property
-                dCollection.Add prp.Name, EncryptPath(prp.Value)
+                dCollection.Add prp.Name, EncryptPath(CStr(varValue))
             Case Else
                 dCollection.Add prp.Name, prp.Value
         End Select
@@ -69,6 +79,8 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim dItems As Dictionary
     Dim projCurrent As CurrentProject
     Dim varKey As Variant
+    Dim varValue As Variant
+    Dim strText As String
     
     Set projCurrent = CurrentProject
     
@@ -90,15 +102,18 @@ Private Sub IDbComponent_Import(strFile As String)
         For Each varKey In dItems.Keys
             Select Case varKey
                 Case "Name", "Connection"
+                    ' Skip these properties
                 Case Else
+                    varValue = Decrypt(dItems(varKey))
+                    If Left(varValue, 4) = "rel:" Then varValue = GetPathFromRelative(CStr(varValue))
                     If dExisting.Exists(varKey) Then
                         If dItems(varKey) <> dExisting(varKey) Then
                             ' Update value of existing property if different.
-                            projCurrent.Properties(varKey).Value = Decrypt(dItems(varKey))
+                            projCurrent.Properties(varKey).Value = varValue
                         End If
                     Else
                         ' Add properties that don't exist.
-                        projCurrent.Properties.Add varKey, Decrypt(dItems(varKey))
+                        projCurrent.Properties.Add varKey, varValue
                     End If
             End Select
         Next varKey

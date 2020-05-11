@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbProperty",
     "Description": "Database Properties (DAO)",
-    "VCS Version": "3.0.54"
+    "VCS Version": "3.0.58"
   },
   "Items": {
     "AccessVersion": {
@@ -38,7 +38,7 @@
       "Type": 4
     },
     "AppIcon": {
-      "Value": "@{7206d627d472a6e2c4b2176198567fa26c1d4a64f019eaa99605f1b18392994de549dae3795a27fe1a3725870cda26d7d1a2b96ce676697dba551a5a445ec9}\\App Icon.ico",
+      "Value": "App Icon.ico",
       "Type": 10
     },
     "AppTitle": {
@@ -86,15 +86,15 @@
       "Type": 3
     },
     "Last VCS Export": {
-      "Value": "5/8/2020 8:08:34 PM",
+      "Value": "5/11/2020 2:34:11 PM",
       "Type": 10
     },
     "Last VCS Version": {
-      "Value": "3.0.54",
+      "Value": "3.0.58",
       "Type": 10
     },
     "Name": {
-      "Value": "@{7206d627d472a6e2c4b2176198567fa26c1d4a64f019eaa99605f1b18392994de549dae3795a27fe1a3725870cda26d7d1a2b96ce676697dba551a5a445ec9}\\Testing.accdb",
+      "Value": "rel:Testing.accdb",
       "Type": 12
     },
     "NavPane Category": {

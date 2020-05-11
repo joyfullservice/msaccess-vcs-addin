@@ -1583,7 +1583,17 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function EncryptPath(strPath As String) As String
-    EncryptPath = Encrypt(FSO.GetParentFolderName(strPath)) & "\" & FSO.GetFileName(strPath)
+    
+    Dim strParent As String
+    
+    strParent = FSO.GetParentFolderName(strPath)
+    If strParent = vbNullString Then
+        ' Could be relative path or just a filename
+        EncryptPath = strPath
+    Else
+        EncryptPath = Encrypt(strParent) & "\" & FSO.GetFileName(strPath)
+    End If
+    
 End Function
 
 
@@ -1853,3 +1863,42 @@ Public Sub SetDAOProperty(objParent As Object, intType As Integer, strName As St
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetRelativePath
+' Author    : Adam Waller
+' Date      : 5/11/2020
+' Purpose   : Returns a path relative to current database.
+'           : If a relative path is not possible, it returns an empty string
+'---------------------------------------------------------------------------------------
+'
+Public Function GetRelativePath(strPath As String) As String
+    
+    Dim strFolder As String
+    
+    ' Check for matching parent folder as relative to the project path.
+    strFolder = CurrentProject.Path & "\"
+    If InStr(1, strPath, strFolder, vbTextCompare) = 1 Then
+        ' In export folder or subfolder. Simple replacement
+        GetRelativePath = "rel:" & Mid$(strPath, Len(strFolder) + 1)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetPathFromRelative
+' Author    : Adam Waller
+' Date      : 5/11/2020
+' Purpose   : Expands a relative path out to the full path.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetPathFromRelative(strPath As String) As String
+    If Left$(strPath, 4) = "rel:" Then
+        GetPathFromRelative = CurrentProject.Path & "\" & Mid$(strPath, 5)
+    Else
+        ' No relative path used.
+        GetPathFromRelative = strPath
+    End If
+End Function

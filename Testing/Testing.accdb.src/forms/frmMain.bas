@@ -13,8 +13,8 @@ Begin Form
     Width =8520
     DatasheetFontHeight =11
     ItemSuffix =7
-    Right =25575
-    Bottom =12585
+    Right =15975
+    Bottom =11745
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x18691eff0b76e540
@@ -396,9 +396,10 @@ Private Sub cmdRunTests_Click()
     
     
     ' Database properties
+    strTest = ""
     strTest = CurrentDb.Properties("AppIcon")
-    ShowResult "Application Icon is set", (Len(strTest) > 10)
-    ShowResult "Icon file found", (Dir(strTest) <> vbNullString)
+    ShowResult "Application Icon is set", (Len(strTest) > 5)
+
     strTest = CurrentDb.Properties("DAOProperty").Value
     ShowResult "Custom Database (DAO) property", (strTest = "DAO")
     

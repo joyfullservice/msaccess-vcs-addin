@@ -51,7 +51,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function Encrypt(strText As String) As String
-    Encrypt = "@{" & LCase(EncryptRC4("RC4" & strText, GetKey)) & "}"
+    If strText <> vbNullString Then Encrypt = "@{" & LCase(EncryptRC4("RC4" & strText, GetKey)) & "}"
 End Function
 
 

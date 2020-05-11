@@ -2,12 +2,12 @@
   "Info": {
     "Class": "clsDbVbeProject",
     "Description": "VBE Project",
-    "VCS Version": "3.0.54"
+    "VCS Version": "3.0.58"
   },
   "Items": {
     "Name": "VCS Testing",
     "Description": "",
-    "FileName": "@{7206d627d472a6e2c4b2176198567fa26c1d4a64f019eaa99605f1b18392994de549dae3795a27fe1a3725870cda26d7d1a2b96ce676697dba551a5a445ec9}\\Testing.accdb",
+    "FileName": "rel:Testing.accdb",
     "HelpContextId": 0,
     "HelpFile": "",
     "Mode": 0,

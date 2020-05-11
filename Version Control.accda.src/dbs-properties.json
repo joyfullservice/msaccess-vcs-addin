@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbProperty",
     "Description": "Database Properties (DAO)",
-    "VCS Version": "3.0.54"
+    "VCS Version": "3.0.58"
   },
   "Items": {
     "AccessVersion": {
@@ -42,7 +42,7 @@
       "Type": 10
     },
     "AppVersion": {
-      "Value": "3.0.54",
+      "Value": "3.0.58",
       "Type": 10
     },
     "Auto Compact": {
@@ -78,15 +78,15 @@
       "Type": 3
     },
     "Last VCS Export": {
-      "Value": "5/8/2020 8:04:06 PM",
+      "Value": "5/11/2020 2:31:12 PM",
       "Type": 10
     },
     "Last VCS Version": {
-      "Value": "3.0.54",
+      "Value": "3.0.58",
       "Type": 10
     },
     "Name": {
-      "Value": "@{7206d627d472a6e2c4b2176198567fa26c1d4a64f019eaa99605f1b18392994de549dae3795a27fe1a3725870cda26d7d1a2b96ce67669}\\Version Control.accda",
+      "Value": "rel:Version Control.accda",
       "Type": 12
     },
     "NavPane Category": {

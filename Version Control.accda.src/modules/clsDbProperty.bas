@@ -35,6 +35,7 @@ Private Sub IDbComponent_Export()
     Dim dCollection As Scripting.Dictionary
     Dim dItem As Scripting.Dictionary
     Dim varValue As Variant
+    Dim strPath As String
     
     Set dCollection = New Scripting.Dictionary
     
@@ -46,8 +47,14 @@ Private Sub IDbComponent_Export()
                 varValue = prp.Value
                 If prp.Name = "AppIcon" Or prp.Name = "Name" Then
                     If Len(varValue) > 0 Then
-                        ' The full path may contain sensitive info. Encrypt the path but not the file name.
-                        varValue = EncryptPath(CStr(varValue))
+                        ' Try to use a relative path
+                        strPath = GetRelativePath(CStr(varValue))
+                        If Len(strPath) > 0 Then
+                            varValue = strPath
+                        Else
+                            ' The full path may contain sensitive info. Encrypt the path but not the file name.
+                            varValue = EncryptPath(CStr(varValue))
+                        End If
                     End If
                 End If
                 Set dItem = New Scripting.Dictionary
@@ -108,6 +115,8 @@ Private Sub IDbComponent_Import(strFile As String)
                     ' Check for encryption
                     strDecrypted = Decrypt(CStr(varValue))
                     If CStr(varValue) <> strDecrypted Then varValue = strDecrypted
+                    ' Check for relative path
+                    If Left(varValue, 4) = "rel:" Then varValue = GetPathFromRelative(CStr(varValue))
                     ' Check for existing value
                     If dExisting.Exists(varKey) Then
                         If dItems(varKey)("Type") <> dExisting(varKey)(1) Then

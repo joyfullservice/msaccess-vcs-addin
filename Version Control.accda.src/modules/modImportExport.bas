@@ -266,7 +266,6 @@ Private Function GetAllContainers() As Collection
         .Add New clsDbVbeProject
         .Add New clsDbVbeReference
         .Add New clsDbProjProperty
-        .Add New clsDbIMEXSpec
         .Add New clsDbSavedSpec
         If blnADP Then
             ' Some types of objects only exist in ADP projects
@@ -277,6 +276,7 @@ Private Function GetAllContainers() As Collection
             .Add New clsAdpTrigger
         ElseIf blnMDB Then
             ' These objects only exist in DAO databases
+            .Add New clsDbIMEXSpec
             .Add New clsDbProperty
             .Add New clsDbTableDef
             .Add New clsDbQuery
