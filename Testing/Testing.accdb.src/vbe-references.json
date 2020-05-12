@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbVbeReference",
     "Description": "VBE References",
-    "VCS Version": "3.0.58"
+    "VCS Version": "3.0.73"
   },
   "Items": {
     "stdole": {
@@ -24,6 +24,10 @@
     "Scripting": {
       "GUID": "{420B2830-E718-11CF-893D-00A0C9054228}",
       "Version": "1.0"
+    },
+    "MSForms": {
+      "GUID": "{0D452EE1-E08F-101A-852E-02608C4D0BB4}",
+      "Version": "2.0"
     }
   }
 }

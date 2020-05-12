@@ -1,0 +1,40 @@
+{
+  "Info": {
+    "Class": "clsDbNavPaneGroup",
+    "Description": "Navigation Pane Custom Groups",
+    "VCS Version": "3.0.73"
+  },
+  "Items": {
+    "Groups": [
+      {
+        "Name": "Linked Tables",
+        "Flags": 0,
+        "Position": 1,
+        "Objects": [
+          {
+            "Name": "tblLinkedAccess",
+            "Type": 6,
+            "Flags": 0,
+            "Icon": 0,
+            "Position": 0
+          },
+          {
+            "Name": "tblLinkedCSV",
+            "Type": 6,
+            "Flags": 0,
+            "Icon": 0,
+            "Position": 1,
+            "NameInGroup": "Linked Name"
+          }
+        ]
+      },
+      {
+        "Name": "Unassigned Objects",
+        "Flags": 4,
+        "Position": 2,
+        "Objects": [
+        ]
+      }
+    ]
+  }
+}

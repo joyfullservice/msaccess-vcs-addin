@@ -12,8 +12,8 @@ Begin Form
     GridY =24
     Width =8520
     DatasheetFontHeight =11
-    ItemSuffix =7
-    Right =15975
+    ItemSuffix =11
+    Right =10890
     Bottom =11745
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
@@ -48,6 +48,20 @@ Begin Form
             BorderTint =50.0
             ForeThemeColorIndex =0
             ForeTint =50.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Image
+            BackStyle =0
+            OldBorderStyle =0
+            BorderLineStyle =0
+            SizeMode =3
+            PictureAlignment =2
+            BorderColor =16777215
+            GridlineColor =16777215
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
             GridlineThemeColorIndex =1
             GridlineShade =65.0
         End
@@ -91,6 +105,26 @@ Begin Form
             BorderShade =65.0
             ForeThemeColorIndex =0
             ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin UnboundObjectFrame
+            SpecialEffect =2
+            OldBorderStyle =1
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ForeThemeColorIndex =2
+            ForeShade =50.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin CustomControl
+            OldBorderStyle =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
             GridlineThemeColorIndex =1
             GridlineShade =65.0
         End
@@ -459,6 +493,7 @@ Private Sub cmdEditTests_Click()
         With .CodeModule
             intLine = 27 + .ProcStartLine("cmdRunTests_Click", vbext_pk_Proc)
             .CodePane.SetSelection intLine, 1, intLine, 1
+            .CodePane.Show
         End With
     End With
     AppActivate VBE.MainWindow.Caption

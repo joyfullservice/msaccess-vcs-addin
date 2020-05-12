@@ -80,14 +80,10 @@ Private Function IDbComponent_GetAllFromDB() As Collection
 '    ' Build collection if not already cached
 '    If m_AllItems Is Nothing Then
 '
-'        ' Use parameter options if provided.
-'        If Not Options Is Nothing Then Set Options = Options
-'
 '        Set m_AllItems = New Collection
 '        For Each frm In CurrentProject.AllForms
 '            Set cForm = New
 '            Set cForm.DbObject = frm
-'            Set cForm.Options = Options
 '            m_AllItems.Add cForm, frm.Name
 '        Next frm
 '
