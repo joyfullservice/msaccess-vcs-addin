@@ -54,6 +54,7 @@ Public Enum eDatabaseComponentType
     edbSavedSpec
     edbImexSpec
     edbNavPaneGroups
+    edbVbeForm
     edbVbeProject
     edbVbeReference
 End Enum

@@ -265,6 +265,7 @@ Private Function GetAllContainers() As Collection
         ' Shared objects in both MDB and ADP formats
         .Add New clsDbVbeProject
         .Add New clsDbVbeReference
+        .Add New clsDbVbeForm
         .Add New clsDbProjProperty
         .Add New clsDbSavedSpec
         If blnADP Then
