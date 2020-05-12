@@ -1,0 +1,18 @@
+{
+  "Info": {
+    "Class": "clsDbNavPaneGroup",
+    "Description": "Navigation Pane Custom Groups",
+    "VCS Version": "3.0.73"
+  },
+  "Items": {
+    "Groups": [
+      {
+        "Name": "Unassigned Objects",
+        "Flags": 4,
+        "Position": 1,
+        "Objects": [
+        ]
+      }
+    ]
+  }
+}

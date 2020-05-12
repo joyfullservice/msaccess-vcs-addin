@@ -293,6 +293,7 @@ Private Function GetAllContainers() As Collection
             .Add New clsDbTableDataMacro
             .Add New clsDbRelation
             .Add New clsDbDocument
+            .Add New clsDbNavPaneGroup
         End If
     End With
     

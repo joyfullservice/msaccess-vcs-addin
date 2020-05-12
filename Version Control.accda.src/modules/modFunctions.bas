@@ -53,7 +53,7 @@ Public Enum eDatabaseComponentType
     edbDocument
     edbSavedSpec
     edbImexSpec
-    edbNavPaneGroups
+    edbNavPaneGroup
     edbVbeForm
     edbVbeProject
     edbVbeReference
