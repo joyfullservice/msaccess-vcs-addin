@@ -276,6 +276,7 @@ Private Function GetAllContainers() As Collection
             .Add New clsAdpTrigger
         ElseIf blnMDB Then
             ' These objects only exist in DAO databases
+            .Add New clsDbSharedImage
             .Add New clsDbIMEXSpec
             .Add New clsDbProperty
             .Add New clsDbTableDef

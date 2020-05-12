@@ -49,7 +49,7 @@ Public Enum eDatabaseComponentType
     edbDbsProperty
     edbProjectProperty
     edbFileProperty
-    edbGalleryImage
+    edbSharedImage
     edbDocument
     edbSavedSpec
     edbImexSpec
@@ -1628,7 +1628,10 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
     If FSO.FileExists(strPath) Then
         Set dContents = ReadJsonFile(strPath)
         strFile = Decrypt(dNZ(dContents, "Items\FileName"))
-        If InStr(1, strFile, "@{") > 0 Then
+        If Left(strFile, 4) = "rel:" Then
+            ' Use parent folder of source folder
+            GetOriginalDbFullPathFromSource = StripSlash(strFolder) & "\..\" & FSO.GetFileName(Mid$(strFile, 5))
+        ElseIf InStr(1, strFile, "@{") > 0 Then
             ' Decryption failed.
             ' We might be able to figure out a relative path from the export path.
             strPath = StripSlash(strFolder) & "\vcs-options.json"
