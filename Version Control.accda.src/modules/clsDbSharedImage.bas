@@ -387,3 +387,15 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Terminate
+' Author    : Adam Waller
+' Date      : 5/13/2020
+' Purpose   : Clear reference to database object.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Terminate()
+    Set m_Dbs = Nothing
+End Sub

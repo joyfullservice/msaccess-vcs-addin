@@ -387,7 +387,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SingleFile() As Boolean
-    IDbComponent_SingleFile = True
+    IDbComponent_SingleFile = False
 End Property
 
 

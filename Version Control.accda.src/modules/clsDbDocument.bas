@@ -55,6 +55,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
+        ClearDatabaseSummaryProperties
         Set dbs = CurrentDb
         Set dItems = dFile("Items")
         For Each varCont In dItems.Keys
@@ -69,6 +70,39 @@ Private Sub IDbComponent_Import(strFile As String)
         Next varCont
     End If
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearDatabaseSummaryProperties
+' Author    : Adam Waller
+' Date      : 5/13/2020
+' Purpose   : When creating a new database, some properties may be filled out by
+'           : default. Since the imported file only sets the ones that have values,
+'           : it won't clear existing values that don't exist in the import file.
+'           : I.e. `Company` may be already filled out as "Microsoft". This value would
+'           : not be changed if the imported file did not specify this field.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ClearDatabaseSummaryProperties()
+
+    Dim doc As DAO.Document
+    Dim prp As DAO.Property
+    
+    Set doc = CurrentDb.Containers("Databases").Documents("SummaryInfo")
+    For Each prp In doc
+        Select Case prp.Type
+            Case dbText, dbMemo
+                ' Text properties
+                Select Case prp.Name
+                    Case "Name", "Owner", "UserName", "Container" ' Leave these properties
+                    Case Else
+                        ' Clear the value on any text value property
+                        prp.Value = vbNullString
+                End Select
+        End Select
+    Next prp
+    
 End Sub
 
 

@@ -17,7 +17,7 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =20
-    Left =3225
+    Left =4680
     Top =2430
     Right =14115
     Bottom =14175
@@ -1299,6 +1299,7 @@ Begin Form
                     ForeTint =100.0
                 End
                 Begin TextBox
+                    TabStop = NotDefault
                     OldBorderStyle =0
                     OverlapFlags =85
                     BackStyle =0
@@ -1718,12 +1719,12 @@ End Sub
 '
 Public Sub FinishBuild()
 
+    ' Turn on scroll bars in case the user wants to scroll back through the log.
+    txtLog.ScrollBars = 2
+    
     ' Display final UI messages.
     Log.Flush
     SetStatusText "Finished", "Build Complete", "Additional details can be found in the project build log file.<br><br>You may now close this window."
-    
-    ' Turn on scroll bars in case the user wants to scroll back through the log.
-    txtLog.ScrollBars = 2
     
 End Sub
 
@@ -1765,13 +1766,11 @@ Public Sub cmdExport_Click()
     
     ' Export the source code
     modImportExport.ExportSource
+    ' Turn on scroll bars in case the user wants to scroll back through the log.
+    txtLog.ScrollBars = 2
     Log.Flush
     
     SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
-    
-    ' Set focus to close button and turn on scroll bars in case the user wants to scroll back through the log.
-    cmdClose.SetFocus
-    txtLog.ScrollBars = 2
     
 End Sub
 
