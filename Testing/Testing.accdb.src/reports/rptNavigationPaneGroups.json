@@ -1,0 +1,41 @@
+{
+  "Info": {
+    "Class": "clsDbReport",
+    "Description": "Report Print Settings",
+    "VCS Version": "3.0.75"
+  },
+  "Items": {
+    "DeviceName": "\u3543\u3235\u4320\u6C6F\u726F\u2F00\u0001\u0000\u0001\u0000\u0004\u0000\u0001\u0100\uA2BC\u0097\u0401\u0100\u009C\u1D94\uBF0F\u0200\u0002\u0003\u0AEA\u086F\u0000\u0001\u0007\u0258\u0002\u0001",
+    "SpecVersion": 600,
+    "DriverVersion": 3,
+    "Size": 0,
+    "DriverExtra": 12593,
+    "Fields": 3617144,
+    "Orientation": -19732,
+    "PaperSize": 12405,
+    "PaperLength": 28824,
+    "PaperWidth": 2254,
+    "Scale": -23932,
+    "Copies": 151,
+    "DefaultSource": 18446,
+    "PrintQuality": 12377,
+    "Color": -23780,
+    "Duplex": 151,
+    "Resolution": -12450,
+    "TTOption": 29116,
+    "Collate": 23121,
+    "FormName": "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0001\u0000\u0002\u0000\u0101\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u1D88\u0000\u5053",
+    "UnusedPadding": 22604,
+    "BitsPerPel": 1,
+    "PelsWidth": 7560,
+    "PelsHeight": 842348099,
+    "DisplayFlags": 13151,
+    "DisplayFrequency": 0,
+    "ICMMethod": 0,
+    "ICMIntent": 1481392976,
+    "MediaType": 76,
+    "DitherType": 0,
+    "Reserved1": 0,
+    "Reserved2": 0
+  }
+}

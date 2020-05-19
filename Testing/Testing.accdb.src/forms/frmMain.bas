@@ -1,4 +1,4 @@
-Version =20
+﻿Version =20
 VersionRequired =20
 Begin Form
     RecordSelectors = NotDefault
@@ -12,8 +12,8 @@ Begin Form
     GridY =24
     Width =8520
     DatasheetFontHeight =11
-    ItemSuffix =11
-    Right =10890
+    ItemSuffix =13
+    Right =15975
     Bottom =11745
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
@@ -25,6 +25,52 @@ Begin Form
         0x6801000068010000680100006801000000000000201c0000e010000001000000 ,
         0x010000006801000000000000a10700000100000001000000
     End
+    PrtDevMode = Begin
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x010403069c0008045fff810701000100ea0a6f08640001000700580202000100 ,
+        0x5802020000004c65747465720000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000010000000000000001000000 ,
+        0x0200000044010000ffffffff4749533400000000000000000000000044494e55 ,
+        0x22009001ec031c00ce9557480000000000000000000000000000000000000000 ,
+        0x00000000000000000d0000000100000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000100000000000000000000000000000000000000 ,
+        0x00000000000000000000000000000000000000000000000090010000534d544a ,
+        0x00000000100080017b00350043003700360046004300330043002d0041003600 ,
+        0x430037002d0034006600340037002d0041003700440032002d00450045004400 ,
+        0x4600390039003400410044003100410041007d000000496e70757442696e0041 ,
+        0x75746f53656c65637400524553444c4c00556e69726573444c4c005061706572 ,
+        0x53697a65004c4554544552004f7269656e746174696f6e00504f525452414954 ,
+        0x004d6564696154797065004175746f005265736f6c7574696f6e003630304450 ,
+        0x4900506167654f75747075745175616c697479004e6f726d616c00436f6c6f72 ,
+        0x4d6f6465004d6f6e6f00446f63756d656e744e5570003100436f6c6c61746500 ,
+        0x4f4e004475706c6578004e4f4e45004f757470757442696e004175746f005374 ,
+        0x61706c696e67004e6f6e65000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x00000000000000001c0000005634444d01000000000000000000000000000000 ,
+        0x00000000
+    End
+    PrtDevNames = Begin
+        0x08002b0038000100000000000000000000000000000000000000000000000000 ,
+        0x000000000000000000000000000000000000000000000000696e666f7379732e ,
+        0x7072696e746572732e6961612e75730000000000
+    End
+    OnLoad ="[Event Procedure]"
     FilterOnLoad =0
     ShowPageMargins =0
     DisplayOnSharePointSite =1
@@ -37,6 +83,55 @@ Begin Form
     ForeThemeColorIndex =0
     AlternateBackThemeColorIndex =1
     AlternateBackShade =95.0
+    PrtDevModeW = Begin
+        0x00006f00000000000000000064856f009102316a000087000000000020636c19 ,
+        0xffffffff00a81a01b86655750000000000000000ea178a000000000000000000 ,
+        0x01040306dc0008045fff810701000100ea0a6f08640001000700580202000100 ,
+        0x5802020000004c00650074007400650072000000000000007d335773ffffffff ,
+        0x65335773693357730e000000a21c5d0020b16f00090000000100000091335773 ,
+        0x00ff0000a21c0000000000000000000000000000010000000000000001000000 ,
+        0x0200000044010000ffffffff4749533400000000000000000000000044494e55 ,
+        0x22009001ec031c00ce9557480000000000000000000000000000000000000000 ,
+        0x00000000000000000d0000000100000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000100000000000000000000000000000000000000 ,
+        0x00000000000000000000000000000000000000000000000090010000534d544a ,
+        0x00000000100080017b00350043003700360046004300330043002d0041003600 ,
+        0x430037002d0034006600340037002d0041003700440032002d00450045004400 ,
+        0x4600390039003400410044003100410041007d000000496e70757442696e0041 ,
+        0x75746f53656c65637400524553444c4c00556e69726573444c4c005061706572 ,
+        0x53697a65004c4554544552004f7269656e746174696f6e00504f525452414954 ,
+        0x004d6564696154797065004175746f005265736f6c7574696f6e003630304450 ,
+        0x4900506167654f75747075745175616c697479004e6f726d616c00436f6c6f72 ,
+        0x4d6f6465004d6f6e6f00446f63756d656e744e5570003100436f6c6c61746500 ,
+        0x4f4e004475706c6578004e4f4e45004f757470757442696e004175746f005374 ,
+        0x61706c696e67004e6f6e65000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x00000000000000001c0000005634444d01000000000000000000000000000000 ,
+        0x00000000
+    End
+    PrtDevNamesW = Begin
+        0x0400270034000100000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+        0x000000000000000069006e0066006f007300790073002e007000720069006e00 ,
+        0x74006500720073002e006900610061002e007500730000000000000000000000
+    End
     Begin
         Begin Label
             BackStyle =0
@@ -129,9 +224,8 @@ Begin Form
             GridlineShade =65.0
         End
         Begin Section
-            Height =6885
+            Height =7620
             Name ="Detail"
-            AutoHeight =1
             AlternateBackColor =15921906
             AlternateBackThemeColorIndex =1
             AlternateBackShade =95.0
@@ -216,6 +310,11 @@ Begin Form
                     BorderColor =10921638
                     Name ="lstResults"
                     RowSourceType ="Value List"
+                    RowSource ="âœ”;Access Table exists;âœ”;tblInternal has data;âœ”;Linked Table exists;âœ”;tblLinkedCS"
+                        "V has data;âœ”;Saved Table Data (TDF);âœ”;Saved Table Data (XML);âœ”;Table SQL;âœ”;Linke"
+                        "d Table JSON;âœ”;Linked Table structure;âœ”;Table Relationship;âœ”;Table Data Macro Ex"
+                        "ists;âœ”;Query exists;âœ”;Form exists;âœ”;Report exists;âœ”;Application Icon is set;âœ”;Cu"
+                        "stom Database (DAO) property;âœ”;Custom Project Property"
                     ColumnWidths ="479;3975"
                     GridlineColor =10921638
 
@@ -326,7 +425,7 @@ Begin Form
                     Overlaps =1
                 End
                 Begin Label
-                    OverlapFlags =85
+                    OverlapFlags =93
                     Left =5400
                     Top =4860
                     Width =3060
@@ -334,12 +433,28 @@ Begin Form
                     BorderColor =8355711
                     ForeColor =8355711
                     Name ="lblResults"
-                    Caption ="Ready."
+                    Caption ="17 tests passed\015\0120 tests failed"
                     GridlineColor =10921638
                     LayoutCachedLeft =5400
                     LayoutCachedTop =4860
                     LayoutCachedWidth =8460
                     LayoutCachedHeight =6495
+                End
+                Begin Image
+                    PictureType =2
+                    Left =7860
+                    Top =4860
+                    Width =600
+                    Height =720
+                    BorderColor =10921638
+                    Name ="imgResult"
+                    GridlineColor =10921638
+
+                    LayoutCachedLeft =7860
+                    LayoutCachedTop =4860
+                    LayoutCachedWidth =8460
+                    LayoutCachedHeight =5580
+                    TabIndex =3
                 End
             End
         End
@@ -366,7 +481,7 @@ Private m_Totals(True To False) As Integer
 '           : correct format. (Adjust as needed)
 '---------------------------------------------------------------------------------------
 '
-Private Sub cmdRunTests_Click()
+Public Sub cmdRunTests_Click()
 
     Dim strTest As String
     Dim intTest As Integer
@@ -421,25 +536,85 @@ Private Sub cmdRunTests_Click()
     ShowResult "Table Data Macro Exists", (intTest > 0)
     
     
+    ' Queries
+    strTest = dbs.QueryDefs("qryNavigationPaneGroups").Name
+    ShowResult "Query exists", (strTest = "qryNavigationPaneGroups")
+    
     
     ' Forms
     strTest = CurrentProject.AllForms("frmMain").Name
     ShowResult "Form exists", (strTest = "frmMain")
     
-    ' Macro
+    
+    ' Reports
+    strTest = CurrentProject.AllReports("rptNavigationPaneGroups").Name
+    ShowResult "Report exists", (strTest = "rptNavigationPaneGroups")
+    
+    
+    ' Macros
+    strTest = CurrentProject.AllMacros("AutoExec").Name
+    ShowResult "Macro exists", (strTest = "AutoExec")
+    
+    
+    ' Modules
+    strTest = CurrentProject.AllModules("basUtility").Name
+    ShowResult "Standard Module exists", (strTest = "basUtility")
+    
+    strTest = CurrentProject.AllModules("clsPerson").Name
+    ShowResult "Class Module exists", (strTest = "clsPerson")
     
     
     ' Database properties
     strTest = ""
-    strTest = CurrentDb.Properties("AppIcon")
+    strTest = dbs.Properties("AppIcon")
     ShowResult "Application Icon is set", (Len(strTest) > 5)
 
-    strTest = CurrentDb.Properties("DAOProperty").Value
+    strTest = dbs.Properties("DAOProperty").Value
     ShowResult "Custom Database (DAO) property", (strTest = "DAO")
     
-    ' Project Property
     strTest = CurrentProject.Properties("ProjectProperty").Value
     ShowResult "Custom Project Property", (strTest = "TestValue")
+    
+    strTest = dbs.Containers("Databases").Documents("SummaryInfo").Properties("Title")
+    ShowResult "Database Summary Property (Title)", (strTest = "VCS Testing")
+    
+    strTest = dbs.Containers("Tables").Documents("tblSaveXML").Properties("Description")
+    ShowResult "Navigation pane object description", (strTest = "Saved description in XML table.")
+    
+    strTest = dbs.Containers("Modules").Documents("basUtility").Properties("Description")
+    ShowResult "Module description", (strTest = "My special description on the code module.")
+    
+    ShowResult "Saved shared images", (CurrentProject.Resources.Count > 2)
+    
+    ShowResult "Saved import/export specs (XML)", (CurrentProject.ImportExportSpecifications.Count > 0)
+    
+    strTest = CurrentProject.ImportExportSpecifications(0).Name
+    ShowResult "Name of saved specification", (strTest = "Export-MSysIMEXColumns")
+    
+    strTest = Nz(DLookup("SpecName", "MSysIMEXSpecs", "SpecName=""Test 2"""))
+    ShowResult "Saved IMEX spec (Table based)", (strTest = "Test 2")
+    
+    strTest = Nz(DLookup("Name", "MSysNavPaneGroups", "GroupCategoryID=3 AND Name=""Linked Tables"""))
+    ShowResult "Custom navigation pane group", (strTest = "Linked Tables")
+    
+    ' VBE Project
+    With GetVBProjectForCurrentDB
+    
+        ShowResult "VBE project name", (.Name = "VCS Testing")
+        ShowResult "VBE project description", (.Description = "For automated testing of Version Control")
+        ShowResult "Help context id", (.HelpContextId = 123456)
+        
+        strTest = .References("Scripting").Name
+        ShowResult "GUID reference (scripting)", (strTest = "Scripting")
+        
+        strTest = .References("MSForms").Name
+        ShowResult "MS Forms 2.0 reference", (strTest = "MSForms")
+        
+    End With
+    
+    
+    ' Other
+    ShowResult "VCS Options file exists", FSO.FileExists(ExportFolder & "vcs-options.json")
     
     
     '========================
@@ -450,6 +625,12 @@ Private Sub cmdRunTests_Click()
     lblResults.Caption = _
         m_Totals(True) & " tests passed" & vbCrLf & _
         m_Totals(False) & " tests failed"
+    
+    If m_Totals(False) = 0 Then
+        imgResult.Picture = "button_ok"
+    Else
+        imgResult.Picture = "button_error"
+    End If
     
     If Err Then Err.Clear
 
@@ -510,3 +691,8 @@ End Sub
 Private Function ExportFolder() As String
     ExportFolder = CurrentProject.FullName & ".src\"
 End Function
+
+
+Private Sub Form_Load()
+    imgResult.Picture = vbNullString
+End Sub

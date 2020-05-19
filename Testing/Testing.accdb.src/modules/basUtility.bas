@@ -67,3 +67,45 @@ Public Sub TestProperties()
     Next prp
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunTests
+' Author    : Adam Waller
+' Date      : 5/13/2020
+' Purpose   : Run the tests (Fired from autoexec macro)
+'---------------------------------------------------------------------------------------
+'
+Public Function RunTests()
+    Form_frmMain.cmdRunTests_Click
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetVBProjectForCurrentDB
+' Author    : Adam Waller
+' Date      : 7/25/2017
+' Purpose   : Get the actual VBE project for the current top-level database.
+'           : (This is harder than you would think!)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetVBProjectForCurrentDB() As VBProject
+
+    Dim objProj As Object
+    Dim strPath As String
+    
+    strPath = CurrentProject.FullName
+    If VBE.ActiveVBProject.FileName = strPath Then
+        ' Use currently active project
+        Set GetVBProjectForCurrentDB = VBE.ActiveVBProject
+    Else
+        ' Search for project with matching filename.
+        For Each objProj In VBE.VBProjects
+            If objProj.FileName = strPath Then
+                Set GetVBProjectForCurrentDB = objProj
+                Exit For
+            End If
+        Next objProj
+    End If
+    
+End Function

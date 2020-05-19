@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbProperty",
     "Description": "Database Properties (DAO)",
-    "VCS Version": "3.0.73"
+    "VCS Version": "3.0.75"
   },
   "Items": {
     "AccessVersion": {
@@ -86,11 +86,11 @@
       "Type": 3
     },
     "Last VCS Export": {
-      "Value": "5/12/2020 5:44:54 PM",
+      "Value": "5/14/2020 3:21:23 PM",
       "Type": 10
     },
     "Last VCS Version": {
-      "Value": "3.0.73",
+      "Value": "3.0.75",
       "Type": 10
     },
     "Name": {
@@ -98,12 +98,8 @@
       "Type": 12
     },
     "NavPane Category": {
-      "Value": 4,
+      "Value": 0,
       "Type": 4
-    },
-    "NavPane Category Name": {
-      "Value": "Custom",
-      "Type": 10
     },
     "NavPane Closed": {
       "Value": 0,
@@ -168,10 +164,6 @@
     "ShowDocumentTabs": {
       "Value": true,
       "Type": 1
-    },
-    "StartUpForm": {
-      "Value": "frmMain",
-      "Type": 10
     },
     "StartUpShowDBWindow": {
       "Value": true,
