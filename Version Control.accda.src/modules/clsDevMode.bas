@@ -109,7 +109,7 @@ Private Declare PtrSafe Function OpenPrinter Lib "winspool.drv" Alias "OpenPrint
 Private Declare PtrSafe Function ClosePrinter Lib "winspool.drv" (ByVal hPrinter As Long) As Long
 Private Declare PtrSafe Function DocumentProperties Lib "winspool.drv" Alias "DocumentPropertiesA" _
     (ByVal hwnd As Long, ByVal hPrinter As Long, ByVal pDeviceName As String, _
-    ByVal pDevModeOutput As Long, ByVal pDevModeInput As Long, ByVal fMode As Long) As Long
+    ByVal pDevModeOutput As LongPtr, ByVal pDevModeInput As Long, ByVal fMode As Long) As Long
 
 
 ' Enum for types that can be expanded to friendly
