@@ -12,7 +12,7 @@ End Enum
 Private Declare PtrSafe Function IsUserAnAdmin Lib "shell32" () As Long
 
 ' Used to relaunch Access as an administrator to install the addin.
-Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
+Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
     ByVal hwnd As Long, _
     ByVal lpOperation As String, _
     ByVal lpFile As String, _
@@ -211,7 +211,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetAddinRegPath() As String
-    GetAddinRegPath = "HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\" & _
+    GetAddinRegPath = "HKLM\SOFTWARE\Microsoft\Office\" & _
             Application.Version & "\Access\Menu Add-Ins\"
 End Function
 
@@ -352,6 +352,6 @@ End Property
 Private Property Let InstalledVersion(strVersion As String)
     SaveSetting GetCodeVBProject.Name, "Add-in", "Installed Version", strVersion
 End Property
-Private Property Get InstalledVersion() As String
+Public Property Get InstalledVersion() As String
     InstalledVersion = GetSetting(GetCodeVBProject.Name, "Add-in", "Installed Version", vbNullString)
 End Property

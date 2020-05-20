@@ -114,7 +114,7 @@ Public Sub ExportSource()
     ' Show final output and save log
     Log.Spacer
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
-    Log.SaveFile Options.GetExportFolder & "\Export.log"
+    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
     
     ' Restore original fast save option, and save options with project
     Options.SaveOptionsForProject
