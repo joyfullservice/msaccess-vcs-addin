@@ -2,11 +2,11 @@
   "Info": {
     "Class": "clsDbVbeProject",
     "Description": "VBE Project",
-    "VCS Version": "3.0.73"
+    "VCS Version": "3.0.82"
   },
   "Items": {
     "Name": "MSAccessVCS",
-    "Description": "Version 3.0.73 deployed on 5/12/2020",
+    "Description": "Version 3.0.82 deployed on 5/20/2020",
     "FileName": "rel:Version Control.accda",
     "HelpContextId": 0,
     "HelpFile": "",

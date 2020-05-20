@@ -11,7 +11,7 @@ Public Enum eTableDataExportFormat
     etdNoData = 0
     etdTabDelimited = 1
     etdXML = 2
-    [_last] = 2
+    [_Last] = 2
 End Enum
 
 ' Object types used when determining SQL modification date.
@@ -1906,3 +1906,18 @@ Public Function GetPathFromRelative(strPath As String) As String
         GetPathFromRelative = strPath
     End If
 End Function
+
+
+Public Sub TestPrinterFunctions()
+
+    Dim cPrinter As New clsDevMode
+    Dim dPrinter As Dictionary
+    
+    With cPrinter
+        .LoadFromPrinter ("C552 Color")
+        Set dPrinter = .GetDictionary
+        .LoadFromExportFile "C:\Users\awaller.IAA\Documents\GitHub\msaccess-vcs-integration\Testing\Testing.accdb.src\reports\rptDefaultPrinter.bas"
+        'Debug.Print ConvertToJson(dPrinter, 4)
+        
+    End With
+End Sub

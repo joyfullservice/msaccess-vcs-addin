@@ -104,53 +104,12 @@ Private Type PRINTER_DEFAULTS
    DesiredAccess As Long
 End Type
 
-Private Type PRINTER_INFO_2
-   pServerName As Long
-   pPrinterName As Long
-   pShareName As Long
-   pPortName As Long
-   pDriverName As Long
-   pComment As Long
-   pLocation As Long
-   pDevmode As Long               ' Pointer to DEVMODE
-   pSepFile As Long
-   pPrintProcessor As Long
-   pDatatype As Long
-   pParameters As Long
-   pSecurityDescriptor As Long    ' Pointer to SECURITY_DESCRIPTOR
-   Attributes As Long
-   Priority As Long
-   DefaultPriority As Long
-   StartTime As Long
-   UntilTime As Long
-   Status As Long
-   cJobs As Long
-   AveragePPM As Long
-End Type
-
+Private Declare PtrSafe Function OpenPrinter Lib "winspool.drv" Alias "OpenPrinterA" _
+    (ByVal pPrinterName As String, phPrinter As Long, pDefault As PRINTER_DEFAULTS) As Long
 Private Declare PtrSafe Function ClosePrinter Lib "winspool.drv" (ByVal hPrinter As Long) As Long
 Private Declare PtrSafe Function DocumentProperties Lib "winspool.drv" Alias "DocumentPropertiesA" _
     (ByVal hwnd As Long, ByVal hPrinter As Long, ByVal pDeviceName As String, _
     ByVal pDevModeOutput As Long, ByVal pDevModeInput As Long, ByVal fMode As Long) As Long
-Private Declare PtrSafe Function GetPrinter Lib "winspool.drv" Alias "GetPrinterA" _
-    (ByVal hPrinter As Long, ByVal Level As Long, pPrinter As Byte, ByVal cbBuf As Long, pcbNeeded As Long) As Long
-Private Declare PtrSafe Function OpenPrinter Lib "winspool.drv" Alias "OpenPrinterA" _
-    (ByVal pPrinterName As String, phPrinter As Long, pDefault As PRINTER_DEFAULTS) As Long
-Private Declare PtrSafe Function SetPrinter Lib "winspool.drv" Alias "SetPrinterA" _
-    (ByVal hPrinter As Long, ByVal Level As Long, pPrinter As Byte, ByVal Command As Long) As Long
-Private Declare PtrSafe Function EnumPrinters Lib "winspool.drv" Alias "EnumPrintersA" _
-    (ByVal flags As Long, ByVal Name As String, ByVal Level As Long, pPrinterEnum As Long, _
-    ByVal cdBuf As Long, pcbNeeded As Long, pcReturned As Long) As Long
-Private Declare PtrSafe Function PtrToStr Lib "kernel32" Alias "lstrcpyA" _
-    (ByVal RetVal As String, ByVal Ptr As Long) As Long
-Private Declare PtrSafe Function StrLen Lib "kernel32" Alias "lstrlenA" (ByVal Ptr As Long) As Long
-Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" _
-    (pDest As LongPtr, pSource As LongPtr, ByVal cbLength As Long)
-Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
-Private Declare PtrSafe Function DeviceCapabilities Lib "winspool.drv" Alias "DeviceCapabilitiesA" _
-    (ByVal lpDeviceName As String, ByVal lpPort As String, ByVal iIndex As Long, _
-    lpOutput As Any, ByVal dev As Long) As Long
-
 
 
 ' Enum for types that can be expanded to friendly
@@ -186,9 +145,6 @@ End Enum
 ' values and friendly names.
 Private m_dEnum(0 To ePrintEnum.[_Last] - 1) As Dictionary
 
-' Form or Report object
-Private m_objSource As Object
-
 ' Printer structures in native mode
 ' (Ready to write back to object)
 Private m_tDevMode As tDevMode
@@ -210,8 +166,104 @@ Public Function HasPrinterAssigned() As Boolean
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : LoadFromExportFile
+' Author    : Adam Waller
+' Date      : 5/20/2020
+' Purpose   : Load sections from export file
+'---------------------------------------------------------------------------------------
+'
 Public Sub LoadFromExportFile(strFile As String)
 
+
+    Dim cBlock(1 To 3) As clsConcat
+    Dim cBuffer(1 To 3) As clsConcat
+    Dim strHex As String
+    Dim strChar As String
+    Dim bteBuffer() As Byte
+    'Dim bteMip() As Byte
+    'Dim bteDevMode() As Byte
+    Dim intBlock As Integer
+    Dim strLine As String
+    Dim lngChar As Long
+    
+    Dim udtMipBuffer As tMipBuffer
+    Dim udtDevModeBuffer As tDevModeBuffer
+    Dim udtDevNamesBuffer As tDevNamesBuffer
+    
+    ' Blocks: 1=Mip, 2=DevMode, 3=DevNames
+
+    ' Clear existing structures and create block classes.
+    ClearStructures
+
+    If Not FSO.FileExists(strFile) Then Exit Sub
+    
+    ' Read the text file line by line, loading the block data
+    With FSO.OpenTextFile(strFile)
+        Do While Not .AtEndOfStream
+            strLine = Trim$(.ReadLine)
+            ' Look for header if not inside block
+            If intBlock = 0 Then
+                ' Check for header
+                Select Case strLine
+                    Case "PrtMip = Begin":      intBlock = 1
+                    Case "PrtDevMode = Begin":  intBlock = 2
+                    Case "PrtDevNames = Begin": intBlock = 3
+                End Select
+            Else
+                ' Inside block
+                If strLine = "End" Then
+                    intBlock = 0
+                    ' Exit loop after adding all the blocks
+                    If Not (cBlock(1) Is Nothing _
+                        Or cBlock(2) Is Nothing _
+                        Or cBlock(3) Is Nothing) Then Exit Do
+                ElseIf Left$(strLine, 2) = "0x" Then
+                    ' Create block class, if it doesn't exist
+                    If cBlock(intBlock) Is Nothing Then Set cBlock(intBlock) = New clsConcat
+                    ' Add bytes after the "0x" prefix, and before the " ,"
+                    ' at the end of the line.
+                    cBlock(intBlock).Add Mid$(strLine, 3, Len(strLine) - 4)
+                ElseIf strLine = "Begin" Then
+                    ' Reached the end of the header section. We should
+                    ' have already exited the loop, but just in case...
+                    Exit Do
+                End If
+            End If
+        Loop
+        .Close
+    End With
+
+    ' Convert hex block data to string
+    strChar = "&h00"
+    For intBlock = 1 To 3
+        strHex = cBlock(intBlock).GetStr
+        Set cBuffer(intBlock) = New clsConcat
+        ' Each two hex characters represent one bit
+        ReDim bteBuffer(0 To (Len(strHex) / 2) - 1)
+        ' Loop through each set of 2 characters to get bytes
+        For lngChar = 1 To Len(strHex) Step 2
+            ' Apply two characters to buffer. (Faster than concatenating strings)
+            Mid$(strChar, 3, 2) = Mid$(strHex, lngChar, 2)
+            bteBuffer(lngChar / 2 - 1) = CLng(strChar)
+        Next lngChar
+        Select Case intBlock
+            Case 1
+                udtMipBuffer.strBuffer = bteBuffer
+                LSet m_tMip = udtMipBuffer
+            Case 2
+                udtDevModeBuffer.strBuffer = bteBuffer
+                LSet m_tDevMode = udtDevModeBuffer
+            Case 3
+                udtDevNamesBuffer.strBuffer = bteBuffer
+                LSet m_tDevNames = udtDevNamesBuffer
+        End Select
+        'Stop
+        
+    Next intBlock
+    
+    Stop
+    
 End Sub
 
 
@@ -247,15 +299,11 @@ Public Function LoadFromPrinter(strPrinter As String)
 
     ' API constants for reading printer properties
     Const READ_CONTROL = &H20000
-    Const DM_IN_BUFFER = 8
     Const DM_OUT_BUFFER = 2
-    Const PRINTER_ENUM_CONNECTIONS = &H4
-    Const PRINTER_ENUM_LOCAL = &H2
 
     Dim hPrinter As Long
     Dim udtDefaults As PRINTER_DEFAULTS
     Dim lngReturn As Long
-    Dim bteBuffer(0 To 219) As Byte
     Dim strBuffer As String
     Dim udtBuffer As tDevModeBuffer
     
@@ -464,18 +512,18 @@ Private Function DevModeToDictionary() As Dictionary
     Const DM_TTOPTION = &H4000
     Const DM_COLLATE = &H8000
     Const DM_FORMNAME = &H10000
-    Const DM_LOGPIXELS = &H20000
-    Const DM_BITSPERPEL = &H40000
-    Const DM_PELSWIDTH = &H80000
-    Const DM_PELSHEIGHT = &H100000
+    'Const DM_LOGPIXELS = &H20000
+    'Const DM_BITSPERPEL = &H40000
+    'Const DM_PELSWIDTH = &H80000
+    'Const DM_PELSHEIGHT = &H100000
     Const DM_DISPLAYFLAGS = &H200000
     Const DM_DISPLAYFREQUENCY = &H400000
     Const DM_ICMMETHOD = &H800000
     Const DM_ICMINTENT = &H1000000
     Const DM_MEDIATYPE = &H2000000
     Const DM_DITHERTYPE = &H4000000
-    Const DM_PANNINGWIDTH = &H20000000
-    Const DM_PANNINGHEIGHT = &H40000000
+    'Const DM_PANNINGWIDTH = &H20000000
+    'Const DM_PANNINGHEIGHT = &H40000000
     
     Dim lngFld As Long
     Dim cDM As tDevMode
@@ -497,7 +545,7 @@ Private Function DevModeToDictionary() As Dictionary
         If BitSet(lngFld, DM_PAPERLENGTH) Then .Add "PaperLength", cDM.intPaperLength
         If BitSet(lngFld, DM_PAPERWIDTH) Then .Add "PaperWidth", cDM.intPaperWidth
         If BitSet(lngFld, DM_SCALE) Then .Add "Scale", cDM.intScale
-        If BitSet(lngFld, DM_COPIES) Then .Add "Copies", cDM.intCopies
+        If BitSet(lngFld, DM_COPIES) And cDM.intCopies > 1 Then .Add "Copies", cDM.intCopies    ' Only add for more than 1 copy
         If BitSet(lngFld, DM_DEFAULTSOURCE) Then .Add "DefaultSource", GetEnum(epePaperBin, cDM.intDefaultSource)
         If BitSet(lngFld, DM_PRINTQUALITY) Then .Add "PrintQuality", GetEnum(epePrintQuality, cDM.intPrintQuality)
         If BitSet(lngFld, DM_COLOR) Then .Add "Color", GetEnum(epeColor, cDM.intColor)
@@ -741,8 +789,8 @@ Private Function BuildEnum(eType As ePrintEnum)
             Case epeTTOption
                 .Add 1, "Bitmap"
                 .Add 2, "Download"
-                .Add 3, "Bitmap/Download"
-                .Add 4, "Substitute"
+                .Add 3, "Substitute Device Font"
+                .Add 4, "Download Outline"
             
             Case epeCollate
                 .Add 0, "False"

@@ -12,10 +12,13 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-' See https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
+' See the following links for additional technical details regarding the DEVMODE strcture:
+' https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
+' https://stackoverflow.com/questions/49560317/64-bit-word-vba-devmode-dmduplex-returns-4
+' http://toddmcdermid.blogspot.com/2009/02/microsoft-access-2003-and-printer.html
 
 Private Type str_DEVMODE
-    RGB As String * 94
+    RGB As String * 220
 End Type
 
 Private Type type_DEVMODE
@@ -39,14 +42,19 @@ Private Type type_DEVMODE
     intTTOption As Integer
     intCollate As Integer
     strFormName As String * 32
-    lngPad As Long
-    lngBits As Long
-    lngPW As Long
-    lngPH As Long
-    lngDFI As Long
-    lngDFr As Long
+    intUnusedPadding As Integer
+    intBitsPerPel As Integer
+    lngPelsWidth As Long
+    lngPelsHeight As Long
+    lngDisplayFlags As Long
+    lngDisplayFrequency As Long
+    lngICMMethod As Long
+    lngICMIntent As Long
+    lngMediaType As Long
+    lngDitherType As Long
+    lngReserved1 As Long
+    lngReserved2 As Long
 End Type
-
 
 Private m_Report As AccessObject
 Private m_AllItems As Collection
@@ -241,12 +249,18 @@ Private Function DevModeToDictionary(cDev As type_DEVMODE) As Dictionary
         .Add "TTOption", cDev.intTTOption
         .Add "Collate", cDev.intCollate
         .Add "FormName", cDev.strFormName
-        .Add "Pad", cDev.lngPad
-        .Add "Bits", cDev.lngBits
-        .Add "PW", cDev.lngPW
-        .Add "PH", cDev.lngPH
-        .Add "DFI", cDev.lngDFI
-        .Add "DFr", cDev.lngDFr
+        .Add "UnusedPadding", cDev.intUnusedPadding
+        .Add "BitsPerPel", cDev.intBitsPerPel
+        .Add "PelsWidth", cDev.lngPelsWidth
+        .Add "PelsHeight", cDev.lngPelsHeight
+        .Add "DisplayFlags", cDev.lngDisplayFlags
+        .Add "DisplayFrequency", cDev.lngDisplayFrequency
+        .Add "ICMMethod", cDev.lngICMMethod
+        .Add "ICMIntent", cDev.lngICMIntent
+        .Add "MediaType", cDev.lngMediaType
+        .Add "DitherType", cDev.lngDitherType
+        .Add "Reserved1", cDev.lngReserved1
+        .Add "Reserved2", cDev.lngReserved2
     End With
 End Function
 
@@ -280,12 +294,18 @@ Private Function DictionaryToDevMode(dDevMode As Dictionary) As type_DEVMODE
         .intTTOption = dDevMode("TTOption")
         .intCollate = dDevMode("Collate")
         .strFormName = dDevMode("FormName")
-        .lngPad = dDevMode("Pad")
-        .lngBits = dDevMode("Bits")
-        .lngPW = dDevMode("PW")
-        .lngPH = dDevMode("PH")
-        .lngDFI = dDevMode("DFI")
-        .lngDFr = dDevMode("DFr")
+        .intUnusedPadding = dDevMode("UnusedPadding")
+        .intBitsPerPel = dDevMode("BitsPerPel")
+        .lngPelsWidth = dDevMode("PelsWidth")
+        .lngPelsHeight = dDevMode("PelsHeight")
+        .lngDisplayFlags = dDevMode("DisplayFlags")
+        .lngDisplayFrequency = dDevMode("DisplayFrequency")
+        .lngICMMethod = dDevMode("ICMMethod")
+        .lngICMIntent = dDevMode("ICMIntent")
+        .lngMediaType = dDevMode("MediaType")
+        .lngDitherType = dDevMode("DitherType")
+        .lngReserved1 = dDevMode("Reserved1")
+        .lngReserved2 = dDevMode("Reserved2")
     End With
 End Function
 

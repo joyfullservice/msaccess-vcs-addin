@@ -40,7 +40,7 @@ Private Sub IDbComponent_Export()
     VerifyPath FSO.GetParentFolderName(IDbComponent_SourceFile)
 
     ' Save as selected format, and remove other formats if they exist.
-    For intFormat = 1 To eTableDataExportFormat.[_last]
+    For intFormat = 1 To eTableDataExportFormat.[_Last]
         ' Build file name for this format
         strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat)
         If FSO.FileExists(strFile) Then Kill strFile

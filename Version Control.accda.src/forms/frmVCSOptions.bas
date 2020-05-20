@@ -2515,7 +2515,7 @@ Private Sub Form_Load()
     
     ' Load list of table data export formats
     cboTableDataSaveType.AddItem "No Data"
-    For intFormat = 1 To eTableDataExportFormat.[_last]
+    For intFormat = 1 To eTableDataExportFormat.[_Last]
         cboTableDataSaveType.AddItem Options.GetTableExportFormatName(intFormat)
     Next intFormat
     

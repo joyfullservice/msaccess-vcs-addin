@@ -283,7 +283,7 @@ End Function
 Public Function GetTableExportFormat(strKey As String) As eTableDataExportFormat
     Dim intFormat As eTableDataExportFormat
     Dim strName As String
-    For intFormat = etdNoData To eTableDataExportFormat.[_last]
+    For intFormat = etdNoData To eTableDataExportFormat.[_Last]
         strName = Me.GetTableExportFormatName(intFormat)
         If strName = strKey Then
             GetTableExportFormat = intFormat

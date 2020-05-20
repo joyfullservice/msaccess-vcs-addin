@@ -1,0 +1,12 @@
+{
+  "Info": {
+    "Class": "clsDbSharedImage",
+    "Description": "Shared Image Gallery Item",
+    "VCS Version": "3.0.75"
+  },
+  "Items": {
+    "Name": "button_error",
+    "FileName": "1429903314_error.png",
+    "Extension": "png"
+  }
+}
