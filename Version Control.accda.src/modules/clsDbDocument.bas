@@ -88,9 +88,11 @@ Private Sub ClearDatabaseSummaryProperties()
 
     Dim doc As DAO.Document
     Dim prp As DAO.Property
+    Dim dbs As DAO.Database
     
-    Set doc = CurrentDb.Containers("Databases").Documents("SummaryInfo")
-    For Each prp In doc
+    Set dbs = CurrentDb
+    Set doc = dbs.Containers("Databases").Documents("SummaryInfo")
+    For Each prp In doc.Properties
         Select Case prp.Type
             Case dbText, dbMemo
                 ' Text properties
@@ -98,7 +100,8 @@ Private Sub ClearDatabaseSummaryProperties()
                     Case "Name", "Owner", "UserName", "Container" ' Leave these properties
                     Case Else
                         ' Clear the value on any text value property
-                        prp.Value = vbNullString
+                        ' (Maybe we should delete the property instead?)
+                        prp.Value = " "
                 End Select
         End Select
     Next prp
