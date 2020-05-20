@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbSharedImage",
     "Description": "Shared Image Gallery Item",
-    "VCS Version": "3.0.75"
+    "VCS Version": "3.0.85"
   },
   "Items": {
     "Name": "1370126936_button_ok",

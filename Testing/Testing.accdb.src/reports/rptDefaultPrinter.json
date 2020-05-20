@@ -2,10 +2,10 @@
   "Info": {
     "Class": "clsDbReport",
     "Description": "Report Print Settings",
-    "VCS Version": "3.0.75"
+    "VCS Version": "3.0.85"
   },
   "Items": {
-    "DeviceName": "\u5400\u7748\u56E2\u1690\uBC50\u0097\uBC28\u0097\u6C85\u757D\u0000\u0200\uA6F8\u13AC\uA6F4\u13AC\u0401\u0603\u009C\u0408\uBF43\u0200\u0001\u0001\u0AEA\u086Fd\u0001\u000F\uFFFF\u0001\u0001",
+    "DeviceName": "\u5400\u7748\u1F19\uDC98\uBED0\u0133\uBEA8\u0133\u6C85\u757D\u0000\u0200\uB298\u122F\uB294\u122F\u0401\u0603\u009C\u0408\uBF43\u0200\u0001\u0001\u0AEA\u086Fd\u0001\u000F\uFFFF\u0001\u0001",
     "SpecVersion": -1,
     "DriverVersion": 3,
     "Size": 1,
@@ -17,12 +17,12 @@
     "PaperWidth": 0,
     "Scale": 1,
     "Copies": 0,
-    "DefaultSource": -17328,
-    "PrintQuality": 151,
-    "Color": -16796,
-    "Duplex": 151,
-    "Resolution": -16800,
-    "TTOption": 151,
+    "DefaultSource": -16688,
+    "PrintQuality": 307,
+    "Color": -16156,
+    "Duplex": 307,
+    "Resolution": -16160,
+    "TTOption": 307,
     "Collate": 28761,
     "FormName": "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0001\u0000\u0000\u0000\u0001\u0000\u0002\u0000\u0144\u0000\uFFFF\uFFFF\u4947\u3453\u0000\u0000\u0000\u0000\u0000\u0000\u4944\u554E\"\u0190\u03EC",
     "UnusedPadding": 28,
