@@ -211,7 +211,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetAddinRegPath() As String
-    GetAddinRegPath = "HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\" & _
+    GetAddinRegPath = "HKLM\SOFTWARE\Microsoft\Office\" & _
             Application.Version & "\Access\Menu Add-Ins\"
 End Function
 
