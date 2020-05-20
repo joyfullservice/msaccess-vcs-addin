@@ -143,27 +143,27 @@ End Sub
 '
 Public Sub ImportPrintVars(strFile As String)
     
-    Dim DevModeString As str_DEVMODE
-    Dim tDevMode As type_DEVMODE
-    Dim DevModeExtra As String
-    Dim dFile As Dictionary
-    Dim strReport As String
-    
-    Set dFile = ReadJsonFile(strFile)
-    If Not dFile Is Nothing Then
-    
-        ' Prepare data structures
-        tDevMode = DictionaryToDevMode(dFile("Items"))
-        LSet DevModeString = tDevMode
-        Mid(DevModeExtra, 1, 94) = DevModeString.RGB
-    
-        ' Apply to report
-        strReport = GetObjectNameFromFileName(strFile)
-        DoCmd.Echo False
-        DoCmd.OpenReport strReport, acViewDesign
-        Reports(strReport).PrtDevMode = DevModeExtra
-        DoCmd.Close acReport, strReport, acSaveYes
-    End If
+'    Dim DevModeString As str_DEVMODE
+'    Dim tDevMode As type_DEVMODE
+'    Dim DevModeExtra As String
+'    Dim dFile As Dictionary
+'    Dim strReport As String
+'
+'    Set dFile = ReadJsonFile(strFile)
+'    If Not dFile Is Nothing Then
+'
+'        ' Prepare data structures
+'        tDevMode = DictionaryToDevMode(dFile("Items"))
+'        LSet DevModeString = tDevMode
+'        Mid(DevModeExtra, 1, 94) = DevModeString.RGB
+'
+'        ' Apply to report
+'        strReport = GetObjectNameFromFileName(strFile)
+'        DoCmd.Echo False
+'        DoCmd.OpenReport strReport, acViewDesign
+'        Reports(strReport).PrtDevMode = DevModeExtra
+'        DoCmd.Close acReport, strReport, acSaveYes
+'    End If
     
 End Sub
 
