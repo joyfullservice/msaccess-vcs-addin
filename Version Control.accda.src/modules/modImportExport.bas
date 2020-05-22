@@ -36,7 +36,10 @@ Public Sub ExportSource()
     Log.Clear
 
     ' Run any custom sub before export
-    If Options.RunBeforeExport <> vbNullString Then RunSubInCurrentProject Options.RunBeforeExport
+    If Options.RunBeforeExport <> vbNullString Then
+        Log.Add "Running " & Options.RunBeforeExport & "..."
+        RunSubInCurrentProject Options.RunBeforeExport
+    End If
 
     ' Save property with the version of Version Control we used for the export.
     If GetDBProperty("Last VCS Version") <> GetVCSVersion Then
@@ -110,7 +113,13 @@ Public Sub ExportSource()
             
         End If
     Next cCategory
-
+    
+    ' Run any custom sub after export
+    If Options.RunAfterExport <> vbNullString Then
+        Log.Add "Running " & Options.RunAfterExport & "..."
+        RunSubInCurrentProject Options.RunAfterExport
+    End If
+    
     ' Show final output and save log
     Log.Spacer
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
@@ -121,9 +130,6 @@ Public Sub ExportSource()
     
     ' Clear reference to FileSystemObject
     Set FSO = Nothing
-    
-    ' Run any custom sub before export
-    If Options.RunAfterExport <> vbNullString Then RunSubInCurrentProject Options.RunAfterExport
 
 End Sub
 
@@ -230,6 +236,12 @@ Public Sub Build(strSourceFolder As String)
             'Log.Flush  ' Gives smoother output, but slows down the import.
         End If
     Next cCategory
+
+    ' Run any post-build instructions
+    If Options.RunAfterBuild <> vbNullString Then
+        Log.Add "Running " & Options.RunAfterBuild & "..."
+        RunSubInCurrentProject Options.RunAfterExport
+    End If
 
     ' Show final output and save log
     Log.Spacer
