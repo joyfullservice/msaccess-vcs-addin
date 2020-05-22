@@ -1,5 +1,9 @@
 *.komodoproject
 
+# Version Control Add-in Binary
+# (This should be built from source and not committed to version control)
+Version Control.accda
+
 # Database lock files
 *.laccdb
 

@@ -161,7 +161,7 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB() As Collection
     
-    Dim cSpec As clsDbIMEXSpec
+    Dim cSpec As clsDbImexSpec
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     
@@ -179,7 +179,7 @@ Private Function IDbComponent_GetAllFromDB() As Collection
             With rst
                 Do While Not .EOF
                     ' Add spec name
-                    Set cSpec = New clsDbIMEXSpec
+                    Set cSpec = New clsDbImexSpec
                     cSpec.Name = Nz(!SpecName)
                     cSpec.ID = Nz(!SpecID, 0)
                     m_AllItems.Add cSpec, cSpec.Name

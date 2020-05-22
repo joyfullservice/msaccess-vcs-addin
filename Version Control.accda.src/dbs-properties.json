@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbProperty",
     "Description": "Database Properties (DAO)",
-    "VCS Version": "3.0.85"
+    "VCS Version": "3.1.5"
   },
   "Items": {
     "AccessVersion": {
@@ -42,7 +42,7 @@
       "Type": 10
     },
     "AppVersion": {
-      "Value": "3.0.85",
+      "Value": "3.1.5",
       "Type": 10
     },
     "Auto Compact": {
@@ -51,6 +51,14 @@
     },
     "Build": {
       "Value": 606,
+      "Type": 4
+    },
+    "CheckTruncatedNumFields": {
+      "Value": 1,
+      "Type": 4
+    },
+    "Clear Cache on Close": {
+      "Value": 0,
       "Type": 4
     },
     "ClickOnce Deployment": {
@@ -78,11 +86,11 @@
       "Type": 3
     },
     "Last VCS Export": {
-      "Value": "5/20/2020 5:46:03 PM",
+      "Value": "5/22/2020 5:07:37 PM",
       "Type": 10
     },
     "Last VCS Version": {
-      "Value": "3.0.85",
+      "Value": "3.1.5",
       "Type": 10
     },
     "Name": {
@@ -106,7 +114,11 @@
       "Type": 4
     },
     "NavPane Width": {
-      "Value": 312,
+      "Value": 215,
+      "Type": 4
+    },
+    "Never Cache": {
+      "Value": 0,
       "Type": 4
     },
     "Picture Property Storage Format": {
@@ -180,6 +192,10 @@
     "Updatable": {
       "Value": true,
       "Type": 1
+    },
+    "Use Microsoft Access 2007 compatible cache": {
+      "Value": 0,
+      "Type": 4
     },
     "UseAppIconForFrmRpt": {
       "Value": false,
