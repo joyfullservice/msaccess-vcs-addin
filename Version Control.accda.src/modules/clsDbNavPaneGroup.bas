@@ -243,7 +243,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Collection
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder & "nav-pane-groups.json")
+    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_SourceFile)
 End Function
 
 
@@ -255,6 +255,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+    If IDbComponent_GetAllFromDB.Count = 0 Then
+        If FSO.FileExists(IDbComponent_SourceFile) Then Kill IDbComponent_SourceFile
+    End If
 End Function
 
 
