@@ -16,11 +16,11 @@ Begin Form
     GridY =24
     Width =10080
     DatasheetFontHeight =11
-    ItemSuffix =101
+    ItemSuffix =107
     Left =3225
     Top =2430
-    Right =28545
-    Bottom =15015
+    Right =14115
+    Bottom =14175
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -444,7 +444,7 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4190
+                            Height =4185
                             BorderColor =10921638
                             Name ="pgeGeneral"
                             Caption ="General"
@@ -452,7 +452,7 @@ Begin Form
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6170
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1283,6 +1283,69 @@ Begin Form
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
                             WebImagePaddingBottom =2
+                            Begin
+                                Begin TextBox
+                                    OverlapFlags =247
+                                    IMESentenceMode =3
+                                    Left =3420
+                                    Top =5460
+                                    Width =2640
+                                    Height =315
+                                    BorderColor =10921638
+                                    ForeColor =4210752
+                                    Name ="txtRunAfterBuild"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =3420
+                                    LayoutCachedTop =5460
+                                    LayoutCachedWidth =6060
+                                    LayoutCachedHeight =5775
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =1140
+                                            Top =5460
+                                            Width =2055
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label104"
+                                            Caption ="Run Sub After Build:"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1140
+                                            LayoutCachedTop =5460
+                                            LayoutCachedWidth =3195
+                                            LayoutCachedHeight =5775
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin Label
+                                    OverlapFlags =247
+                                    Left =1140
+                                    Top =2340
+                                    Width =7860
+                                    Height =2445
+                                    BorderColor =8355711
+                                    ForeColor =5324600
+                                    Name ="Label105"
+                                    Caption ="PLEASE NOTE:\015\012\015\012The build functionality in this tool is fairly new w"
+                                        "ith limited testing in real-world applications. It is very important that you te"
+                                        "st this carefully in your environment to make sure everything you need is being "
+                                        "created in your database during the build.\015\012\015\012Please see the online "
+                                        "documentation for additional details on the build process. If you encounter an i"
+                                        "ssue, please feel free to submit issues and/or pull requests on the GitHub proje"
+                                        "ct."
+                                    GridlineColor =10921638
+                                    LayoutCachedLeft =1140
+                                    LayoutCachedTop =2340
+                                    LayoutCachedWidth =9000
+                                    LayoutCachedHeight =4785
+                                    ForeThemeColorIndex =-1
+                                    ForeTint =100.0
+                                End
+                            End
                         End
                         Begin Page
                             OverlapFlags =247

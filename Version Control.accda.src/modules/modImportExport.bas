@@ -150,7 +150,6 @@ Public Sub Build(strSourceFolder As String)
     Dim colFiles As Collection
     Dim varFile As Variant
     
-    
     ' Close the current database if it is currently open.
     If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
         ' Need to close the current database before we can replace it.
@@ -177,9 +176,19 @@ Public Sub Build(strSourceFolder As String)
         Exit Sub
     End If
     
-    ' Launch the GUI and display the build header.
+    ' Check if we are building the add-in file
+    If FSO.GetFileName(strPath) = CodeProject.Name Then
+        ' When building this add-in file, we should output to the debug
+        ' window instead of the GUI form. (Since we are importing
+        ' a form with the same name as the GUI form.)
+        ShowIDE
+    Else
+        ' Launch the GUI form
+        Form_frmVCSMain.StartBuild
+    End If
+
+    ' Display the build header.
     DoCmd.Hourglass True
-    Form_frmVCSMain.StartBuild
     With Log
         .Spacer
         .Add "Beginning Build from Source", False
@@ -192,7 +201,7 @@ Public Sub Build(strSourceFolder As String)
     
     ' Rename original file as a backup
     strText = GetBackupFileName(strPath)
-    Name strPath As strText
+    If FSO.FileExists(strPath) Then Name strPath As strText
     Log.Add "Saving backup of original database..."
     Log.Add "Saved as " & FSO.GetFileName(strText) & "."
     
@@ -248,9 +257,14 @@ Public Sub Build(strSourceFolder As String)
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
     Log.SaveFile Options.GetExportFolder & "\Import.log"
 
-    ' Finish up on GUI
-    Form_frmVCSMain.FinishBuild
     DoCmd.Hourglass False
+    If Forms.Count > 0 Then
+        ' Finish up on GUI
+        Form_frmVCSMain.FinishBuild
+    Else
+        ' Show message box when build is complete.
+        MsgBox2 "Build Complete", "Some settings will not take effect until the database is restarted.", , vbInformation
+    End If
     
 End Sub
 
@@ -290,7 +304,7 @@ Private Function GetAllContainers() As Collection
         ElseIf blnMDB Then
             ' These objects only exist in DAO databases
             .Add New clsDbSharedImage
-            .Add New clsDbIMEXSpec
+            .Add New clsDbImexSpec
             .Add New clsDbProperty
             .Add New clsDbTableDef
             .Add New clsDbQuery

@@ -99,7 +99,9 @@ Public Function AutoRun()
                 End If
             Else
                 ' Go to visual basic editor, since that is the most likely destination.
+                DoEvents
                 DoCmd.RunCommand acCmdVisualBasicEditor
+                DoEvents
             End If
         Else
             ' Not yet installed. Offer to install.

@@ -17,9 +17,9 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =20
-    Left =4680
+    Left =3225
     Top =2430
-    Right =14115
+    Right =18945
     Bottom =14175
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
@@ -1632,9 +1632,18 @@ Private Sub cmdBuild_Click()
     Dim strMsg(0 To 2) As String
     Dim intChoice As VbMsgBoxResult
     
-    ' Close the current database if it is currently open.
     DoCmd.Hourglass True
     DoEvents
+    
+    ' Make sure we use the add-in to build the add-in.
+    If CodeProject.FullName = CurrentProject.FullName Then
+        DoCmd.Hourglass False
+        MsgBox2 "Build must be run from Add-In", "Instead of opening this form to build the add-in," & vbCrLf & _
+            "please install and use the Version Control add-in from the Add-in menu", , vbExclamation
+        Exit Sub
+    End If
+    
+    ' Close the current database if it is currently open.
     If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) _
         And FolderHasVcsOptionsFile(Options.GetExportFolder) Then
         ' Build message text before we turn off the hourglass since first access may take a second.
@@ -1670,6 +1679,12 @@ Private Sub cmdBuild_Click()
                 If FolderHasVcsOptionsFile(.SelectedItems(1)) Then
                     ' Has source files
                     strFolder = .SelectedItems(1)
+                    ' Relaunch build if building the add-in from source.
+                    If FSO.GetFileName(strFolder) = "Version Control.accda.src" Then
+                        DoCmd.Close acForm, Me.Name
+                        RunBuildAfterClose strFolder
+                        Exit Sub
+                    End If
                 Else
                     MsgBox2 "Source files not found", "Required source files were not found in this folder.", _
                         "You selected: " & .SelectedItems(1), vbExclamation
