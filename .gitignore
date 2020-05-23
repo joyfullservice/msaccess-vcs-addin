@@ -1,8 +1,13 @@
 *.komodoproject
 
-# Version Control Add-in Binary
+# Version Control Add-in Binaries
 # (This should be built from source and not committed to version control)
 Version Control.accda
+Version Control.zip
+
+# Backup files created while building from source
+*VCSBackup*.accdb
+*VCSBackup*.accda
 
 # Database lock files
 *.laccdb
