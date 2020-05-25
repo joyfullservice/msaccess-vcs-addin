@@ -42,7 +42,11 @@ Private Sub IDbComponent_Export()
     ' Loop through all properties
     For Each prp In CurrentDb.Properties
         Select Case prp.Name
-            Case "Connection"   ' Connection object for ODBCDirect workspaces. Not needed.
+            Case "Connection"
+                ' Connection object for ODBCDirect workspaces. Not needed.
+            Case "Last VCS Export", "Last VCS Version"
+                ' Reduce noise by ignoring these values.
+                ' (We already have this information in the header.)
             Case Else
                 varValue = prp.Value
                 If prp.Name = "AppIcon" Or prp.Name = "Name" Then
