@@ -6,11 +6,14 @@ Version Control.accda
 Version Control.zip
 
 # Backup files created while building from source
-*VCSBackup*.accdb
-*VCSBackup*.accda
+*_VCSBackup*.accdb
+*_VCSBackup*.accda
 
 # Database lock files
 *.laccdb
+
+# Automatic database backups
+*_Backup.accd*
 
 # Comment out the following line if you wish to include the log files in git.
 Export.log
