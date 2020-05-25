@@ -321,4 +321,7 @@ Private Sub Class_Initialize()
     ' Load default values
     Me.LoadDefaults
     
+    ' Other run-time options
+    JsonOptions.AllowUnicodeChars = True
+    
 End Sub
