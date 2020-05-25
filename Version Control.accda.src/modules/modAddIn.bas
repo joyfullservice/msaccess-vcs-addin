@@ -31,6 +31,7 @@ Private Const SW_SHOWNORMAL = 1
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemLaunch()
+    PreloadVBE
     Form_frmVCSMain.Visible = True
 End Function
 
@@ -43,6 +44,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemExport()
+    PreloadVBE
     Form_frmVCSMain.Visible = True
     DoEvents
     Form_frmVCSMain.cmdExport_Click
@@ -357,3 +359,19 @@ End Property
 Public Property Get InstalledVersion() As String
     InstalledVersion = GetSetting(GetCodeVBProject.Name, "Add-in", "Installed Version", vbNullString)
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PreloadVBE
+' Author    : Adam Waller
+' Date      : 5/25/2020
+' Purpose   : Force Access to load the VBE project. (This can help prevent crashes
+'           : when code is run before the VB Project is fully loaded.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub PreloadVBE()
+    Dim strName As String
+    DoCmd.Hourglass True
+    strName = VBE.ActiveVBProject.Name
+    DoCmd.Hourglass False
+End Sub
