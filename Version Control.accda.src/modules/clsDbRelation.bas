@@ -177,7 +177,7 @@ Private Sub ImportRelation(ByRef filePath As String, Optional ByRef appInstance 
     Dim newRelation As Relation
     Set newRelation = thisDb.CreateRelation(fileLines(1), fileLines(2), fileLines(3), fileLines(0))
     
-    Dim newField As Field
+    Dim newField As DAO.Field
     Dim thisLine As Long
     For thisLine = 4 To UBound(fileLines)
         If "Field = Begin" = fileLines(thisLine) Then

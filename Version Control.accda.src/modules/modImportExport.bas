@@ -255,7 +255,7 @@ Public Sub Build(strSourceFolder As String)
     ' Show final output and save log
     Log.Spacer
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
-    Log.SaveFile Options.GetExportFolder & "\Import.log"
+    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Import.log")
 
     DoCmd.Hourglass False
     If Forms.Count > 0 Then
