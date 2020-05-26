@@ -201,32 +201,17 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 5/7/2020
 ' Purpose   : If we have not done any import/export in this database, we may need
-'           : to create the system tables.
-'           : The approach I am taking here is to have a copy of the tables in the
-'           : add-in database, and import it into the current database.
+'           : to create the system tables. For this we will use an undocumented SysCmd
+'           : call to create the tables. I have found this documented a few places
+'           : online, and used in the VTools project as well.
+'           : https://www.everythingaccess.com/tutorials.asp?ID=Undocumented-SysCmd-Functions
 '---------------------------------------------------------------------------------------
 '
 Private Sub VerifyImexTables()
     ' Check to see if the tables exists in the current database
-    ImportMissingTableFromAddIn "MSysIMEXSpecs"
-    ImportMissingTableFromAddIn "MSysIMEXColumns"
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ImportMissingTableFromAddIn
-' Author    : Adam Waller
-' Date      : 5/7/2020
-' Purpose   : Imports a table from the add-in database if it doesn't exist in the
-'           : current database.
-'---------------------------------------------------------------------------------------
-'
-Private Sub ImportMissingTableFromAddIn(strTable As String)
-    Dim dbs As DAO.Database
-    If Not TableExists(strTable) Then
-        DoCmd.TransferDatabase acImport, "Microsoft Access", CodeProject.FullName, acTable, strTable, strTable, True
-        Set dbs = CurrentDb
-        dbs.TableDefs(strTable).Attributes = 2  ' Set to system object
+    If (Not TableExists("MSysIMEXSpecs")) Or (Not TableExists("MSysIMEXColumns")) Then
+        ' Use an undocumented SysCmd function to create the tables.
+        SysCmd 555
     End If
 End Sub
 

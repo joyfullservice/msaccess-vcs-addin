@@ -377,29 +377,15 @@ Private Function IDbComponent_GetAllFromDB() As Collection
     
     Dim tdf As TableDef
     Dim cTable As IDbComponent
-    Dim blnInclude As Boolean
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
         Set m_AllItems = New Collection
         Set m_Dbs = CurrentDb
-            
         For Each tdf In m_Dbs.TableDefs
-            Select Case True
-                Case tdf.Name = "MSysIMEXSpecs", tdf.Name = "MSysIMEXColumns"
-                    ' Used for Import/Export specs
-                    blnInclude = True
-                Case tdf.Name Like "MSys*"
-                    ' Skip other system tables
-                    blnInclude = False
-                Case tdf.Name Like "~*"
-                    ' Skip temorary tables
-                    blnInclude = False
-                Case Else
-                    ' Include all other tables.
-                    blnInclude = True
-            End Select
-            If blnInclude Then
+            If tdf.Name Like "MSys*" Or tdf.Name Like "~*" Then
+                ' Skip system and temporary tables
+            Else
                 Set cTable = New clsDbTableDef
                 Set cTable.DbObject = tdf
                 m_AllItems.Add cTable, tdf.Name
