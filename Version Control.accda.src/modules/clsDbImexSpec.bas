@@ -45,7 +45,7 @@ Private Sub IDbComponent_Export()
     Set dSpec = New Dictionary
     Set dCols = New Dictionary
     Set dbs = CurrentDb
-    
+
     ' Build header info first
     strSQL = "SELECT * FROM MSysIMEXSpecs WHERE SpecID=" & Me.ID
     Set rst = dbs.OpenRecordset(strSQL, dbOpenSnapshot, dbReadOnly)
@@ -222,8 +222,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub ImportMissingTableFromAddIn(strTable As String)
+    Dim dbs As DAO.Database
     If Not TableExists(strTable) Then
         DoCmd.TransferDatabase acImport, "Microsoft Access", CodeProject.FullName, acTable, strTable, strTable, True
+        Set dbs = CurrentDb
+        dbs.TableDefs(strTable).Attributes = 2  ' Set to system object
     End If
 End Sub
 

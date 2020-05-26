@@ -48,7 +48,8 @@ Private Sub IDbComponent_Export()
             ' Export the table using this format.
             Select Case intFormat
                 Case etdTabDelimited:   ExportTableDataAsTDF m_Table.Name
-                Case etdXML:
+                Case etdXML
+                    ' Export data rows as XML
                     Application.ExportXML acExportTable, m_Table.Name, strFile
                     SanitizeXML strFile, Options
             End Select

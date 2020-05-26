@@ -3,7 +3,7 @@
 # Version Control Add-in Binaries
 # (This should be built from source and not committed to version control)
 Version Control.accda
-Version Control.zip
+Version_Control_*.zip
 
 # Backup files created while building from source
 *_VCSBackup*.accdb
