@@ -61,30 +61,7 @@ End Function
 '
 Public Function AutoRun()
 
-    ' If we are running from the addin location, we might be trying to register it.
-    If CodeProject.FullName = GetAddinFileName Then
-    
-        ' See if the user has admin privileges
-        If IsUserAnAdmin = 1 Then
-        
-            ' Create the menu items
-            ' NOTE: Be sure to keep these consistent with the USysRegInfo table
-            ' so the user can uninstall the add-in later if desired.
-            RegisterMenuItem "&Version Control", "=AddInMenuItemLaunch()"
-            RegisterMenuItem "&Export All Source", "=AddInMenuItemExport()"
-            InstalledVersion = AppVersion
-            
-            ' Give success message and quit Access
-            If IsAlreadyInstalled Then
-                MsgBox2 "Success!", "Version Control System has now been installed.", _
-                    "You may begin using this tool after reopening Microsoft Access", vbInformation, "Version Control Add-in"
-                DoCmd.Quit
-            End If
-        Else
-            ' User does not have admin priviledges. Shouldn't normally be opening the add-in directly.
-            ' Don't do anything special here. Just let them browse around in the file.
-        End If
-    Else
+    If CodeProject.FullName <> GetAddinFileName Then
         ' Could be running it from another location, such as after downloading
         ' and updated version of the addin. In that case, we are either trying
         ' to install it for the first time, or trying to upgrade it.
@@ -110,7 +87,12 @@ Public Function AutoRun()
             If MsgBox2("Install Version Control?", _
                 "Would you like to install version " & AppVersion & "?", _
                 "Click 'Yes' to continue or 'No' to cancel.", vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then
-                If InstallVCSAddin Then RelaunchAsAdmin
+                
+                If InstallVCSAddin Then
+                    MsgBox2 "Success!", "Version Control System has now been installed.", _
+                        "You may begin using this tool after reopening Microsoft Access", vbInformation, "Version Control Add-in"
+                End If
+                
                 DoCmd.Quit
             End If
         End If
@@ -127,7 +109,7 @@ End Function
 '           : Returns true if successful.
 '---------------------------------------------------------------------------------------
 '
-Private Function InstallVCSAddin()
+Private Function InstallVCSAddin() As Boolean
     
     Dim strSource As String
     Dim strDest As String
@@ -142,19 +124,22 @@ Private Function InstallVCSAddin()
     ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
     On Error Resume Next
     FSO.CopyFile strSource, strDest, True
-    If Err.Number > 0 Then
+    On Error GoTo 0
+    If Err.Number <> 0 Then
         MsgBox2 "Unable to update file", _
             "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
             "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
         Err.Clear
     Else
+        ' Register the Menu controls
+        RegisterMenuItem "&Version Control", "=AddInMenuItemLaunch()"
+        RegisterMenuItem "&Export All Source", "=AddInMenuItemExport()"
         ' Update installed version number
         InstalledVersion = AppVersion
         ' Return success
         InstallVCSAddin = True
     End If
-    On Error GoTo 0
-
+    
 End Function
 
 
@@ -215,7 +200,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetAddinRegPath() As String
-    GetAddinRegPath = "HKLM\SOFTWARE\Microsoft\Office\" & _
+    GetAddinRegPath = "HKCU\SOFTWARE\Microsoft\Office\" & _
             Application.Version & "\Access\Menu Add-Ins\"
 End Function
 
