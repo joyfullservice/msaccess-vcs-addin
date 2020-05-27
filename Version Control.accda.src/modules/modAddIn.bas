@@ -144,6 +144,43 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : UninstallVCSAddin
+' Author    : Adam Kauffman
+' Date      : 5/27/2020
+' Purpose   : Removes the add-in for the current user.
+'           : Returns true if successful.
+'---------------------------------------------------------------------------------------
+'
+Public Function UninstallVCSAddin() As Boolean
+    
+    Dim strDest As String
+    strDest = GetAddinFileName
+    
+    ' Copy the file, overwriting any existing file.
+    ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
+    On Error Resume Next
+    FSO.DeleteFile strDest, True
+    On Error GoTo 0
+    
+    ' Error 53 = File Not found is okay.
+    If Err.Number <> 0 And Err.Number <> 53 Then
+        MsgBox2 "Unable to delete file", _
+            "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
+            "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
+        Err.Clear
+    Else
+        ' Register the Menu controls
+        RemoveMenuItem "&Version Control", "=AddInMenuItemLaunch()"
+        RemoveMenuItem "&Export All Source", "=AddInMenuItemExport()"
+        ' Update installed version number
+        InstalledVersion = 0
+        ' Return success
+        UninstallVCSAddin = True
+    End If
+    
+End Function
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAddinFileName
 ' Author    : Adam Waller
 ' Date      : 4/15/2020
@@ -222,6 +259,29 @@ Private Function RegisterMenuItem(strName, Optional strFunction As String = "=La
         .RegWrite strPath & "Expression", strFunction, "REG_SZ"
         .RegWrite strPath & "Library", GetAddinFileName, "REG_SZ"
         .RegWrite strPath & "Version", 3, "REG_DWORD"
+    End With
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveMenuItem
+' Author    : Adam Kauffman
+' Date      : 5/27/2020
+' Purpose   : Remove the menu item through the registry (HKLM, requires admin)
+'---------------------------------------------------------------------------------------
+'
+Private Function RemoveMenuItem(strName, Optional strFunction As String = "=LaunchMe()")
+
+    Dim strPath As String
+    
+    ' We need to create/update three registry keys for each item.
+    strPath = GetAddinRegPath & strName & "\"
+    With New IWshRuntimeLibrary.WshShell
+        .RegDelete strPath & "Expression"
+        .RegDelete strPath & "Library"
+        .RegDelete strPath & "Version"
+        .RegDelete strPath
     End With
     
 End Function
