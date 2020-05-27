@@ -2,19 +2,15 @@
 
 # Version Control Add-in Binaries
 # (This should be built from source and not committed to version control)
-Version Control.accda
-Version_Control_*.zip
-
-# Backup files created while building from source
-*_VCSBackup*.accdb
-*_VCSBackup*.accda
+*.mdb
+*.accda
+*.accdb
+*.zip
 
 # Database lock files
 *.laccdb
 
-# Automatic database backups
-*_Backup.accd*
-
 # Comment out the following line if you wish to include the log files in git.
 Export.log
 Import.log
+

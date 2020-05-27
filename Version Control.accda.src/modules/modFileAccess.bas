@@ -201,7 +201,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
     If FileIsUCS2Format(strSourceFile) Then
     
         ' Read file contents and delete (temp) source file
-        With FSO.OpenTextFile(strSourceFile, , , TristateTrue)
+        With FSO.OpenTextFile(strSourceFile, ForReading, False, TristateTrue)
             strText = .ReadAll
             .Close
         End With
@@ -246,7 +246,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
     Else
         
         ' Read file contents
-        With FSO.OpenTextFile(strSourceFile, , , TristateFalse)
+        With FSO.OpenTextFile(strSourceFile, ForReading, False, TristateFalse)
             strText = RemoveUTF8BOM(.ReadAll)
             .Close
         End With

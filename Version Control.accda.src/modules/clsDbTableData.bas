@@ -121,7 +121,7 @@ Private Sub ImportTableDataTDF(strFile As String)
     Dim dCols As Dictionary
     Dim fld As DAO.Field
     Dim dbs As DAO.Database
-    Dim rst As Recordset
+    Dim rst As DAO.Recordset
     Dim stm As Scripting.TextStream
     Dim strLine As String
     Dim varLine As Variant

@@ -1331,10 +1331,11 @@ End Sub
 Public Function ReadJsonFile(strPath As String) As Dictionary
     Dim strText As String
     If FSO.FileExists(strPath) Then
-        With FSO.OpenTextFile(strPath)
-            strText = .ReadAll
+        With FSO.OpenTextFile(strPath, ForReading, False)
+            strText = RemoveUTF8BOM(.ReadAll)
             .Close
         End With
+        
         ' If it looks like json content, then parse into a dictionary object.
         If Left(strText, 1) = "{" Then Set ReadJsonFile = ParseJson(strText)
     End If
