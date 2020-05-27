@@ -1,9 +1,0 @@
-Subkey	Type	ValName	Value
-HKEY_CURRENT_ACCESS_PROFILE\\Menu Add-ins\\&Export All Source	0		
-HKEY_CURRENT_ACCESS_PROFILE\\Menu Add-ins\\&Export All Source	1	Expression	=AddInMenuItemExport()
-HKEY_CURRENT_ACCESS_PROFILE\\Menu Add-ins\\&Export All Source	1	Library	|ACCDIR\\Version Control.accda
-HKEY_CURRENT_ACCESS_PROFILE\\Menu Add-ins\\&Export All Source	4	Version	2
-HKEY_CURRENT_ACCESS_PROFILE\\Menu Add-ins\\&Version Control	0		
-HKEY_CURRENT_ACCESS_PROFILE\\Menu Add-ins\\&Version Control	1	Expression	=AddInMenuItemLaunch()
-HKEY_CURRENT_ACCESS_PROFILE\\Menu Add-ins\\&Version Control	1	Library	|ACCDIR\\Version Control.accda
-HKEY_CURRENT_ACCESS_PROFILE\\Menu Add-ins\\&Version Control	4	Version	2
