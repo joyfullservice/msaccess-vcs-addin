@@ -1,4 +1,4 @@
-Version =21
+Version =20
 VersionRequired =20
 Begin Form
     PopUp = NotDefault
@@ -21,7 +21,7 @@ Begin Form
     Top =1335
     Right =22155
     Bottom =16815
-    DatasheetGridlinesColor =15132391
+    DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -813,7 +813,7 @@ Begin Form
                                     Top =5580
                                     Width =2340
                                     TabIndex =10
-                                    ForeColor =12673797
+                                    ForeColor =16711680
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
                                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation#op"
@@ -1073,7 +1073,7 @@ Begin Form
                                     Height =315
                                     TabIndex =4
                                     BorderColor =10921638
-                                    ForeColor =3484194
+                                    ForeColor =4138256
                                     Name ="cboTableDataSaveType"
                                     RowSourceType ="Value List"
                                     RowSource ="No Data;Tab Delimited;XML Format"
@@ -1247,7 +1247,7 @@ Begin Form
                                     FontSize =10
                                     BackColor =14262935
                                     BorderColor =15321539
-                                    ForeColor =12673797
+                                    ForeColor =16711680
                                     Name ="lblAddOtherTable"
                                     Caption ="Other..."
                                     OnClick ="[Event Procedure]"
@@ -1457,7 +1457,7 @@ Begin Form
                                     Top =4860
                                     Width =1560
                                     TabIndex =1
-                                    ForeColor =12673797
+                                    ForeColor =16711680
                                     Name ="cmdEncryptionDetails"
                                     Caption ="Details..."
                                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Encryption"
@@ -2116,7 +2116,7 @@ Begin Form
                     Top =1260
                     Width =1560
                     TabIndex =3
-                    ForeColor =12673797
+                    ForeColor =16711680
                     Name ="cmdSeeDocs"
                     Caption ="See Docs..."
                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation"

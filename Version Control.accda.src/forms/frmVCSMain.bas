@@ -1,4 +1,4 @@
-Version =21
+Version =20
 VersionRequired =20
 Begin Form
     PopUp = NotDefault
@@ -21,7 +21,7 @@ Begin Form
     Top =2430
     Right =18945
     Bottom =14175
-    DatasheetGridlinesColor =15132391
+    DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
     End

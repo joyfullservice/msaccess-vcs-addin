@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbVbeReference",
     "Description": "VBE References",
-    "VCS Version": "3.1.19"
+    "VCS Version": "3.1.22"
   },
   "Items": {
     "stdole": {
@@ -35,7 +35,7 @@
     },
     "Office": {
       "GUID": "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}",
-      "Version": "2.8"
+      "Version": "2.5"
     }
   }
 }

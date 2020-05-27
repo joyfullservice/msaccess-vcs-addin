@@ -8,6 +8,11 @@ Public Enum eReleaseType
     Build_xxV = 2
 End Enum
 
+Private Enum eHive
+    ehHKLM
+    ehHKCU
+End Enum
+
 ' Used to determine if Access is running as administrator. (Required for installing the add-in)
 Private Declare PtrSafe Function IsUserAnAdmin Lib "shell32" () As Long
 
@@ -61,7 +66,11 @@ End Function
 '
 Public Function AutoRun()
 
-    If CodeProject.FullName <> GetAddinFileName Then
+    If CodeProject.FullName = GetAddinFileName Then
+        ' Opening the file from add-in location, which would normally be unusual unless we are trying to remove
+        ' legacy registry entries.
+        If IsUserAnAdmin = 1 Then RemoveLegacyInstall
+    Else
         ' Could be running it from another location, such as after downloading
         ' and updated version of the addin. In that case, we are either trying
         ' to install it for the first time, or trying to upgrade it.
@@ -73,6 +82,7 @@ Public Function AutoRun()
                     If InstallVCSAddin Then
                         MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
                             "Please restart any open instances of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
+                        CheckForLegacyInstall
                         DoCmd.Quit
                     End If
                 End If
@@ -91,6 +101,7 @@ Public Function AutoRun()
                 If InstallVCSAddin Then
                     MsgBox2 "Success!", "Version Control System has now been installed.", _
                         "You may begin using this tool after reopening Microsoft Access", vbInformation, "Version Control Add-in"
+                    CheckForLegacyInstall
                 End If
                 
                 DoCmd.Quit
@@ -122,15 +133,18 @@ Private Function InstallVCSAddin() As Boolean
     
     ' Copy the file, overwriting any existing file.
     ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
+    ' We also use FSO to force the deletion of the existing file, if found.
     On Error Resume Next
+    If FSO.FileExists(strDest) Then FSO.DeleteFile strDest, True
     FSO.CopyFile strSource, strDest, True
-    On Error GoTo 0
-    If Err.Number <> 0 Then
+    If Err Then
         MsgBox2 "Unable to update file", _
             "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
             "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
         Err.Clear
+        On Error GoTo 0
     Else
+        On Error GoTo 0
         ' Register the Menu controls
         RegisterMenuItem "&Version Control", "=AddInMenuItemLaunch()"
         RegisterMenuItem "&Export All Source", "=AddInMenuItemExport()"
@@ -236,9 +250,18 @@ End Function
 ' Purpose   : Return the registry path to the addin menu items
 '---------------------------------------------------------------------------------------
 '
-Private Function GetAddinRegPath() As String
-    GetAddinRegPath = "HKCU\SOFTWARE\Microsoft\Office\" & _
+Private Function GetAddinRegPath(Optional Hive As eHive = ehHKCU) As String
+    
+    Dim strHive As String
+    
+    Select Case Hive
+        Case ehHKCU: strHive = "HKCU\"
+        Case ehHKLM: strHive = "HKLM\"
+    End Select
+    
+    GetAddinRegPath = strHive & "SOFTWARE\Microsoft\Office\" & _
             Application.Version & "\Access\Menu Add-Ins\"
+        
 End Function
 
 
@@ -268,20 +291,26 @@ End Function
 ' Procedure : RemoveMenuItem
 ' Author    : Adam Kauffman
 ' Date      : 5/27/2020
-' Purpose   : Remove the menu item through the registry (HKLM, requires admin)
+' Purpose   : Remove the menu item through the registry
 '---------------------------------------------------------------------------------------
 '
-Private Function RemoveMenuItem(strName, Optional strFunction As String = "=LaunchMe()")
+Private Function RemoveMenuItem(strName, Optional strFunction As String = "=LaunchMe()", Optional Hive As eHive = ehHKCU)
 
     Dim strPath As String
+    Dim objShell As WshShell
     
-    ' We need to create/update three registry keys for each item.
-    strPath = GetAddinRegPath & strName & "\"
-    With New IWshRuntimeLibrary.WshShell
+    ' We need to remove three registry keys for each item.
+    strPath = GetAddinRegPath(Hive) & strName & "\"
+    Set objShell = New WshShell
+    With objShell
+        ' Just in case someone changed some of the keys...
+        On Error Resume Next
         .RegDelete strPath & "Expression"
         .RegDelete strPath & "Library"
         .RegDelete strPath & "Version"
         .RegDelete strPath
+        If Err Then Err.Clear
+        On Error GoTo 0
     End With
     
 End Function
@@ -291,7 +320,7 @@ End Function
 ' Procedure : RelaunchAsAdmin
 ' Author    : Adam Waller
 ' Date      : 4/15/2020
-' Purpose   : Launch the addin file with admin privileges so the user can register it.
+' Purpose   : Launch the addin file with admin privileges so the user can uninstall it.
 '---------------------------------------------------------------------------------------
 '
 Private Sub RelaunchAsAdmin()
@@ -450,12 +479,69 @@ End Property
 '           :  to change the keys actually used by Access to register the add-in)
 '---------------------------------------------------------------------------------------
 '
-Private Property Let InstalledVersion(strVersion As String)
+Public Property Let InstalledVersion(strVersion As String)
     SaveSetting GetCodeVBProject.Name, "Add-in", "Installed Version", strVersion
 End Property
 Public Property Get InstalledVersion() As String
     InstalledVersion = GetSetting(GetCodeVBProject.Name, "Add-in", "Installed Version", vbNullString)
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasLegacyInstall
+' Author    : Adam Waller
+' Date      : 5/27/2020
+' Purpose   : Returns true if legacy registry entries are found.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CheckForLegacyInstall()
+    
+    Dim strPath As String
+    Dim strTest As String
+    Dim objShell As IWshRuntimeLibrary.WshShell
+    
+    If InstalledVersion < "3.2.0" Then
+        strPath = GetAddinRegPath(ehHKLM) & "&Version Control\Library"
+        Set objShell = New IWshRuntimeLibrary.WshShell
+        On Error Resume Next
+        strTest = objShell.RegRead(strPath)
+        If Err Then Err.Clear
+        On Error GoTo 0
+        If strTest <> vbNullString Then
+            If MsgBox2("Remove Legacy Version?", "Way back in the old days, this install required admin rights " & _
+                "and added some keys to the HKLM registry. We don't need those anymore " & _
+                "because the add-in is now installed for the current user with no special " & _
+                "privileges required." _
+                , "Can we go ahead and clean those up now? (Requires admin to remove the registry keys.)" _
+                , vbQuestion + vbYesNo) = vbYes Then
+                RelaunchAsAdmin
+            End If
+        End If
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveLegacyInstall
+' Author    : Adam Waller
+' Date      : 5/27/2020
+' Purpose   : Remove the installation that required admin rights in favor of the
+'           : per-user installation method.
+'---------------------------------------------------------------------------------------
+'
+Private Function RemoveLegacyInstall()
+
+    Dim objShell As IWshRuntimeLibrary.WshShell
+
+    ' These registry keys require admin access to remove
+    RemoveMenuItem "&Version Control", "=AddInMenuItemLaunch()", ehHKLM
+    RemoveMenuItem "&Export All Source", "=AddInMenuItemExport()", ehHKLM
+
+    MsgBox2 "Legacy Items Removed", "Thanks for getting those cleaned up!" _
+        , "Microsoft Access will now close so you can continue.", vbInformation
+    DoCmd.Quit
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
