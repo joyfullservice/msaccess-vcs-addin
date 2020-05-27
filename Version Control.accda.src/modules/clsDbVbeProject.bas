@@ -39,8 +39,8 @@ Private Sub IDbComponent_Export()
         .Add "Name", m_Project.Name
         .Add "Description", m_Project.Description
         .Add "FileName", GetRelativePath(m_Project.FileName)
-        .Add "HelpContextId", m_Project.HelpContextId
         .Add "HelpFile", m_Project.HelpFile
+        .Add "HelpContextId", m_Project.HelpContextId
         .Add "Mode", m_Project.Mode
         .Add "Protection", m_Project.Protection
         .Add "Type", m_Project.Type

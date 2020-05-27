@@ -99,7 +99,7 @@ Private Sub IDbComponent_Import(strFile As String)
             If Not dExisting.Exists(CStr(varKey)) Then
                 If dRef.Exists("GUID") Then
                     varVersion = Split(dRef("Version"), ".")
-                    Set ref = proj.References.AddFromGuid(dRef("GUID"), varVersion(0), varVersion(1))
+                    AddFromGuid proj, dRef("GUID"), CLng(varVersion(0)), CLng(varVersion(1))
                 ElseIf dRef.Exists("FullPath") Then
                     strPath = Decrypt(dRef("FullPath"))
                     If FSO.FileExists(strPath) Then
@@ -112,6 +112,28 @@ Private Sub IDbComponent_Import(strFile As String)
         Next varKey
     End If
     
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddFromGuid
+' Author    : Adam Waller
+' Date      : 5/26/2020
+' Purpose   : Return a GUID compatible with Access 2010, the lowest targeted version.
+'           : Only add references here when they cause compile errors on Access 2010.
+'           : Further reading: https://stackoverflow.com/questions/45088306
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddFromGuid(proj As VBIDE.VBProject, strGuid As String, lngMajor As Long, lngMinor As Long)
+
+    Select Case strGuid
+        Case "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}"   ' Office 2.8 => Office 2.5
+            proj.References.AddFromGuid "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}", lngMajor, lngMinor
+        Case Else
+            ' Use specified GUID
+            proj.References.AddFromGuid strGuid, lngMajor, lngMinor
+    End Select
+
 End Sub
 
 

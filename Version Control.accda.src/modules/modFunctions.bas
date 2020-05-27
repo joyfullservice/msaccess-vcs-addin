@@ -1193,9 +1193,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetVBProjectForCurrentDB() As VBProject
-
     Set GetVBProjectForCurrentDB = GetProjectByName(CurrentProject.FullName)
-
 End Function
 
 
@@ -1207,12 +1205,19 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetCodeVBProject() As VBProject
-
     Set GetCodeVBProject = GetProjectByName(CodeProject.FullName)
-
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetProjectByName
+' Author    : Adam Waller
+' Date      : 5/26/2020
+' Purpose   : Return the VBProject by file path.
+'---------------------------------------------------------------------------------------
+'
 Private Function GetProjectByName(ByVal strPath As String) As VBProject
+
     Dim objProj As VBIDE.VBProject
         
     ' Use currently active project by default
@@ -1227,6 +1232,7 @@ Private Function GetProjectByName(ByVal strPath As String) As VBProject
             End If
         Next objProj
     End If
+    
 End Function
 
 
