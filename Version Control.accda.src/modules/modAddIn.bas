@@ -142,7 +142,7 @@ Private Function InstallVCSAddin()
     ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
     On Error Resume Next
     FSO.CopyFile strSource, strDest, True
-    If Err Then
+    If Err.Number > 0 Then
         MsgBox2 "Unable to update file", _
             "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
             "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
@@ -180,7 +180,6 @@ End Function
 Private Function IsAlreadyInstalled() As Boolean
     
     Dim strPath As String
-    Dim oShell As IWshRuntimeLibrary.WshShell
     Dim strTest As String
     
     ' Check for registry key of installed version
@@ -188,17 +187,18 @@ Private Function IsAlreadyInstalled() As Boolean
         
         ' Check for addin file
         If Dir(GetAddinFileName) = CodeProject.Name Then
+            strPath = GetAddinRegPath & "&Version Control\Library"
             
             ' Check HKLM registry key
-            Set oShell = New IWshRuntimeLibrary.WshShell
-            strPath = GetAddinRegPath & "&Version Control\Library"
-            On Error Resume Next
-            ' We should have a value here if the install ran in the past.
-            strTest = oShell.RegRead(strPath)
-            If Err Then Err.Clear
+            With New IWshRuntimeLibrary.WshShell
+                ' We should have a value here if the install ran in the past.
+                On Error Resume Next
+                strTest = .RegRead(strPath)
+            End With
+            
+            If Err.Number > 0 Then Err.Clear
             On Error GoTo 0
-            Set oShell = Nothing
-        
+            
             ' Return our determination
             IsAlreadyInstalled = (strTest <> vbNullString)
         End If
@@ -229,19 +229,15 @@ End Function
 '
 Private Function RegisterMenuItem(strName, Optional strFunction As String = "=LaunchMe()")
 
-    Dim oShell As IWshRuntimeLibrary.WshShell
     Dim strPath As String
-    
-    Set oShell = New IWshRuntimeLibrary.WshShell
     
     ' We need to create/update three registry keys for each item.
     strPath = GetAddinRegPath & strName & "\"
-    With oShell
+    With New IWshRuntimeLibrary.WshShell
         .RegWrite strPath & "Expression", strFunction, "REG_SZ"
         .RegWrite strPath & "Library", GetAddinFileName, "REG_SZ"
         .RegWrite strPath & "Version", 3, "REG_DWORD"
     End With
-    Set oShell = Nothing
     
 End Function
 
@@ -271,7 +267,6 @@ End Sub
 Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     
     Dim strBinaryFile As String
-    
     Const cstrSpacer As String = "--------------------------------------------------------------"
         
     ' Make sure we don't run ths function while it is loaded in another project.

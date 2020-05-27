@@ -1,4 +1,4 @@
-Version =20
+Version =21
 VersionRequired =20
 Begin Form
     PopUp = NotDefault
@@ -21,7 +21,7 @@ Begin Form
     Top =2430
     Right =18945
     Bottom =14175
-    DatasheetGridlinesColor =14806254
+    DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -33,9 +33,6 @@ Begin Form
     End
     OnLoad ="[Event Procedure]"
     AllowDatasheetView =0
-    AllowPivotTableView =0
-    AllowPivotChartView =0
-    AllowPivotChartView =0
     FilterOnLoad =0
     ShowPageMargins =0
     DisplayOnSharePointSite =1
