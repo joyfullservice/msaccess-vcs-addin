@@ -128,7 +128,7 @@ Private Sub AddFromGuid(proj As VBIDE.VBProject, strGuid As String, lngMajor As 
 
     Select Case strGuid
         Case "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}"   ' Office 2.8 => Office 2.5
-            proj.References.AddFromGuid "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}", lngMajor, lngMinor
+            proj.References.AddFromGuid "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}", 2, 5
         Case Else
             ' Use specified GUID
             proj.References.AddFromGuid strGuid, lngMajor, lngMinor
