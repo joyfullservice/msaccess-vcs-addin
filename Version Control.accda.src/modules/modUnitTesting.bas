@@ -39,7 +39,7 @@ Public Sub TestUCS2toUTF8RoundTrip()
     
     'Arrange:
     Dim queryName As String
-    queryName = "Temp_Test_Query_Delete_Me"
+    queryName = "Temp_Test_Query_Delete_Me_Æ_ø_Å"
     Dim tempFileName As String
     tempFileName = GetTempFile()
     
@@ -53,22 +53,22 @@ Public Sub TestUCS2toUTF8RoundTrip()
     UTFtoUCS = tempFileName & "UTF-8toUCS-2"
     
     ' Use temporary query to export example file
-    CurrentDb.CreateQueryDef queryName, "SELECT * FROM TEST WHERE TESTING=TRUE"
+    CurrentDb.CreateQueryDef queryName, "SELECT * FROM TEST WHERE TESTING='ÆØÅ'"
     Application.SaveAsText acQuery, queryName, tempFileName
     CurrentDb.QueryDefs.Delete queryName
         
-    'Act:
-    ConvertUtf8Ucs2 tempFileName, UCStoUCS
-    ConvertUcs2Utf8 UCStoUCS, UCStoUTF
-    ConvertUcs2Utf8 UCStoUTF, UTFtoUTF
-    ConvertUtf8Ucs2 UTFtoUTF, UTFtoUCS
-    
     ' Read original export
     Dim originalExport As String
     With FSO.OpenTextFile(tempFileName, , , TristateTrue)
         originalExport = .ReadAll
         .Close
     End With
+            
+    'Act:
+    ConvertUtf8Ucs2 tempFileName, UCStoUCS
+    ConvertUcs2Utf8 UCStoUCS, UCStoUTF
+    ConvertUcs2Utf8 UCStoUTF, UTFtoUTF
+    ConvertUtf8Ucs2 UTFtoUTF, UTFtoUCS
     
     ' Read final file that went through all permutations of conversion
     Dim finalFile As String
@@ -78,11 +78,8 @@ Public Sub TestUCS2toUTF8RoundTrip()
     End With
     
     ' Cleanup temp files
-    FSO.DeleteFile tempFileName
-    FSO.DeleteFile UCStoUCS
-    FSO.DeleteFile UCStoUTF
-    FSO.DeleteFile UTFtoUTF
-    FSO.DeleteFile UTFtoUCS
+    'fso.DeleteFile tempFileName
+    'fso.DeleteFile UTFtoUCS
     
     'Assert:
     Assert.AreEqual originalExport, finalFile
@@ -94,4 +91,58 @@ TestFail:
 
 TestExit:
     
+End Sub
+
+'@TestMethod("TextConversion")
+Private Sub TestParseSpecialCharsInJson()
+    On Error GoTo TestFail
+    
+    'Arrange:
+    Dim strPath As String
+    Dim dict As Dictionary
+    Dim FSO
+    strPath = GetTempFile
+        
+    Set FSO = CreateObject("Scripting.FileSystemObject")
+    With FSO.CreateTextFile(strPath, True)
+        .WriteLine "{""Test"":""ÆØÅ are special?""}"
+        .Close
+    End With
+    
+    Debug.Print strPath
+    
+    'Act:
+    Set dict = modFunctions.ReadJsonFile(strPath)
+    
+    'Assert:
+    If dict Is Nothing Then
+        Assert.Fail "Empty dictionary returned"
+    Else
+        Debug.Print dict("Test")
+        Assert.Succeed
+    End If
+    
+
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & Err.Number & " - " & Err.Description
+End Sub
+
+
+Sub s()
+    Dim dItems As Scripting.Dictionary
+    Dim v As Variant
+    
+    Set dItems = New Scripting.Dictionary
+    
+    dItems.Add "C", "C"
+    dItems.Add "A", "A"
+    dItems.Add "B", "B"
+    
+    Set dItems = SortDictionaryByKey(dItems)
+    
+    For Each v In dItems
+        Debug.Print v
+    Next
 End Sub

@@ -56,6 +56,9 @@ Private Sub IDbComponent_Export()
         dItems.Add ref.Name, dRef
     Next cRef
     
+    ' Sort dictionary by keys, so the order is the same in exported file
+    Set dItems = SortDictionaryByKey(dItems)
+    
     ' Write to a json file.
     WriteJsonFile Me, dItems, IDbComponent_SourceFile, "VBE References"
     

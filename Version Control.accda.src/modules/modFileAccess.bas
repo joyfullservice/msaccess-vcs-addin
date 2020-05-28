@@ -16,6 +16,25 @@ Option Private Module
                                        ByVal lpPrefixString As String, _
                                        ByVal wUnique As Long, _
                                        ByVal lpTempFileName As String) As Long
+                                       
+    Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" ( _
+        ByVal CodePage As Long, _
+        ByVal dwFlags As Long, _
+        ByVal lpWideCharStr As LongPtr, _
+        ByVal cchWideChar As Long, _
+        ByVal lpMultiByteStr As LongPtr, _
+        ByVal cbMultiByte As Long, _
+        ByVal lpDefaultChar As Long, _
+        ByVal lpUsedDefaultChar As Long) As Long
+
+    Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
+        ByVal CodePage As Long, _
+        ByVal dwFlags As Long, _
+        ByVal lpMultiByteStr As LongPtr, _
+        ByVal cchMultiByte As Long, _
+        ByVal lpWideCharStr As LongPtr, _
+        ByVal cchWideChar As Long _
+        ) As Long
 #Else
     Private Declare _
         Function getTempPath Lib "kernel32" _
@@ -27,8 +46,23 @@ Option Private Module
                                        ByVal lpPrefixString As String, _
                                        ByVal wUnique As Long, _
                                        ByVal lpTempFileName As String) As Long
+
+''' WinApi function that maps a UTF-16 (wide character) string to a new character string
+    Private Declare Function WideCharToMultiByte Lib "kernel32" ( _
+        ByVal CodePage As Long, _
+        ByVal dwFlags As Long, _
+        ByVal lpWideCharStr As Long, _
+        ByVal cchWideChar As Long, _
+        ByVal lpMultiByteStr As Long, _
+        ByVal cbMultiByte As Long, _
+        ByVal lpDefaultChar As Long, _
+        ByVal lpUsedDefaultChar As Long) As Long
 #End If
 
+
+
+' CodePage constant for UTF-8
+Private Const CP_UTF8 = 65001
 
 ' Cache the Ucs2 requirement for this database
 Private m_blnUcs2 As Boolean
@@ -191,37 +225,38 @@ End Function
 '
 Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String)
 
-    Dim stmNew As ADODB.Stream
     Dim strText As String
-
+    Dim utf8Bytes() As Byte
+    Dim fnum As Integer
+    
     ' Make sure the path exists before we write a file.
     VerifyPath FSO.GetParentFolderName(strDestinationFile)
-
+    
+    If FSO.FileExists(strDestinationFile) Then Kill strDestinationFile
+    
     ' Check the first couple characters in the file for a UCS BOM.
     If FileIsUCS2Format(strSourceFile) Then
     
         ' Read file contents and delete (temp) source file
-        With FSO.OpenTextFile(strSourceFile, ForReading, False, TristateTrue)
+        With FSO.OpenTextFile(strSourceFile, , , TristateTrue)
             strText = .ReadAll
             .Close
         End With
+        
         Kill strSourceFile
         
-        ' Write as UTF-8
-        Set stmNew = New ADODB.Stream
-        With stmNew
-            .Open
-            .Type = adTypeText
-            .Charset = "utf-8"
-            .WriteText strText
-            .SaveToFile strDestinationFile, adSaveCreateOverWrite
-            .Close
-        End With
+        utf8Bytes = Utf8BytesFromString(strText)
         
-        Set stmNew = Nothing
+        
+        ' Write as UTF-8
+        fnum = FreeFile
+                
+        Open strDestinationFile For Binary As #fnum
+        Put #fnum, 1, utf8Bytes
+        Close fnum
+        
     Else
         ' No conversion needed, move to destination.
-        If FSO.FileExists(strDestinationFile) Then Kill strDestinationFile
         FSO.MoveFile strSourceFile, strDestinationFile
     End If
     
@@ -237,32 +272,37 @@ End Sub
 '
 Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String)
 
-    Dim stmNew As ADODB.Stream
     Dim strText As String
+    Dim utf8Bytes() As Byte
+    Dim fnum As Integer
 
+    ' Make sure the path exists before we write a file.
+    VerifyPath FSO.GetParentFolderName(strDestinationFile)
+    
+    If FSO.FileExists(strDestinationFile) Then Kill strDestinationFile
+    
     If FileIsUCS2Format(strSourceFile) Then
         ' No conversion needed, send to destination as is
-        FSO.CopyFile strSourceFile, strDestinationFile
+        FSO.MoveFile strSourceFile, strDestinationFile
     Else
         
         ' Read file contents
-        With FSO.OpenTextFile(strSourceFile, ForReading, False, TristateFalse)
-            strText = RemoveUTF8BOM(.ReadAll)
-            .Close
-        End With
+        fnum = FreeFile
+        
+        Open strSourceFile For Binary As fnum
+        ReDim utf8Bytes(LOF(fnum) - 1)
+        Get fnum, , utf8Bytes
+        Close fnum
+                
+        strText = Utf8BytesToString(utf8Bytes)
         
         ' Write as UCS-2 LE (BOM)
-        Set stmNew = New ADODB.Stream
-        With stmNew
-            .Open
-            .Type = adTypeText
-            .Charset = "unicode"  ' The original Windows "Unicode" was UCS-2
-            .WriteText strText
-            .SaveToFile strDestinationFile, adSaveCreateOverWrite
+        With FSO.CreateTextFile(strDestinationFile, True, TristateTrue)
+            .Write strText
             .Close
         End With
         
-        Set stmNew = Nothing
+        Kill strSourceFile
     End If
     
 End Sub
@@ -305,5 +345,86 @@ Public Function GetTempFile(Optional strPrefix As String = "VBA") As String
     lngReturn = getTempPath(512, strPath)
     lngReturn = getTempFileName(strPath, strPrefix, 0, strName)
     If lngReturn <> 0 Then GetTempFile = Left$(strName, InStr(strName, vbNullChar) - 1)
+    
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : BytesLength
+' Author    : Casper Englund
+' Date      : 2020/05/01
+' Purpose   : Return length of byte array
+'---------------------------------------------------------------------------------------
+Private Function BytesLength(abBytes() As Byte) As Long
+    
+    ' Trap error if array is uninitialized
+    On Error Resume Next
+    BytesLength = UBound(abBytes) - LBound(abBytes) + 1
+    
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : Utf8BytesToString
+' Author    : Adapted by Casper Englund
+' Date      : 2020/05/01
+' Purpose   : Return VBA "Unicode" string from byte array encoded in UTF-8
+'---------------------------------------------------------------------------------------
+Public Function Utf8BytesToString(abUtf8Array() As Byte) As String
+    
+    Dim nBytes As Long
+    Dim nChars As Long
+    Dim strOut As String
+    Dim bUtf8Bom As Boolean
+    
+    Utf8BytesToString = ""
+    
+    ' Catch uninitialized input array
+    nBytes = BytesLength(abUtf8Array)
+    If nBytes <= 0 Then Exit Function
+    bUtf8Bom = abUtf8Array(0) = 239 _
+      And abUtf8Array(1) = 187 _
+      And abUtf8Array(2) = 191
+    
+    If bUtf8Bom Then
+        Dim i As Long
+        Dim abTempArr() As Byte
+        ReDim abTempArr(BytesLength(abUtf8Array) - 3)
+        For i = 3 To UBound(abUtf8Array)
+            abTempArr(i - 3) = abUtf8Array(i)
+        Next i
+        abUtf8Array = abTempArr
+    End If
+    
+    ' Get number of characters in output string
+    nChars = MultiByteToWideChar(CP_UTF8, 0&, VarPtr(abUtf8Array(0)), nBytes, 0&, 0&)
+    
+    ' Dimension output buffer to receive string
+    strOut = String(nChars, 0)
+    nChars = MultiByteToWideChar(CP_UTF8, 0&, VarPtr(abUtf8Array(0)), nBytes, StrPtr(strOut), nChars)
+    Utf8BytesToString = Left$(strOut, nChars)
+
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : Utf8BytesFromString
+' Author    : Adapted by Casper Englund
+' Date      : 2020/05/01
+' Purpose   : Return byte array with VBA "Unicode" string encoded in UTF-8
+'---------------------------------------------------------------------------------------
+Public Function Utf8BytesFromString(strInput As String) As Byte()
+
+    Dim nBytes As Long
+    Dim abBuffer() As Byte
+    
+    ' Catch empty or null input string
+    Utf8BytesFromString = vbNullString
+    If Len(strInput) < 1 Then Exit Function
+    
+    ' Get length in bytes *including* terminating null
+    nBytes = WideCharToMultiByte(CP_UTF8, 0&, ByVal StrPtr(strInput), -1, 0&, 0&, 0&, 0&)
+    
+    ' We don't want the terminating null in our byte array, so ask for `nBytes-1` bytes
+    ReDim abBuffer(nBytes - 2)  ' NB ReDim with one less byte than you need
+    nBytes = WideCharToMultiByte(CP_UTF8, 0&, ByVal StrPtr(strInput), -1, ByVal VarPtr(abBuffer(0)), nBytes - 1, 0&, 0&)
+    Utf8BytesFromString = abBuffer
     
 End Function

@@ -2,6 +2,10 @@ Option Compare Database
 Option Explicit
 Option Private Module
 
+#If False Then
+    Dim FSO, ADODB, Charset
+#End If
+
 Public Enum eReleaseType
     Major_Vxx = 0
     Minor_xVx = 1
@@ -17,13 +21,23 @@ End Enum
 Private Declare PtrSafe Function IsUserAnAdmin Lib "shell32" () As Long
 
 ' Used to relaunch Access as an administrator to install the addin.
-Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
-    ByVal hwnd As Long, _
+#If Win64 Then
+    Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
+    ByVal hwnd As LongPtr, _
+    ByVal lpOperation As String, _
+    ByVal lpFile As String, _
+    ByVal lpParameters As String, _
+    ByVal lpDirectory As String, _
+    ByVal nShowCmd As Long) As LongPtr
+#Else
+    Private Declare Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
+    ByVal hWnd As Long, _
     ByVal lpOperation As String, _
     ByVal lpFile As String, _
     ByVal lpParameters As String, _
     ByVal lpDirectory As String, _
     ByVal nShowCmd As Long) As Long
+#End If
 
 Private Const SW_SHOWNORMAL = 1
 
