@@ -18,12 +18,12 @@ Private Declare PtrSafe Function IsUserAnAdmin Lib "shell32" () As Long
 
 ' Used to relaunch Access as an administrator to install the addin.
 Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
-    ByVal hwnd As Long, _
+    ByVal hwnd As LongPtr, _
     ByVal lpOperation As String, _
     ByVal lpFile As String, _
     ByVal lpParameters As String, _
     ByVal lpDirectory As String, _
-    ByVal nShowCmd As Long) As Long
+    ByVal nShowCmd As Long) As LongPtr
 
 Private Const SW_SHOWNORMAL = 1
 
@@ -421,7 +421,7 @@ Private Function CopyToZip(strFile As String, strZip As String)
     varFile = strFile
     
     Set oApp = CreateObject("Shell.Application")
-    oApp.NameSpace(varZip).CopyHere varFile
+    oApp.Namespace(varZip).CopyHere varFile
     
 End Function
 

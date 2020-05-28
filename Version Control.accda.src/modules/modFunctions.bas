@@ -88,7 +88,7 @@ Public Sub SanitizeFile(strPath As String)
     Dim objMatches As VBScript_RegExp_55.MatchCollection
     Dim blnIsReport As Boolean
     Dim cPattern As New clsConcat
-    Dim stmInFile As Scripting.TextStream
+    Dim stmInFile As ADODB.Stream
     Dim blnGetLine As Boolean
     
     On Error GoTo 0
@@ -134,21 +134,24 @@ Public Sub SanitizeFile(strPath As String)
     End With
     
     ' Open file to read contents line by line.
-    Set stmInFile = FSO.OpenTextFile(strPath, ForReading)
+    Set stmInFile = New ADODB.Stream
+    stmInFile.Charset = "UTF-8"
+    stmInFile.Open
+    stmInFile.LoadFromFile strPath
     
     ' Skip past UTF-8 BOM header
-    strText = stmInFile.ReadLine
+    strText = stmInFile.ReadText(-2)
     If Left(strText, 3) = "﻿" Then strText = Mid(strText, 4)
 
     ' Loop through lines in file
-    Do Until stmInFile.AtEndOfStream
+    Do Until stmInFile.EOS
     
         ' Show progress increment during longer conversions
         Log.Increment
     
         ' Check if we need to get a new line of text
         If blnGetLine Then
-            strText = stmInFile.ReadLine
+            strText = stmInFile.ReadText(-2)
         Else
             blnGetLine = True
         End If
@@ -172,8 +175,8 @@ Public Sub SanitizeFile(strPath As String)
             rxIndent.Pattern = rxIndent.Pattern & "\S"
             
             ' Skip lines with deeper indentation
-            Do While Not stmInFile.AtEndOfStream
-                strText = stmInFile.ReadLine
+            Do While Not stmInFile.EOS
+                strText = stmInFile.ReadText(-2)
                 If rxIndent.Test(strText) Then Exit Do
             Loop
             
@@ -183,8 +186,8 @@ Public Sub SanitizeFile(strPath As String)
         
         ' Skip blocks of code matching block pattern
         ElseIf rxBlock.Test(strText) Then
-            Do While Not stmInFile.AtEndOfStream
-                strText = stmInFile.ReadLine
+            Do While Not stmInFile.EOS
+                strText = stmInFile.ReadText(-2)
                 If InStr(strText, "End") Then Exit Do
             Loop
         
@@ -241,7 +244,7 @@ Public Sub SanitizeXML(strPath As String, Options As clsOptions)
     Dim strText As String
     Dim rxLine As VBScript_RegExp_55.RegExp
     Dim objMatches As VBScript_RegExp_55.MatchCollection
-    Dim stmInFile As Scripting.TextStream
+    Dim stmInFile As ADODB.Stream
     Dim blnFound As Boolean
     
     On Error GoTo 0
@@ -258,14 +261,19 @@ Public Sub SanitizeXML(strPath As String, Options As clsOptions)
     rxLine.Pattern = "^\s*(?:<dataroot xmlns:(.+))( generated="".+"")"
     
     ' Open file to read contents line by line.
-    Set stmInFile = FSO.OpenTextFile(strPath, ForReading)
-
+    Set stmInFile = New ADODB.Stream
+    stmInFile.Charset = "UTF-8"
+    stmInFile.Open
+    stmInFile.LoadFromFile strPath
+    strText = stmInFile.ReadText(-2)
+    
+    
     ' Loop through all the lines in the file
-    Do Until stmInFile.AtEndOfStream
+    Do Until stmInFile.EOS
         
         ' Read line from file
-        strText = stmInFile.ReadLine
-                 
+        strText = stmInFile.ReadText(-2)
+        If Left(strText, 3) = "﻿" Then strText = Mid(strText, 4)
         ' Just looking for the first match.
         If Not blnFound Then
         
@@ -1336,15 +1344,25 @@ End Sub
 '
 Public Function ReadJsonFile(strPath As String) As Dictionary
     Dim strText As String
+    Dim stm As ADODB.Stream
+    
     If FSO.FileExists(strPath) Then
-        With FSO.OpenTextFile(strPath, ForReading, False)
-            strText = RemoveUTF8BOM(.ReadAll)
+        Set stm = New ADODB.Stream
+        With stm
+            .Charset = "UTF-8"
+            .Open
+            .LoadFromFile strPath
+            strText = .ReadText
             .Close
         End With
         
         ' If it looks like json content, then parse into a dictionary object.
+        If Left(strText, 3) = "﻿" Then strText = Mid(strText, 4)
         If Left(strText, 1) = "{" Then Set ReadJsonFile = ParseJson(strText)
     End If
+    
+    Set stm = Nothing
+    
 End Function
 
 
@@ -1528,6 +1546,7 @@ Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFi
         
     ' Export to temporary file
     strTempFile = GetTempFile
+    
     Application.SaveAsText intType, strName, strTempFile
     
     ' Handle UCS conversion if needed
@@ -1921,3 +1940,49 @@ Public Sub TestPrinterFunctions()
         
     End With
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SortDictionaryByKey
+' Author    : Adapted by Casper Englund
+' Date      : 2020/05/28
+' Purpose   : Sort a dictionary by key name - If automation error happens visit
+'             https://stackoverflow.com/questions/40625618/automation-error-2146232576-80131700-on-creating-an-array
+'---------------------------------------------------------------------------------------
+'
+Public Function SortDictionaryByKey(dict As Object, Optional sortDescending As Boolean) As Dictionary
+    
+    Dim arrList As ArrayList
+    Set arrList = New ArrayList
+    
+    ' Put keys in an ArrayList
+    Dim key As Variant, coll As New Collection
+    For Each key In dict
+        arrList.Add key
+    Next key
+    
+    ' Sort the keys
+    arrList.Sort
+    
+    ' For descending order, reverse
+    If sortDescending Then
+        arrList.Reverse
+    End If
+    
+    ' Create new dictionary
+    Dim dictNew As Object
+    Set dictNew = CreateObject("Scripting.Dictionary")
+    
+    ' Read through the sorted keys and add to new dictionary
+    For Each key In arrList
+        dictNew.Add key, dict(key)
+    Next key
+    
+    ' Clean up
+    Set arrList = Nothing
+    Set dict = Nothing
+    
+    ' Return the new dictionary
+    Set SortDictionaryByKey = dictNew
+        
+End Function

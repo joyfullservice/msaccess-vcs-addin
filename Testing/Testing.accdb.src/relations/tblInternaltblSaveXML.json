@@ -2,14 +2,13 @@
   "Info": {
     "Class": "clsDbRelation",
     "Description": "Database relationship",
-    "VCS Version": "3.0.85"
+    "VCS Version": "3.1.25"
   },
   "Items": {
     "Name": "tblInternaltblSaveXML",
     "Attributes": 2,
     "Table": "tblInternal",
     "ForeignTable": "tblSaveXML",
-    "PartialReplica": false,
     "Fields": [
       {
         "Name": "ObjectType",

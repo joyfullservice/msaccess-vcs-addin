@@ -1,8 +1,8 @@
 {
   "Info": {
-    "Class": "clsDbIMEXSpec",
+    "Class": "clsDbImexSpec",
     "Description": "Import/Export Specification from MSysIMEXSpecs",
-    "VCS Version": "3.0.85"
+    "VCS Version": "3.1.25"
   },
   "Items": {
     "DateDelim": "/",

@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbNavPaneGroup",
     "Description": "Navigation Pane Custom Groups",
-    "VCS Version": "3.1.23"
+    "VCS Version": "3.1.25"
   },
   "Items": {
     "Groups": [

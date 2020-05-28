@@ -1,8 +1,8 @@
 {
   "Info": {
-    "AddinVersion": "3.1.23",
+    "AddinVersion": "3.1.25",
     "AccessVersion": "14.0 32-bit",
-    "Hash": "@{7206d632ab7ca0d8ee8e447e967c4a9d03060549df3fdcb4}"
+    "Hash": "@{7206d6328b5c80f8ceae447eb65c6abd23260569ff1ffc94}"
   },
   "Options": {
     "ExportFolder": "",

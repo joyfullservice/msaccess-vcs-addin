@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbVbeReference",
     "Description": "VBE References",
-    "VCS Version": "3.1.23"
+    "VCS Version": "3.1.25"
   },
   "Items": {
     "stdole": {
@@ -17,25 +17,29 @@
       "GUID": "{B691E011-1797-432E-907A-4D8C69339129}",
       "Version": "6.1"
     },
-    "VBIDE": {
-      "GUID": "{0002E157-0000-0000-C000-000000000046}",
-      "Version": "5.3"
+    "IWshRuntimeLibrary": {
+      "GUID": "{F935DC20-1CF0-11D0-ADB9-00C04FD58A0B}",
+      "Version": "1.0"
+    },
+    "mscorlib": {
+      "GUID": "{BED7F4EA-1A96-11D2-8F08-00A0C9A6186D}",
+      "Version": "2.4"
+    },
+    "Office": {
+      "GUID": "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}",
+      "Version": "2.5"
     },
     "Scripting": {
       "GUID": "{420B2830-E718-11CF-893D-00A0C9054228}",
       "Version": "1.0"
     },
+    "VBIDE": {
+      "GUID": "{0002E157-0000-0000-C000-000000000046}",
+      "Version": "5.3"
+    },
     "VBScript_RegExp_55": {
       "GUID": "{3F4DACA7-160D-11D2-A8E9-00104B365C9F}",
       "Version": "5.5"
-    },
-    "IWshRuntimeLibrary": {
-      "GUID": "{F935DC20-1CF0-11D0-ADB9-00C04FD58A0B}",
-      "Version": "1.0"
-    },
-    "Office": {
-      "GUID": "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}",
-      "Version": "2.5"
     }
   }
 }

@@ -249,7 +249,7 @@ Public Sub Build(strSourceFolder As String)
     ' Run any post-build instructions
     If Options.RunAfterBuild <> vbNullString Then
         Log.Add "Running " & Options.RunAfterBuild & "..."
-        RunSubInCurrentProject Options.RunAfterExport
+        RunSubInCurrentProject Options.RunAfterBuild
     End If
 
     ' Show final output and save log
