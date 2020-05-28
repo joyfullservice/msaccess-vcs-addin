@@ -125,9 +125,11 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 1/23/2019
 ' Purpose   : Convert a UCS2-little-endian encoded file to UTF-8.
+'           : Typically the source file will be a temp file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String)
+Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String, _
+    Optional blnDeleteSourceFileAfterConversion As Boolean = True)
 
     Dim strText As String
     Dim utf8Bytes() As Byte
@@ -147,16 +149,16 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
             .Close
         End With
         
-        Kill strSourceFile
+        ' Remove the source file if specified
+        If blnDeleteSourceFileAfterConversion Then Kill strSourceFile
         
+        ' Build a byte array from the text
         utf8Bytes = Utf8BytesFromString(strText)
         
-        
-        ' Write as UTF-8
+        ' Write as UTF-8 in the destination file.
         fnum = FreeFile
-                
         Open strDestinationFile For Binary As #fnum
-        Put #fnum, 1, utf8Bytes
+            Put #fnum, 1, utf8Bytes
         Close fnum
         
     Else
@@ -171,7 +173,8 @@ End Sub
 ' Procedure : ConvertUtf8Ucs2
 ' Author    : Adam Waller
 ' Date      : 1/24/2019
-' Purpose   : Convert the file to old UCS-2 unicode format
+' Purpose   : Convert the file to old UCS-2 unicode format.
+'           : Typically the destination file will be a temp file.
 '---------------------------------------------------------------------------------------
 '
 Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String)
@@ -183,21 +186,21 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
     ' Make sure the path exists before we write a file.
     VerifyPath FSO.GetParentFolderName(strDestinationFile)
     
+    ' Remove any existing file in the destination location.
     If FSO.FileExists(strDestinationFile) Then Kill strDestinationFile
     
     If FileIsUCS2Format(strSourceFile) Then
-        ' No conversion needed, send to destination as is
+        ' No conversion needed, move to destination as is
         FSO.MoveFile strSourceFile, strDestinationFile
     Else
-        
         ' Read file contents
         fnum = FreeFile
-        
         Open strSourceFile For Binary As fnum
-        ReDim utf8Bytes(LOF(fnum) - 1)
-        Get fnum, , utf8Bytes
+            ReDim utf8Bytes(LOF(fnum) - 1)
+            Get fnum, , utf8Bytes
         Close fnum
-                
+        
+        ' Convert byte array to string
         strText = Utf8BytesToString(utf8Bytes)
         
         ' Write as UCS-2 LE (BOM)
@@ -205,8 +208,6 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
             .Write strText
             .Close
         End With
-        
-        Kill strSourceFile
     End If
     
 End Sub
