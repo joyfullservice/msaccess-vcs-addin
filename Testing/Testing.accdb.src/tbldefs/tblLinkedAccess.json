@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbTableDef",
     "Description": "Linked Table",
-    "VCS Version": "3.0.85"
+    "VCS Version": "3.1.25"
   },
   "Items": {
     "Name": "tblLinkedAccess",

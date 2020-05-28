@@ -2,16 +2,20 @@
   "Info": {
     "Class": "clsDbVbeReference",
     "Description": "VBE References",
-    "VCS Version": "3.1.10"
+    "VCS Version": "3.1.25"
   },
   "Items": {
-    "ADODB": {
-      "GUID": "{B691E011-1797-432E-907A-4D8C69339129}",
-      "Version": "6.1"
+    "stdole": {
+      "GUID": "{00020430-0000-0000-C000-000000000046}",
+      "Version": "2.0"
     },
     "DAO": {
       "GUID": "{4AC9E1DA-5BAD-4AC7-86E3-24F4CDCECA28}",
       "Version": "12.0"
+    },
+    "ADODB": {
+      "GUID": "{B691E011-1797-432E-907A-4D8C69339129}",
+      "Version": "6.1"
     },
     "IWshRuntimeLibrary": {
       "GUID": "{F935DC20-1CF0-11D0-ADB9-00C04FD58A0B}",
@@ -23,15 +27,11 @@
     },
     "Office": {
       "GUID": "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}",
-      "Version": "2.8"
+      "Version": "2.5"
     },
     "Scripting": {
       "GUID": "{420B2830-E718-11CF-893D-00A0C9054228}",
       "Version": "1.0"
-    },
-    "stdole": {
-      "GUID": "{00020430-0000-0000-C000-000000000046}",
-      "Version": "2.0"
     },
     "VBIDE": {
       "GUID": "{0002E157-0000-0000-C000-000000000046}",

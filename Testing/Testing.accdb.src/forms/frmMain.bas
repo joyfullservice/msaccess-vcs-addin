@@ -216,11 +216,11 @@ Begin Form
                     BorderColor =10921638
                     Name ="lstResults"
                     RowSourceType ="Value List"
-                    RowSource ="âœ”;Access Table exists;âœ”;tblInternal has data;âœ”;Linked Table exists;âœ”;tblLinkedCS"
-                        "V has data;âœ”;Saved Table Data (TDF);âœ”;Saved Table Data (XML);âœ”;Table SQL;âœ”;Linke"
-                        "d Table JSON;âœ”;Linked Table structure;âœ”;Table Relationship;âœ”;Table Data Macro Ex"
-                        "ists;âœ”;Query exists;âœ”;Form exists;âœ”;Report exists;âœ”;Application Icon is set;âœ”;Cu"
-                        "stom Database (DAO) property;âœ”;Custom Project Property"
+                    RowSource ="✔;Access Table exists;✔;tblInternal has data;✔;Linked Table exists;✔;tblLinkedCS"
+                        "V has data;✔;Saved Table Data (TDF);✔;Saved Table Data (XML);✔;Table SQL;✔;Linke"
+                        "d Table JSON;✔;Linked Table structure;✔;Table Relationship;✔;Table Data Macro Ex"
+                        "ists;✔;Query exists;✔;Form exists;✔;Report exists;✔;Application Icon is set;✔;Cu"
+                        "stom Database (DAO) property;✔;Custom Project Property"
                     ColumnWidths ="479;3975"
                     GridlineColor =10921638
 

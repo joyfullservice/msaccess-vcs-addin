@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbProperty",
     "Description": "Database Properties (DAO)",
-    "VCS Version": "3.0.85"
+    "VCS Version": "3.1.25"
   },
   "Items": {
     "AccessVersion": {
@@ -84,14 +84,6 @@
     "HasOfflineLists": {
       "Value": 70,
       "Type": 3
-    },
-    "Last VCS Export": {
-      "Value": "5/20/2020 5:27:02 PM",
-      "Type": 10
-    },
-    "Last VCS Version": {
-      "Value": "3.0.85",
-      "Type": 10
     },
     "Name": {
       "Value": "rel:Testing.accdb",
