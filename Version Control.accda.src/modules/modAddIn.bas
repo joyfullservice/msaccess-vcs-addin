@@ -421,7 +421,7 @@ Private Function CopyToZip(strFile As String, strZip As String)
     varFile = strFile
     
     Set oApp = CreateObject("Shell.Application")
-    oApp.NameSpace(varZip).CopyHere varFile
+    oApp.Namespace(varZip).CopyHere varFile
     
 End Function
 
