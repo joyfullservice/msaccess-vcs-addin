@@ -13,24 +13,27 @@ Private Declare PtrSafe Function getTempFileName Lib "kernel32" Alias "GetTempFi
     ByVal wUnique As Long, _
     ByVal lpTempFileName As String) As Long
 
+''' Maps a character string to a UTF-16 (wide character) string
 Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
     ByVal CodePage As Long, _
     ByVal dwFlags As Long, _
     ByVal lpMultiByteStr As LongPtr, _
     ByVal cchMultiByte As Long, _
     ByVal lpWideCharStr As LongPtr, _
-    ByVal cchWideChar As Long) As Long
+    ByVal cchWideChar As Long _
+    ) As Long
 
 ''' WinApi function that maps a UTF-16 (wide character) string to a new character string
-Private Declare Function WideCharToMultiByte Lib "kernel32" ( _
+Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" ( _
     ByVal CodePage As Long, _
     ByVal dwFlags As Long, _
-    ByVal lpWideCharStr As Long, _
+    ByVal lpWideCharStr As LongPtr, _
     ByVal cchWideChar As Long, _
-    ByVal lpMultiByteStr As Long, _
+    ByVal lpMultiByteStr As LongPtr, _
     ByVal cbMultiByte As Long, _
     ByVal lpDefaultChar As Long, _
-    ByVal lpUsedDefaultChar As Long) As Long
+    ByVal lpUsedDefaultChar As Long _
+    ) As Long
 
 
 ' CodePage constant for UTF-8
@@ -148,10 +151,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
             strText = .ReadAll
             .Close
         End With
-        
-        ' Remove the source file if specified
-        If blnDeleteSourceFileAfterConversion Then Kill strSourceFile
-        
+               
         ' Build a byte array from the text
         utf8Bytes = Utf8BytesFromString(strText)
         
@@ -161,6 +161,8 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
             Put #fnum, 1, utf8Bytes
         Close fnum
         
+        ' Remove the source file if specified
+        If blnDeleteSourceFileAfterConversion Then Kill strSourceFile
     Else
         ' No conversion needed, move to destination.
         FSO.MoveFile strSourceFile, strDestinationFile
@@ -196,7 +198,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
         ' Read file contents
         fnum = FreeFile
         Open strSourceFile For Binary As fnum
-            ReDim utf8Bytes(LOF(fnum) - 1)
+            ReDim utf8Bytes(LOF(fnum) + 1)
             Get fnum, , utf8Bytes
         Close fnum
         
@@ -262,9 +264,11 @@ End Function
 '---------------------------------------------------------------------------------------
 Private Function BytesLength(abBytes() As Byte) As Long
     
-    ' Trap error if array is uninitialized
+    ' Ignore error if array is uninitialized
     On Error Resume Next
-    BytesLength = UBound(abBytes) - LBound(abBytes) + 1
+    BytesLength = UBound(abBytes) - (LBound(abBytes) + 1)
+    If Err.Number <> 0 Then Err.Clear
+    On Error GoTo 0
     
 End Function
 
@@ -282,7 +286,7 @@ Public Function Utf8BytesToString(abUtf8Array() As Byte) As String
     Dim strOut As String
     Dim bUtf8Bom As Boolean
     
-    Utf8BytesToString = ""
+    Utf8BytesToString = vbNullString
     
     ' Catch uninitialized input array
     nBytes = BytesLength(abUtf8Array)
@@ -298,6 +302,7 @@ Public Function Utf8BytesToString(abUtf8Array() As Byte) As String
         For i = 3 To UBound(abUtf8Array)
             abTempArr(i - 3) = abUtf8Array(i)
         Next i
+        
         abUtf8Array = abTempArr
     End If
     
@@ -328,11 +333,11 @@ Public Function Utf8BytesFromString(strInput As String) As Byte()
     If Len(strInput) < 1 Then Exit Function
     
     ' Get length in bytes *including* terminating null
-    nBytes = WideCharToMultiByte(CP_UTF8, 0&, ByVal StrPtr(strInput), -1, 0&, 0&, 0&, 0&)
+    nBytes = WideCharToMultiByte(CP_UTF8, 0&, StrPtr(strInput), -1, 0&, 0&, 0&, 0&)
     
     ' We don't want the terminating null in our byte array, so ask for `nBytes-1` bytes
     ReDim abBuffer(nBytes - 2)  ' NB ReDim with one less byte than you need
-    nBytes = WideCharToMultiByte(CP_UTF8, 0&, ByVal StrPtr(strInput), -1, ByVal VarPtr(abBuffer(0)), nBytes - 1, 0&, 0&)
+    nBytes = WideCharToMultiByte(CP_UTF8, 0&, StrPtr(strInput), -1, ByVal VarPtr(abBuffer(0)), nBytes - 1, 0&, 0&)
     Utf8BytesFromString = abBuffer
     
 End Function
