@@ -107,6 +107,9 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strTemp As String
     Dim strImageFile As String
     Dim strOriginalName As String
+    Dim strBase As String
+    Dim lngIndex As Long
+    Dim proj As CurrentProject
     
     ' Read json header file
     Set dFile = ReadJsonFile(strFile)
@@ -125,7 +128,20 @@ Private Sub IDbComponent_Import(strFile As String)
         End If
         ' Reame image to original name
         ' Import as image, then rename back to image file name that matches json file.
-        CurrentProject.AddSharedImage dItem("Name"), strOriginalName
+        Set proj = CurrentProject
+        With proj
+            lngIndex = .Resources.Count
+            ' Import using the original file name as the resource name so the
+            ' embedded file has the correct name.
+            strBase = FSO.GetBaseName(strOriginalName)
+            .AddSharedImage strBase, strOriginalName
+            If .Resources.Count = lngIndex + 1 Then
+                ' Rename shared resource to saved name if different.
+                If strBase <> dItem("Name") Then
+                    .Resources(GetResourceIndexByName(strBase)).Name = dItem("Name")
+                End If
+            End If
+        End With
         ' Restore temp file if needed
         If strTemp <> vbNullString Then
             Name strTemp As strImageFile
@@ -136,6 +152,31 @@ Private Sub IDbComponent_Import(strFile As String)
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetResourceIndexByName
+' Author    : Adam Waller
+' Date      : 5/29/2020
+' Purpose   : Return the index of the shared resource after locating by name.
+'           : (This is needed because the new resource doesn't always have the
+'           :  highest index.)
+'---------------------------------------------------------------------------------------
+'
+Private Function GetResourceIndexByName(strName As String) As Long
+
+    Dim lngIndex As Long
+    Dim resShared As SharedResources
+    
+    Set resShared = CurrentProject.Resources
+    For lngIndex = 0 To resShared.Count - 1
+        If resShared(lngIndex).Name = strName Then
+            GetResourceIndexByName = lngIndex
+            Exit For
+        End If
+    Next lngIndex
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
