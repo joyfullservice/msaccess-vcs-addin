@@ -7,6 +7,11 @@
 *.accdb
 *.zip
 
+# Testing database binary
+# (This should stay in version control until it can be completely
+#  built from scratch with no differences from original.)
+!Testing.accdb
+
 # Database lock files
 *.laccdb
 
