@@ -534,8 +534,6 @@ End Sub
 '
 Private Sub RemoveLegacyInstall()
 
-    Dim objShell As IWshRuntimeLibrary.WshShell
-
     ' These registry keys require admin access to remove
     RemoveMenuItem "&Version Control", "=AddInMenuItemLaunch()", ehHKLM
     RemoveMenuItem "&Export All Source", "=AddInMenuItemExport()", ehHKLM

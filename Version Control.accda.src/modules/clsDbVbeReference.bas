@@ -32,16 +32,16 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
 
-    Dim dRef As Scripting.Dictionary
-    Dim dItems As Scripting.Dictionary
+    Dim dRef As Dictionary
+    Dim dItems As Dictionary
     Dim cRef As clsDbVbeReference
     Dim ref As VBIDE.Reference
     
-    Set dItems = New Scripting.Dictionary
+    Set dItems = New Dictionary
     
     ' Loop through cached references (Duplicates have already been removed)
     For Each cRef In Me.AllItems
-        Set dRef = New Scripting.Dictionary
+        Set dRef = New Dictionary
         Set ref = cRef.Parent.DbObject
         With dRef
             If ref.Type = vbext_rk_Project Then

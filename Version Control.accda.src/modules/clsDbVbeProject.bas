@@ -31,10 +31,10 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
 
-    Dim dProject As Scripting.Dictionary
+    Dim dProject As Dictionary
     
     ' Read project properties
-    Set dProject = New Scripting.Dictionary
+    Set dProject = New Dictionary
     With dProject
         .Add "Name", m_Project.Name
         .Add "Description", m_Project.Description

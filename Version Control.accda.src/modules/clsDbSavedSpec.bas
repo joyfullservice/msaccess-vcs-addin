@@ -31,9 +31,9 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     
-    Dim dSpec As Scripting.Dictionary
+    Dim dSpec As Dictionary
     
-    Set dSpec = New Scripting.Dictionary
+    Set dSpec = New Dictionary
     
     On Error Resume Next
     ' For some reason it throws an error if there is no

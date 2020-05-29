@@ -21,7 +21,7 @@ Public SaveQuerySQL As Boolean
 Public SaveTableSQL As Boolean
 Public StripPublishOption As Boolean
 Public AggressiveSanitize As Boolean
-Public TablesToExportData As Scripting.Dictionary
+Public TablesToExportData As Dictionary
 Public RunBeforeExport As String
 Public RunAfterExport As String
 Public RunAfterBuild As String
@@ -50,7 +50,7 @@ Public Sub LoadDefaults()
         .StripPublishOption = True
         .AggressiveSanitize = True
         .KeyName = "MSAccessVCS"
-        Set .TablesToExportData = New Scripting.Dictionary
+        Set .TablesToExportData = New Dictionary
         ' Save specific tables by default
         AddTableToExportData "USysRibbons", etdTabDelimited
         AddTableToExportData "USysRegInfo", etdTabDelimited
@@ -69,9 +69,9 @@ End Sub
 Public Sub AddTableToExportData(strName As String, intExportFormat As eTableDataExportFormat)
     
     Dim strFormat(etdTabDelimited To etdXML)
-    Dim dTable As Scripting.Dictionary
+    Dim dTable As Dictionary
     
-    Set dTable = New Scripting.Dictionary
+    Set dTable = New Dictionary
     
     strFormat(etdTabDelimited) = "TabDelimited"
     strFormat(etdXML) = "XMLFormat"
@@ -129,7 +129,7 @@ End Sub
 '
 Public Sub LoadOptionsFromFile(strFile As String)
 
-    Dim dOptions As Scripting.Dictionary
+    Dim dOptions As Dictionary
     Dim varOption As Variant
     Dim strKey As String
     
@@ -220,18 +220,18 @@ End Function
 ' Purpose   : Serializes Options into a dictionary array for saving to file as JSON.
 '---------------------------------------------------------------------------------------
 '
-Private Function SerializeOptions() As Scripting.Dictionary
+Private Function SerializeOptions() As Dictionary
 
-    Dim dOptions As Scripting.Dictionary
-    Dim dInfo As Scripting.Dictionary
-    Dim dWrapper As Scripting.Dictionary
+    Dim dOptions As Dictionary
+    Dim dInfo As Dictionary
+    Dim dWrapper As Dictionary
     Dim varOption As Variant
     Dim strOption As String
     Dim strBit As String
     
-    Set dOptions = New Scripting.Dictionary
-    Set dInfo = New Scripting.Dictionary
-    Set dWrapper = New Scripting.Dictionary
+    Set dOptions = New Dictionary
+    Set dInfo = New Dictionary
+    Set dWrapper = New Dictionary
     
     ' Add some header information (For debugging or upgrading)
     #If Win64 Then
@@ -249,7 +249,7 @@ Private Function SerializeOptions() As Scripting.Dictionary
         dOptions.Add CStr(strOption), CallByName(Me, strOption, VbGet)
     Next varOption
     
-    'Set SerializeOptions = New Scripting.Dictionary
+    'Set SerializeOptions = new Dictionary
     Set dWrapper("Info") = dInfo
     Set dWrapper("Options") = dOptions
     Set SerializeOptions = dWrapper

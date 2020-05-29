@@ -32,12 +32,12 @@ Implements IDbComponent
 Private Sub IDbComponent_Export()
     
     Dim prp As DAO.Property
-    Dim dCollection As Scripting.Dictionary
-    Dim dItem As Scripting.Dictionary
+    Dim dCollection As Dictionary
+    Dim dItem As Dictionary
     Dim varValue As Variant
     Dim strPath As String
     
-    Set dCollection = New Scripting.Dictionary
+    Set dCollection = New Dictionary
     
     ' Loop through all properties
     For Each prp In CurrentDb.Properties
@@ -61,7 +61,7 @@ Private Sub IDbComponent_Export()
                         End If
                     End If
                 End If
-                Set dItem = New Scripting.Dictionary
+                Set dItem = New Dictionary
                 dItem.Add "Value", varValue
                 dItem.Add "Type", prp.Type
                 dCollection.Add prp.Name, dItem

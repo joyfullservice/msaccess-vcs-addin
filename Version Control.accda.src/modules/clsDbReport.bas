@@ -100,7 +100,7 @@ Public Sub ExportPrintVars(strReport As String, strFile As String)
     Dim DevModeExtra As String
     Dim DM As type_DEVMODE
     Dim rpt As Report
-    Dim dItems As Scripting.Dictionary
+    Dim dItems As Dictionary
 
     'report must be open to access Report object
     'report must be opened in design view to save changes to the print vars

@@ -2698,8 +2698,8 @@ Private Function MapControlsToOptions(eAction As eMapAction)
     Dim ctl As Control
     Dim strKey As String
     Dim varItem As Variant
-    Dim dTables As Scripting.Dictionary
-    Dim dTable As Scripting.Dictionary
+    Dim dTables As Dictionary
+    Dim dTable As Dictionary
     
     ' Loop through each page
     For Each pge In tabOptions.Pages
@@ -2731,10 +2731,10 @@ Private Function MapControlsToOptions(eAction As eMapAction)
         LoadTableList
     ElseIf eAction = emaFormToClass Then
         ' Save list of tables to export data
-        Set dTables = New Scripting.Dictionary
+        Set dTables = New Dictionary
         For Each varItem In m_colTables
             If varItem(etcType) <> vbNullString Then
-                Set dTable = New Scripting.Dictionary
+                Set dTable = New Dictionary
                 dTable("Format") = varItem(etcType)
                 'dTable("ObjectType") = "Table"  ' Could add queries later
                 dTables.Add varItem(etcName), dTable

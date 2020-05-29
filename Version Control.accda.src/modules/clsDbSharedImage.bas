@@ -191,8 +191,6 @@ Private Function IDbComponent_GetAllFromDB() As Collection
     Dim cImg As IDbComponent
     Dim rst As DAO.Recordset
     Dim strSQL As String
-    Dim fld2 As Field2
-    Dim rst2 As Recordset2
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
@@ -207,8 +205,6 @@ Private Function IDbComponent_GetAllFromDB() As Collection
             With rst
                 Do While Not .EOF
                     Set cImg = New clsDbSharedImage
-                    'Set fld2 = !Data
-                    'Set rst2 = fld2.Value
                     Set cImg.DbObject = rst    ' Reference to OLE object recordset2
                     m_AllItems.Add cImg, Nz(!Name)
                     .MoveNext
