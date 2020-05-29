@@ -151,7 +151,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
             strText = .ReadAll
             .Close
         End With
-               
+        
         ' Build a byte array from the text
         utf8Bytes = Utf8BytesFromString(strText)
         
@@ -161,7 +161,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
             Put #fnum, 1, utf8Bytes
         Close fnum
         
-        ' Remove the source file if specified
+        ' Remove the source (temp) file if specified
         If blnDeleteSourceFileAfterConversion Then Kill strSourceFile
     Else
         ' No conversion needed, move to destination.
@@ -198,7 +198,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
         ' Read file contents
         fnum = FreeFile
         Open strSourceFile For Binary As fnum
-            ReDim utf8Bytes(LOF(fnum) + 1)
+            ReDim utf8Bytes(LOF(fnum) - 1)
             Get fnum, , utf8Bytes
         Close fnum
         
@@ -266,7 +266,7 @@ Private Function BytesLength(abBytes() As Byte) As Long
     
     ' Ignore error if array is uninitialized
     On Error Resume Next
-    BytesLength = UBound(abBytes) - (LBound(abBytes) + 1)
+    BytesLength = (UBound(abBytes) - LBound(abBytes)) + 1
     If Err.Number <> 0 Then Err.Clear
     On Error GoTo 0
     
