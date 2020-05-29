@@ -265,10 +265,10 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearFilesByExtension IDbComponent_BaseFolder, "txt"
     ClearOrphanedSourceFiles Me, "json"
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -281,7 +281,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    ' No modification date available for relations
+    IDbComponent_DateModified = 0
 End Function
 
 
@@ -407,6 +407,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SingleFile() As Boolean
+    IDbComponent_SingleFile = False
 End Property
 
 

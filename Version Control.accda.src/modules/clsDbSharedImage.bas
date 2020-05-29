@@ -243,9 +243,9 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearOrphanedSourceFiles Me, "json", "jpg", "jpeg", "jpe", "gif", "png"
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -258,6 +258,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    IDbComponent_DateModified = 0
 End Function
 
 
@@ -391,6 +392,7 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     ' Load in the object details.
     m_Name = m_Rst!Name
     m_Extension = m_Rst!Extension
+    '@Ignore SetAssignmentWithIncompatibleObjectType
     Set fld2 = m_Rst!Data
     Set rst2 = fld2.Value
     m_FileName = rst2.Fields("FileName")
@@ -413,6 +415,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SingleFile() As Boolean
+    IDbComponent_SingleFile = False
 End Property
 
 

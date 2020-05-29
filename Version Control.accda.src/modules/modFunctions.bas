@@ -988,6 +988,7 @@ End Function
 Public Function ShowIDE()
     DoCmd.RunCommand acCmdVisualBasicEditor
     DoEvents
+    ShowIDE = True
 End Function
 
 
@@ -1426,7 +1427,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
     If strType <> vbNullString Then strTypeFilter = " AND [type]='" & strType & "'"
     
     ' Check to see if we have already cached the results
-    If strType = strLastType And (DateDiff("s", dteCacheDate, Now()) < 5) And Not colCache Is Nothing Then
+    If strType = strLastType And (DateDiff("s", dteCacheDate, Now) < 5) And Not colCache Is Nothing Then
         ' Look through cache to find matching date
         For Each varItem In colCache
             If varItem(0) = strName Then
@@ -1437,7 +1438,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
     Else
         ' Look up from query, and cache results
         Set colCache = New Collection
-        dteCacheDate = Now()
+        dteCacheDate = Now
         strLastType = strType
         
         ' Build SQL query to find object
@@ -1488,6 +1489,7 @@ Public Function GetSQLObjectDefinitionForADP(strName As String) As String
     strObject = Replace(strName, ";", "")
     
     strSQL = "SELECT object_definition (OBJECT_ID(N'" & strObject & "'))"
+    '@Ignore SetAssignmentWithIncompatibleObjectType
     Set rst = CurrentProject.Connection.Execute(strSQL)
     If Not rst.EOF Then
         ' Get SQL definition

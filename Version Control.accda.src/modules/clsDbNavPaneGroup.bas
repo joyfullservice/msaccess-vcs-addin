@@ -254,11 +254,11 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
     If IDbComponent_GetAllFromDB.Count = 0 Then
         If FSO.FileExists(IDbComponent_SourceFile) Then Kill IDbComponent_SourceFile
     End If
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -271,7 +271,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    ' No date on these
+    IDbComponent_DateModified = 0
 End Function
 
 
@@ -321,7 +321,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
-    'IDbComponent_Name = m_Form.Name
+    IDbComponent_Name = "Groups"
 End Property
 
 
@@ -382,6 +382,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_DbObject() As Object
+    Set IDbComponent_DbObject = Nothing
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
 End Property

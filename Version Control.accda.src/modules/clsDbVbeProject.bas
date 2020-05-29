@@ -140,8 +140,8 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-End Function
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
+End Sub
 
 
 '---------------------------------------------------------------------------------------

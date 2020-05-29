@@ -197,11 +197,11 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
     Dim strFile As String
     strFile = IDbComponent_BaseFolder & "references.csv"
     If FSO.FileExists(strFile) Then Kill strFile    ' Remove legacy file
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------

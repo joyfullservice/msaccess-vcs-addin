@@ -33,8 +33,8 @@ Public DbObject As Object
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Public Function ClearOrphanedSourceFiles()
-End Function
+Public Sub ClearOrphanedSourceFiles()
+End Sub
 
 
 '---------------------------------------------------------------------------------------

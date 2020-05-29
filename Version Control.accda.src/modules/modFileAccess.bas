@@ -245,9 +245,12 @@ End Function
 '
 Public Function GetTempFile(Optional strPrefix As String = "VBA") As String
 
-    Dim strPath As String * 512
-    Dim strName As String * 576
+    Dim strPath As String
+    Dim strName As String
     Dim lngReturn As Long
+    
+    strPath = Space$(512)
+    strName = Space$(576)
     
     lngReturn = getTempPath(512, strPath)
     lngReturn = getTempFileName(strPath, strPrefix, 0, strName)
