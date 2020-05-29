@@ -140,7 +140,7 @@ Sub s()
     dItems.Add "A", "A"
     dItems.Add "B", "B"
     
-    Set dItems = SortDictionaryByKey(dItems)
+    Set dItems = SortDictionaryByKeys(dItems)
     
     For Each v In dItems
         Debug.Print v
