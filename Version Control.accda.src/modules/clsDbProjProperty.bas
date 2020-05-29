@@ -32,11 +32,11 @@ Implements IDbComponent
 Private Sub IDbComponent_Export()
     
     Dim prp As AccessObjectProperty
-    Dim dCollection As Scripting.Dictionary
+    Dim dCollection As Dictionary
     Dim strPath As String
     Dim varValue As Variant
     
-    Set dCollection = New Scripting.Dictionary
+    Set dCollection = New Dictionary
     
     ' Loop through all properties
     For Each prp In CurrentProject.Properties
@@ -82,7 +82,6 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim projCurrent As CurrentProject
     Dim varKey As Variant
     Dim varValue As Variant
-    Dim strText As String
     
     Set projCurrent = CurrentProject
     
@@ -172,8 +171,8 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
-End Function
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
+End Sub
 
 
 '---------------------------------------------------------------------------------------

@@ -66,7 +66,7 @@ Private m_Options As clsOptions
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
-Private m_FSO As Scripting.FileSystemObject
+Private m_FSO As FileSystemObject
 
 
 '---------------------------------------------------------------------------------------
@@ -358,8 +358,8 @@ End Sub
 '
 Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensions())
     
-    Dim oFolder As Scripting.Folder
-    Dim oFile As Scripting.File
+    Dim oFolder As Folder
+    Dim oFile As File
     Dim colNames As Collection
     Dim strFile As String
     Dim varExt As Variant
@@ -652,8 +652,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub Shell2(strCmd As String)
-    Dim objShell As Object
-    Set objShell = CreateObject("WScript.Shell")
+    Dim objShell As WshShell
+    Set objShell = New WshShell
     objShell.Exec strCmd
     Set objShell = Nothing
 End Sub
@@ -988,6 +988,7 @@ End Function
 Public Function ShowIDE()
     DoCmd.RunCommand acCmdVisualBasicEditor
     DoEvents
+    ShowIDE = True
 End Function
 
 
@@ -1314,13 +1315,13 @@ End Function
 '           : contents of the file. (Helps with upgrades or changes later.)
 '---------------------------------------------------------------------------------------
 '
-Public Sub WriteJsonFile(ClassMe As Object, dItems As Scripting.Dictionary, strFile As String, strDescription As String)
+Public Sub WriteJsonFile(ClassMe As Object, dItems As Dictionary, strFile As String, strDescription As String)
     
-    Dim dContents As Scripting.Dictionary
-    Dim dHeader As Scripting.Dictionary
+    Dim dContents As Dictionary
+    Dim dHeader As Dictionary
     
-    Set dContents = New Scripting.Dictionary
-    Set dHeader = New Scripting.Dictionary
+    Set dContents = New Dictionary
+    Set dHeader = New Dictionary
     
     ' Build dictionary structure
     dHeader.Add "Class", TypeName(ClassMe)
@@ -1426,7 +1427,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
     If strType <> vbNullString Then strTypeFilter = " AND [type]='" & strType & "'"
     
     ' Check to see if we have already cached the results
-    If strType = strLastType And (DateDiff("s", dteCacheDate, Now()) < 5) And Not colCache Is Nothing Then
+    If strType = strLastType And (DateDiff("s", dteCacheDate, Now) < 5) And Not colCache Is Nothing Then
         ' Look through cache to find matching date
         For Each varItem In colCache
             If varItem(0) = strName Then
@@ -1437,7 +1438,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
     Else
         ' Look up from query, and cache results
         Set colCache = New Collection
-        dteCacheDate = Now()
+        dteCacheDate = Now
         strLastType = strType
         
         ' Build SQL query to find object
@@ -1488,6 +1489,7 @@ Public Function GetSQLObjectDefinitionForADP(strName As String) As String
     strObject = Replace(strName, ";", "")
     
     strSQL = "SELECT object_definition (OBJECT_ID(N'" & strObject & "'))"
+    '@Ignore SetAssignmentWithIncompatibleObjectType
     Set rst = CurrentProject.Connection.Execute(strSQL)
     If Not rst.EOF Then
         ' Get SQL definition
@@ -1520,11 +1522,11 @@ End Function
 '           : reference when we have completed an export or import operation.
 '---------------------------------------------------------------------------------------
 '
-Public Property Get FSO() As Scripting.FileSystemObject
-    If m_FSO Is Nothing Then Set m_FSO = New Scripting.FileSystemObject
+Public Property Get FSO() As FileSystemObject
+    If m_FSO Is Nothing Then Set m_FSO = New FileSystemObject
     Set FSO = m_FSO
 End Property
-Public Property Set FSO(ByVal RHS As Scripting.FileSystemObject)
+Public Property Set FSO(ByVal RHS As FileSystemObject)
     Set m_FSO = RHS
 End Property
 

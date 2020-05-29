@@ -100,7 +100,7 @@ Public Sub ExportPrintVars(strReport As String, strFile As String)
     Dim DevModeExtra As String
     Dim DM As type_DEVMODE
     Dim rpt As Report
-    Dim dItems As Scripting.Dictionary
+    Dim dItems As Dictionary
 
     'report must be open to access Report object
     'report must be opened in design view to save changes to the print vars
@@ -341,11 +341,11 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearFilesByExtension IDbComponent_BaseFolder, "pv"
     If Not Options.SavePrintVars Then ClearFilesByExtension IDbComponent_BaseFolder, "json"
     ClearOrphanedSourceFiles Me, "bas", "json"
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -484,6 +484,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SingleFile() As Boolean
+    IDbComponent_SingleFile = False
 End Property
 
 

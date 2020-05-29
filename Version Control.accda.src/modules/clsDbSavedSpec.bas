@@ -31,9 +31,9 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     
-    Dim dSpec As Scripting.Dictionary
+    Dim dSpec As Dictionary
     
-    Set dSpec = New Scripting.Dictionary
+    Set dSpec = New Dictionary
     
     On Error Resume Next
     ' For some reason it throws an error if there is no
@@ -125,9 +125,9 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearOrphanedSourceFiles Me, "json"
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -267,6 +267,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SingleFile() As Boolean
+    IDbComponent_SingleFile = False
 End Property
 
 

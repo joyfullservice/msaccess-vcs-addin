@@ -38,6 +38,7 @@ Private Const SW_SHOWNORMAL = 1
 Public Function AddInMenuItemLaunch()
     PreloadVBE
     Form_frmVCSMain.Visible = True
+    AddInMenuItemLaunch = True
 End Function
 
 
@@ -53,6 +54,7 @@ Public Function AddInMenuItemExport()
     Form_frmVCSMain.Visible = True
     DoEvents
     Form_frmVCSMain.cmdExport_Click
+    AddInMenuItemExport = True
 End Function
 
 
@@ -108,6 +110,7 @@ Public Function AutoRun()
             End If
         End If
     End If
+    AutoRun = True
 
 End Function
 
@@ -272,7 +275,7 @@ End Function
 ' Purpose   : Add the menu item through the registry (HKLM, requires admin)
 '---------------------------------------------------------------------------------------
 '
-Private Function RegisterMenuItem(strName, Optional strFunction As String = "=LaunchMe()")
+Private Sub RegisterMenuItem(strName, Optional strFunction As String = "=LaunchMe()")
 
     Dim strPath As String
     
@@ -284,7 +287,7 @@ Private Function RegisterMenuItem(strName, Optional strFunction As String = "=La
         .RegWrite strPath & "Version", 3, "REG_DWORD"
     End With
     
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -294,7 +297,7 @@ End Function
 ' Purpose   : Remove the menu item through the registry
 '---------------------------------------------------------------------------------------
 '
-Private Function RemoveMenuItem(strName, Optional strFunction As String = "=LaunchMe()", Optional Hive As eHive = ehHKCU)
+Private Sub RemoveMenuItem(strName, Optional strFunction As String = "=LaunchMe()", Optional Hive As eHive = ehHKCU)
 
     Dim strPath As String
     Dim objShell As WshShell
@@ -313,7 +316,7 @@ Private Function RemoveMenuItem(strName, Optional strFunction As String = "=Laun
         On Error GoTo 0
     End With
     
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -410,7 +413,7 @@ End Sub
 '           : Adapted from: http://www.rondebruin.nl/win/s7/win001.htm
 '---------------------------------------------------------------------------------------
 '
-Private Function CopyToZip(strFile As String, strZip As String)
+Private Sub CopyToZip(strFile As String, strZip As String)
     
     Dim oApp As Object
     Dim varZip As Variant
@@ -423,7 +426,7 @@ Private Function CopyToZip(strFile As String, strZip As String)
     Set oApp = CreateObject("Shell.Application")
     oApp.Namespace(varZip).CopyHere varFile
     
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -529,9 +532,7 @@ End Sub
 '           : per-user installation method.
 '---------------------------------------------------------------------------------------
 '
-Private Function RemoveLegacyInstall()
-
-    Dim objShell As IWshRuntimeLibrary.WshShell
+Private Sub RemoveLegacyInstall()
 
     ' These registry keys require admin access to remove
     RemoveMenuItem "&Version Control", "=AddInMenuItemLaunch()", ehHKLM
@@ -541,7 +542,7 @@ Private Function RemoveLegacyInstall()
         , "Microsoft Access will now close so you can continue.", vbInformation
     DoCmd.Quit
     
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------

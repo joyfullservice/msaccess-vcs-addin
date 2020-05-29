@@ -191,8 +191,6 @@ Private Function IDbComponent_GetAllFromDB() As Collection
     Dim cImg As IDbComponent
     Dim rst As DAO.Recordset
     Dim strSQL As String
-    Dim fld2 As Field2
-    Dim rst2 As Recordset2
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
@@ -207,8 +205,6 @@ Private Function IDbComponent_GetAllFromDB() As Collection
             With rst
                 Do While Not .EOF
                     Set cImg = New clsDbSharedImage
-                    'Set fld2 = !Data
-                    'Set rst2 = fld2.Value
                     Set cImg.DbObject = rst    ' Reference to OLE object recordset2
                     m_AllItems.Add cImg, Nz(!Name)
                     .MoveNext
@@ -243,9 +239,9 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearOrphanedSourceFiles Me, "json", "jpg", "jpeg", "jpe", "gif", "png"
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -258,6 +254,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    IDbComponent_DateModified = 0
 End Function
 
 
@@ -391,6 +388,7 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     ' Load in the object details.
     m_Name = m_Rst!Name
     m_Extension = m_Rst!Extension
+    '@Ignore SetAssignmentWithIncompatibleObjectType
     Set fld2 = m_Rst!Data
     Set rst2 = fld2.Value
     m_FileName = rst2.Fields("FileName")
@@ -413,6 +411,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SingleFile() As Boolean
+    IDbComponent_SingleFile = False
 End Property
 
 

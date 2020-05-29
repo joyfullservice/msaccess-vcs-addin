@@ -45,13 +45,13 @@ End Sub
 '
 Private Sub IDbComponent_Export()
     
-    Dim dItem As Scripting.Dictionary
-    Dim dField As Scripting.Dictionary
+    Dim dItem As Dictionary
+    Dim dField As Dictionary
     Dim colItems As Collection
     Dim fld As DAO.Field
     
     ' Relation properties
-    Set dItem = New Scripting.Dictionary
+    Set dItem = New Dictionary
     With dItem
         .Add "Name", m_Relation.Name
         .Add "Attributes", m_Relation.Attributes
@@ -86,9 +86,9 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
     
-    Dim dItem As Scripting.Dictionary
+    Dim dItem As Dictionary
     Dim dFile As Dictionary
-    Dim dField As Scripting.Dictionary
+    Dim dField As Dictionary
     Dim fld As DAO.Field
     Dim dbs As DAO.Database
     Dim rel As DAO.Relation
@@ -265,10 +265,10 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearFilesByExtension IDbComponent_BaseFolder, "txt"
     ClearOrphanedSourceFiles Me, "json"
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -281,7 +281,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    ' No modification date available for relations
+    IDbComponent_DateModified = 0
 End Function
 
 
@@ -407,6 +407,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SingleFile() As Boolean
+    IDbComponent_SingleFile = False
 End Property
 
 

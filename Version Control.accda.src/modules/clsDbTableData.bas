@@ -350,9 +350,9 @@ End Function
 '           : Note that alternate formats may stay here till the next export.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearOrphanedSourceFiles Me, "xml", "txt"
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -476,6 +476,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SingleFile() As Boolean
+    IDbComponent_SingleFile = False
 End Property
 
 

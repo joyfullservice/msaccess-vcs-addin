@@ -121,9 +121,9 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearOrphanedSourceFiles Me, "sql"
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -246,6 +246,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_DbObject() As Object
+    Set IDbComponent_DbObject = Nothing
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
 End Property
@@ -260,6 +261,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SingleFile() As Boolean
+    IDbComponent_SingleFile = False
 End Property
 
 

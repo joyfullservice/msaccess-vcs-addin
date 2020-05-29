@@ -32,12 +32,12 @@ Implements IDbComponent
 Private Sub IDbComponent_Export()
     
     Dim prp As DAO.Property
-    Dim dCollection As Scripting.Dictionary
-    Dim dItem As Scripting.Dictionary
+    Dim dCollection As Dictionary
+    Dim dItem As Dictionary
     Dim varValue As Variant
     Dim strPath As String
     
-    Set dCollection = New Scripting.Dictionary
+    Set dCollection = New Dictionary
     
     ' Loop through all properties
     For Each prp In CurrentDb.Properties
@@ -61,7 +61,7 @@ Private Sub IDbComponent_Export()
                         End If
                     End If
                 End If
-                Set dItem = New Scripting.Dictionary
+                Set dItem = New Dictionary
                 dItem.Add "Value", varValue
                 dItem.Add "Type", prp.Type
                 dCollection.Add prp.Name, dItem
@@ -198,11 +198,11 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
     Dim strFile As String
     strFile = IDbComponent_BaseFolder & "properties.txt"
     If FSO.FileExists(strFile) Then Kill strFile    ' Remove legacy file
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------

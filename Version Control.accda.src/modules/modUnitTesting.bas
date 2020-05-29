@@ -131,10 +131,10 @@ End Sub
 
 
 Sub s()
-    Dim dItems As Scripting.Dictionary
+    Dim dItems As Dictionary
     Dim v As Variant
     
-    Set dItems = New Scripting.Dictionary
+    Set dItems = New Dictionary
     
     dItems.Add "C", "C"
     dItems.Add "A", "A"

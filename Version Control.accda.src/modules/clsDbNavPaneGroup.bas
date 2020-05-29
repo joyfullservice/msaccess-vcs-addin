@@ -16,20 +16,6 @@ Private m_AllItems As Collection
 Private m_dItems As Dictionary
 Private m_Count As Long
 
-' This is used to transfer the details to the class.
-Private m_Rst As ADODB.Recordset
-' Group properties
-Private m_GroupName As String
-Private m_GroupFlags As Long
-Private m_GroupPosition As Long
-' Linked object
-Private m_ObjectType As Long
-Private m_ObjectName As String
-Private m_ObjectFlags As Long
-Private m_ObjectIcon As Long
-Private m_ObjectPosition As Long
-
-
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
 ' and import process. The implemented functions should be kept private as they are called
@@ -64,11 +50,9 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
 
     Dim dFile As Dictionary
-    Dim varGroup As Variant
     Dim intGroup As Integer
     Dim dGroup As Dictionary
     Dim lngGroupID As Long
-    Dim varObject As Variant
     Dim intObject As Integer
     Dim dObject As Dictionary
     Dim lngObjectID As Long
@@ -78,7 +62,6 @@ Private Sub IDbComponent_Import(strFile As String)
     If Not dFile Is Nothing Then
         If dFile("Items").Exists("Groups") Then
             For intGroup = 1 To dFile("Items")("Groups").Count
-            'For Each varGroup In dFile("Items")("Groups").Keys
                 Set dGroup = dFile("Items")("Groups")(intGroup)
                 ' Add additional field values for new record
                 dGroup.Add "GroupCategoryID", 3
@@ -88,7 +71,6 @@ Private Sub IDbComponent_Import(strFile As String)
                 lngGroupID = Nz(DLookup("Id", "MSysNavPaneGroups", "GroupCategoryID=3 AND Name=""" & dGroup("Name") & """"), 0)
                 If lngGroupID = 0 Then lngGroupID = LoadRecord("MSysNavPaneGroups", dGroup)
                 For intObject = 1 To dGroup("Objects").Count
-                'For Each varObject In dGroup("Objects").Keys
                     Set dObject = dGroup("Objects")(intObject)
                     lngObjectID = Nz(DLookup("Id", "MSysObjects", "Name=""" & dObject("Name") & """ AND Type=" & dObject("Type")), 0)
                     If lngObjectID <> 0 Then
@@ -254,11 +236,11 @@ End Function
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_ClearOrphanedSourceFiles() As Variant
+Private Sub IDbComponent_ClearOrphanedSourceFiles()
     If IDbComponent_GetAllFromDB.Count = 0 Then
         If FSO.FileExists(IDbComponent_SourceFile) Then Kill IDbComponent_SourceFile
     End If
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -271,7 +253,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    ' No date on these
+    IDbComponent_DateModified = 0
 End Function
 
 
@@ -321,7 +303,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
-    'IDbComponent_Name = m_Form.Name
+    IDbComponent_Name = "Groups"
 End Property
 
 
@@ -382,6 +364,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_DbObject() As Object
+    Set IDbComponent_DbObject = Nothing
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
 End Property
