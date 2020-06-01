@@ -1934,6 +1934,22 @@ Public Function GetPathFromRelative(strPath As String) As String
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : Secure
+' Author    : Adam Waller
+' Date      : 6/1/2020
+' Purpose   : Secure the text based on the loaded option.
+'---------------------------------------------------------------------------------------
+'
+Public Function Secure(strText As String) As String
+    Select Case Options.Security
+        Case esEncrypt: Secure = Encrypt(strText)
+        Case esRemove:  Secure = vbNullString
+        Case esNone:    Secure = strText
+    End Select
+End Function
+
+
 Public Sub TestPrinterFunctions()
 
     Dim cPrinter As New clsDevMode
@@ -1942,7 +1958,7 @@ Public Sub TestPrinterFunctions()
     With cPrinter
         .LoadFromPrinter ("C552 Color")
         Set dPrinter = .GetDictionary
-        .LoadFromExportFile "C:\Users\awaller.IAA\Documents\GitHub\msaccess-vcs-integration\Testing\Testing.accdb.src\reports\rptDefaultPrinter.bas"
+        .LoadFromExportFile CodeProject.Path & "\Testing\Testing.accdb.src\reports\rptDefaultPrinter.bas"
         'Debug.Print ConvertToJson(dPrinter, 4)
         
     End With

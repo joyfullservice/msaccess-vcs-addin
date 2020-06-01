@@ -47,7 +47,7 @@ Private Sub IDbComponent_Export()
             If ref.Type = vbext_rk_Project Then
                 ' references of types mdb,accdb,mde etc don't have a GUID
                 .Add "File", FSO.GetFileName(ref.FullPath)
-                .Add "FullPath", Encrypt(ref.FullPath)
+                .Add "FullPath", Secure(ref.FullPath)
             Else
                 If ref.Guid <> vbNullString Then .Add "GUID", ref.Guid
                 .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)

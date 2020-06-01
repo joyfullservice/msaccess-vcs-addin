@@ -25,9 +25,28 @@ Public TablesToExportData As Dictionary
 Public RunBeforeExport As String
 Public RunAfterExport As String
 Public RunAfterBuild As String
+Public Security As eSecurity
 Public KeyName As String
 
-Private m_colOptions As New Collection
+' Constants for enum values
+' (These values are not permanently stored and
+'  may change between releases.)
+Private Const Enum_Security_Encrypt = 1
+Private Const Enum_Security_Remove = 2
+Private Const Enum_Security_None = 3
+Private Const Enum_Table_Format_TDF = 10
+Private Const Enum_Table_Format_XML = 11
+
+' Options for security
+Public Enum eSecurity
+    esEncrypt = Enum_Security_Encrypt
+    esRemove = Enum_Security_Remove
+    esNone = Enum_Security_None
+End Enum
+
+' Private collections for options and enum values.
+Private m_colOptions As Collection
+Private m_dEnum As Dictionary
 
 
 '---------------------------------------------------------------------------------------
@@ -49,6 +68,7 @@ Public Sub LoadDefaults()
         .SaveTableSQL = True
         .StripPublishOption = True
         .AggressiveSanitize = True
+        .Security = esEncrypt
         .KeyName = "MSAccessVCS"
         Set .TablesToExportData = New Dictionary
         ' Save specific tables by default
@@ -148,6 +168,8 @@ Public Sub LoadOptionsFromFile(strFile As String)
                     Select Case strKey
                         Case "TablesToExportData"
                             Set Me.TablesToExportData = dOptions(strKey)
+                        Case "Security"
+                            Me.Security = GetEnumVal(dOptions(strKey))
                         Case Else
                             ' Regular top-level properties
                             CallByName Me, strKey, VbLet, dOptions(strKey)
@@ -243,10 +265,17 @@ Private Function SerializeOptions() As Dictionary
     dInfo.Add "AccessVersion", Application.Version & strBit
     dInfo.Add "Hash", Encrypt(CodeProject.Name)
     
+    ' Loop through options
     For Each varOption In m_colOptions
         strOption = CStr(varOption)
-        ' Simulate reflection to serialize properties
-        dOptions.Add CStr(strOption), CallByName(Me, strOption, VbGet)
+        Select Case strOption
+            Case "Security"
+                ' Translate enums to friendly names.
+                dOptions.Add strOption, GetEnumName(CallByName(Me, strOption, VbGet))
+            Case Else
+                ' Simulate reflection to serialize properties.
+                dOptions.Add strOption, CallByName(Me, strOption, VbGet)
+        End Select
     Next varOption
     
     'Set SerializeOptions = new Dictionary
@@ -292,6 +321,37 @@ Public Function GetTableExportFormat(strKey As String) As eTableDataExportFormat
     Next intFormat
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetEnumName
+' Author    : Adam Waller
+' Date      : 6/1/2020
+' Purpose   : Translate the enum value to name for saving to file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetEnumName(intVal As Integer) As String
+    If m_dEnum.Exists(intVal) Then GetEnumName = m_dEnum(intVal)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetEnumVal
+' Author    : Adam Waller
+' Date      : 6/1/2020
+' Purpose   : Get enum value when reading string name from file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetEnumVal(strName As String) As Integer
+    Dim varKey As Variant
+    For Each varKey In m_dEnum.Keys
+        If m_dEnum(varKey) = strName Then
+            GetEnumVal = varKey
+            Exit For
+        End If
+    Next varKey
+End Function
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : Class_Initialize
 ' Author    : Adam Waller
@@ -300,6 +360,17 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Initialize()
+    
+    ' Initialize the options collection
+    Set m_colOptions = New Collection
+    
+    ' Load enum values
+    Set m_dEnum = New Dictionary
+    With m_dEnum
+        .Add Enum_Security_Encrypt, "Encrypt"
+        .Add Enum_Security_Remove, "Remove"
+        .Add Enum_Security_None, "None"
+    End With
     
     ' Load list of property names for reflection type behavior.
     With m_colOptions
@@ -315,6 +386,7 @@ Private Sub Class_Initialize()
         .Add "RunBeforeExport"
         .Add "RunAfterExport"
         .Add "RunAfterBuild"
+        .Add "Security"
         .Add "KeyName"
     End With
     
