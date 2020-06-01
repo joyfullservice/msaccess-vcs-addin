@@ -206,7 +206,7 @@ Public Sub Build(strSourceFolder As String)
     Log.Add "Saved as " & FSO.GetFileName(strText) & "."
     
     ' Create a new database with the original name
-    If LCase(FSO.GetExtensionName(strPath)) = "adp" Then
+    If LCase$(FSO.GetExtensionName(strPath)) = "adp" Then
         ' ADP project
         Application.NewAccessProject strPath
     Else
@@ -333,7 +333,7 @@ End Function
 ' Purpose   : Return an unused filename for the database backup befor build
 '---------------------------------------------------------------------------------------
 '
-Private Function GetBackupFileName(strPath As String)
+Private Function GetBackupFileName(strPath As String) As Variant
     
     Const cstrSuffix As String = "_VCSBackup"
     

@@ -59,7 +59,7 @@ Public Sub TestUCS2toUTF8RoundTrip()
         
     ' Read original export
     Dim originalExport As String
-    With FSO.OpenTextFile(tempFileName, , , TristateTrue)
+    With FSO.OpenTextFile(tempFileName, ForReading, False, TristateTrue)
         originalExport = .ReadAll
         .Close
     End With
@@ -72,7 +72,7 @@ Public Sub TestUCS2toUTF8RoundTrip()
     
     ' Read final file that went through all permutations of conversion
     Dim finalFile As String
-    With FSO.OpenTextFile(UTFtoUCS, , , TristateTrue)
+    With FSO.OpenTextFile(UTFtoUCS, ForReading, False, TristateTrue)
         finalFile = .ReadAll
         .Close
     End With
@@ -96,11 +96,12 @@ End Sub
 '@TestMethod("TextConversion")
 Private Sub TestParseSpecialCharsInJson()
     On Error GoTo TestFail
-    
+       
     'Arrange:
     Dim strPath As String
     Dim dict As Dictionary
-    Dim FSO
+    Dim FSO As Object
+    
     strPath = GetTempFile
         
     Set FSO = CreateObject("Scripting.FileSystemObject")
@@ -130,19 +131,29 @@ TestFail:
 End Sub
 
 
-Sub s()
+'@TestMethod("Sorting")
+Private Sub TestSortDictionaryByKeys()
+    On Error GoTo TestFail
+    
+    'Arrange:
     Dim dItems As Dictionary
     Dim v As Variant
     
     Set dItems = New Dictionary
-    
     dItems.Add "C", "C"
     dItems.Add "A", "A"
     dItems.Add "B", "B"
     
+    'Act:
     Set dItems = SortDictionaryByKeys(dItems)
     
-    For Each v In dItems
-        Debug.Print v
-    Next
+    'Assert:
+    Assert.AreEqual dItems.Items(0), "A"
+    Assert.AreEqual dItems.Items(1), "B"
+    Assert.AreEqual dItems.Items(2), "C"
+
+TestExit:
+    Exit Sub
+TestFail:
+    Assert.Fail "Test raised an error: #" & Err.Number & " - " & Err.Description
 End Sub

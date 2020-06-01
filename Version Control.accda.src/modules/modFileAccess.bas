@@ -119,7 +119,7 @@ Public Function FileIsUCS2Format(ByVal theFilePath As String) As Boolean
     Get fileNumber, 1, bytes
     Close fileNumber
     
-    FileIsUCS2Format = (Asc(Mid(bytes, 1, 1)) = &HFF) And (Asc(Mid(bytes, 2, 1)) = &HFE)
+    FileIsUCS2Format = (Asc(Mid$(bytes, 1, 1)) = &HFF) And (Asc(Mid$(bytes, 2, 1)) = &HFE)
 End Function
 
 
@@ -147,7 +147,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
     If FileIsUCS2Format(strSourceFile) Then
     
         ' Read file contents and delete (temp) source file
-        With FSO.OpenTextFile(strSourceFile, , , TristateTrue)
+        With FSO.OpenTextFile(strSourceFile, ForReading, False, TristateTrue)
             strText = .ReadAll
             .Close
         End With
@@ -224,7 +224,7 @@ End Sub
 '
 Public Function RemoveUTF8BOM(ByVal fileContents As String) As String
     Dim UTF8BOM As String
-    UTF8BOM = Chr(239) & Chr(187) & Chr(191) ' == &HEFBBBF
+    UTF8BOM = Chr$(239) & Chr$(187) & Chr$(191) ' == &HEFBBBF
     Dim fileBOM As String
     fileBOM = Left$(fileContents, 3)
     
@@ -266,7 +266,7 @@ Private Function BytesLength(abBytes() As Byte) As Long
     
     ' Ignore error if array is uninitialized
     On Error Resume Next
-    BytesLength = (UBound(abBytes) - LBound(abBytes)) + 1
+    BytesLength = UBound(abBytes) - LBound(abBytes) + 1
     If Err.Number <> 0 Then Err.Clear
     On Error GoTo 0
     

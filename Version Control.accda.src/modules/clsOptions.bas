@@ -68,7 +68,7 @@ End Sub
 '
 Public Sub AddTableToExportData(strName As String, intExportFormat As eTableDataExportFormat)
     
-    Dim strFormat(etdTabDelimited To etdXML)
+    Dim strFormat(etdTabDelimited To etdXML) As String
     Dim dTable As Dictionary
     
     Set dTable = New Dictionary
@@ -135,7 +135,7 @@ Public Sub LoadOptionsFromFile(strFile As String)
     
     If FSO.FileExists(strFile) Then
         ' Read file contents
-        With FSO.OpenTextFile(strFile)
+        With FSO.OpenTextFile(strFile, ForReading, False)
             Set dOptions = modJsonConverter.ParseJson(.ReadAll)("Options")
             .Close
         End With

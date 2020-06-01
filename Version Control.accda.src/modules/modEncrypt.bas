@@ -51,7 +51,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function Encrypt(strText As String) As String
-    If strText <> vbNullString Then Encrypt = "@{" & LCase(EncryptRC4("RC4" & strText, GetKey)) & "}"
+    If strText <> vbNullString Then Encrypt = "@{" & LCase$(EncryptRC4("RC4" & strText, GetKey)) & "}"
 End Function
 
 
@@ -121,7 +121,7 @@ Public Function Decrypt(strToDecrypt As String) As String
                 strDecrypted = strToDecrypt
             Else
                 ' Add any remaining portion of the string
-                strDecrypted = strDecrypted & Mid(strToDecrypt, lngEnd)
+                strDecrypted = strDecrypted & Mid$(strToDecrypt, lngEnd)
             End If
             Exit Do
         End If
@@ -137,7 +137,7 @@ Public Function Decrypt(strToDecrypt As String) As String
             ' Get full encrypted segment
             strSegment = Mid$(strToDecrypt, lngStart, lngEnd - lngStart)
             ' Decrypt this segment.
-            strTest = DecryptRC4(Mid(UCase(strSegment), 3, lngEnd - lngStart - 3), GetKey)
+            strTest = DecryptRC4(Mid$(UCase$(strSegment), 3, lngEnd - lngStart - 3), GetKey)
             If Left$(strTest, 3) = "RC4" Then
                 ' Successfully decrypted.
                 strDecrypted = strDecrypted & Mid$(strTest, 4)
@@ -252,13 +252,13 @@ End Function
 Private Function ToHexDump(sText As String) As String
     Dim lIdx As Long
     For lIdx = 1 To Len(sText)
-        ToHexDump = ToHexDump & Right$("0" & Hex(Asc(Mid(sText, lIdx, 1))), 2)
+        ToHexDump = ToHexDump & Right$("0" & Hex$(Asc(Mid$(sText, lIdx, 1))), 2)
     Next
 End Function
 
 Private Function FromHexDump(sText As String) As String
     Dim lIdx As Long
     For lIdx = 1 To Len(sText) Step 2
-        FromHexDump = FromHexDump & Chr$(CLng("&H" & Mid(sText, lIdx, 2)))
+        FromHexDump = FromHexDump & Chr$(CLng("&H" & Mid$(sText, lIdx, 2)))
     Next
 End Function

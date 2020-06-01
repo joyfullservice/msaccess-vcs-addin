@@ -199,7 +199,7 @@ Public Sub LoadFromExportFile(strFile As String)
     If Not FSO.FileExists(strFile) Then Exit Sub
     
     ' Read the text file line by line, loading the block data
-    With FSO.OpenTextFile(strFile)
+    With FSO.OpenTextFile(strFile, ForReading, False)
         Do While Not .AtEndOfStream
             strLine = Trim$(.ReadLine)
             ' Look for header if not inside block
@@ -295,7 +295,7 @@ End Sub
 '           : http://www.lessanvaezi.com/changing-printer-settings-using-the-windows-api/
 '---------------------------------------------------------------------------------------
 '
-Public Function LoadFromPrinter(strPrinter As String)
+Public Function LoadFromPrinter(strPrinter As String) As Variant
 
     ' API constants for reading printer properties
     Const READ_CONTROL = &H20000
@@ -647,7 +647,7 @@ End Function
 ' Purpose   : Return an enum value, 0 or UNKNOWN if not found.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetEnum(eType As ePrintEnum, varValue, Optional Convert As eEnumConversion = eecAuto) As Variant
+Public Function GetEnum(eType As ePrintEnum, varValue As Variant, Optional Convert As eEnumConversion = eecAuto) As Variant
 
     Dim varKey As Variant
     Dim varReturn As Variant
@@ -698,7 +698,7 @@ End Function
 '           : http://www.jasinskionline.com/windowsapi/ref/d/devmode.html
 '---------------------------------------------------------------------------------------
 '
-Private Function BuildEnum(eType As ePrintEnum)
+Private Function BuildEnum(eType As ePrintEnum) As Variant
 
     Set m_dEnum(eType) = New Dictionary
     With m_dEnum(eType)
@@ -836,7 +836,7 @@ End Function
 ' Purpose   : Trim a string to a null character terminator.
 '---------------------------------------------------------------------------------------
 '
-Private Function NTrim(strText) As String
+Private Function NTrim(ByVal strText As String) As String
     Dim lngPos As Long
     lngPos = InStr(1, strText, vbNullChar)
     If lngPos > 0 Then

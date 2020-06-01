@@ -106,7 +106,7 @@ Private Sub IDbComponent_Import(strFile As String)
                     ' Skip these properties
                 Case Else
                     varValue = Decrypt(dItems(varKey))
-                    If Left(varValue, 4) = "rel:" Then varValue = GetPathFromRelative(CStr(varValue))
+                    If Left$(varValue, 4) = "rel:" Then varValue = GetPathFromRelative(CStr(varValue))
                     If dExisting.Exists(varKey) Then
                         If dItems(varKey) <> dExisting(varKey) Then
                             ' Update value of existing property if different.
