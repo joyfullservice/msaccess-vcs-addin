@@ -165,7 +165,6 @@ Public Function HasPrinterAssigned() As Boolean
     HasPrinterAssigned = (m_tDevNames.intDefault = 0)
 End Function
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadFromExportFile
 ' Author    : Adam Waller
@@ -186,6 +185,7 @@ Public Sub LoadFromExportFile(strFile As String)
     Dim intBlock As Integer
     Dim strLine As String
     Dim lngChar As Long
+    Dim lngPos As Long
     
     Dim udtMipBuffer As tMipBuffer
     Dim udtDevModeBuffer As tDevModeBuffer
@@ -245,7 +245,8 @@ Public Sub LoadFromExportFile(strFile As String)
         For lngChar = 1 To Len(strHex) Step 2
             ' Apply two characters to buffer. (Faster than concatenating strings)
             Mid$(strChar, 3, 2) = Mid$(strHex, lngChar, 2)
-            bteBuffer(lngChar / 2 - 1) = CLng(strChar)
+            lngPos = ((lngChar + 1) / 2) - 1
+            bteBuffer(lngPos) = CLng(strChar)
         Next lngChar
         Select Case intBlock
             Case 1
