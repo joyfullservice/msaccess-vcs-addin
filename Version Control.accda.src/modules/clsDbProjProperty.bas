@@ -51,10 +51,10 @@ Private Sub IDbComponent_Export()
                     varValue = strPath
                 Else
                     ' The full path may contain sensitive info. Encrypt the path but not the file name.
-                    varValue = EncryptPath(CStr(varValue))
+                    varValue = SecurePath(CStr(varValue))
                 End If
                 ' ADP projects may have this property
-                dCollection.Add prp.Name, EncryptPath(CStr(varValue))
+                dCollection.Add prp.Name, SecurePath(CStr(varValue))
             Case Else
                 dCollection.Add prp.Name, prp.Value
         End Select
