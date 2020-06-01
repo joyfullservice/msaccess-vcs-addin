@@ -1598,22 +1598,27 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : EncryptPath
+' Procedure : SecurePath
 ' Author    : Adam Waller
-' Date      : 5/1/2020
-' Purpose   : Encrypts just the folder path, not the filename.
+' Date      : 6/1/2020
+' Purpose   : Secures just the folder path, not the filename.
 '---------------------------------------------------------------------------------------
 '
-Public Function EncryptPath(strPath As String) As String
+Public Function SecurePath(strPath As String) As String
     
     Dim strParent As String
     
     strParent = FSO.GetParentFolderName(strPath)
     If strParent = vbNullString Then
-        ' Could be relative path or just a filename
-        EncryptPath = strPath
+        ' Could be relative path or just a filename.
+        SecurePath = strPath
     Else
-        EncryptPath = Encrypt(strParent) & "\" & FSO.GetFileName(strPath)
+        If Options.Security = esRemove Then
+            SecurePath = FSO.GetFileName(strPath)
+        Else
+            ' Could be encrypted or plain text, depending on options.
+            SecurePath = Secure(strParent) & "\" & FSO.GetFileName(strPath)
+        End If
     End If
     
 End Function

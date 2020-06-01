@@ -56,10 +56,10 @@ Private Sub IDbComponent_Export()
                         If Len(strPath) > 0 Then
                             varValue = strPath
                         Else
-                            If Options.Security = esEncrypt Then
-                                ' The full path may contain sensitive info. Encrypt the path but not the file name.
-                                varValue = EncryptPath(CStr(varValue))
-                            End If
+                            ' The full path may contain sensitive info. Secure the path but not the file name.
+                            ' (Whether the value is encrypted, removed or left as plain text depends on
+                            '  what is selected in the options.)
+                            varValue = SecurePath(CStr(varValue))
                         End If
                     End If
                 End If

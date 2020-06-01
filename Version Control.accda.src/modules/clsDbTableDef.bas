@@ -57,7 +57,7 @@ Private Sub IDbComponent_Export()
         Set dItem = New Dictionary
         With dItem
             .Add "Name", tbl.Name
-            .Add "Connect", Encrypt(tbl.Connect)
+            .Add "Connect", Secure(tbl.Connect)
             .Add "SourceTableName", tbl.SourceTableName
             .Add "Attributes", tbl.Attributes
             ' indexes (Find primary key)

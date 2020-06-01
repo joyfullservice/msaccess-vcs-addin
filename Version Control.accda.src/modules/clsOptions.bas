@@ -263,7 +263,7 @@ Private Function SerializeOptions() As Dictionary
     #End If
     dInfo.Add "AddinVersion", AppVersion
     dInfo.Add "AccessVersion", Application.Version & strBit
-    dInfo.Add "Hash", Encrypt(CodeProject.Name)
+    If Me.Security = esEncrypt Then dInfo.Add "Hash", Encrypt(CodeProject.Name)
     
     ' Loop through options
     For Each varOption In m_colOptions
