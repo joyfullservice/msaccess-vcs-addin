@@ -2609,7 +2609,7 @@ End Sub
 Private Sub cmdSaveAndClose_Click()
     
     ' Encourage user to set encryption key.
-    If Not modEncrypt.EncryptionKeySet Then
+    If Options.Security = esEncrypt And (Not modEncrypt.EncryptionKeySet) Then
         If MsgBox2("Encryption Key Not Set", "No encryption key has been set for the current user." & vbCrLf & _
             "This is used to mask sensitive data when exporting source.", "Would you like to do this now?", vbQuestion + vbYesNo) = vbYes Then
             pgeEncrypt.SetFocus
