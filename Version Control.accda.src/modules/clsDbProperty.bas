@@ -120,7 +120,7 @@ Private Sub IDbComponent_Import(strFile As String)
                     strDecrypted = Decrypt(CStr(varValue))
                     If CStr(varValue) <> strDecrypted Then varValue = strDecrypted
                     ' Check for relative path
-                    If Left(varValue, 4) = "rel:" Then varValue = GetPathFromRelative(CStr(varValue))
+                    If Left$(varValue, 4) = "rel:" Then varValue = GetPathFromRelative(CStr(varValue))
                     ' Check for existing value
                     If dExisting.Exists(varKey) Then
                         If dItems(varKey)("Type") <> dExisting(varKey)(1) Then

@@ -243,7 +243,7 @@ Public Sub Increment()
     
     ' Set clock characters 1-12
     ' https://www.fileformat.info/info/unicode/char/1f552/index.htm
-    strClock = ChrW(55357) & ChrW(56655 + intProgress)
+    strClock = ChrW$(55357) & ChrW$(56655 + intProgress)
     m_Console.Add strClock
     m_Console.Add "<br>"
     

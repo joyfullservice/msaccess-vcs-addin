@@ -17,11 +17,11 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =109
-    Left =3225
-    Top =1335
-    Right =22155
-    Bottom =16815
-    DatasheetGridlinesColor =14806254
+    Left =3135
+    Top =3533
+    Right =20265
+    Bottom =12938
+    DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -322,10 +322,10 @@ Begin Form
                     PressedShade =100.0
                     HoverForeColor =4210752
                     PressedForeColor =4210752
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =9
-                    WebImagePaddingBottom =9
+                    WebImagePaddingLeft =18
+                    WebImagePaddingTop =18
+                    WebImagePaddingRight =19
+                    WebImagePaddingBottom =19
                     Overlaps =1
                 End
                 Begin CommandButton
@@ -400,10 +400,10 @@ Begin Form
                     PressedShade =100.0
                     HoverForeColor =4210752
                     PressedForeColor =4210752
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =9
-                    WebImagePaddingBottom =9
+                    WebImagePaddingLeft =18
+                    WebImagePaddingTop =18
+                    WebImagePaddingRight =19
+                    WebImagePaddingBottom =19
                 End
                 Begin Tab
                     OverlapFlags =85
@@ -438,22 +438,22 @@ Begin Form
                     Begin
                         Begin Page
                             OverlapFlags =87
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4320
+                            Left =578
+                            Top =1875
+                            Width =8925
+                            Height =4463
                             BorderColor =10921638
                             Name ="pgeGeneral"
                             Caption ="General"
                             GridlineColor =10921638
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6300
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
+                            LayoutCachedLeft =578
+                            LayoutCachedTop =1875
+                            LayoutCachedWidth =9503
+                            LayoutCachedHeight =6338
+                            WebImagePaddingLeft =4
+                            WebImagePaddingTop =4
+                            WebImagePaddingRight =4
+                            WebImagePaddingBottom =4
                             Begin
                                 Begin TextBox
                                     OverlapFlags =215
@@ -813,7 +813,7 @@ Begin Form
                                     Top =5580
                                     Width =2340
                                     TabIndex =10
-                                    ForeColor =16711680
+                                    ForeColor =12673797
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
                                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation#op"
@@ -880,10 +880,10 @@ Begin Form
                                     PressedShade =100.0
                                     HoverForeColor =4210752
                                     PressedForeColor =4210752
-                                    WebImagePaddingLeft =2
-                                    WebImagePaddingTop =2
-                                    WebImagePaddingRight =2
-                                    WebImagePaddingBottom =2
+                                    WebImagePaddingLeft =4
+                                    WebImagePaddingTop =4
+                                    WebImagePaddingRight =4
+                                    WebImagePaddingBottom =4
                                     Overlaps =1
                                 End
                                 Begin Label
@@ -907,22 +907,22 @@ Begin Form
                         End
                         Begin Page
                             OverlapFlags =247
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4320
+                            Left =578
+                            Top =1875
+                            Width =8925
+                            Height =4463
                             BorderColor =10921638
                             Name ="pgeTable"
                             Caption ="Table Data"
                             GridlineColor =10921638
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6300
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
+                            LayoutCachedLeft =578
+                            LayoutCachedTop =1875
+                            LayoutCachedWidth =9503
+                            LayoutCachedHeight =6338
+                            WebImagePaddingLeft =4
+                            WebImagePaddingTop =4
+                            WebImagePaddingRight =4
+                            WebImagePaddingBottom =4
                             Begin
                                 Begin ListBox
                                     ColumnHeads = NotDefault
@@ -1073,7 +1073,7 @@ Begin Form
                                     Height =315
                                     TabIndex =4
                                     BorderColor =10921638
-                                    ForeColor =4138256
+                                    ForeColor =3484194
                                     Name ="cboTableDataSaveType"
                                     RowSourceType ="Value List"
                                     RowSource ="No Data;Tab Delimited;XML Format"
@@ -1196,10 +1196,10 @@ Begin Form
                                     PressedShade =100.0
                                     HoverForeColor =4210752
                                     PressedForeColor =4210752
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
+                                    WebImagePaddingLeft =18
+                                    WebImagePaddingTop =18
+                                    WebImagePaddingRight =19
+                                    WebImagePaddingBottom =19
                                 End
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -1247,7 +1247,7 @@ Begin Form
                                     FontSize =10
                                     BackColor =14262935
                                     BorderColor =15321539
-                                    ForeColor =16711680
+                                    ForeColor =12673797
                                     Name ="lblAddOtherTable"
                                     Caption ="Other..."
                                     OnClick ="[Event Procedure]"
@@ -1267,22 +1267,22 @@ Begin Form
                         End
                         Begin Page
                             OverlapFlags =247
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4320
+                            Left =578
+                            Top =1875
+                            Width =8925
+                            Height =4463
                             BorderColor =10921638
                             Name ="pgeBuild"
                             Caption ="Build"
                             GridlineColor =10921638
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6300
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
+                            LayoutCachedLeft =578
+                            LayoutCachedTop =1875
+                            LayoutCachedWidth =9503
+                            LayoutCachedHeight =6338
+                            WebImagePaddingLeft =4
+                            WebImagePaddingTop =4
+                            WebImagePaddingRight =4
+                            WebImagePaddingBottom =4
                             Begin
                                 Begin TextBox
                                     OverlapFlags =247
@@ -1349,22 +1349,22 @@ Begin Form
                         End
                         Begin Page
                             OverlapFlags =247
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4320
+                            Left =578
+                            Top =1875
+                            Width =8925
+                            Height =4463
                             BorderColor =10921638
                             Name ="pgeEncrypt"
                             Caption ="Security"
                             GridlineColor =10921638
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6300
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
+                            LayoutCachedLeft =578
+                            LayoutCachedTop =1875
+                            LayoutCachedWidth =9503
+                            LayoutCachedHeight =6338
+                            WebImagePaddingLeft =4
+                            WebImagePaddingTop =4
+                            WebImagePaddingRight =4
+                            WebImagePaddingBottom =4
                             Begin
                                 Begin Label
                                     OverlapFlags =247
@@ -1425,10 +1425,10 @@ Begin Form
                                     PressedShade =100.0
                                     HoverForeColor =4210752
                                     PressedForeColor =4210752
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
+                                    WebImagePaddingLeft =18
+                                    WebImagePaddingTop =18
+                                    WebImagePaddingRight =19
+                                    WebImagePaddingBottom =19
                                 End
                                 Begin Label
                                     OverlapFlags =247
@@ -1457,7 +1457,7 @@ Begin Form
                                     Top =4860
                                     Width =1560
                                     TabIndex =1
-                                    ForeColor =16711680
+                                    ForeColor =12673797
                                     Name ="cmdEncryptionDetails"
                                     Caption ="Details..."
                                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Encryption"
@@ -1523,10 +1523,10 @@ Begin Form
                                     PressedShade =100.0
                                     HoverForeColor =4210752
                                     PressedForeColor =4210752
-                                    WebImagePaddingLeft =2
-                                    WebImagePaddingTop =2
-                                    WebImagePaddingRight =2
-                                    WebImagePaddingBottom =2
+                                    WebImagePaddingLeft =4
+                                    WebImagePaddingTop =4
+                                    WebImagePaddingRight =4
+                                    WebImagePaddingBottom =4
                                 End
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -1623,22 +1623,22 @@ Begin Form
                         End
                         Begin Page
                             OverlapFlags =247
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4325
+                            Left =578
+                            Top =1875
+                            Width =8925
+                            Height =4463
                             BorderColor =10921638
                             Name ="pgeSettings"
                             Caption ="Settings"
                             GridlineColor =10921638
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6305
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
+                            LayoutCachedLeft =578
+                            LayoutCachedTop =1875
+                            LayoutCachedWidth =9503
+                            LayoutCachedHeight =6338
+                            WebImagePaddingLeft =4
+                            WebImagePaddingTop =4
+                            WebImagePaddingRight =4
+                            WebImagePaddingBottom =4
                             Begin
                                 Begin CommandButton
                                     OverlapFlags =255
@@ -1711,10 +1711,10 @@ Begin Form
                                     PressedShade =100.0
                                     HoverForeColor =4210752
                                     PressedForeColor =4210752
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
+                                    WebImagePaddingLeft =18
+                                    WebImagePaddingTop =18
+                                    WebImagePaddingRight =19
+                                    WebImagePaddingBottom =19
                                     Begin
                                         Begin Label
                                             OverlapFlags =255
@@ -1808,10 +1808,10 @@ Begin Form
                                     PressedShade =100.0
                                     HoverForeColor =4210752
                                     PressedForeColor =4210752
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
+                                    WebImagePaddingLeft =18
+                                    WebImagePaddingTop =18
+                                    WebImagePaddingRight =19
+                                    WebImagePaddingBottom =19
                                     Begin
                                         Begin Label
                                             OverlapFlags =255
@@ -1905,10 +1905,10 @@ Begin Form
                                     PressedShade =100.0
                                     HoverForeColor =4210752
                                     PressedForeColor =4210752
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
+                                    WebImagePaddingLeft =18
+                                    WebImagePaddingTop =18
+                                    WebImagePaddingRight =19
+                                    WebImagePaddingBottom =19
                                     Begin
                                         Begin Label
                                             OverlapFlags =255
@@ -2080,10 +2080,10 @@ Begin Form
                                     PressedShade =100.0
                                     HoverForeColor =4210752
                                     PressedForeColor =4210752
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
+                                    WebImagePaddingLeft =18
+                                    WebImagePaddingTop =18
+                                    WebImagePaddingRight =19
+                                    WebImagePaddingBottom =19
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
@@ -2116,7 +2116,7 @@ Begin Form
                     Top =1260
                     Width =1560
                     TabIndex =3
-                    ForeColor =16711680
+                    ForeColor =12673797
                     Name ="cmdSeeDocs"
                     Caption ="See Docs..."
                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation"
@@ -2182,10 +2182,10 @@ Begin Form
                     PressedShade =100.0
                     HoverForeColor =4210752
                     PressedForeColor =4210752
-                    WebImagePaddingLeft =2
-                    WebImagePaddingTop =2
-                    WebImagePaddingRight =2
-                    WebImagePaddingBottom =2
+                    WebImagePaddingLeft =4
+                    WebImagePaddingTop =4
+                    WebImagePaddingRight =4
+                    WebImagePaddingBottom =4
                     Overlaps =1
                 End
                 Begin Label
@@ -2377,7 +2377,7 @@ End Sub
 '           : of tables where we are opting to save data.
 '---------------------------------------------------------------------------------------
 '
-Private Function LoadTableList()
+Private Function LoadTableList() As Variant
 
     Dim tbl As AccessObject
     Dim blnHidden As Boolean
@@ -2458,7 +2458,7 @@ End Sub
 ' Purpose   : Set the export type for the table
 '---------------------------------------------------------------------------------------
 '
-Private Function SetTableExportType(strTable As String, strFormat As String)
+Private Function SetTableExportType(strTable As String, strFormat As String) As Variant
 
     Dim varTable As Variant
     Dim varNew As Variant
@@ -2492,7 +2492,7 @@ End Function
 ' Purpose   : The master list of tables is stored in the m_colTables
 '---------------------------------------------------------------------------------------
 '
-Private Function RefreshTableDisplay()
+Private Function RefreshTableDisplay() As Variant
     
     Dim varTable As Variant
     Dim blnShow As Boolean
@@ -2501,7 +2501,7 @@ Private Function RefreshTableDisplay()
     With Me.lstTables
 
         ' Add header row
-        .RowSource = ""
+        .RowSource = vbNullString
         .AddItem "Table Name;Save Data"
         
         ' Get list of tables
@@ -2692,7 +2692,7 @@ End Sub
 ' Purpose   : Map the form controls to the options, performing the specified action.
 '---------------------------------------------------------------------------------------
 '
-Private Function MapControlsToOptions(eAction As eMapAction)
+Private Function MapControlsToOptions(eAction As eMapAction) As Variant
 
     Dim pge As Access.Page
     Dim ctl As Control
@@ -2711,7 +2711,7 @@ Private Function MapControlsToOptions(eAction As eMapAction)
                             ' Skip these exceptions.
                         Case Else
                             ' Get option name from control name following prefix.
-                            strKey = Mid(ctl.Name, 4)
+                            strKey = Mid$(ctl.Name, 4)
                             If eAction = emaClassToForm Then
                                 ctl = CallByName(Options, strKey, VbGet)
                             ElseIf eAction = emaFormToClass Then

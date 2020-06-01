@@ -141,7 +141,7 @@ Public Sub SanitizeFile(strPath As String)
     
     ' Skip past UTF-8 BOM header
     strText = stmInFile.ReadText(-2)
-    If Left(strText, 3) = "﻿" Then strText = Mid(strText, 4)
+    If Left$(strText, 3) = "﻿" Then strText = Mid$(strText, 4)
 
     ' Loop through lines in file
     Do Until stmInFile.EOS
@@ -224,7 +224,7 @@ Public Sub SanitizeFile(strPath As String)
     WriteFile cData.GetStr, strPath
 
     ' Show stats if debug turned on.
-    Log.Add "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", Options.ShowDebug
+    Log.Add "    Sanitized in " & Format$(Timer - sngOverall, "0.00") & " seconds.", Options.ShowDebug
 
 End Sub
 
@@ -273,7 +273,7 @@ Public Sub SanitizeXML(strPath As String, Options As clsOptions)
         
         ' Read line from file
         strText = stmInFile.ReadText(-2)
-        If Left(strText, 3) = "﻿" Then strText = Mid(strText, 4)
+        If Left$(strText, 3) = "﻿" Then strText = Mid$(strText, 4)
         ' Just looking for the first match.
         If Not blnFound Then
         
@@ -303,7 +303,7 @@ Public Sub SanitizeXML(strPath As String, Options As clsOptions)
     WriteFile cData.GetStr, strPath
 
     ' Show stats if debug turned on.
-    Log.Add "    Sanitized in " & Format(Timer - sngOverall, "0.00") & " seconds.", Options.ShowDebug
+    Log.Add "    Sanitized in " & Format$(Timer - sngOverall, "0.00") & " seconds.", Options.ShowDebug
 
 End Sub
 
@@ -317,7 +317,7 @@ End Sub
 '
 Public Function ProjectPath() As String
     ProjectPath = CurrentProject.Path
-    If Right(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
+    If Right$(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
 End Function
 
 
@@ -342,7 +342,7 @@ End Sub
 '
 Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
     If Not FSO.FolderExists(StripSlash(strFolder)) Then Exit Sub
-    If Dir(strFolder & "*." & strExt) <> "" Then
+    If Dir(strFolder & "*." & strExt) <> vbNullString Then
         FSO.DeleteFile strFolder & "*." & strExt
     End If
 End Sub
@@ -417,8 +417,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function StripSlash(strText As String) As String
-    If Right(strText, 1) = "\" Then
-        StripSlash = Left(strText, Len(strText) - 1)
+    If Right$(strText, 1) = "\" Then
+        StripSlash = Left$(strText, Len(strText) - 1)
     Else
         StripSlash = strText
     End If
@@ -432,7 +432,7 @@ End Function
 ' Purpose   : Returns true if the item value is found in the collection
 '---------------------------------------------------------------------------------------
 '
-Public Function InCollection(MyCol As Collection, MyValue) As Boolean
+Public Function InCollection(ByVal MyCol As Collection, ByVal MyValue As Variant) As Boolean
     Dim intCnt As Integer
     For intCnt = 1 To MyCol.Count
         If MyCol(intCnt) = MyValue Then
@@ -480,7 +480,7 @@ Public Sub VerifyPath(strFolderPath As String)
     
     ' If code reaches here, we don't have a copy of the path
     ' in the cached list of verified paths. Verify and add
-    If Dir(strFolderPath, vbDirectory) = "" Then
+    If Dir(strFolderPath, vbDirectory) = vbNullString Then
         ' Path does not seem to exist. Create it.
         MkDirIfNotExist strFolderPath
     End If
@@ -527,7 +527,7 @@ End Function
 ' Purpose   : Set a database property
 '---------------------------------------------------------------------------------------
 '
-Public Sub SetDBProperty(strName As String, varValue, Optional prpType = dbText)
+Public Sub SetDBProperty(ByVal strName As String, ByVal varValue As Variant, Optional ByVal prpType As Long = dbText)
 
     Dim prp As Object ' DAO.Property
     Dim blnFound As Boolean
@@ -932,7 +932,7 @@ End Sub
 ' Purpose   : Get the value of a custom access property
 '---------------------------------------------------------------------------------------
 '
-Public Function GetAccessObjectProperty(objItem As AccessObject, strProperty As String, Optional strDefault As String)
+Public Function GetAccessObjectProperty(objItem As AccessObject, strProperty As String, Optional strDefault As String) As Variant
     Dim prp As AccessObjectProperty
     For Each prp In objItem.Properties
         If StrComp(prp.Name, strProperty, vbTextCompare) = 0 Then
@@ -954,8 +954,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function StripDboPrefix(strName As String) As String
-    If Left(strName, 4) = "dbo." Then
-        StripDboPrefix = Mid(strName, 5)
+    If Left$(strName, 4) = "dbo." Then
+        StripDboPrefix = Mid$(strName, 5)
     Else
         StripDboPrefix = strName
     End If
@@ -985,7 +985,7 @@ End Function
 ' Purpose   : Show the VBA code editor (used in autoexec macro)
 '---------------------------------------------------------------------------------------
 '
-Public Function ShowIDE()
+Public Function ShowIDE() As Variant
     DoCmd.RunCommand acCmdVisualBasicEditor
     DoEvents
     ShowIDE = True
@@ -1003,7 +1003,7 @@ Public Function ProgramFilesFolder() As String
     Dim strFolder As String
     strFolder = Environ$("PROGRAMFILES")
     ' Should always work, but just in case!
-    If strFolder = "" Then strFolder = "C:\Program Files (x86)"
+    If strFolder = vbNullString Then strFolder = "C:\Program Files (x86)"
     ProgramFilesFolder = strFolder & "\"
 End Function
 
@@ -1050,9 +1050,9 @@ Public Function UncPath(strPath As String) As String
         strShare = .GetDrive(strDrive).ShareName
     End With
     
-    If strShare <> "" Then
+    If strShare <> vbNullString Then
         ' Replace drive with UNC path
-        UncPath = strShare & Mid(strPath, Len(strDrive) + 1)
+        UncPath = strShare & Mid$(strPath, Len(strDrive) + 1)
     Else
         ' Return unmodified path
         UncPath = strPath
@@ -1129,7 +1129,7 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     varLines(2) = Replace(strLine2, "'", "''")
     varLines(3) = Replace(strTitle, "'", "''")
     
-    If varLines(3) = "" Then varLines(3) = Application.VBE.ActiveVBProject.Name
+    If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
     strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
     MsgBox2 = Eval(strMsg)
     
@@ -1264,7 +1264,7 @@ Public Sub RunSubInCurrentProject(strSubName As String)
     Dim strCmd As String
     
     ' Don't need the parentheses after the sub name
-    strCmd = Replace(strSubName, "()", "")
+    strCmd = Replace(strSubName, "()", vbNullString)
     
     ' Make sure we are not trying to run a function with arguments
     If InStr(strCmd, "(") > 0 Then
@@ -1358,8 +1358,8 @@ Public Function ReadJsonFile(strPath As String) As Dictionary
         End With
         
         ' If it looks like json content, then parse into a dictionary object.
-        If Left(strText, 3) = "﻿" Then strText = Mid(strText, 4)
-        If Left(strText, 1) = "{" Then Set ReadJsonFile = ParseJson(strText)
+        If Left$(strText, 3) = "﻿" Then strText = Mid$(strText, 4)
+        If Left$(strText, 1) = "{" Then Set ReadJsonFile = ParseJson(strText)
     End If
     
     Set stm = Nothing
@@ -1394,9 +1394,9 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
     Dim strType As String
     
     ' Shortcut to clear the cached variable
-    If strName = "" And strType = "" Then
+    If strName = vbNullString And strType = vbNullString Then
         Set colCache = Nothing
-        strLastType = ""
+        strLastType = vbNullString
         dteCacheDate = 0
         Exit Function
     End If
@@ -1405,13 +1405,13 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
     If CurrentProject.ProjectType <> acADP Then Exit Function
     
     ' Simple validation on object name
-    strObject = Replace(strName, ";", "")
+    strObject = Replace(strName, ";", vbNullString)
     
     ' Build schema filter if required
     intPos = InStr(1, strObject, ".")
     If intPos > 0 Then
-        strObject = Mid(strObject, intPos + 1)
-        strSchema = Left(strName, intPos - 1)
+        strObject = Mid$(strObject, intPos + 1)
+        strSchema = Left$(strName, intPos - 1)
         'strSchemaFilter = " AND [schema_id]=schema_id('" & strSchema & "')"
     Else
         strSchema = "dbo"
@@ -1486,7 +1486,7 @@ Public Function GetSQLObjectDefinitionForADP(strName As String) As String
     If CurrentProject.ProjectType <> acADP Then Exit Function
     
     ' Simple validation on object name
-    strObject = Replace(strName, ";", "")
+    strObject = Replace(strName, ";", vbNullString)
     
     strSQL = "SELECT object_definition (OBJECT_ID(N'" & strObject & "'))"
     '@Ignore SetAssignmentWithIncompatibleObjectType
@@ -1650,7 +1650,7 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
     If FSO.FileExists(strPath) Then
         Set dContents = ReadJsonFile(strPath)
         strFile = Decrypt(dNZ(dContents, "Items\FileName"))
-        If Left(strFile, 4) = "rel:" Then
+        If Left$(strFile, 4) = "rel:" Then
             ' Use parent folder of source folder
             GetOriginalDbFullPathFromSource = StripSlash(strFolder) & "\..\" & FSO.GetFileName(Mid$(strFile, 5))
         ElseIf InStr(1, strFile, "@{") > 0 Then
@@ -1783,19 +1783,24 @@ Public Function SortDictionaryByKeys(dSource As Dictionary) As Dictionary
         Exit Function
     End If
     
+    Dim sourceCount As Long
+    sourceCount = dSource.Count - 1
+    
     ' Build and sort array of keys
-    ReDim varKeys(0 To dSource.Count - 1)
+    ReDim varKeys(0 To sourceCount)
     For Each varKey In dSource.Keys
         varKeys(lngCnt) = varKey
         lngCnt = lngCnt + 1
     Next varKey
-    QuickSort varKeys
+    
+    QuickSort varKeys, 0, sourceCount
     
     ' Build and return new dictionary using sorted keys
     Set dSorted = New Dictionary
-    For lngCnt = 0 To UBound(varKeys)
+    For lngCnt = 0 To sourceCount
         dSorted.Add varKeys(lngCnt), dSource(varKeys(lngCnt))
     Next lngCnt
+    
     Set SortDictionaryByKeys = dSorted
     
 End Function
@@ -1809,7 +1814,7 @@ End Function
 ' Usage     : QuickSort MyArray
 '---------------------------------------------------------------------------------------
 '
-Public Sub QuickSort(vArray As Variant, Optional inLow, Optional inHi)
+Public Sub QuickSort(ByRef vArray As Variant, Optional ByVal inLow As Long, Optional ByVal inHi As Long)
 
     Dim pivot   As Variant
     Dim tmpSwap As Variant

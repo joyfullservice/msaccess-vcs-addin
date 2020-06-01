@@ -143,7 +143,7 @@ Private Sub ImportTableDataTDF(strFile As String)
     Set rst = dbs.OpenRecordset(strTable)
     
     ' Read file line by line
-    Set stm = FSO.OpenTextFile(strFile)
+    Set stm = FSO.OpenTextFile(strFile, ForReading, False)
     Set rst = dbs.OpenRecordset(strTable)
     Do While Not stm.AtEndOfStream
         strLine = stm.ReadLine

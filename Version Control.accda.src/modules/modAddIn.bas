@@ -35,7 +35,7 @@ Private Const SW_SHOWNORMAL = 1
 ' Purpose   : Launch the main add-in form.
 '---------------------------------------------------------------------------------------
 '
-Public Function AddInMenuItemLaunch()
+Public Function AddInMenuItemLaunch() As Variant
     PreloadVBE
     Form_frmVCSMain.Visible = True
     AddInMenuItemLaunch = True
@@ -49,7 +49,7 @@ End Function
 ' Purpose   : Open main form and start export immediately. (Save users a click)
 '---------------------------------------------------------------------------------------
 '
-Public Function AddInMenuItemExport()
+Public Function AddInMenuItemExport() As Variant
     PreloadVBE
     Form_frmVCSMain.Visible = True
     DoEvents
@@ -66,7 +66,7 @@ End Function
 '           : user an easy way to update the add-in on their system.
 '---------------------------------------------------------------------------------------
 '
-Public Function AutoRun()
+Public Function AutoRun() As Variant
 
     If CodeProject.FullName = GetAddinFileName Then
         ' Opening the file from add-in location, which would normally be unusual unless we are trying to remove
@@ -205,7 +205,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetAddinFileName() As String
-    GetAddinFileName = Environ("AppData") & "\Microsoft\AddIns\" & CodeProject.Name
+    GetAddinFileName = Environ$("AppData") & "\Microsoft\AddIns\" & CodeProject.Name
 End Function
 
 
@@ -275,7 +275,7 @@ End Function
 ' Purpose   : Add the menu item through the registry (HKLM, requires admin)
 '---------------------------------------------------------------------------------------
 '
-Private Sub RegisterMenuItem(strName, Optional strFunction As String = "=LaunchMe()")
+Private Sub RegisterMenuItem(ByVal strName As String, Optional ByVal strFunction As String = "=LaunchMe()")
 
     Dim strPath As String
     
@@ -297,7 +297,7 @@ End Sub
 ' Purpose   : Remove the menu item through the registry
 '---------------------------------------------------------------------------------------
 '
-Private Sub RemoveMenuItem(strName, Optional strFunction As String = "=LaunchMe()", Optional Hive As eHive = ehHKCU)
+Private Sub RemoveMenuItem(ByVal strName As String, Optional ByVal strFunction As String = "=LaunchMe()", Optional Hive As eHive = ehHKCU)
 
     Dim strPath As String
     Dim objShell As WshShell
@@ -456,7 +456,7 @@ End Sub
 Public Property Get AppVersion() As String
     Dim strVersion As String
     strVersion = GetDBProperty("AppVersion")
-    If strVersion = "" Then strVersion = "1.0.0"
+    If strVersion = vbNullString Then strVersion = "1.0.0"
     AppVersion = strVersion
 End Property
 
