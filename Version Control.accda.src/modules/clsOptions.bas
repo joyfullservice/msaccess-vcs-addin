@@ -235,6 +235,7 @@ Public Function GetExportFolder() As String
     End If
 End Function
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : SerializeOptions
 ' Author    : Adam Waller

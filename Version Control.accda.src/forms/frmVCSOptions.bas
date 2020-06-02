@@ -17,10 +17,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =111
-    Left =-21975
+    Left =3225
     Top =2430
-    Right =-255
-    Bottom =14565
+    Right =28545
+    Bottom =15015
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -2435,7 +2435,7 @@ End Sub
 '           : of tables where we are opting to save data.
 '---------------------------------------------------------------------------------------
 '
-Private Function LoadTableList() As Variant
+Private Sub LoadTableList()
 
     Dim tbl As AccessObject
     Dim blnHidden As Boolean
@@ -2470,7 +2470,7 @@ Private Function LoadTableList() As Variant
         Next varKey
     End If
     
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -2516,7 +2516,7 @@ End Sub
 ' Purpose   : Set the export type for the table
 '---------------------------------------------------------------------------------------
 '
-Private Function SetTableExportType(strTable As String, strFormat As String) As Variant
+Private Sub SetTableExportType(strTable As String, strFormat As String)
 
     Dim varTable As Variant
     Dim varNew As Variant
@@ -2540,7 +2540,7 @@ Private Function SetTableExportType(strTable As String, strFormat As String) As 
         End If
     Next varTable
 
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -2550,7 +2550,7 @@ End Function
 ' Purpose   : The master list of tables is stored in the m_colTables
 '---------------------------------------------------------------------------------------
 '
-Private Function RefreshTableDisplay() As Variant
+Private Sub RefreshTableDisplay()
     
     Dim varTable As Variant
     Dim blnShow As Boolean
@@ -2579,7 +2579,7 @@ Private Function RefreshTableDisplay() As Variant
         End If
     End With
     
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -2751,7 +2751,7 @@ End Sub
 ' Purpose   : Map the form controls to the options, performing the specified action.
 '---------------------------------------------------------------------------------------
 '
-Private Function MapControlsToOptions(eAction As eMapAction) As Variant
+Private Sub MapControlsToOptions(eAction As eMapAction)
 
     Dim pge As Access.Page
     Dim ctl As Control
@@ -2803,7 +2803,7 @@ Private Function MapControlsToOptions(eAction As eMapAction) As Variant
         Set Options.TablesToExportData = dTables
     End If
     
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------

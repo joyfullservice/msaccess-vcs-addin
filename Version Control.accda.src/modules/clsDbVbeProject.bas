@@ -62,6 +62,7 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
 
     Dim dProject As Dictionary
+    Dim HelpID As Variant
     
     ' Update project properties
     Set dProject = ReadJsonFile(strFile)
@@ -71,7 +72,6 @@ Private Sub IDbComponent_Import(strFile As String)
         
         ' Setting the HelpContextId can throw random automation errors.
         ' The setting does change despite the error.
-        Dim HelpID As Variant
         HelpID = dNZ(dProject, "Items\HelpContextId")
         On Error Resume Next
         .HelpContextId = dNZ(dProject, "Items\HelpContextId")

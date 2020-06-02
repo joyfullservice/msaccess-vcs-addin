@@ -295,7 +295,7 @@ End Sub
 '           : http://www.lessanvaezi.com/changing-printer-settings-using-the-windows-api/
 '---------------------------------------------------------------------------------------
 '
-Public Function LoadFromPrinter(strPrinter As String) As Variant
+Public Sub LoadFromPrinter(strPrinter As String)
 
     ' API constants for reading printer properties
     Const READ_CONTROL = &H20000
@@ -335,7 +335,7 @@ Public Function LoadFromPrinter(strPrinter As String) As Variant
     ' Close printer handle
     If hPrinter <> 0 Then ClosePrinter hPrinter
 
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -698,7 +698,7 @@ End Function
 '           : http://www.jasinskionline.com/windowsapi/ref/d/devmode.html
 '---------------------------------------------------------------------------------------
 '
-Private Function BuildEnum(eType As ePrintEnum) As Variant
+Private Sub BuildEnum(eType As ePrintEnum)
 
     Set m_dEnum(eType) = New Dictionary
     With m_dEnum(eType)
@@ -826,7 +826,7 @@ Private Function BuildEnum(eType As ePrintEnum) As Variant
         End Select
     End With
 
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------

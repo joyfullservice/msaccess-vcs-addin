@@ -35,7 +35,7 @@ Private Const SW_SHOWNORMAL = 1
 ' Purpose   : Launch the main add-in form.
 '---------------------------------------------------------------------------------------
 '
-Public Function AddInMenuItemLaunch() As Variant
+Public Function AddInMenuItemLaunch() As Boolean
     PreloadVBE
     Form_frmVCSMain.Visible = True
     AddInMenuItemLaunch = True
@@ -49,7 +49,7 @@ End Function
 ' Purpose   : Open main form and start export immediately. (Save users a click)
 '---------------------------------------------------------------------------------------
 '
-Public Function AddInMenuItemExport() As Variant
+Public Function AddInMenuItemExport() As Boolean
     PreloadVBE
     Form_frmVCSMain.Visible = True
     DoEvents
@@ -66,7 +66,7 @@ End Function
 '           : user an easy way to update the add-in on their system.
 '---------------------------------------------------------------------------------------
 '
-Public Function AutoRun() As Variant
+Public Function AutoRun() As Boolean
 
     If CodeProject.FullName = GetAddinFileName Then
         ' Opening the file from add-in location, which would normally be unusual unless we are trying to remove

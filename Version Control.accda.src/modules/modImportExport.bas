@@ -333,7 +333,7 @@ End Function
 ' Purpose   : Return an unused filename for the database backup befor build
 '---------------------------------------------------------------------------------------
 '
-Private Function GetBackupFileName(strPath As String) As Variant
+Private Function GetBackupFileName(strPath As String) As String
     
     Const cstrSuffix As String = "_VCSBackup"
     

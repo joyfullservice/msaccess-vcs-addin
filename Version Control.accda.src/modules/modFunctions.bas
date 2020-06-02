@@ -985,7 +985,7 @@ End Function
 ' Purpose   : Show the VBA code editor (used in autoexec macro)
 '---------------------------------------------------------------------------------------
 '
-Public Function ShowIDE() As Variant
+Public Function ShowIDE() As Boolean
     DoCmd.RunCommand acCmdVisualBasicEditor
     DoEvents
     ShowIDE = True

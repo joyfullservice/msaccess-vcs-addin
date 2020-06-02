@@ -137,7 +137,6 @@ Private Sub TestSortDictionaryByKeys()
     
     'Arrange:
     Dim dItems As Dictionary
-    Dim v As Variant
     
     Set dItems = New Dictionary
     dItems.Add "C", "C"
