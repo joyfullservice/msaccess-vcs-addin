@@ -2021,10 +2021,12 @@ Public Sub TestPrinterFunctions()
     Dim dPrinter As Dictionary
     
     With cPrinter
-        .LoadFromPrinter ("C552 Color")
+        '.LoadFromPrinter ("C552 Color")
+        'Set dPrinter = .GetDictionary
+        '.LoadFromExportFile CodeProject.Path & "\Testing\Testing.accdb.src\reports\rptDefaultPrinter.bas"
+        .LoadFromExportFile CodeProject.Path & "\rptTest.bas"
         Set dPrinter = .GetDictionary
-        .LoadFromExportFile CodeProject.Path & "\Testing\Testing.accdb.src\reports\rptDefaultPrinter.bas"
-        'Debug.Print ConvertToJson(dPrinter, 4)
-        
+        Debug.Print ConvertToJson(dPrinter, 4)
+        'Stop
     End With
 End Sub

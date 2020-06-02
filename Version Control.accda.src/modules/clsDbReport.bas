@@ -12,49 +12,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-' See the following links for additional technical details regarding the DEVMODE strcture:
-' https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
-' https://stackoverflow.com/questions/49560317/64-bit-word-vba-devmode-dmduplex-returns-4
-' http://toddmcdermid.blogspot.com/2009/02/microsoft-access-2003-and-printer.html
-
-Private Type str_DEVMODE
-    RGB As String * 220
-End Type
-
-Private Type type_DEVMODE
-    strDeviceName As String * 32
-    intSpecVersion As Integer
-    intDriverVersion As Integer
-    intSize As Integer
-    intDriverExtra As Integer
-    lngFields As Long
-    intOrientation As Integer
-    intPaperSize As Integer
-    intPaperLength As Integer
-    intPaperWidth As Integer
-    intScale As Integer
-    intCopies As Integer
-    intDefaultSource As Integer
-    intPrintQuality As Integer
-    intColor As Integer
-    intDuplex As Integer
-    intResolution As Integer
-    intTTOption As Integer
-    intCollate As Integer
-    strFormName As String * 32
-    intUnusedPadding As Integer
-    intBitsPerPel As Integer
-    lngPelsWidth As Long
-    lngPelsHeight As Long
-    lngDisplayFlags As Long
-    lngDisplayFrequency As Long
-    lngICMMethod As Long
-    lngICMIntent As Long
-    lngMediaType As Long
-    lngDitherType As Long
-    lngReserved1 As Long
-    lngReserved2 As Long
-End Type
 
 Private m_Report As AccessObject
 Private m_AllItems As Collection
@@ -75,61 +32,35 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
 
-    ' Export main report object
-    SaveComponentAsText acReport, m_Report.Name, IDbComponent_SourceFile
-    
-    ' Export print vars if selected
+    Dim cDevMode As clsDevMode
+    Dim strTempFile As String
+
+    ' Check Save Print Vars settings
     If Options.SavePrintVars Then
-        ExportPrintVars m_Report.Name, GetPrintVarsFileName(m_Report.Name)
-    End If
+
+        ' Take a little more manual approach on the export so we can grab the
+        ' printer settings before sanitizing the file.
+        Set cDevMode = New clsDevMode
     
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ExportPrintVars
-' Author    : Adam Waller
-' Date      : 1/25/2019
-' Purpose   : Exports print vars for reports
-'           : https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
-'---------------------------------------------------------------------------------------
-'
-Public Sub ExportPrintVars(strReport As String, strFile As String)
-
-    Dim DevModeString As str_DEVMODE
-    Dim DevModeExtra As String
-    Dim DM As type_DEVMODE
-    Dim rpt As Report
-    Dim dItems As Dictionary
-
-    'report must be open to access Report object
-    'report must be opened in design view to save changes to the print vars
-    Application.Echo False
-    DoCmd.OpenReport strReport, acViewDesign
-    Set rpt = Reports(strReport)
-    rpt.Visible = False
-
-    ' Make sure we don't have a null devmode
-    If Not IsNull(rpt.PrtDevMode) Then
-
-        ' Read report devmode into structure and convert to dictionary
-        DevModeExtra = rpt.PrtDevMode
-        DevModeString.RGB = DevModeExtra
-        LSet DM = DevModeString
-        Set dItems = DevModeToDictionary(DM)
-
-        ' Write output to file
-        WriteJsonFile Me, dItems, strFile, "Report Print Settings"
-
+        ' Export to temporary file
+        strTempFile = GetTempFile
+        
+        ' Save as text, then grab and save printer info.
+        Application.SaveAsText acReport, m_Report.Name, strTempFile
+        cDevMode.LoadFromExportFile strTempFile
+        WriteJsonFile Me, cDevMode.GetDictionary, _
+            GetPrintVarsFileName(m_Report.Name), "Report Print Settings"
+        
+        ' Handle UCS conversion if needed
+        ConvertUcs2Utf8 strTempFile, IDbComponent_SourceFile
+        
+        ' Sanitize source file
+        SanitizeFile IDbComponent_SourceFile
+        
     Else
-        ' DevMode was null
-        Log.Add "  Warning: PrtDevMode is null"
+        ' Simple export of report object
+        SaveComponentAsText acReport, m_Report.Name, IDbComponent_SourceFile
     End If
-
-    ' Clean up
-    Set rpt = Nothing
-    DoCmd.Close acReport, strReport, acSaveNo
-    Application.Echo True
 
 End Sub
 
@@ -142,7 +73,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ImportPrintVars(strFile As String)
-    
+
 '    Dim DevModeString As str_DEVMODE
 '    Dim tDevMode As type_DEVMODE
 '    Dim DevModeExtra As String
@@ -164,7 +95,7 @@ Public Sub ImportPrintVars(strFile As String)
 '        Reports(strReport).PrtDevMode = DevModeExtra
 '        DoCmd.Close acReport, strReport, acSaveYes
 '    End If
-    
+
 End Sub
 
 
@@ -176,18 +107,18 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    
+
     Dim strReport As String
-    
+
     ' Import the report object
     strReport = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acReport, strReport, strFile
-    
+
     ' Import the print vars if specified
     If Options.SavePrintVars Then
         ImportPrintVars GetPrintVarsFileName(strReport)
     End If
-    
+
 End Sub
 
 
@@ -199,7 +130,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB() As Collection
-    
+
     Dim rpt As AccessObject
     Dim cReport As IDbComponent
 
@@ -215,98 +146,7 @@ Private Function IDbComponent_GetAllFromDB() As Collection
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_AllItems
-        
-End Function
 
-
-'---------------------------------------------------------------------------------------
-' Procedure : DevModeToDictionary
-' Author    : Adam Waller
-' Date      : 5/7/2020
-' Purpose   : Convert a DEVMODE type to a dictionary.
-'---------------------------------------------------------------------------------------
-'
-Private Function DevModeToDictionary(cDev As type_DEVMODE) As Dictionary
-    Set DevModeToDictionary = New Dictionary
-    With DevModeToDictionary
-        .Add "DeviceName", cDev.strDeviceName
-        .Add "SpecVersion", cDev.intSpecVersion
-        .Add "DriverVersion", cDev.intDriverVersion
-        .Add "Size", cDev.intSize
-        .Add "DriverExtra", cDev.intDriverExtra
-        .Add "Fields", cDev.lngFields
-        .Add "Orientation", cDev.intOrientation
-        .Add "PaperSize", cDev.intPaperSize
-        .Add "PaperLength", cDev.intPaperLength
-        .Add "PaperWidth", cDev.intPaperWidth
-        .Add "Scale", cDev.intScale
-        .Add "Copies", cDev.intCopies
-        .Add "DefaultSource", cDev.intDefaultSource
-        .Add "PrintQuality", cDev.intPrintQuality
-        .Add "Color", cDev.intColor
-        .Add "Duplex", cDev.intDuplex
-        .Add "Resolution", cDev.intResolution
-        .Add "TTOption", cDev.intTTOption
-        .Add "Collate", cDev.intCollate
-        .Add "FormName", cDev.strFormName
-        .Add "UnusedPadding", cDev.intUnusedPadding
-        .Add "BitsPerPel", cDev.intBitsPerPel
-        .Add "PelsWidth", cDev.lngPelsWidth
-        .Add "PelsHeight", cDev.lngPelsHeight
-        .Add "DisplayFlags", cDev.lngDisplayFlags
-        .Add "DisplayFrequency", cDev.lngDisplayFrequency
-        .Add "ICMMethod", cDev.lngICMMethod
-        .Add "ICMIntent", cDev.lngICMIntent
-        .Add "MediaType", cDev.lngMediaType
-        .Add "DitherType", cDev.lngDitherType
-        .Add "Reserved1", cDev.lngReserved1
-        .Add "Reserved2", cDev.lngReserved2
-    End With
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : DictionaryToDevMode
-' Author    : Adam Waller
-' Date      : 5/7/2020
-' Purpose   : Excel formulas make it easy to edit these!
-'---------------------------------------------------------------------------------------
-'
-Private Function DictionaryToDevMode(dDevMode As Dictionary) As type_DEVMODE
-    With DictionaryToDevMode
-        .strDeviceName = dDevMode("DeviceName")
-        .intSpecVersion = dDevMode("SpecVersion")
-        .intDriverVersion = dDevMode("DriverVersion")
-        .intSize = dDevMode("Size")
-        .intDriverExtra = dDevMode("DriverExtra")
-        .lngFields = dDevMode("Fields")
-        .intOrientation = dDevMode("Orientation")
-        .intPaperSize = dDevMode("PaperSize")
-        .intPaperLength = dDevMode("PaperLength")
-        .intPaperWidth = dDevMode("PaperWidth")
-        .intScale = dDevMode("Scale")
-        .intCopies = dDevMode("Copies")
-        .intDefaultSource = dDevMode("DefaultSource")
-        .intPrintQuality = dDevMode("PrintQuality")
-        .intColor = dDevMode("Color")
-        .intDuplex = dDevMode("Duplex")
-        .intResolution = dDevMode("Resolution")
-        .intTTOption = dDevMode("TTOption")
-        .intCollate = dDevMode("Collate")
-        .strFormName = dDevMode("FormName")
-        .intUnusedPadding = dDevMode("UnusedPadding")
-        .intBitsPerPel = dDevMode("BitsPerPel")
-        .lngPelsWidth = dDevMode("PelsWidth")
-        .lngPelsHeight = dDevMode("PelsHeight")
-        .lngDisplayFlags = dDevMode("DisplayFlags")
-        .lngDisplayFrequency = dDevMode("DisplayFrequency")
-        .lngICMMethod = dDevMode("ICMMethod")
-        .lngICMIntent = dDevMode("ICMIntent")
-        .lngMediaType = dDevMode("MediaType")
-        .lngDitherType = dDevMode("DitherType")
-        .lngReserved1 = dDevMode("Reserved1")
-        .lngReserved2 = dDevMode("Reserved2")
-    End With
 End Function
 
 
