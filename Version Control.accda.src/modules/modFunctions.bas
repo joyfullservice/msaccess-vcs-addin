@@ -1955,6 +1955,43 @@ Public Function Secure(strText As String) As String
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : DictionaryEqual
+' Author    : Adam Waller
+' Date      : 6/2/2020
+' Purpose   : Returns true if the two dictionary objects are equal in values to each
+'           : other, including nested values. Testing the quickest comparisons first
+'           : to make the function as performant as possible.
+'---------------------------------------------------------------------------------------
+'
+Public Function DictionaryEqual(dOne As Dictionary, dTwo As Dictionary) As Boolean
+
+    Dim strOne As String
+    Dim strTwo As String
+    Dim blnEqual As Boolean
+    
+    If dOne Is Nothing And dTwo Is Nothing Then
+        ' Neither object set.
+        blnEqual = True
+    ElseIf Not dOne Is Nothing And Not dTwo Is Nothing Then
+        ' Both are objects. Check count property.
+        If dOne.Count = dTwo.Count Then
+            strOne = ConvertToJson(dOne)
+            strTwo = ConvertToJson(dTwo)
+            ' Compare string length
+            If Len(strOne) = Len(strTwo) Then
+                ' Perform a binary (case-sensitive) comparison of strings.
+                blnEqual = (StrComp(strOne, strTwo, vbBinaryCompare) = 0)
+            End If
+        End If
+    End If
+    
+    ' Return comparison result
+    DictionaryEqual = blnEqual
+    
+End Function
+
+
 Public Sub TestPrinterFunctions()
 
     Dim cPrinter As New clsDevMode
