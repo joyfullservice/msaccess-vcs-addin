@@ -371,60 +371,10 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     ' Save copy to zip folder
     strBinaryFile = CodeProject.Path & "\Version_Control_v" & AppVersion & ".zip"
     CreateZipFile strBinaryFile
-    CopyToZip CodeProject.FullName, strBinaryFile
+    CopyFileToZip CodeProject.FullName, strBinaryFile
     
     ' Deploy latest version on this machine
     If InstallVCSAddin Then Debug.Print "Version " & AppVersion & " installed."
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : CreateZipFile
-' Author    : Adam Waller
-' Date      : 5/26/2020
-' Purpose   : Create an empty zip file to copy files into.
-'           : Adapted from: http://www.rondebruin.nl/win/s7/win001.htm
-'---------------------------------------------------------------------------------------
-'
-Private Sub CreateZipFile(strPath As String)
-    
-    Dim strHeader As String
-    Dim intFile As Integer
-    
-    ' Build Zip file header
-    strHeader = "PK" & Chr$(5) & Chr$(6) & String$(18, 0)
-    
-    ' Write to file
-    If FSO.FileExists(strPath) Then Kill strPath
-    intFile = FreeFile
-    Open strPath For Output As #intFile
-        Print #intFile, strHeader
-    Close #intFile
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : CopyToZip
-' Author    : Adam Waller
-' Date      : 5/26/2020
-' Purpose   : Copy a file into a zip archive.
-'           : Adapted from: http://www.rondebruin.nl/win/s7/win001.htm
-'---------------------------------------------------------------------------------------
-'
-Private Sub CopyToZip(strFile As String, strZip As String)
-    
-    Dim oApp As Object
-    Dim varZip As Variant
-    Dim varFile As Variant
-    
-    ' Must use variants for the CopyHere function to work.
-    varZip = strZip
-    varFile = strFile
-    
-    Set oApp = CreateObject("Shell.Application")
-    oApp.Namespace(varZip).CopyHere varFile
     
 End Sub
 

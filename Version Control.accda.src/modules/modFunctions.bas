@@ -54,11 +54,14 @@ Public Enum eDatabaseComponentType
     edbSavedSpec
     edbImexSpec
     edbNavPaneGroup
+    edbTheme
     edbVbeForm
     edbVbeProject
     edbVbeReference
 End Enum
 
+' API function to pause processing
+Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)
 
 ' Logging and options classes
 Private m_Log As clsLog
@@ -2015,18 +2018,147 @@ Public Function DictionaryEqual(dOne As Dictionary, dTwo As Dictionary) As Boole
 End Function
 
 
-Public Sub TestPrinterFunctions()
 
-    Dim cPrinter As New clsDevMode
-    Dim dPrinter As Dictionary
+'---------------------------------------------------------------------------------------
+' Procedure : CreateZipFile
+' Author    : Adam Waller
+' Date      : 5/26/2020
+' Purpose   : Create an empty zip file to copy files into.
+'           : Adapted from: http://www.rondebruin.nl/win/s7/win001.htm
+'---------------------------------------------------------------------------------------
+'
+Public Sub CreateZipFile(strPath As String)
     
-    With cPrinter
-        '.LoadFromPrinter ("C552 Color")
-        'Set dPrinter = .GetDictionary
-        '.LoadFromExportFile CodeProject.Path & "\Testing\Testing.accdb.src\reports\rptDefaultPrinter.bas"
-        .LoadFromExportFile CodeProject.Path & "\rptTest.bas"
-        Set dPrinter = .GetDictionary
-        Debug.Print ConvertToJson(dPrinter, 4)
-        'Stop
-    End With
+    Dim strHeader As String
+    Dim intFile As Integer
+    
+    ' Build Zip file header
+    strHeader = "PK" & Chr$(5) & Chr$(6) & String$(18, 0)
+    
+    ' Write to file
+    If FSO.FileExists(strPath) Then Kill strPath
+    intFile = FreeFile
+    Open strPath For Output As #intFile
+        Print #intFile, strHeader
+    Close #intFile
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CopyToZip
+' Author    : Adam Waller
+' Date      : 5/26/2020
+' Purpose   : Copy a file into a zip archive.
+'           : Adapted from: http://www.rondebruin.nl/win/s7/win001.htm
+'---------------------------------------------------------------------------------------
+'
+Public Sub CopyFileToZip(strFile As String, strZip As String)
+    
+    Dim oApp As Object
+    Dim varZip As Variant
+    Dim varFile As Variant
+    
+    ' Must use variants for the CopyHere function to work.
+    varZip = strZip
+    varFile = strFile
+    
+    Set oApp = CreateObject("Shell.Application")
+    oApp.Namespace(varZip).CopyHere varFile
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CopyFolderToZip
+' Author    : Adam Waller
+' Date      : 6/3/2020
+' Purpose   : Copies a folder of items into a zip file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CopyFolderToZip(strFolder As String, strZip As String, _
+    Optional blnPauseTillFinished As Boolean = True, Optional intTimeoutSeconds As Integer = 60)
+
+    Dim oApp As Object
+    Dim varZip As Variant
+    Dim varFolder As Variant
+    Dim sngTimeout As Single
+    Dim lngCount As Long
+    
+    ' Must use variants for the CopyHere function to work.
+    varZip = strZip
+    varFolder = strFolder
+    
+    ' Count the total items before we start the copy,
+    ' since there might already be files in the zip folder.
+    lngCount = oApp.Namespace(varFolder).Items.Count + oApp.Namespace(varZip).Items.Count
+    
+    ' Start the copy
+    Set oApp = CreateObject("Shell.Application")
+    oApp.Namespace(varZip).CopyHere oApp.Namespace(varFolder).Items
+    
+    ' Pause till the copying is complete, or we hit the timeout.
+    sngTimeout = Timer + intTimeoutSeconds
+    Do While Timer < sngTimeout
+        ' Check to see if all the items have been copied.
+        If oApp.Namespace(varZip).Items.Count = lngCount Then Exit Do
+        Pause 0.5
+    Loop
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractFromZip
+' Author    : Adam Waller
+' Date      : 6/3/2020
+' Purpose   : Extracts all the files from a zip archive.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExtractFromZip(strZip As String, strDestFolder As String, _
+    Optional blnPauseTillFinished As Boolean = True, Optional intTimeoutSeconds As Integer = 60)
+
+    Dim oApp As Object
+    Dim varZip As Variant
+    Dim varFolder As Variant
+    Dim sngTimeout As Single
+    Dim lngCount As Long
+    Dim strFolder As String
+    
+    ' Build folder path, and make sure it exists
+    If Not FSO.FolderExists(strDestFolder) Then MkDir strDestFolder
+    strFolder = FSO.GetFolder(strDestFolder).Path
+    
+    ' Must use variants for the CopyHere function to work.
+    varZip = strZip
+    varFolder = strFolder & "\"
+
+    ' Count the total items before we start the copy,
+    ' since there might already be files in the zip folder.
+    Set oApp = CreateObject("Shell.Application")
+    lngCount = oApp.Namespace(varFolder).Items.Count + oApp.Namespace(varZip).Items.Count
+
+    ' Extract items
+    oApp.Namespace(varFolder).CopyHere oApp.Namespace(varZip).Items
+    
+    ' Pause till the copying is complete, or we hit the timeout.
+    sngTimeout = Timer + intTimeoutSeconds
+    Do While Timer < sngTimeout
+        ' Check to see if all the items have been copied.
+        If oApp.Namespace(varZip).Items.Count = lngCount Then Exit Do
+        Pause 0.5
+    Loop
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Pause
+' Author    : Adam Waller
+' Date      : 6/3/2020
+' Purpose   : Pause the code execution for x seconds.
+'---------------------------------------------------------------------------------------
+'
+Public Sub Pause(sngSeconds As Single)
+    Sleep sngSeconds * 1000
 End Sub
