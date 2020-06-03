@@ -49,7 +49,7 @@ Private Sub IDbComponent_Export()
     Dim stm As ADODB.Stream
     Dim bteHeader As Byte
     Dim varHeader() As Byte
-    
+
     ' Save theme file
     strFile = IDbComponent_SourceFile & ".zip"
     Set stm = New ADODB.Stream
@@ -60,14 +60,16 @@ Private Sub IDbComponent_Export()
         .SaveToFile strFile, adSaveCreateOverWrite
         .Close
     End With
-    
+
     ' Extract to folder and delete zip file.
     strFolder = IDbComponent_SourceFile
     If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder
     DoEvents ' Make sure the folder is deleted before we recreate it.
-    ExtractFromZip strFile, IDbComponent_SourceFile
-    FSO.DeleteFile IDbComponent_SourceFile & ".zip"
-    
+    ExtractFromZip strFile, IDbComponent_SourceFile, False
+    ' Rather than holding up the export while we extract the file,
+    ' use a cleanup sub to do this after the export.
+    'FSO.DeleteFile IDbComponent_SourceFile & ".zip"
+
 End Sub
 
 
@@ -81,40 +83,13 @@ End Sub
 Private Function StripOLEHeader(bteData() As Byte) As Byte()
 
     Dim strData As String
-    
+
     ' Convert to string
     strData = bteData
-    
+
     ' Strip off header, and convert back to byte array
     StripOLEHeader = Mid$(strData, 12)
-    
-End Function
 
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetOLEHeader
-' Author    : Adam Waller
-' Date      : 6/3/2020
-' Purpose   : Create the byte array header for the theme OLE object. (Creating this
-'           : based on an actual theme extracted from the database.)
-'---------------------------------------------------------------------------------------
-'
-Private Function GetOLEHeader() As Byte()
-
-    Dim varHeader As Variant
-    Dim bteHeader() As Byte
-    Dim intCnt As Integer
-    
-    ' Byte array of header
-    varHeader = Array(22, 0, 0, 0, 1, 0, 0, 0, 5, 0, 0, 0, 116, 0, 104, 0, 109, 0, 120, 0, 0, 0)
-    
-    ' Convert to byte array
-    ReDim bteHeader(0 To UBound(varHeader))
-    For intCnt = 0 To UBound(varHeader)
-        bteHeader(intCnt) = varHeader(intCnt)
-    Next intCnt
-    GetOLEHeader = bteHeader
-    
 End Function
 
 
@@ -127,81 +102,70 @@ End Function
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim dFile As Dictionary
-    Dim dItem As Dictionary
-    Dim strTemp As String
-    Dim strImageFile As String
-    Dim strOriginalName As String
-    Dim strBase As String
-    Dim lngIndex As Long
-    Dim proj As CurrentProject
+    Dim rstResources As DAO.Recordset2
+    Dim rstAttachment As DAO.Recordset2
+    Dim fldFile As DAO.Field2
+    Dim strZip As String
+    Dim strThemeFile As String
+    Dim strName As String
+    Dim strSQL As String
     
-    ' Read json header file
-    Set dFile = ReadJsonFile(strFile)
-    If Not dFile Is Nothing Then
-        Set dItem = dFile("Items")
-        ' Check for an existing file with the same name
-        strOriginalName = IDbComponent_BaseFolder & dItem("FileName")
-        strImageFile = IDbComponent_BaseFolder & FSO.GetBaseName(strFile) & "." & FSO.GetExtensionName(strOriginalName)
-        If strOriginalName <> strImageFile Then
-            If FSO.FileExists(strOriginalName) Then
-                strTemp = IDbComponent_BaseFolder & FSO.GetTempName
-                ' Rename to temp file
-                Name strOriginalName As strTemp
-            End If
-            Name strImageFile As strOriginalName
-        End If
-        ' Reame image to original name
-        ' Import as image, then rename back to image file name that matches json file.
-        Set proj = CurrentProject
-        With proj
-            lngIndex = .Resources.Count
-            ' Import using the original file name as the resource name so the
-            ' embedded file has the correct name.
-            strBase = FSO.GetBaseName(strOriginalName)
-            .AddSharedImage strBase, strOriginalName
-            If .Resources.Count = lngIndex + 1 Then
-                ' Rename shared resource to saved name if different.
-                If strBase <> dItem("Name") Then
-                    .Resources(GetResourceIndexByName(strBase)).Name = dItem("Name")
-                End If
-            End If
-        End With
-        ' Restore temp file if needed
-        If strTemp <> vbNullString Then
-            Name strTemp As strImageFile
+    ' Build zip file from theme folder
+    strZip = strFile & ".zip"
+    If FSO.FileExists(strZip) Then FSO.DeleteFile strZip
+    DoEvents
+    CreateZipFile strZip
+    CopyFolderToZip strFile, strZip
+    DoEvents
+
+    ' Get theme name
+    strName = FSO.GetBaseName(strZip)
+    
+    ' Create/edit record in resources table.
+    VerifyResourcesTable
+    strSQL = "SELECT * FROM MSysResources WHERE [Type] = 'thmx' AND [Name]=""" & strName & """"
+    Set rstResources = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    With rstResources
+        If .EOF Then
+            ' No existing record found. Add a record
+            .AddNew
+            !Name = strName
+            !Extension = "thmx"
+            !Type = "thmx"
+            Set rstAttachment = .Fields("Data").Value
         Else
-            ' Restore image file name if needed.
-            If strOriginalName <> strImageFile Then Name strOriginalName As strImageFile
+            ' Found theme record with the same name.
+            ' Remove the attached theme file.
+            .Edit
+            Set rstAttachment = .Fields("Data").Value
+            If Not rstAttachment.EOF Then rstAttachment.Delete
         End If
-    End If
+        
+        ' Upload theme file into OLE field
+        strThemeFile = strFile & ".thmx"
+        Name strZip As strThemeFile
+        DoEvents
+        With rstAttachment
+            .AddNew
+            Set fldFile = .Fields("FileData")
+            fldFile.LoadFromFile strThemeFile
+            .Update
+            .Close
+        End With
+        
+        ' Save and close record
+        .Update
+        .Close
+    End With
+    
+    ' Remove zip file
+    Kill strThemeFile
+    
+    ' Clear object (Important with DAO/ADO)
+    Set rstAttachment = Nothing
+    Set rstResources = Nothing
 
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetResourceIndexByName
-' Author    : Adam Waller
-' Date      : 5/29/2020
-' Purpose   : Return the index of the shared resource after locating by name.
-'           : (This is needed because the new resource doesn't always have the
-'           :  highest index.)
-'---------------------------------------------------------------------------------------
-'
-Private Function GetResourceIndexByName(strName As String) As Long
-
-    Dim lngIndex As Long
-    Dim resShared As SharedResources
-    
-    Set resShared = CurrentProject.Resources
-    For lngIndex = 0 To resShared.Count - 1
-        If resShared(lngIndex).Name = strName Then
-            GetResourceIndexByName = lngIndex
-            Exit For
-        End If
-    Next lngIndex
-    
-End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -220,10 +184,10 @@ Private Function IDbComponent_GetAllFromDB() As Collection
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
         Set m_AllItems = New Collection
-        
+
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
-            
+
             Set m_Dbs = CurrentDb
             strSQL = "SELECT * FROM MSysResources WHERE Type='thmx'"
             Set rst = m_Dbs.OpenRecordset(strSQL, dbOpenSnapshot, dbOpenForwardOnly)
@@ -246,6 +210,28 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : VerifyResourceTable
+' Author    : Adam Waller
+' Date      : 6/3/2020
+' Purpose   : Make sure the resources table exists, creating it if needed.
+'---------------------------------------------------------------------------------------
+'
+Public Sub VerifyResourcesTable()
+
+    Dim strName As String
+    
+    If Not TableExists("MSysResources") Then
+        ' It would be nice to find a magical system command for this, but for now
+        ' we can create it by creating a temporary form object.
+        strName = CreateForm().Name
+        ' Close without saving
+        DoCmd.Close acForm, strName, acSaveNo
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetFileList
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -254,7 +240,7 @@ End Function
 '
 Private Function IDbComponent_GetFileList() As Collection
     ' Get list of folders
-    'Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder & "*.json")
+    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, vbDirectory)
 End Function
 
 
@@ -410,9 +396,9 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
 
     Dim fld2 As DAO.Field2
     Dim rst2 As DAO.Recordset2
-    
+
     Set m_Rst = RHS
-    
+
     ' Load in the object details.
     m_Name = m_Rst!Name
     m_Extension = m_Rst!Extension
@@ -421,7 +407,7 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     Set rst2 = fld2.Value
     m_FileName = rst2.Fields("FileName")
     m_FileData = rst2.Fields("FileData")
-    
+
     ' Clear the object references
     Set rst2 = Nothing
     Set fld2 = Nothing

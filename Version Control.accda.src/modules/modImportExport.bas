@@ -114,6 +114,9 @@ Public Sub ExportSource()
         End If
     Next cCategory
     
+    ' Run any cleanup routines
+    RemoveThemeZipFiles
+    
     ' Run any custom sub after export
     If Options.RunAfterExport <> vbNullString Then
         Log.Add "Running " & Options.RunAfterExport & "..."
@@ -365,3 +368,19 @@ Private Function GetBackupFileName(strPath As String) As String
     Next intCnt
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveThemeZipFiles
+' Author    : Adam Waller
+' Date      : 6/3/2020
+' Purpose   : Removes any existing theme zip files. We don't run this inline because
+'           : the extraction runs asychrously through the OS and we don't want to slow
+'           : down the export waiting for each extraction to complete.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RemoveThemeZipFiles()
+    Dim strFolder As String
+    strFolder = Options.GetExportFolder & "themes\"
+    If FSO.FolderExists(strFolder) Then ClearFilesByExtension strFolder, "zip"
+End Sub

@@ -1299,11 +1299,23 @@ Public Function GetFilePathsInFolder(strDirPath As String, Optional Attributes A
     Dim strBaseFolder As String
     Dim strFile As String
     
-    strBaseFolder = FSO.GetParentFolderName(strDirPath) & "\"
+    ' Build base folder name
+    If Attributes = vbDirectory Then
+        strBaseFolder = FSO.GetFolder(strDirPath) & "\"
+    Else
+        strBaseFolder = FSO.GetParentFolderName(strDirPath) & "\"
+    End If
+    
+    ' Build collection of paths
     Set GetFilePathsInFolder = New Collection
     strFile = Dir(strDirPath, Attributes)
     Do While strFile <> vbNullString
-        GetFilePathsInFolder.Add strBaseFolder & strFile
+        Select Case strFile
+            Case ".", ".."
+                ' Skip these when using the vbDirectory flag.
+            Case Else
+                GetFilePathsInFolder.Add strBaseFolder & strFile
+        End Select
         strFile = Dir()
     Loop
     
@@ -2091,10 +2103,10 @@ Public Sub CopyFolderToZip(strFolder As String, strZip As String, _
     
     ' Count the total items before we start the copy,
     ' since there might already be files in the zip folder.
+    Set oApp = CreateObject("Shell.Application")
     lngCount = oApp.Namespace(varFolder).Items.Count + oApp.Namespace(varZip).Items.Count
     
     ' Start the copy
-    Set oApp = CreateObject("Shell.Application")
     oApp.Namespace(varZip).CopyHere oApp.Namespace(varFolder).Items
     
     ' Pause till the copying is complete, or we hit the timeout.
@@ -2136,18 +2148,21 @@ Public Sub ExtractFromZip(strZip As String, strDestFolder As String, _
     ' Count the total items before we start the copy,
     ' since there might already be files in the zip folder.
     Set oApp = CreateObject("Shell.Application")
-    lngCount = oApp.Namespace(varFolder).Items.Count + oApp.Namespace(varZip).Items.Count
+    If blnPauseTillFinished Then
+        lngCount = oApp.Namespace(varFolder).Items.Count + oApp.Namespace(varZip).Items.Count
+    End If
 
-    ' Extract items
+    ' Begin the extraction
     oApp.Namespace(varFolder).CopyHere oApp.Namespace(varZip).Items
-    
-    ' Pause till the copying is complete, or we hit the timeout.
-    sngTimeout = Timer + intTimeoutSeconds
-    Do While Timer < sngTimeout
-        ' Check to see if all the items have been copied.
-        If oApp.Namespace(varZip).Items.Count = lngCount Then Exit Do
-        Pause 0.5
-    Loop
+    If blnPauseTillFinished Then
+        ' Pause till the copying is complete, or we hit the timeout.
+        sngTimeout = Timer + intTimeoutSeconds
+        Do While Timer < sngTimeout
+            ' Check to see if all the items have been copied.
+            If oApp.Namespace(varZip).Items.Count = lngCount Then Exit Do
+            Pause 0.5
+        Loop
+    End If
 
 End Sub
 
