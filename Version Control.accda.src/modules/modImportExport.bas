@@ -292,7 +292,7 @@ Private Function GetAllContainers() As Collection
     Set GetAllContainers = New Collection
     With GetAllContainers
         ' Shared objects in both MDB and ADP formats
-        .Add New clsDbTheme
+        If blnMDB Then .Add New clsDbTheme
         .Add New clsDbVbeProject
         .Add New clsDbVbeReference
         .Add New clsDbVbeForm
