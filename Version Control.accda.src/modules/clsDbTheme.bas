@@ -53,9 +53,6 @@ Private Sub IDbComponent_Export()
     Dim rstAtc As Recordset2
     Dim strSql As String
     
-    ' make sure parent folder exists before we try to save it
-    VerifyPath FSO.GetParentFolderName(strFile)
-    
     ' Save theme file
     strFile = IDbComponent_SourceFile & ".zip"
     strSql = "SELECT [Data] FROM MSysResources WHERE [Name]='" & m_Name & "' AND Extension='" & m_Extension & "'"
@@ -64,6 +61,9 @@ Private Sub IDbComponent_Export()
     
     ' If we get multiple records back we don't know which to use
     If rst.RecordCount > 1 Then Err.Raise 42, , "Multiple records in MSysResources table were found that matched name '" & m_Name & "' and extension '" & m_Extension & "' - Compact and repair database and try again."
+    
+    ' make sure parent folder exists before we try to save it
+    VerifyPath FSO.GetParentFolderName(strFile)
     
     If Not rst.EOF Then
         Set rstAtc = rst!Data.Value
@@ -222,6 +222,8 @@ Public Sub VerifyResourcesTable()
         strName = CreateForm().Name
         ' Close without saving
         DoCmd.Close acForm, strName, acSaveNo
+        ' Remove any potential default theme
+        DoCmd.RunSQL "DELETE * FROM MSysResources WHERE [Type]='thmx'"
     End If
     
 End Sub
