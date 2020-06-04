@@ -105,8 +105,8 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strName As String
     Dim strSql As String
     
-    
     ' Build zip file from theme folder
+    strZip = strFile & ".zip"
     If FSO.FileExists(strZip) Then FSO.DeleteFile strZip
     DoEvents
     CreateZipFile strZip
@@ -223,7 +223,7 @@ Public Sub VerifyResourcesTable()
         ' Close without saving
         DoCmd.Close acForm, strName, acSaveNo
         ' Remove any potential default theme
-        DoCmd.RunSQL "DELETE * FROM MSysResources WHERE [Type]='thmx'"
+        CurrentDb.Execute "DELETE * FROM MSysResources WHERE [Type]='thmx'"
     End If
     
 End Sub
