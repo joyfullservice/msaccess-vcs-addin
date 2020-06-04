@@ -69,7 +69,7 @@ Public Sub LoadDefaults()
         .StripPublishOption = True
         .AggressiveSanitize = True
         .Security = esEncrypt
-        .KeyName = "MSAccessVCS"
+        .KeyName = modEncrypt.DefaultKeyName
         Set .TablesToExportData = New Dictionary
         ' Save specific tables by default
         AddTableToExportData "USysRibbons", etdTabDelimited
@@ -152,13 +152,16 @@ Public Sub LoadOptionsFromFile(strFile As String)
     Dim dOptions As Dictionary
     Dim varOption As Variant
     Dim strKey As String
+    Dim strOptionsContent As String
     
     If FSO.FileExists(strFile) Then
         ' Read file contents
-        With FSO.OpenTextFile(strFile, ForReading, False)
-            Set dOptions = modJsonConverter.ParseJson(.ReadAll)("Options")
+        With FSO.OpenTextFile(strFile)
+            strOptionsContent = .ReadAll
             .Close
         End With
+        If Left(strOptionsContent, 3) = "﻿" Then strOptionsContent = Mid(strOptionsContent, 4)
+        Set dOptions = modJsonConverter.ParseJson(strOptionsContent)("Options")
         If Not dOptions Is Nothing Then
             ' Attempt to set any matching options in this class.
             For Each varOption In m_colOptions

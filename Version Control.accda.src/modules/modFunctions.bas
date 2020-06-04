@@ -352,7 +352,51 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ClearTextFilesForFastSave
+' Procedure : ClearOrphanedSourceFolders
+' Author    : Casper Englund
+' Date      : 2020-06-04
+' Purpose   : Clears existing source folders that don't have a matching object in the
+'           : database.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
+    
+    Dim colNames As Collection
+    Dim cItem As IDbComponent
+    Dim oFolder As Folder
+    Dim oSubFolder As Folder
+    Dim strSubFolderName As String
+    
+    ' No orphaned files if the folder doesn't exist.
+    If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
+    
+    ' Cache a list of source file names for actual database objects
+    Set colNames = New Collection
+    For Each cItem In cType.GetAllFromDB
+        colNames.Add FSO.GetFileName(cItem.SourceFile)
+    Next cItem
+    
+    Set oFolder = FSO.GetFolder(cType.BaseFolder)
+    For Each oSubFolder In oFolder.SubFolders
+            
+        strSubFolderName = oSubFolder.Name
+        ' Remove any subfolder that doesn't have a matching name.
+        If Not InCollection(colNames, strSubFolderName) Then
+            ' Object not found in database. Remove subfolder.
+            oSubFolder.Delete
+            Log.Add "  Removing orphaned folder: " & strSubFolderName, Options.ShowDebug
+        End If
+        
+    Next oSubFolder
+    
+    ' Remove base folder if we don't have any subfolders in it
+    If oFolder.SubFolders.Count = 0 Then oFolder.Delete
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedSourceFiles
 ' Author    : Adam Waller
 ' Date      : 12/14/2016
 ' Purpose   : Clears existing source files that don't have a matching object in the
@@ -1301,7 +1345,12 @@ Public Function GetFilePathsInFolder(strDirPath As String, Optional Attributes A
     
     ' Build base folder name
     If Attributes = vbDirectory Then
-        strBaseFolder = FSO.GetFolder(strDirPath) & "\"
+        If FSO.FolderExists(strDirPath) Then
+            strBaseFolder = FSO.GetFolder(strDirPath) & "\"
+        Else
+            Set GetFilePathsInFolder = New Collection
+            Exit Function
+        End If
     Else
         strBaseFolder = FSO.GetParentFolderName(strDirPath) & "\"
     End If
@@ -1423,7 +1472,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
     Static dteCacheDate As Date
 
     Dim rst As ADODB.Recordset
-    Dim strSQL As String
+    Dim strSql As String
     Dim strObject As String
     Dim strTypeFilter As String
     Dim intPos As Integer
@@ -1480,10 +1529,10 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
         strLastType = strType
         
         ' Build SQL query to find object
-        strSQL = "SELECT [name], schema_name([schema_id]) as [schema], modify_date FROM sys.objects WHERE 1=1 " & strTypeFilter
+        strSql = "SELECT [name], schema_name([schema_id]) as [schema], modify_date FROM sys.objects WHERE 1=1 " & strTypeFilter
         Set rst = New ADODB.Recordset
         With rst
-            .Open strSQL, CurrentProject.Connection, adOpenForwardOnly, adLockReadOnly
+            .Open strSql, CurrentProject.Connection, adOpenForwardOnly, adLockReadOnly
             Do While Not .EOF
                 ' Return date when name matches. (But continue caching additional results)
                 If Nz(!Name) = strObject And Nz(!schema) = strSchema Then GetSQLObjectModifiedDate = Nz(!modify_date)
@@ -1517,7 +1566,7 @@ End Function
 Public Function GetSQLObjectDefinitionForADP(strName As String) As String
     
     Dim rst As ADODB.Recordset
-    Dim strSQL As String
+    Dim strSql As String
     Dim strObject As String
     
     ' Only try this on ADP projects
@@ -1526,9 +1575,9 @@ Public Function GetSQLObjectDefinitionForADP(strName As String) As String
     ' Simple validation on object name
     strObject = Replace(strName, ";", vbNullString)
     
-    strSQL = "SELECT object_definition (OBJECT_ID(N'" & strObject & "'))"
+    strSql = "SELECT object_definition (OBJECT_ID(N'" & strObject & "'))"
     '@Ignore SetAssignmentWithIncompatibleObjectType
-    Set rst = CurrentProject.Connection.Execute(strSQL)
+    Set rst = CurrentProject.Connection.Execute(strSql)
     If Not rst.EOF Then
         ' Get SQL definition
         GetSQLObjectDefinitionForADP = Nz(rst(0).Value)
@@ -1624,7 +1673,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
     If blnConvert Then
         ' Perform file conversion, and import from temp file.
         strTempFile = GetTempFile
-        ConvertUtf8Ucs2 strFile, strTempFile
+        ConvertUtf8Ucs2 strFile, strTempFile, False
         Application.LoadFromText intType, strName, strTempFile
         Kill strTempFile
     Else
@@ -1636,6 +1685,46 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SecureBetween
+' Author    : Casper Englund
+' Date      : 2020-06-03
+' Purpose   : Secures content between two strings.
+'---------------------------------------------------------------------------------------
+'
+Public Function SecureBetween(strText As String, strStartAfter As String, strEndBefore As String, Optional Compare As VbCompareMethod) As String
+        
+        If strText = vbNullString Or Options.Security = esNone Then
+            SecureBetween = strText
+        Else
+            If Options.Security = esEncrypt Then
+                SecureBetween = EncryptBetween(strText, strStartAfter, strEndBefore, Compare)
+            ElseIf Options.Security = esRemove Then
+                Dim lngPos As Long
+                Dim lngStart As Long
+                Dim lngLen As Long
+                
+                lngPos = InStr(1, strText, strStartAfter, Compare)
+                If lngPos > 0 Then
+                    lngStart = lngPos + Len(strStartAfter) - 1
+                    lngPos = InStr(lngStart + 1, strText, strEndBefore)
+                    If lngPos > 0 Then
+                        lngLen = lngPos - lngStart
+                    End If
+                End If
+                
+                If lngLen = 0 Then
+                    ' No tags found. Return original string
+                    SecureBetween = strText
+                Else
+                    SecureBetween = Left$(strText, lngStart) & Mid$(strText, lngStart + lngLen)
+                End If
+    
+            End If
+        End If
+        
+End Function
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SecurePath
 ' Author    : Adam Waller
 ' Date      : 6/1/2020
@@ -1643,9 +1732,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function SecurePath(strPath As String) As String
-    
+
     Dim strParent As String
-    
+
     strParent = FSO.GetParentFolderName(strPath)
     If strParent = vbNullString Then
         ' Could be relative path or just a filename.
@@ -1658,7 +1747,7 @@ Public Function SecurePath(strPath As String) As String
             SecurePath = Secure(strParent) & "\" & FSO.GetFileName(strPath)
         End If
     End If
-    
+
 End Function
 
 

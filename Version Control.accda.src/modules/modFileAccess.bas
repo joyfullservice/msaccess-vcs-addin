@@ -164,8 +164,12 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
         ' Remove the source (temp) file if specified
         If blnDeleteSourceFileAfterConversion Then Kill strSourceFile
     Else
-        ' No conversion needed, move to destination.
-        FSO.MoveFile strSourceFile, strDestinationFile
+        ' No conversion needed, move/copy to destination.
+        If blnDeleteSourceFileAfterConversion Then
+            FSO.MoveFile strSourceFile, strDestinationFile
+        Else
+            FSO.CopyFile strSourceFile, strDestinationFile
+        End If
     End If
     
 End Sub
@@ -179,7 +183,8 @@ End Sub
 '           : Typically the destination file will be a temp file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String)
+Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String, _
+    Optional blnDeleteSourceFileAfterConversion As Boolean = True)
 
     Dim strText As String
     Dim utf8Bytes() As Byte
@@ -188,20 +193,24 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
     ' Make sure the path exists before we write a file.
     VerifyPath FSO.GetParentFolderName(strDestinationFile)
     
-    ' Remove any existing file in the destination location.
     If FSO.FileExists(strDestinationFile) Then Kill strDestinationFile
     
     If FileIsUCS2Format(strSourceFile) Then
-        ' No conversion needed, move to destination as is
-        FSO.MoveFile strSourceFile, strDestinationFile
+        ' No conversion needed, move/copy to destination.
+        If blnDeleteSourceFileAfterConversion Then
+            FSO.MoveFile strSourceFile, strDestinationFile
+        Else
+            FSO.CopyFile strSourceFile, strDestinationFile
+        End If
     Else
         ' Read file contents
         fnum = FreeFile
-        Open strSourceFile For Binary As fnum
-            ReDim utf8Bytes(LOF(fnum) - 1)
-            Get fnum, , utf8Bytes
-        Close fnum
         
+        Open strSourceFile For Binary As fnum
+        ReDim utf8Bytes(LOF(fnum) - 1)
+        Get fnum, , utf8Bytes
+        Close fnum
+
         ' Convert byte array to string
         strText = Utf8BytesToString(utf8Bytes)
         
@@ -210,6 +219,8 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
             .Write strText
             .Close
         End With
+        
+        If blnDeleteSourceFileAfterConversion Then Kill strSourceFile
     End If
     
 End Sub

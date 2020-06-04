@@ -15,6 +15,8 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+Public Const DefaultKeyName = "MSAccessVCS"
+
 Private m_Name As String
 Private m_Key As String
 
@@ -179,7 +181,7 @@ End Sub
 '
 Private Function GetKey() As String
     If m_Name = vbNullString Then m_Name = Options.KeyName
-    If m_Name = vbNullString Then m_Name = "MSAccessVCS"
+    If m_Name = vbNullString Then m_Name = DefaultKeyName
     If m_Key = vbNullString Then m_Key = GetSetting(GetCodeVBProject.Name, "Private Keys", m_Name, CodeProject.Name)
     ' Return cached key name, rather than looking it up from the registry each time.
     GetKey = m_Key
