@@ -49,18 +49,32 @@ Private Sub IDbComponent_Export()
     Dim stm As ADODB.Stream
     Dim bteHeader As Byte
     Dim varHeader() As Byte
-
+    Dim rst As Recordset2
+    Dim rstAtc As Recordset2
+    Dim strSql As String
+    
+    ' make sure parent folder exists before we try to save it
+    VerifyPath FSO.GetParentFolderName(strFile)
+    
     ' Save theme file
     strFile = IDbComponent_SourceFile & ".zip"
-    Set stm = New ADODB.Stream
-    With stm
-        .Type = adTypeBinary
-        .Open
-        .Write StripOLEHeader(m_FileData)     ' Binary data
-        .SaveToFile strFile, adSaveCreateOverWrite
-        .Close
-    End With
-
+    strSql = "SELECT [Data] FROM MSysResources WHERE [Name]='" & m_Name & "' AND Extension='" & m_Extension & "'"
+    Set m_Dbs = CurrentDb
+    Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
+    
+    ' If we get multiple records back we don't know which to use
+    If rst.RecordCount > 1 Then Err.Raise 42, , "Multiple records in MSysResources table were found that matched name '" & m_Name & "' and extension '" & m_Extension & "' - Compact and repair database and try again."
+    
+    If Not rst.EOF Then
+        Set rstAtc = rst!Data.Value
+        If FSO.FileExists(strFile) Then FSO.DeleteFile strFile
+        rstAtc!FileData.SaveToFile strFile
+        rstAtc.Close
+        Set rstAtc = Nothing
+    End If
+    rst.Close
+    Set rst = Nothing
+    
     ' Extract to folder and delete zip file.
     strFolder = IDbComponent_SourceFile
     If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder
@@ -72,25 +86,6 @@ Private Sub IDbComponent_Export()
 
 End Sub
 
-
-'---------------------------------------------------------------------------------------
-' Procedure : StripOLEHeader
-' Author    : Adam Waller
-' Date      : 5/12/2020
-' Purpose   : Strip out the OLE header so we can save the embedded theme (zip) file.
-'---------------------------------------------------------------------------------------
-'
-Private Function StripOLEHeader(bteData() As Byte) As Byte()
-
-    Dim strData As String
-
-    ' Convert to string
-    strData = bteData
-
-    ' Strip off header, and convert back to byte array
-    StripOLEHeader = Mid$(strData, 12)
-
-End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -108,10 +103,10 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strZip As String
     Dim strThemeFile As String
     Dim strName As String
-    Dim strSQL As String
+    Dim strSql As String
+    
     
     ' Build zip file from theme folder
-    strZip = strFile & ".zip"
     If FSO.FileExists(strZip) Then FSO.DeleteFile strZip
     DoEvents
     CreateZipFile strZip
@@ -123,8 +118,8 @@ Private Sub IDbComponent_Import(strFile As String)
     
     ' Create/edit record in resources table.
     VerifyResourcesTable
-    strSQL = "SELECT * FROM MSysResources WHERE [Type] = 'thmx' AND [Name]=""" & strName & """"
-    Set rstResources = CurrentDb.OpenRecordset(strSQL, dbOpenDynaset)
+    strSql = "SELECT * FROM MSysResources WHERE [Type] = 'thmx' AND [Name]=""" & strName & """"
+    Set rstResources = CurrentDb.OpenRecordset(strSql, dbOpenDynaset)
     With rstResources
         If .EOF Then
             ' No existing record found. Add a record
@@ -176,21 +171,22 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB() As Collection
-
+    
+    
     Dim cTheme As IDbComponent
     Dim rst As DAO.Recordset
-    Dim strSQL As String
-
+    Dim strSql As String
+    
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
         Set m_AllItems = New Collection
-
+            
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
 
             Set m_Dbs = CurrentDb
-            strSQL = "SELECT * FROM MSysResources WHERE Type='thmx'"
-            Set rst = m_Dbs.OpenRecordset(strSQL, dbOpenSnapshot, dbOpenForwardOnly)
+            strSql = "SELECT * FROM MSysResources WHERE Type='thmx'"
+            Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
             With rst
                 Do While Not .EOF
                     Set cTheme = New clsDbTheme
@@ -252,8 +248,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ' //TODO: Remove folders for unused themes
-    'ClearOrphanedSourceFiles Me, "json", "jpg", "jpeg", "jpe", "gif", "png"
+    ClearOrphanedSourceFolders Me
 End Sub
 
 
