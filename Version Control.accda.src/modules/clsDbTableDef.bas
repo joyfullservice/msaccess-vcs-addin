@@ -340,12 +340,10 @@ Private Sub ImportLinkedTable(strFile As String)
         With tdf
             .Connect = Decrypt(dItem("Connect"))
             .SourceTableName = dItem("SourceTableName")
+            .Attributes = SafeAttributes(dItem("Attributes"))
         End With
         dbs.TableDefs.Append tdf
         dbs.TableDefs.Refresh
-        
-        ' Might have to set this after adding the table?
-        If tdf.Attributes <> dItem("Attributes") Then tdf.Attributes = dItem("Attributes")
         
         ' Set index on linked table.
         If InStr(1, tdf.Connect, ";DATABASE=", vbTextCompare) = 1 Then
@@ -363,6 +361,43 @@ Private Sub ImportLinkedTable(strFile As String)
     End If
      
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SafeAttributes
+' Author    : Adam Waller
+' Date      : 6/29/2020
+' Purpose   : Rebuild new attributes flag using attributes that we can actually set.
+'---------------------------------------------------------------------------------------
+'
+Private Function SafeAttributes(lngAttributes As Long) As Long
+
+    Dim colAtts As Collection
+    Dim varAtt As Variant
+    Dim lngNew As Long
+    
+    Set colAtts = New Collection
+    With colAtts
+        '.Add dbAttachedODBC
+        '.Add dbAttachedTable
+        .Add dbAttachExclusive
+        .Add dbAttachSavePWD
+        .Add dbHiddenObject
+        .Add dbSystemObject
+    End With
+    
+    For Each varAtt In colAtts
+        ' Use boolean logic to check for bit flag
+        If CBool((lngAttributes And varAtt) = varAtt) Then
+            ' Add to our rebuilt flag value.
+            lngNew = lngNew + varAtt
+        End If
+    Next varAtt
+    
+    ' Return attributes value after rebuilding from scratch.
+    SafeAttributes = lngNew
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
