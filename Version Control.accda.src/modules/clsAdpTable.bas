@@ -31,7 +31,7 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
 
-    Dim strSQL As String
+    Dim strSql As String
     Dim rst As ADODB.Recordset
     Dim intRst As Integer
     Dim fld As ADODB.Field
@@ -41,9 +41,9 @@ Private Sub IDbComponent_Export()
     intRst = 2
     
     ' Get initial table information
-    strSQL = "exec sp_help N'" & m_Table.Name & "'"
+    strSql = "exec sp_help N'" & m_Table.Name & "'"
     '@Ignore SetAssignmentWithIncompatibleObjectType
-    Set rst = CurrentProject.Connection.Execute(strSQL)
+    Set rst = CurrentProject.Connection.Execute(strSql)
     colText.Add "-- sp_help Recordset 1" & vbCrLf & vbCrLf
     For Each fld In rst.Fields
         colText.Add fld.Name

@@ -327,7 +327,7 @@ Private Sub ImportLinkedTable(strFile As String)
     Dim dItem As Dictionary
     Dim dbs As DAO.Database
     Dim tdf As DAO.TableDef
-    Dim strSQL As String
+    Dim strSql As String
     
     ' Read json file
     Set dTable = ReadJsonFile(strFile)
@@ -355,8 +355,8 @@ Private Sub ImportLinkedTable(strFile As String)
             ' Check for a primary key index
             If dItem.Exists("PrimaryKey") Then
                 ' Create a pseudo index on the linked table
-                strSQL = "CREATE UNIQUE INDEX PrimaryKey ON [" & tdf.Name & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
-                dbs.Execute strSQL, dbFailOnError
+                strSql = "CREATE UNIQUE INDEX PrimaryKey ON [" & tdf.Name & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
+                dbs.Execute strSql, dbFailOnError
                 dbs.TableDefs.Refresh
             End If
         End If

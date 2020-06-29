@@ -39,7 +39,7 @@ Private Sub IDbComponent_Export()
     Dim dCols As Dictionary
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
-    Dim strSQL As String
+    Dim strSql As String
     Dim fld As DAO.Field
     
     Set dSpec = New Dictionary
@@ -47,8 +47,8 @@ Private Sub IDbComponent_Export()
     Set dbs = CurrentDb
 
     ' Build header info first
-    strSQL = "SELECT * FROM MSysIMEXSpecs WHERE SpecID=" & Me.ID
-    Set rst = dbs.OpenRecordset(strSQL, dbOpenSnapshot, dbReadOnly)
+    strSql = "SELECT * FROM MSysIMEXSpecs WHERE SpecID=" & Me.ID
+    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
     With rst
         For Each fld In .Fields
             If fld.Name <> "SpecID" Then
@@ -60,8 +60,8 @@ Private Sub IDbComponent_Export()
     End With
     
     ' Build list of columns
-    strSQL = "SELECT * FROM MSysIMEXColumns WHERE SpecID=" & Me.ID
-    Set rst = dbs.OpenRecordset(strSQL, dbOpenSnapshot, dbReadOnly)
+    strSql = "SELECT * FROM MSysIMEXColumns WHERE SpecID=" & Me.ID
+    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
     With rst
         Do While Not .EOF
             Set dCol = New Dictionary

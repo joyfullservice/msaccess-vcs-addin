@@ -135,7 +135,7 @@ Private Function IDbComponent_GetAllFromDB() As Collection
 
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
-    Dim strSQL As String
+    Dim strSql As String
     Dim strGroup As String
     Dim colGroups As Collection
     Dim dGroup As Dictionary
@@ -152,11 +152,11 @@ Private Function IDbComponent_GetAllFromDB() As Collection
         
         ' Load query SQL from saved query in add-in database
         Set dbs = CodeDb
-        strSQL = dbs.QueryDefs("qryNavPaneGroups").SQL
+        strSql = dbs.QueryDefs("qryNavPaneGroups").SQL
         
         ' Open query in the current db
         Set dbs = CurrentDb
-        Set rst = dbs.OpenRecordset(strSQL)
+        Set rst = dbs.OpenRecordset(strSql)
         
         ' Loop through records
         With rst

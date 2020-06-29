@@ -66,7 +66,7 @@ Private Function IDbComponent_GetAllFromDB() As Collection
     Dim cTrigger As clsAdpTrigger
     Dim cComponent As IDbComponent
     Dim rst As ADODB.Recordset
-    Dim strSQL As String
+    Dim strSql As String
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
@@ -75,10 +75,10 @@ Private Function IDbComponent_GetAllFromDB() As Collection
         Set m_AllItems = New Collection
 
         ' Build list of triggers in database (from sysobjects)
-        strSQL = "SELECT [name],object_name(parent_object_id) AS parent_name, schema_name([schema_id]) AS [schema_name], modify_date FROM sys.objects WHERE type='TR'"
+        strSql = "SELECT [name],object_name(parent_object_id) AS parent_name, schema_name([schema_id]) AS [schema_name], modify_date FROM sys.objects WHERE type='TR'"
         Set rst = New ADODB.Recordset
         With rst
-            .Open strSQL, CurrentProject.Connection, adOpenForwardOnly, adLockReadOnly
+            .Open strSql, CurrentProject.Connection, adOpenForwardOnly, adLockReadOnly
             Do While Not .EOF
                 Set cTrigger = New clsAdpTrigger
                 With cTrigger
