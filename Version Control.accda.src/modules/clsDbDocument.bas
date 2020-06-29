@@ -89,22 +89,25 @@ Private Sub ClearDatabaseSummaryProperties()
     Dim doc As DAO.Document
     Dim prp As DAO.Property
     Dim dbs As DAO.Database
+    Dim intProp As Integer
     
     Set dbs = CurrentDb
     Set doc = dbs.Containers("Databases").Documents("SummaryInfo")
-    For Each prp In doc.Properties
+    ' Loop backwards through the collection since we may be removing items.
+    For intProp = doc.Properties.Count - 1 To 0 Step -1
+        Set prp = doc.Properties(intProp)
         Select Case prp.Type
             Case dbText, dbMemo
                 ' Text properties
                 Select Case prp.Name
                     Case "Name", "Owner", "UserName", "Container" ' Leave these properties
                     Case Else
-                        ' Clear the value on any text value property
-                        ' (Maybe we should delete the property instead?)
-                        prp.Value = " "
+                        ' Remove other properties that might contain sensitive info.
+                        ' They will be recreated from source files if they were in use.
+                        doc.Properties.Delete prp.Name
                 End Select
         End Select
-    Next prp
+    Next intProp
     
 End Sub
 
