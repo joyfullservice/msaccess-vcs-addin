@@ -143,7 +143,7 @@ Public Sub SanitizeFile(strPath As String)
     stmInFile.LoadFromFile strPath
     
     ' Skip past UTF-8 BOM header
-    strText = stmInFile.ReadText(-2)
+    strText = stmInFile.ReadText(adReadLine)
     If Left$(strText, 3) = "﻿" Then strText = Mid$(strText, 4)
 
     ' Loop through lines in file
@@ -154,7 +154,7 @@ Public Sub SanitizeFile(strPath As String)
     
         ' Check if we need to get a new line of text
         If blnGetLine Then
-            strText = stmInFile.ReadText(-2)
+            strText = stmInFile.ReadText(adReadLine)
         Else
             blnGetLine = True
         End If
@@ -179,7 +179,7 @@ Public Sub SanitizeFile(strPath As String)
             
             ' Skip lines with deeper indentation
             Do While Not stmInFile.EOS
-                strText = stmInFile.ReadText(-2)
+                strText = stmInFile.ReadText(adReadLine)
                 If rxIndent.Test(strText) Then Exit Do
             Loop
             
@@ -190,7 +190,7 @@ Public Sub SanitizeFile(strPath As String)
         ' Skip blocks of code matching block pattern
         ElseIf rxBlock.Test(strText) Then
             Do While Not stmInFile.EOS
-                strText = stmInFile.ReadText(-2)
+                strText = stmInFile.ReadText(adReadLine)
                 If InStr(strText, "End") Then Exit Do
             Loop
         
@@ -268,14 +268,14 @@ Public Sub SanitizeXML(strPath As String, Options As clsOptions)
     stmInFile.Charset = "UTF-8"
     stmInFile.Open
     stmInFile.LoadFromFile strPath
-    strText = stmInFile.ReadText(-2)
+    strText = stmInFile.ReadText(adReadLine)
     
     
     ' Loop through all the lines in the file
     Do Until stmInFile.EOS
         
         ' Read line from file
-        strText = stmInFile.ReadText(-2)
+        strText = stmInFile.ReadText(adReadLine)
         If Left$(strText, 3) = "﻿" Then strText = Mid$(strText, 4)
         ' Just looking for the first match.
         If Not blnFound Then
