@@ -352,18 +352,38 @@ Private Sub ImportLinkedTable(strFile As String)
             ' Can't create a key on a linked Access database table.
             ' Presumably this would use the Access index instead of needing the pseudo index
         Else
-            ' Check for a primary key index
-            If dItem.Exists("PrimaryKey") Then
+            ' Check for a primary key index (Linked SQL tables may bring over the index, but linked views won't.)
+            If dItem.Exists("PrimaryKey") And Not HasUniqueIndex(tdf) Then
                 ' Create a pseudo index on the linked table
-                strSql = "CREATE UNIQUE INDEX PrimaryKey ON [" & tdf.Name & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
+                strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & tdf.Name & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
                 dbs.Execute strSql, dbFailOnError
                 dbs.TableDefs.Refresh
             End If
         End If
-        
     End If
      
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasUniqueIndex
+' Author    : Adam Waller
+' Date      : 6/29/2020
+' Purpose   : Returns true if a unique index exists on this table.
+'---------------------------------------------------------------------------------------
+'
+Private Function HasUniqueIndex(tdf As TableDef) As Boolean
+
+    Dim idx As DAO.Index
+    
+    For Each idx In tdf.Indexes
+        If idx.Unique Then
+            HasUniqueIndex = True
+            Exit For
+        End If
+    Next idx
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
