@@ -180,7 +180,8 @@ Public Sub SanitizeFile(strPath As String)
             ' Skip lines with deeper indentation
             Do While Not stmInFile.EOS
                 strText = stmInFile.ReadText(adReadLine)
-                If rxIndent.Test(strText) Then Exit Do
+                ' Exit loop when we find a blank line or matching indent pattern.
+                If Trim(strText) = vbNullString Or rxIndent.Test(strText) Then Exit Do
             Loop
             
             ' We've moved on at least one line so restart the
