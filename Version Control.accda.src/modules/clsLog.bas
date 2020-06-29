@@ -24,10 +24,7 @@ Private m_sngLastUpdate As Single
 '---------------------------------------------------------------------------------------
 '
 Public Sub Clear()
-    Set m_Console = New clsConcat
-    Set m_Log = New clsConcat
-    m_blnProgressActive = False
-    m_sngLastUpdate = 0
+    Class_Initialize
 End Sub
 
 
@@ -162,6 +159,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Initialize()
+    Set m_Console = New clsConcat
+    Set m_Log = New clsConcat
+    m_blnProgressActive = False
+    m_sngLastUpdate = 0
     Me.PadLength = 30
 End Sub
 
