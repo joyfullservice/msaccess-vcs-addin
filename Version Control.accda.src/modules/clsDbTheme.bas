@@ -77,7 +77,7 @@ Private Sub IDbComponent_Export()
     
     ' Extract to folder and delete zip file.
     strFolder = IDbComponent_SourceFile
-    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder
+    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
     DoEvents ' Make sure the folder is deleted before we recreate it.
     ExtractFromZip strFile, IDbComponent_SourceFile, False
     ' Rather than holding up the export while we extract the file,
@@ -85,7 +85,6 @@ Private Sub IDbComponent_Export()
     'FSO.DeleteFile IDbComponent_SourceFile & ".zip"
 
 End Sub
-
 
 
 '---------------------------------------------------------------------------------------
@@ -172,7 +171,6 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB() As Collection
     
-    
     Dim cTheme As IDbComponent
     Dim rst As DAO.Recordset
     Dim strSql As String
@@ -223,7 +221,7 @@ Public Sub VerifyResourcesTable()
         ' Close without saving
         DoCmd.Close acForm, strName, acSaveNo
         ' Remove any potential default theme
-        CurrentDb.Execute "DELETE * FROM MSysResources WHERE [Type]='thmx'"
+        CurrentDb.Execute "DELETE * FROM MSysResources WHERE [Type]='thmx'", dbFailOnError
     End If
     
 End Sub
