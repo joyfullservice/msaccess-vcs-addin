@@ -141,7 +141,8 @@ Private Function IDbComponent_GetAllFromDB() As Collection
         For Each rel In m_Dbs.Relations
             ' Navigation pane groups are handled separately
             If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
-                Or rel.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups") Then
+                Or rel.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups" _
+                Or IsInherited(rel)) Then
                 Set cRelation = New clsDbRelation
                 Set cRelation.DbObject = rel
                 m_AllItems.Add cRelation, rel.Name
@@ -152,6 +153,19 @@ Private Function IDbComponent_GetAllFromDB() As Collection
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_AllItems
     
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsInherited
+' Author    : Adam Waller
+' Date      : 6/30/2020
+' Purpose   : Returns true if the relationship was inherited from tables in a linked
+'           : database. (We don't need to export or import these.)
+'---------------------------------------------------------------------------------------
+'
+Private Function IsInherited(objRelation As Relation) As Boolean
+    IsInherited = ((objRelation.Attributes And dbRelationInherited) = dbRelationInherited)
 End Function
 
 
