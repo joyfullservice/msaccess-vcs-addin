@@ -23,7 +23,7 @@ This project is used internally to manage the development of numerous Microsoft 
 
 Installation
 ---------
- Simply download the add-in from the [**Releases**](https://github.com/joyfullservice/msaccess-vcs-integration/releases) page, and run the file. It will install or update the add-in for you. Additional notes on installation can be found on the [project wiki](https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Installation). If you want the very latest working copy, you may alternatively download [Version Control.accda](https://github.com/joyfullservice/msaccess-vcs-integration/blob/master/Version%20Control.accda) from the source code files in this project.
+ Simply download the add-in from the [**Releases**](https://github.com/joyfullservice/msaccess-vcs-integration/releases) page, and run the file. It will install or update the add-in for you. Additional notes on installation can be found on the [project wiki](https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Installation). 
 
 Contributing
 ------------
