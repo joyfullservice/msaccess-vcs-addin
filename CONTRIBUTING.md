@@ -5,7 +5,7 @@ If you can, provide a [Minimal Reproducible Example](https://stackoverflow.com/h
 
 Development Version
 ---------
-If you want the very latest working copy you will have to make from GitHub to git to Access:
+If you want the very latest working copy you will have to make it yourself. Here is how to go from GitHub to git, to Access:
 
 * Download the latest release.
 * Install the add-in. (Just open *Version Control.accda*)
@@ -17,7 +17,7 @@ If you want the very latest working copy you will have to make from GitHub to gi
 
 Making your first Pull Request (PR)
 ---------
-Ok, so you want to change the code and submit your changes back to the community. How kind of you! If you followed the steps to get to the Development Version then you can follow these steps to go back from Access to git back up to GitHub:
+Ok, so you want to change the code and submit your changes back to the community. How kind of you! If you followed the steps to get to the Development Version then you can follow these steps to go back from Access to git, back up to GitHub:
 * **Always create a new branch when you want to make a change.** Make the name of the branch descriptive to what you set out to accomplish. 
 * Open the development copy of *Version Control.accda* 
 * Perform testing on your development version.
