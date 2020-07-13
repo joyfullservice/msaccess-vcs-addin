@@ -137,17 +137,31 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
     Dim strText As String
     Dim utf8Bytes() As Byte
     Dim fnum As Integer
+    Dim blnIsAdp As Boolean
+    Dim intTristate As Tristate
     
-    ' Make sure the path exists before we write a file.
+    ' Make sure the path exists and remove any existing file.
     VerifyPath FSO.GetParentFolderName(strDestinationFile)
-    
     If FSO.FileExists(strDestinationFile) Then Kill strDestinationFile
     
-    ' Check the first couple characters in the file for a UCS BOM.
-    If FileIsUCS2Format(strSourceFile) Then
+    ' ADP Projects do not use the UCS BOM, but may contain mixed UTF-16 content
+    ' representing unicode characters.
+    blnIsAdp = (CurrentProject.ProjectType = acADP)
     
+    ' Check the first couple characters in the file for a UCS BOM.
+    If FileIsUCS2Format(strSourceFile) Or blnIsAdp Then
+    
+        ' Determine format
+        If blnIsAdp Then
+            ' Possible mixed UTF-16 content
+            intTristate = TristateMixed
+        Else
+            ' Fully encoded as UTF-16
+            intTristate = TristateTrue
+        End If
+            
         ' Read file contents and delete (temp) source file
-        With FSO.OpenTextFile(strSourceFile, ForReading, False, TristateTrue)
+        With FSO.OpenTextFile(strSourceFile, ForReading, False, intTristate)
             strText = .ReadAll
             .Close
         End With
