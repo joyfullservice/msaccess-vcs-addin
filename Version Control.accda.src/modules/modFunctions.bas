@@ -1194,7 +1194,6 @@ End Function
 Public Function LoadOptions() As clsOptions
     Dim Options As clsOptions
     Set Options = New clsOptions
-    Options.LoadDefaultOptions
     Options.LoadProjectOptions
     Set LoadOptions = Options
 End Function
