@@ -2267,3 +2267,16 @@ End Sub
 Public Sub Pause(sngSeconds As Single)
     Sleep sngSeconds * 1000
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DatabaseOpen
+' Author    : Adam Waller
+' Date      : 7/14/2020
+' Purpose   : Returns true if a database (or ADP project) is currently open.
+'---------------------------------------------------------------------------------------
+'
+Public Function DatabaseOpen() As Boolean
+    DatabaseOpen = Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing)
+    'DatabaseOpen = Workspaces(0).Databases.Count > 0   ' Another approach
+End Function

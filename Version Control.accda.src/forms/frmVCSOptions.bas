@@ -19,7 +19,7 @@ Begin Form
     ItemSuffix =111
     Left =3225
     Top =2430
-    Right =14115
+    Right =18945
     Bottom =14175
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
@@ -2449,15 +2449,17 @@ Private Sub LoadTableList()
     ' Reset list of tables
     Set m_colTables = New Collection
     
-    ' Get list of tables
-    For Each tbl In CurrentData.AllTables
-        ' Read table attributes
-        blnHidden = Application.GetHiddenAttribute(acTable, tbl.Name)
-        blnSystem = (tbl.Attributes And dbSystemObject)
-        blnOther = False    ' Other represents tables not in this database.
-        ' Add array record to represent table.
-        m_colTables.Add Array(tbl.Name, vbNullString, blnHidden, blnSystem, blnOther)
-    Next tbl
+    ' Get list of tables if we have a database file open.
+    If DatabaseOpen Then
+        For Each tbl In CurrentData.AllTables
+            ' Read table attributes
+            blnHidden = Application.GetHiddenAttribute(acTable, tbl.Name)
+            blnSystem = (tbl.Attributes And dbSystemObject)
+            blnOther = False    ' Other represents tables not in this database.
+            ' Add array record to represent table.
+            m_colTables.Add Array(tbl.Name, vbNullString, blnHidden, blnSystem, blnOther)
+        Next tbl
+    End If
     
     ' Add in the list of saved tables, adding into the sorted location
     If Not Options.TablesToExportData Is Nothing Then
