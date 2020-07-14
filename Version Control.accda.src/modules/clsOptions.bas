@@ -484,10 +484,12 @@ End Property
 '
 Private Function GetSavedSourcePathProperty() As AccessObjectProperty
     Dim prp As AccessObjectProperty
-    For Each prp In CurrentProject.Properties
-        If prp.Name = cstrSourcePathProperty Then
-            Set GetSavedSourcePathProperty = prp
-            Exit For
-        End If
-    Next prp
+    If DatabaseOpen Then
+        For Each prp In CurrentProject.Properties
+            If prp.Name = cstrSourcePathProperty Then
+                Set GetSavedSourcePathProperty = prp
+                Exit For
+            End If
+        Next prp
+    End If
 End Function
