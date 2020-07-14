@@ -11,6 +11,7 @@ Option Explicit
 ' Further reading: https://english.stackexchange.com/questions/59058/
 
 Private Const cstrOptionsFilename As String = "vcs-options.json"
+Private Const cstrSourcePathProperty As String = "VCS Source Path"
 
 ' Options
 Public ExportFolder As String
@@ -136,6 +137,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub SaveOptionsForProject()
+    SavedSourcePath = Me.ExportFolder
     Me.SaveOptionsToFile Me.GetExportFolder & cstrOptionsFilename
 End Sub
 
@@ -193,7 +195,15 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadProjectOptions()
+
+    Dim strFolder As String
+    
+    ' Get saved path from database (if defined)
+    Me.ExportFolder = SavedSourcePath
+    
+    ' Attempt to load the project options file.
     LoadOptionsFromFile Me.GetExportFolder & cstrOptionsFilename
+    
 End Sub
 
 
@@ -229,13 +239,28 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function GetExportFolder() As String
+
+    Dim strFullPath As String
+    
     If Me.ExportFolder = vbNullString Then
         ' Build default path using project name
-        GetExportFolder = CurrentProject.FullName & ".src\"
+        strFullPath = CurrentProject.FullName & ".src\"
     Else
-        ' This should be an absolute path, not a relative one.
-        GetExportFolder = Me.ExportFolder
+        If Left$(Me.ExportFolder, 2) = "\\" Then
+            ' UNC path
+            strFullPath = Me.ExportFolder
+        ElseIf Left$(Me.ExportFolder, 1) = "\" Then
+            ' Relative path (from database file location)
+            strFullPath = CurrentProject.Path & Me.ExportFolder
+        Else
+            ' Other absolute path (i.e. c:\myfiles\)
+            strFullPath = Me.ExportFolder
+        End If
     End If
+
+    ' Return export path with a trailing slash
+    GetExportFolder = StripSlash(strFullPath) & "\"
+    
 End Function
 
 
@@ -401,3 +426,68 @@ Private Sub Class_Initialize()
     JsonOptions.AllowUnicodeChars = True
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SavedSourcePath
+' Author    : Adam Waller
+' Date      : 7/13/2020
+' Purpose   : Get any saved path for VCS source files. (In case we are using a
+'           : different location for the files.) This is stored as a property
+'           : under the currentproject. (Works for both ADP and MDB)
+'---------------------------------------------------------------------------------------
+'
+Private Property Get SavedSourcePath() As String
+    Dim prp As AccessObjectProperty
+    Set prp = GetSavedSourcePathProperty
+    If Not prp Is Nothing Then SavedSourcePath = prp.Value
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SavedSourcePath
+' Author    : Adam Waller
+' Date      : 7/14/2020
+' Purpose   : Save the source path as a property in the current database.
+'---------------------------------------------------------------------------------------
+'
+Private Property Let SavedSourcePath(strPath As String)
+    
+    Dim prp As AccessObjectProperty
+    Dim proj As CurrentProject
+    
+    Set proj = CurrentProject
+    Set prp = GetSavedSourcePathProperty
+    
+    If strPath = vbNullString Then
+        ' Remove the property when no longer used.
+        If Not prp Is Nothing Then proj.Properties.Remove prp.Name
+    Else
+        If prp Is Nothing Then
+            ' Create the property
+            proj.Properties.Add cstrSourcePathProperty, strPath
+        Else
+            ' Update the value.
+            prp.Value = strPath
+        End If
+    End If
+    
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSavedSourcePathProperty
+' Author    : Adam Waller
+' Date      : 7/14/2020
+' Purpose   : Helper function to get
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSavedSourcePathProperty() As AccessObjectProperty
+    Dim prp As AccessObjectProperty
+    For Each prp In CurrentProject.Properties
+        If prp.Name = cstrSourcePathProperty Then
+            Set GetSavedSourcePathProperty = prp
+            Exit For
+        End If
+    Next prp
+End Function
