@@ -69,7 +69,7 @@ Public Sub LoadDefaults()
         .SaveTableSQL = True
         .StripPublishOption = True
         .AggressiveSanitize = True
-        .Security = esEncrypt
+        .Security = esNone
         .KeyName = modEncrypt.DefaultKeyName
         Set .TablesToExportData = New Dictionary
         ' Save specific tables by default
