@@ -47,7 +47,7 @@ Private Sub IDbComponent_Export()
             Case "AppIcon"
                 ' Try to use a relative path
                 strPath = GetRelativePath(CStr(prp.Value))
-                If Len(strPath) > 0 Then
+                If Left(strPath, 4) = "rel:" Then
                     varValue = strPath
                 Else
                     ' The full path may contain sensitive info. Encrypt the path but not the file name.

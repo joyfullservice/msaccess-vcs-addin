@@ -2032,7 +2032,7 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 5/11/2020
 ' Purpose   : Returns a path relative to current database.
-'           : If a relative path is not possible, it returns an empty string
+'           : If a relative path is not possible, it returns the original full path.
 '---------------------------------------------------------------------------------------
 '
 Public Function GetRelativePath(strPath As String) As String
@@ -2044,6 +2044,9 @@ Public Function GetRelativePath(strPath As String) As String
     If InStr(1, strPath, strFolder, vbTextCompare) = 1 Then
         ' In export folder or subfolder. Simple replacement
         GetRelativePath = "rel:" & Mid$(strPath, Len(strFolder) + 1)
+    Else
+        ' Return original full path.
+        GetRelativePath = strPath
     End If
 
 End Function

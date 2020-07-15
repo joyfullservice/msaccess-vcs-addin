@@ -53,7 +53,7 @@ Private Sub IDbComponent_Export()
                     If Len(varValue) > 0 Then
                         ' Try to use a relative path
                         strPath = GetRelativePath(CStr(varValue))
-                        If Len(strPath) > 0 Then
+                        If Left(strPath, 4) = "rel:" Then
                             varValue = strPath
                         Else
                             ' The full path may contain sensitive info. Secure the path but not the file name.
