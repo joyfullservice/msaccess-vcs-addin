@@ -1275,20 +1275,24 @@ End Function
 ' Procedure : GetProjectByName
 ' Author    : Adam Waller
 ' Date      : 5/26/2020
-' Purpose   : Return the VBProject by file path.
+' Purpose   : Return the VBProject by file path. (Also supports network drives)
 '---------------------------------------------------------------------------------------
 '
 Private Function GetProjectByName(ByVal strPath As String) As VBProject
 
     Dim objProj As VBIDE.VBProject
-        
+    Dim strUncPath As String
+    
     ' Use currently active project by default
     Set GetProjectByName = VBE.ActiveVBProject
     
-    If VBE.ActiveVBProject.FileName <> strPath Then
+    ' VBProject filenames are UNC paths
+    strUncPath = GetUncPath(strPath)
+    
+    If VBE.ActiveVBProject.FileName <> strUncPath Then
         ' Search for project with matching filename.
         For Each objProj In VBE.VBProjects
-            If objProj.FileName = strPath Then
+            If objProj.FileName = strUncPath Then
                 Set GetProjectByName = objProj
                 Exit For
             End If
@@ -2038,16 +2042,35 @@ End Sub
 Public Function GetRelativePath(strPath As String) As String
     
     Dim strFolder As String
+    Dim strUncPath As String
+    Dim strUncTest As String
+    Dim strRelative As String
     
     ' Check for matching parent folder as relative to the project path.
-    strFolder = CurrentProject.Path & "\"
+    strFolder = UncPath(CurrentProject.Path) & "\"
+    
+    ' Default to original path if no relative path could be resolved.
+    strRelative = strPath
+    
+    ' Compare strPath to the current project path
     If InStr(1, strPath, strFolder, vbTextCompare) = 1 Then
         ' In export folder or subfolder. Simple replacement
-        GetRelativePath = "rel:" & Mid$(strPath, Len(strFolder) + 1)
+        strRelative = "rel:" & Mid$(strPath, Len(strFolder) + 1)
     Else
-        ' Return original full path.
-        GetRelativePath = strPath
+        ' Check UNC path for network drives
+        strUncPath = GetUncPath(strPath)
+        If StrComp(strUncPath, strPath, vbTextCompare) <> 0 Then
+            ' We are dealing with a network drive
+            strUncTest = GetRelativePath(strUncPath)
+            If StrComp(strUncPath, strUncTest, vbTextCompare) <> 0 Then
+                ' Resolved to relative UNC path
+                strRelative = strUncTest
+            End If
+        End If
     End If
+    
+    ' Return relative (or original) path
+    GetRelativePath = strRelative
 
 End Function
 
@@ -2281,4 +2304,28 @@ End Sub
 Public Function DatabaseOpen() As Boolean
     DatabaseOpen = Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing)
     'DatabaseOpen = Workspaces(0).Databases.Count > 0   ' Another approach
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetUncPath
+' Author    : Adam Waller
+' Date      : 7/14/2020
+' Purpose   : Returns the UNC path for a network location (if applicable)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetUncPath(strPath As String)
+
+    Dim strDrive As String
+    Dim strUNC As String
+    
+    strUNC = strPath
+    strDrive = FSO.GetDriveName(strPath)
+    With FSO.GetDrive(strDrive)
+        If .DriveType = Remote Then
+            strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
+        End If
+    End With
+    GetUncPath = strUNC
+    
 End Function
