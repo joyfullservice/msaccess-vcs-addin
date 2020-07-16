@@ -128,6 +128,9 @@ Public Sub ExportSource()
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
     Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
     
+    ' Check for VCS_ImportExport.bas (Used with other forks)
+    CheckForLegacyModules
+    
     ' Restore original fast save option, and save options with project
     Options.SaveOptionsForProject
     

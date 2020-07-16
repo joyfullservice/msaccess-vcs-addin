@@ -2329,3 +2329,23 @@ Public Function GetUncPath(strPath As String)
     GetUncPath = strUNC
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckForLegacyModules
+' Author    : Adam Waller
+' Date      : 7/16/2020
+' Purpose   : Informs the user if the database contains a legacy module from another
+'           : fork of this project. (Some users might not realize that these are not
+'           : needed anymore.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub CheckForLegacyModules()
+    If FSO.FileExists(Options.GetExportFolder & "modules\VCS_ImportExport.bas") Then
+        MsgBox2 "Legacy Files not Needed", _
+            "Other forks of the MSAccessVCS project used additional VBA modules to export code." & vbCrLf & _
+            "This is no longer needed when using the installed Version Control Add-in.", _
+            "Feel free to remove the legacy VCS_* modules from your database project and enjoy" & vbCrLf & _
+            "a simpler, cleaner code base for ongoing development.  :-)", vbInformation, "Just a Suggestion..."
+    End If
+End Sub
