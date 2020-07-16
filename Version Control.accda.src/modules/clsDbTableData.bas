@@ -365,7 +365,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = m_Table.DateModified
+    ' We cannot determine when *records* were modified in a table.
+    IDbComponent_DateModified = 0
 End Function
 
 
