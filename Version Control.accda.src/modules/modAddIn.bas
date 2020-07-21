@@ -6,6 +6,7 @@ Public Enum eReleaseType
     Major_Vxx = 0
     Minor_xVx = 1
     Build_xxV = 2
+    Same_Version = 3
 End Enum
 
 Private Enum eHive
@@ -388,6 +389,7 @@ End Sub
 '
 Public Sub IncrementAppVersion(ReleaseType As eReleaseType)
     Dim varParts As Variant
+    If ReleaseType = Same_Version Then Exit Sub
     varParts = Split(AppVersion, ".")
     varParts(ReleaseType) = varParts(ReleaseType) + 1
     If ReleaseType < Minor_xVx Then varParts(Minor_xVx) = 0
