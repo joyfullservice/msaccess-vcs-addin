@@ -36,6 +36,7 @@ Private Sub IDbComponent_Export()
     Dim dItems As Dictionary
     Dim cRef As clsDbVbeReference
     Dim ref As VBIDE.Reference
+    Dim strPath As String
     
     Set dItems = New Dictionary
     
@@ -46,8 +47,15 @@ Private Sub IDbComponent_Export()
         With dRef
             If ref.Type = vbext_rk_Project Then
                 ' references of types mdb,accdb,mde etc don't have a GUID
-                .Add "File", FSO.GetFileName(ref.FullPath)
-                .Add "FullPath", Secure(ref.FullPath)
+                strPath = GetRelativePath(ref.FullPath)
+                If strPath <> ref.FullPath Or Options.Security = esNone Then
+                    ' Use relative path, or full path if not secured.
+                    .Add "FullPath", strPath
+                Else
+                    ' Found a non-relative path.
+                    .Add "File", FSO.GetFileName(ref.FullPath)
+                    If Options.Security <> esRemove Then .Add "FullPath", Secure(ref.FullPath)
+                End If
             Else
                 If ref.Guid <> vbNullString Then .Add "GUID", ref.Guid
                 .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
@@ -101,7 +109,7 @@ Private Sub IDbComponent_Import(strFile As String)
                     varVersion = Split(dRef("Version"), ".")
                     AddFromGuid proj, dRef("GUID"), CLng(varVersion(0)), CLng(varVersion(1))
                 ElseIf dRef.Exists("FullPath") Then
-                    strPath = Decrypt(dRef("FullPath"))
+                    strPath = GetPathFromRelative(Decrypt(dRef("FullPath")))
                     If FSO.FileExists(strPath) Then
                         proj.References.AddFromFile strPath
                     Else
