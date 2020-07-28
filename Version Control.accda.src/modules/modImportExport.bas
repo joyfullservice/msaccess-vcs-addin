@@ -384,6 +384,8 @@ End Function
 '
 Public Sub RemoveThemeZipFiles()
     Dim strFolder As String
-    strFolder = Options.GetExportFolder & "themes\"
-    If FSO.FolderExists(strFolder) Then ClearFilesByExtension strFolder, "zip"
+    If Options.ExtractThemeFiles Then
+        strFolder = Options.GetExportFolder & "themes\"
+        If FSO.FolderExists(strFolder) Then ClearFilesByExtension strFolder, "zip"
+    End If
 End Sub
