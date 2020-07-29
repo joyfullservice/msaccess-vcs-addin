@@ -129,8 +129,12 @@ Private Sub IDbComponent_Import(strFile As String)
         CopyFolderToZip strFile, strZip
         DoEvents
         strThemeFile = strFile & ".thmx"
+        If FSO.FileExists(strThemeFile) Then FSO.DeleteFile strThemeFile, True
         Name strZip As strThemeFile
     Else
+        ' Skip if file no longer exists. (Such as if we already
+        ' imported this theme from a folder.)
+        If Not FSO.FileExists(strFile) Then Exit Sub
         ' Theme file is ready to go
         strThemeFile = strFile
     End If
@@ -192,11 +196,17 @@ Private Function IDbComponent_GetAllFromDB() As Collection
     Dim cTheme As IDbComponent
     Dim rst As DAO.Recordset
     Dim strSql As String
+    Dim strKey As String
+    Dim dItems As Dictionary
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
         Set m_AllItems = New Collection
             
+        ' Use dictionary to make sure we don't add duplicate records if we have
+        ' both a folder and a theme file for the same theme.
+        Set dItems = New Dictionary
+        
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
 
@@ -207,7 +217,11 @@ Private Function IDbComponent_GetAllFromDB() As Collection
                 Do While Not .EOF
                     Set cTheme = New clsDbTheme
                     Set cTheme.DbObject = rst    ' Reference to OLE object recordset2
-                    m_AllItems.Add cTheme, Nz(!Name)
+                    strKey = Nz(!Name)
+                    If Not dItems.Exists(strKey) Then
+                        m_AllItems.Add cTheme, strKey
+                        dItems.Add strKey, strKey
+                    End If
                     .MoveNext
                 Loop
                 .Close
