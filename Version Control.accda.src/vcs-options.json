@@ -1,8 +1,7 @@
 {
   "Info": {
-    "AddinVersion": "3.1.58",
-    "AccessVersion": "14.0 32-bit",
-    "Hash": "@{7206d6328b5c80f8ceae447eb65c6abd23260569ff1ffc94}"
+    "AddinVersion": "3.1.59",
+    "AccessVersion": "14.0 32-bit"
   },
   "Options": {
     "ExportFolder": "",
@@ -19,7 +18,7 @@
     "RunBeforeExport": "",
     "RunAfterExport": "",
     "RunAfterBuild": "",
-    "Security": "Encrypt",
+    "Security": "None",
     "KeyName": "VCS"
   }
 }
