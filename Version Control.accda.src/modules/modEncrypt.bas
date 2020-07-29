@@ -159,6 +159,18 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CanDecrypt
+' Author    : Adam Waller
+' Date      : 7/29/2020
+' Purpose   : Returns true of the encrypted string can be successfully decrypted.
+'---------------------------------------------------------------------------------------
+'
+Public Function CanDecrypt(strEncrypted As String) As Boolean
+    CanDecrypt = (strEncrypted <> Decrypt(strEncrypted))
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SetEncryptionKey
 ' Author    : Adam Waller
 ' Date      : 4/24/2020

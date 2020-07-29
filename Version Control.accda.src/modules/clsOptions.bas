@@ -293,7 +293,7 @@ Private Function SerializeOptions() As Dictionary
     #End If
     dInfo.Add "AddinVersion", AppVersion
     dInfo.Add "AccessVersion", Application.Version & strBit
-    If Me.Security = esEncrypt Then dInfo.Add "Hash", Encrypt(CodeProject.Name)
+    If Me.Security = esEncrypt Then dInfo.Add "Hash", GetHash
     
     ' Loop through options
     For Each varOption In m_colOptions
@@ -313,6 +313,20 @@ Private Function SerializeOptions() As Dictionary
     Set dWrapper("Options") = dOptions
     Set SerializeOptions = dWrapper
     
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetHash
+' Author    : Adam Waller
+' Date      : 7/29/2020
+' Purpose   : Return a hash of the CodeProject.Name to verify encryption.
+'           : Note that the CodeProject.Name value is sometimes returned in all caps,
+'           : so we will force it to uppercase so the return value is consistent.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetHash() As String
+    GetHash = Encrypt(UCase(CodeProject.Name))
 End Function
 
 
