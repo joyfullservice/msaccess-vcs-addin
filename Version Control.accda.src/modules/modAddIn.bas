@@ -217,7 +217,7 @@ End Function
 ' Purpose   : Returns true if the addin is already installed.
 '---------------------------------------------------------------------------------------
 '
-Private Function IsAlreadyInstalled() As Boolean
+Public Function IsAlreadyInstalled() As Boolean
     
     Dim strPath As String
     Dim strTest As String
@@ -226,7 +226,7 @@ Private Function IsAlreadyInstalled() As Boolean
     If InstalledVersion <> vbNullString Then
         
         ' Check for addin file
-        If Dir(GetAddinFileName) = CodeProject.Name Then
+        If LCase(FSO.GetFileName(GetAddinFileName)) = LCase(CodeProject.Name) Then
             strPath = GetAddinRegPath & "&Version Control\Library"
             
             ' Check HKLM registry key

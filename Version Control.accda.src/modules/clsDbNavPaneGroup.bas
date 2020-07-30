@@ -238,7 +238,7 @@ End Function
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
     If IDbComponent_GetAllFromDB.Count = 0 Then
-        If FSO.FileExists(IDbComponent_SourceFile) Then Kill IDbComponent_SourceFile
+        If FSO.FileExists(IDbComponent_SourceFile) Then FSO.DeleteFile IDbComponent_SourceFile, True
     End If
 End Sub
 
@@ -268,7 +268,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_SourceModified() As Date
-    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = FileDateTime(IDbComponent_SourceFile)
+    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = GetLastModifiedDate(IDbComponent_SourceFile)
 End Function
 
 

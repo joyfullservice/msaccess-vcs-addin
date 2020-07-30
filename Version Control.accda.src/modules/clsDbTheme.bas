@@ -175,7 +175,7 @@ Private Sub IDbComponent_Import(strFile As String)
     End With
     
     ' Remove compressed theme file if we are using a folder.
-    If blnIsFolder Then Kill strThemeFile
+    If blnIsFolder Then FSO.DeleteFile strThemeFile, True
     
     ' Clear object (Important with DAO/ADO)
     Set rstAttachment = Nothing
@@ -269,7 +269,7 @@ End Sub
 Private Function IDbComponent_GetFileList() As Collection
     ' Get list of folders (extracted files) as well as zip files.
     ' Technically, a .thmx file is a zip file, and seen as a folder.
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, vbDirectory)
+    Set IDbComponent_GetFileList = GetSubfolderPaths(IDbComponent_BaseFolder)
 End Function
 
 
@@ -312,7 +312,7 @@ End Function
 '
 Private Function IDbComponent_SourceModified() As Date
     '// TODO: Recursively identify the most recent file modified date.
-    'If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = FileDateTime(IDbComponent_SourceFile)
+    'If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = GetLastModifiedDate(IDbComponent_SourceFile)
 End Function
 
 

@@ -36,7 +36,7 @@ Attribute VB_Exposed = False
 ''
 ''    ' Check for existing file
 ''    strFile = IDbComponent_SourceFile
-''    If FSO.FileExists(strFile) Then Kill strFile
+''    If FSO.FileExists(strFile) Then fso.deletefile strFile
 ''
 ''    If CurrentProject.ProjectType = acADP Then
 ''        ' No UCS conversion needed.
@@ -46,7 +46,7 @@ Attribute VB_Exposed = False
 ''        strTempFile = GetTempFile
 ''        Application.SaveAsText acForm, m_Form.Name, strTempFile
 ''        ConvertUcs2Utf8 strTempFile, strFile
-''        Kill strTempFile
+''        fso.deletefile strTempFile
 ''    End If
 ''    SanitizeFile strFile, Options
 '
@@ -103,7 +103,7 @@ Attribute VB_Exposed = False
 ''---------------------------------------------------------------------------------------
 ''
 'Private Function IDbComponent_GetFileList() As Collection
-'    'Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder & "*.bas")
+'    'Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder , "*.bas")
 'End Function
 '
 '
@@ -144,7 +144,7 @@ Attribute VB_Exposed = False
 ''---------------------------------------------------------------------------------------
 ''
 'Private Function IDbComponent_SourceModified() As Date
-'    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = FileDateTime(IDbComponent_SourceFile)
+'    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = GetLastModifiedDate(IDbComponent_SourceFile)
 'End Function
 '
 '

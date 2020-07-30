@@ -203,7 +203,7 @@ End Function
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
     Dim strFile As String
     strFile = IDbComponent_BaseFolder & "properties.txt"
-    If FSO.FileExists(strFile) Then Kill strFile    ' Remove legacy file
+    If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True     ' Remove legacy file
 End Sub
 
 
@@ -233,7 +233,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_SourceModified() As Date
-    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = FileDateTime(IDbComponent_SourceFile)
+    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = GetLastModifiedDate(IDbComponent_SourceFile)
 End Function
 
 

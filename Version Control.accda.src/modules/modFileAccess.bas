@@ -93,7 +93,7 @@ Public Function RequiresUcs2(Optional blnUseCache As Boolean = True) As Boolean
         ' Test and delete temp file
         m_strDbPath = CurrentProject.FullName
         m_blnUcs2 = FileIsUCS2Format(strTempFile)
-        Kill strTempFile
+        FSO.DeleteFile strTempFile, True
 
     End If
 
@@ -142,7 +142,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
     
     ' Make sure the path exists and remove any existing file.
     VerifyPath FSO.GetParentFolderName(strDestinationFile)
-    If FSO.FileExists(strDestinationFile) Then Kill strDestinationFile
+    If FSO.FileExists(strDestinationFile) Then FSO.DeleteFile strDestinationFile, True
     
     ' ADP Projects do not use the UCS BOM, but may contain mixed UTF-16 content
     ' representing unicode characters.
@@ -176,7 +176,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
         Close fnum
         
         ' Remove the source (temp) file if specified
-        If blnDeleteSourceFileAfterConversion Then Kill strSourceFile
+        If blnDeleteSourceFileAfterConversion Then FSO.DeleteFile strSourceFile, True
     Else
         ' No conversion needed, move/copy to destination.
         If blnDeleteSourceFileAfterConversion Then
@@ -207,7 +207,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
     ' Make sure the path exists before we write a file.
     VerifyPath FSO.GetParentFolderName(strDestinationFile)
     
-    If FSO.FileExists(strDestinationFile) Then Kill strDestinationFile
+    If FSO.FileExists(strDestinationFile) Then FSO.DeleteFile strDestinationFile, True
     
     If FileIsUCS2Format(strSourceFile) Then
         ' No conversion needed, move/copy to destination.
@@ -234,7 +234,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
             .Close
         End With
         
-        If blnDeleteSourceFileAfterConversion Then Kill strSourceFile
+        If blnDeleteSourceFileAfterConversion Then FSO.DeleteFile strSourceFile, True
     End If
     
 End Sub

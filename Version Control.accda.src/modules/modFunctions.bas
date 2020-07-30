@@ -345,10 +345,22 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
-    If Not FSO.FolderExists(StripSlash(strFolder)) Then Exit Sub
-    If Dir(strFolder & "*." & strExt) <> vbNullString Then
-        FSO.DeleteFile strFolder & "*." & strExt
+
+    Dim oFile As Scripting.File
+    Dim strFolderNoSlash As String
+    
+    ' While the Dir() function would be simpler, it does not support Unicode.
+    strFolderNoSlash = StripSlash(strFolder)
+    If FSO.FolderExists(strFolderNoSlash) Then
+        For Each oFile In FSO.GetFolder(strFolderNoSlash).Files
+            If StrComp(FSO.GetExtensionName(oFile.Name), strExt, vbTextCompare) = 0 Then
+                ' Found at least one matching file. Use the wildcard delete.
+                FSO.DeleteFile strFolderNoSlash & "\*." & strExt
+                Exit Sub
+            End If
+        Next
     End If
+    
 End Sub
 
 
@@ -440,7 +452,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
                 ' Remove any file that doesn't have a matching name.
                 If Not InCollection(colNames, strFile) Then
                     ' Object not found in database. Remove file.
-                    Kill oFile.ParentFolder.Path & "\" & oFile.Name
+                    FSO.DeleteFile oFile.ParentFolder.Path & "\" & oFile.Name, True
                     Log.Add "  Removing orphaned file: " & strFile, Options.ShowDebug
                 End If
                 
@@ -528,7 +540,7 @@ Public Sub VerifyPath(strFolderPath As String)
     
     ' If code reaches here, we don't have a copy of the path
     ' in the cached list of verified paths. Verify and add
-    If Dir(strFolderPath, vbDirectory) = vbNullString Then
+    If Not FSO.FolderExists(StripSlash(strFolderPath)) Then
         ' Path does not seem to exist. Create it.
         MkDirIfNotExist strFolderPath
     End If
@@ -1340,37 +1352,47 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Returns a collection containing the full paths of files in a folder.
+'           : Wildcards are supported.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFilePathsInFolder(strDirPath As String, Optional Attributes As VbFileAttribute = vbNormal) As Collection
+Public Function GetFilePathsInFolder(strFolder As String, Optional strFilePattern As String = "*.*") As Collection
     
+    Dim oFile As Scripting.File
     Dim strBaseFolder As String
-    Dim strFile As String
     
-    ' Build base folder name
-    If Attributes = vbDirectory Then
-        If FSO.FolderExists(strDirPath) Then
-            strBaseFolder = FSO.GetFolder(strDirPath) & "\"
-        Else
-            Set GetFilePathsInFolder = New Collection
-            Exit Function
-        End If
-    Else
-        strBaseFolder = FSO.GetParentFolderName(strDirPath) & "\"
+    strBaseFolder = StripSlash(strFolder)
+    Set GetFilePathsInFolder = New Collection
+    
+    If FSO.FolderExists(strBaseFolder) Then
+        For Each oFile In FSO.GetFolder(strBaseFolder)
+            ' Add files that match the pattern.
+            If oFile.Name Like strFilePattern Then GetFilePathsInFolder.Add oFile.Path
+        Next oFile
     End If
     
-    ' Build collection of paths
-    Set GetFilePathsInFolder = New Collection
-    strFile = Dir(strDirPath, Attributes)
-    Do While strFile <> vbNullString
-        Select Case strFile
-            Case ".", ".."
-                ' Skip these when using the vbDirectory flag.
-            Case Else
-                GetFilePathsInFolder.Add strBaseFolder & strFile
-        End Select
-        strFile = Dir()
-    Loop
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSubfolderPaths
+' Author    : Adam Waller
+' Date      : 7/30/2020
+' Purpose   : Return a collection of subfolders inside a folder.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSubfolderPaths(strPath As String) As Collection
+
+    Dim strBase As String
+    Dim oFolder As Scripting.Folder
+    
+    Set GetSubfolderPaths = New Collection
+    
+    strBase = StripSlash(strPath)
+    If FSO.FolderExists(strBase) Then
+        For Each oFolder In FSO.GetFolder(strBase).SubFolders
+            GetSubfolderPaths.Add oFolder.Path
+        Next oFolder
+    End If
     
 End Function
 
@@ -1679,7 +1701,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
         strTempFile = GetTempFile
         ConvertUtf8Ucs2 strFile, strTempFile, False
         Application.LoadFromText intType, strName, strTempFile
-        Kill strTempFile
+        FSO.DeleteFile strTempFile, True
     Else
         ' Load UTF-8 file
         Application.LoadFromText intType, strName, strFile
@@ -2163,7 +2185,7 @@ Public Sub CreateZipFile(strPath As String)
     strHeader = "PK" & Chr$(5) & Chr$(6) & String$(18, 0)
     
     ' Write to file
-    If FSO.FileExists(strPath) Then Kill strPath
+    If FSO.FileExists(strPath) Then FSO.DeleteFile strPath, True
     intFile = FreeFile
     Open strPath For Output As #intFile
         Print #intFile, strHeader
@@ -2349,3 +2371,26 @@ Public Sub CheckForLegacyModules()
             "a simpler, cleaner code base for ongoing development.  :-)", vbInformation, "Just a Suggestion..."
     End If
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetLastModifiedDate
+' Author    : Adam Waller
+' Date      : 7/30/2020
+' Purpose   : Get the last modified date on a folder or file with Unicode support.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetLastModifiedDate(strPath As String) As Date
+    
+    Dim oFile As Scripting.File
+    Dim oFolder As Scripting.Folder
+    
+    If FSO.FileExists(strPath) Then
+        Set oFile = FSO.GetFile(strPath)
+        GetLastModifiedDate = oFile.DateLastModified
+    ElseIf FSO.FolderExists(strPath) Then
+        Set oFolder = FSO.GetFolder(strPath)
+        GetLastModifiedDate = oFolder.DateLastModified
+    End If
+        
+End Function
