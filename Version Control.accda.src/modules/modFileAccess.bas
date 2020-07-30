@@ -241,6 +241,28 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : HasUtf8Bom
+' Author    : Adam Waller
+' Date      : 7/30/2020
+' Purpose   : Returns true if the file begins with a UTF-8 BOM
+'---------------------------------------------------------------------------------------
+'
+Public Function HasUtf8Bom(strFilePath As String) As Boolean
+    
+    Dim intFile As Integer
+    Dim strBuffer As String * 3
+    
+    intFile = FreeFile
+    Open strFilePath For Binary Access Read As intFile
+        Get #intFile, 1, strBuffer
+    Close intFile
+    
+    HasUtf8Bom = (strBuffer = "﻿")
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RemoveUTF8BOM
 ' Author    : Adam Kauffman
 ' Date      : 1/24/2019

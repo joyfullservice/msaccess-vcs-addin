@@ -152,20 +152,15 @@ End Sub
 '
 Public Sub LoadOptionsFromFile(strFile As String)
 
+    Dim dFile As Dictionary
     Dim dOptions As Dictionary
     Dim varOption As Variant
     Dim strKey As String
-    Dim strOptionsContent As String
     
-    If FSO.FileExists(strFile) Then
-        ' Read file contents
-        With FSO.OpenTextFile(strFile)
-            strOptionsContent = .ReadAll
-            .Close
-        End With
-        If Left(strOptionsContent, 3) = "﻿" Then strOptionsContent = Mid(strOptionsContent, 4)
-        Set dOptions = modJsonConverter.ParseJson(strOptionsContent)("Options")
-        If Not dOptions Is Nothing Then
+    Set dFile = ReadJsonFile(strFile)
+    If Not dFile Is Nothing Then
+        If dFile.Exists("Options") Then
+            Set dOptions = dFile("Options")
             ' Attempt to set any matching options in this class.
             For Each varOption In m_colOptions
                 strKey = CStr(varOption)

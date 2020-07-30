@@ -138,7 +138,11 @@ Public Sub SanitizeFile(strPath As String)
     
     ' Open file to read contents line by line.
     Set stmInFile = New ADODB.Stream
-    stmInFile.Charset = "UTF-8"
+    If HasUtf8Bom(strPath) Then
+        stmInFile.Charset = "UTF-8"
+    Else
+        stmInFile.Charset = "iso-8859-1"
+    End If
     stmInFile.Open
     stmInFile.LoadFromFile strPath
     
@@ -738,8 +742,9 @@ Public Sub WriteFile(strContent As String, strPath As String)
         If StringHasUnicode(strContent) Then
             .Charset = "utf-8"
         Else
-            ' Use ASCII text.
-            .Charset = "us-ascii"
+            ' Use extended ASCII text to support characters like "∆ÿ≈‰ﬂ"
+            ' https://stackoverflow.com/a/53036838/4121863
+            .Charset = "iso-8859-1"
         End If
         .Open
         .WriteText strContent
@@ -763,7 +768,8 @@ End Sub
 Public Function StringHasUnicode(strText As String) As Boolean
     Dim reg As New VBScript_RegExp_55.RegExp
     With reg
-        .Pattern = "[^\u0000-\u007F]"
+        ' Include extended ASCII characters here.
+        .Pattern = "[^\u0000-\u0100]"
         StringHasUnicode = .Test(strText)
     End With
 End Function
@@ -1457,13 +1463,20 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function ReadJsonFile(strPath As String) As Dictionary
+    
     Dim strText As String
     Dim stm As ADODB.Stream
     
     If FSO.FileExists(strPath) Then
         Set stm = New ADODB.Stream
         With stm
-            .Charset = "UTF-8"
+            If HasUtf8Bom(strPath) Then
+                .Charset = "UTF-8"
+            Else
+                ' Use extended ASCII text to support characters like "∆ÿ≈‰ﬂ"
+                ' https://stackoverflow.com/a/53036838/4121863
+                .Charset = "iso-8859-1"
+            End If
             .Open
             .LoadFromFile strPath
             strText = .ReadText
