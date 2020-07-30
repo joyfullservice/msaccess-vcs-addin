@@ -19,8 +19,8 @@ Begin Form
     ItemSuffix =113
     Left =3225
     Top =2430
-    Right =13305
-    Bottom =9615
+    Right =28545
+    Bottom =15015
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1156,7 +1156,6 @@ Begin Form
                                     ForeColor =4138256
                                     Name ="cboTableDataSaveType"
                                     RowSourceType ="Value List"
-                                    RowSource ="No Data;Tab Delimited;XML Format"
                                     GridlineColor =10921638
                                     AllowValueListEdits =0
 
@@ -2768,10 +2767,13 @@ Private Sub Form_Load()
     RefreshTableDisplay
     
     ' Load list of table data export formats
-    cboTableDataSaveType.AddItem "No Data"
-    For intFormat = 1 To eTableDataExportFormat.[_Last]
-        cboTableDataSaveType.AddItem Options.GetTableExportFormatName(intFormat)
-    Next intFormat
+    With cboTableDataSaveType
+        .RowSource = vbNullString
+        .AddItem "No Data"
+        For intFormat = 1 To eTableDataExportFormat.[_Last]
+            .AddItem Options.GetTableExportFormatName(intFormat)
+        Next intFormat
+    End With
     
     ' Load encryption key status
     cboSecurity_Click
