@@ -1371,7 +1371,7 @@ Public Function GetFilePathsInFolder(strFolder As String, Optional strFilePatter
     Set GetFilePathsInFolder = New Collection
     
     If FSO.FolderExists(strBaseFolder) Then
-        For Each oFile In FSO.GetFolder(strBaseFolder)
+        For Each oFile In FSO.GetFolder(strBaseFolder).Files
             ' Add files that match the pattern.
             If oFile.Name Like strFilePattern Then GetFilePathsInFolder.Add oFile.Path
         Next oFile
