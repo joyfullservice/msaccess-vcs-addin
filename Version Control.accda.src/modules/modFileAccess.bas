@@ -172,7 +172,10 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
         ' Write as UTF-8 in the destination file.
         fnum = FreeFile
         Open strDestinationFile For Binary As #fnum
-            Put #fnum, 1, utf8Bytes
+            ' Add BOM if we have Unicode content.
+            If StringHasUnicode(strText) Then Put #fnum, , UTF8_BOM
+            ' Add file contents
+            Put #fnum, , utf8Bytes
         Close fnum
         
         ' Remove the source (temp) file if specified
@@ -257,7 +260,7 @@ Public Function HasUtf8Bom(strFilePath As String) As Boolean
         Get #intFile, 1, strBuffer
     Close intFile
     
-    HasUtf8Bom = (strBuffer = "﻿")
+    HasUtf8Bom = (strBuffer = UTF8_BOM)
     
 End Function
 

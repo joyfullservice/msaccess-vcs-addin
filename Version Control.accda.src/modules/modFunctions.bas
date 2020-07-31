@@ -3,6 +3,7 @@ Option Compare Database
 Option Private Module
 
 Public Const JSON_WHITESPACE As Integer = 2
+Public Const UTF8_BOM As String = "﻿"
 
 Public colVerifiedPaths As New Collection
 
@@ -148,7 +149,7 @@ Public Sub SanitizeFile(strPath As String)
     
     ' Skip past UTF-8 BOM header
     strText = stmInFile.ReadText(adReadLine)
-    If Left$(strText, 3) = "﻿" Then strText = Mid$(strText, 4)
+    If Left$(strText, 3) = UTF8_BOM Then strText = Mid$(strText, 4)
 
     ' Loop through lines in file
     Do Until stmInFile.EOS
@@ -281,7 +282,7 @@ Public Sub SanitizeXML(strPath As String, Options As clsOptions)
         
         ' Read line from file
         strText = stmInFile.ReadText(adReadLine)
-        If Left$(strText, 3) = "﻿" Then strText = Mid$(strText, 4)
+        If Left$(strText, 3) = UTF8_BOM Then strText = Mid$(strText, 4)
         ' Just looking for the first match.
         If Not blnFound Then
         
@@ -1484,7 +1485,7 @@ Public Function ReadJsonFile(strPath As String) As Dictionary
         End With
         
         ' If it looks like json content, then parse into a dictionary object.
-        If Left$(strText, 3) = "﻿" Then strText = Mid$(strText, 4)
+        If Left$(strText, 3) = UTF8_BOM Then strText = Mid$(strText, 4)
         If Left$(strText, 1) = "{" Then Set ReadJsonFile = ParseJson(strText)
     End If
     
