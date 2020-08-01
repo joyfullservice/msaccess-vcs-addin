@@ -203,7 +203,7 @@ Public Sub LoadFromExportFile(strFile As String)
     If Not FSO.FileExists(strFile) Then Exit Sub
     
     ' Open the text file, checking to see if it is in UCS format
-    If FileIsUCS2Format(strFile) Then
+    If HasUcs2Bom(strFile) Then
         Set stm = FSO.OpenTextFile(strFile, ForReading, False, TristateTrue)
     Else
         Set stm = FSO.OpenTextFile(strFile, ForReading, False)

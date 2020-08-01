@@ -4,6 +4,7 @@ Option Private Module
 
 Public Const JSON_WHITESPACE As Integer = 2
 Public Const UTF8_BOM As String = "Ôªø"
+Public Const UCS2_BOM As String = "ˇ˛"
 
 Public colVerifiedPaths As New Collection
 
@@ -139,11 +140,7 @@ Public Sub SanitizeFile(strPath As String)
     
     ' Open file to read contents line by line.
     Set stmInFile = New ADODB.Stream
-    If HasUtf8Bom(strPath) Then
-        stmInFile.Charset = "UTF-8"
-    Else
-        stmInFile.Charset = "iso-8859-1"
-    End If
+    stmInFile.Charset = "UTF-8"
     stmInFile.Open
     stmInFile.LoadFromFile strPath
     
@@ -729,32 +726,38 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 1/23/2019
 ' Purpose   : Save string variable to text file. (Building the folder path if needed)
+'           : Saves in UTF-8 encoding, adding a BOM if extended or unicode content
+'           : is found in the file. https://stackoverflow.com/a/53036838/4121863
 '---------------------------------------------------------------------------------------
 '
-Public Sub WriteFile(strContent As String, strPath As String)
+Public Sub WriteFile(strText As String, strPath As String)
 
-    Dim stm As New ADODB.Stream
+    Dim stm As ADODB.Stream
+    Dim intFile As Integer
+    Dim strContent As String
+    Dim bteUtf8() As Byte
+    Dim bteBOM(0 To 2) As Byte
     
-    ' Make sure the path exists before we write a file.
-    VerifyPath FSO.GetParentFolderName(strPath)
+    ' Ensure that we are ending the content with a vbcrlf
+    strContent = strText
+    If Right$(strText, 2) <> vbCrLf Then strContent = strContent & vbCrLf
+
+    ' Build a byte array from the text
+    bteUtf8 = Utf8BytesFromString(strContent)
     
+    Set stm = New ADODB.Stream
     With stm
-        ' Use Unicode file encoding if needed.
-        If StringHasUnicode(strContent) Then
-            .Charset = "utf-8"
-        Else
-            ' Use extended ASCII text to support characters like "∆ÿ≈‰ﬂ"
-            ' https://stackoverflow.com/a/53036838/4121863
-            .Charset = "iso-8859-1"
-        End If
+        .Type = adTypeBinary
         .Open
-        .WriteText strContent
-        ' Ensure that we are ending the content with a vbcrlf
-        If Right$(strContent, 2) <> vbCrLf Then .WriteText vbCrLf
+        If StringHasUnicode(strContent) Then
+            bteBOM(0) = &HEF
+            bteBOM(1) = &HBB
+            bteBOM(2) = &HBF
+            .Write bteBOM
+        End If
+        .Write bteUtf8
         .SaveToFile strPath, adSaveCreateOverWrite
-        .Close
     End With
-    Set stm = Nothing
     
 End Sub
 
@@ -770,7 +773,7 @@ Public Function StringHasUnicode(strText As String) As Boolean
     Dim reg As New VBScript_RegExp_55.RegExp
     With reg
         ' Include extended ASCII characters here.
-        .Pattern = "[^\u0000-\u0100]"
+        .Pattern = "[^\u0000-\u007F]"
         StringHasUnicode = .Test(strText)
     End With
 End Function
@@ -1471,13 +1474,7 @@ Public Function ReadJsonFile(strPath As String) As Dictionary
     If FSO.FileExists(strPath) Then
         Set stm = New ADODB.Stream
         With stm
-            If HasUtf8Bom(strPath) Then
-                .Charset = "UTF-8"
-            Else
-                ' Use extended ASCII text to support characters like "∆ÿ≈‰ﬂ"
-                ' https://stackoverflow.com/a/53036838/4121863
-                .Charset = "iso-8859-1"
-            End If
+            .Charset = "UTF-8"
             .Open
             .LoadFromFile strPath
             strText = .ReadText
@@ -2407,4 +2404,28 @@ Public Function GetLastModifiedDate(strPath As String) As Date
         GetLastModifiedDate = oFolder.DateLastModified
     End If
         
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFileBytes
+' Author    : Adam Waller
+' Date      : 7/31/2020
+' Purpose   : Returns a byte array of the file contents.
+'           : This function supports Unicode paths, unlike VBA's Open statement.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFileBytes(strPath As String, Optional lngBytes As Long = adReadAll) As Byte()
+
+    Dim stmFile As ADODB.Stream
+
+    Set stmFile = New ADODB.Stream
+    With stmFile
+        .Type = adTypeBinary
+        .Open
+        .LoadFromFile strPath
+        GetFileBytes = .Read(lngBytes)
+        .Close
+    End With
+    
 End Function

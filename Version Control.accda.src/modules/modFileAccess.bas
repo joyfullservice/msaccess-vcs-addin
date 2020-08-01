@@ -92,7 +92,7 @@ Public Function RequiresUcs2(Optional blnUseCache As Boolean = True) As Boolean
         
         ' Test and delete temp file
         m_strDbPath = CurrentProject.FullName
-        m_blnUcs2 = FileIsUCS2Format(strTempFile)
+        m_blnUcs2 = HasUcs2Bom(strTempFile)
         FSO.DeleteFile strTempFile, True
 
     End If
@@ -100,26 +100,6 @@ Public Function RequiresUcs2(Optional blnUseCache As Boolean = True) As Boolean
     ' Return cached value
     RequiresUcs2 = m_blnUcs2
     
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : FileIsUCS2Format
-' Author    : Adam Kauffman
-' Date      : 02/24/2020
-' Purpose   : Check the file header for USC-2-LE BOM marker and return true if found.
-'---------------------------------------------------------------------------------------
-'
-Public Function FileIsUCS2Format(ByVal theFilePath As String) As Boolean
-    Dim fileNumber As Integer
-    fileNumber = FreeFile
-    Dim bytes As String
-    bytes = "  "
-    Open theFilePath For Binary Access Read As fileNumber
-    Get fileNumber, 1, bytes
-    Close fileNumber
-    
-    FileIsUCS2Format = (Asc(Mid$(bytes, 1, 1)) = &HFF) And (Asc(Mid$(bytes, 2, 1)) = &HFE)
 End Function
 
 
@@ -149,7 +129,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
     blnIsAdp = (CurrentProject.ProjectType = acADP)
     
     ' Check the first couple characters in the file for a UCS BOM.
-    If FileIsUCS2Format(strSourceFile) Or blnIsAdp Then
+    If HasUcs2Bom(strSourceFile) Or blnIsAdp Then
     
         ' Determine format
         If blnIsAdp Then
@@ -212,7 +192,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
     
     If FSO.FileExists(strDestinationFile) Then FSO.DeleteFile strDestinationFile, True
     
-    If FileIsUCS2Format(strSourceFile) Then
+    If HasUcs2Bom(strSourceFile) Then
         ' No conversion needed, move/copy to destination.
         If blnDeleteSourceFileAfterConversion Then
             FSO.MoveFile strSourceFile, strDestinationFile
@@ -251,17 +231,33 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function HasUtf8Bom(strFilePath As String) As Boolean
-    
-    Dim intFile As Integer
-    Dim strBuffer As String * 3
-    
-    intFile = FreeFile
-    Open strFilePath For Binary Access Read As intFile
-        Get #intFile, 1, strBuffer
-    Close intFile
-    
-    HasUtf8Bom = (strBuffer = UTF8_BOM)
-    
+    HasUtf8Bom = FileHasBom(strFilePath, UTF8_BOM)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasUcs2Bom
+' Author    : Adam Waller
+' Date      : 8/1/2020
+' Purpose   : Returns true if the file begins with
+'---------------------------------------------------------------------------------------
+'
+Public Function HasUcs2Bom(strFilePath As String) As Boolean
+    HasUcs2Bom = FileHasBom(strFilePath, UCS2_BOM)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FileHasBom
+' Author    : Adam Waller
+' Date      : 8/1/2020
+' Purpose   : Check for the specified BOM
+'---------------------------------------------------------------------------------------
+'
+Private Function FileHasBom(strFilePath As String, strBom As String) As Boolean
+    Dim strFound As String
+    strFound = StrConv((GetFileBytes(strFilePath, Len(strBom))), vbUnicode)
+    FileHasBom = (strFound = strBom)
 End Function
 
 
