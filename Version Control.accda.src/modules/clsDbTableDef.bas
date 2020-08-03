@@ -41,14 +41,14 @@ Private Sub IDbComponent_Export()
     Set dbs = CurrentDb
     Set tbl = dbs.TableDefs(m_Table.Name)
     strFile = IDbComponent_SourceFile
+    VerifyPath FSO.GetParentFolderName(strFile)
     
     ' For internal tables, we can export them as XML.
     If tbl.Connect = vbNullString Then
     
         ' Check for existing file
         If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
-        VerifyPath FSO.GetParentFolderName(strFile)
-    
+
         ' Save structure in XML format
         Application.ExportXML acExportTable, m_Table.Name, , strFile ', , , , acExportAllTableAndFieldProperties ' Add support for this later.
     
@@ -71,7 +71,6 @@ Private Sub IDbComponent_Export()
         End With
         WriteJsonFile Me, dItem, strFile, "Linked Table"
     End If
-    
     
     ' Optionally save in SQL format
     If Options.SaveTableSQL Then
