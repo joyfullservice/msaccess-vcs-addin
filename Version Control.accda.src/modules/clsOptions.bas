@@ -138,7 +138,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub SaveOptionsForProject()
+    ' Save source path option in current database.
     SavedSourcePath = Me.ExportFolder
+    ' Make sure the path exists, such as if saving options before the first export.
+    VerifyPath Me.GetExportFolder
     Me.SaveOptionsToFile Me.GetExportFolder & cstrOptionsFilename
 End Sub
 
