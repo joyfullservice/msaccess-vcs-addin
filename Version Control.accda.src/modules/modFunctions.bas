@@ -2286,7 +2286,7 @@ End Sub
 ' Procedure : ExtractFromZip
 ' Author    : Adam Waller
 ' Date      : 6/3/2020
-' Purpose   : Extracts all the files from a zip archive.
+' Purpose   : Extracts all the files from a zip archive. (Requires a .zip extension)
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExtractFromZip(strZip As String, strDestFolder As String, _

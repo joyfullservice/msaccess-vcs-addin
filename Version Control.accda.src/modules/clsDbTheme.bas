@@ -69,7 +69,7 @@ Private Sub IDbComponent_Export()
     ' Save as file
     If Not rst.EOF Then
         Set rstAtc = rst!Data.Value
-        If FSO.FileExists(strFile) Then FSO.DeleteFile strFile
+        If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
         rstAtc!FileData.SaveToFile strFile
         rstAtc.Close
         Set rstAtc = Nothing
@@ -137,6 +137,7 @@ Private Sub IDbComponent_Import(strFile As String)
         If Not FSO.FileExists(strFile) Then Exit Sub
         ' Theme file is ready to go
         strThemeFile = strFile
+        strName = FSO.GetBaseName(strFile)
     End If
 
     ' Create/edit record in resources table.
@@ -268,8 +269,8 @@ End Sub
 '
 Private Function IDbComponent_GetFileList() As Collection
     ' Get list of folders (extracted files) as well as zip files.
-    ' Technically, a .thmx file is a zip file, and seen as a folder.
     Set IDbComponent_GetFileList = GetSubfolderPaths(IDbComponent_BaseFolder)
+    MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
 End Function
 
 
