@@ -164,6 +164,7 @@ Private Function IDbComponent_GetAllFromDB() As Collection
     Dim cSpec As clsDbImexSpec
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
+    Dim strName As String
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
@@ -178,9 +179,12 @@ Private Function IDbComponent_GetAllFromDB() As Collection
             Set rst = dbs.OpenRecordset("MSysIMEXSpecs", dbOpenSnapshot, dbReadOnly)
             With rst
                 Do While Not .EOF
+                    ' Keep in mind that the spec name may be blank
+                    strName = Nz(!SpecName)
+                    If strName = vbNullString Then strName = "Spec " & Nz(!SpecID, 0)
                     ' Add spec name
                     Set cSpec = New clsDbImexSpec
-                    cSpec.Name = Nz(!SpecName)
+                    cSpec.Name = strName
                     cSpec.ID = Nz(!SpecID, 0)
                     m_AllItems.Add cSpec, cSpec.Name
                     .MoveNext
