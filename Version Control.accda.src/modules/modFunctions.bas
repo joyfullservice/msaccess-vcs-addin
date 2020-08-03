@@ -335,7 +335,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub MkDirIfNotExist(strPath As String)
-    If Not FSO.FolderExists(StripSlash(strPath)) Then MkDir StripSlash(strPath)
+    If Not FSO.FolderExists(StripSlash(strPath)) Then FSO.CreateFolder StripSlash(strPath)
 End Sub
 
 
@@ -2300,7 +2300,7 @@ Public Sub ExtractFromZip(strZip As String, strDestFolder As String, _
     Dim strFolder As String
     
     ' Build folder path, and make sure it exists
-    If Not FSO.FolderExists(strDestFolder) Then MkDir strDestFolder
+    If Not FSO.FolderExists(strDestFolder) Then FSO.CreateFolder strDestFolder
     strFolder = FSO.GetFolder(strDestFolder).Path
     
     ' Must use variants for the CopyHere function to work.
