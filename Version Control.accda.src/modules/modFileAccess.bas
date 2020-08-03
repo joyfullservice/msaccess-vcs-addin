@@ -146,17 +146,8 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
             .Close
         End With
         
-        ' Build a byte array from the text
-        utf8Bytes = Utf8BytesFromString(strText)
-        
         ' Write as UTF-8 in the destination file.
-        fnum = FreeFile
-        Open strDestinationFile For Binary As #fnum
-            ' Add BOM if we have Unicode content.
-            If StringHasUnicode(strText) Then Put #fnum, , UTF8_BOM
-            ' Add file contents
-            Put #fnum, , utf8Bytes
-        Close fnum
+        WriteFile strText, strDestinationFile
         
         ' Remove the source (temp) file if specified
         If blnDeleteSourceFileAfterConversion Then FSO.DeleteFile strSourceFile, True
@@ -200,15 +191,8 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
             FSO.CopyFile strSourceFile, strDestinationFile
         End If
     Else
-        ' Read file contents
-        fnum = FreeFile
-        
-        Open strSourceFile For Binary As fnum
-        ReDim utf8Bytes(LOF(fnum) - 1)
-        Get fnum, , utf8Bytes
-        Close fnum
-
-        ' Convert byte array to string
+        ' Read file contents and convert byte array to string
+        utf8Bytes = GetFileBytes(strSourceFile)
         strText = Utf8BytesToString(utf8Bytes)
         
         ' Write as UCS-2 LE (BOM)
@@ -217,6 +201,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
             .Close
         End With
         
+        ' Remove original file if specified.
         If blnDeleteSourceFileAfterConversion Then FSO.DeleteFile strSourceFile, True
     End If
     

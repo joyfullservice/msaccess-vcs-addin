@@ -732,11 +732,8 @@ End Sub
 '
 Public Sub WriteFile(strText As String, strPath As String)
 
-    Dim stm As ADODB.Stream
-    Dim intFile As Integer
     Dim strContent As String
     Dim bteUtf8() As Byte
-    Dim bteBOM(0 To 2) As Byte
     
     ' Ensure that we are ending the content with a vbcrlf
     strContent = strText
@@ -745,17 +742,36 @@ Public Sub WriteFile(strText As String, strPath As String)
     ' Build a byte array from the text
     bteUtf8 = Utf8BytesFromString(strContent)
     
+    ' Write binary content to file.
+    WriteBinaryFile bteUtf8, StringHasUnicode(strContent), strPath
+        
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteBinaryFile
+' Author    : Adam Waller
+' Date      : 8/3/2020
+' Purpose   : Write binary content to a file with optional UTF-8 BOM.
+'---------------------------------------------------------------------------------------
+'
+Public Sub WriteBinaryFile(bteContent() As Byte, blnUtf8Bom As Boolean, strPath As String)
+
+    Dim stm As ADODB.Stream
+    Dim bteBOM(0 To 2) As Byte
+    
+    ' Write to a binary file using a Stream object
     Set stm = New ADODB.Stream
     With stm
         .Type = adTypeBinary
         .Open
-        If StringHasUnicode(strContent) Then
+        If blnUtf8Bom Then
             bteBOM(0) = &HEF
             bteBOM(1) = &HBB
             bteBOM(2) = &HBF
             .Write bteBOM
         End If
-        .Write bteUtf8
+        .Write bteContent
         .SaveToFile strPath, adSaveCreateOverWrite
     End With
     
@@ -2178,7 +2194,6 @@ Public Function DictionaryEqual(dOne As Dictionary, dTwo As Dictionary) As Boole
 End Function
 
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : CreateZipFile
 ' Author    : Adam Waller
@@ -2196,11 +2211,10 @@ Public Sub CreateZipFile(strPath As String)
     strHeader = "PK" & Chr$(5) & Chr$(6) & String$(18, 0)
     
     ' Write to file
-    If FSO.FileExists(strPath) Then FSO.DeleteFile strPath, True
-    intFile = FreeFile
-    Open strPath For Output As #intFile
-        Print #intFile, strHeader
-    Close #intFile
+    With FSO.CreateTextFile(strPath, True)
+        .Write strHeader
+        .Close
+    End With
     
 End Sub
 
