@@ -61,15 +61,15 @@ Private Sub IDbComponent_Export()
     
     ' If we get multiple records back we don't know which to use
     If rst.RecordCount > 1 Then Err.Raise 42, , "Multiple records in MSysResources table were found that matched name '" & m_Name & "' and extension '" & m_Extension & "' - Compact and repair database and try again."
-    
-    ' make sure parent folder exists before we try to save it
-    strFile = IDbComponent_SourceFile & ".thmx"
-    VerifyPath FSO.GetParentFolderName(strFile)
+
+    ' Get full name of theme file. (*.thmx)
+    strFile = IDbComponent_SourceFile
     
     ' Save as file
     If Not rst.EOF Then
         Set rstAtc = rst!Data.Value
         If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
+        VerifyPath strFile
         rstAtc!FileData.SaveToFile strFile
         rstAtc.Close
         Set rstAtc = Nothing
@@ -81,13 +81,13 @@ Private Sub IDbComponent_Export()
     ' (Only really needed when you are tracking themes customizations.)
     If Options.ExtractThemeFiles Then
         ' Extract to folder and delete zip file.
-        strFolder = IDbComponent_SourceFile
+        strFolder = FSO.GetParentFolderName(strFile) & "\" & FSO.GetBaseName(strFile)
         If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
         DoEvents ' Make sure the folder is deleted before we recreate it.
         ' Rename to zip file before extracting
-        strZip = IDbComponent_SourceFile & ".zip"
+        strZip = strFolder & ".zip"
         Name strFile As strZip
-        ExtractFromZip strZip, IDbComponent_SourceFile, False
+        ExtractFromZip strZip, strFolder, False
         ' Rather than holding up the export while we extract the file,
         ' use a cleanup sub to do this after the export.
     End If
@@ -109,7 +109,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim fldFile As DAO.Field2
     Dim strZip As String
     Dim strThemeFile As String
-    Dim strName As String
+    Dim strThemeName As String
     Dim strSql As String
     Dim blnIsFolder As Boolean
     
@@ -119,9 +119,9 @@ Private Sub IDbComponent_Import(strFile As String)
     If blnIsFolder Then
         ' We need to compress this folder back into a zipped theme file.
         ' Build zip file name
-        strZip = strFile & ".zip"
+        strZip = FSO.GetBaseName(strFile) & ".zip"
         ' Get theme name
-        strName = FSO.GetBaseName(strZip)
+        strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strZip))
         ' Remove any existing zip file
         If FSO.FileExists(strZip) Then FSO.DeleteFile strZip, True
         ' Copy source files into new zip file
@@ -137,18 +137,18 @@ Private Sub IDbComponent_Import(strFile As String)
         If Not FSO.FileExists(strFile) Then Exit Sub
         ' Theme file is ready to go
         strThemeFile = strFile
-        strName = FSO.GetBaseName(strFile)
     End If
 
     ' Create/edit record in resources table.
+    strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strFile))
     VerifyResourcesTable
-    strSql = "SELECT * FROM MSysResources WHERE [Type] = 'thmx' AND [Name]=""" & strName & """"
+    strSql = "SELECT * FROM MSysResources WHERE [Type] = 'thmx' AND [Name]=""" & strThemeName & """"
     Set rstResources = CurrentDb.OpenRecordset(strSql, dbOpenDynaset)
     With rstResources
         If .EOF Then
             ' No existing record found. Add a record
             .AddNew
-            !Name = FSO.GetBaseName(strThemeFile)
+            !Name = strThemeName
             !Extension = "thmx"
             !Type = "thmx"
             Set rstAttachment = .Fields("Data").Value
@@ -357,12 +357,11 @@ End Property
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Return the full path of the source file for the current object.
-'           : In this case, we are building the name to include the info needed to
-'           : recreate the record in the MSysResource table.
+'           : In this case, we are returning the theme file name.
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Name)
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Name) & ".thmx"
 End Property
 
 

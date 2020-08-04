@@ -120,8 +120,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
     Dim blnIsAdp As Boolean
     Dim intTristate As Tristate
     
-    ' Make sure the path exists and remove any existing file.
-    VerifyPath FSO.GetParentFolderName(strDestinationFile)
+    ' Remove any existing file.
     If FSO.FileExists(strDestinationFile) Then FSO.DeleteFile strDestinationFile, True
     
     ' ADP Projects do not use the UCS BOM, but may contain mixed UTF-16 content
@@ -153,6 +152,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
         If blnDeleteSourceFileAfterConversion Then FSO.DeleteFile strSourceFile, True
     Else
         ' No conversion needed, move/copy to destination.
+        VerifyPath strDestinationFile
         If blnDeleteSourceFileAfterConversion Then
             FSO.MoveFile strSourceFile, strDestinationFile
         Else
@@ -179,8 +179,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
     Dim fnum As Integer
 
     ' Make sure the path exists before we write a file.
-    VerifyPath FSO.GetParentFolderName(strDestinationFile)
-    
+    VerifyPath strDestinationFile
     If FSO.FileExists(strDestinationFile) Then FSO.DeleteFile strDestinationFile, True
     
     If HasUcs2Bom(strSourceFile) Then

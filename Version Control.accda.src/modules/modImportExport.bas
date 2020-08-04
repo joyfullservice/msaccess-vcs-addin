@@ -49,9 +49,8 @@ Public Sub ExportSource()
     ' Set this as text to save display in current user's locale rather than Zulu time.
     SetDBProperty "Last VCS Export", Now, dbText ' dbDate
 
+    ' Begin timer at start of export.
     sngStart = Timer
-    Set colVerifiedPaths = New Collection   ' Reset cache
-    VerifyPath Options.GetExportFolder
 
     ' Display heading
     With Options

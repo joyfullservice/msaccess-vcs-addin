@@ -6,8 +6,6 @@ Public Const JSON_WHITESPACE As Integer = 2
 Public Const UTF8_BOM As String = "ï»¿"
 Public Const UCS2_BOM As String = "ÿþ"
 
-Public colVerifiedPaths As New Collection
-
 ' Formats used when exporting table data.
 Public Enum eTableDataExportFormat
     etdNoData = 0
@@ -398,7 +396,7 @@ Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
         ' Remove any subfolder that doesn't have a matching name.
         If Not InCollection(colNames, strSubFolderName) Then
             ' Object not found in database. Remove subfolder.
-            oSubFolder.Delete
+            oSubFolder.Delete True
             Log.Add "  Removing orphaned folder: " & strSubFolderName, Options.ShowDebug
         End If
         
@@ -466,7 +464,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     Next oFile
     
     ' Remove base folder if we don't have any files in it
-    If oFolder.Files.Count = 0 Then oFolder.Delete
+    If oFolder.Files.Count = 0 Then oFolder.Delete True
     
 End Sub
 
@@ -523,31 +521,46 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : VerifyPath
 ' Author    : Adam Waller
-' Date      : 5/15/2015
-' Purpose   : Verifies that the path to a folder exists, caching results to
-'           : avoid uneeded calls to the Dir() function.
+' Date      : 8/3/2020
+' Purpose   : Verifies that the folder path to a folder or file exists.
+'           : Use this to verify the folder path before attempting to write a file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub VerifyPath(strFolderPath As String)
+Public Sub VerifyPath(strPath As String)
     
-    Dim varPath As Variant
+    Dim strFolder As String
+    Dim varParts As Variant
+    Dim intPart As Integer
+    Dim strVerified As String
     
-    ' Check cache first
-    For Each varPath In colVerifiedPaths
-        If strFolderPath = varPath Then
-            ' Found path. Assume it still exists
-            Exit Sub
-        End If
-    Next varPath
-    
-    ' If code reaches here, we don't have a copy of the path
-    ' in the cached list of verified paths. Verify and add
-    If Not FSO.FolderExists(StripSlash(strFolderPath)) Then
-        ' Path does not seem to exist. Create it.
-        MkDirIfNotExist strFolderPath
+    ' Determine if the path is a file or folder
+    If Right$(strPath, 1) = "\" Then
+        ' Folder name. (Folder names can contain periods)
+        strFolder = Left$(strPath, Len(strPath) - 1)
+    Else
+        ' File name
+        strFolder = FSO.GetParentFolderName(strPath)
     End If
-    colVerifiedPaths.Add strFolderPath
     
+    ' Check if full path exists.
+    If Not FSO.FolderExists(strFolder) Then
+        ' Start from the root, and build out full path, creating folders as needed.
+        varParts = Split(strFolder, "\")
+        ' Make sure the root folder exists. If it doesn't we probably have some other
+        ' issue.
+        If Not FSO.FolderExists(varParts(0)) Then
+            MsgBox2 "Path Not Found", "Could not find the path '" & varParts(0) & "' on this system.", _
+                "I was simply trying to verify this path: " & strFolder, vbExclamation
+        Else
+            ' Loop through folder structure, creating as needed.
+            strVerified = varParts(0)
+            For intPart = 1 To UBound(varParts)
+                strVerified = strVerified & "\" & varParts(intPart)
+                If Not FSO.FolderExists(strVerified) Then FSO.CreateFolder strVerified
+            Next intPart
+        End If
+    End If
+
 End Sub
 
 
@@ -772,6 +785,7 @@ Public Sub WriteBinaryFile(bteContent() As Byte, blnUtf8Bom As Boolean, strPath 
             .Write bteBOM
         End If
         .Write bteContent
+        VerifyPath strPath
         .SaveToFile strPath, adSaveCreateOverWrite
     End With
     
@@ -1683,12 +1697,8 @@ Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFi
     
     Dim strTempFile As String
     
-    ' Make sure the path exists before we write a file.
-    VerifyPath FSO.GetParentFolderName(strFile)
-        
     ' Export to temporary file
     strTempFile = GetTempFile
-    
     Application.SaveAsText intType, strName, strTempFile
     
     ' Handle UCS conversion if needed
@@ -2211,6 +2221,7 @@ Public Sub CreateZipFile(strPath As String)
     strHeader = "PK" & Chr$(5) & Chr$(6) & String$(18, 0)
     
     ' Write to file
+    VerifyPath strPath
     With FSO.CreateTextFile(strPath, True)
         .Write strHeader
         .Close

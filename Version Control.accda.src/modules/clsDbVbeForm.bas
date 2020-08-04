@@ -30,7 +30,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    VerifyPath IDbComponent_BaseFolder
+    VerifyPath IDbComponent_SourceFile
     m_Form.Export IDbComponent_SourceFile
 End Sub
 

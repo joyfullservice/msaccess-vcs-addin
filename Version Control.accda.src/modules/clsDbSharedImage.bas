@@ -64,6 +64,7 @@ Private Sub IDbComponent_Export()
         .Type = adTypeBinary
         .Open
         .Write StripOLEHeader(m_FileData)     ' Binary data
+        VerifyPath strFile
         .SaveToFile strFile, adSaveCreateOverWrite
         .Close
     End With

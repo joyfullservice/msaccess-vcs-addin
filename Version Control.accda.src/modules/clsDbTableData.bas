@@ -36,9 +36,6 @@ Private Sub IDbComponent_Export()
     Dim strFile As String
     Dim intFormat As eTableDataExportFormat
 
-    ' Make sure the path exists.
-    VerifyPath FSO.GetParentFolderName(IDbComponent_SourceFile)
-
     ' Save as selected format, and remove other formats if they exist.
     For intFormat = 1 To eTableDataExportFormat.[_Last]
         ' Build file name for this format
@@ -50,6 +47,7 @@ Private Sub IDbComponent_Export()
                 Case etdTabDelimited:   ExportTableDataAsTDF m_Table.Name
                 Case etdXML
                     ' Export data rows as XML
+                    VerifyPath strFile
                     Application.ExportXML acExportTable, m_Table.Name, strFile
                     SanitizeXML strFile, Options
             End Select
