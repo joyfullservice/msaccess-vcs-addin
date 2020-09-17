@@ -156,15 +156,20 @@ Private Sub ImportTableDataTDF(strFile As String)
                 For intCol = 0 To UBound(varHeader)
                     ' Check to see if field exists in the table
                     If dCols.Exists(varHeader(intCol)) Then
-                        ' Perform any needed replacements
-                        strValue = MultiReplace(CStr(varLine(intCol)), _
-                            "\\", "\", "\r\n", vbCrLf, "\r", vbCr, "\n", vbLf, "\t", vbTab)
-                        If strValue <> CStr(varLine(intCol)) Then
-                            ' Use replaced string value
-                            rst.Fields(varHeader(intCol)).Value = strValue
+                        ' Set empty fields to null
+                        If varLine(intCol) = "" Then
+                            rst.Fields(varHeader(intCol)).Value = Null
                         Else
-                            ' Use variant value without the string conversion
-                            rst.Fields(varHeader(intCol)).Value = varLine(intCol)
+                            ' Perform any needed replacements
+                            strValue = MultiReplace(CStr(varLine(intCol)), _
+                                "\\", "\", "\r\n", vbCrLf, "\r", vbCr, "\n", vbLf, "\t", vbTab)
+                            If strValue <> CStr(varLine(intCol)) Then
+                                ' Use replaced string value
+                                rst.Fields(varHeader(intCol)).Value = strValue
+                            Else
+                                ' Use variant value without the string conversion
+                                rst.Fields(varHeader(intCol)).Value = varLine(intCol)
+                            End If
                         End If
                     End If
                 Next intCol
