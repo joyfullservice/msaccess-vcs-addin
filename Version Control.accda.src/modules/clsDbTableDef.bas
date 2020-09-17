@@ -308,7 +308,7 @@ Private Sub IDbComponent_Import(strFile As String)
         Case "json"
             ImportLinkedTable strFile
         Case "xml"
-            Application.ImportXML strFile, acStructureAndData
+            Application.ImportXML strFile, acStructureAndData  'TODO: Why not acStructureOnly?
     End Select
 End Sub
 

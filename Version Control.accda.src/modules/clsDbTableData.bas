@@ -46,7 +46,7 @@ Private Sub IDbComponent_Export()
             Select Case intFormat
                 Case etdTabDelimited:   ExportTableDataAsTDF m_Table.Name
                 Case etdXML
-                    ' Export data rows as XML
+                    ' Export data rows as XML (encoding default is UTF-8)
                     VerifyPath strFile
                     Application.ExportXML acExportTable, m_Table.Name, strFile
                     SanitizeXML strFile, Options
@@ -243,8 +243,13 @@ Private Sub IDbComponent_Import(strFile As String)
     Select Case GetFormatByExt(strFile)
         Case etdXML
             strTable = GetObjectNameFromFileName(strFile)
-            If TableExists(strTable) Then DoCmd.DeleteObject acTable, strTable
-            Application.ImportXML strFile, acStructureAndData
+            If TableExists(strTable) Then 'TODO: Do we need to truncate the table? It should be empty at this stage.
+                'DoCmd.DeleteObject acTable, strTable
+                Application.ImportXML strFile, acAppendData
+            Else
+                'FIXME: What should we do here? Tables should have been created already, so maybe better throw an error?
+                Application.ImportXML strFile, acStructureAndData
+            End If
         Case etdTabDelimited
             ImportTableDataTDF strFile
     End Select

@@ -2,12 +2,12 @@
   "Info": {
     "Class": "clsDbNavPaneGroup",
     "Description": "Navigation Pane Custom Groups",
-    "VCS Version": "3.1.60"
+    "VCS Version": "3.1.62"
   },
   "Items": {
     "Groups": [
       {
-        "Name": "Custom Group 1",
+        "Name": "Benutzerdefinierte Gruppe 1",
         "Flags": 0,
         "Position": 2,
         "Objects": [
