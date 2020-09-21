@@ -61,7 +61,7 @@ Private Sub IDbComponent_Export()
             .Add "SourceTableName", tbl.SourceTableName
             .Add "Attributes", tbl.Attributes
             ' indexes (Find primary key)
-            For Each idx In tbl.Indexes
+            For Each idx In GetIndexes(tbl)
                 If idx.Primary Then
                     ' Add the primary key columns, using brackets just in case the field names have spaces.
                     .Add "PrimaryKey", "[" & MultiReplace(CStr(idx.Fields), "+", vbNullString, ";", "], [") & "]"
@@ -125,7 +125,7 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
             End Select
 
             ' Indexes
-            For Each idx In tdf.Indexes
+            For Each idx In GetIndexes(tdf)
                 Set cAttr = New clsConcat
                 If idx.Fields.Count = 1 And idx.Fields(0).Name = fld.Name Then
                     If idx.Primary Then cAttr.Add " PRIMARY KEY"
@@ -147,7 +147,7 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
 
         ' Constraints
         Set cAttr = New clsConcat
-        For Each idx In tdf.Indexes
+        For Each idx In GetIndexes(tdf)
             If idx.Fields.Count > 1 Then
                 If Len(cAttr.GetStr) = 0 Then cAttr.Add " CONSTRAINT "
                 If idx.Primary Then
@@ -296,6 +296,22 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetIndexes
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return the indexes collection, if available. Without the error handling
+'           : this may throw an error if a linked table is not available during export.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetIndexes(tdf As TableDef) As DAO.Indexes
+    On Error Resume Next
+    Set GetIndexes = tdf.Indexes
+    If Err Then Err.Clear
+    On Error GoTo 0
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Import
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -410,7 +426,7 @@ Private Function HasUniqueIndex(tdf As TableDef) As Boolean
 
     Dim idx As DAO.Index
     
-    For Each idx In tdf.Indexes
+    For Each idx In GetIndexes(tdf)
         If idx.Unique Then
             HasUniqueIndex = True
             Exit For
