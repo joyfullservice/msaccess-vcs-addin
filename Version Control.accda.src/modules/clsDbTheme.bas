@@ -141,39 +141,41 @@ Private Sub IDbComponent_Import(strFile As String)
 
     ' Create/edit record in resources table.
     strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strFile))
-    VerifyResourcesTable
-    strSql = "SELECT * FROM MSysResources WHERE [Type] = 'thmx' AND [Name]=""" & strThemeName & """"
-    Set rstResources = CurrentDb.OpenRecordset(strSql, dbOpenDynaset)
-    With rstResources
-        If .EOF Then
-            ' No existing record found. Add a record
-            .AddNew
-            !Name = strThemeName
-            !Extension = "thmx"
-            !Type = "thmx"
-            Set rstAttachment = .Fields("Data").Value
-        Else
-            ' Found theme record with the same name.
-            ' Remove the attached theme file.
-            .Edit
-            Set rstAttachment = .Fields("Data").Value
-            If Not rstAttachment.EOF Then rstAttachment.Delete
-        End If
-        
-        ' Upload theme file into OLE field
-        DoEvents
-        With rstAttachment
-            .AddNew
-            Set fldFile = .Fields("FileData")
-            fldFile.LoadFromFile strThemeFile
+    ' Make sure we have a resources table before we try to query the records.
+    If VerifyResourcesTable(True) Then
+        strSql = "SELECT * FROM MSysResources WHERE [Type] = 'thmx' AND [Name]=""" & strThemeName & """"
+        Set rstResources = CurrentDb.OpenRecordset(strSql, dbOpenDynaset)
+        With rstResources
+            If .EOF Then
+                ' No existing record found. Add a record
+                .AddNew
+                !Name = strThemeName
+                !Extension = "thmx"
+                !Type = "thmx"
+                Set rstAttachment = .Fields("Data").Value
+            Else
+                ' Found theme record with the same name.
+                ' Remove the attached theme file.
+                .Edit
+                Set rstAttachment = .Fields("Data").Value
+                If Not rstAttachment.EOF Then rstAttachment.Delete
+            End If
+            
+            ' Upload theme file into OLE field
+            DoEvents
+            With rstAttachment
+                .AddNew
+                Set fldFile = .Fields("FileData")
+                fldFile.LoadFromFile strThemeFile
+                .Update
+                .Close
+            End With
+            
+            ' Save and close record
             .Update
             .Close
         End With
-        
-        ' Save and close record
-        .Update
-        .Close
-    End With
+    End If
     
     ' Remove compressed theme file if we are using a folder.
     If blnIsFolder Then FSO.DeleteFile strThemeFile, True
@@ -243,10 +245,11 @@ End Function
 ' Purpose   : Make sure the resources table exists, creating it if needed.
 '---------------------------------------------------------------------------------------
 '
-Public Sub VerifyResourcesTable()
+Public Function VerifyResourcesTable(blnClearThemes As Boolean) As Boolean
 
     Dim strName As String
     
+    ' Make sure we actually have a resources table.
     If Not TableExists("MSysResources") Then
         ' It would be nice to find a magical system command for this, but for now
         ' we can create it by creating a temporary form object.
@@ -254,10 +257,15 @@ Public Sub VerifyResourcesTable()
         ' Close without saving
         DoCmd.Close acForm, strName, acSaveNo
         ' Remove any potential default theme
-        CurrentDb.Execute "DELETE * FROM MSysResources WHERE [Type]='thmx'", dbFailOnError
+        If TableExists("MSysResources") Then
+            If blnClearThemes Then CurrentDb.Execute "DELETE * FROM MSysResources WHERE [Type]='thmx'", dbFailOnError
+            VerifyResourcesTable = True
+        Else
+            Log.Add "WARNING: Unable to create MSysResources table."
+        End If
     End If
     
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
