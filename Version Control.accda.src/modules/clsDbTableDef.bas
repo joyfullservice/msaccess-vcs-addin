@@ -61,13 +61,15 @@ Private Sub IDbComponent_Export()
             .Add "SourceTableName", tbl.SourceTableName
             .Add "Attributes", tbl.Attributes
             ' indexes (Find primary key)
-            For Each idx In GetIndexes(tbl)
-                If idx.Primary Then
-                    ' Add the primary key columns, using brackets just in case the field names have spaces.
-                    .Add "PrimaryKey", "[" & MultiReplace(CStr(idx.Fields), "+", vbNullString, ";", "], [") & "]"
-                    Exit For
-                End If
-            Next idx
+            If IndexAvailable(tbl) Then
+                For Each idx In tbl.Indexes
+                    If idx.Primary Then
+                        ' Add the primary key columns, using brackets just in case the field names have spaces.
+                        .Add "PrimaryKey", "[" & MultiReplace(CStr(idx.Fields), "+", vbNullString, ";", "], [") & "]"
+                        Exit For
+                    End If
+                Next idx
+            End If
         End With
         WriteJsonFile Me, dItem, strFile, "Linked Table"
     End If
@@ -125,7 +127,7 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
             End Select
 
             ' Indexes
-            For Each idx In GetIndexes(tdf)
+            For Each idx In tdf.Indexes
                 Set cAttr = New clsConcat
                 If idx.Fields.Count = 1 And idx.Fields(0).Name = fld.Name Then
                     If idx.Primary Then cAttr.Add " PRIMARY KEY"
@@ -146,32 +148,34 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
         .Remove 3   ' strip off last comma and crlf
 
         ' Constraints
-        Set cAttr = New clsConcat
-        For Each idx In GetIndexes(tdf)
-            If idx.Fields.Count > 1 Then
-                If Len(cAttr.GetStr) = 0 Then cAttr.Add " CONSTRAINT "
-                If idx.Primary Then
-                    cAttr.Add "["
-                    cAttr.Add idx.Name
-                    cAttr.Add "] PRIMARY KEY ("
-                    For Each fld In idx.Fields
-                        cAttr.Add fld.Name
-                        cAttr.Add ", "
-                    Next fld
-                    cAttr.Remove 2
-                    cAttr.Add ")"
-                End If
-                If Not idx.Foreign Then
-                    If Len(cAttr.GetStr) > 0 Then
-                        .Add ","
-                        .Add vbCrLf
-                        .Add "  "
-                        .Add cAttr.GetStr
-                        AddFieldReferences dbs, idx.Fields, strTable, cData
+        If IndexAvailable(tdf) Then
+            Set cAttr = New clsConcat
+            For Each idx In tdf.Indexes
+                If idx.Fields.Count > 1 Then
+                    If Len(cAttr.GetStr) = 0 Then cAttr.Add " CONSTRAINT "
+                    If idx.Primary Then
+                        cAttr.Add "["
+                        cAttr.Add idx.Name
+                        cAttr.Add "] PRIMARY KEY ("
+                        For Each fld In idx.Fields
+                            cAttr.Add fld.Name
+                            cAttr.Add ", "
+                        Next fld
+                        cAttr.Remove 2
+                        cAttr.Add ")"
+                    End If
+                    If Not idx.Foreign Then
+                        If Len(cAttr.GetStr) > 0 Then
+                            .Add ","
+                            .Add vbCrLf
+                            .Add "  "
+                            .Add cAttr.GetStr
+                            AddFieldReferences dbs, idx.Fields, strTable, cData
+                        End If
                     End If
                 End If
-            End If
-        Next
+            Next idx
+        End If
         .Add vbCrLf
         .Add ")"
 
@@ -296,18 +300,26 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetIndexes
+' Procedure : IndexAvailable
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
-' Purpose   : Return the indexes collection, if available. Without the error handling
-'           : this may throw an error if a linked table is not available during export.
+' Purpose   : Return true if the index collection is avilable. Without the error handling
+'           : this may throw an error if a linked table is not accessible during export.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetIndexes(tdf As TableDef) As DAO.Indexes
+Private Function IndexAvailable(tdf As TableDef) As Boolean
+
+    Dim lngTest As Long
+    
     On Error Resume Next
-    Set GetIndexes = tdf.Indexes
-    If Err Then Err.Clear
+    lngTest = tdf.Indexes.Count
+    If Err Then
+        Err.Clear
+    Else
+        IndexAvailable = True
+    End If
     On Error GoTo 0
+    
 End Function
 
 
@@ -426,12 +438,14 @@ Private Function HasUniqueIndex(tdf As TableDef) As Boolean
 
     Dim idx As DAO.Index
     
-    For Each idx In GetIndexes(tdf)
-        If idx.Unique Then
-            HasUniqueIndex = True
-            Exit For
-        End If
-    Next idx
+    If IndexAvailable(tdf) Then
+        For Each idx In tdf.Indexes
+            If idx.Unique Then
+                HasUniqueIndex = True
+                Exit For
+            End If
+        Next idx
+    End If
     
 End Function
 
