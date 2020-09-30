@@ -344,8 +344,21 @@ End Sub
 '
 Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     
-    Dim strBinaryFile As String
     Const cstrSpacer As String = "--------------------------------------------------------------"
+    
+    Dim strBinaryFile As String
+    Dim blnSuccess As Boolean
+    
+    If Not IsCompiled Then
+        MsgBox2 "Please Compile and Save Project", _
+            "The project needs to be compiled and saved before deploying.", _
+            "I would do this for you, but it seems to cause memory heap corruption" & vbCrLf & _
+            "when this is run via VBA code during the deployment process." & vbCrLf & _
+            "(This can be fixed by rebuilding from source.)", vbInformation
+        Exit Sub
+        ' Save all code modules
+        'DoCmd.RunCommand acCmdCompileAndSaveAllModules
+    End If
         
     ' Make sure we don't run ths function while it is loaded in another project.
     If CodeProject.FullName <> CurrentProject.FullName Then
@@ -363,12 +376,6 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     ' Update project description
     VBE.ActiveVBProject.Description = "Version " & AppVersion & " deployed on " & Date
     
-    ' Save all code modules
-    DoCmd.RunCommand acCmdCompileAndSaveAllModules
-    
-    ' Export the source code to version control
-    ExportSource
-    
     ' Save copy to zip folder
     strBinaryFile = CodeProject.Path & "\Version_Control_v" & AppVersion & ".zip"
     If FSO.FileExists(strBinaryFile) Then FSO.DeleteFile strBinaryFile, True
@@ -376,7 +383,14 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     CopyFileToZip CodeProject.FullName, strBinaryFile
     
     ' Deploy latest version on this machine
-    If InstallVCSAddin Then Debug.Print "Version " & AppVersion & " installed."
+    blnSuccess = InstallVCSAddin
+    
+    ' Export the source code to version control.
+    ' (Run this step after deploying to avoid file corruption issues.)
+    ExportSource
+    
+    ' Finish with success message if the latest version was installed.
+    If blnSuccess Then Debug.Print "Version " & AppVersion & " installed."
     
 End Sub
 
