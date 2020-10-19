@@ -237,6 +237,8 @@ End Function
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Dim blnUseTemp As Boolean
+    Dim strTempFile As String
     Dim strTable As String
 
     ' Import from different formats (XML is preferred for data integrity)
@@ -244,7 +246,17 @@ Private Sub IDbComponent_Import(strFile As String)
         Case etdXML
             strTable = GetObjectNameFromFileName(strFile)
             If TableExists(strTable) Then DoCmd.DeleteObject acTable, strTable
-            Application.ImportXML strFile, acStructureAndData
+            ' The ImportXML function does not properly handle UrlEncoded paths
+            blnUseTemp = (InStr(1, strFile, "%") > 0)
+            If blnUseTemp Then
+                ' Import from (safe) temporary file name.
+                strTempFile = GetTempFile
+                FSO.CopyFile strFile, strTempFile
+                Application.ImportXML strTempFile, acStructureAndData
+                FSO.DeleteFile strTempFile
+            Else
+                Application.ImportXML strFile, acStructureAndData
+            End If
         Case etdTabDelimited
             ImportTableDataTDF strFile
     End Select

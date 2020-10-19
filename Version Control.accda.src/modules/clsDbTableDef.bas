@@ -332,11 +332,24 @@ End Function
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Dim blnUseTemp As Boolean
+    Dim strTempFile As String
+    
     Select Case LCase$(FSO.GetExtensionName(strFile))
         Case "json"
             ImportLinkedTable strFile
         Case "xml"
-            Application.ImportXML strFile, acStructureAndData
+            ' The ImportXML function does not properly handle UrlEncoded paths
+            blnUseTemp = (InStr(1, strFile, "%") > 0)
+            If blnUseTemp Then
+                ' Import from (safe) temporary file name.
+                strTempFile = GetTempFile
+                FSO.CopyFile strFile, strTempFile
+                Application.ImportXML strTempFile, acStructureAndData
+                FSO.DeleteFile strTempFile
+            Else
+                Application.ImportXML strFile, acStructureAndData
+            End If
     End Select
 End Sub
 
