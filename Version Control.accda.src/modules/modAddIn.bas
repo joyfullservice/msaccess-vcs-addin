@@ -119,12 +119,14 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : InstallVCSAddin
 ' Author    : Adam Waller
-' Date      : 1/14/2020
+' Date      : 10/19/2020
 ' Purpose   : Installs/updates the add-in for the current user.
 '           : Returns true if successful.
 '---------------------------------------------------------------------------------------
 '
 Private Function InstallVCSAddin() As Boolean
+    
+    Const OPEN_MODE_OPTION As String = "Default Open Mode for Databases"
     
     Dim strSource As String
     Dim strDest As String
@@ -134,6 +136,19 @@ Private Function InstallVCSAddin() As Boolean
     
     ' We can't replace a file with itself.  :-)
     If strSource = strDest Then Exit Function
+    
+    ' Check default database open mode.
+    If Application.GetOption(OPEN_MODE_OPTION) = 1 Then
+        If MsgBox2("Default Open Mode set to Exclusive", _
+            "The default open mode option for Microsoft Access is currently set to open databases in Exclusive mode by default. " & vbCrLf & _
+            "This add-in needs to be opened in shared mode in order to install successfully.", _
+            "Change the default open mode to 'Shared'?", vbYesNo + vbExclamation) = vbYes Then
+            Application.SetOption OPEN_MODE_OPTION, 0
+            MsgBox2 "Default Option Changed", _
+                "Please restart Microsoft Access and run the install again.", , vbInformation
+        End If
+        Exit Function
+    End If
     
     ' Copy the file, overwriting any existing file.
     ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
