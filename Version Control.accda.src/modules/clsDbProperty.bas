@@ -114,7 +114,7 @@ Private Sub IDbComponent_Import(strFile As String)
         Set dItems = dImport("Items")
         For Each varKey In dItems.Keys
             Select Case varKey
-                Case "Connection", "Name", "Version" ' Can't set these properties
+                Case "Connection", "Name", "Version", "CollatingOrder" ' Can't set these properties
                 Case Else
                     blnAdd = False
                     varValue = dItems(varKey)("Value")
