@@ -165,15 +165,29 @@ Private Sub ImportTableDataTDF(strFile As String)
                 For intCol = 0 To UBound(varHeader)
                     ' Check to see if field exists in the table
                     If dCols.Exists(varHeader(intCol)) Then
-                        ' Perform any needed replacements
-                        strValue = MultiReplace(CStr(varLine(intCol)), _
-                            "\\", "\", "\r\n", vbCrLf, "\r", vbCr, "\n", vbLf, "\t", vbTab)
-                        If strValue <> CStr(varLine(intCol)) Then
-                            ' Use replaced string value
-                            rst.Fields(varHeader(intCol)).Value = strValue
+                        ' Check for empty string or null.
+                        If varLine(intCol) = vbNullString Then
+                            ' The field could have a default value, but the imported
+                            ' data may still be a null value.
+                            If Not IsNull(rst.Fields(varHeader(intCol)).Value) Then
+                                ' Could possibly hit a problem with the storage of
+                                ' zero length strings instead of nulls. Since we can't
+                                ' really differentiate between these in a TDF file,
+                                ' we will go with NULL for now.
+                                'rst.Fields(varHeader(intCol)).AllowZeroLength
+                                rst.Fields(varHeader(intCol)).Value = Null
+                            End If
                         Else
-                            ' Use variant value without the string conversion
-                            rst.Fields(varHeader(intCol)).Value = varLine(intCol)
+                            ' Perform any needed replacements
+                            strValue = MultiReplace(CStr(varLine(intCol)), _
+                                "\\", "\", "\r\n", vbCrLf, "\r", vbCr, "\n", vbLf, "\t", vbTab)
+                            If strValue <> CStr(varLine(intCol)) Then
+                                ' Use replaced string value
+                                rst.Fields(varHeader(intCol)).Value = strValue
+                            Else
+                                ' Use variant value without the string conversion
+                                rst.Fields(varHeader(intCol)).Value = varLine(intCol)
+                            End If
                         End If
                     End If
                 Next intCol
