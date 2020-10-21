@@ -2,7 +2,7 @@
   "Info": {
     "Class": "clsDbProperty",
     "Description": "Database Properties (DAO)",
-    "VCS Version": "3.1.68"
+    "VCS Version": "3.1.67"
   },
   "Items": {
     "AccessVersion": {
@@ -42,7 +42,7 @@
       "Type": 10
     },
     "AppVersion": {
-      "Value": "3.1.68",
+      "Value": "3.1.67",
       "Type": 10
     },
     "Auto Compact": {
@@ -66,7 +66,7 @@
       "Type": 10
     },
     "CollatingOrder": {
-      "Value": 1036,
+      "Value": 1033,
       "Type": 3
     },
     "Connect": {
@@ -118,7 +118,7 @@
       "Type": 4
     },
     "ProjVer": {
-      "Value": 140,
+      "Value": 119,
       "Type": 3
     },
     "QueryTimeout": {
@@ -198,7 +198,7 @@
       "Type": 2
     },
     "Version": {
-      "Value": "12.0",
+      "Value": "14.0",
       "Type": 12
     },
     "WebDesignMode": {
