@@ -120,7 +120,7 @@ Private Sub ImportTableDataTDF(strFile As String)
     Dim fld As DAO.Field
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
-    Dim stm As Scripting.TextStream
+    Dim stm As ADODB.Stream
     Dim strLine As String
     Dim varLine As Variant
     Dim varHeader As Variant
@@ -141,11 +141,20 @@ Private Sub ImportTableDataTDF(strFile As String)
     Set rst = dbs.OpenRecordset(strTable)
     
     ' Read file line by line
-    Set stm = FSO.OpenTextFile(strFile, ForReading, False)
-    Set rst = dbs.OpenRecordset(strTable)
-    Do While Not stm.AtEndOfStream
-        strLine = stm.ReadLine
+    Set stm = New ADODB.Stream
+    With stm
+        .Charset = "UTF-8"
+        .Open
+        .LoadFromFile strFile
+    End With
+    
+    ' Loop through lines in file
+    Do While Not stm.EOS
+        strLine = stm.ReadText(adReadLine)
+        ' See if the header has already been parsed.
         If Not IsArray(varHeader) Then
+            ' Skip past any UTF-8 BOM header
+            If Left$(strLine, 3) = UTF8_BOM Then strLine = Mid$(strLine, 4)
             ' Read header line
             varHeader = Split(strLine, vbTab)
         Else
