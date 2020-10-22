@@ -440,13 +440,15 @@ End Function
 Private Sub RemoveNonBuiltInReferences()
 
     Dim intCnt As Integer
+    Dim strName As String
     Dim ref As Access.Reference
     
     For intCnt = Application.References.Count To 1 Step -1
         Set ref = Application.References(intCnt)
         If Not ref.BuiltIn Then
+            strName = ref.Name
             Application.References.Remove ref
-            Log.Add "  Removed " & ref.Name
+            Log.Add "  Removed " & strName
         End If
         Set ref = Nothing
     Next intCnt
