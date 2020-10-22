@@ -628,7 +628,8 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
     Dim oPrinter As Access.Printer
     Dim intType As Integer
     Dim intCnt As Integer
-    Dim varForm As Variant
+    Dim strForm As String
+    Dim bteForm() As Byte
     Dim varKey As Variant
     Dim blnSetDevMode As Boolean
     Dim strDevModeExtra As String
@@ -699,14 +700,18 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
                 Case "DitherType":  SetDmProp .lngDitherType, DM_DITHERTYPE, GetEnum(epeDitherType, dSettings(varKey)), .lngFields, blnSetDevMode
                 Case "FormName"
                     ' This one is a little more fun...
-                    If BitSet(.lngFields, DM_FORMNAME) Then
-                        If dSettings(varKey) <> NTrim(StrConv(.strFormName, vbUnicode)) Then
-                            ' Assign byte arrays for string values
-                            varForm = GetNullTermByteArray(dSettings(varKey), 32)
-                            For intCnt = 1 To 32
-                                .strFormName(intCnt) = varForm(intCnt)
-                            Next intCnt
-                            blnSetDevMode = True
+                    If (Not BitSet(.lngFields, DM_FORMNAME)) _
+                        Or (dSettings(varKey) <> NTrim(StrConv(.strFormName, vbUnicode))) Then
+                        ' Assign byte arrays for string values
+                        strForm = StrConv(dSettings(varKey) & vbNullChar, vbFromUnicode)
+                        bteForm = strForm & Space$(32 - Len(strForm))
+                        For intCnt = 1 To 32
+                            .strFormName(intCnt) = bteForm(intCnt - 1)
+                        Next intCnt
+                        blnSetDevMode = True
+                        ' Update fields flag
+                        If Not BitSet(.lngFields, DM_FORMNAME) Then
+                            .lngFields = .lngFields Or DM_FORMNAME
                         End If
                     End If
             End Select
@@ -1037,26 +1042,5 @@ Private Function GetNullTermStringByOffset(strData As String, lngHeaderLen As Lo
     
     ' Return the string if we found a null terminator
     If lngNull > 0 Then GetNullTermStringByOffset = Mid$(strData, lngStart, lngNull - lngStart)
-    
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetNullTermByteArray
-' Author    : Adam Waller
-' Date      : 5/19/2020
-' Purpose   : Convert a string to a null terminated byte array.
-'---------------------------------------------------------------------------------------
-'
-Private Function GetNullTermByteArray(strValue As String, lngLen As Long) As Byte
-
-    Dim strReturn As String
-    Dim bteReturn() As Byte
-    
-    ' Build return string with buffer
-    strReturn = strValue & vbNullChar & Space$(lngLen - (Len(strValue) + 1))
-
-    bteReturn = strReturn
-    GetNullTermByteArray = bteReturn
     
 End Function
