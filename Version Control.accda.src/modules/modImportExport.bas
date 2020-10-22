@@ -448,7 +448,7 @@ Private Sub RemoveNonBuiltInReferences()
         If Not ref.BuiltIn Then
             strName = ref.Name
             Application.References.Remove ref
-            Log.Add "  Removed " & strName
+            Log.Add "  Removed " & strName, False
         End If
         Set ref = Nothing
     Next intCnt
