@@ -18,6 +18,8 @@ Option Explicit
 ' https://stackoverflow.com/questions/49560317/64-bit-word-vba-devmode-dmduplex-returns-4
 ' http://toddmcdermid.blogspot.com/2009/02/microsoft-access-2003-and-printer.html
 
+' Constant to convert tenths of millimeters to inches for human readability
+Private Const TEN_MIL As Double = 0.00393701
 
 ' DevMode for printer details
 Private Type tDevModeBuffer
@@ -492,8 +494,8 @@ Private Function DevModeToDictionary() As Dictionary
         '.Add "Fields", cDM.lngFields
         If BitSet(lngFld, DM_ORIENTATION) Then .Add "Orientation", GetEnum(epeOrientation, cDM.intOrientation)
         If BitSet(lngFld, DM_PAPERSIZE) Then .Add "PaperSize", GetEnum(epePaperSize, cDM.intPaperSize)
-        If BitSet(lngFld, DM_PAPERLENGTH) Then .Add "PaperLength", cDM.intPaperLength
-        If BitSet(lngFld, DM_PAPERWIDTH) Then .Add "PaperWidth", cDM.intPaperWidth
+        If BitSet(lngFld, DM_PAPERLENGTH) Then .Add "PaperLength", Round(cDM.intPaperLength * TEN_MIL, 2)
+        If BitSet(lngFld, DM_PAPERWIDTH) Then .Add "PaperWidth", Round(cDM.intPaperWidth * TEN_MIL, 2)
         If BitSet(lngFld, DM_SCALE) Then .Add "Scale", cDM.intScale
         If BitSet(lngFld, DM_COPIES) And cDM.intCopies > 1 Then .Add "Copies", cDM.intCopies    ' Only add for more than 1 copy
         If BitSet(lngFld, DM_DEFAULTSOURCE) Then .Add "DefaultSource", GetEnum(epePaperBin, cDM.intDefaultSource)
@@ -686,8 +688,8 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
     With m_tDevMode
         For Each varKey In dSettings.Keys
             Select Case varKey
-                Case "PaperLength": SetDmProp .intPaperLength, DM_PAPERLENGTH, dSettings(varKey), .lngFields, blnSetDevMode
-                Case "PaperWidth":  SetDmProp .intPaperWidth, DM_PAPERWIDTH, dSettings(varKey), .lngFields, blnSetDevMode
+                Case "PaperLength": SetDmProp .intPaperLength, DM_PAPERLENGTH, Round(dSettings(varKey) / TEN_MIL, 0), .lngFields, blnSetDevMode
+                Case "PaperWidth":  SetDmProp .intPaperWidth, DM_PAPERWIDTH, Round(dSettings(varKey) / TEN_MIL, 0), .lngFields, blnSetDevMode
                 Case "Scale":       SetDmProp .intScale, DM_SCALE, dSettings(varKey), .lngFields, blnSetDevMode
                 Case "Resolution":  SetDmProp .intResolution, DM_YRESOLUTION, dSettings(varKey), .lngFields, blnSetDevMode
                 Case "TTOption":    SetDmProp .intTTOption, DM_TTOPTION, GetEnum(epeTTOption, dSettings(varKey)), .lngFields, blnSetDevMode
