@@ -68,6 +68,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AutoRun() As Boolean
+    Dim strMsgBoxTitle As String
+    Dim strMsgBoxText As String
 
     If CodeProject.FullName = GetAddinFileName Then
         ' Opening the file from add-in location, which would normally be unusual unless we are trying to remove
@@ -79,18 +81,22 @@ Public Function AutoRun() As Boolean
         ' to install it for the first time, or trying to upgrade it.
         If IsAlreadyInstalled Then
             If InstalledVersion <> AppVersion Then
-                If MsgBox2("Upgrade Version Control?", _
-                    "Would you like to upgrade to version " & AppVersion & "?", _
-                    "Click 'Yes' to continue or 'No' to cancel.", vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then
-                    If InstallVCSAddin Then
-                        MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
-                            "Please restart any open instances of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
-                        CheckForLegacyInstall
-                        DoCmd.Quit
-                    End If
+                strMsgBoxTitle = "Upgrade Version Control?"
+                strMsgBoxText = "Would you like to upgrade to version " & AppVersion & "?"
+            Else
+                strMsgBoxTitle = "Reinstall Version Control?"
+                strMsgBoxText = "Version " & AppVersion & " is already installed, would you like to reinstall it?"
+            End If
+            
+            If MsgBox2(strMsgBoxTitle, strMsgBoxText, "Click 'Yes' to continue or 'No' to cancel.", vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then
+                If InstallVCSAddin Then
+                    MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
+                        "Please restart any open instances of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
+                    CheckForLegacyInstall
+                    DoCmd.Quit
                 End If
             Else
-                ' Go to visual basic editor, since that is the most likely destination.
+                ' Go to visual basic editor
                 DoEvents
                 DoCmd.RunCommand acCmdVisualBasicEditor
                 DoEvents
