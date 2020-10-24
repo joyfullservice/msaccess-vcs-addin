@@ -747,20 +747,25 @@ Public Function ReadFile(strPath As String) As String
     Dim stm As ADODB.Stream
     Dim strText As String
     
-    Set stm = New ADODB.Stream
-    With stm
-        .Charset = "UTF-8"
-        .Open
-        .LoadFromFile strPath
-    End With
-    
-    strText = stm.ReadText(adReadAll)
+    If FSO.FileExists(strPath) Then
+        Set stm = New ADODB.Stream
+        With stm
+            .Charset = "UTF-8"
+            .Open
+            .LoadFromFile strPath
+            strText = .ReadText(adReadAll)
+            .Close
+        End With
+        Set stm = Nothing
+    End If
     
     ' Skip past any UTF-8 BOM header
     If Left$(strText, 3) = UTF8_BOM Then strText = Mid$(strText, 4)
     
     ReadFile = strText
+    
 End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : WriteFile
@@ -1535,7 +1540,7 @@ Public Function ReadJsonFile(strPath As String) As Dictionary
             .Charset = "UTF-8"
             .Open
             .LoadFromFile strPath
-            strText = .ReadText
+            strText = .ReadText(adReadAll)
             .Close
         End With
         

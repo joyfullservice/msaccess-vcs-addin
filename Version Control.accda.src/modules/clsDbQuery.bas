@@ -48,6 +48,7 @@ Private Sub IDbComponent_Export()
     
 End Sub
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : Import
 ' Author    : Adam Waller / Indigo
@@ -56,33 +57,41 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
+
     Dim dbs As DAO.Database
     Dim strQueryName As String
     Dim strFileSql As String
     Dim strSql As String
     
+    ' Import query from file
     strQueryName = GetObjectNameFromFileName(strFile)
-    
     LoadComponentFromText acQuery, strQueryName, strFile
     
-    ' Import exact query from SQL
+    ' In some cases, such as when a query contains a subquery, AND has been modified in the
+    ' visual query designer, it may be imported incorrectly and unable to run. For these
+    ' cases we have added an option to overwrite the .SQL property with the SQL that we
+    ' saved separately during the import. See the following link for further details:
+    ' https://github.com/joyfullservice/msaccess-vcs-integration/issues/76
+    
+    ' Check option to import exact query from SQL
     If Options.ForceImportOriginalQuerySQL Then
-        Set dbs = CurrentDb
-        strFileSql = Left$(strFile, Len(strFile) - 4) & ".sql" ' Replace .bas extension with .sql to get file content
+    
+        ' Replace .bas extension with .sql to get file content
+        strFileSql = Left$(strFile, Len(strFile) - 4) & ".sql"
         
         ' Tries to get SQL content from the SQL file previously exported
-        strSql = vbNullString
-On Error Resume Next
         strSql = ReadFile(strFileSql)
-On Error GoTo 0
 
-        If strSql <> vbNullString And strSql <> "" Then
+        ' Update query def with saved SQL
+        If strSql <> vbNullString Then
+            Set dbs = CurrentDb
             dbs.QueryDefs(strQueryName).SQL = strSql
-            Log.Add "  Set SQL query for " & strQueryName, Options.ShowDebug
+            Log.Add "  Restored original SQL for " & strQueryName, Options.ShowDebug
         Else
             Log.Add "  Couldn't get original SQL query for " & strQueryName
         End If
     End If
+    
 End Sub
 
 
