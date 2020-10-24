@@ -65,8 +65,8 @@ Private Sub IDbComponent_Import(strFile As String)
     
     LoadComponentFromText acQuery, strQueryName, strFile
     
-    ' Import exact query from SQL (if using that option)
-    If Options.SaveQuerySQL Then
+    ' Import exact query from SQL
+    If Options.ForceImportOriginalQuerySQL Then
         Set dbs = CurrentDb
         strFileSql = Left$(strFile, Len(strFile) - 4) & ".sql" ' Replace .bas extension with .sql to get file content
         

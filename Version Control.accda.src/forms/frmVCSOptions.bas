@@ -1403,7 +1403,7 @@ Begin Form
                                 Begin Label
                                     OverlapFlags =247
                                     Left =1140
-                                    Top =2340
+                                    Top =2100
                                     Width =7860
                                     Height =2445
                                     BorderColor =8355711
@@ -1418,11 +1418,62 @@ Begin Form
                                         "ct."
                                     GridlineColor =10921638
                                     LayoutCachedLeft =1140
-                                    LayoutCachedTop =2340
+                                    LayoutCachedTop =2100
                                     LayoutCachedWidth =9000
                                     LayoutCachedHeight =4785
                                     ForeThemeColorIndex =-1
                                     ForeTint =100.0
+                                End
+                                Begin CheckBox
+                                    OverlapFlags =247
+                                    Left =1140
+                                    Top =4885
+                                    TabIndex =1
+                                    BorderColor =10921638
+                                    Name ="chkForceImportOriginalQuerySQL"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =1140
+                                    LayoutCachedTop =4885
+                                    LayoutCachedWidth =1400
+                                    LayoutCachedHeight =5125
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =1447
+                                            Top =4830
+                                            Width =3705
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Étiquette116"
+                                            Caption ="Force import of original SQL for queries"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1447
+                                            LayoutCachedTop =4830
+                                            LayoutCachedWidth =5152
+                                            LayoutCachedHeight =5145
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin Label
+                                    OverlapFlags =247
+                                    Left =5197
+                                    Top =4874
+                                    Width =4620
+                                    Height =240
+                                    FontSize =10
+                                    BorderColor =8355711
+                                    ForeColor =8355711
+                                    Name ="Étiquette117"
+                                    Caption ="(\"Save Query SQL\" option needed when exporting)"
+                                    GridlineColor =10921638
+                                    LayoutCachedLeft =5197
+                                    LayoutCachedTop =4874
+                                    LayoutCachedWidth =9817
+                                    LayoutCachedHeight =5114
                                 End
                             End
                         End

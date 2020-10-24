@@ -19,6 +19,7 @@ Public ShowDebug As Boolean
 Public UseFastSave As Boolean
 Public SavePrintVars As Boolean
 Public SaveQuerySQL As Boolean
+Public ForceImportOriginalQuerySQL As Boolean
 Public SaveTableSQL As Boolean
 Public StripPublishOption As Boolean
 Public AggressiveSanitize As Boolean
@@ -67,6 +68,7 @@ Public Sub LoadDefaults()
         .UseFastSave = True
         .SavePrintVars = True
         .SaveQuerySQL = True
+        .ForceImportOriginalQuerySQL = False
         .SaveTableSQL = True
         .StripPublishOption = True
         .AggressiveSanitize = True
@@ -420,6 +422,7 @@ Private Sub Class_Initialize()
         .Add "UseFastSave"
         .Add "SavePrintVars"
         .Add "SaveQuerySQL"
+        .Add "ForceImportOriginalQuerySQL"
         .Add "SaveTableSQL"
         .Add "StripPublishOption"
         .Add "AggressiveSanitize"
