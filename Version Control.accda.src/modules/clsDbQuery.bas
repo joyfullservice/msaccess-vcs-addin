@@ -48,16 +48,41 @@ Private Sub IDbComponent_Export()
     
 End Sub
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : Import
-' Author    : Adam Waller
-' Date      : 4/23/2020
+' Author    : Adam Waller / Indigo
+' Date      : 10/24/2020
 ' Purpose   : Import the individual database component from a file.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    LoadComponentFromText acQuery, GetObjectNameFromFileName(strFile), strFile
+    Dim dbs As DAO.Database
+    Dim strQueryName As String
+    Dim strFileSql As String
+    Dim strSql As String
+    
+    strQueryName = GetObjectNameFromFileName(strFile)
+    
+    LoadComponentFromText acQuery, strQueryName, strFile
+    
+    ' Import exact query from SQL
+    If Options.ForceImportOriginalQuerySQL Then
+        Set dbs = CurrentDb
+        strFileSql = Left$(strFile, Len(strFile) - 4) & ".sql" ' Replace .bas extension with .sql to get file content
+        
+        ' Tries to get SQL content from the SQL file previously exported
+        strSql = vbNullString
+On Error Resume Next
+        strSql = ReadFile(strFileSql)
+On Error GoTo 0
+
+        If strSql <> vbNullString And strSql <> "" Then
+            dbs.QueryDefs(strQueryName).SQL = strSql
+            Log.Add "  Set SQL query for " & strQueryName, Options.ShowDebug
+        Else
+            Log.Add "  Couldn't get original SQL query for " & strQueryName
+        End If
+    End If
 End Sub
 
 
