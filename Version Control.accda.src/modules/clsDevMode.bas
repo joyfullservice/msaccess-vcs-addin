@@ -658,9 +658,10 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
         With objFormOrReport
             Set .Printer = oPrinter
             .UseDefaultPrinter = False
-            ' Tweak a property so the report knows it needs to be saved.
-            .Caption = .Caption
         End With
+    Else
+        ' Use default printer (If not already set)
+        objFormOrReport.UseDefaultPrinter = True
     End If
     
     ' Apply regular printer options
@@ -728,6 +729,11 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
         Mid(strDevModeExtra, 1, 94) = tBuffer.strBuffer
         objFormOrReport.PrtDevMode = strDevModeExtra
     End If
+    
+    ' Tweak a property so the report knows it needs to be saved.
+    With objFormOrReport
+        .Caption = .Caption
+    End With
 
 End Sub
 

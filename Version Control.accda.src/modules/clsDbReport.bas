@@ -69,7 +69,7 @@ End Sub
 ' Procedure : ImportPrintVars
 ' Author    : Adam Waller
 ' Date      : 5/7/2020
-' Purpose   : Import the print vars back into the report.
+' Purpose   : Import the print settings back into the report.
 '---------------------------------------------------------------------------------------
 '
 Public Sub ImportPrintVars(strFile As String)
@@ -83,13 +83,11 @@ Public Sub ImportPrintVars(strFile As String)
     
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
-        If dNZ(dFile, "Items\Printer\DeviceName") <> vbNullString Then
-            ' Has a specific printer assigned.
-            Set cDM = New clsDevMode
-            strName = GetObjectNameFromFileName(strFile)
-            Log.Add "  Applying saved print settings to " & strName, False
-            ' Turn off screen updating, and open report in design view.
-            DoCmd.Echo False
+        Set cDM = New clsDevMode
+        strName = GetObjectNameFromFileName(strFile)
+        Log.Add "  Applying saved print settings to " & strName, False
+        ' Turn off screen updating, and open report in design view.
+        DoCmd.Echo False
             DoCmd.OpenReport strName, acViewDesign, , , acHidden
             Set rpt = Reports(strName)
             cDM.LoadFromReport rpt
@@ -98,8 +96,7 @@ Public Sub ImportPrintVars(strFile As String)
             Set dMargins = dFile("Items")("Margins")
             cDM.SetMargins rpt.Printer, dMargins
             DoCmd.Close acReport, strName, acSaveYes
-            DoCmd.Echo True
-        End If
+        DoCmd.Echo True
     End If
     
 End Sub
