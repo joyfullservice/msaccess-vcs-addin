@@ -70,7 +70,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' In some cases, such as when a query contains a subquery, AND has been modified in the
     ' visual query designer, it may be imported incorrectly and unable to run. For these
     ' cases we have added an option to overwrite the .SQL property with the SQL that we
-    ' saved separately during the import. See the following link for further details:
+    ' saved separately during the export. See the following link for further details:
     ' https://github.com/joyfullservice/msaccess-vcs-integration/issues/76
     
     ' Check option to import exact query from SQL
