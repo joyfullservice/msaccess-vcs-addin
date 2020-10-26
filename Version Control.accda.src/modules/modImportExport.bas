@@ -228,6 +228,9 @@ Public Sub Build(strSourceFolder As String)
     Log.Add "Created blank database for import."
     Log.Spacer
     
+    ' Remove any non-built-in references before importing from source.
+    Log.Add "Removing non built-in references...", False
+    RemoveNonBuiltInReferences
 
     ' Loop through all categories
     For Each cCategory In GetAllContainers
@@ -423,3 +426,31 @@ Private Function VerifyHash(strOptionsFile As String) As Boolean
     End If
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveNonBuiltInReferences
+' Author    : Adam Waller
+' Date      : 10/20/2020
+' Purpose   : Remove any references that are not built-in. (Sometimes additional
+'           : references are added when creating a new database, not not really needed
+'           : when building the project from source.)
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveNonBuiltInReferences()
+
+    Dim intCnt As Integer
+    Dim strName As String
+    Dim ref As Access.Reference
+    
+    For intCnt = Application.References.Count To 1 Step -1
+        Set ref = Application.References(intCnt)
+        If Not ref.BuiltIn Then
+            strName = ref.Name
+            Application.References.Remove ref
+            Log.Add "  Removed " & strName, False
+        End If
+        Set ref = Nothing
+    Next intCnt
+    
+End Sub

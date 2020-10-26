@@ -18,6 +18,8 @@ Option Explicit
 ' https://stackoverflow.com/questions/49560317/64-bit-word-vba-devmode-dmduplex-returns-4
 ' http://toddmcdermid.blogspot.com/2009/02/microsoft-access-2003-and-printer.html
 
+' Constant to convert tenths of millimeters to inches for human readability
+Private Const TEN_MIL As Double = 0.00393701
 
 ' DevMode for printer details
 Private Type tDevModeBuffer
@@ -139,6 +141,36 @@ Public Enum eEnumConversion
     eecAuto
     eecToEnum
     eecToName
+End Enum
+
+' Constants to verify that the property is available
+Private Enum edmFlags
+    DM_ORIENTATION = &H1
+    DM_PAPERSIZE = &H2
+    DM_PAPERLENGTH = &H4
+    DM_PAPERWIDTH = &H8
+    DM_SCALE = &H10
+    DM_COPIES = &H100
+    DM_DEFAULTSOURCE = &H200
+    DM_PRINTQUALITY = &H400
+    DM_COLOR = &H800
+    DM_DUPLEX = &H1000
+    DM_YRESOLUTION = &H2000
+    DM_TTOPTION = &H4000
+    DM_COLLATE = &H8000
+    DM_FORMNAME = &H10000
+    'DM_LOGPIXELS = &H20000
+    'DM_BITSPERPEL = &H40000
+    'DM_PELSWIDTH = &H80000
+    'DM_PELSHEIGHT = &H100000
+    DM_DISPLAYFLAGS = &H200000
+    DM_DISPLAYFREQUENCY = &H400000
+    DM_ICMMETHOD = &H800000
+    DM_ICMINTENT = &H1000000
+    DM_MEDIATYPE = &H2000000
+    DM_DITHERTYPE = &H4000000
+    'DM_PANNINGWIDTH = &H20000000
+    'DM_PANNINGHEIGHT = &H40000000
 End Enum
 
 
@@ -279,11 +311,6 @@ Public Sub LoadFromExportFile(strFile As String)
 End Sub
 
 
-Public Sub LoadFromJsonFile(strFile As String)
-
-End Sub
-
-
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadFromDefaultPrinter
 ' Author    : Adam Waller
@@ -357,54 +384,12 @@ End Sub
 ' Purpose   : Wrapper functions for loading objects by type.
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadFromReport(strName As String)
-    LoadFromObject acReport, strName
+Public Sub LoadFromReport(rptReport As Access.Report)
+    LoadFromObject rptReport
 End Sub
-Public Sub LoadFromForm(strName As String)
-    LoadFromObject acForm, strName
+Public Sub LoadFromForm(frmForm As Access.Form)
+    LoadFromObject frmForm
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ApplyTo
-' Author    : Adam Waller
-' Date      : 5/19/2020
-' Purpose   : Apply the adjustments to the specified class instance
-'---------------------------------------------------------------------------------------
-'
-Public Sub ApplyToClass(ByRef cDevMode As clsDevMode)
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ApplyToObject
-' Author    : Adam Waller
-' Date      : 5/19/2020
-' Purpose   : Applies the settings to the object.
-'---------------------------------------------------------------------------------------
-'
-Public Sub ApplyToObject(intType As AcObjectType, strName As String)
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : IsDifferentFromDefault
-' Author    : Adam Waller
-' Date      : 5/19/2020
-' Purpose   : Returns true if the current settings differ from the default printer.
-'---------------------------------------------------------------------------------------
-'
-Public Function IsDifferentFromDefault(Optional cDefault As clsDevMode) As Boolean
-
-    ' Allow user to pass in default printer class to avoid reading it multiple times.
-    If cDefault Is Nothing Then
-        Set cDefault = New clsDevMode
-        cDefault.LoadFromDefaultPrinter
-    End If
-    
-End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -427,32 +412,18 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadFromObject
 ' Author    : Adam Waller
-' Date      : 5/19/2020
+' Date      : 10/22/2020
 ' Purpose   : Load settings from a form or report object
 '---------------------------------------------------------------------------------------
 '
-Private Sub LoadFromObject(intType As AcObjectType, strName As String)
+Private Sub LoadFromObject(objSource As Object)
 
     Dim udtDevModeBuffer As tDevModeBuffer
     Dim udtDevNamesBuffer As tDevNamesBuffer
     Dim udtMipBuffer As tMipBuffer
-    Dim objSource As Object ' Could be a Form or Report
 
     ' Clear any existing structure data
     ClearStructures
-
-    ' Open object
-    Application.Echo False
-    Select Case intType
-        Case acForm
-            DoCmd.OpenForm strName, acDesign, , , , acHidden
-            Set objSource = Forms(strName)
-        Case acReport
-            DoCmd.OpenReport strName, acDesign, , , acHidden
-            Set objSource = Reports(strName)
-    End Select
-    If objSource Is Nothing Then Exit Sub
-    
 
     ' DevMode
     If Not IsNull(objSource.PrtDevMode) Then
@@ -471,11 +442,6 @@ Private Sub LoadFromObject(intType As AcObjectType, strName As String)
         udtMipBuffer.strBuffer = objSource.PrtMip
         LSet m_tMip = udtMipBuffer
     End If
-
-    ' Clean up
-    Set objSource = Nothing
-    DoCmd.Close intType, strName, acSaveNo
-    Application.Echo True
 
 End Sub
 
@@ -508,34 +474,6 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function DevModeToDictionary() As Dictionary
-
-    ' Constants to verify that the property is available
-    Const DM_ORIENTATION = &H1
-    Const DM_PAPERSIZE = &H2
-    Const DM_PAPERLENGTH = &H4
-    Const DM_PAPERWIDTH = &H8
-    Const DM_SCALE = &H10
-    Const DM_COPIES = &H100
-    Const DM_DEFAULTSOURCE = &H200
-    Const DM_PRINTQUALITY = &H400
-    Const DM_COLOR = &H800
-    Const DM_DUPLEX = &H1000
-    Const DM_YRESOLUTION = &H2000
-    Const DM_TTOPTION = &H4000
-    Const DM_COLLATE = &H8000
-    Const DM_FORMNAME = &H10000
-    'Const DM_LOGPIXELS = &H20000
-    'Const DM_BITSPERPEL = &H40000
-    'Const DM_PELSWIDTH = &H80000
-    'Const DM_PELSHEIGHT = &H100000
-    Const DM_DISPLAYFLAGS = &H200000
-    Const DM_DISPLAYFREQUENCY = &H400000
-    Const DM_ICMMETHOD = &H800000
-    Const DM_ICMINTENT = &H1000000
-    Const DM_MEDIATYPE = &H2000000
-    Const DM_DITHERTYPE = &H4000000
-    'Const DM_PANNINGWIDTH = &H20000000
-    'Const DM_PANNINGHEIGHT = &H40000000
     
     Dim strName As String
     Dim lngFld As Long
@@ -556,8 +494,8 @@ Private Function DevModeToDictionary() As Dictionary
         '.Add "Fields", cDM.lngFields
         If BitSet(lngFld, DM_ORIENTATION) Then .Add "Orientation", GetEnum(epeOrientation, cDM.intOrientation)
         If BitSet(lngFld, DM_PAPERSIZE) Then .Add "PaperSize", GetEnum(epePaperSize, cDM.intPaperSize)
-        If BitSet(lngFld, DM_PAPERLENGTH) Then .Add "PaperLength", cDM.intPaperLength
-        If BitSet(lngFld, DM_PAPERWIDTH) Then .Add "PaperWidth", cDM.intPaperWidth
+        If BitSet(lngFld, DM_PAPERLENGTH) Then .Add "PaperLength", Round(cDM.intPaperLength * TEN_MIL, 2)
+        If BitSet(lngFld, DM_PAPERWIDTH) Then .Add "PaperWidth", Round(cDM.intPaperWidth * TEN_MIL, 2)
         If BitSet(lngFld, DM_SCALE) Then .Add "Scale", cDM.intScale
         If BitSet(lngFld, DM_COPIES) And cDM.intCopies > 1 Then .Add "Copies", cDM.intCopies    ' Only add for more than 1 copy
         If BitSet(lngFld, DM_DEFAULTSOURCE) Then .Add "DefaultSource", GetEnum(epePaperBin, cDM.intDefaultSource)
@@ -621,6 +559,180 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SetMargins
+' Author    : Adam Waller
+' Date      : 10/22/2020
+' Purpose   : Sets the printer margins based on dictionary values, as read from
+'           : source file or MIP structure. Thankfully we can set all of these
+'           : using the Access object model.  :-)
+'           : Note that this does not use type checking to verify that values
+'           : have not been messed up. If you put a string value in a margin property
+'           : for example, it will throw an error.
+'           : Reference: http://etutorials.org/Microsoft+Products/access/Chapter+5.+Printers/Recipe+5.3+Programmatically+Change+Margin+and+Column+Settings+for+Reports/
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetMargins(oPrinter As Access.Printer, dMargins As Dictionary)
+
+    Dim varKey As Variant
+    
+    ' Loop through properties.
+    With oPrinter
+        For Each varKey In dMargins.Keys
+            Select Case varKey
+            
+                ' Set margins from dictionary values
+                Case "LeftMargin": .LeftMargin = GetTwips(dMargins(varKey))
+                Case "TopMargin": .TopMargin = GetTwips(dMargins(varKey))
+                Case "RightMargin": .RightMargin = GetTwips(dMargins(varKey))
+                Case "BotMargin": .BottomMargin = GetTwips(dMargins(varKey))
+                Case "DataOnly": .DataOnly = dMargins(varKey)
+                Case "Columns": .ItemsAcross = dMargins(varKey)
+                Case "ColumnSpacing": .ColumnSpacing = GetTwips(dMargins(varKey))
+                Case "RowSpacing": .RowSpacing = GetTwips(dMargins(varKey))
+                Case "ItemLayout": .ItemLayout = GetEnum(epeColumnLayout, dMargins(varKey))
+                
+                ' Special handling for paper size
+                Case "DefaultSize": .DefaultSize = dMargins(varKey)
+                Case "Width":
+                    If .ItemSizeWidth <> GetTwips(dMargins(varKey)) Then
+                        If .DefaultSize Then .DefaultSize = False
+                        .ItemSizeWidth = GetTwips(dMargins(varKey))
+                    End If
+                Case "Height":
+                    If .ItemSizeHeight <> GetTwips(dMargins(varKey)) Then
+                        If .DefaultSize Then .DefaultSize = False
+                        .ItemSizeHeight = GetTwips(dMargins(varKey))
+                    End If
+            
+                Case Else
+                    ' Could not find that property.
+                    MsgBox "Margin property " & CStr(varKey) & " not found.", vbExclamation
+            End Select
+        Next varKey
+    End With
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetPrinterOptions
+' Author    : Adam Waller
+' Date      : 10/22/2020
+' Purpose   : Applies the dictionary of options to a printer. For the properties that
+'           : can be set through the object model, they are applied that way. For those
+'           : that can only be set through the DevMode API structure, they are applied
+'           : through updating the DevMode.
+'           : Reference: http://etutorials.org/Microsoft+Products/access/Chapter+5.+Printers/Recipe+5.4+Programmatically+Change+Printer+Options/
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
+
+    Dim oPrinter As Access.Printer
+    Dim intType As Integer
+    Dim intCnt As Integer
+    Dim strForm As String
+    Dim bteForm() As Byte
+    Dim varKey As Variant
+    Dim blnSetDevMode As Boolean
+    Dim strDevModeExtra As String
+    Dim tBuffer As tDevModeBuffer
+    
+    ' Make sure we are using the correct object type
+    If TypeOf objFormOrReport Is Access.Report Then
+        intType = acReport
+    ElseIf TypeOf objFormOrReport Is Access.Form Then
+        intType = acForm
+    Else
+        MsgBox "Can only set printer options for a form or report object", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Check printer device to see if we are using a specific printer
+    If dSettings.Exists("DeviceName") Then
+        Set oPrinter = GetPrinterByName(dSettings("DeviceName"))
+        If oPrinter Is Nothing Then
+            Log.Add "WARNING: Printer " & dSettings("DeviceName") & " not found for " & objFormOrReport.Name
+            Exit Sub
+        End If
+        ' Set as printer for this report or form.
+        With objFormOrReport
+            Set .Printer = oPrinter
+            .UseDefaultPrinter = False
+            ' Tweak a property so the report knows it needs to be saved.
+            .Caption = .Caption
+        End With
+    End If
+    
+    ' Apply regular printer options
+    Set oPrinter = objFormOrReport.Printer
+    With oPrinter
+        For Each varKey In dSettings.Keys
+            Select Case varKey
+                Case "Orientation": .Orientation = GetEnum(epeOrientation, dSettings(varKey))
+                Case "PaperSize": .PaperSize = GetEnum(epePaperSize, dSettings(varKey))
+                Case "Copies": .Copies = dSettings(varKey)
+                Case "PrintQuality": .PrintQuality = GetEnum(epePrintQuality, dSettings(varKey))
+                Case "Color": .ColorMode = GetEnum(epeColor, dSettings(varKey))
+                Case "Duplex": .Duplex = GetEnum(epeDuplex, dSettings(varKey))
+                Case "DefaultSource": .PaperBin = GetEnum(epePaperBin, dSettings(varKey))
+            End Select
+        Next varKey
+    End With
+    
+    ' Other properties will require some more work, since we need to interact
+    ' with the DevMode structure.
+    LoadFromObject objFormOrReport
+    strDevModeExtra = objFormOrReport.PrtDevMode
+    
+    ' Loop through properties again, this time applying change to DevMode structure.
+    With m_tDevMode
+        For Each varKey In dSettings.Keys
+            Select Case varKey
+                Case "PaperLength": SetDmProp .intPaperLength, DM_PAPERLENGTH, Round(dSettings(varKey) / TEN_MIL, 0), .lngFields, blnSetDevMode
+                Case "PaperWidth":  SetDmProp .intPaperWidth, DM_PAPERWIDTH, Round(dSettings(varKey) / TEN_MIL, 0), .lngFields, blnSetDevMode
+                Case "Scale":       SetDmProp .intScale, DM_SCALE, dSettings(varKey), .lngFields, blnSetDevMode
+                Case "Resolution":  SetDmProp .intResolution, DM_YRESOLUTION, dSettings(varKey), .lngFields, blnSetDevMode
+                Case "TTOption":    SetDmProp .intTTOption, DM_TTOPTION, GetEnum(epeTTOption, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "Collate":     SetDmProp .intCollate, DM_COLLATE, GetEnum(epeCollate, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "DisplayFlags":        SetDmProp .lngDisplayFlags, DM_DISPLAYFLAGS, GetEnum(epeDisplayFlags, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "DisplayFrequency":    SetDmProp .lngDisplayFrequency, DM_DISPLAYFREQUENCY, dSettings(varKey), .lngFields, blnSetDevMode
+                Case "ICMMethod":   SetDmProp .lngICMMethod, DM_ICMMETHOD, GetEnum(epeICMMethod, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "ICMIntent":   SetDmProp .lngICMIntent, DM_ICMINTENT, GetEnum(epeICMIntent, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "MediaType":   SetDmProp .lngMediaType, DM_MEDIATYPE, GetEnum(epeMediaType, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "DitherType":  SetDmProp .lngDitherType, DM_DITHERTYPE, GetEnum(epeDitherType, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "FormName"
+                    ' This one is a little more fun...
+                    If (Not BitSet(.lngFields, DM_FORMNAME)) _
+                        Or (dSettings(varKey) <> NTrim(StrConv(.strFormName, vbUnicode))) Then
+                        ' Assign byte arrays for string values
+                        strForm = StrConv(dSettings(varKey) & vbNullChar, vbFromUnicode)
+                        bteForm = strForm & Space$(32 - Len(strForm))
+                        For intCnt = 1 To 32
+                            .strFormName(intCnt) = bteForm(intCnt - 1)
+                        Next intCnt
+                        blnSetDevMode = True
+                        ' Update fields flag
+                        If Not BitSet(.lngFields, DM_FORMNAME) Then
+                            .lngFields = .lngFields Or DM_FORMNAME
+                        End If
+                    End If
+            End Select
+        Next varKey
+    End With
+    
+    ' Check flag to see if we have changed anything
+    If blnSetDevMode Then
+        LSet tBuffer = m_tDevMode
+        ' Overwrite first part of structure while preserving possible
+        ' extra data used by print driver.
+        Mid(strDevModeExtra, 1, 94) = tBuffer.strBuffer
+        objFormOrReport.PrtDevMode = strDevModeExtra
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetInch
 ' Author    : Adam Waller
 ' Date      : 6/2/2020
@@ -633,72 +745,74 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetTwips
+' Author    : Adam Waller
+' Date      : 10/22/2020
+' Purpose   : Return twips from inches
+'---------------------------------------------------------------------------------------
+'
+Private Function GetTwips(sngInches As Single) As Long
+    GetTwips = Round(sngInches * 1440, 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : BitSet
 ' Author    : Adam Waller
 ' Date      : 5/19/2020
 ' Purpose   : Returns true if the flag is set.
 '---------------------------------------------------------------------------------------
 '
-Private Function BitSet(lngFlags As Long, lngValue As Long) As Boolean
+Private Function BitSet(lngFlags As Long, lngValue As edmFlags) As Boolean
     BitSet = CBool((lngFlags And lngValue) = lngValue)
 End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : DictionaryToDevMode
+' Procedure : SetDmProp
 ' Author    : Adam Waller
-' Date      : 5/7/2020
-' Purpose   : Excel formulas make it easy to edit these!
+' Date      : 10/22/2020
+' Purpose   : Set a DevMode property, including the fields flag, if the value has
+'           : changed from the existing value. Sets the blnChanged flag to true if
+'           : the property was set or changed.
 '---------------------------------------------------------------------------------------
 '
-Private Function DictionaryToDevMode(dDevMode As Dictionary) As tDevMode
+Private Sub SetDmProp(ByRef cDMProp As Variant, lngFlag As edmFlags, varValue As Variant, ByRef lngFields As Long, ByRef blnChanged As Boolean)
     
-    Dim intCnt As Integer
-    Dim varDevice As Variant
-    Dim varForm As Variant
+    ' Check existing flag
+    If Not BitSet(lngFields, lngFlag) Then
+        blnChanged = True
+    Else
+        ' Check existing value
+        If cDMProp <> varValue Then
+            ' Set property by name
+            cDMProp = varValue
+            blnChanged = True
+        End If
+    End If
     
-    ' Assign regular properties
-    With DictionaryToDevMode
-        .intSpecVersion = dDevMode("SpecVersion")
-        .intDriverVersion = dDevMode("DriverVersion")
-        .intSize = dDevMode("Size")
-        .intDriverExtra = dDevMode("DriverExtra")
-        .lngFields = dDevMode("Fields")
-        .intOrientation = GetEnum(epeOrientation, dDevMode("Orientation"), eecToEnum)
-        .intPaperSize = GetEnum(epePaperSize, dDevMode("PaperSize"), eecToEnum)
-        .intPaperLength = dDevMode("PaperLength")
-        .intPaperWidth = dDevMode("PaperWidth")
-        .intScale = dDevMode("Scale")
-        .intCopies = dDevMode("Copies")
-        .intDefaultSource = GetEnum(epePaperBin, dDevMode("DefaultSource"), eecToEnum)
-        .intPrintQuality = GetEnum(epePrintQuality, dDevMode("PrintQuality"), eecToEnum)
-        .intColor = GetEnum(epeColor, dDevMode("Color"), eecToEnum)
-        .intDuplex = GetEnum(epeDuplex, dDevMode("Duplex"), eecToEnum)
-        .intResolution = dDevMode("Resolution")
-        .intTTOption = GetEnum(epeTTOption, dDevMode("TTOption"), eecToEnum)
-        .intCollate = GetEnum(epeCollate, dDevMode("Collate"), eecToEnum)
-        .intUnusedPadding = dDevMode("UnusedPadding")
-        .intBitsPerPel = dDevMode("BitsPerPel")
-        .lngPelsWidth = dDevMode("PelsWidth")
-        .lngPelsHeight = dDevMode("PelsHeight")
-        .lngDisplayFlags = GetEnum(epeDisplayFlags, dDevMode("DisplayFlags"), eecToEnum)
-        .lngDisplayFrequency = dDevMode("DisplayFrequency")
-        .lngICMMethod = GetEnum(epeICMMethod, dDevMode("ICMMethod"), eecToEnum)
-        .lngICMIntent = GetEnum(epeICMIntent, dDevMode("ICMIntent"), eecToEnum)
-        .lngMediaType = GetEnum(epeMediaType, dDevMode("MediaType"), eecToEnum)
-        .lngDitherType = GetEnum(epeDitherType, dDevMode("DitherType"), eecToEnum)
-        .lngReserved1 = dDevMode("Reserved1")
-        .lngReserved2 = dDevMode("Reserved2")
+    ' Check fields flag, and update flag if we have made a change.
+    If blnChanged And Not BitSet(lngFields, lngFlag) Then lngFields = lngFields Or lngFlag
     
-        ' Assign byte arrays for string values
-        varDevice = GetNullTermByteArray(dDevMode("DeviceName"), 32)
-        varForm = GetNullTermByteArray(dDevMode("FormName"), 32)
-        For intCnt = 1 To 32
-            .strDeviceName(intCnt) = varDevice(intCnt)
-            .strFormName(intCnt) = varForm(intCnt)
-        Next intCnt
-    End With
-    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetPrinterByName
+' Author    : Adam Waller
+' Date      : 10/22/2020
+' Purpose   : Return a printer object matching a specific printer name. (Or nothing if
+'           : the printer name is not found.)
+'---------------------------------------------------------------------------------------
+'
+Private Function GetPrinterByName(strName As String) As Access.Printer
+    Dim prt As Access.Printer
+    For Each prt In Access.Printers
+        If prt.DeviceName = strName Then
+            Set GetPrinterByName = prt
+            Exit For
+        End If
+    Next prt
 End Function
 
 
@@ -930,26 +1044,5 @@ Private Function GetNullTermStringByOffset(strData As String, lngHeaderLen As Lo
     
     ' Return the string if we found a null terminator
     If lngNull > 0 Then GetNullTermStringByOffset = Mid$(strData, lngStart, lngNull - lngStart)
-    
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetNullTermByteArray
-' Author    : Adam Waller
-' Date      : 5/19/2020
-' Purpose   : Convert a string to a null terminated byte array.
-'---------------------------------------------------------------------------------------
-'
-Private Function GetNullTermByteArray(strValue As String, lngLen As Long) As Byte
-
-    Dim strReturn As String
-    Dim bteReturn() As Byte
-    
-    ' Build return string with buffer
-    strReturn = strValue & vbNullChar & Space$(lngLen - (Len(strValue) + 1))
-
-    bteReturn = strReturn
-    GetNullTermByteArray = bteReturn
     
 End Function

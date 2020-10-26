@@ -30,8 +30,13 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
+    
+    ' We THINK that this table probably contains a table macro, but just in case it
+    ' doesn't, we have some error handling built into the export function below.
+    
     ' Save structure in XML format
     SaveComponentAsText acTableDataMacro, m_Table.Name, IDbComponent_SourceFile
+    
 End Sub
 
 

@@ -119,12 +119,14 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : InstallVCSAddin
 ' Author    : Adam Waller
-' Date      : 1/14/2020
+' Date      : 10/19/2020
 ' Purpose   : Installs/updates the add-in for the current user.
 '           : Returns true if successful.
 '---------------------------------------------------------------------------------------
 '
 Private Function InstallVCSAddin() As Boolean
+    
+    Const OPEN_MODE_OPTION As String = "Default Open Mode for Databases"
     
     Dim strSource As String
     Dim strDest As String
@@ -134,6 +136,19 @@ Private Function InstallVCSAddin() As Boolean
     
     ' We can't replace a file with itself.  :-)
     If strSource = strDest Then Exit Function
+    
+    ' Check default database open mode.
+    If Application.GetOption(OPEN_MODE_OPTION) = 1 Then
+        If MsgBox2("Default Open Mode set to Exclusive", _
+            "The default open mode option for Microsoft Access is currently set to open databases in Exclusive mode by default. " & vbCrLf & _
+            "This add-in needs to be opened in shared mode in order to install successfully.", _
+            "Change the default open mode to 'Shared'?", vbYesNo + vbExclamation) = vbYes Then
+            Application.SetOption OPEN_MODE_OPTION, 0
+            MsgBox2 "Default Option Changed", _
+                "Please restart Microsoft Access and run the install again.", , vbInformation
+        End If
+        Exit Function
+    End If
     
     ' Copy the file, overwriting any existing file.
     ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
@@ -344,8 +359,21 @@ End Sub
 '
 Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     
-    Dim strBinaryFile As String
     Const cstrSpacer As String = "--------------------------------------------------------------"
+    
+    Dim strBinaryFile As String
+    Dim blnSuccess As Boolean
+    
+    If Not IsCompiled Then
+        MsgBox2 "Please Compile and Save Project", _
+            "The project needs to be compiled and saved before deploying.", _
+            "I would do this for you, but it seems to cause memory heap corruption" & vbCrLf & _
+            "when this is run via VBA code during the deployment process." & vbCrLf & _
+            "(This can be fixed by rebuilding from source.)", vbInformation
+        Exit Sub
+        ' Save all code modules
+        'DoCmd.RunCommand acCmdCompileAndSaveAllModules
+    End If
         
     ' Make sure we don't run ths function while it is loaded in another project.
     If CodeProject.FullName <> CurrentProject.FullName Then
@@ -363,12 +391,6 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     ' Update project description
     VBE.ActiveVBProject.Description = "Version " & AppVersion & " deployed on " & Date
     
-    ' Save all code modules
-    DoCmd.RunCommand acCmdCompileAndSaveAllModules
-    
-    ' Export the source code to version control
-    ExportSource
-    
     ' Save copy to zip folder
     strBinaryFile = CodeProject.Path & "\Version_Control_v" & AppVersion & ".zip"
     If FSO.FileExists(strBinaryFile) Then FSO.DeleteFile strBinaryFile, True
@@ -376,7 +398,14 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     CopyFileToZip CodeProject.FullName, strBinaryFile
     
     ' Deploy latest version on this machine
-    If InstallVCSAddin Then Debug.Print "Version " & AppVersion & " installed."
+    blnSuccess = InstallVCSAddin
+    
+    ' Export the source code to version control.
+    ' (Run this step after deploying to avoid file corruption issues.)
+    ExportSource
+    
+    ' Finish with success message if the latest version was installed.
+    If blnSuccess Then Debug.Print "Version " & AppVersion & " installed."
     
 End Sub
 

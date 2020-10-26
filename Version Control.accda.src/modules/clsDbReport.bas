@@ -74,28 +74,34 @@ End Sub
 '
 Public Sub ImportPrintVars(strFile As String)
 
-'    Dim DevModeString As str_DEVMODE
-'    Dim tDevMode As type_DEVMODE
-'    Dim DevModeExtra As String
-'    Dim dFile As Dictionary
-'    Dim strReport As String
-'
-'    Set dFile = ReadJsonFile(strFile)
-'    If Not dFile Is Nothing Then
-'
-'        ' Prepare data structures
-'        tDevMode = DictionaryToDevMode(dFile("Items"))
-'        LSet DevModeString = tDevMode
-'        Mid(DevModeExtra, 1, 94) = DevModeString.RGB
-'
-'        ' Apply to report
-'        strReport = GetObjectNameFromFileName(strFile)
-'        DoCmd.Echo False
-'        DoCmd.OpenReport strReport, acViewDesign
-'        Reports(strReport).PrtDevMode = DevModeExtra
-'        DoCmd.Close acReport, strReport, acSaveYes
-'    End If
-
+    Dim dFile As Dictionary
+    Dim dPrinter As Dictionary
+    Dim dMargins As Dictionary
+    Dim cDM As clsDevMode
+    Dim strName As String
+    Dim rpt As Report
+    
+    Set dFile = ReadJsonFile(strFile)
+    If Not dFile Is Nothing Then
+        If dNZ(dFile, "Items\Printer\DeviceName") <> vbNullString Then
+            ' Has a specific printer assigned.
+            Set cDM = New clsDevMode
+            strName = GetObjectNameFromFileName(strFile)
+            Log.Add "  Applying saved print settings to " & strName, False
+            ' Turn off screen updating, and open report in design view.
+            DoCmd.Echo False
+            DoCmd.OpenReport strName, acViewDesign, , , acHidden
+            Set rpt = Reports(strName)
+            cDM.LoadFromReport rpt
+            Set dPrinter = dFile("Items")("Printer")
+            cDM.SetPrinterOptions rpt, dPrinter
+            Set dMargins = dFile("Items")("Margins")
+            cDM.SetMargins rpt.Printer, dMargins
+            DoCmd.Close acReport, strName, acSaveYes
+            DoCmd.Echo True
+        End If
+    End If
+    
 End Sub
 
 

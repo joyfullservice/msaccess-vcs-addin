@@ -19,9 +19,8 @@ If you want the very latest updates since the last published release, you will n
 Making your first Pull Request (PR)
 ---------
 A *Pull Request* is how you can propose that your code changes be included in the main project. (This project is the work of many people who have donated their efforts to make it better for everyone.) If you followed the steps to get to the Development Version then you can follow these steps to go back from Access to git, back up to GitHub:
-* **Always create a new branch when you want to make a change.** Make the name of the branch descriptive to what you set out to accomplish.
 * *Optional: For larger changes, you may consider making a branch that describes the changes you are proposing.*
-* Open the development copy of *Version Control.accda* 
+* Open the development copy of *Version Control.accda* from the cloned GitHub project.
 * Perform testing on your development version.
 * Make updates to the database project. (This is where the magic happens)
 * When you are ready to make a commit run the **Deploy** procedure by typing `Deploy` into the VBA immediate window and press **Enter**. This will:
@@ -31,9 +30,10 @@ A *Pull Request* is how you can propose that your code changes be included in th
 * Close Access.
 * Open an Access project and ensure that the version installed matches the new version you just deployed.
 * Perform testing to confirm that your new version works as expected. 
-* Make a git commit and briefly describe your changes in the commit notes. (You can add more verbose details in your pull request.)
-* Push your branch up to your cloned repository.
-* Make a pull request to the upstream project! Be sure to clearly describe what you did and why in the pull request. This will allow reviewers to better understand why your PR should be merged.
+* Make a git **commit*** and briefly describe your changes in the commit notes. (You can add more verbose details in your pull request.) 
+  * _*When creating the commit, please select only the files that reflect the actual changes you are proposing. It is usually not necessary to include auto-generated files that don't include substantive or intended changes._
+* **Push** your branch up to your cloned repository.
+* Make a **pull request** to the upstream project! Be sure to clearly describe what you did and why in the pull request. This will allow reviewers to better understand why your PR should be merged.
 * *Tip: If you have many different types of changes to propose, please use different pull requests for each of them. That will be easier to review and implement them individually.*
 
 Thank you again for your support for the Microsoft Access development community!!

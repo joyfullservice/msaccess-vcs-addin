@@ -146,6 +146,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
         End With
         
         ' Write as UTF-8 in the destination file.
+        ' (Path will be verified before writing)
         WriteFile strText, strDestinationFile
         
         ' Remove the source (temp) file if specified

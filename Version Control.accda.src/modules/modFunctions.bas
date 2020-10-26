@@ -1697,6 +1697,8 @@ Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFi
     
     Dim strTempFile As String
     
+    On Error GoTo ErrHandler
+    
     ' Export to temporary file
     strTempFile = GetTempFile
     Application.SaveAsText intType, strName, strTempFile
@@ -1709,6 +1711,19 @@ Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFi
         Case acForm, acReport, acQuery, acMacro
             SanitizeFile strFile
     End Select
+    
+    ' Normal exit
+    On Error GoTo 0
+    Exit Sub
+    
+ErrHandler:
+    If Err.Number = 2950 And intType = acTableDataMacro Then
+        ' This table apparently didn't have a Table Data Macro.
+        Exit Sub
+    Else
+        ' Some other error.
+        Err.Raise Err.Number
+    End If
     
 End Sub
 

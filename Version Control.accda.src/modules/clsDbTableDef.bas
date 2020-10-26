@@ -61,13 +61,15 @@ Private Sub IDbComponent_Export()
             .Add "SourceTableName", tbl.SourceTableName
             .Add "Attributes", tbl.Attributes
             ' indexes (Find primary key)
-            For Each idx In tbl.Indexes
-                If idx.Primary Then
-                    ' Add the primary key columns, using brackets just in case the field names have spaces.
-                    .Add "PrimaryKey", "[" & MultiReplace(CStr(idx.Fields), "+", vbNullString, ";", "], [") & "]"
-                    Exit For
-                End If
-            Next idx
+            If IndexAvailable(tbl) Then
+                For Each idx In tbl.Indexes
+                    If idx.Primary Then
+                        ' Add the primary key columns, using brackets just in case the field names have spaces.
+                        .Add "PrimaryKey", "[" & MultiReplace(CStr(idx.Fields), "+", vbNullString, ";", "], [") & "]"
+                        Exit For
+                    End If
+                Next idx
+            End If
         End With
         WriteJsonFile Me, dItem, strFile, "Linked Table"
     End If
@@ -146,32 +148,34 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
         .Remove 3   ' strip off last comma and crlf
 
         ' Constraints
-        Set cAttr = New clsConcat
-        For Each idx In tdf.Indexes
-            If idx.Fields.Count > 1 Then
-                If Len(cAttr.GetStr) = 0 Then cAttr.Add " CONSTRAINT "
-                If idx.Primary Then
-                    cAttr.Add "["
-                    cAttr.Add idx.Name
-                    cAttr.Add "] PRIMARY KEY ("
-                    For Each fld In idx.Fields
-                        cAttr.Add fld.Name
-                        cAttr.Add ", "
-                    Next fld
-                    cAttr.Remove 2
-                    cAttr.Add ")"
-                End If
-                If Not idx.Foreign Then
-                    If Len(cAttr.GetStr) > 0 Then
-                        .Add ","
-                        .Add vbCrLf
-                        .Add "  "
-                        .Add cAttr.GetStr
-                        AddFieldReferences dbs, idx.Fields, strTable, cData
+        If IndexAvailable(tdf) Then
+            Set cAttr = New clsConcat
+            For Each idx In tdf.Indexes
+                If idx.Fields.Count > 1 Then
+                    If Len(cAttr.GetStr) = 0 Then cAttr.Add " CONSTRAINT "
+                    If idx.Primary Then
+                        cAttr.Add "["
+                        cAttr.Add idx.Name
+                        cAttr.Add "] PRIMARY KEY ("
+                        For Each fld In idx.Fields
+                            cAttr.Add fld.Name
+                            cAttr.Add ", "
+                        Next fld
+                        cAttr.Remove 2
+                        cAttr.Add ")"
+                    End If
+                    If Not idx.Foreign Then
+                        If Len(cAttr.GetStr) > 0 Then
+                            .Add ","
+                            .Add vbCrLf
+                            .Add "  "
+                            .Add cAttr.GetStr
+                            AddFieldReferences dbs, idx.Fields, strTable, cData
+                        End If
                     End If
                 End If
-            End If
-        Next
+            Next idx
+        End If
         .Add vbCrLf
         .Add ")"
 
@@ -296,6 +300,30 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IndexAvailable
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return true if the index collection is avilable. Without the error handling
+'           : this may throw an error if a linked table is not accessible during export.
+'---------------------------------------------------------------------------------------
+'
+Private Function IndexAvailable(tdf As TableDef) As Boolean
+
+    Dim lngTest As Long
+    
+    On Error Resume Next
+    lngTest = tdf.Indexes.Count
+    If Err Then
+        Err.Clear
+    Else
+        IndexAvailable = True
+    End If
+    On Error GoTo 0
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Import
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -304,11 +332,24 @@ End Function
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Dim blnUseTemp As Boolean
+    Dim strTempFile As String
+    
     Select Case LCase$(FSO.GetExtensionName(strFile))
         Case "json"
             ImportLinkedTable strFile
         Case "xml"
-            Application.ImportXML strFile, acStructureAndData  'TODO: Why not acStructureOnly?
+            ' The ImportXML function does not properly handle UrlEncoded paths
+            blnUseTemp = (InStr(1, strFile, "%") > 0)
+            If blnUseTemp Then
+                ' Import from (safe) temporary file name.
+                strTempFile = GetTempFile
+                FSO.CopyFile strFile, strTempFile
+                Application.ImportXML strTempFile, acStructureAndData
+                FSO.DeleteFile strTempFile
+            Else
+                Application.ImportXML strFile, acStructureAndData  'TODO: Why not acStructureOnly?
+            End If
     End Select
 End Sub
 
@@ -410,12 +451,14 @@ Private Function HasUniqueIndex(tdf As TableDef) As Boolean
 
     Dim idx As DAO.Index
     
-    For Each idx In tdf.Indexes
-        If idx.Unique Then
-            HasUniqueIndex = True
-            Exit For
-        End If
-    Next idx
+    If IndexAvailable(tdf) Then
+        For Each idx In tdf.Indexes
+            If idx.Unique Then
+                HasUniqueIndex = True
+                Exit For
+            End If
+        Next idx
+    End If
     
 End Function
 

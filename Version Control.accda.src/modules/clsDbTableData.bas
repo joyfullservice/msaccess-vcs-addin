@@ -120,7 +120,7 @@ Private Sub ImportTableDataTDF(strFile As String)
     Dim fld As DAO.Field
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
-    Dim stm As Scripting.TextStream
+    Dim stm As ADODB.Stream
     Dim strLine As String
     Dim varLine As Variant
     Dim varHeader As Variant
@@ -141,11 +141,20 @@ Private Sub ImportTableDataTDF(strFile As String)
     Set rst = dbs.OpenRecordset(strTable)
     
     ' Read file line by line
-    Set stm = FSO.OpenTextFile(strFile, ForReading, False)
-    Set rst = dbs.OpenRecordset(strTable)
-    Do While Not stm.AtEndOfStream
-        strLine = stm.ReadLine
+    Set stm = New ADODB.Stream
+    With stm
+        .Charset = "UTF-8"
+        .Open
+        .LoadFromFile strFile
+    End With
+    
+    ' Loop through lines in file
+    Do While Not stm.EOS
+        strLine = stm.ReadText(adReadLine)
+        ' See if the header has already been parsed.
         If Not IsArray(varHeader) Then
+            ' Skip past any UTF-8 BOM header
+            If Left$(strLine, 3) = UTF8_BOM Then strLine = Mid$(strLine, 4)
             ' Read header line
             varHeader = Split(strLine, vbTab)
         Else
@@ -156,9 +165,18 @@ Private Sub ImportTableDataTDF(strFile As String)
                 For intCol = 0 To UBound(varHeader)
                     ' Check to see if field exists in the table
                     If dCols.Exists(varHeader(intCol)) Then
-                        ' Set empty fields to null
-                        If varLine(intCol) = "" Then
-                            rst.Fields(varHeader(intCol)).Value = Null
+                        ' Check for empty string or null.
+                        If varLine(intCol) = vbNullString Then
+                            ' The field could have a default value, but the imported
+                            ' data may still be a null value.
+                            If Not IsNull(rst.Fields(varHeader(intCol)).Value) Then
+                                ' Could possibly hit a problem with the storage of
+                                ' zero length strings instead of nulls. Since we can't
+                                ' really differentiate between these in a TDF file,
+                                ' we will go with NULL for now.
+                                'rst.Fields(varHeader(intCol)).AllowZeroLength
+                                rst.Fields(varHeader(intCol)).Value = Null
+                            End If
                         Else
                             ' Perform any needed replacements
                             strValue = MultiReplace(CStr(varLine(intCol)), _
@@ -242,17 +260,25 @@ End Function
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Dim blnUseTemp As Boolean
+    Dim strTempFile As String
     Dim strTable As String
 
     ' Import from different formats (XML is preferred for data integrity)
     Select Case GetFormatByExt(strFile)
         Case etdXML
             strTable = GetObjectNameFromFileName(strFile)
-            If TableExists(strTable) Then 'TODO: Do we need to truncate the table? It should be empty at this stage.
-                'DoCmd.DeleteObject acTable, strTable
-                Application.ImportXML strFile, acAppendData
+            If TableExists(strTable) Then DoCmd.DeleteObject acTable, strTable  'TODO: Do we need to drop the table? It should be empty at this stage.
+            'Else? blnUseTemp ... Application.ImportXML strFile, acStructureAndData 'FIXME: What should we do here? Tables should have been created already, so maybe better throw an error?
+            ' The ImportXML function does not properly handle UrlEncoded paths
+            blnUseTemp = (InStr(1, strFile, "%") > 0)
+            If blnUseTemp Then
+                ' Import from (safe) temporary file name.
+                strTempFile = GetTempFile
+                FSO.CopyFile strFile, strTempFile
+                Application.ImportXML strTempFile, acStructureAndData
+                FSO.DeleteFile strTempFile
             Else
-                'FIXME: What should we do here? Tables should have been created already, so maybe better throw an error?
                 Application.ImportXML strFile, acStructureAndData
             End If
         Case etdTabDelimited
