@@ -19,7 +19,7 @@ Begin Form
     ItemSuffix =113
     Left =3225
     Top =2430
-    Right =28545
+    Right =22695
     Bottom =15015
     DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
@@ -409,7 +409,7 @@ Begin Form
                     OverlapFlags =85
                     Left =540
                     Top =1500
-                    Width =9000
+                    Width =9345
                     Height =4740
                     TabIndex =2
                     Name ="tabOptions"
@@ -417,7 +417,7 @@ Begin Form
 
                     LayoutCachedLeft =540
                     LayoutCachedTop =1500
-                    LayoutCachedWidth =9540
+                    LayoutCachedWidth =9885
                     LayoutCachedHeight =6240
                     ThemeFontIndex =1
                     Shape =1
@@ -440,16 +440,16 @@ Begin Form
                             OverlapFlags =87
                             Left =615
                             Top =1980
-                            Width =8850
-                            Height =4190
+                            Width =9195
+                            Height =4185
                             BorderColor =10921638
                             Name ="pgeGeneral"
                             Caption ="General"
                             GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6170
+                            LayoutCachedWidth =9810
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -989,7 +989,7 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8850
+                            Width =9195
                             Height =4185
                             BorderColor =10921638
                             Name ="pgeTable"
@@ -997,7 +997,7 @@ Begin Form
                             GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
+                            LayoutCachedWidth =9810
                             LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
@@ -1348,7 +1348,7 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8850
+                            Width =9202
                             Height =4185
                             BorderColor =10921638
                             Name ="pgeBuild"
@@ -1356,7 +1356,7 @@ Begin Form
                             GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
+                            LayoutCachedWidth =9817
                             LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
@@ -1403,7 +1403,7 @@ Begin Form
                                 Begin Label
                                     OverlapFlags =247
                                     Left =1140
-                                    Top =2340
+                                    Top =2100
                                     Width =7860
                                     Height =2445
                                     BorderColor =8355711
@@ -1418,11 +1418,62 @@ Begin Form
                                         "ct."
                                     GridlineColor =10921638
                                     LayoutCachedLeft =1140
-                                    LayoutCachedTop =2340
+                                    LayoutCachedTop =2100
                                     LayoutCachedWidth =9000
                                     LayoutCachedHeight =4785
                                     ForeThemeColorIndex =-1
                                     ForeTint =100.0
+                                End
+                                Begin CheckBox
+                                    OverlapFlags =247
+                                    Left =1140
+                                    Top =4885
+                                    TabIndex =1
+                                    BorderColor =10921638
+                                    Name ="chkForceImportOriginalQuerySQL"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =1140
+                                    LayoutCachedTop =4885
+                                    LayoutCachedWidth =1400
+                                    LayoutCachedHeight =5125
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =1447
+                                            Top =4830
+                                            Width =3705
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="lblForceImportOriginalQuerySQL"
+                                            Caption ="Force import of original SQL for queries"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1447
+                                            LayoutCachedTop =4830
+                                            LayoutCachedWidth =5152
+                                            LayoutCachedHeight =5145
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin Label
+                                    OverlapFlags =247
+                                    Left =5197
+                                    Top =4874
+                                    Width =4170
+                                    Height =240
+                                    FontSize =10
+                                    BorderColor =8355711
+                                    ForeColor =8355711
+                                    Name ="lblForceImportSQLNote"
+                                    Caption ="(\"Save Query SQL\" option needed when exporting)"
+                                    GridlineColor =10921638
+                                    LayoutCachedLeft =5197
+                                    LayoutCachedTop =4874
+                                    LayoutCachedWidth =9367
+                                    LayoutCachedHeight =5114
                                 End
                             End
                         End
@@ -1430,7 +1481,7 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8850
+                            Width =9195
                             Height =4185
                             BorderColor =10921638
                             Name ="pgeEncrypt"
@@ -1438,7 +1489,7 @@ Begin Form
                             GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
+                            LayoutCachedWidth =9810
                             LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
@@ -1704,7 +1755,7 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8850
+                            Width =9195
                             Height =4185
                             BorderColor =10921638
                             Name ="pgeSettings"
@@ -1712,7 +1763,7 @@ Begin Form
                             GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
+                            LayoutCachedWidth =9810
                             LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
