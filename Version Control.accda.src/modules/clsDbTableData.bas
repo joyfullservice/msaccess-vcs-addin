@@ -253,8 +253,8 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Import
-' Author    : Adam Waller
-' Date      : 4/23/2020
+' Author    : Adam Waller, Florian Jenn
+' Date      : 4/23/2020, 2020-10-26
 ' Purpose   : Import the table data from a file.
 '---------------------------------------------------------------------------------------
 '
@@ -268,18 +268,33 @@ Private Sub IDbComponent_Import(strFile As String)
     Select Case GetFormatByExt(strFile)
         Case etdXML
             strTable = GetObjectNameFromFileName(strFile)
-            If TableExists(strTable) Then DoCmd.DeleteObject acTable, strTable  'TODO: Do we need to drop the table? It should be empty at this stage.
-            'Else? blnUseTemp ... Application.ImportXML strFile, acStructureAndData 'FIXME: What should we do here? Tables should have been created already, so maybe better throw an error?
-            ' The ImportXML function does not properly handle UrlEncoded paths
-            blnUseTemp = (InStr(1, strFile, "%") > 0)
-            If blnUseTemp Then
-                ' Import from (safe) temporary file name.
-                strTempFile = GetTempFile
-                FSO.CopyFile strFile, strTempFile
-                Application.ImportXML strTempFile, acStructureAndData
-                FSO.DeleteFile strTempFile
+            If TableExists(strTable) Then  'DoCmd.DeleteObject acTable, strTable  'FIXME (Florian Jenn) Do we need to drop the table? It should be empty at this stage.
+                ' The ImportXML function does not properly handle UrlEncoded paths
+                blnUseTemp = (InStr(1, strFile, "%") > 0)
+                If blnUseTemp Then
+                    ' Import from (safe) temporary file name.
+                    strTempFile = GetTempFile
+                    FSO.CopyFile strFile, strTempFile
+                    Application.ImportXML strTempFile, acAppendData
+                    FSO.DeleteFile strTempFile
+                Else
+                    Application.ImportXML strFile, acAppendData
+                End If
             Else
-                Application.ImportXML strFile, acStructureAndData
+                'No tabledef has been imported, so import structure and data from table data
+                'FIXME (Florian Jenn): Import from XML does not work for numbers (converts to strings)!
+                'FIXME (Florian Jenn): What else could we do here? Normally, tables should have been created already, so maybe better throw an error?
+                'TODO (Florian Jenn): After deciding what to do in each branch, maybe clean up / refactor.
+                blnUseTemp = (InStr(1, strFile, "%") > 0)
+                If blnUseTemp Then
+                    ' Import from (safe) temporary file name.
+                    strTempFile = GetTempFile
+                    FSO.CopyFile strFile, strTempFile
+                    Application.ImportXML strTempFile, acStructureAndData
+                    FSO.DeleteFile strTempFile
+                Else
+                    Application.ImportXML strFile, acStructureAndData
+                End If
             End If
         Case etdTabDelimited
             ImportTableDataTDF strFile
