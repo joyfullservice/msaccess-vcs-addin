@@ -17,6 +17,7 @@ Option Explicit
 ' https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
 ' https://stackoverflow.com/questions/49560317/64-bit-word-vba-devmode-dmduplex-returns-4
 ' http://toddmcdermid.blogspot.com/2009/02/microsoft-access-2003-and-printer.html
+' https://github.com/x-ware-ltd/access-scc-addin/blob/master/Modules/modExtendSaveAsText.ACM
 
 ' Constant to convert tenths of millimeters to inches for human readability
 Private Const TEN_MIL As Double = 0.00393701
@@ -208,21 +209,16 @@ End Function
 '
 Public Sub LoadFromExportFile(strFile As String)
 
-
     Dim cBlock(1 To 3) As clsConcat
     Dim cBuffer(1 To 3) As clsConcat
     Dim strHex As String
     Dim strChar As String
     Dim bteBuffer() As Byte
-    'Dim bteMip() As Byte
-    'Dim bteDevMode() As Byte
     Dim intBlock As Integer
     Dim strLine As String
     Dim lngChar As Long
     Dim lngPos As Long
     Dim stm As Scripting.TextStream
-    
-    
     Dim udtMipBuffer As tMipBuffer
     Dim udtDevModeBuffer As tDevModeBuffer
     Dim udtDevNamesBuffer As tDevNamesBuffer
@@ -1051,4 +1047,101 @@ Private Function GetNullTermStringByOffset(strData As String, lngHeaderLen As Lo
     ' Return the string if we found a null terminator
     If lngNull > 0 Then GetNullTermStringByOffset = Mid$(strData, lngStart, lngNull - lngStart)
     
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetPrtDevModeBlock
+' Author    : Adam Waller
+' Date      : 10/27/2020
+' Purpose   : Return a formatted PrtDevMode block.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetPrtDevModeBlock() As String
+    Dim udtBuffer As tDevModeBuffer
+    LSet udtBuffer = m_tDevMode
+    GetPrtDevModeBlock = GetBlobFromString("PrtDevMode", udtBuffer.strBuffer)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetPrtMipBlock
+' Author    : Adam Waller
+' Date      : 10/27/2020
+' Purpose   : Return a formatted PrtMip block.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetPrtMipBlock() As String
+    Dim udtBuffer As tMipBuffer
+    LSet udtBuffer = m_tMip
+    GetPrtMipBlock = GetBlobFromString("PrtMip", udtBuffer.strBuffer)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetPrtDevNamesBlock
+' Author    : Adam Waller
+' Date      : 10/27/2020
+' Purpose   : Return a formatted PrtDevNames block.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetPrtDevNamesBlock() As String
+    Dim udtBuffer As tDevNamesBuffer
+    LSet udtBuffer = m_tDevNames
+    GetPrtDevNamesBlock = GetBlobFromString("PrtDevNames", udtBuffer.strBuffer)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetBlobFromString
+' Author    : Adam Waller
+' Date      : 10/27/2020
+' Purpose   : Convert a string to a hexidecimal binary representation used in Access
+'           : report sections like PrtDevMode.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetBlobFromString(strSection As String, strContent As String, Optional intIndent As Integer = 4) As String
+
+    Dim intBte As Integer
+    Dim intCol As Integer
+    Dim lngPos As Long
+    Dim bteContent() As Byte
+    Dim lngLen As Long
+    Dim strBte As String
+    
+    ' Use concatenation class to drastically improve string handling performance.
+    With New clsConcat
+
+        ' Start with section beginning
+        .Add Space$(intIndent), strSection, " = Begin", vbCrLf
+        
+        ' Convert string to byte array
+        bteContent = strContent
+        lngLen = Len(strContent) * 2
+        
+        ' Build content lines
+        Do While lngPos < lngLen
+            .Add Space$(intIndent + 4), "0x"
+            For intCol = 0 To 31
+                If lngPos + intCol >= lngLen Then
+                    lngPos = lngLen
+                    Exit For
+                Else
+                    strBte = LCase(Hex$(bteContent(lngPos + intCol)))
+                    If Len(strBte) = 1 Then .Add "0"
+                    .Add strBte
+                End If
+            Next intCol
+            lngPos = lngPos + 32
+            If lngPos < lngLen Then .Add " ,", vbCrLf
+        Loop
+
+        ' Add section closing
+        .Add vbCrLf
+        .Add Space$(intIndent), "End", vbCrLf
+        
+        ' Return blob string
+        GetBlobFromString = .GetStr
+    End With
+
 End Function
