@@ -46,8 +46,24 @@ Private Sub Class_Initialize()
 End Sub
 
 
+' Add 1 or more strings (avoiding the string conversion of paramarray)
+Public Sub Add(str1 As String, Optional str2 As String, Optional str3 As String, Optional str4 As String, Optional str5 As String, _
+    Optional str6 As String, Optional str7 As String, Optional str8 As String, Optional str9 As String, Optional str10 As String)
+    If str1 <> vbNullString Then AddString str1
+    If str2 <> vbNullString Then AddString str2
+    If str3 <> vbNullString Then AddString str3
+    If str4 <> vbNullString Then AddString str4
+    If str5 <> vbNullString Then AddString str5
+    If str6 <> vbNullString Then AddString str6
+    If str7 <> vbNullString Then AddString str7
+    If str8 <> vbNullString Then AddString str8
+    If str9 <> vbNullString Then AddString str9
+    If str10 <> vbNullString Then AddString str10
+End Sub
+
+
 ' Add to the string buffer
-Public Sub Add(strAddString As String)
+Private Sub AddString(strAddString As String)
 
     Dim lngLen          As Long
     Dim lngRemaining    As Long
