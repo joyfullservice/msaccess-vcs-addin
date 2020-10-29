@@ -9,7 +9,7 @@ If you want the very latest updates since the last published release, you will n
 
 * Make sure you have a fairly recent version of the add-in installed. If not,
   * Download the latest release.
-  * Install the add-in. (Just open *Version Control.accda*)
+  * Install the add-in. (Just open *Version Control.accda*. If the add-in is already installed, you will be dropped into the VBA editor without further comment.)
 * Clone this repository.
 * Pull your clone down to your local machine.
 * Choose a branch in git. (Typically `master`)

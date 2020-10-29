@@ -348,7 +348,7 @@ Private Sub IDbComponent_Import(strFile As String)
                 Application.ImportXML strTempFile, acStructureAndData
                 FSO.DeleteFile strTempFile
             Else
-                Application.ImportXML strFile, acStructureAndData
+                Application.ImportXML strFile, acStructureAndData  'TODO: Why not acStructureOnly?
             End If
     End Select
 End Sub
