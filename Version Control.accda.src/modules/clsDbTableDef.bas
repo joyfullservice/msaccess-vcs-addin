@@ -345,10 +345,10 @@ Private Sub IDbComponent_Import(strFile As String)
                 ' Import from (safe) temporary file name.
                 strTempFile = GetTempFile
                 FSO.CopyFile strFile, strTempFile
-                Application.ImportXML strTempFile, acStructureAndData
+                Application.ImportXML strTempFile, acStructureOnly
                 FSO.DeleteFile strTempFile
             Else
-                Application.ImportXML strFile, acStructureAndData  'TODO: Why not acStructureOnly?
+                Application.ImportXML strFile, acStructureOnly
             End If
     End Select
 End Sub
