@@ -103,27 +103,19 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
     Set tdf = dbs.TableDefs(strTable)
 
     With cData
-        .Add "CREATE TABLE ["
-        .Add strTable
-        .Add "] ("
-        .Add vbCrLf
+        .Add "CREATE TABLE [", strTable, "] (", vbCrLf
 
         ' Loop through fields
         For Each fld In tdf.Fields
-            .Add "  ["
-            .Add fld.Name
-            .Add "] "
+            .Add "  [", fld.Name, "] "
             If (fld.Attributes And dbAutoIncrField) Then
                 .Add "AUTOINCREMENT"
             Else
-                .Add GetTypeString(fld.Type)
-                .Add " "
+                .Add GetTypeString(fld.Type), " "
             End If
             Select Case fld.Type
                 Case dbText, dbVarBinary
-                    .Add "("
-                    .Add fld.Size
-                    .Add ")"
+                    .Add "(", fld.Size, ")"
             End Select
 
             ' Indexes
@@ -134,16 +126,11 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
                     If idx.Unique Then cAttr.Add " UNIQUE"
                     If idx.Required Then cAttr.Add " NOT NULL"
                     If idx.Foreign Then AddFieldReferences dbs, idx.Fields, strTable, cAttr
-                    If Len(cAttr.GetStr) > 0 Then
-                        .Add " CONSTRAINT ["
-                        .Add idx.Name
-                        .Add "]"
-                    End If
+                    If Len(cAttr.GetStr) > 0 Then .Add " CONSTRAINT [", idx.Name, "]"
                 End If
                 .Add cAttr.GetStr
             Next
-            .Add ","
-            .Add vbCrLf
+            .Add ",", vbCrLf
         Next fld
         .Remove 3   ' strip off last comma and crlf
 
@@ -154,30 +141,24 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
                 If idx.Fields.Count > 1 Then
                     If Len(cAttr.GetStr) = 0 Then cAttr.Add " CONSTRAINT "
                     If idx.Primary Then
-                        cAttr.Add "["
-                        cAttr.Add idx.Name
-                        cAttr.Add "] PRIMARY KEY ("
+                        cAttr.Add "[", idx.Name, "] PRIMARY KEY ("
                         For Each fld In idx.Fields
-                            cAttr.Add fld.Name
-                            cAttr.Add ", "
+                            cAttr.Add fld.Name, ", "
                         Next fld
                         cAttr.Remove 2
                         cAttr.Add ")"
                     End If
                     If Not idx.Foreign Then
                         If Len(cAttr.GetStr) > 0 Then
-                            .Add ","
-                            .Add vbCrLf
-                            .Add "  "
-                            .Add cAttr.GetStr
+                            .Add ",", vbCrLf
+                            .Add "  ", cAttr.GetStr
                             AddFieldReferences dbs, idx.Fields, strTable, cData
                         End If
                     End If
                 End If
             Next idx
         End If
-        .Add vbCrLf
-        .Add ")"
+        .Add vbCrLf, ")"
 
         ' Build file name and create file.
         strFile = strFolder & GetSafeFileName(strTable) & ".sql"
@@ -205,12 +186,9 @@ Private Sub AddFieldReferences(dbs As Database, fld As Object, strTable As Strin
             If FieldsIdentical(fld, rel.Fields) Then
 
                 ' References
-                cData.Add " REFERENCES "
-                cData.Add rel.Table
-                cData.Add " ("
+                cData.Add " REFERENCES ", rel.Table, " ("
                 For Each fld2 In rel.Fields
-                    cData.Add fld2.Name
-                    cData.Add ","
+                    cData.Add fld2.Name, ","
                 Next fld2
                 ' Remove trailing comma
                 If rel.Fields.Count > 0 Then cData.Remove 1

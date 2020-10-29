@@ -228,9 +228,7 @@ Private Function GetTableExportSql(strTable As String) As String
     ' Build list of fields
     With cFieldList
         For Each fld In tdf.Fields
-            .Add "["
-            .Add fld.Name
-            .Add "]"
+            .Add "[", fld.Name, "]"
             intCnt = intCnt + 1
             If intCnt < intFields Then .Add ", "
         Next fld
@@ -238,11 +236,8 @@ Private Function GetTableExportSql(strTable As String) As String
 
     ' Build select statement
     With cText
-        .Add "SELECT "
-        .Add cFieldList.GetStr
-        .Add " FROM ["
-        .Add strTable
-        .Add "] ORDER BY "
+        .Add "SELECT ", cFieldList.GetStr
+        .Add " FROM [", strTable, "] ORDER BY "
         .Add cFieldList.GetStr
     End With
 
