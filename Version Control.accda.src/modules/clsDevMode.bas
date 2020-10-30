@@ -353,9 +353,9 @@ Public Sub LoadFromPrinter(strPrinter As String)
         ' Check size of DevMode structure to make sure it fits in our buffer.
         lngReturn = DocumentProperties(0, hPrinter, strPrinter, 0, 0, 0)
         If lngReturn > 0 Then
-        
+
             ' Read the devmode structure
-            strBuffer = Space$(lngReturn + 100)
+            strBuffer = NullPad(lngReturn + 100)
             lngReturn = DocumentProperties(0, hPrinter, strPrinter, StrPtr(strBuffer), 0, DM_OUT_BUFFER)
             If lngReturn > 0 Then
             
@@ -369,8 +369,35 @@ Public Sub LoadFromPrinter(strPrinter As String)
     
     ' Close printer handle
     If hPrinter <> 0 Then ClosePrinter hPrinter
-
+    
+    ' Load in the DevNames structure
+    LoadDevNamesByPrinterName strPrinter
+    
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadDevNamesByPrinterName
+' Author    : Adam Waller
+' Date      : 10/30/2020
+' Purpose   : Build the DevNames structure manually using a printer object.
+'           : This could potentially be done through the API, but it seemed easier
+'           : for our purposes to do it this way.
+'---------------------------------------------------------------------------------------
+'
+Private Function LoadDevNamesByPrinterName(strPrinter As String)
+
+    Dim prt As Access.Printer
+
+    ' Get Access printer object
+    Set prt = GetPrinterByName(strPrinter)
+    If prt Is Nothing Then
+        Log.Add "WARNING: Could not find printer '" & strPrinter & "' on this system."
+    Else
+        SetDevNames prt
+    End If
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -399,6 +426,8 @@ End Sub
 Public Function GetDictionary() As Dictionary
     Set GetDictionary = New Dictionary
     With GetDictionary
+        ' Only add device information if not using the default printer.
+        If m_tDevNames.intDefault = 0 Then .Add "Device", DevNamesToDictionary()
         .Add "Printer", DevModeToDictionary()
         .Add "Margins", MipToDictionary()
     End With
@@ -429,7 +458,10 @@ Private Sub LoadFromObject(objSource As Object)
         
     ' DevNames
     If Not IsNull(objSource.PrtDevNames) Then
-        udtDevNamesBuffer.strBuffer = objSource.PrtDevNames
+        With udtDevNamesBuffer
+            ' Pad right side of buffer with nulls rather than spaces.
+            .strBuffer = objSource.PrtDevNames & NullPad(Len(.strBuffer) - Len(objSource.PrtDevNames))
+        End With
         LSet m_tDevNames = udtDevNamesBuffer
     End If
     
@@ -549,6 +581,30 @@ Private Function MipToDictionary() As Dictionary
         .Add "ItemLayout", GetEnum(epeColumnLayout, cMip.rItemLayout)
         '.Add "FastPrint", cMip.fFastPrint  ' Reserved
         '.Add "Datasheet", cMip.fDatasheet  ' Reserved
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DevNamesToDictionary
+' Author    : Adam Waller
+' Date      : 10/30/2020
+' Purpose   : Return a dictionary object with the PrtDevNames values.
+'---------------------------------------------------------------------------------------
+'
+Private Function DevNamesToDictionary() As Dictionary
+
+    Dim cDN As tDevNames
+
+    LSet cDN = m_tDevNames
+    Set DevNamesToDictionary = New Dictionary
+    
+    With DevNamesToDictionary
+        .Add "DriverName", NTrim(Mid$(StrConv(cDN.strData, vbUnicode), cDN.intDriverOffset - 7))
+        .Add "DeviceName", NTrim(Mid$(StrConv(cDN.strData, vbUnicode), cDN.intDeviceOffset - 7))
+        .Add "Port", NTrim(Mid$(StrConv(cDN.strData, vbUnicode), cDN.intOutputOffset - 7))
+        .Add "Default", (cDN.intDefault = 1)
     End With
 
 End Function
@@ -703,7 +759,7 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
                         Or (dSettings(varKey) <> NTrim(StrConv(.strFormName, vbUnicode))) Then
                         ' Assign byte arrays for string values
                         strForm = StrConv(dSettings(varKey) & vbNullChar, vbFromUnicode)
-                        bteForm = strForm & Space$(32 - Len(strForm))
+                        bteForm = strForm & NullPad(32 - Len(strForm))
                         For intCnt = 1 To 32
                             .strFormName(intCnt) = bteForm(intCnt - 1)
                         Next intCnt
@@ -719,6 +775,7 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
     
     ' Check flag to see if we have changed anything
     If blnSetDevMode Then
+        tBuffer.strBuffer = Replace(tBuffer.strBuffer, " ", vbNullChar)
         LSet tBuffer = m_tDevMode
         ' Overwrite first part of structure while preserving possible
         ' extra data used by print driver.
@@ -729,6 +786,116 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
     ' Tweak a property so the report knows it needs to be saved.
     With objFormOrReport
         .Caption = .Caption
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplySettings
+' Author    : Adam Waller
+' Date      : 10/28/2020
+' Purpose   : Applies the dictionary object of printer settings to the current
+'           : DevMode, MIP and DevNames structures. Expects a dictionary structure
+'           : like the "items" collection that is created when saving print settings.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ApplySettings(dSettings As Dictionary)
+
+    Dim oPrinter As Access.Printer
+    Dim intType As Integer
+    Dim intCnt As Integer
+    Dim strForm As String
+    Dim bteForm() As Byte
+    Dim varKey As Variant
+    Dim blnSetDevMode As Boolean
+    Dim strDevModeExtra As String
+    Dim tBuffer As tDevModeBuffer
+    
+
+
+'    ' Check printer device to see if we are using a specific printer
+'    If dSettings.Exists("DeviceName") Then
+'        Set oPrinter = GetPrinterByName(dSettings("DeviceName"))
+'        If oPrinter Is Nothing Then
+'            'Log.Add "WARNING: Printer " & dSettings("DeviceName") & " not found for " & objFormOrReport.Name
+'            Exit Sub
+'        End If
+'        ' Set as printer for this report or form.
+'        With objFormOrReport
+'            Set .Printer = oPrinter
+'            .UseDefaultPrinter = False
+'        End With
+'    Else
+'        ' Use default printer (If not already set)
+'        objFormOrReport.UseDefaultPrinter = True
+'    End If
+
+    ' Apply regular printer options
+'    Set oPrinter = objFormOrReport.Printer
+'    With oPrinter
+'        For Each varKey In dSettings.Keys
+'            Select Case varKey
+'
+'            End Select
+'        Next varKey
+'    End With
+
+    ' Other properties will require some more work, since we need to interact
+    ' with the DevMode structure.
+    'LoadFromObject objFormOrReport
+    'strDevModeExtra = objFormOrReport.PrtDevMode
+
+
+    ' Set the properties in the DevNames structure.
+    If dSettings.Exists("Device") Then LoadDevNamesByPrinterName "DeviceName"
+
+    ' Set the properties in the DevMode structure.
+    With m_tDevMode
+        For Each varKey In dSettings("Printer").Keys
+            Select Case varKey
+            
+                ' These properties can be set on the report/form object, or through PrtDevMode
+                Case "Orientation": SetDmProp .intOrientation, DM_ORIENTATION, GetEnum(epeOrientation, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "PaperSize":   SetDmProp .intPaperSize, DM_PAPERSIZE, GetEnum(epePaperSize, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "Copies":      SetDmProp .intCopies, DM_COPIES, dSettings(varKey), .lngFields, blnSetDevMode
+                Case "PrintQuality":    SetDmProp .intPrintQuality, DM_PRINTQUALITY, GetEnum(epePrintQuality, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "Color":       SetDmProp .intColor, DM_COLOR, GetEnum(epeColor, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "Duplex":      SetDmProp .intDuplex, DM_DUPLEX, GetEnum(epeDuplex, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "DefaultSource":   SetDmProp .intDefaultSource, DM_DEFAULTSOURCE, GetEnum(epePaperBin, dSettings(varKey)), .lngFields, blnSetDevMode
+            
+                ' These can only be set through PrtDevMode
+                Case "PaperLength": SetDmProp .intPaperLength, DM_PAPERLENGTH, Round(dSettings(varKey) / TEN_MIL, 0), .lngFields, blnSetDevMode
+                Case "PaperWidth":  SetDmProp .intPaperWidth, DM_PAPERWIDTH, Round(dSettings(varKey) / TEN_MIL, 0), .lngFields, blnSetDevMode
+                Case "Scale":       SetDmProp .intScale, DM_SCALE, dSettings(varKey), .lngFields, blnSetDevMode
+                Case "Resolution":  SetDmProp .intResolution, DM_YRESOLUTION, dSettings(varKey), .lngFields, blnSetDevMode
+                Case "TTOption":    SetDmProp .intTTOption, DM_TTOPTION, GetEnum(epeTTOption, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "Collate":     SetDmProp .intCollate, DM_COLLATE, GetEnum(epeCollate, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "DisplayFlags":        SetDmProp .lngDisplayFlags, DM_DISPLAYFLAGS, GetEnum(epeDisplayFlags, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "DisplayFrequency":    SetDmProp .lngDisplayFrequency, DM_DISPLAYFREQUENCY, dSettings(varKey), .lngFields, blnSetDevMode
+                Case "ICMMethod":   SetDmProp .lngICMMethod, DM_ICMMETHOD, GetEnum(epeICMMethod, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "ICMIntent":   SetDmProp .lngICMIntent, DM_ICMINTENT, GetEnum(epeICMIntent, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "MediaType":   SetDmProp .lngMediaType, DM_MEDIATYPE, GetEnum(epeMediaType, dSettings(varKey)), .lngFields, blnSetDevMode
+                Case "DitherType":  SetDmProp .lngDitherType, DM_DITHERTYPE, GetEnum(epeDitherType, dSettings(varKey)), .lngFields, blnSetDevMode
+                
+                ' String values are a little more fun...
+                Case "FormName"
+                    If (Not BitSet(.lngFields, DM_FORMNAME)) _
+                        Or (dSettings(varKey) <> NTrim(StrConv(.strFormName, vbUnicode))) Then
+                        ' Assign byte arrays for string values
+                        strForm = StrConv(dSettings(varKey) & vbNullChar, vbFromUnicode)
+                        bteForm = strForm & NullPad(32 - Len(strForm))
+                        For intCnt = 1 To 32
+                            .strFormName(intCnt) = bteForm(intCnt - 1)
+                        Next intCnt
+                        blnSetDevMode = True
+                        ' Update fields flag
+                        If Not BitSet(.lngFields, DM_FORMNAME) Then
+                            .lngFields = .lngFields Or DM_FORMNAME
+                        End If
+                    End If
+            End Select
+        Next varKey
     End With
 
 End Sub
@@ -796,6 +963,57 @@ Private Sub SetDmProp(ByRef cDMProp As Variant, lngFlag As edmFlags, varValue As
     ' Check fields flag, and update flag if we have made a change.
     If blnChanged And Not BitSet(lngFields, lngFlag) Then lngFields = lngFields Or lngFlag
     
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetDevNames
+' Author    : Adam Waller
+' Date      : 10/30/2020
+' Purpose   : Wrapper to encode PrtDevNames values from passed variables.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SetDevNames(objPrinter As Access.Printer)
+
+    Dim strDriver As String
+    Dim strDevice As String
+    Dim strPort As String
+    Dim strData As String
+    Dim bteData() As Byte
+    Dim intCnt As Integer
+    Dim blnDefault As Boolean
+
+    ' Get device properties
+    With objPrinter
+        ' Default printer is stored differently.
+        blnDefault = (.DeviceName = Application.Printer.DeviceName)
+        If blnDefault Then
+            ' Determined the size by reviewing an exported report
+            ' that uses the default printer and noting the offsets.
+            strDriver = NullPad(23)
+            strDevice = NullPad(23)
+        Else
+            strDriver = .DriverName & vbNullChar
+            strDevice = Left$(.DeviceName & vbNullChar, 32)
+        End If
+        strPort = .Port & vbNullChar
+    End With
+    
+    ' Fill in DevNames structure
+    With m_tDevNames
+        strData = strDriver & strDevice & strPort
+        .intDriverOffset = 8  ' This seems to match what I typically see...
+        .intDeviceOffset = .intDriverOffset + Len(strDriver)
+        .intOutputOffset = .intDeviceOffset + Len(strDevice)
+        .intDefault = Abs(blnDefault)
+        ' Convert string data to byte array
+        strData = StrConv(strData, vbFromUnicode)
+        bteData = strData & NullPad(255 - Len(strData))
+        For intCnt = 1 To 255
+            .strData(intCnt) = bteData(intCnt - 1)
+        Next intCnt
+    End With
+
 End Sub
 
 
@@ -1059,6 +1277,7 @@ End Function
 '
 Public Function GetPrtDevModeBlock() As String
     Dim udtBuffer As tDevModeBuffer
+    udtBuffer.strBuffer = Replace(udtBuffer.strBuffer, " ", vbNullChar)
     LSet udtBuffer = m_tDevMode
     GetPrtDevModeBlock = GetBlobFromString("PrtDevMode", udtBuffer.strBuffer)
 End Function
@@ -1073,6 +1292,7 @@ End Function
 '
 Public Function GetPrtMipBlock() As String
     Dim udtBuffer As tMipBuffer
+    udtBuffer.strBuffer = Replace(udtBuffer.strBuffer, " ", vbNullChar)
     LSet udtBuffer = m_tMip
     GetPrtMipBlock = GetBlobFromString("PrtMip", udtBuffer.strBuffer)
 End Function
@@ -1087,8 +1307,9 @@ End Function
 '
 Public Function GetPrtDevNamesBlock() As String
     Dim udtBuffer As tDevNamesBuffer
+    udtBuffer.strBuffer = Replace(udtBuffer.strBuffer, " ", vbNullChar)
     LSet udtBuffer = m_tDevNames
-    GetPrtDevNamesBlock = GetBlobFromString("PrtDevNames", udtBuffer.strBuffer)
+    GetPrtDevNamesBlock = GetBlobFromString("PrtDevNames", RTrimNulls(udtBuffer.strBuffer, 1))
 End Function
 
 
@@ -1144,4 +1365,51 @@ Private Function GetBlobFromString(strSection As String, strContent As String, O
         GetBlobFromString = .GetStr
     End With
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NullPad
+' Author    : Adam Waller
+' Date      : 10/30/2020
+' Purpose   : Like the Space$() function, but uses vbNullChar instead.
+'---------------------------------------------------------------------------------------
+'
+Private Function NullPad(lngNumber As Long) As String
+    NullPad = Replace$(Space$(lngNumber), " ", vbNullChar)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RTrimNulls
+' Author    : Adam Waller
+' Date      : 10/30/2020
+' Purpose   : Trims the null characters off the right end of a string, leaving the
+'           : specified null characters at the end. (Used for variable length structures)
+'---------------------------------------------------------------------------------------
+'
+Private Function RTrimNulls(strData As String, lngLeaveCount As Long) As String
+
+    Dim lngCnt As Long
+    Dim strTrimmed As String
+    
+    ' Walk backwards through the string, looking for the first non-null character.
+    If InStr(1, strData, vbNullChar) > 0 Then
+        For lngCnt = Len(strData) To 1 Step -1
+            If Mid$(strData, lngCnt, 1) <> vbNullChar Then
+                ' Found a non-null character.
+                strTrimmed = Left$(strData, lngCnt - 1) & NullPad(lngLeaveCount)
+                Exit For
+            End If
+        Next lngCnt
+    End If
+    
+    ' Return result
+    If strTrimmed = vbNullString Then
+        ' If no nulls found, then return original data.
+        RTrimNulls = strData
+    Else
+        RTrimNulls = strTrimmed
+    End If
+    
 End Function
