@@ -2135,14 +2135,17 @@ Public Function GetRelativePath(strPath As String) As String
         ' In export folder or subfolder. Simple replacement
         strRelative = "rel:" & Mid$(strPath, Len(strFolder) + 1)
     Else
-        ' Check UNC path for network drives
-        strUncPath = GetUncPath(strPath)
-        If StrComp(strUncPath, strPath, vbTextCompare) <> 0 Then
-            ' We are dealing with a network drive
-            strUncTest = GetRelativePath(strUncPath)
-            If StrComp(strUncPath, strUncTest, vbTextCompare) <> 0 Then
-                ' Resolved to relative UNC path
-                strRelative = strUncTest
+        ' Make sure we have a path, not just a file name.
+        If InStr(1, strRelative, "\") > 0 Then
+            ' Check UNC path for network drives
+            strUncPath = GetUncPath(strPath)
+            If StrComp(strUncPath, strPath, vbTextCompare) <> 0 Then
+                ' We are dealing with a network drive
+                strUncTest = GetRelativePath(strUncPath)
+                If StrComp(strUncPath, strUncTest, vbTextCompare) <> 0 Then
+                    ' Resolved to relative UNC path
+                    strRelative = strUncTest
+                End If
             End If
         End If
     End If
