@@ -79,7 +79,7 @@ Private Function IDbComponent_GetAllFromDB() As Collection
                 If Left$(tdf.Name, 1) <> "~" Then
                     If Len(tdf.Connect) = 0 Then
                         ' Check to see if the table has a data macro
-                        strSql = "Not IsNull(LvExtra) and Type = 1 and [Name] = '" & tdf.Name & "'"
+                        strSql = "Not IsNull(LvExtra) and Type = 1 and [Name] = """ & tdf.Name & """"
                         If DCount("[Name]", "MSysObjects", strSql) > 0 Then
                             Set cTable = New clsDbTableDataMacro
                             Set cTable.DbObject = CurrentData.AllTables(tdf.Name)

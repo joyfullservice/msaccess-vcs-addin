@@ -143,7 +143,7 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
                     If idx.Primary Then
                         cAttr.Add "[", idx.Name, "] PRIMARY KEY ("
                         For Each fld In idx.Fields
-                            cAttr.Add fld.Name, ", "
+                            cAttr.Add "[", fld.Name, "], "
                         Next fld
                         cAttr.Remove 2
                         cAttr.Add ")"
@@ -186,9 +186,9 @@ Private Sub AddFieldReferences(dbs As Database, fld As Object, strTable As Strin
             If FieldsIdentical(fld, rel.Fields) Then
 
                 ' References
-                cData.Add " REFERENCES ", rel.Table, " ("
+                cData.Add " REFERENCES [", rel.Table, "] ("
                 For Each fld2 In rel.Fields
-                    cData.Add fld2.Name, ","
+                    cData.Add "[", fld2.Name, "],"
                 Next fld2
                 ' Remove trailing comma
                 If rel.Fields.Count > 0 Then cData.Remove 1
@@ -371,7 +371,7 @@ Private Sub ImportLinkedTable(strFile As String)
             ' Check for a primary key index (Linked SQL tables may bring over the index, but linked views won't.)
             If dItem.Exists("PrimaryKey") And Not HasUniqueIndex(tdf) Then
                 ' Create a pseudo index on the linked table
-                strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & tdf.Name & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
+                strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & tdf.Name & "] ([" & dItem("PrimaryKey") & "]) WITH PRIMARY"
                 dbs.Execute strSql, dbFailOnError
                 dbs.TableDefs.Refresh
             End If
