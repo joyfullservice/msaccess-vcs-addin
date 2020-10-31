@@ -371,7 +371,7 @@ Private Sub ImportLinkedTable(strFile As String)
             ' Check for a primary key index (Linked SQL tables may bring over the index, but linked views won't.)
             If dItem.Exists("PrimaryKey") And Not HasUniqueIndex(tdf) Then
                 ' Create a pseudo index on the linked table
-                strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & tdf.Name & "] ([" & dItem("PrimaryKey") & "]) WITH PRIMARY"
+                strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & tdf.Name & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
                 dbs.Execute strSql, dbFailOnError
                 dbs.TableDefs.Refresh
             End If

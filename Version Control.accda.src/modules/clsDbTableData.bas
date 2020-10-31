@@ -137,7 +137,7 @@ Private Sub ImportTableDataTDF(strFile As String)
     Next fld
     
     ' Clear any existing records before importing this data.
-    dbs.Execute "delete from " & strTable, dbFailOnError
+    dbs.Execute "delete from [" & strTable & "]", dbFailOnError
     Set rst = dbs.OpenRecordset(strTable)
     
     ' Read file line by line
