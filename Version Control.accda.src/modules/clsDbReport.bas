@@ -66,43 +66,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ImportPrintVars
-' Author    : Adam Waller
-' Date      : 5/7/2020
-' Purpose   : Import the print settings back into the report.
-'---------------------------------------------------------------------------------------
-'
-Public Sub ImportPrintVars(strFile As String)
-
-    Dim dFile As Dictionary
-    Dim dPrinter As Dictionary
-    Dim dMargins As Dictionary
-    Dim cDM As clsDevMode
-    Dim strName As String
-    Dim rpt As Report
-    
-    Set dFile = ReadJsonFile(strFile)
-    If Not dFile Is Nothing Then
-        Set cDM = New clsDevMode
-        strName = GetObjectNameFromFileName(strFile)
-        Log.Add "  Applying saved print settings to " & strName, False
-        ' Turn off screen updating, and open report in design view.
-        DoCmd.Echo False
-            DoCmd.OpenReport strName, acViewDesign, , , acHidden
-            Set rpt = Reports(strName)
-            cDM.LoadFromReport rpt
-            Set dPrinter = dFile("Items")("Printer")
-            cDM.SetPrinterOptions rpt, dPrinter
-            Set dMargins = dFile("Items")("Margins")
-            cDM.SetMargins rpt.Printer, dMargins
-            DoCmd.Close acReport, strName, acSaveYes
-        DoCmd.Echo True
-    End If
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : Import
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -112,14 +75,28 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
 
     Dim strReport As String
-
-    ' Import the report object
+    Dim strTempFile As String
+    Dim dFile As Dictionary
+    
     strReport = GetObjectNameFromFileName(strFile)
-    LoadComponentFromText acReport, strReport, strFile
-
-    ' Import the print vars if specified
-    If Options.SavePrintVars Then
-        ImportPrintVars GetPrintVarsFileName(strReport)
+    Set dFile = ReadJsonFile(GetPrintVarsFileName(strReport))
+    
+    ' Check to ensure dictionary was loaded
+    If dFile Is Nothing Then
+        ' Missing print vars file. (Could be legacy export)
+        LoadComponentFromText acReport, strReport, strFile
+    Else
+        ' Insert DevMode structures into file before importing.
+        With New clsDevMode
+            ' Load default printer settings, then overlay
+            ' settings saved with report.
+            .ApplySettings dFile("Items")
+            ' Insert the settings into a combined export file.
+            strTempFile = .AddToExportFile(strFile)
+            ' Load the report file with the DevMode settings
+            LoadComponentFromText acReport, strReport, strTempFile
+            FSO.DeleteFile strTempFile, True
+        End With
     End If
 
 End Sub

@@ -108,11 +108,10 @@ Public Sub SanitizeFile(strPath As String)
     
         '  Match PrtDevNames / Mode with or without W
         If Options.AggressiveSanitize Then .Add "(?:"
-        .Add "PrtDev(?:Names|Mode)[W]?"
+        .Add "Prt(?:DevNames|DevMode|Mip)[W]?"
         If Options.AggressiveSanitize Then
           '  Add and group aggressive matches
-          .Add "|GUID|""GUID""|NameMap|dbLongBinary ""DOL"""
-          .Add ")"
+          .Add "|GUID|""GUID""|NameMap|dbLongBinary ""DOL"")"
         End If
         
         '  Ensure that this is the begining of a block.
