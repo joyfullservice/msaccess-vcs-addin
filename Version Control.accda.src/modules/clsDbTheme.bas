@@ -70,7 +70,9 @@ Private Sub IDbComponent_Export()
         Set rstAtc = rst!Data.Value
         If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
         VerifyPath strFile
+        Perf.OperationStart "Write to Disk"
         rstAtc!FileData.SaveToFile strFile
+        Perf.OperationEnd
         rstAtc.Close
         Set rstAtc = Nothing
     End If

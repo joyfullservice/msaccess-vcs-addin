@@ -46,7 +46,9 @@ Private Sub IDbComponent_Export()
         strTempFile = GetTempFile
         
         ' Save as text, then grab and save printer info.
+        Perf.OperationStart "App.SaveAsText()"
         Application.SaveAsText acReport, m_Report.Name, strTempFile
+        Perf.OperationEnd
         cDevMode.LoadFromExportFile strTempFile
         WriteJsonFile Me, cDevMode.GetDictionary, _
             GetPrintVarsFileName(m_Report.Name), "Report Print Settings"

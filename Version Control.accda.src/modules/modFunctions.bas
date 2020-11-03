@@ -64,6 +64,7 @@ End Enum
 Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)
 
 ' Logging and options classes
+Private m_Perf As clsPerformance
 Private m_Log As clsLog
 Private m_Options As clsOptions
 
@@ -99,6 +100,7 @@ Public Sub SanitizeFile(strPath As String)
     ' Timers to monitor performance
     sngTimer = Timer
     sngOverall = sngTimer
+    Perf.OperationStart "Sanitize File"
         
     '  Setup Block matching Regex.
     rxBlock.IgnoreCase = False
@@ -228,6 +230,7 @@ Public Sub SanitizeFile(strPath As String)
 
     ' Show stats if debug turned on.
     Log.Add "    Sanitized in " & Format$(Timer - sngOverall, "0.00") & " seconds.", Options.ShowDebug
+    Perf.OperationEnd
 
 End Sub
 
@@ -818,7 +821,9 @@ Public Sub WriteBinaryFile(bteContent() As Byte, blnUtf8Bom As Boolean, strPath 
         End If
         .Write bteContent
         VerifyPath strPath
+        Perf.OperationStart "Write to Disk"
         .SaveToFile strPath, adSaveCreateOverWrite
+        Perf.OperationEnd
     End With
     
 End Sub
@@ -1659,10 +1664,23 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Perf
+' Author    : Adam Waller
+' Date      : 11/3/2020
+' Purpose   : Wrapper for performance logging class
+'---------------------------------------------------------------------------------------
+'
+Public Function Perf() As clsPerformance
+    If m_Perf Is Nothing Then Set m_Perf = New clsPerformance
+    Set Perf = m_Perf
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Log
 ' Author    : Adam Waller
 ' Date      : 4/28/2020
-' Purpose   :
+' Purpose   : Wrapper for log file class
 '---------------------------------------------------------------------------------------
 '
 Public Function Log() As clsLog
@@ -1704,7 +1722,9 @@ Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFi
     
     ' Export to temporary file
     strTempFile = GetTempFile
+    Perf.OperationStart "App.SaveAsText()"
     Application.SaveAsText intType, strName, strTempFile
+    Perf.OperationEnd
     
     ' Handle UCS conversion if needed
     ConvertUcs2Utf8 strTempFile, strFile
@@ -2474,4 +2494,19 @@ Public Function GetFileBytes(strPath As String, Optional lngBytes As Long = adRe
         .Close
     End With
     
-End Function
+End Function        .LoadFromPrinter "Microsoft XPS Document Writer"
+        'Debug.Print ConvertToJson(.GetDictionary("Printer"), "    ")
+        
+        Debug.Print .GetPrtDevNamesBlock
+        'Stop
+    End With
+End Sub
+
+
+Public Sub testImport()
+
+    With New clsDbReport
+        .Parent.Import "C:\Users\Adam Waller\Documents\GitHub\msaccess-vcs-integration\Version Control.accda.src\reports\rptTest.bas"
+    End With
+
+End Sub

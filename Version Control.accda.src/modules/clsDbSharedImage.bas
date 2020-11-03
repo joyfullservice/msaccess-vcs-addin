@@ -65,7 +65,9 @@ Private Sub IDbComponent_Export()
         .Open
         .Write StripOLEHeader(m_FileData)     ' Binary data
         VerifyPath strFile
+        Perf.OperationStart "Write to Disk"
         .SaveToFile strFile, adSaveCreateOverWrite
+        Perf.OperationEnd
         .Close
     End With
     

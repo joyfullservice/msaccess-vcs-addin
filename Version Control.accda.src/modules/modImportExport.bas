@@ -34,11 +34,14 @@ Public Sub ExportSource()
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
+    Perf.StartTiming
 
     ' Run any custom sub before export
     If Options.RunBeforeExport <> vbNullString Then
         Log.Add "Running " & Options.RunBeforeExport & "..."
+        Perf.OperationStart "RunBeforeExport"
         RunSubInCurrentProject Options.RunBeforeExport
+        Perf.OperationEnd
     End If
 
     ' Save property with the version of Version Control we used for the export.
@@ -80,6 +83,7 @@ Public Sub ExportSource()
             ' Show category header and clear out any orphaned files.
             Log.Spacer Options.ShowDebug
             Log.PadRight "Exporting " & cCategory.Category & "...", , Options.ShowDebug
+            Perf.ComponentStart cCategory.Category
 
             ' Loop through each object in this category.
             For Each cDbObject In cCategory.GetAllFromDB
@@ -109,7 +113,7 @@ Public Sub ExportSource()
             ' Show category wrap-up.
             Log.Add "[" & cCategory.Count & "]" & IIf(Options.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
             'Log.Flush  ' Gives smoother output, but slows down export.
-            
+            Perf.ComponentEnd cCategory.Count
         End If
     Next cCategory
     
@@ -119,12 +123,19 @@ Public Sub ExportSource()
     ' Run any custom sub after export
     If Options.RunAfterExport <> vbNullString Then
         Log.Add "Running " & Options.RunAfterExport & "..."
+        Perf.OperationStart "RunAfterExport"
         RunSubInCurrentProject Options.RunAfterExport
+        Perf.OperationEnd
     End If
     
     ' Show final output and save log
     Log.Spacer
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
+    
+    ' Add performance data to log file
+    Log.Add vbCrLf & Perf.GetReports, False
+    
+    ' Save log file to disk
     Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
     
     ' Check for VCS_ImportExport.bas (Used with other forks)
@@ -172,7 +183,6 @@ Public Sub Build(strSourceFolder As String)
     Set Options = Nothing
     Options.LoadOptionsFromFile strSourceFolder & "vcs-options.json"
     Log.Clear
-    sngStart = Timer
 
     ' If we are using encryption, make sure we are able to decrypt the values
     If Options.Security = esEncrypt And Not VerifyHash(strSourceFolder & "vcs-options.json") Then
@@ -187,6 +197,10 @@ Public Sub Build(strSourceFolder As String)
         MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
         Exit Sub
     End If
+    
+    ' Start performance timers
+    sngStart = Timer
+    Perf.StartTiming
     
     ' Check if we are building the add-in file
     If FSO.GetFileName(strPath) = CodeProject.Name Then
@@ -246,6 +260,7 @@ Public Sub Build(strSourceFolder As String)
             ' Show category header
             Log.Spacer Options.ShowDebug
             Log.PadRight "Importing " & cCategory.Category & "...", , Options.ShowDebug
+            Perf.ComponentStart cCategory.Category
 
             ' Loop through each file in this category.
             For Each varFile In colFiles
@@ -258,18 +273,26 @@ Public Sub Build(strSourceFolder As String)
             ' Show category wrap-up.
             Log.Add "[" & cCategory.Count & "]" & IIf(Options.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
             'Log.Flush  ' Gives smoother output, but slows down the import.
+            Perf.ComponentEnd
         End If
     Next cCategory
 
     ' Run any post-build instructions
     If Options.RunAfterBuild <> vbNullString Then
         Log.Add "Running " & Options.RunAfterBuild & "..."
+        Perf.OperationStart "RunAfterBuild"
         RunSubInCurrentProject Options.RunAfterBuild
+        Perf.OperationEnd
     End If
 
     ' Show final output and save log
     Log.Spacer
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
+    
+    ' Add performance data to log file
+    Log.Add vbCrLf & Perf.GetReports, False
+    
+    ' Write log file to disk
     Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Import.log")
 
     DoCmd.Hourglass False

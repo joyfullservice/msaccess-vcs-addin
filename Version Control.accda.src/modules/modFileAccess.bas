@@ -77,7 +77,9 @@ Public Function RequiresUcs2(Optional blnUseCache As Boolean = True) As Boolean
             Set frm = Application.CreateForm
             strName = frm.Name
             DoCmd.Close acForm, strName, acSaveYes
+            Perf.OperationStart "App.SaveAsText()"
             Application.SaveAsText acForm, strName, strTempFile
+            Perf.OperationEnd
             DoCmd.DeleteObject acForm, strName
             DoCmd.Echo True
         Else
@@ -86,7 +88,9 @@ Public Function RequiresUcs2(Optional blnUseCache As Boolean = True) As Boolean
             strName = "qryTEMP_UCS2_" & Round(Timer)
             Set dbs = CurrentDb
             dbs.CreateQueryDef strName, "SELECT 1"
+            Perf.OperationStart "App.SaveAsText()"
             Application.SaveAsText acQuery, strName, strTempFile
+            Perf.OperationEnd
             dbs.QueryDefs.Delete strName
         End If
         
@@ -138,7 +142,10 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
             ' Fully encoded as UTF-16
             intTristate = TristateTrue
         End If
-            
+        
+        ' Log performance
+        Perf.OperationStart "Unicode Conversion"
+        
         ' Read file contents and delete (temp) source file
         With FSO.OpenTextFile(strSourceFile, ForReading, False, intTristate)
             strText = .ReadAll
@@ -148,6 +155,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
         ' Write as UTF-8 in the destination file.
         ' (Path will be verified before writing)
         WriteFile strText, strDestinationFile
+        Perf.OperationEnd
         
         ' Remove the source (temp) file if specified
         If blnDeleteSourceFileAfterConversion Then FSO.DeleteFile strSourceFile, True
@@ -191,6 +199,9 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
             FSO.CopyFile strSourceFile, strDestinationFile
         End If
     Else
+        ' Monitor performance
+        Perf.OperationStart "Unicode Conversion"
+        
         ' Read file contents and convert byte array to string
         utf8Bytes = GetFileBytes(strSourceFile)
         strText = Utf8BytesToString(utf8Bytes)
@@ -200,6 +211,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
             .Write strText
             .Close
         End With
+        Perf.OperationEnd
         
         ' Remove original file if specified.
         If blnDeleteSourceFileAfterConversion Then FSO.DeleteFile strSourceFile, True

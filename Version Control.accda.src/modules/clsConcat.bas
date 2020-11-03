@@ -17,6 +17,9 @@ Option Explicit
 ' and Chris Lucas - http://www.planetsourcecode.com/vb/scripts/ShowCode.asp?txtCodeId=37141&lngWId=1
 ' for their inspiration with these concepts.
 
+' Set this to any character or string to add after each
+' call to `.Add()`. A common example would be vbCrLf.
+Public AppendOnAdd As String
 
 ' Set up an array of pages to hold strings
 Private astrPages() As String
@@ -24,6 +27,7 @@ Private lngCurrentPage As Long
 Private lngCurrentPos As Long
 Private lngPageSize As Long
 Private lngInitialPages As Long
+Private strAppendOnAdd As String
 
 ' These defaults can be tweaked as needed
 Const clngPageSize As Long = 4096
@@ -59,6 +63,7 @@ Public Sub Add(str1 As String, Optional str2 As String, Optional str3 As String,
     If str8 <> vbNullString Then AddString str8
     If str9 <> vbNullString Then AddString str9
     If str10 <> vbNullString Then AddString str10
+    AddString AppendOnAdd
 End Sub
 
 
