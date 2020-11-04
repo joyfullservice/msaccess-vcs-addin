@@ -1665,11 +1665,15 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
         ' Perform file conversion, and import from temp file.
         strTempFile = GetTempFile
         ConvertUtf8Ucs2 strFile, strTempFile, False
+        Perf.OperationStart "App.LoadFromText()"
         Application.LoadFromText intType, strName, strTempFile
+        Perf.OperationEnd
         FSO.DeleteFile strTempFile, True
     Else
         ' Load UTF-8 file
+        Perf.OperationStart "App.LoadFromText()"
         Application.LoadFromText intType, strName, strFile
+        Perf.OperationEnd
     End If
     
 End Sub

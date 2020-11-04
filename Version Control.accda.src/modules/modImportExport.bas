@@ -273,7 +273,7 @@ Public Sub Build(strSourceFolder As String)
             ' Show category wrap-up.
             Log.Add "[" & cCategory.Count & "]" & IIf(Options.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
             'Log.Flush  ' Gives smoother output, but slows down the import.
-            Perf.ComponentEnd
+            Perf.ComponentEnd cCategory.Count
         End If
     Next cCategory
 
