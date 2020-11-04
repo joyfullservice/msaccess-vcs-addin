@@ -413,7 +413,7 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : ReadFile
 ' Author    : Adam Waller / Indigo
-' Date      : 10/24/2020
+' Date      : 11/4/2020
 ' Purpose   : Read text file.
 '           : Read in UTF-8 encoding, removing a BOM if found at start of file.
 '---------------------------------------------------------------------------------------
@@ -422,23 +422,31 @@ Public Function ReadFile(strPath As String) As String
 
     Dim stm As ADODB.Stream
     Dim strText As String
+    Dim cData As clsConcat
     
     If FSO.FileExists(strPath) Then
+        Set cData = New clsConcat
         Set stm = New ADODB.Stream
         With stm
             .Charset = "UTF-8"
             .Open
             .LoadFromFile strPath
-            strText = .ReadText(adReadAll)
+            ' Check for UTF8 BOM
+            strText = .ReadText(Len(UTF8_BOM))
+            If strText <> UTF8_BOM Then cData.Add strText
+            ' Read chunks of text, rather than the whole thing at once for massive
+            ' performance gains when reading large files.
+            ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
+            Do While Not .EOS
+                cData.Add .ReadText(131072) ' 128K
+            Loop
             .Close
         End With
         Set stm = Nothing
     End If
     
-    ' Skip past any UTF-8 BOM header
-    If Left$(strText, 3) = UTF8_BOM Then strText = Mid$(strText, 4)
-    
-    ReadFile = strText
+    ' Return text contents of file.
+    ReadFile = cData.GetStr
     
 End Function
 
