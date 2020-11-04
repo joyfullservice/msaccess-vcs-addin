@@ -412,10 +412,33 @@ Public Function GetDictionary() As Dictionary
     Set GetDictionary = New Dictionary
     With GetDictionary
         ' Only add device information if not using the default printer.
-        If m_tDevNames.intDefault = 0 Then .Add "Device", DevNamesToDictionary()
-        .Add "Printer", DevModeToDictionary()
-        .Add "Margins", MipToDictionary()
+        If DevNamesHasData And (m_tDevNames.intDefault = 0) Then .Add "Device", DevNamesToDictionary()
+        If DevModeHasData Then .Add "Printer", DevModeToDictionary()
+        If MipHasData Then .Add "Margins", MipToDictionary()
     End With
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DevModeHasData
+' Author    : Adam Waller
+' Date      : 11/4/2020
+' Purpose   : Wrapper functions to ensure that we have loaded data into the following
+'           : structures. Sometimes an export file may not contain all of these
+'           : sections, in which case we should not attempt to map it to a dictionary.
+'---------------------------------------------------------------------------------------
+'
+Private Function DevModeHasData() As Boolean
+    ' Should have fields flag set
+    DevModeHasData = (m_tDevMode.lngFields > 0)
+End Function
+Private Function DevNamesHasData() As Boolean
+    ' Look for a driver offset. (Should always have this, if set.)
+    DevNamesHasData = (m_tDevNames.intDriverOffset > 0)
+End Function
+Private Function MipHasData() As Boolean
+    ' Item layout should either be 1953 or 1954
+    MipHasData = (m_tMip.rItemLayout > 0)
 End Function
 
 
