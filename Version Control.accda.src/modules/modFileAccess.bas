@@ -384,3 +384,137 @@ Public Function Utf8BytesFromString(strInput As String) As Byte()
     Utf8BytesFromString = abBuffer
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFileBytes
+' Author    : Adam Waller
+' Date      : 7/31/2020
+' Purpose   : Returns a byte array of the file contents.
+'           : This function supports Unicode paths, unlike VBA's Open statement.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFileBytes(strPath As String, Optional lngBytes As Long = adReadAll) As Byte()
+
+    Dim stmFile As ADODB.Stream
+
+    Set stmFile = New ADODB.Stream
+    With stmFile
+        .Type = adTypeBinary
+        .Open
+        .LoadFromFile strPath
+        GetFileBytes = .Read(lngBytes)
+        .Close
+    End With
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReadFile
+' Author    : Adam Waller / Indigo
+' Date      : 10/24/2020
+' Purpose   : Read text file.
+'           : Read in UTF-8 encoding, removing a BOM if found at start of file.
+'---------------------------------------------------------------------------------------
+'
+Public Function ReadFile(strPath As String) As String
+
+    Dim stm As ADODB.Stream
+    Dim strText As String
+    
+    If FSO.FileExists(strPath) Then
+        Set stm = New ADODB.Stream
+        With stm
+            .Charset = "UTF-8"
+            .Open
+            .LoadFromFile strPath
+            strText = .ReadText(adReadAll)
+            .Close
+        End With
+        Set stm = Nothing
+    End If
+    
+    ' Skip past any UTF-8 BOM header
+    If Left$(strText, 3) = UTF8_BOM Then strText = Mid$(strText, 4)
+    
+    ReadFile = strText
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteFile
+' Author    : Adam Waller
+' Date      : 1/23/2019
+' Purpose   : Save string variable to text file. (Building the folder path if needed)
+'           : Saves in UTF-8 encoding, adding a BOM if extended or unicode content
+'           : is found in the file. https://stackoverflow.com/a/53036838/4121863
+'---------------------------------------------------------------------------------------
+'
+Public Sub WriteFile(strText As String, strPath As String)
+
+    Dim strContent As String
+    Dim bteUtf8() As Byte
+    
+    ' Ensure that we are ending the content with a vbcrlf
+    strContent = strText
+    If Right$(strText, 2) <> vbCrLf Then strContent = strContent & vbCrLf
+
+    ' Build a byte array from the text
+    bteUtf8 = Utf8BytesFromString(strContent)
+    
+    ' Write binary content to file.
+    WriteBinaryFile bteUtf8, StringHasUnicode(strContent), strPath
+        
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteBinaryFile
+' Author    : Adam Waller
+' Date      : 8/3/2020
+' Purpose   : Write binary content to a file with optional UTF-8 BOM.
+'---------------------------------------------------------------------------------------
+'
+Public Sub WriteBinaryFile(bteContent() As Byte, blnUtf8Bom As Boolean, strPath As String)
+
+    Dim stm As ADODB.Stream
+    Dim bteBOM(0 To 2) As Byte
+    
+    ' Write to a binary file using a Stream object
+    Set stm = New ADODB.Stream
+    With stm
+        .Type = adTypeBinary
+        .Open
+        If blnUtf8Bom Then
+            bteBOM(0) = &HEF
+            bteBOM(1) = &HBB
+            bteBOM(2) = &HBF
+            .Write bteBOM
+        End If
+        .Write bteContent
+        VerifyPath strPath
+        Perf.OperationStart "Write to Disk"
+        .SaveToFile strPath, adSaveCreateOverWrite
+        Perf.OperationEnd
+    End With
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StringHasUnicode
+' Author    : Adam Waller
+' Date      : 3/6/2020
+' Purpose   : Returns true if the string contains non-ASCI characters.
+'---------------------------------------------------------------------------------------
+'
+Public Function StringHasUnicode(strText As String) As Boolean
+    Dim reg As New VBScript_RegExp_55.RegExp
+    With reg
+        ' Include extended ASCII characters here.
+        .Pattern = "[^\u0000-\u007F]"
+        StringHasUnicode = .Test(strText)
+    End With
+End Function
