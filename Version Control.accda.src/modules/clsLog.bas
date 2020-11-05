@@ -111,7 +111,10 @@ Public Sub Flush()
             ' Set value, not text to avoid errors with large text strings.
             .SelStart = Len(.Text & vbNullString)
             Echo False
-            .Value = m_Console.GetStr
+            ' Show the last 20K characters so
+            ' we don't hit the Integer limit
+            ' on the SelStart property.
+            .Value = m_Console.RightStr(20000)
             .SelStart = Len(.Text & vbNullString)
             Echo True
         End With
@@ -251,7 +254,7 @@ Public Sub Increment()
     ' Update the log display
     With m_RichText
         Echo False
-        .Value = m_Console.GetStr
+        .Value = m_Console.RightStr(20000)
         .SelStart = Len(.Text & vbNullString)
         Echo True
     End With
