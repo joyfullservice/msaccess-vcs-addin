@@ -315,7 +315,7 @@ Public Sub SanitizeXML(strPath As String, Options As clsOptions)
     
     ' Close and delete original file
     stmInFile.Close
-    FSO.DeleteFile strPath
+    DeleteFile strPath
     
     ' Write file all at once, rather than line by line.
     ' (Otherwise the code can bog down with tens of thousands of write operations)
@@ -370,7 +370,7 @@ Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
         For Each oFile In FSO.GetFolder(strFolderNoSlash).Files
             If StrComp(FSO.GetExtensionName(oFile.Name), strExt, vbTextCompare) = 0 Then
                 ' Found at least one matching file. Use the wildcard delete.
-                FSO.DeleteFile strFolderNoSlash & "\*." & strExt
+                DeleteFile strFolderNoSlash & "\*." & strExt
                 Exit Sub
             End If
         Next
@@ -468,7 +468,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
                 ' Remove any file that doesn't have a matching name.
                 If Not InCollection(colNames, strFile) Then
                     ' Object not found in database. Remove file.
-                    FSO.DeleteFile oFile.ParentFolder.Path & "\" & oFile.Name, True
+                    DeleteFile oFile.ParentFolder.Path & "\" & oFile.Name, True
                     Log.Add "  Removing orphaned file: " & strFile, Options.ShowDebug
                 End If
                 
@@ -1686,7 +1686,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
         Perf.OperationStart "App.LoadFromText()"
         Application.LoadFromText intType, strName, strTempFile
         Perf.OperationEnd
-        FSO.DeleteFile strTempFile, True
+        DeleteFile strTempFile, True
     Else
         ' Load UTF-8 file
         Perf.OperationStart "App.LoadFromText()"

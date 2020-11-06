@@ -238,7 +238,7 @@ End Function
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
     If IDbComponent_GetAllFromDB.Count = 0 Then
-        If FSO.FileExists(IDbComponent_SourceFile) Then FSO.DeleteFile IDbComponent_SourceFile, True
+        If FSO.FileExists(IDbComponent_SourceFile) Then DeleteFile IDbComponent_SourceFile, True
     End If
 End Sub
 

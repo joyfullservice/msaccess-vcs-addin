@@ -78,8 +78,8 @@ Public Sub TestUCS2toUTF8RoundTrip()
     End With
     
     ' Cleanup temp files
-    'fso.DeleteFile tempFileName
-    'fso.DeleteFile UTFtoUCS
+    'deletefile tempFileName
+    'deletefile UTFtoUCS
     
     'Assert:
     Assert.AreEqual originalExport, finalFile

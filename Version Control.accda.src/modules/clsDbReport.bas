@@ -90,7 +90,7 @@ Private Sub IDbComponent_Import(strFile As String)
             strTempFile = .AddToExportFile(strFile)
             ' Load the report file with the DevMode settings
             LoadComponentFromText acReport, strReport, strTempFile
-            FSO.DeleteFile strTempFile, True
+            DeleteFile strTempFile, True
         End With
     End If
 

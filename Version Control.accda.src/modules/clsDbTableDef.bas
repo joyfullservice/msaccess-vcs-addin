@@ -46,7 +46,7 @@ Private Sub IDbComponent_Export()
     If tbl.Connect = vbNullString Then
     
         ' Check for existing file
-        If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
+        If FSO.FileExists(strFile) Then DeleteFile strFile, True
 
         ' Save structure in XML format
         VerifyPath strFile
@@ -328,7 +328,7 @@ Private Sub IDbComponent_Import(strFile As String)
                 strTempFile = GetTempFile
                 FSO.CopyFile strFile, strTempFile
                 Application.ImportXML strTempFile, acStructureOnly
-                FSO.DeleteFile strTempFile
+                DeleteFile strTempFile
             Else
                 Application.ImportXML strFile, acStructureOnly
             End If

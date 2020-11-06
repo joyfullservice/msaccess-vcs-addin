@@ -65,7 +65,7 @@ Private Sub IDbComponent_Export()
     ' Save as file
     If Not rst.EOF Then
         Set rstAtc = rst!Data.Value
-        If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
+        If FSO.FileExists(strFile) Then DeleteFile strFile, True
         VerifyPath strFile
         Perf.OperationStart "Extract Theme"
         rstAtc!FileData.SaveToFile strFile
@@ -122,13 +122,13 @@ Private Sub IDbComponent_Import(strFile As String)
         ' Get theme name
         strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strZip))
         ' Remove any existing zip file
-        If FSO.FileExists(strZip) Then FSO.DeleteFile strZip, True
+        If FSO.FileExists(strZip) Then DeleteFile strZip, True
         ' Copy source files into new zip file
         CreateZipFile strZip
         CopyFolderToZip strFile, strZip
         DoEvents
         strThemeFile = strFile & ".thmx"
-        If FSO.FileExists(strThemeFile) Then FSO.DeleteFile strThemeFile, True
+        If FSO.FileExists(strThemeFile) Then DeleteFile strThemeFile, True
         Name strZip As strThemeFile
     Else
         ' Skip if file no longer exists. (Such as if we already
@@ -177,7 +177,7 @@ Private Sub IDbComponent_Import(strFile As String)
     End If
     
     ' Remove compressed theme file if we are using a folder.
-    If blnIsFolder Then FSO.DeleteFile strThemeFile, True
+    If blnIsFolder Then DeleteFile strThemeFile, True
     
     ' Clear object (Important with DAO/ADO)
     Set rstAttachment = Nothing

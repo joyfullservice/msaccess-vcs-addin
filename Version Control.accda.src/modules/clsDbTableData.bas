@@ -40,7 +40,7 @@ Private Sub IDbComponent_Export()
     For intFormat = 1 To eTableDataExportFormat.[_Last]
         ' Build file name for this format
         strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat)
-        If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
+        If FSO.FileExists(strFile) Then DeleteFile strFile, True
         If intFormat = Me.Format Then
             ' Export the table using this format.
             Select Case intFormat
@@ -274,7 +274,7 @@ Private Sub IDbComponent_Import(strFile As String)
                     strTempFile = GetTempFile
                     FSO.CopyFile strFile, strTempFile
                     Application.ImportXML strTempFile, acAppendData
-                    FSO.DeleteFile strTempFile
+                    DeleteFile strTempFile
                 Else
                     Application.ImportXML strFile, acAppendData
                 End If

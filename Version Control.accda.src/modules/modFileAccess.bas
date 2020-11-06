@@ -97,7 +97,7 @@ Public Function RequiresUcs2(Optional blnUseCache As Boolean = True) As Boolean
         ' Test and delete temp file
         m_strDbPath = CurrentProject.FullName
         m_blnUcs2 = HasUcs2Bom(strTempFile)
-        FSO.DeleteFile strTempFile, True
+        DeleteFile strTempFile, True
 
     End If
 
@@ -123,7 +123,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
     Dim intTristate As Tristate
     
     ' Remove any existing file.
-    If FSO.FileExists(strDestinationFile) Then FSO.DeleteFile strDestinationFile, True
+    If FSO.FileExists(strDestinationFile) Then DeleteFile strDestinationFile, True
     
     ' ADP Projects do not use the UCS BOM, but may contain mixed UTF-16 content
     ' representing unicode characters.
@@ -162,7 +162,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
         Perf.OperationEnd
         
         ' Remove the source (temp) file if specified
-        If blnDeleteSourceFileAfterConversion Then FSO.DeleteFile strSourceFile, True
+        If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile, True
     Else
         ' No conversion needed, move/copy to destination.
         VerifyPath strDestinationFile
@@ -192,7 +192,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
 
     ' Make sure the path exists before we write a file.
     VerifyPath strDestinationFile
-    If FSO.FileExists(strDestinationFile) Then FSO.DeleteFile strDestinationFile, True
+    If FSO.FileExists(strDestinationFile) Then DeleteFile strDestinationFile, True
     
     If HasUcs2Bom(strSourceFile) Then
         ' No conversion needed, move/copy to destination.
@@ -217,7 +217,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
         Perf.OperationEnd
         
         ' Remove original file if specified.
-        If blnDeleteSourceFileAfterConversion Then FSO.DeleteFile strSourceFile, True
+        If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile, True
     End If
     
 End Sub
@@ -522,6 +522,20 @@ Public Sub WriteBinaryFile(bteContent() As Byte, blnUtf8Bom As Boolean, strPath 
         Perf.OperationEnd
     End With
     
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeleteFile
+' Author    : Adam Waller
+' Date      : 11/5/2020
+' Purpose   : Wrapper to delete file while monitoring performance.
+'---------------------------------------------------------------------------------------
+'
+Public Sub DeleteFile(strFile As String, Optional blnForce As Boolean = True)
+    Perf.OperationStart "Delete File"
+    FSO.DeleteFile strFile, blnForce
+    Perf.OperationEnd
 End Sub
 
 

@@ -160,7 +160,7 @@ Private Function InstallVCSAddin() As Boolean
     ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
     ' We also use FSO to force the deletion of the existing file, if found.
     On Error Resume Next
-    If FSO.FileExists(strDest) Then FSO.DeleteFile strDest, True
+    If FSO.FileExists(strDest) Then DeleteFile strDest, True
     FSO.CopyFile strSource, strDest, True
     If Err Then
         MsgBox2 "Unable to update file", _
@@ -198,7 +198,7 @@ Public Function UninstallVCSAddin() As Boolean
     ' Copy the file, overwriting any existing file.
     ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
     On Error Resume Next
-    FSO.DeleteFile strDest, True
+    DeleteFile strDest, True
     On Error GoTo 0
     
     ' Error 53 = File Not found is okay.
@@ -399,7 +399,7 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     
     ' Save copy to zip folder
     strBinaryFile = CodeProject.Path & "\Version_Control_v" & AppVersion & ".zip"
-    If FSO.FileExists(strBinaryFile) Then FSO.DeleteFile strBinaryFile, True
+    If FSO.FileExists(strBinaryFile) Then DeleteFile strBinaryFile, True
     CreateZipFile strBinaryFile
     CopyFileToZip CodeProject.FullName, strBinaryFile
     
