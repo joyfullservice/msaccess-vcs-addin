@@ -52,7 +52,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional 
     Dim strHtml As String
     
     ' Add to log file output
-    m_Log.Add strText
+    m_Log.Add strText, vbCrLf
     
     ' See if we want to print the output of this message.
     If blnPrint Then
@@ -89,9 +89,6 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional 
         End If
     End If
  
-    ' Add carriage return to log file if specified
-    If blnNextOutputOnNewLine Then m_Log.Add vbCrLf
-    
 End Sub
 
 
