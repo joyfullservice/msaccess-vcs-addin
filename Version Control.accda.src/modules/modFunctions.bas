@@ -76,163 +76,176 @@ Private m_FSO As FileSystemObject
 '---------------------------------------------------------------------------------------
 ' Procedure : SanitizeFile
 ' Author    : Adam Waller
-' Date      : 1/23/2019
-' Purpose   : Sanitize the text file (forms and reports)
+' Date      : 11/4/2020
+' Purpose   : Rewritten version of sanitize function
 '---------------------------------------------------------------------------------------
 '
 Public Sub SanitizeFile(strPath As String)
-    
-    Dim sngOverall As Single
-    Dim sngTimer As Single
-    Dim cData As New clsConcat
-    Dim strText As String
-    Dim rxBlock As New VBScript_RegExp_55.RegExp
-    Dim rxLine As New VBScript_RegExp_55.RegExp
-    Dim rxIndent As New VBScript_RegExp_55.RegExp
-    Dim objMatches As VBScript_RegExp_55.MatchCollection
+
+    Dim strFile As String
+    Dim varLines As Variant
+    Dim lngLine As Long
+    Dim cData As clsConcat
+    Dim strLine As String
+    Dim strTLine As String
+    Dim blnInsideIgnoredBlock As Boolean
+    Dim intIndent As Integer
     Dim blnIsReport As Boolean
-    Dim cPattern As New clsConcat
-    Dim stmInFile As ADODB.Stream
-    Dim blnGetLine As Boolean
-    
-    On Error GoTo 0
-    
-    ' Timers to monitor performance
-    sngTimer = Timer
-    sngOverall = sngTimer
+    Dim sngStartTime As Single
+
+    ' Read text from file, and split into lines
+    If HasUcs2Bom(strPath) Then
+        strFile = ReadFile(strPath, "Unicode")
+    Else
+        strFile = ReadFile(strPath)
+    End If
     Perf.OperationStart "Sanitize File"
-        
-    '  Setup Block matching Regex.
-    rxBlock.IgnoreCase = False
+    varLines = Split(strFile, vbCrLf)
     
-    ' Build main search patterns
-    With cPattern
-    
-        '  Match PrtDevNames / Mode with or without W
-        If Options.AggressiveSanitize Then .Add "(?:"
-        .Add "Prt(?:DevNames|DevMode|Mip)[W]?"
-        If Options.AggressiveSanitize Then
-          '  Add and group aggressive matches
-          .Add "|GUID|""GUID""|NameMap|dbLongBinary ""DOL"")"
-        End If
-        
-        '  Ensure that this is the begining of a block.
-        .Add " = Begin"
-        
-        ' Set block search pattern
-        rxBlock.Pattern = .GetStr
-        .Clear
-        
-        '  Setup Line Matching Regex.
-        .Add "^\s*(?:"
-        .Add "Checksum ="
-        .Add "|BaseInfo|NoSaveCTIWhenDisabled =1"
-        If Options.StripPublishOption Then
-            .Add "|dbByte ""PublishToWeb"" =""1"""
-            .Add "|PublishOption =1"
-        End If
-        .Add ")"
+    ' Delete original file now so we can write it immediately
+    ' when the new data has been constructed.
+    DeleteFile strPath
 
-        ' Set line search pattern
-        rxLine.Pattern = .GetStr
-    End With
-    
-    ' Open file to read contents line by line.
-    Set stmInFile = New ADODB.Stream
-    stmInFile.Charset = "UTF-8"
-    stmInFile.Open
-    stmInFile.LoadFromFile strPath
-    
-    ' Skip past UTF-8 BOM header
-    strText = stmInFile.ReadText(adReadLine)
-    If Left$(strText, 3) = UTF8_BOM Then strText = Mid$(strText, 4)
+    ' Initialize concatenation class to include line breaks
+    ' after each line that we add when building new file text.
+    sngStartTime = Timer
+    Set cData = New clsConcat
+    cData.AppendOnAdd = vbCrLf
 
-    ' Loop through lines in file
-    Do Until stmInFile.EOS
-    
-        ' Show progress increment during longer conversions
-        Log.Increment
-    
-        ' Check if we need to get a new line of text
-        If blnGetLine Then
-            strText = stmInFile.ReadText(adReadLine)
+    ' Using a do loop since we may adjust the line counter
+    ' during a loop iteration.
+    Do While lngLine <= UBound(varLines)
+        
+        ' Get unmodified and trimmed line
+        strLine = varLines(lngLine)
+        strTLine = Trim$(strLine)
+        
+        ' Improve performance by reducing comparisons
+        If Len(strTLine) > 3 And blnInsideIgnoredBlock Then
+            ' Ignore this line
+        ElseIf Len(strTLine) > 60 And StartsWith(strTLine, "0x") Then
+            ' Add binary data line. No need to test this line further.
+            cData.Add strLine
         Else
-            blnGetLine = True
-        End If
+            ' Run the rest of the tests
+            Select Case strTLine
+            
+                ' File version
+                Case "Version =21"
+                    ' Change version down to 20 to allow import into Access 2010.
+                    ' (Haven't seen any significant issues with this.)
+                    cData.Add "Version =20"
+                
+                ' Print settings blocks to ignore
+                Case "PrtMip = Begin", _
+                    "PrtDevMode = Begin", _
+                    "PrtDevModeW = Begin", _
+                    "PrtDevNames = Begin", _
+                    "PrtDevNamesW = Begin"
+                    ' Set flag to ignore lines inside this block.
+                    blnInsideIgnoredBlock = True
         
-        ' Skip lines starting with line pattern
-        If rxLine.Test(strText) Then
-            
-            ' set up initial pattern
-            rxIndent.Pattern = "^(\s+)\S"
-            
-            ' Get indentation level.
-            Set objMatches = rxIndent.Execute(strText)
-            
-            ' Setup pattern to match current indent
-            Select Case objMatches.Count
-                Case 0
-                    rxIndent.Pattern = "^" & vbNullString
+                ' Aggressive sanitize blocks
+                Case "GUID = Begin", _
+                    "NameMap = Begin", _
+                    "dbLongBinary ""DOL"" = Begin", _
+                    "dbBinary ""GUID"" = Begin"
+                    If Options.AggressiveSanitize Then blnInsideIgnoredBlock = True
+                    
+                ' Single lines to ignore
+                Case "NoSaveCTIWhenDisabled =1"
+        
+                ' Publish option (used in Queries)
+                Case "dbByte ""PublishToWeb"" =""1""", _
+                    "PublishOption =1"
+                    If Not Options.StripPublishOption Then cData.Add strLine
+                
+                ' End of block section
+                Case "End"
+                    If blnInsideIgnoredBlock Then
+                        ' Reached the end of the ignored block.
+                        blnInsideIgnoredBlock = False
+                    Else
+                        ' End of included block
+                        cData.Add strLine
+                    End If
+                
+                ' See if this file is from a report object
+                Case "Begin Report"
+                    ' Turn flag on to ignore Right and Bottom lines
+                    blnIsReport = True
+                    cData.Add strLine
+                    
                 Case Else
-                    rxIndent.Pattern = "^" & objMatches(0).SubMatches(0)
+                    If blnInsideIgnoredBlock Then
+                        ' Skip if we are in an ignored block
+                    ElseIf StartsWith(strTLine, "Checksum =") Then
+                        ' Ignore Checksum lines, since they will change.
+                    ElseIf StartsWith(strTLine, "BaseInfo =") Then
+                        ' BaseInfo is used with combo boxes, similar to RowSource.
+                        ' Since the value could span multiple lines, we need to
+                        ' check the indent level of the following lines to see how
+                        ' many lines to skip.
+                        intIndent = GetIndent(strLine)
+                        ' Preview the next line, and check the indent level
+                        Do While GetIndent(varLines(lngLine + 1)) > intIndent
+                            ' Move
+                            lngLine = lngLine + 1
+                        Loop
+                    ElseIf blnIsReport And StartsWith(strLine, "    Right =") Then
+                        ' Ignore this line. (Not important, and frequently changes.)
+                    ElseIf blnIsReport And StartsWith(strLine, "    Bottom =") Then
+                        ' Turn flag back off now that we have ignored these two lines.
+                        blnIsReport = False
+                    Else
+                        ' All other lines will be added.
+                        cData.Add strLine
+                    End If
+            
             End Select
-            rxIndent.Pattern = rxIndent.Pattern & "\S"
-            
-            ' Skip lines with deeper indentation
-            Do While Not stmInFile.EOS
-                strText = stmInFile.ReadText(adReadLine)
-                ' Exit loop when we find a blank line or matching indent pattern.
-                If Trim(strText) = vbNullString Or rxIndent.Test(strText) Then Exit Do
-            Loop
-            
-            ' We've moved on at least one line so restart the
-            ' regex testing when starting the loop again.
-            blnGetLine = False
-        
-        ' Skip blocks of code matching block pattern
-        ElseIf rxBlock.Test(strText) Then
-            Do While Not stmInFile.EOS
-                strText = stmInFile.ReadText(adReadLine)
-                If InStr(strText, "End") Then Exit Do
-            Loop
-        
-        ' Check for report object
-        ElseIf InStr(1, strText, "Begin Report") = 1 Then
-            blnIsReport = True
-            cData.Add strText
-            cData.Add vbCrLf
-            
-        ' Watch for end of report (and skip these lines)
-        ElseIf blnIsReport And (InStr(1, strText, "    Right =") Or InStr(1, strText, "    Bottom =")) Then
-            If InStr(1, strText, "    Bottom =") Then blnIsReport = False
-        
-        ' Change version down to 20 to allow import into Access 2010.
-        ' (Haven't seen any significant issues with this.)
-        ElseIf strText = "Version =21" Then
-            cData.Add "Version =20"
-            cData.Add vbCrLf
-
-        ' Regular lines of data to add.
-        Else
-            cData.Add strText
-            cData.Add vbCrLf
         End If
-        
+    
+        ' Increment counter to next line
+        lngLine = lngLine + 1
     Loop
     
-    ' Close and delete original file
-    stmInFile.Close
-    FSO.DeleteFile strPath
-    
-    ' Write file all at once, rather than line by line.
-    ' (Otherwise the code can bog down with tens of thousands of write operations)
-    WriteFile cData.GetStr, strPath
+    ' Remove last vbcrlf
+    cData.Remove Len(vbCrLf)
 
-    ' Show stats if debug turned on.
-    Log.Add "    Sanitized in " & Format$(Timer - sngOverall, "0.00") & " seconds.", Options.ShowDebug
+    ' Log performance
     Perf.OperationEnd
-
+    Log.Add "    Sanitized in " & Format$(Timer - sngStartTime, "0.00") & " seconds.", Options.ShowDebug
+    
+    ' Replace original file with sanitized version
+    WriteFile cData.GetStr, strPath
+    
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StartsWith
+' Author    : Adam Waller
+' Date      : 11/5/2020
+' Purpose   : See if a string begins with a specified string.
+'---------------------------------------------------------------------------------------
+'
+Public Function StartsWith(strText As String, strStartsWith As String, Optional Compare As VbCompareMethod = vbBinaryCompare) As Boolean
+    StartsWith = (InStr(1, strText, strStartsWith, Compare) = 1)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetIndent
+' Author    : Adam Waller
+' Date      : 11/5/2020
+' Purpose   : Returns the number of spaces until the first non-space character.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetIndent(strLine As Variant) As Integer
+    Dim strChar As String
+    strChar = Left$(Trim(strLine), 1)
+    If strLine <> vbNullString Then GetIndent = InStr(1, strLine, strChar) - 1
+End Function
 
 
 '---------------------------------------------------------------------------------------
