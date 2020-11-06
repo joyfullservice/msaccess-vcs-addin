@@ -445,6 +445,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
     
     ' Cache a list of source file names for actual database objects
+    Perf.OperationStart "Clear Orphaned"
     Set colNames = New Collection
     For Each cItem In cType.GetAllFromDB
         colNames.Add FSO.GetFileName(cItem.SourceFile)
@@ -480,6 +481,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     
     ' Remove base folder if we don't have any files in it
     If oFolder.Files.Count = 0 Then oFolder.Delete True
+    Perf.OperationEnd
     
 End Sub
 
@@ -2166,7 +2168,6 @@ End Function
 Public Sub CreateZipFile(strPath As String)
     
     Dim strHeader As String
-    Dim intFile As Integer
     
     ' Build Zip file header
     strHeader = "PK" & Chr$(5) & Chr$(6) & String$(18, 0)

@@ -50,7 +50,9 @@ Private Sub IDbComponent_Export()
 
         ' Save structure in XML format
         VerifyPath strFile
+        Perf.OperationStart "App.ExportXML()"
         Application.ExportXML acExportTable, m_Table.Name, , strFile ', , , , acExportAllTableAndFieldProperties ' Add support for this later.
+        Perf.OperationEnd
     
     Else
         ' Linked table - Save as JSON
@@ -100,6 +102,7 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
     Dim strFile As String
     Dim tdf As DAO.TableDef
 
+    Perf.OperationStart "Save Table SQL"
     Set tdf = dbs.TableDefs(strTable)
 
     With cData
@@ -163,7 +166,8 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
         ' Build file name and create file.
         strFile = strFolder & GetSafeFileName(strTable) & ".sql"
         WriteFile .GetStr, strFile
-
+        Perf.OperationEnd
+        
     End With
 
 End Sub

@@ -105,6 +105,7 @@ End Sub
 Public Sub Flush()
 
     ' See if the GUI form is loaded.
+    Perf.OperationStart "Console Updates"
     If Not m_RichText Is Nothing Then
         With Form_frmVCSMain.txtLog
             m_blnProgressActive = False
@@ -122,6 +123,7 @@ Public Sub Flush()
     
     ' Update the display (especially for immediate window)
     DoEvents
+    Perf.OperationEnd
     
 End Sub
 
@@ -230,6 +232,7 @@ Public Sub Increment()
     If sngLastIncrement > Timer - 0.2 Then Exit Sub
 
     ' Check the current status.
+    Perf.OperationStart "Increment Progress"
     If m_blnProgressActive Then
         ' Remove any existing character
         RemoveProgressIndicator
@@ -260,5 +263,6 @@ Public Sub Increment()
     End With
     sngLastIncrement = Timer
     DoEvents
+    Perf.OperationEnd
     
 End Sub

@@ -195,8 +195,6 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadProjectOptions()
-
-    Dim strFolder As String
     
     ' Get saved path from database (if defined)
     Me.ExportFolder = SavedSourcePath

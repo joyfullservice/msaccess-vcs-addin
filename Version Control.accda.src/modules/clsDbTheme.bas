@@ -67,7 +67,7 @@ Private Sub IDbComponent_Export()
         Set rstAtc = rst!Data.Value
         If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
         VerifyPath strFile
-        Perf.OperationStart "Write to Disk"
+        Perf.OperationStart "Extract Theme"
         rstAtc!FileData.SaveToFile strFile
         Perf.OperationEnd
         rstAtc.Close

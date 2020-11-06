@@ -133,6 +133,7 @@ Public Sub ExportSource()
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
     
     ' Add performance data to log file
+    Perf.EndTiming
     Log.Add vbCrLf & Perf.GetReports, False
     
     ' Save log file to disk
@@ -290,6 +291,7 @@ Public Sub Build(strSourceFolder As String)
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
     
     ' Add performance data to log file
+    Perf.EndTiming
     Log.Add vbCrLf & Perf.GetReports, False
     
     ' Write log file to disk

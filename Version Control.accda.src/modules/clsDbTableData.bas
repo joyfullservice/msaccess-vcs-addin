@@ -48,7 +48,9 @@ Private Sub IDbComponent_Export()
                 Case etdXML
                     ' Export data rows as XML (encoding default is UTF-8)
                     VerifyPath strFile
+                    Perf.OperationStart "App.ExportXML()"
                     Application.ExportXML acExportTable, m_Table.Name, strFile
+                    Perf.OperationEnd
                     SanitizeXML strFile, Options
             End Select
         End If

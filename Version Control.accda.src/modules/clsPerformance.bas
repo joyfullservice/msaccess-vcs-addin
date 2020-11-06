@@ -196,7 +196,6 @@ End Sub
 Private Function GetElapsed(sngStart As Single) As Single
 
     Dim sngNow As Single
-    Dim sngTotal As Single
     
     ' Only return a value if we have a starting time.
     If sngStart > 0 Then
@@ -224,27 +223,40 @@ Public Function GetReports() As String
     Const cstrSpacer As String = "-------------------------------------"
     
     Dim varKey As Variant
+    Dim sngTotal As Single
+    Dim lngCount As Long
 
     With New clsConcat
         .AppendOnAdd = vbCrLf
         .Add cstrSpacer
         .Add "        PERFORMANCE REPORTS"
-        .Add cstrSpacer, vbCrLf
+        .Add cstrSpacer
         
         ' Table for object types
         .Add ListResult("Object Type", "Count", "Seconds", 20, 30), vbCrLf, cstrSpacer
         For Each varKey In m_dComponents.Keys
             .Add ListResult(CStr(varKey), CStr(m_dComponents(varKey).lngCount), _
                 Format(m_dComponents(varKey).sngTotal, "0.00"), 20, 30)
+            ' Add to totals
+            lngCount = lngCount + m_dComponents(varKey).lngCount
+            sngTotal = sngTotal + m_dComponents(varKey).sngTotal
         Next varKey
+        .Add cstrSpacer
+        .Add ListResult("TOTALS:", CStr(lngCount), _
+                Format(sngTotal, "0.00"), 20, 30)
         .Add vbNullString
         
         ' Table for operations
+        sngTotal = 0
+        .Add cstrSpacer
         .Add ListResult("Operations", "Count", "Seconds", 20, 30), vbCrLf, cstrSpacer
         For Each varKey In m_dOperations.Keys
             .Add ListResult(CStr(varKey), CStr(m_dOperations(varKey).lngCount), _
                 Format(m_dOperations(varKey).sngTotal, "0.00"), 20, 30)
+            sngTotal = sngTotal + m_dOperations(varKey).sngTotal
         Next varKey
+        .Add ListResult("Other Operations", vbNullString, _
+                Format(m_Overall.sngTotal - sngTotal, "0.00"), 20, 30)
         .Add vbNullString
         
         ' Check for unfinished operations
@@ -314,10 +326,22 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub ResetAll()
+    Class_Initialize
+    m_strComponent = vbNullString
+    m_strOperation = vbNullString
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Initialize
+' Author    : Adam Waller
+' Date      : 11/5/2020
+' Purpose   : Initialize objects for timing.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Initialize()
     Set m_Overall = New clsPerformanceItem
     Set m_dComponents = New Dictionary
     Set m_dOperations = New Dictionary
-    m_strComponent = vbNullString
-    m_strOperation = vbNullString
     Set m_colOpsCallStack = New Collection
 End Sub

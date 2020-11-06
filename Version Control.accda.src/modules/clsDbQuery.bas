@@ -40,9 +40,11 @@ Private Sub IDbComponent_Export()
     
     ' Export as SQL (if using that option)
     If Options.SaveQuerySQL Then
+        Perf.OperationStart "Save Query SQL"
         Set dbs = CurrentDb
         strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
         WriteFile dbs.QueryDefs(m_Query.Name).SQL, strFile
+        Perf.OperationEnd
         Log.Add "  " & m_Query.Name & " (SQL)", Options.ShowDebug
     End If
     

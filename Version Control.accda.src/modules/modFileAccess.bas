@@ -435,6 +435,7 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF
     End Select
     
     If FSO.FileExists(strPath) Then
+        Perf.OperationStart "Read File"
         Set cData = New clsConcat
         Set stm = New ADODB.Stream
         With stm
@@ -455,6 +456,7 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF
             .Close
         End With
         Set stm = Nothing
+        Perf.OperationEnd
     End If
     
     ' Return text contents of file.
@@ -531,10 +533,16 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function StringHasUnicode(strText As String) As Boolean
-    Dim reg As New VBScript_RegExp_55.RegExp
+    
+    Dim reg As VBScript_RegExp_55.RegExp
+    
+    Perf.OperationStart "Unicode Check"
+    Set reg = New VBScript_RegExp_55.RegExp
     With reg
         ' Include extended ASCII characters here.
         .Pattern = "[^\u0000-\u007F]"
         StringHasUnicode = .Test(strText)
     End With
+    Perf.OperationEnd
+    
 End Function
