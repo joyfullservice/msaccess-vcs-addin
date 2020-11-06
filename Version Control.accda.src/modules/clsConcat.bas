@@ -27,7 +27,6 @@ Private lngCurrentPage As Long
 Private lngCurrentPos As Long
 Private lngPageSize As Long
 Private lngInitialPages As Long
-Private strAppendOnAdd As String
 
 ' These defaults can be tweaked as needed
 Const clngPageSize As Long = 4096
@@ -170,6 +169,65 @@ Public Function GetStr() As String
 End Function
 
 
+' Return a partial string from a specified position
+Public Function MidStr(lngStart As Long, Optional lngLength)
+
+    Dim lngPage As Long
+    Dim lngPos As Long
+    Dim lngStartPage As Long
+    Dim lngStartPos As Long
+    
+    ' Prepare return string length.
+    If IsMissing(lngLength) Then
+        ' Return remaining string after lngStart
+        lngLength = (Me.Length - lngStart) + 1
+        MidStr = Space$(lngLength)
+    Else
+        ' Return a specified number of characters
+        MidStr = Space$(lngLength)
+    End If
+    
+    ' Determine start page and position for return string
+    lngStartPage = lngStart \ clngPageSize
+    lngStartPos = lngStart - (lngStartPage * clngPageSize)
+    
+    ' Loop through filled pages, overlaying on return string.
+    ' (Last partial page is automatically trimmed based on returned string size.)
+    If Len(MidStr) > 0 Then
+        For lngPage = lngStartPage To lngCurrentPage
+            ' Could start at any point on first page
+            If lngPage = lngStartPage Then
+                Mid$(MidStr, 1) = Mid$(astrPages(lngPage), lngStartPos)
+                lngPos = clngPageSize - lngStartPos
+            Else
+                ' Pull whole pages as needed
+                Mid$(MidStr, lngPos) = astrPages(lngPage)
+                lngPos = lngPos + clngPageSize
+            End If
+            ' Exit when we have filled the requested string.
+            If lngPos >= lngLength Then Exit For
+        Next lngPage
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Right
+' Author    : Adam Waller
+' Date      : 11/5/2020
+' Purpose   : Return the rightmost specified number of characters.
+'---------------------------------------------------------------------------------------
+'
+Public Function RightStr(lngLength As Long) As String
+    If Me.Length > lngLength Then
+        RightStr = MidStr((Me.Length - lngLength) + 1)
+    Else
+        RightStr = GetStr
+    End If
+End Function
+
+
 ' returns the length of the string, based on the current position
 ' (Faster than building the string just to check the length)
 Public Function Length() As Double
@@ -210,6 +268,7 @@ Public Sub SelfTest()
     Add "abcdefghij"
     Add "k"
     Debug.Assert Len(GetStr) = 11
+    Debug.Assert Length = 11
     Remove 2
     Debug.Assert Len(GetStr) = 9
     Add "jkl"
@@ -218,5 +277,12 @@ Public Sub SelfTest()
     Add "m123456789"
     Remove 11
     Debug.Assert GetStr = "abcdefghijk"
+    Debug.Assert MidStr(1, 1) = "a"
+    Debug.Assert MidStr(11, 1) = "k"
+    Debug.Assert MidStr(2, 3) = "bcd"
+    Debug.Assert MidStr(8) = "hijk"
+    Debug.Assert MidStr(10, 1) = "j"
+    Debug.Assert RightStr(1) = "k"
+    Debug.Assert RightStr(100) = "abcdefghijk"
     
 End Sub
