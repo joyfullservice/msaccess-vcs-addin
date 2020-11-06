@@ -1630,6 +1630,7 @@ Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFi
     Perf.OperationStart "App.SaveAsText()"
     Application.SaveAsText intType, strName, strTempFile
     Perf.OperationEnd
+    VerifyPath strFile
     
     ' Sanitize certain object types
     Select Case intType
