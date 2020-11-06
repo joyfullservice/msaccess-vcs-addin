@@ -209,6 +209,8 @@ End Function
 '
 Public Sub LoadFromExportFile(strFile As String)
 
+    Dim varLines As Variant
+    Dim lngLine As Long
     Dim cBlock(1 To 3) As clsConcat
     Dim cBuffer(1 To 3) As clsConcat
     Dim strHex As String
@@ -218,7 +220,6 @@ Public Sub LoadFromExportFile(strFile As String)
     Dim strLine As String
     Dim lngChar As Long
     Dim lngPos As Long
-    Dim stm As Scripting.TextStream
     Dim udtMipBuffer As tMipBuffer
     Dim udtDevModeBuffer As tDevModeBuffer
     Dim udtDevNamesBuffer As tDevNamesBuffer
@@ -230,48 +231,46 @@ Public Sub LoadFromExportFile(strFile As String)
 
     If Not FSO.FileExists(strFile) Then Exit Sub
     
-    ' Open the text file, checking to see if it is in UCS format
+    ' Open the export file, checking to see if it is in UCS format
     If HasUcs2Bom(strFile) Then
-        Set stm = FSO.OpenTextFile(strFile, ForReading, False, TristateTrue)
+        varLines = Split(ReadFile(strFile, "Unicode"), vbCrLf)
     Else
-        Set stm = FSO.OpenTextFile(strFile, ForReading, False)
+        varLines = Split(ReadFile(strFile), vbCrLf)
     End If
     
     ' Read the text file line by line, loading the block data
-    With stm
-        Do While Not .AtEndOfStream
-            strLine = Trim$(.ReadLine)
-            ' Look for header if not inside block
-            If intBlock = 0 Then
-                ' Check for header
-                Select Case strLine
-                    Case "PrtMip = Begin":      intBlock = 1
-                    Case "PrtDevMode = Begin":  intBlock = 2
-                    Case "PrtDevNames = Begin": intBlock = 3
-                End Select
-            Else
-                ' Inside block
-                If strLine = "End" Then
-                    intBlock = 0
-                    ' Exit loop after adding all the blocks
-                    If Not (cBlock(1) Is Nothing _
-                        Or cBlock(2) Is Nothing _
-                        Or cBlock(3) Is Nothing) Then Exit Do
-                ElseIf Left$(strLine, 2) = "0x" Then
-                    ' Create block class, if it doesn't exist
-                    If cBlock(intBlock) Is Nothing Then Set cBlock(intBlock) = New clsConcat
-                    ' Add bytes after the "0x" prefix, and before the " ,"
-                    ' at the end of the line.
-                    cBlock(intBlock).Add Mid$(strLine, 3, Len(strLine) - 4)
-                ElseIf strLine = "Begin" Then
-                    ' Reached the end of the header section. We should
-                    ' have already exited the loop, but just in case...
-                    Exit Do
-                End If
+    Perf.OperationStart "Read File DevMode"
+    For lngLine = 0 To UBound(varLines)
+        strLine = Trim$(varLines(lngLine))
+        ' Look for header if not inside block
+        If intBlock = 0 Then
+            ' Check for header
+            Select Case strLine
+                Case "PrtMip = Begin":      intBlock = 1
+                Case "PrtDevMode = Begin":  intBlock = 2
+                Case "PrtDevNames = Begin": intBlock = 3
+            End Select
+        Else
+            ' Inside block
+            If strLine = "End" Then
+                intBlock = 0
+                ' Exit loop after adding all the blocks
+                If Not (cBlock(1) Is Nothing _
+                    Or cBlock(2) Is Nothing _
+                    Or cBlock(3) Is Nothing) Then Exit For
+            ElseIf Left$(strLine, 2) = "0x" Then
+                ' Create block class, if it doesn't exist
+                If cBlock(intBlock) Is Nothing Then Set cBlock(intBlock) = New clsConcat
+                ' Add bytes after the "0x" prefix, and before the " ,"
+                ' at the end of the line.
+                cBlock(intBlock).Add Mid$(strLine, 3, Len(strLine) - 4)
+            ElseIf strLine = "Begin" Then
+                ' Reached the end of the header section. We should
+                ' have already exited the loop, but just in case...
+                Exit For
             End If
-        Loop
-        .Close
-    End With
+        End If
+    Next lngLine
 
     ' Convert hex block data to string
     strChar = "&h00"
@@ -303,6 +302,7 @@ Public Sub LoadFromExportFile(strFile As String)
             End Select
         End If
     Next intBlock
+    Perf.OperationEnd
     
 End Sub
 

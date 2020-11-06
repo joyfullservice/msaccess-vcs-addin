@@ -47,9 +47,6 @@ Private Sub IDbComponent_Export()
     Dim strFile As String
     Dim strZip As String
     Dim strFolder As String
-    Dim stm As ADODB.Stream
-    Dim bteHeader As Byte
-    Dim varHeader() As Byte
     Dim rst As Recordset2
     Dim rstAtc As Recordset2
     Dim strSql As String

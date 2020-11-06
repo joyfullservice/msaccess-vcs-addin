@@ -118,9 +118,7 @@ End Function
 Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String, _
     Optional blnDeleteSourceFileAfterConversion As Boolean = True)
 
-    Dim strText As String
-    Dim utf8Bytes() As Byte
-    Dim fnum As Integer
+    Dim cData As clsConcat
     Dim blnIsAdp As Boolean
     Dim intTristate As Tristate
     
@@ -147,14 +145,20 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
         Perf.OperationStart "Unicode Conversion"
         
         ' Read file contents and delete (temp) source file
+        Set cData = New clsConcat
         With FSO.OpenTextFile(strSourceFile, ForReading, False, intTristate)
-            strText = .ReadAll
+            ' Read chunks of text, rather than the whole thing at once for massive
+            ' performance gains when reading large files.
+            ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
+            Do While Not .AtEndOfStream
+                cData.Add .Read(131072) ' 128K
+            Loop
             .Close
         End With
         
         ' Write as UTF-8 in the destination file.
         ' (Path will be verified before writing)
-        WriteFile strText, strDestinationFile
+        WriteFile cData.GetStr, strDestinationFile
         Perf.OperationEnd
         
         ' Remove the source (temp) file if specified
@@ -185,7 +189,6 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
 
     Dim strText As String
     Dim utf8Bytes() As Byte
-    Dim fnum As Integer
 
     ' Make sure the path exists before we write a file.
     VerifyPath strDestinationFile
@@ -418,22 +421,31 @@ End Function
 '           : Read in UTF-8 encoding, removing a BOM if found at start of file.
 '---------------------------------------------------------------------------------------
 '
-Public Function ReadFile(strPath As String) As String
+Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF-8") As String
 
     Dim stm As ADODB.Stream
     Dim strText As String
     Dim cData As clsConcat
+    Dim strBom As String
+    
+    ' Get BOM header, if applicable
+    Select Case strCharset
+        Case "UTF-8": strBom = UTF8_BOM
+        Case "Unicode": strBom = UCS2_BOM
+    End Select
     
     If FSO.FileExists(strPath) Then
         Set cData = New clsConcat
         Set stm = New ADODB.Stream
         With stm
-            .Charset = "UTF-8"
+            .Charset = strCharset
             .Open
             .LoadFromFile strPath
-            ' Check for UTF8 BOM
-            strText = .ReadText(Len(UTF8_BOM))
-            If strText <> UTF8_BOM Then cData.Add strText
+            ' Check for BOM
+            If strBom <> vbNullString Then
+                strText = .ReadText(Len(strBom))
+                If strText <> strBom Then cData.Add strText
+            End If
             ' Read chunks of text, rather than the whole thing at once for massive
             ' performance gains when reading large files.
             ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
