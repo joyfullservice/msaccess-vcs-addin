@@ -33,7 +33,6 @@ Implements IDbComponent
 Private Sub IDbComponent_Export()
 
     Dim cDevMode As clsDevMode
-    Dim strTempFile As String
 
     ' Check Save Print Vars settings
     If Options.SavePrintVars Then
@@ -41,22 +40,16 @@ Private Sub IDbComponent_Export()
         ' Take a little more manual approach on the export so we can grab the
         ' printer settings before sanitizing the file.
         Set cDevMode = New clsDevMode
-    
-        ' Export to temporary file
-        strTempFile = GetTempFile
         
         ' Save as text, then grab and save printer info.
         Perf.OperationStart "App.SaveAsText()"
-        Application.SaveAsText acReport, m_Report.Name, strTempFile
+        Application.SaveAsText acReport, m_Report.Name, IDbComponent_SourceFile
         Perf.OperationEnd
-        cDevMode.LoadFromExportFile strTempFile
+        cDevMode.LoadFromExportFile IDbComponent_SourceFile
         WriteJsonFile Me, cDevMode.GetDictionary, _
             GetPrintVarsFileName(m_Report.Name), "Report Print Settings"
         
-        ' Handle UCS conversion if needed
-        ConvertUcs2Utf8 strTempFile, IDbComponent_SourceFile
-        
-        ' Sanitize source file
+        ' Sanitize source file (Also converts to UTF-8)
         SanitizeFile IDbComponent_SourceFile
         
     Else

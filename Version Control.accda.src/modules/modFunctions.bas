@@ -1629,13 +1629,16 @@ Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFi
     Application.SaveAsText intType, strName, strTempFile
     Perf.OperationEnd
     
-    ' Handle UCS conversion if needed
-    ConvertUcs2Utf8 strTempFile, strFile
-    
     ' Sanitize certain object types
     Select Case intType
         Case acForm, acReport, acQuery, acMacro
-            SanitizeFile strFile
+            ' Sanitizing converts to UTF-8
+            If FSO.FileExists(strFile) Then DeleteFile (strFile)
+            SanitizeFile strTempFile
+            FSO.MoveFile strTempFile, strFile
+        Case Else
+            ' Handle UCS conversion if needed
+            ConvertUcs2Utf8 strTempFile, strFile
     End Select
     
     ' Normal exit
