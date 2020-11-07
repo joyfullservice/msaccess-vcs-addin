@@ -6,12 +6,14 @@ Option Compare Database
 Option Explicit
 
 Public PadLength As Integer
+Public LogFilePath As String
 
 Private Const cstrSpacer As String = "-------------------------------------"
 
 Private m_Log As clsConcat      ' Log file output
 Private m_Console As clsConcat  ' Console output
 Private m_RichText As TextBox   ' Text box to display HTML
+Private m_Prog As clsLblProg    ' Progress bar
 Private m_blnProgressActive As Boolean
 Private m_sngLastUpdate As Single
 
@@ -57,7 +59,10 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional 
     ' See if we want to print the output of this message.
     If blnPrint Then
         ' Remove existing progress indicator if in use.
-        If m_blnProgressActive Then RemoveProgressIndicator
+        If m_blnProgressActive Then
+            m_blnProgressActive = False
+            m_Prog.Visible = False
+        End If
     
         ' Use bold/green text for completion line.
         strHtml = Replace(strText, " ", "&nbsp;")
@@ -106,15 +111,17 @@ Public Sub Flush()
     If Not m_RichText Is Nothing Then
         With Form_frmVCSMain.txtLog
             m_blnProgressActive = False
+            If Not m_Prog Is Nothing Then m_Prog.Visible = False
             ' Set value, not text to avoid errors with large text strings.
-            .SelStart = Len(.Text & vbNullString)
             Echo False
+            '.SelStart = Len(.Text & vbNullString)
             ' Show the last 20K characters so
             ' we don't hit the Integer limit
             ' on the SelStart property.
             .Value = m_Console.RightStr(20000)
-            .SelStart = Len(.Text & vbNullString)
+            .SelStart = 20000
             Echo True
+            'Form_frmVCSMain.Repaint
         End With
     End If
     
@@ -141,6 +148,33 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ProgressBar
+' Author    : Adam Waller
+' Date      : 11/6/2020
+' Purpose   : Pass the Progress Bar reference to this class.
+'---------------------------------------------------------------------------------------
+'
+Public Property Set ProgressBar(cProg As clsLblProg)
+    Set m_Prog = cProg
+End Property
+Public Property Get ProgressBar() As clsLblProg
+    Set ProgressBar = m_Prog
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ProgMax
+' Author    : Adam Waller
+' Date      : 11/6/2020
+' Purpose   : Wrapper to set max value for progress bar.
+'---------------------------------------------------------------------------------------
+'
+Public Property Let ProgMax(lngMaxValue As Long)
+    If Not m_Prog Is Nothing Then m_Prog.Max = lngMaxValue
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SaveFile
 ' Author    : Adam Waller
 ' Date      : 1/18/2019
@@ -150,6 +184,7 @@ End Sub
 Public Sub SaveFile(strPath As String)
     WriteFile m_Log.GetStr, strPath
     Set m_Log = New clsConcat
+    LogFilePath = strPath
 End Sub
 
 
@@ -187,19 +222,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : RemoveProgressIndicator
-' Author    : Adam Waller
-' Date      : 4/28/2020
-' Purpose   : Remove the progress indicator if found at the end of the console output.
-'---------------------------------------------------------------------------------------
-'
-Private Sub RemoveProgressIndicator()
-    m_Console.Remove 2 + 4 ' (For unicode) plus <br>
-    m_blnProgressActive = False
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : Increment
 ' Author    : Adam Waller
 ' Date      : 4/28/2020
@@ -207,17 +229,16 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Increment()
-
-    ' Ongoing progress of clock
-    Static intProgress As Integer
     
     ' Track the last time we did an increment
     Static sngLastIncrement As Single
-    
-    Dim strClock As String
+    Static lngProgress As Long
     
     ' Ignore if we are not using the form
-    If m_RichText Is Nothing Then Exit Sub
+    If m_Prog Is Nothing Then Exit Sub
+    
+    ' Increment value, even if we don't display it.
+    lngProgress = lngProgress + 1
     
     ' Don't run the incrementer unless it has been 1
     ' second since the last displayed output refresh.
@@ -226,40 +247,30 @@ Public Sub Increment()
     ' Allow an update to the screen every x seconds.
     ' Find the balance between good progress feedback
     ' without slowing down the overall export time.
-    If sngLastIncrement > Timer - 0.2 Then Exit Sub
+    If sngLastIncrement > Timer - 0.5 Then Exit Sub
 
     ' Check the current status.
     Perf.OperationStart "Increment Progress"
-    If m_blnProgressActive Then
-        ' Remove any existing character
-        RemoveProgressIndicator
-    Else
-        ' Restart progress indicator when activating.
-        intProgress = 11
+    If Not m_blnProgressActive Then
+        ' Show the progress bar
+        lngProgress = 1
+        m_Prog.Visible = True
+        ' Flush any pending output
+        With m_RichText
+            Echo False
+            ' Show the last 20K characters so
+            ' we don't hit the Integer limit
+            ' on the SelStart property.
+            .Value = m_Console.RightStr(20000)
+            .SelStart = 20000
+            Echo True
+        End With
     End If
-        
-    ' Rotate through the hours
-    intProgress = intProgress + 1
-    If intProgress = 13 Then intProgress = 1
     
     ' Status is now active
-    m_blnProgressActive = True
-    
-    ' Set clock characters 1-12
-    ' https://www.fileformat.info/info/unicode/char/1f552/index.htm
-    strClock = ChrW$(55357) & ChrW$(56655 + intProgress)
-    m_Console.Add strClock
-    m_Console.Add "<br>"
-    
-    ' Update the log display
-    With m_RichText
-        Echo False
-        .Value = m_Console.RightStr(20000)
-        .SelStart = Len(.Text & vbNullString)
-        Echo True
-    End With
     sngLastIncrement = Timer
-    DoEvents
+    m_blnProgressActive = True
+    m_Prog.Value = lngProgress
     Perf.OperationEnd
     
 End Sub

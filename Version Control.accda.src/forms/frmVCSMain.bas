@@ -9,18 +9,17 @@ Begin Form
     AllowDesignChanges = NotDefault
     DefaultView =0
     ScrollBars =0
-    BorderStyle =3
     PictureAlignment =2
     DatasheetGridlinesBehavior =3
     GridX =24
     GridY =24
     Width =9360
     DatasheetFontHeight =11
-    ItemSuffix =20
-    Left =3225
+    ItemSuffix =27
+    Left =-17265
     Top =2430
-    Right =18945
-    Bottom =14175
+    Right =-6105
+    Bottom =10335
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -143,6 +142,7 @@ Begin Form
                     BorderColor =15321539
                     Name ="Line10"
                     GridlineColor =10921638
+                    HorizontalAnchor =2
                     LayoutCachedTop =1725
                     LayoutCachedWidth =9360
                     LayoutCachedHeight =1725
@@ -159,6 +159,7 @@ Begin Form
                     BorderColor =10921638
                     Name ="Box1"
                     GridlineColor =10921638
+                    HorizontalAnchor =2
                     LayoutCachedWidth =9360
                     LayoutCachedHeight =1680
                     BackThemeColorIndex =-1
@@ -1300,7 +1301,7 @@ Begin Form
                     Left =780
                     Top =3300
                     Width =1980
-                    Height =2460
+                    Height =2400
                     FontSize =10
                     TabIndex =3
                     BorderColor =8355711
@@ -1308,11 +1309,12 @@ Begin Form
                     Name ="txtDescription"
                     GridlineColor =10921638
                     TextFormat =1
+                    VerticalAnchor =2
 
                     LayoutCachedLeft =780
                     LayoutCachedTop =3300
                     LayoutCachedWidth =2760
-                    LayoutCachedHeight =5760
+                    LayoutCachedHeight =5700
                     BorderThemeColorIndex =0
                     BorderTint =50.0
                     BorderShade =100.0
@@ -1323,7 +1325,7 @@ Begin Form
                     Cancel = NotDefault
                     OverlapFlags =85
                     Left =7680
-                    Top =5940
+                    Top =5880
                     Width =1500
                     Height =420
                     TabIndex =4
@@ -1336,11 +1338,13 @@ Begin Form
                     RightPadding =150
                     BottomPadding =150
                     GridlineColor =10921638
+                    HorizontalAnchor =1
+                    VerticalAnchor =1
 
                     LayoutCachedLeft =7680
-                    LayoutCachedTop =5940
+                    LayoutCachedTop =5880
                     LayoutCachedWidth =9180
-                    LayoutCachedHeight =6360
+                    LayoutCachedHeight =6300
                     BackColor =14262935
                     BackThemeColorIndex =-1
                     BackTint =100.0
@@ -1443,7 +1447,7 @@ Begin Form
                     Overlaps =1
                 End
                 Begin Label
-                    OverlapFlags =85
+                    OverlapFlags =93
                     Left =300
                     Top =5940
                     Width =3375
@@ -1454,6 +1458,7 @@ Begin Form
                     Name ="Label32"
                     Caption ="joyfullservice/msaccess-vcs-integration"
                     GridlineColor =10921638
+                    VerticalAnchor =1
                     LayoutCachedLeft =300
                     LayoutCachedTop =5940
                     LayoutCachedWidth =3675
@@ -1480,6 +1485,7 @@ Begin Form
                     RightPadding =150
                     BottomPadding =150
                     GridlineColor =10921638
+                    HorizontalAnchor =1
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x000000000000000000000000000000000000000000000000e0e8e000e0c8b000 ,
@@ -1558,6 +1564,7 @@ Begin Form
                     ForeColor =16777215
                     Name ="lblVersion"
                     GridlineColor =10921638
+                    HorizontalAnchor =1
                     LayoutCachedLeft =5820
                     LayoutCachedTop =480
                     LayoutCachedWidth =9000
@@ -1576,7 +1583,7 @@ Begin Form
                     Left =3120
                     Top =1140
                     Width =5160
-                    Height =4620
+                    Height =4440
                     FontSize =10
                     LeftMargin =144
                     TopMargin =144
@@ -1587,13 +1594,66 @@ Begin Form
                     FontName ="Lucida Console"
                     GridlineColor =10921638
                     TextFormat =1
+                    HorizontalAnchor =2
+                    VerticalAnchor =2
 
                     LayoutCachedLeft =3120
                     LayoutCachedTop =1140
                     LayoutCachedWidth =8280
-                    LayoutCachedHeight =5760
+                    LayoutCachedHeight =5580
                     ThemeFontIndex =-1
                     ForeTint =100.0
+                End
+                Begin Label
+                    Visible = NotDefault
+                    OverlapFlags =93
+                    Left =3120
+                    Top =5640
+                    Width =5160
+                    Height =180
+                    BorderColor =8355711
+                    ForeColor =8355711
+                    Name ="lblProgBack"
+                    GridlineColor =10921638
+                    HorizontalAnchor =2
+                    VerticalAnchor =1
+                    LayoutCachedLeft =3120
+                    LayoutCachedTop =5640
+                    LayoutCachedWidth =8280
+                    LayoutCachedHeight =5820
+                End
+                Begin Label
+                    Visible = NotDefault
+                    OverlapFlags =93
+                    Left =4500
+                    Top =6000
+                    Width =2220
+                    Height =180
+                    BorderColor =8355711
+                    ForeColor =8355711
+                    Name ="lblProgFront"
+                    GridlineColor =10921638
+                    LayoutCachedLeft =4500
+                    LayoutCachedTop =6000
+                    LayoutCachedWidth =6720
+                    LayoutCachedHeight =6180
+                End
+                Begin Label
+                    Visible = NotDefault
+                    OverlapFlags =215
+                    Left =4980
+                    Top =6120
+                    Width =1260
+                    Height =180
+                    FontSize =8
+                    BorderColor =8355711
+                    ForeColor =8355711
+                    Name ="lblProgCaption"
+                    GridlineColor =10921638
+                    LayoutCachedLeft =4980
+                    LayoutCachedTop =6120
+                    LayoutCachedWidth =6240
+                    LayoutCachedHeight =6300
                 End
             End
         End
@@ -1710,6 +1770,7 @@ Public Sub StartBuild()
         .SetFocus
     End With
     Log.SetConsole Me.txtLog
+    Set Log.ProgressBar = GetProgressBar
     Me.Visible = True
     
     ' Show the status
@@ -1746,6 +1807,7 @@ End Sub
 '
 Private Sub cmdClose_Click()
     Log.SetConsole Nothing
+    Set Log.ProgressBar = Nothing
     DoCmd.Close acForm, Me.Name
 End Sub
 
@@ -1768,6 +1830,7 @@ Public Sub cmdExport_Click()
         .SetFocus
     End With
     Log.SetConsole Me.txtLog
+    Set Log.ProgressBar = GetProgressBar
     
     ' Show the status
     SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
@@ -1853,3 +1916,16 @@ Private Sub SetStatusText(strHeading As String, strSubHeading As String, strDesc
     lblSubheading.Caption = strSubHeading
     txtDescription.Value = strDescriptionHtml
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetProgressBar
+' Author    : Adam Waller
+' Date      : 11/6/2020
+' Purpose   : Set up the progress bar.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetProgressBar() As clsLblProg
+    Set GetProgressBar = New clsLblProg
+    GetProgressBar.Initialize lblProgBack, lblProgFront, lblProgCaption
+End Function
