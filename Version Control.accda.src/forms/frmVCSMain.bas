@@ -1655,6 +1655,34 @@ Begin Form
                     LayoutCachedWidth =6240
                     LayoutCachedHeight =6300
                 End
+                Begin TextBox
+                    Visible = NotDefault
+                    FontUnderline = NotDefault
+                    TabStop = NotDefault
+                    OldBorderStyle =0
+                    OverlapFlags =215
+                    BackStyle =0
+                    IMESentenceMode =3
+                    Left =3120
+                    Top =5640
+                    Height =300
+                    FontSize =10
+                    TabIndex =7
+                    BorderColor =10921638
+                    ForeColor =16711680
+                    Name ="txtOpenLogFile"
+                    ControlSource ="=\"Open Log File...\""
+                    OnClick ="[Event Procedure]"
+                    GridlineColor =10921638
+
+                    LayoutCachedLeft =3120
+                    LayoutCachedTop =5640
+                    LayoutCachedWidth =4560
+                    LayoutCachedHeight =5940
+                    DisplayAsHyperlink =1
+                    ForeThemeColorIndex =10
+                    ForeTint =100.0
+                End
             End
         End
     End
@@ -1794,6 +1822,7 @@ Public Sub FinishBuild()
     ' Display final UI messages.
     Log.Flush
     SetStatusText "Finished", "Build Complete", "Additional details can be found in the project build log file.<br><br>You may now close this window."
+    txtOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     
 End Sub
 
@@ -1842,6 +1871,7 @@ Public Sub cmdExport_Click()
     Log.Flush
     
     SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
+    txtOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     
 End Sub
 
@@ -1929,3 +1959,18 @@ Private Function GetProgressBar() As clsLblProg
     Set GetProgressBar = New clsLblProg
     GetProgressBar.Initialize lblProgBack, lblProgFront, lblProgCaption
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : txtOpenLogFile_Click
+' Author    : Adam Waller
+' Date      : 11/6/2020
+' Purpose   : Open the log file
+'---------------------------------------------------------------------------------------
+'
+Private Sub txtOpenLogFile_Click()
+    cmdClose.SetFocus
+    If FSO.FileExists(Log.LogFilePath) Then
+        CreateObject("Shell.Application").Open Log.LogFilePath
+    End If
+End Sub
