@@ -34,6 +34,9 @@ Private Sub IDbComponent_Export()
 
     Dim cDevMode As clsDevMode
 
+    ' Make sure path exists before attempting export.
+    VerifyPath IDbComponent_SourceFile
+    
     ' Check Save Print Vars settings
     If Options.SavePrintVars Then
 
