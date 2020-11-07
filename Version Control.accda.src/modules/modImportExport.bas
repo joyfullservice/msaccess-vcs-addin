@@ -83,6 +83,7 @@ Public Sub ExportSource()
             ' Show category header and clear out any orphaned files.
             Log.Spacer Options.ShowDebug
             Log.PadRight "Exporting " & cCategory.Category & "...", , Options.ShowDebug
+            Log.ProgMax = cCategory.Count
             Perf.ComponentStart cCategory.Category
 
             ' Loop through each object in this category.
@@ -261,6 +262,7 @@ Public Sub Build(strSourceFolder As String)
             ' Show category header
             Log.Spacer Options.ShowDebug
             Log.PadRight "Importing " & cCategory.Category & "...", , Options.ShowDebug
+            Log.ProgMax = colFiles.Count
             Perf.ComponentStart cCategory.Category
 
             ' Loop through each file in this category.
@@ -272,9 +274,9 @@ Public Sub Build(strSourceFolder As String)
             Next varFile
             
             ' Show category wrap-up.
-            Log.Add "[" & cCategory.Count & "]" & IIf(Options.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
+            Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
             'Log.Flush  ' Gives smoother output, but slows down the import.
-            Perf.ComponentEnd cCategory.Count
+            Perf.ComponentEnd colFiles.Count
         End If
     Next cCategory
 
