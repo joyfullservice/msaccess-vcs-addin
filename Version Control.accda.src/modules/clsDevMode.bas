@@ -522,7 +522,8 @@ Private Function DevModeToDictionary() As Dictionary
     
     With DevModeToDictionary
         strName = NTrim(StrConv(cDM.strDeviceName, vbUnicode))
-        If strName <> vbNullString Then .Add "DeviceName", strName
+        ' Only save the printer name here if it is not the default printer.
+        If strName <> vbNullString And m_tDevNames.intDefault = 0 Then .Add "DeviceName", strName
         '.Add "SpecVersion", cDM.intSpecVersion
         '.Add "DriverVersion", cDM.intDriverVersion
         '.Add "Size", cDM.intSize
@@ -825,6 +826,11 @@ Public Sub ApplySettings(dSettings As Dictionary)
     If strPrinter = vbNullString Then
         ' Use default printer
         LoadFromDefaultPrinter
+        ' Clear the device name, since we are not binding this
+        ' form/report to a specific printer.
+        For intCnt = 1 To 32
+            m_tDevMode.strDeviceName(intCnt) = 0
+        Next intCnt
     Else
         ' Load defaults from specific printer
         LoadFromPrinter strPrinter
