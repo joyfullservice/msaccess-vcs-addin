@@ -18,6 +18,7 @@ Public ExportFolder As String
 Public ShowDebug As Boolean
 Public UseFastSave As Boolean
 Public SavePrintVars As Boolean
+Public ExportPrintSettings As Dictionary
 Public SaveQuerySQL As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
 Public SaveTableSQL As Boolean
@@ -63,6 +64,7 @@ Private m_dEnum As Dictionary
 Public Sub LoadDefaults()
 
     With Me
+        ' Top level settings
         .ExportFolder = vbNullString
         .ShowDebug = False
         .UseFastSave = True
@@ -74,10 +76,37 @@ Public Sub LoadDefaults()
         .AggressiveSanitize = True
         .Security = esNone
         .KeyName = modEncrypt.DefaultKeyName
+        
+        ' Table data export
         Set .TablesToExportData = New Dictionary
         ' Save specific tables by default
         AddTableToExportData "USysRibbons", etdTabDelimited
         AddTableToExportData "USysRegInfo", etdTabDelimited
+        
+        ' Print settings to export
+        Set .ExportPrintSettings = New Dictionary
+        With .ExportPrintSettings
+            .Add "Orientation", True
+            .Add "PaperSize", True
+            .Add "Duplex", False
+            .Add "PrintQuality", False
+            .Add "DisplayFrequency", False
+            .Add "Collate", False
+            .Add "Resolution", False
+            .Add "DisplayFlags", False
+            .Add "Color", False
+            .Add "Copies", False
+            .Add "ICMMethod", False
+            .Add "DefaultSource", False
+            .Add "Scale", False
+            .Add "ICMIntent", False
+            .Add "FormName", False
+            .Add "PaperLength", False
+            .Add "DitherType", False
+            .Add "MediaType", False
+            .Add "PaperWidth", False
+            .Add "TTOption", False
+        End With
     End With
     
 End Sub
@@ -171,6 +200,8 @@ Public Sub LoadOptionsFromFile(strFile As String)
                 If dOptions.Exists(strKey) Then
                     ' Set class property with value read from file.
                     Select Case strKey
+                        Case "ExportPrintSettings"
+                            Set Me.ExportPrintSettings = dOptions(strKey)
                         Case "TablesToExportData"
                             Set Me.TablesToExportData = dOptions(strKey)
                         Case "Security"
@@ -419,6 +450,7 @@ Private Sub Class_Initialize()
         .Add "ShowDebug"
         .Add "UseFastSave"
         .Add "SavePrintVars"
+        .Add "ExportPrintSettings"
         .Add "SaveQuerySQL"
         .Add "ForceImportOriginalQuerySQL"
         .Add "SaveTableSQL"

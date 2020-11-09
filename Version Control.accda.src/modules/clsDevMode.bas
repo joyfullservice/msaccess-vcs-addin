@@ -413,9 +413,40 @@ Public Function GetDictionary() As Dictionary
     With GetDictionary
         ' Only add device information if not using the default printer.
         If DevNamesHasData And (m_tDevNames.intDefault = 0) Then .Add "Device", DevNamesToDictionary()
-        If DevModeHasData Then .Add "Printer", DevModeToDictionary()
+        If DevModeHasData Then .Add "Printer", DevModeToExport()
         If MipHasData Then .Add "Margins", MipToDictionary()
     End With
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DevModeToExport
+' Author    : Adam Waller
+' Date      : 11/9/2020
+' Purpose   : Return a dictionary of the DevMode settings that we have selected
+'           : to export, based on the current options.
+'---------------------------------------------------------------------------------------
+'
+Private Function DevModeToExport() As Dictionary
+
+    Dim varKey As Variant
+    Dim dDM As Dictionary
+    Dim dOpt As Dictionary
+    
+    Set dDM = DevModeToDictionary
+    Set dOpt = Options.ExportPrintSettings
+    Set DevModeToExport = New Dictionary
+
+    With DevModeToExport
+        For Each varKey In dDM.Keys
+            If dOpt.Exists(varKey) Then
+                If CBool(dOpt(varKey)) Then
+                    .Add varKey, dDM(varKey)
+                End If
+            End If
+        Next varKey
+    End With
+    
 End Function
 
 

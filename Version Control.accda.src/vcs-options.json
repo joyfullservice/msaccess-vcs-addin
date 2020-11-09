@@ -1,6 +1,6 @@
 {
   "Info": {
-    "AddinVersion": "3.2.1",
+    "AddinVersion": "3.2.2",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
@@ -8,6 +8,28 @@
     "ShowDebug": false,
     "UseFastSave": false,
     "SavePrintVars": true,
+    "ExportPrintSettings": {
+      "Orientation": true,
+      "PaperSize": true,
+      "Duplex": false,
+      "PrintQuality": false,
+      "DisplayFrequency": false,
+      "Collate": false,
+      "Resolution": false,
+      "DisplayFlags": false,
+      "Color": false,
+      "Copies": false,
+      "ICMMethod": false,
+      "DefaultSource": false,
+      "Scale": false,
+      "ICMIntent": false,
+      "FormName": false,
+      "PaperLength": false,
+      "DitherType": false,
+      "MediaType": false,
+      "PaperWidth": false,
+      "TTOption": false
+    },
     "SaveQuerySQL": true,
     "ForceImportOriginalQuerySQL": false,
     "SaveTableSQL": true,
