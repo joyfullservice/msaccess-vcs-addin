@@ -1511,7 +1511,7 @@ Private Function RTrimNulls(strData As String, lngLeaveCount As Long) As String
         For lngCnt = Len(strData) To 1 Step -1
             If Mid$(strData, lngCnt, 1) <> vbNullChar Then
                 ' Found a non-null character.
-                strTrimmed = Left$(strData, lngCnt - 1) & NullPad(lngLeaveCount)
+                strTrimmed = Left$(strData, lngCnt) & NullPad(lngLeaveCount)
                 Exit For
             End If
         Next lngCnt
