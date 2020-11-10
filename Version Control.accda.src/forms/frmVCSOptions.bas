@@ -17,10 +17,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =162
-    Left =3225
+    Left =-17265
     Top =2430
-    Right =13305
-    Bottom =9615
+    Right =-6105
+    Bottom =10335
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -626,9 +626,43 @@ Begin Form
                                 End
                                 Begin CheckBox
                                     OverlapFlags =215
+                                    Left =1260
+                                    Top =4620
+                                    TabIndex =5
+                                    BorderColor =10921638
+                                    Name ="chkExtractThemeFiles"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =1260
+                                    LayoutCachedTop =4620
+                                    LayoutCachedWidth =1520
+                                    LayoutCachedHeight =4860
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =1560
+                                            Top =4560
+                                            Width =2640
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label112"
+                                            Caption ="Extract Theme Files"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1560
+                                            LayoutCachedTop =4560
+                                            LayoutCachedWidth =4200
+                                            LayoutCachedHeight =4875
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin CheckBox
+                                    OverlapFlags =215
                                     Left =4740
                                     Top =2935
-                                    TabIndex =5
+                                    TabIndex =6
                                     BorderColor =10921638
                                     Name ="chkSavePrintVars"
                                     GridlineColor =10921638
@@ -662,7 +696,7 @@ Begin Form
                                     OverlapFlags =215
                                     Left =4740
                                     Top =3360
-                                    TabIndex =6
+                                    TabIndex =7
                                     BorderColor =10921638
                                     Name ="chkSaveQuerySQL"
                                     GridlineColor =10921638
@@ -696,7 +730,7 @@ Begin Form
                                     OverlapFlags =215
                                     Left =4740
                                     Top =3780
-                                    TabIndex =7
+                                    TabIndex =8
                                     BorderColor =10921638
                                     Name ="chkSaveTableSQL"
                                     GridlineColor =10921638
@@ -737,7 +771,7 @@ Begin Form
                                     Top =4140
                                     Width =1920
                                     Height =315
-                                    TabIndex =8
+                                    TabIndex =9
                                     BorderColor =10921638
                                     ForeColor =4138256
                                     Name ="cboSecurity"
@@ -779,7 +813,7 @@ Begin Form
                                     Top =5040
                                     Width =2640
                                     Height =315
-                                    TabIndex =9
+                                    TabIndex =10
                                     BorderColor =10921638
                                     ForeColor =4210752
                                     Name ="txtRunBeforeExport"
@@ -817,7 +851,7 @@ Begin Form
                                     Top =5460
                                     Width =2640
                                     Height =315
-                                    TabIndex =10
+                                    TabIndex =11
                                     BorderColor =10921638
                                     ForeColor =4210752
                                     Name ="txtRunAfterExport"
@@ -854,7 +888,7 @@ Begin Form
                                     Left =6780
                                     Top =5580
                                     Width =2340
-                                    TabIndex =11
+                                    TabIndex =12
                                     ForeColor =16711680
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
@@ -944,40 +978,6 @@ Begin Form
                                     LayoutCachedTop =2400
                                     LayoutCachedWidth =8580
                                     LayoutCachedHeight =2640
-                                End
-                                Begin CheckBox
-                                    OverlapFlags =215
-                                    Left =1260
-                                    Top =4620
-                                    TabIndex =12
-                                    BorderColor =10921638
-                                    Name ="chkExtractThemeFiles"
-                                    GridlineColor =10921638
-
-                                    LayoutCachedLeft =1260
-                                    LayoutCachedTop =4620
-                                    LayoutCachedWidth =1520
-                                    LayoutCachedHeight =4860
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =215
-                                            Left =1560
-                                            Top =4560
-                                            Width =2640
-                                            Height =315
-                                            BorderColor =8355711
-                                            ForeColor =5324600
-                                            Name ="Label112"
-                                            Caption ="Extract Theme Files"
-                                            GridlineColor =10921638
-                                            LayoutCachedLeft =1560
-                                            LayoutCachedTop =4560
-                                            LayoutCachedWidth =4200
-                                            LayoutCachedHeight =4875
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
                                 End
                                 Begin Label
                                     FontUnderline = NotDefault
@@ -3098,6 +3098,7 @@ Begin Form
                     ForeShade =50.0
                 End
                 Begin TextBox
+                    TabStop = NotDefault
                     OldBorderStyle =0
                     OverlapFlags =215
                     TextAlign =2
