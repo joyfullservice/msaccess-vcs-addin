@@ -123,6 +123,91 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RunExportForCurrentDB
+' Author    : Adam Waller
+' Date      : 11/10/2020
+' Purpose   : The primary purpose of this function is to be able to use VBA code to
+'           : initiate a source code export, without currupting the current DB. This
+'           : would typically be used in a build automation environment, or when
+'           : exporting code from the add-in itself.
+'           : To avoid causing file corruption issues, we need to run the export using
+'           : the installed add-in, not the local MSAccessVCS project. In order to do
+'           : this, we need to load the VCS add-in at the application level, then
+'           : make it the active VB Project, then call the export function. When the
+'           : export function is called, we need to complete any running code in the
+'           : current database before export, so we will use a timer callback to
+'           : launch the export cleanly from the installed add-in.
+'           : This sounds complicated, but it is critical that we don't attempt to
+'           : export code from a module that is currently running, or it may corrupt
+'           : the file and cause Access to crash the next time the file is opened.
+'           : (This can be repaired by rebuilding from source, but let's work to
+'           :  prevent the problem in the first place.)
+'---------------------------------------------------------------------------------------
+'
+Public Function RunExportForCurrentDB()
+
+    ' Make sure the add-in is loaded.
+    If Not AddinLoaded Then LoadVCSAddIn
+
+    ' Set add-in project to active, just in case we are working
+    ' on another development copy of the add-in.
+    Set VBE.ActiveVBProject = GetAddInProject
+
+    ' Call export function with an API callback.
+    Run "LaunchExportAfterTimer"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddinLoaded
+' Author    : Adam Waller
+' Date      : 11/10/2020
+' Purpose   : Returns true if the VCS add-in is currently loaded as a VBE Project.
+'---------------------------------------------------------------------------------------
+'
+Private Function AddinLoaded() As Boolean
+    AddinLoaded = Not GetAddInProject Is Nothing
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadVCSAddIn
+' Author    : Adam Waller
+' Date      : 11/10/2020
+' Purpose   : Load the add-in at the application level so it can stay active
+'           : even if the current database is closed.
+'           : https://stackoverflow.com/questions/62270088/how-can-i-launch-an-access-add-in-not-com-add-in-from-vba-code
+'---------------------------------------------------------------------------------------
+'
+Private Sub LoadVCSAddIn()
+    ' The following lines will load the add-in at the application level,
+    ' but will not actually call the function. Ignore the error of function not found.
+    On Error Resume Next
+    Application.Run GetAddinFileName & "!DummyFunction"
+    On Error GoTo 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAddInProject
+' Author    : Adam Waller
+' Date      : 11/10/2020
+' Purpose   : Return the VBProject of the MSAccessVCS add-in.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetAddInProject() As VBProject
+    Dim oProj As VBProject
+    For Each oProj In VBE.VBProjects
+        If StrComp(oProj.FileName, GetAddinFileName, vbTextCompare) = 0 Then
+            Set GetAddInProject = oProj
+            Exit For
+        End If
+    Next oProj
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : InstallVCSAddin
 ' Author    : Adam Waller
 ' Date      : 10/19/2020
@@ -380,6 +465,13 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
         ' Save all code modules
         'DoCmd.RunCommand acCmdCompileAndSaveAllModules
     End If
+    
+    If AddinLoaded Then
+        MsgBox2 "Add-in Currently Loaded", _
+            "The add-in file cannot be updated when it is currently in use.", _
+            "Please close Microsoft Access and open this file again to deploy.", vbExclamation
+        Exit Sub
+    End If
         
     ' Make sure we don't run ths function while it is loaded in another project.
     If CodeProject.FullName <> CurrentProject.FullName Then
@@ -406,9 +498,8 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
     ' Deploy latest version on this machine
     blnSuccess = InstallVCSAddin
     
-    ' Export the source code to version control.
-    ' (Run this step after deploying to avoid file corruption issues.)
-    ExportSource
+    ' Use the newly installed add-in to Export the project to version control.
+    RunExportForCurrentDB
     
     ' Finish with success message if the latest version was installed.
     If blnSuccess Then Debug.Print "Version " & AppVersion & " installed."

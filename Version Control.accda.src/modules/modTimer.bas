@@ -5,6 +5,7 @@ Private Declare PtrSafe Function SetTimer Lib "user32" (ByVal hwnd As LongPtr, B
 Private Declare PtrSafe Function KillTimer Lib "user32" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr) As Long
 
 Private m_lngBuildTimerID As LongPtr
+Private m_lngExportTimerID As LongPtr
 
 
 '---------------------------------------------------------------------------------------
@@ -51,5 +52,37 @@ Public Sub BuildTimerCallback()
     If strFolder <> vbNullString Then
         Build strFolder
     End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LaunchExportAfterTimer
+' Author    : Adam Waller
+' Date      : 11/10/2020
+' Purpose   : Allows the calling code to finish running before relaunching the export
+'           : process from the add-in project without any parent call stack.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LaunchExportAfterTimer(Optional sngSeconds As Single = 0.5)
+    m_lngExportTimerID = SetTimer(0, 0, 1000 * sngSeconds, AddressOf ExportTimerCallback)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportTimerCallback
+' Author    : Adam Waller
+' Date      : 11/10/2020
+' Purpose   : Launch the code export process. (See modAddIn.RunExportForCurrentDB)
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportTimerCallback()
+
+    ' Kill the timer so it doesn't fire again.
+    KillTimer 0, m_lngExportTimerID
+    m_lngExportTimerID = 0
+    
+    ' Launch the export process.
+    modAddIn.AddInMenuItemExport
     
 End Sub
