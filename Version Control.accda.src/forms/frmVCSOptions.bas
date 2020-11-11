@@ -17,10 +17,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =162
-    Left =3225
-    Top =2640
-    Right =28545
-    Bottom =15015
+    Left =-17265
+    Top =2430
+    Right =-255
+    Bottom =10335
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -3304,12 +3304,7 @@ Private Sub LoadTableList()
             blnLocal = isLocalTable(tbl)
             blnOther = False    ' Other represents tables not in this database.
             ' Add array record to represent table.
-            m_colTables.Add Array(tbl.Name, vbNullString, blnHidden, blnSystem, blnOther, blnLocal)
-            
-            If blnLocal Then
-                Debug.Print tbl.Name, tbl.Attributes
-            End If
-            
+            AddUpdateTableInList tbl.Name, vbNullString, blnHidden, blnSystem, blnOther, blnLocal
         Next tbl
     End If
     
@@ -3325,6 +3320,7 @@ Private Sub LoadTableList()
     End If
     
 End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : isLocalTable
@@ -3342,6 +3338,7 @@ Private Function isLocalTable(ByRef tbl As AccessObject)
         isLocalTable = True
     End If
 End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : AddUpdateTableInList
@@ -3473,6 +3470,7 @@ Private Sub RefreshTableDisplay()
     
 End Sub
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTableIcon
 ' Author    : Adam Waller & Indigo744
@@ -3503,6 +3501,7 @@ Private Function GetTableIcon(ByRef varTable As Variant)
         GetTableIcon = ChrW(55356) & ChrW(57102)
     End If
 End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdRestoreDefaults_Click
