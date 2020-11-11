@@ -448,7 +448,7 @@ End Sub
 '           :  `AppVersion` property defined below.)
 '---------------------------------------------------------------------------------------
 '
-Public Sub Deploy(Optional ReleaseType As eReleaseType = Build_xxV)
+Public Sub Deploy(Optional ReleaseType As eReleaseType = Same_Version)
     
     Const cstrSpacer As String = "--------------------------------------------------------------"
     
