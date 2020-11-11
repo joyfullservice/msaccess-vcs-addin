@@ -17,10 +17,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =162
-    Left =-17265
-    Top =2430
-    Right =-6105
-    Bottom =10335
+    Left =3225
+    Top =2640
+    Right =28545
+    Bottom =15015
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -405,7 +405,7 @@ Begin Form
                     OverlapFlags =85
                     Left =540
                     Top =1500
-                    Width =9015
+                    Width =9075
                     Height =4740
                     TabIndex =2
                     Name ="tabOptions"
@@ -413,7 +413,7 @@ Begin Form
 
                     LayoutCachedLeft =540
                     LayoutCachedTop =1500
-                    LayoutCachedWidth =9555
+                    LayoutCachedWidth =9615
                     LayoutCachedHeight =6240
                     ThemeFontIndex =1
                     Shape =1
@@ -436,16 +436,16 @@ Begin Form
                             OverlapFlags =87
                             Left =615
                             Top =1980
-                            Width =8865
-                            Height =4190
+                            Width =8925
+                            Height =4185
                             BorderColor =10921638
                             Name ="pgeGeneral"
                             Caption ="General"
                             GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
-                            LayoutCachedHeight =6170
+                            LayoutCachedWidth =9540
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1012,7 +1012,7 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8865
+                            Width =8925
                             Height =4185
                             BorderColor =10921638
                             Name ="pgePrinterSettings"
@@ -1020,7 +1020,7 @@ Begin Form
                             GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
+                            LayoutCachedWidth =9540
                             LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
@@ -1748,7 +1748,7 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8865
+                            Width =8925
                             Height =4185
                             BorderColor =10921638
                             Name ="pgeTable"
@@ -1756,7 +1756,7 @@ Begin Form
                             GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
+                            LayoutCachedWidth =9540
                             LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
@@ -1768,24 +1768,24 @@ Begin Form
                                     RowSourceTypeInt =1
                                     OverlapFlags =247
                                     IMESentenceMode =3
-                                    ColumnCount =2
-                                    Left =900
+                                    ColumnCount =3
+                                    Left =735
                                     Top =2280
-                                    Width =5520
+                                    Width =6120
                                     Height =3240
                                     ForeColor =4210752
                                     BorderColor =10921638
                                     Name ="lstTables"
                                     RowSourceType ="Value List"
-                                    RowSource ="Table Name;Save Data;USysRegInfo;Tab Delimited"
-                                    ColumnWidths ="3960;1440"
+                                    RowSource =";Table Name;Save Data"
+                                    ColumnWidths ="341;4536"
                                     OnClick ="[Event Procedure]"
                                     GridlineColor =10921638
                                     AllowValueListEdits =0
 
-                                    LayoutCachedLeft =900
+                                    LayoutCachedLeft =735
                                     LayoutCachedTop =2280
-                                    LayoutCachedWidth =6420
+                                    LayoutCachedWidth =6855
                                     LayoutCachedHeight =5520
                                 End
                                 Begin CheckBox
@@ -1864,8 +1864,8 @@ Begin Form
                                     Locked = NotDefault
                                     OverlapFlags =247
                                     IMESentenceMode =3
-                                    Left =6720
-                                    Top =3720
+                                    Left =7020
+                                    Top =3705
                                     Width =2460
                                     Height =660
                                     TabIndex =3
@@ -1875,16 +1875,16 @@ Begin Form
                                     Name ="txtTableName"
                                     GridlineColor =10921638
 
-                                    LayoutCachedLeft =6720
-                                    LayoutCachedTop =3720
-                                    LayoutCachedWidth =9180
-                                    LayoutCachedHeight =4380
+                                    LayoutCachedLeft =7020
+                                    LayoutCachedTop =3705
+                                    LayoutCachedWidth =9480
+                                    LayoutCachedHeight =4365
                                     BackShade =95.0
                                     Begin
                                         Begin Label
                                             OverlapFlags =255
-                                            Left =6720
-                                            Top =3420
+                                            Left =7020
+                                            Top =3405
                                             Width =1500
                                             Height =300
                                             BorderColor =8355711
@@ -1892,10 +1892,10 @@ Begin Form
                                             Name ="Label79"
                                             Caption ="Selected Table:"
                                             GridlineColor =10921638
-                                            LayoutCachedLeft =6720
-                                            LayoutCachedTop =3420
-                                            LayoutCachedWidth =8220
-                                            LayoutCachedHeight =3720
+                                            LayoutCachedLeft =7020
+                                            LayoutCachedTop =3405
+                                            LayoutCachedWidth =8520
+                                            LayoutCachedHeight =3705
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -1906,8 +1906,8 @@ Begin Form
                                     OverlapFlags =247
                                     IMESentenceMode =3
                                     ListWidth =1695
-                                    Left =6720
-                                    Top =4920
+                                    Left =7020
+                                    Top =4905
                                     Width =2460
                                     Height =315
                                     TabIndex =4
@@ -1918,15 +1918,15 @@ Begin Form
                                     GridlineColor =10921638
                                     AllowValueListEdits =0
 
-                                    LayoutCachedLeft =6720
-                                    LayoutCachedTop =4920
-                                    LayoutCachedWidth =9180
-                                    LayoutCachedHeight =5235
+                                    LayoutCachedLeft =7020
+                                    LayoutCachedTop =4905
+                                    LayoutCachedWidth =9480
+                                    LayoutCachedHeight =5220
                                     Begin
                                         Begin Label
                                             OverlapFlags =255
-                                            Left =6720
-                                            Top =4620
+                                            Left =7020
+                                            Top =4605
                                             Width =1455
                                             Height =305
                                             BorderColor =8355711
@@ -1935,10 +1935,10 @@ Begin Form
                                             Caption ="Data to Export"
                                             EventProcPrefix ="Data_to_Export_Label"
                                             GridlineColor =10921638
-                                            LayoutCachedLeft =6720
-                                            LayoutCachedTop =4620
-                                            LayoutCachedWidth =8175
-                                            LayoutCachedHeight =4925
+                                            LayoutCachedLeft =7020
+                                            LayoutCachedTop =4605
+                                            LayoutCachedWidth =8475
+                                            LayoutCachedHeight =4910
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -1946,8 +1946,8 @@ Begin Form
                                 End
                                 Begin Label
                                     OverlapFlags =247
-                                    Left =6720
-                                    Top =2280
+                                    Left =7020
+                                    Top =2265
                                     Width =2520
                                     Height =840
                                     FontSize =10
@@ -1957,17 +1957,17 @@ Begin Form
                                     Caption ="You may optionally include data from specific tables as part of the export proce"
                                         "ss."
                                     GridlineColor =10921638
-                                    LayoutCachedLeft =6720
-                                    LayoutCachedTop =2280
-                                    LayoutCachedWidth =9240
-                                    LayoutCachedHeight =3120
+                                    LayoutCachedLeft =7020
+                                    LayoutCachedTop =2265
+                                    LayoutCachedWidth =9540
+                                    LayoutCachedHeight =3105
                                     ForeThemeColorIndex =-1
                                     ForeTint =100.0
                                 End
                                 Begin CommandButton
                                     OverlapFlags =247
-                                    Left =6720
-                                    Top =5340
+                                    Left =7020
+                                    Top =5325
                                     TabIndex =5
                                     ForeColor =4210752
                                     Name ="cmdUpdateTableData"
@@ -2015,10 +2015,10 @@ Begin Form
                                         0x0000000000000000
                                     End
 
-                                    LayoutCachedLeft =6720
-                                    LayoutCachedTop =5340
-                                    LayoutCachedWidth =8160
-                                    LayoutCachedHeight =5700
+                                    LayoutCachedLeft =7020
+                                    LayoutCachedTop =5325
+                                    LayoutCachedWidth =8460
+                                    LayoutCachedHeight =5685
                                     PictureCaptionArrangement =5
                                     BackColor =14262935
                                     BackThemeColorIndex =-1
@@ -2078,8 +2078,8 @@ Begin Form
                                 Begin Label
                                     FontUnderline = NotDefault
                                     OverlapFlags =247
-                                    Left =8460
-                                    Top =3420
+                                    Left =8760
+                                    Top =3405
                                     Width =720
                                     Height =240
                                     FontSize =10
@@ -2091,10 +2091,10 @@ Begin Form
                                     OnClick ="[Event Procedure]"
                                     HyperlinkAddress ="#"
                                     GridlineColor =10921638
-                                    LayoutCachedLeft =8460
-                                    LayoutCachedTop =3420
-                                    LayoutCachedWidth =9180
-                                    LayoutCachedHeight =3660
+                                    LayoutCachedLeft =8760
+                                    LayoutCachedTop =3405
+                                    LayoutCachedWidth =9480
+                                    LayoutCachedHeight =3645
                                     BackThemeColorIndex =-1
                                     BorderThemeColorIndex =-1
                                     BorderTint =100.0
@@ -2107,7 +2107,7 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8865
+                            Width =8925
                             Height =4185
                             BorderColor =10921638
                             Name ="pgeBuild"
@@ -2115,7 +2115,7 @@ Begin Form
                             GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
+                            LayoutCachedWidth =9540
                             LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
@@ -2240,7 +2240,7 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8865
+                            Width =8925
                             Height =4185
                             BorderColor =10921638
                             Name ="pgeEncrypt"
@@ -2248,7 +2248,7 @@ Begin Form
                             GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
+                            LayoutCachedWidth =9540
                             LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
@@ -2514,7 +2514,7 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8865
+                            Width =8925
                             Height =4185
                             BorderColor =10921638
                             Name ="pgeSettings"
@@ -2522,7 +2522,7 @@ Begin Form
                             GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
+                            LayoutCachedWidth =9540
                             LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
@@ -3188,6 +3188,7 @@ Private Enum eTableCol
     etcHidden = 2
     etcSystem = 3
     etcOther = 4
+    etcLocal = 5
 End Enum
 
 Private Enum eMapAction
@@ -3284,6 +3285,7 @@ Private Sub LoadTableList()
     Dim tbl As AccessObject
     Dim blnHidden As Boolean
     Dim blnSystem As Boolean
+    Dim blnLocal As Boolean
     Dim blnOther As Boolean
     Dim varKey As Variant
     Dim intFormat As eTableDataExportFormat
@@ -3299,9 +3301,15 @@ Private Sub LoadTableList()
             ' Read table attributes
             blnHidden = Application.GetHiddenAttribute(acTable, tbl.Name)
             blnSystem = (tbl.Attributes And dbSystemObject)
+            blnLocal = isLocalTable(tbl)
             blnOther = False    ' Other represents tables not in this database.
             ' Add array record to represent table.
-            m_colTables.Add Array(tbl.Name, vbNullString, blnHidden, blnSystem, blnOther)
+            m_colTables.Add Array(tbl.Name, vbNullString, blnHidden, blnSystem, blnOther, blnLocal)
+            
+            If blnLocal Then
+                Debug.Print tbl.Name, tbl.Attributes
+            End If
+            
         Next tbl
     End If
     
@@ -3312,12 +3320,28 @@ Private Sub LoadTableList()
             strFormat = CStr(Options.TablesToExportData.Item(varKey)("Format"))
             intFormat = Options.GetTableExportFormat(strFormat)
             strName = CStr(varKey)
-            AddUpdateTableInList strName, strFormat, False, False, True
+            AddUpdateTableInList strName, strFormat, False, False, True, False
         Next varKey
     End If
     
 End Sub
 
+'---------------------------------------------------------------------------------------
+' Procedure : isLocalTable
+' Author    : Adam Waller & Indigo744
+' Date      : 11/11/2020
+' Purpose   : Check wether a table is a local table (= not a linked table)
+'---------------------------------------------------------------------------------------
+'
+Private Function isLocalTable(ByRef tbl As AccessObject)
+    If tbl.Attributes And dbAttachedODBC Then
+        isLocalTable = False
+    ElseIf tbl.Attributes And dbAttachedTable Then
+        isLocalTable = False
+    Else
+        isLocalTable = True
+    End If
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : AddUpdateTableInList
@@ -3326,7 +3350,7 @@ End Sub
 ' Purpose   : Updates the a table in the collection, adding it if it does not exist.
 '---------------------------------------------------------------------------------------
 '
-Private Sub AddUpdateTableInList(strName As String, strFormat As String, blnHidden As Boolean, blnSystem As Boolean, blnOther As Boolean)
+Private Sub AddUpdateTableInList(strName As String, strFormat As String, blnHidden As Boolean, blnSystem As Boolean, blnOther As Boolean, blnLocal As Boolean)
 
     Dim intIndex As Integer
     Dim varTable As Variant
@@ -3343,14 +3367,14 @@ Private Sub AddUpdateTableInList(strName As String, strFormat As String, blnHidd
             ' Check alphabetical position.
             If (varTable(etcName) > strName) Then
                 ' Our saved table should be inserted before this record.
-                m_colTables.Add Array(strName, strFormat, blnHidden, blnSystem, blnOther), strName, intIndex
+                m_colTables.Add Array(strName, strFormat, blnHidden, blnSystem, blnOther, blnLocal), strName, intIndex
                 Exit Sub
             End If
         End If
     Next intIndex
     
     ' The table might need to be added to the very end of the list.
-    m_colTables.Add Array(strName, strFormat, blnHidden, blnSystem, blnOther), strName
+    m_colTables.Add Array(strName, strFormat, blnHidden, blnSystem, blnOther, blnLocal), strName
 
 End Sub
 
@@ -3374,7 +3398,7 @@ Private Sub SetTableExportType(strTable As String, strFormat As String)
         If varTable(etcName) = strTable Then
             ' Create new record
             strType = Replace(strFormat, "No Data", vbNullString)
-            varNew = Array(strTable, strType, varTable(etcHidden), varTable(etcSystem), varTable(etcOther))
+            varNew = Array(strTable, strType, varTable(etcHidden), varTable(etcSystem), varTable(etcOther), varTable(etcLocal))
             ' Replace with new record
             m_colTables.Remove intIndex
             If intIndex = 1 Then
@@ -3406,27 +3430,79 @@ Private Sub RefreshTableDisplay()
 
         ' Add header row
         .RowSource = vbNullString
-        .AddItem "Table Name;Save Data"
+        .AddItem ";Table Name;Save Data"
         
         ' Get list of tables
         If Not m_colTables Is Nothing Then
+            
+            If Me.chkTableShowOther Then
+                ' Display Other tables first (if requested)
+                ' Note: hidden attribute not taken into account here
+                For Each varTable In m_colTables
+                    If varTable(etcOther) Then .AddItem GetTableIcon(varTable) & ";" & varTable(etcName) & ";" & varTable(etcType)
+                Next varTable
+            End If
+            
+            If Me.chkTableShowSystem Then
+                ' Then display System tables (if requested)
+                ' Note: hidden attribute not taken into account here
+                For Each varTable In m_colTables
+                    If varTable(etcSystem) Then .AddItem GetTableIcon(varTable) & ";" & varTable(etcName) & ";" & varTable(etcType)
+                Next varTable
+            End If
+            
+            ' Then display Local tables
             For Each varTable In m_colTables
-                ' Show all, unless hidden by options
-                blnShow = Not (varTable(etcHidden) Or varTable(etcSystem))
-                ' Evaluate hidden attribute
-                If Me.chkTableShowHidden And varTable(etcHidden) Then blnShow = True
-                ' Check system attribute
-                If Me.chkTableShowSystem And varTable(etcSystem) Then blnShow = True
-                ' Check for other tables
-                If Me.chkTableShowOther And varTable(etcOther) Then blnShow = True
-                ' Add to list
-                If blnShow Then .AddItem varTable(etcName) & ";" & varTable(etcType)
+                If varTable(etcLocal) And Not varTable(etcSystem) And Not varTable(etcOther) And _
+                    (Not varTable(etcHidden) Or Me.chkTableShowHidden) _
+                Then
+                    .AddItem GetTableIcon(varTable) & ";" & varTable(etcName) & ";" & varTable(etcType)
+                End If
+            Next varTable
+            
+            ' Then display remaining tables not Other, System or Local
+            For Each varTable In m_colTables
+                If Not varTable(etcSystem) And Not varTable(etcLocal) And Not varTable(etcOther) And _
+                    (Not varTable(etcHidden) Or Me.chkTableShowHidden) _
+                Then
+                    .AddItem GetTableIcon(varTable) & ";" & varTable(etcName) & ";" & varTable(etcType)
+                End If
             Next varTable
         End If
     End With
     
 End Sub
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetTableIcon
+' Author    : Adam Waller & Indigo744
+' Date      : 11/11/2020
+' Purpose   : Get an icon depending on the type of table
+'---------------------------------------------------------------------------------------
+'
+Private Function GetTableIcon(ByRef varTable As Variant)
+    If varTable(etcSystem) Then
+        ' System tables
+        ' Uses symbol DOTTED SQUARE
+        ' http://www.fileformat.info/info/unicode/char/2b1a/index.htm
+        GetTableIcon = ChrW(11034)
+    ElseIf varTable(etcLocal) Then
+        ' Local tables
+        ' Uses symbol SQUARED PLUS
+        ' http://www.fileformat.info/info/unicode/char/229e/index.htm
+        GetTableIcon = ChrW(8862)
+    ElseIf varTable(etcOther) Then
+        ' "Other" tables
+        ' Uses symbol RIGHTWARDS ARROW WITH HOOK
+        ' http://www.fileformat.info/info/unicode/char/21aa/index.htm
+        GetTableIcon = ChrW(8618)
+    Else
+        ' Everything else are linked table
+        ' Uses symbol EARTH GLOBE AMERICAS
+        ' https://www.fileformat.info/info/unicode/char/1f30e/index.htm
+        GetTableIcon = ChrW(55356) & ChrW(57102)
+    End If
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdRestoreDefaults_Click
@@ -3557,7 +3633,7 @@ End Sub
 '
 Private Sub cmdUpdateTableData_Click()
     If Nz(lstTables, 0) > 0 Then
-        SetTableExportType lstTables, Nz(cboTableDataSaveType)
+        SetTableExportType lstTables.Column(1), Nz(cboTableDataSaveType)
         RefreshTableDisplay
     End If
 End Sub
@@ -3681,7 +3757,7 @@ Private Sub lblAddOtherTable_Click()
         strTable = InputBox("Enter the name of a table that doesn't exist in this database, " & _
             "but from which you would like to export data if it is found.", "Enter Table Name")
         If strTable <> vbNullString Then
-            AddUpdateTableInList strTable, Nz(cboTableDataSaveType), False, False, True
+            AddUpdateTableInList strTable, Nz(cboTableDataSaveType), False, False, True, False
             chkTableShowOther = True
             RefreshTableDisplay
         End If
@@ -3712,14 +3788,17 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub lstTables_Click()
+    Dim tbleName As String
+    
     With lstTables
-        If Nz(.Value) = vbNullString Then
+        tbleName = Nz(.Column(1, .ListIndex + 1))
+        If tbleName = vbNullString Then
             cboTableDataSaveType = vbNullString
         Else
-            cboTableDataSaveType = .Column(1, .ListIndex + 1)
+            cboTableDataSaveType = .Column(2, .ListIndex + 1)
         End If
         If Nz(cboTableDataSaveType) = vbNullString Then cboTableDataSaveType = "No Data"
-        txtTableName = Nz(.Value)
+        txtTableName = tbleName
     End With
 End Sub
 
