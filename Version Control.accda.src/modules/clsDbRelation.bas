@@ -107,8 +107,8 @@ Private Sub IDbComponent_Import(strFile As String)
         For Each dField In dItem("Fields")
             Set fld = rel.CreateField(dField("Name"))
             fld.ForeignName = dField("ForeignName")
+            rel.Fields.Append fld
         Next dField
-        rel.Fields.Append fld
         
         ' Relationships create indexes, so we need to make sure an index
         ' with this name doesn't already exist. (Also check to be sure that
