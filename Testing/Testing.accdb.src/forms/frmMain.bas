@@ -13,18 +13,14 @@ Begin Form
     Width =8520
     DatasheetFontHeight =11
     ItemSuffix =13
-    Right =15975
-    Bottom =11745
+    Right =25575
+    Bottom =12375
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x18691eff0b76e540
     End
     Caption ="Main Form"
     DatasheetFontName ="Calibri"
-    PrtMip = Begin
-        0x6801000068010000680100006801000000000000201c0000e010000001000000 ,
-        0x010000006801000000000000a10700000100000001000000
-    End
     OnLoad ="[Event Procedure]"
     FilterOnLoad =0
     ShowPageMargins =0
@@ -403,6 +399,12 @@ Public Sub cmdRunTests_Click()
     ' Ignore any errors.
     ' NOTE: don't include the test result on a line that may throw an error.
     On Error Resume Next
+    
+    ' Update linked tables/CSV to use the current directory
+    dbs.TableDefs("tblLinkedAccess").Connect = ";DATABASE=" & Application.CurrentProject.Path & "\Testing.accdb"
+    dbs.TableDefs("tblLinkedAccess").RefreshLink
+    dbs.TableDefs("tblLinkedCSV").Connect = "Text;DSN=Linked Link Specification;FMT=Delimited;HDR=NO;IMEX=2;CharacterSet=437;ACCDB=YES;DATABASE=" & Application.CurrentProject.Path
+    dbs.TableDefs("tblLinkedCSV").RefreshLink
     
     '========================
     '   BEGIN TESTS
