@@ -171,6 +171,12 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
+    If FSO.FileExists(IDbComponent_SourceFile) Then
+        If IDbComponent_GetAllFromDB.Count = 0 Then
+            ' Remove existing file, since we don't have any hidden objects.
+            DeleteFile IDbComponent_SourceFile
+        End If
+    End If
 End Sub
 
 
