@@ -363,6 +363,7 @@ Private Function GetAllContainers() As Collection
             .Add New clsDbRelation
             .Add New clsDbDocument
             .Add New clsDbNavPaneGroup
+            .Add New clsDbHiddenAttribute
         End If
     End With
     
