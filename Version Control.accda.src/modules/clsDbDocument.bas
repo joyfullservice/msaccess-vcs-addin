@@ -16,6 +16,9 @@ Private m_AllItems As Collection
 Public m_dItems As Dictionary
 Private m_Count As Long
 
+' Special key used to hold hidden attribute info
+Private Const HIDDEN_ATTRIBUTES_KEY = "_HiddenAttributes"
+
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
 ' and import process. The implemented functions should be kept private as they are called
@@ -52,6 +55,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim varCont As Variant
     Dim varDoc As Variant
     Dim varProp As Variant
+    Dim objType As AcObjectType
 
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
@@ -59,15 +63,30 @@ Private Sub IDbComponent_Import(strFile As String)
         Set dbs = CurrentDb
         Set dItems = dFile("Items")
         For Each varCont In dItems.Keys
-            Set dCont = dItems(varCont)
-            For Each varDoc In dCont.Keys
-                Set dDoc = dCont(varDoc)
-                For Each varProp In dDoc.Keys
-                    ' Attempt to add or update the property value on the object.
-                    SetDAOProperty dbs.Containers(varCont).Documents(varDoc), dbText, CStr(varProp), dDoc(varProp)
-                Next varProp
-            Next varDoc
+            If varCont <> HIDDEN_ATTRIBUTES_KEY Then
+                Set dCont = dItems(varCont)
+                For Each varDoc In dCont.Keys
+                    Set dDoc = dCont(varDoc)
+                    For Each varProp In dDoc.Keys
+                        ' Attempt to add or update the property value on the object.
+                        SetDAOProperty dbs.Containers(varCont).Documents(varDoc), dbText, CStr(varProp), dDoc(varProp)
+                    Next varProp
+                Next varDoc
+            End If
         Next varCont
+        
+        ' Hidden attribute handling
+        If dItems.Exists(HIDDEN_ATTRIBUTES_KEY) Then
+            For Each varCont In dItems(HIDDEN_ATTRIBUTES_KEY).Keys
+                objType = GetObjectTypeFromContainer(dbs.Containers(varCont))
+                If objType <> acDefault Then
+                    Set dCont = dItems(HIDDEN_ATTRIBUTES_KEY)(varCont)
+                    For Each varDoc In dCont.Keys
+                        Application.SetHiddenAttribute objType, varDoc, dCont(varDoc)
+                    Next varDoc
+                End If
+            Next varCont
+        End If
     End If
 
 End Sub
@@ -123,20 +142,25 @@ Private Function IDbComponent_GetAllFromDB() As Collection
     
     Dim prp As DAO.Property
     Dim cDoc As IDbComponent
+    Dim dItemsHidden As Dictionary
     Dim dCont As Dictionary
+    Dim dContHidden As Dictionary
     Dim dDoc As Dictionary
     Dim cont As DAO.Container
     Dim dbs As Database
     Dim doc As DAO.Document
     Dim blnSave As Boolean
+    Dim contType As AcObjectType
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
 
         Set m_AllItems = New Collection
         Set m_dItems = New Dictionary
+        Set dItemsHidden = New Dictionary
         Set dbs = CurrentDb
         m_Count = 0
+        
         
         ' Loop through all the containers, documents, and properties.
         ' Note, we don't want to collect everything here. We are taking
@@ -144,8 +168,12 @@ Private Function IDbComponent_GetAllFromDB() As Collection
         ' write back to the database when importing.
         For Each cont In dbs.Containers
             Set dCont = New Dictionary
+            Set dContHidden = New Dictionary
+            contType = GetObjectTypeFromContainer(cont)
+
             For Each doc In cont.Documents
                 Set dDoc = New Dictionary
+
                 For Each prp In doc.Properties
                     blnSave = False
                     If cont.Name = "Databases" And doc.Name = "SummaryInfo" Then
@@ -172,9 +200,21 @@ Private Function IDbComponent_GetAllFromDB() As Collection
                     End If
                 Next prp
                 If dDoc.Count > 0 Then dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
+                
+                ' Handle hidden attribute if type is known (and not a System/Temp table)
+                ' This is not a regular property so we have to perform a specific check
+                If contType <> acDefault And Not doc.Name Like "MSys*" And Not doc.Name Like "~*" Then
+                    If Application.GetHiddenAttribute(contType, doc.Name) Then
+                        dContHidden.Add doc.Name, True
+                    End If
+                End If
+                
             Next doc
             If dCont.Count > 0 Then m_dItems.Add cont.Name, SortDictionaryByKeys(dCont)
+            If dContHidden.Count > 0 Then dItemsHidden.Add cont.Name, SortDictionaryByKeys(dContHidden)
         Next cont
+        If dItemsHidden.Count > 0 Then m_dItems.Add HIDDEN_ATTRIBUTES_KEY, SortDictionaryByKeys(dItemsHidden)
+        
     End If
 
     ' Return cached collection
@@ -182,6 +222,32 @@ Private Function IDbComponent_GetAllFromDB() As Collection
         
 End Function
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetObjectTypeFromContainer
+' Author    : Adam Waller / Indigo744
+' Date      : 11/14/2020
+' Purpose   : Get an object type from a DAO container
+'---------------------------------------------------------------------------------------
+'
+Private Function GetObjectTypeFromContainer(ByRef cont As DAO.Container) As AcObjectType
+    Select Case cont.Name
+        Case "Tables"
+            GetObjectTypeFromContainer = acTable
+        Case "Forms"
+            GetObjectTypeFromContainer = acForm
+        Case "Scripts"
+            GetObjectTypeFromContainer = acMacro
+        Case "Queries"
+            GetObjectTypeFromContainer = acQuery
+        Case "Reports"
+            GetObjectTypeFromContainer = acReport
+        Case "Modules"
+            GetObjectTypeFromContainer = acModule
+        Case Else
+            ' Unknown
+            GetObjectTypeFromContainer = acDefault
+    End Select
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetFileList
