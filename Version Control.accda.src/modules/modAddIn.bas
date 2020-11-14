@@ -214,7 +214,7 @@ Public Function ExampleLoadAddInAndRunExport()
         ' Launch export for current database.
         ' (It is very important to use RunExportForCurrentDB when calling from the database from
         '  which you want to export source.)
-        Application.Run "RunExportForCurrentDB"
+        Application.Run "MSAccessVCS.RunExportForCurrentDB"
     End If
     
 End Function
