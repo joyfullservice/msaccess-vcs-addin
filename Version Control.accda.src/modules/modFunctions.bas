@@ -1910,6 +1910,43 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SortCollection
+' Author    : Adam Waller
+' Date      : 11/14/2020
+' Purpose   : Sort a collection of items by value. (Returns a new sorted collection)
+'---------------------------------------------------------------------------------------
+'
+Public Function SortCollectionByValue(colSource As Collection) As Collection
+
+    Dim colSorted As Collection
+    Dim varItem As Variant
+    Dim varItems() As Variant
+    Dim lngCnt As Long
+    
+    ' Don't need to sort empty collection or single item
+    If colSource.Count < 2 Then
+        Set SortCollectionByValue = colSource
+        Exit Function
+    End If
+    
+    ' Build and sort array of keys
+    ReDim varItems(0 To colSource.Count - 1)
+    For lngCnt = 0 To UBound(varItems)
+        varItems(lngCnt) = colSource(lngCnt)
+    Next lngCnt
+    QuickSort varItems
+    
+    ' Build and return new collection using sorted values
+    Set colSorted = New Collection
+    For lngCnt = 0 To UBound(varItems)
+        colSorted.Add varItems(lngCnt)
+    Next lngCnt
+    Set SortCollectionByValue = colSorted
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SortDictionaryByKeys
 ' Author    : Adam Waller
 ' Date      : 5/8/2020

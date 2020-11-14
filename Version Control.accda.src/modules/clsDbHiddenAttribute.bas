@@ -46,7 +46,6 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim dFile As Dictionary
     Dim dItems As Dictionary
-    Dim dCont As Dictionary
     Dim dbs As Database
     Dim varCont As Variant
     Dim varDoc As Variant
@@ -59,9 +58,9 @@ Private Sub IDbComponent_Import(strFile As String)
         For Each varCont In dItems.Keys
             objType = GetObjectTypeFromContainer(dbs.Containers(varCont))
             If objType <> acDefault Then
-                Set dCont = dItems(varCont)
-                For Each varDoc In dCont.Keys
-                    Application.SetHiddenAttribute objType, varDoc, dCont(varDoc)
+                For Each varDoc In dItems(varCont)
+                    ' Set object to hidden
+                    Application.SetHiddenAttribute objType, varDoc, True
                 Next varDoc
             End If
         Next varCont
@@ -79,13 +78,13 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB() As Collection
     
-    Dim prp As DAO.Property
     Dim cDoc As IDbComponent
     Dim dCont As Dictionary
     Dim cont As DAO.Container
     Dim doc As DAO.Document
     Dim dbs As Database
     Dim contType As AcObjectType
+    Dim colItems As Collection
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
@@ -99,19 +98,23 @@ Private Function IDbComponent_GetAllFromDB() As Collection
         For Each cont In dbs.Containers
             Set dCont = New Dictionary
             Set dCont = New Dictionary
+            Set colItems = New Collection
             contType = GetObjectTypeFromContainer(cont)
-
             For Each doc In cont.Documents
-                If contType <> acDefault And Not doc.Name Like "MSys*" And Not doc.Name Like "~*" Then
+                If contType <> acDefault _
+                    And Not (contType = acTable _
+                    And (doc.Name Like "MSys*" Or doc.Name Like "~*")) Then
+                    ' Check Hidden Attribute property (only exposed here)
                     If Application.GetHiddenAttribute(contType, doc.Name) Then
-                        dCont.Add doc.Name, True
-                        
+                        ' Add to collection of hidden item item names of this type.
+                        colItems.Add doc.Name
+                        ' Add to collection of all items
                         Set cDoc = Me
                         m_AllItems.Add cDoc
                     End If
                 End If
             Next doc
-            If dCont.Count > 0 Then m_dItems.Add cont.Name, SortDictionaryByKeys(dCont)
+            If colItems.Count > 0 Then m_dItems.Add cont.Name, SortCollectionByValue(colItems)
         Next cont
         
     End If
