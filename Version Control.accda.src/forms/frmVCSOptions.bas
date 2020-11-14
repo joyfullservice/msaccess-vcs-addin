@@ -3301,7 +3301,7 @@ Private Sub LoadTableList()
             ' Read table attributes
             blnHidden = Application.GetHiddenAttribute(acTable, tbl.Name)
             blnSystem = (tbl.Attributes And dbSystemObject)
-            blnLocal = isLocalTable(tbl)
+            blnLocal = isLocalTable(tbl.Name)
             blnOther = False    ' Other represents tables not in this database.
             ' Add array record to represent table.
             AddUpdateTableInList tbl.Name, vbNullString, blnHidden, blnSystem, blnOther, blnLocal
@@ -3329,14 +3329,10 @@ End Sub
 ' Purpose   : Check wether a table is a local table (= not a linked table)
 '---------------------------------------------------------------------------------------
 '
-Private Function isLocalTable(ByRef tbl As AccessObject)
-    If tbl.Attributes And dbAttachedODBC Then
-        isLocalTable = False
-    ElseIf tbl.Attributes And dbAttachedTable Then
-        isLocalTable = False
-    Else
-        isLocalTable = True
-    End If
+Private Function isLocalTable(ByVal tblName As String)
+On Error Resume Next
+    isLocalTable = False
+    isLocalTable = Len(CurrentDb.TableDefs(tblName).Connect) = 0
 End Function
 
 
