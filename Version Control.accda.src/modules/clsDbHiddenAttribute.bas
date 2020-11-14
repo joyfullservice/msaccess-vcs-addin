@@ -22,6 +22,7 @@ Private m_Count As Long
 ' from the implementing class, not this class.
 Implements IDbComponent
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : Export
 ' Author    : Adam Waller / Indigo744
@@ -120,6 +121,7 @@ Private Function IDbComponent_GetAllFromDB() As Collection
         
 End Function
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : GetObjectTypeFromContainer
 ' Author    : Adam Waller / Indigo744
@@ -146,6 +148,7 @@ Private Function GetObjectTypeFromContainer(ByRef cont As DAO.Container) As AcOb
             GetObjectTypeFromContainer = acDefault
     End Select
 End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetFileList
@@ -268,7 +271,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
-    IDbComponent_ComponentType = edbDocument
+    IDbComponent_ComponentType = edbHiddenAttribute
 End Property
 
 

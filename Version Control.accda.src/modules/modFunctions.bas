@@ -51,6 +51,7 @@ Public Enum eDatabaseComponentType
     edbFileProperty
     edbSharedImage
     edbDocument
+    edbHiddenAttribute
     edbSavedSpec
     edbImexSpec
     edbNavPaneGroup
