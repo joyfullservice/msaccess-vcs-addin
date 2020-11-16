@@ -167,7 +167,7 @@ End Sub
 Public Sub Build(strSourceFolder As String)
 
     Dim strPath As String
-    Dim strText As String
+    Dim strBackup As String
     Dim cCategory As IDbComponent
     Dim sngStart As Single
     Dim colFiles As Collection
@@ -233,10 +233,10 @@ Public Sub Build(strSourceFolder As String)
     End With
     
     ' Rename original file as a backup
-    strText = GetBackupFileName(strPath)
-    If FSO.FileExists(strPath) Then Name strPath As strText
+    strBackup = GetBackupFileName(strPath)
+    If FSO.FileExists(strPath) Then Name strPath As strBackup
     Log.Add "Saving backup of original database..."
-    Log.Add "Saved as " & FSO.GetFileName(strText) & "."
+    Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
     
     ' Create a new database with the original name
     If LCase$(FSO.GetExtensionName(strPath)) = "adp" Then
@@ -309,8 +309,12 @@ Public Sub Build(strSourceFolder As String)
         ' Finish up on GUI
         Form_frmVCSMain.FinishBuild
     Else
+        ' Allow navigation pane to refresh list of objects.
+        DoEvents
         ' Show message box when build is complete.
-        MsgBox2 "Build Complete", "Some settings will not take effect until the database is restarted.", , vbInformation
+        MsgBox2 "Build Complete for '" & CurrentProject.Name & "'", _
+            "Note that some settings may not take effect until this database is reopened.", _
+            "A backup of the previous build was saved as '" & FSO.GetFileName(strBackup) & "'.", vbInformation
     End If
     
 End Sub
