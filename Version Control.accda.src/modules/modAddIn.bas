@@ -146,15 +146,36 @@ End Function
 '
 Public Function RunExportForCurrentDB()
 
+    Dim projAddIn As VBProject
+    
     ' Make sure the add-in is loaded.
     If Not AddinLoaded Then LoadVCSAddIn
 
-    ' Set add-in project to active, just in case we are working
-    ' on another development copy of the add-in.
-    Set VBE.ActiveVBProject = GetAddInProject
-
-    ' Call export function with an API callback.
-    Run "LaunchExportAfterTimer"
+    ' When exporting code from the add-in project itself, it gets a little
+    ' tricky because both the add-in and the currentdb have the same VBProject name.
+    ' This means we can't just call `Run "MSAccessVCS.*" because it will run in
+    ' the local project instead of the add-in. To pull this off, we will temporarily
+    ' change the project name of the add-in so we can call it as distinct from the
+    ' current project.
+    Set projAddIn = GetAddInProject
+    If CurrentProject.FullName = CodeProject.FullName Then
+        ' When this is run from the CurrentDB, we should rename the add-in project,
+        ' then call it again using the renamed project to ensure we are running it
+        ' from the add-in.
+        projAddIn.Name = "MSAccessVCS-Lib"
+        Run "MSAccessVCS-Lib.RunExportForCurrentDB"
+    Else
+        ' Reset project name if needed
+        With projAddIn
+            ' Technically, changes in the add-in will not be saved anyway, so this
+            ' may not be needed, but just in case we refer to this project by name
+            ' anywhere else in the code, we will restore the original name before
+            ' moving on to the actual export.
+            If .Name = "MSAccessVCS-Lib" Then .Name = "MSAccessVCS"
+        End With
+        ' Call export function with an API callback.
+        modTimer.LaunchExportAfterTimer
+    End If
 
 End Function
 
@@ -208,13 +229,8 @@ Public Function ExampleLoadAddInAndRunExport()
         MsgBox "Unable to load Version Control add-in. Please ensure that it has been installed" & vbCrLf & _
             "and is functioning correctly. (It should be available in the Add-ins menu.)", vbExclamation
     Else
-        ' Set the active VB project so we can call the export function.
-        Set VBE.ActiveVBProject = objAddIn
-        
-        ' Launch export for current database.
-        ' (It is very important to use RunExportForCurrentDB when calling from the database from
-        '  which you want to export source.)
-        Application.Run "MSAccessVCS.RunExportForCurrentDB"
+        ' Launch add-in export for current database.
+        Application.Run "MSAccessVCS.ExportSource"
     End If
     
 End Function

@@ -20,8 +20,13 @@ Public Sub ExportSource()
     ' Can't export without an open database
     If CurrentDb Is Nothing And CurrentProject.Connection Is Nothing Then Exit Sub
     
-    ' Close any open forms or reports unless we are running from the add-in file.
-    If CurrentProject.FullName <> CodeProject.FullName Then
+    ' If we are running this from the current database, we need to run it a different
+    ' way to prevent file corruption issues.
+    If CurrentProject.FullName = CodeProject.FullName Then
+        RunExportForCurrentDB
+        Exit Sub
+    Else
+        ' Close any open forms or reports.
         If Not CloseAllFormsReports Then
             MsgBox2 "Please close forms and reports", _
                 "All forms and reports must be closed to export source code.", _
