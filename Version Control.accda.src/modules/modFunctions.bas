@@ -1932,7 +1932,7 @@ Public Function SortCollectionByValue(colSource As Collection) As Collection
     ' Build and sort array of keys
     ReDim varItems(0 To colSource.Count - 1)
     For lngCnt = 0 To UBound(varItems)
-        varItems(lngCnt) = colSource(lngCnt)
+        varItems(lngCnt) = colSource(lngCnt + 1)
     Next lngCnt
     QuickSort varItems
     
