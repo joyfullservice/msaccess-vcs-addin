@@ -60,13 +60,40 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Merge
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Merge the source file into the existing database, updating or replacing
+'           : any existing object.
+'---------------------------------------------------------------------------------------
+'
+Public Sub Merge(strFile As String)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Return a collection of class objects represented by this component type.
+'           : If blnModifiedOnly is set to True, then only objects that have been
+'           : modified will be returned.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetAllFromDB() As Collection
+Public Function GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsModified
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Returns true if the object in the database has been modified since
+'           : the last export of the object.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsModified() As Boolean
+
 End Function
 
 
