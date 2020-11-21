@@ -144,6 +144,13 @@ Private Sub AddFromGuid(proj As VBIDE.VBProject, strGuid As String, lngMajor As 
                 Case "16.0": proj.References.AddFromGuid strGuid, 2, 8  ' Access 2016, 2019, 365
                 Case Else:   proj.References.AddFromGuid strGuid, lngMajor, lngMinor
             End Select
+        Case "{00020813-0000-0000-C000-000000000046}"   ' Excel
+            Select Case Application.Version
+                Case "14.0": proj.References.AddFromGuid strGuid, 1, 7  ' Excel 2010
+                Case "15.0": proj.References.AddFromGuid strGuid, 1, 8  ' Excel 2013
+                Case "16.0": proj.References.AddFromGuid strGuid, 1, 9  ' Excel 2016, (2019, 365)?
+                Case Else:   proj.References.AddFromGuid strGuid, lngMajor, lngMinor
+            End Select
         Case Else
             ' Use specified GUID
             proj.References.AddFromGuid strGuid, lngMajor, lngMinor
