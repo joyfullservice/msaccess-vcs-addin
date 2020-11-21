@@ -339,6 +339,19 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Merge
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Merge the source file into the existing database, updating or replacing
+'           : any existing object.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Merge(strFile As String)
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ImportLinkedTable
 ' Author    : Adam Waller
 ' Date      : 5/6/2020
@@ -454,7 +467,7 @@ End Function
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB() As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
     
     Dim tdf As TableDef
     Dim cTable As IDbComponent
@@ -504,6 +517,19 @@ Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearFilesByExtension IDbComponent_BaseFolder, "LNKD"
     ClearOrphanedSourceFiles Me, "LNKD", "bas", "sql", "xml", "tdf", "json"
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsModified
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Returns true if the object in the database has been modified since
+'           : the last export of the object.
+'---------------------------------------------------------------------------------------
+'
+Public Function IDbComponent_IsModified() As Boolean
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
