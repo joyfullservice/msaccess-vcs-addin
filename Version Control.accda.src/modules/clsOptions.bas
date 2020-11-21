@@ -29,6 +29,8 @@ Public TablesToExportData As Dictionary
 Public RunBeforeExport As String
 Public RunAfterExport As String
 Public RunAfterBuild As String
+Public RunBeforeMerge As String
+Public RunAfterMerge As String
 Public Security As eSecurity
 Public KeyName As String
 
@@ -461,6 +463,8 @@ Private Sub Class_Initialize()
         .Add "RunBeforeExport"
         .Add "RunAfterExport"
         .Add "RunAfterBuild"
+        .Add "RunBeforeMerge"
+        .Add "RunAfterMerge"
         .Add "Security"
         .Add "KeyName"
     End With
