@@ -107,7 +107,7 @@ Private Sub IDbComponent_Import(strFile As String)
             If Not dExisting.Exists(CStr(varKey)) Then
                 If dRef.Exists("GUID") Then
                     varVersion = Split(dRef("Version"), ".")
-                    AddFromGuid proj, dRef("GUID"), CLng(varVersion(0)), CLng(varVersion(1))
+                    AddFromGuid proj, CStr(varKey), dRef("GUID"), CLng(varVersion(0)), CLng(varVersion(1))
                 ElseIf dRef.Exists("FullPath") Then
                     strPath = GetPathFromRelative(Decrypt(dRef("FullPath")))
                     If FSO.FileExists(strPath) Then
@@ -134,8 +134,11 @@ End Sub
 '           : https://kb.palisade.com/index.php?pg=kb.page&id=528
 '---------------------------------------------------------------------------------------
 '
-Private Sub AddFromGuid(proj As VBIDE.VBProject, strGuid As String, lngMajor As Long, lngMinor As Long)
+Private Sub AddFromGuid(proj As VBIDE.VBProject, strName As String, strGuid As String, lngMajor As Long, lngMinor As Long)
 
+    ' We might encounter a reference that is not available
+    On Error GoTo ErrHandler
+    
     Select Case strGuid
         Case "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}"   ' Office
             Select Case Application.Version
@@ -155,6 +158,34 @@ Private Sub AddFromGuid(proj As VBIDE.VBProject, strGuid As String, lngMajor As 
             ' Use specified GUID
             proj.References.AddFromGuid strGuid, lngMajor, lngMinor
     End Select
+    
+    ' Normal exit
+    On Error GoTo 0
+    Exit Sub
+
+ErrHandler:
+
+    ' Log error
+    Log.Add "ERROR: Could not add VBE reference to " & strName
+    
+    If Err.Number = -2147319779 Then
+        ' Object library not registered
+        Log.Add "Encountered error " & Err.Number & ": '" & Err.Description & _
+            "' while attempting to add GUID " & strGuid & " version " & lngMajor & "." & lngMinor & _
+            " to this project. This may occur when the library does not exist on the build machine," & _
+            " or when the version on the build machine is lower than the source file reference version." & _
+            " See GitHub issue #96 for an example of how to resolve this problem.", Options.ShowDebug
+        
+    Else
+        ' Other error
+        Log.Add "Encountered error " & Err.Number & ": '" & Err.Description & _
+            "' while attempting to add GUID " & strGuid & " version " & lngMajor & "." & lngMinor & _
+            " to this project.", Options.ShowDebug
+    End If
+    
+    ' Resume on next line
+    Err.Clear
+    Resume Next
 
 End Sub
 
