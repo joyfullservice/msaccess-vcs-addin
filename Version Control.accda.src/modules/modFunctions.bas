@@ -68,6 +68,7 @@ Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPt
 Private m_Perf As clsPerformance
 Private m_Log As clsLog
 Private m_Options As clsOptions
+Private m_Git As clsGitSync
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -1592,6 +1593,19 @@ End Function
 Public Function Log() As clsLog
     If m_Log Is Nothing Then Set m_Log = New clsLog
     Set Log = m_Log
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Git
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Wrapper for Git class
+'---------------------------------------------------------------------------------------
+'
+Public Function Git() As clsGitSync
+    If m_Git Is Nothing Then Set m_Git = New clsGitSync
+    Set Git = m_Git
 End Function
 
 
