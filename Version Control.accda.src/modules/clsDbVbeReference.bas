@@ -58,7 +58,6 @@ Private Sub IDbComponent_Export()
                 End If
             Else
                 If ref.Guid <> vbNullString Then .Add "GUID", ref.Guid
-                .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
             End If
         End With
         dItems.Add ref.Name, dRef
@@ -100,14 +99,17 @@ Private Sub IDbComponent_Import(strFile As String)
             dExisting.Add ref.Name, ref.Guid
         Next ref
         
+        ' Trap any errors when adding references.
+        On Error GoTo ErrHandler
+        
         ' Add any references from file that don't already exist
         Set dItems = dFile("Items")
         For Each varKey In dItems.Keys
             Set dRef = dItems(varKey)
             If Not dExisting.Exists(CStr(varKey)) Then
                 If dRef.Exists("GUID") Then
-                    varVersion = Split(dRef("Version"), ".")
-                    AddFromGuid proj, CStr(varKey), dRef("GUID"), CLng(varVersion(0)), CLng(varVersion(1))
+                    ' Add reference to installed version. See issue #97
+                    proj.References.AddFromGuid dRef("GUID"), 0, 0
                 ElseIf dRef.Exists("FullPath") Then
                     strPath = GetPathFromRelative(Decrypt(dRef("FullPath")))
                     If FSO.FileExists(strPath) Then
@@ -118,75 +120,33 @@ Private Sub IDbComponent_Import(strFile As String)
                 End If
             End If
         Next varKey
+        
+        ' Resume normal error handling
+        On Error GoTo 0
     End If
     
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : AddFromGuid
-' Author    : Adam Waller
-' Date      : 10/21/2020
-' Purpose   : Return a GUID compatible with the current version of Microsoft Access.
-'           : Only add exceptions here when they cause compile errors on older versions.
-'           : Further reading: https://stackoverflow.com/questions/45088306
-'           : https://www.fmsinc.com/microsoftaccess/history/features.htm
-'           : https://kb.palisade.com/index.php?pg=kb.page&id=528
-'---------------------------------------------------------------------------------------
-'
-Private Sub AddFromGuid(proj As VBIDE.VBProject, strName As String, strGuid As String, lngMajor As Long, lngMinor As Long)
-
-    ' We might encounter a reference that is not available
-    On Error GoTo ErrHandler
-    
-    Select Case strGuid
-        Case "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}"   ' Office
-            Select Case Application.Version
-                Case "14.0": proj.References.AddFromGuid strGuid, 2, 5  ' Access 2010
-                Case "15.0": proj.References.AddFromGuid strGuid, 2, 6  ' Access 2013 (May need v.2.7)
-                Case "16.0": proj.References.AddFromGuid strGuid, 2, 8  ' Access 2016, 2019, 365
-                Case Else:   proj.References.AddFromGuid strGuid, lngMajor, lngMinor
-            End Select
-        Case "{00020813-0000-0000-C000-000000000046}"   ' Excel
-            Select Case Application.Version
-                Case "14.0": proj.References.AddFromGuid strGuid, 1, 7  ' Excel 2010
-                Case "15.0": proj.References.AddFromGuid strGuid, 1, 8  ' Excel 2013
-                Case "16.0": proj.References.AddFromGuid strGuid, 1, 9  ' Excel 2016, (2019, 365)?
-                Case Else:   proj.References.AddFromGuid strGuid, lngMajor, lngMinor
-            End Select
-        Case Else
-            ' Use specified GUID
-            proj.References.AddFromGuid strGuid, lngMajor, lngMinor
-    End Select
-    
     ' Normal exit
-    On Error GoTo 0
     Exit Sub
 
 ErrHandler:
 
     ' Log error
-    Log.Add "ERROR: Could not add VBE reference to " & strName
+    Log.Add "ERROR: Could not add VBE reference to " & CStr(varKey)
     
-    If Err.Number = -2147319779 Then
-        ' Object library not registered
+    If Err.Number = -2147319779 Or dRef.Exists("GUID") Then
+        ' Object library not registered or error adding GUID.
         Log.Add "Encountered error " & Err.Number & ": '" & Err.Description & _
-            "' while attempting to add GUID " & strGuid & " version " & lngMajor & "." & lngMinor & _
-            " to this project. This may occur when the library does not exist on the build machine," & _
-            " or when the version on the build machine is lower than the source file reference version." & _
-            " See GitHub issue #96 for an example of how to resolve this problem.", Options.ShowDebug
-        
+            "' while attempting to add GUID " & dRef("GUID") & " to this project." & _
+            " This may occur when the library does not exist on the build machine.", Options.ShowDebug
     Else
         ' Other error
-        Log.Add "Encountered error " & Err.Number & ": '" & Err.Description & _
-            "' while attempting to add GUID " & strGuid & " version " & lngMajor & "." & lngMinor & _
-            " to this project.", Options.ShowDebug
+        Log.Add "Encountered error " & Err.Number & ": '" & Err.Description, Options.ShowDebug
     End If
     
     ' Resume on next line
     Err.Clear
     Resume Next
-
+    
 End Sub
 
 
