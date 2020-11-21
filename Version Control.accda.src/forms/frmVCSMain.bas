@@ -16,10 +16,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =27
-    Left =-17265
+    Left =3225
     Top =2430
-    Right =-6105
-    Bottom =10335
+    Right =28545
+    Bottom =15015
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1812,14 +1812,14 @@ End Sub
 ' Purpose   : Finish the build process
 '---------------------------------------------------------------------------------------
 '
-Public Sub FinishBuild()
+Public Sub FinishBuild(Optional strType As String = "Build")
 
     ' Turn on scroll bars in case the user wants to scroll back through the log.
     txtLog.ScrollBars = 2
     
     ' Display final UI messages.
     Log.Flush
-    SetStatusText "Finished", "Build Complete", "Additional details can be found in the project build log file.<br><br>You may now close this window."
+    SetStatusText "Finished", strType & " Complete", "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
     lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     
 End Sub

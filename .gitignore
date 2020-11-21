@@ -18,4 +18,5 @@
 # Comment out the following line if you wish to include the log files in git.
 Export.log
 Import.log
+Merge.log
 

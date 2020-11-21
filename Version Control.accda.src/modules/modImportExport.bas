@@ -321,6 +321,147 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MergeBuild
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Merge the changed source files into the current database project.
+'           : Unlike a full build, this does not build the project from scratch.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeBuild(strSourceFolder As String)
+
+    Dim strPath As String
+    Dim strBackup As String
+    Dim cCategory As IDbComponent
+    Dim sngStart As Single
+    Dim colFiles As Collection
+    Dim varFile As Variant
+    
+    ' Verify that the source files are being merged into the correct database.
+    strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
+    If strPath = vbNullString Then
+        MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
+        Exit Sub
+    ElseIf StrComp(strPath, CurrentProject.FullName, vbTextCompare) <> 0 Then
+        MsgBox2 "Cannot merge to a different database", _
+            "The database file name for the source files must match the currently open database.", _
+            "Current: " & CurrentProject.FullName & vbCrLf & _
+            "Source: " & strPath, vbExclamation
+        Exit Sub
+    End If
+    
+    ' Make sure we can find the source files
+    If Not FolderHasVcsOptionsFile(strSourceFolder) Then
+        MsgBox2 "Source files not found", "Required source files were not found in the following folder:", strSourceFolder, vbExclamation
+        Exit Sub
+    End If
+    
+    ' Now reset the options and logs
+    Set Options = Nothing
+    Options.LoadOptionsFromFile strSourceFolder & "vcs-options.json"
+    Log.Clear
+
+    ' If we are using encryption, make sure we are able to decrypt the values
+    If Options.Security = esEncrypt And Not VerifyHash(strSourceFolder & "vcs-options.json") Then
+        MsgBox2 "Encryption Key Mismatch", "The required encryption key is either missing or incorrect.", _
+            "Please update the encryption key before building this project from source.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' Start performance timers
+    sngStart = Timer
+    Perf.StartTiming
+    
+    ' Check if we are building the add-in file
+    If FSO.GetFileName(strPath) = CodeProject.Name Then
+        ' When building this add-in file, we should output to the debug
+        ' window instead of the GUI form. (Since we are importing
+        ' a form with the same name as the GUI form.)
+        ShowIDE
+    Else
+        ' Launch the GUI form
+        Form_frmVCSMain.StartBuild
+    End If
+
+    ' Display the build header.
+    DoCmd.Hourglass True
+    With Log
+        .Spacer
+        .Add "Beginning Merge Build", False
+        .Add FSO.GetFileName(strPath)
+        .Add "VCS Version " & GetVCSVersion
+        .Add Now
+        .Spacer
+        .Flush
+    End With
+    
+    ' Loop through all categories
+    For Each cCategory In GetAllContainers
+        
+        ' Get changed files from state class...
+        Set colFiles = Git.State.GetModifiedSourceFiles(cCategory)
+        
+        ' Only show category details when source files are found
+        If colFiles.Count = 0 Then
+            Log.Spacer Options.ShowDebug
+            Log.Add "No modified " & cCategory.Category & " source files found.", Options.ShowDebug
+        Else
+            ' Show category header
+            Log.Spacer Options.ShowDebug
+            Log.PadRight "Merging " & cCategory.Category & "...", , Options.ShowDebug
+            Log.ProgMax = colFiles.Count
+            Perf.ComponentStart cCategory.Category
+
+            ' Loop through each file in this category.
+            For Each varFile In colFiles
+                ' Import the file
+                Log.Increment
+                Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+                cCategory.Merge CStr(varFile)
+            Next varFile
+            
+            ' Show category wrap-up.
+            Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & cCategory.Category & " merged.", vbNullString)
+            'Log.Flush  ' Gives smoother output, but slows down the import.
+            Perf.ComponentEnd colFiles.Count
+        End If
+    Next cCategory
+
+    ' Run any post-build instructions
+    If Options.RunAfterMerge <> vbNullString Then
+        Log.Add "Running " & Options.RunAfterMerge & "..."
+        Perf.OperationStart "RunAfterMerge"
+        RunSubInCurrentProject Options.RunAfterMerge
+        Perf.OperationEnd
+    End If
+
+    ' Show final output and save log
+    Log.Spacer
+    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
+    
+    ' Add performance data to log file
+    Perf.EndTiming
+    Log.Add vbCrLf & Perf.GetReports, False
+    
+    ' Write log file to disk
+    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Merge.log")
+
+    DoCmd.Hourglass False
+    If Forms.Count > 0 Then
+        ' Finish up on GUI
+        Form_frmVCSMain.FinishBuild
+    Else
+        ' Allow navigation pane to refresh list of objects.
+        DoEvents
+        ' Show message box when build is complete.
+        MsgBox2 "Merge Complete for '" & CurrentProject.Name & "'", _
+            "Note that some settings may not take effect until this database is reopened.", , vbInformation
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllContainers
 ' Author    : Adam Waller
 ' Date      : 5/4/2020
