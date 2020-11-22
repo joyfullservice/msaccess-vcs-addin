@@ -125,43 +125,31 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : AddFromGuid
-' Author    : Adam Waller
-' Date      : 10/21/2020
-' Purpose   : Return a GUID compatible with the current version of Microsoft Access.
-'           : Only add exceptions here when they cause compile errors on older versions.
-'           : Further reading: https://stackoverflow.com/questions/45088306
-'           : https://www.fmsinc.com/microsoftaccess/history/features.htm
-'           : https://kb.palisade.com/index.php?pg=kb.page&id=528
+' Author    : Adam Waller / Indigo744
+' Date      : 11/22/2020
+' Purpose   : Try to add a GUID with a specific version, then with version 0.0
 '---------------------------------------------------------------------------------------
 '
 Private Sub AddFromGuid(proj As VBIDE.VBProject, strName As String, strGuid As String, lngMajor As Long, lngMinor As Long)
 
-    ' We might encounter a reference that is not available
-    On Error GoTo ErrHandler
-    
-    Select Case strGuid
-        Case "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}"   ' Office
-            Select Case Application.Version
-                Case "14.0": proj.References.AddFromGuid strGuid, 2, 5  ' Access 2010
-                Case "15.0": proj.References.AddFromGuid strGuid, 2, 6  ' Access 2013 (May need v.2.7)
-                Case "16.0": proj.References.AddFromGuid strGuid, 2, 8  ' Access 2016, 2019, 365
-                Case Else:   proj.References.AddFromGuid strGuid, lngMajor, lngMinor
-            End Select
-        Case "{00020813-0000-0000-C000-000000000046}"   ' Excel
-            Select Case Application.Version
-                Case "14.0": proj.References.AddFromGuid strGuid, 1, 7  ' Excel 2010
-                Case "15.0": proj.References.AddFromGuid strGuid, 1, 8  ' Excel 2013
-                Case "16.0": proj.References.AddFromGuid strGuid, 1, 9  ' Excel 2016, (2019, 365)?
-                Case Else:   proj.References.AddFromGuid strGuid, lngMajor, lngMinor
-            End Select
-        Case Else
-            ' Use specified GUID
-            proj.References.AddFromGuid strGuid, lngMajor, lngMinor
-    End Select
-    
+    ' Try to add the GUID with the specific version requested
+    ' We might encounter a reference that is not available in this version
+    On Error GoTo ErrHandlerWithVersion
+    proj.References.AddFromGuid strGuid, lngMajor, lngMinor
+
     ' Normal exit
     On Error GoTo 0
     Exit Sub
+
+ErrHandlerWithVersion:
+    ' The version specified may not be available, try to add with version 0.0
+    ' We might still encounter a reference that is still not available
+    On Error GoTo ErrHandler
+    proj.References.AddFromGuid strGuid, 0, 0
+    
+    ' Resume on next line
+    Err.Clear
+    Resume Next
 
 ErrHandler:
 
