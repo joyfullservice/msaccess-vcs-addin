@@ -2438,3 +2438,39 @@ Public Function GetLastModifiedDate(strPath As String) As Date
     End If
         
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeleteObject
+' Author    : Adam Waller
+' Date      : 11/23/2020
+' Purpose   : Deletes the object if it exists. (Surpresses error)
+'---------------------------------------------------------------------------------------
+'
+Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
+    On Error Resume Next
+    DoCmd.DeleteObject intType, strName
+    Catch 7874 ' Object not found
+    If Err Then Log.Add "Error: Unable to delete existing object '" & strName & _
+        "'. Error " & Err.Number & ": " & Err.Description
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Catch
+' Author    : Adam Waller
+' Date      : 11/23/2020
+' Purpose   : Returns true if the last error matches any of the passed error numbers,
+'           : and clears the error object.
+'---------------------------------------------------------------------------------------
+'
+Public Function Catch(ParamArray lngErrorNumbers()) As Boolean
+    Dim intCnt As Integer
+    For intCnt = LBound(lngErrorNumbers) To UBound(lngErrorNumbers)
+        If lngErrorNumbers(intCnt) = Err.Number Then
+            Err.Clear
+            Catch = True
+            Exit For
+        End If
+    Next intCnt
+End Function

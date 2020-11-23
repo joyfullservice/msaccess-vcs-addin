@@ -55,7 +55,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-
+    DeleteObjectIfExists acModule, GetObjectNameFromFileName(strFile)
+    IDbComponent_Import strFile
 End Sub
 
 
