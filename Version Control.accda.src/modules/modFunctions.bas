@@ -1365,7 +1365,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub WriteJsonFile(ClassMe As Object, dItems As Dictionary, strFile As String, strDescription As String, _
-    Optional blnIgnoreHeaderOnlyChanges As Boolean = True)
+    Optional strFileFormat As String = "0.0")
     
     Dim dContents As Dictionary
     Dim dHeader As Dictionary
@@ -1376,10 +1376,13 @@ Public Sub WriteJsonFile(ClassMe As Object, dItems As Dictionary, strFile As Str
     Set dHeader = New Dictionary
     
     ' Compare with existing file
-    If blnIgnoreHeaderOnlyChanges Then
-        If FSO.FileExists(strFile) Then
-            Set dFile = ReadJsonFile(strFile)
-            If Not dFile Is Nothing Then
+    If FSO.FileExists(strFile) Then
+        Set dFile = ReadJsonFile(strFile)
+        If Not dFile Is Nothing Then
+            ' Check file format version
+            If strFileFormat <> "0.0" And dNZ(dFile, "Info\Export File Format") <> strFileFormat Then
+                ' Rewrite file using new format.
+            Else
                 If dFile.Exists("Items") Then
                     Set dExisting = dFile("Items")
                     If DictionaryEqual(dItems, dExisting) Then
@@ -1394,7 +1397,7 @@ Public Sub WriteJsonFile(ClassMe As Object, dItems As Dictionary, strFile As Str
     ' Build dictionary structure
     dHeader.Add "Class", TypeName(ClassMe)
     dHeader.Add "Description", strDescription
-    dHeader.Add "VCS Version", GetVCSVersion
+    If strFileFormat <> "0.0" Then dHeader.Add "Export File Format", strFileFormat
     dContents.Add "Info", dHeader
     dContents.Add "Items", dItems
     

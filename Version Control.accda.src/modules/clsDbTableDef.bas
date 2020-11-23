@@ -73,9 +73,10 @@ Private Sub IDbComponent_Export()
                 Next idx
             End If
         End With
-        ' If Fast Save is enabled, make sure we write this file each time so the
-        ' modified date on the file is updated.
-        WriteJsonFile Me, dItem, strFile, "Linked Table", Not Options.UseFastSave
+        
+        ' Write export file.
+        WriteJsonFile Me, dItem, strFile, "Linked Table"
+        
     End If
     
     ' Optionally save in SQL format
