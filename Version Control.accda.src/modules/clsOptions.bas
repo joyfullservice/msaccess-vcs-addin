@@ -17,6 +17,8 @@ Private Const cstrSourcePathProperty As String = "VCS Source Path"
 Public ExportFolder As String
 Public ShowDebug As Boolean
 Public UseFastSave As Boolean
+Public UseGitIntegration As Boolean
+Public GitSettings As Dictionary
 Public SavePrintVars As Boolean
 Public ExportPrintSettings As Dictionary
 Public SaveQuerySQL As Boolean
@@ -29,8 +31,6 @@ Public TablesToExportData As Dictionary
 Public RunBeforeExport As String
 Public RunAfterExport As String
 Public RunAfterBuild As String
-Public RunBeforeMerge As String
-Public RunAfterMerge As String
 Public Security As eSecurity
 Public KeyName As String
 
@@ -70,6 +70,7 @@ Public Sub LoadDefaults()
         .ExportFolder = vbNullString
         .ShowDebug = False
         .UseFastSave = True
+        .UseGitIntegration = False
         .SavePrintVars = True
         .SaveQuerySQL = True
         .ForceImportOriginalQuerySQL = False
@@ -109,6 +110,20 @@ Public Sub LoadDefaults()
             .Add "PaperWidth", False
             .Add "TTOption", False
         End With
+        
+        ' Git integration settings
+        Set .GitSettings = New Dictionary
+        With .GitSettings
+            .Add "MergeUntrackedFiles", True
+            .Add "ImportTableData", False
+            .Add "MergeQuerySQL", False
+            .Add "MergeConflicts", "Cancel Merge"
+            .Add "RunBeforeMerge", vbNullString
+            .Add "RunAfterMerge", vbNullString
+            .Add "InspectSharedImages", False
+            .Add "InspectThemeFiles", False
+        End With
+        
     End With
     
 End Sub
@@ -451,6 +466,7 @@ Private Sub Class_Initialize()
         .Add "ExportFolder"
         .Add "ShowDebug"
         .Add "UseFastSave"
+        .Add "UseGitIntegration"
         .Add "SavePrintVars"
         .Add "ExportPrintSettings"
         .Add "SaveQuerySQL"
@@ -463,8 +479,6 @@ Private Sub Class_Initialize()
         .Add "RunBeforeExport"
         .Add "RunAfterExport"
         .Add "RunAfterBuild"
-        .Add "RunBeforeMerge"
-        .Add "RunAfterMerge"
         .Add "Security"
         .Add "KeyName"
     End With

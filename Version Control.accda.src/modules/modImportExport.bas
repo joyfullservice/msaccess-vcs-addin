@@ -336,6 +336,7 @@ Public Sub MergeBuild(strSourceFolder As String)
     Dim sngStart As Single
     Dim colFiles As Collection
     Dim varFile As Variant
+    Dim strText As String
     
     ' Verify that the source files are being merged into the correct database.
     strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
@@ -366,6 +367,15 @@ Public Sub MergeBuild(strSourceFolder As String)
         MsgBox2 "Encryption Key Mismatch", "The required encryption key is either missing or incorrect.", _
             "Please update the encryption key before building this project from source.", vbExclamation
         Exit Sub
+    End If
+    
+    ' Run any pre-merge instructions
+    strText = dNZ(Options.GitSettings, "RunBeforeMerge")
+    If strText <> vbNullString Then
+        Log.Add "Running " & strText & "..."
+        Perf.OperationStart "RunBeforeMerge"
+        RunSubInCurrentProject strText
+        Perf.OperationEnd
     End If
     
     ' Start performance timers
@@ -428,10 +438,11 @@ Public Sub MergeBuild(strSourceFolder As String)
     Next cCategory
 
     ' Run any post-build instructions
-    If Options.RunAfterMerge <> vbNullString Then
-        Log.Add "Running " & Options.RunAfterMerge & "..."
+    strText = dNZ(Options.GitSettings, "RunAfterMerge")
+    If strText <> vbNullString Then
+        Log.Add "Running " & strText & "..."
         Perf.OperationStart "RunAfterMerge"
-        RunSubInCurrentProject Options.RunAfterMerge
+        RunSubInCurrentProject strText
         Perf.OperationEnd
     End If
 
