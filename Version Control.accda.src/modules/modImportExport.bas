@@ -39,6 +39,8 @@ Public Sub ExportSource()
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
+    Set VCSIndex = Nothing
+    VCSIndex.LoadFromFile
     Perf.StartTiming
 
     ' Run any custom sub before export
@@ -151,9 +153,13 @@ Public Sub ExportSource()
     ' Restore original fast save option, and save options with project
     Options.SaveOptionsForProject
     
-    ' Clear reference to FileSystemObject
+    ' Save index file
+    VCSIndex.Save
+    
+    ' Clear references to FileSystemObject and other objects
     Set FSO = Nothing
-
+    Set VCSIndex = Nothing
+    
 End Sub
 
 
@@ -190,6 +196,8 @@ Public Sub Build(strSourceFolder As String)
     Set Options = Nothing
     Options.LoadOptionsFromFile strSourceFolder & "vcs-options.json"
     Log.Clear
+    Set VCSIndex = Nothing
+    VCSIndex.LoadFromFile
 
     ' If we are using encryption, make sure we are able to decrypt the values
     If Options.Security = esEncrypt And Not VerifyHash(strSourceFolder & "vcs-options.json") Then
@@ -304,6 +312,10 @@ Public Sub Build(strSourceFolder As String)
     ' Write log file to disk
     Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Import.log")
 
+    ' Save index file
+    VCSIndex.Save
+    Set VCSIndex = Nothing
+    
     DoCmd.Hourglass False
     If Forms.Count > 0 Then
         ' Finish up on GUI
@@ -615,31 +627,3 @@ Private Function VerifyHash(strOptionsFile As String) As Boolean
     End If
     
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : RemoveNonBuiltInReferences
-' Author    : Adam Waller
-' Date      : 10/20/2020
-' Purpose   : Remove any references that are not built-in. (Sometimes additional
-'           : references are added when creating a new database, not not really needed
-'           : when building the project from source.)
-'---------------------------------------------------------------------------------------
-'
-Private Sub RemoveNonBuiltInReferences()
-
-    Dim intCnt As Integer
-    Dim strName As String
-    Dim ref As Access.Reference
-    
-    For intCnt = Application.References.Count To 1 Step -1
-        Set ref = Application.References(intCnt)
-        If Not ref.BuiltIn Then
-            strName = ref.Name
-            Application.References.Remove ref
-            Log.Add "  Removed " & strName, False
-        End If
-        Set ref = Nothing
-    Next intCnt
-    
-End Sub

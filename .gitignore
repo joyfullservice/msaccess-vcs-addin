@@ -20,6 +20,6 @@ Export.log
 Import.log
 Merge.log
 
-# When using Git integration, this file should stay with the database
-# and not be comitted to version control.
-git-sync.json
+# The local VCS index file is paired with the database and should not
+# be comitted to version control.
+vcs-index.json

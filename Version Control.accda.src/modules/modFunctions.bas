@@ -69,6 +69,7 @@ Private m_Perf As clsPerformance
 Private m_Log As clsLog
 Private m_Options As clsOptions
 Private m_Git As clsGitSync
+Private m_VCSIndex As clsVCSIndex
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -2483,7 +2484,7 @@ End Function
 ' Purpose   : Convert string to byte array, and return a Sha1 hash.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetStringHash(strText As String, Optional intLength As Integer) As String
+Public Function GetStringHash(strText As String, Optional intLength As Integer = 7) As String
     Dim bteText() As Byte
     bteText = strText
     GetStringHash = Sha1(bteText, intLength)
@@ -2497,8 +2498,20 @@ End Function
 ' Purpose   : Return a Sha1 hash from a file
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFileHash(strPath As String, Optional intLength As Integer) As String
+Public Function GetFileHash(strPath As String, Optional intLength As Integer = 7) As String
     GetFileHash = Sha1(GetFileBytes("C:\Users\Adam Waller\Documents\code.bas"), intLength)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionaryHash
+' Author    : Adam Waller
+' Date      : 12/1/2020
+' Purpose   : Wrapper to get a hash from a dictionary object (converted to json)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetDictionaryHash(dSource As Dictionary, Optional intLength As Integer = 7) As String
+    GetDictionaryHash = GetStringHash(ConvertToJson(dSource), intLength)
 End Function
 
 
@@ -2517,7 +2530,6 @@ Private Function Sha1(bteContent() As Byte, Optional intLength As Integer) As St
     Dim intPos As Integer
     
     Set objEnc = CreateObject("System.Security.Cryptography.SHA1CryptoServiceProvider")
-    'bteSha1 = objEnc.ComputeHash_2(GetFileBytes("C:\Users\Adam Waller\Documents\code.bas"))
     bteSha1 = objEnc.ComputeHash_2(bteContent)
     Set objEnc = Nothing
     
@@ -2546,7 +2558,7 @@ End Function
 ' Purpose   : Return a Sha1 hash of the VBA code module behind an object.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As String, Optional intLength As Integer) As String
+Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As String, Optional intLength As Integer = 7) As String
 
     Dim strHash As String
     Dim cmpItem As VBComponent
@@ -2591,3 +2603,46 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
     
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : VSCIndex
+' Author    : Adam Waller
+' Date      : 12/1/2020
+' Purpose   : Reference to the VCS Index class (saved state from vcs-index.json)
+'---------------------------------------------------------------------------------------
+'
+Public Property Get VCSIndex() As clsVCSIndex
+    If m_VCSIndex Is Nothing Then Set m_VCSIndex = New clsVCSIndex
+    Set VCSIndex = m_VCSIndex
+End Property
+Public Property Set VCSIndex(cIndex As clsVCSIndex)
+    Set m_VCSIndex = cIndex
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveNonBuiltInReferences
+' Author    : Adam Waller
+' Date      : 10/20/2020
+' Purpose   : Remove any references that are not built-in. (Sometimes additional
+'           : references are added when creating a new database, but not not really
+'           : needed in the completed database when building the project from source.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub RemoveNonBuiltInReferences()
+
+    Dim intCnt As Integer
+    Dim strName As String
+    Dim ref As Access.Reference
+    
+    For intCnt = Application.References.Count To 1 Step -1
+        Set ref = Application.References(intCnt)
+        If Not ref.BuiltIn Then
+            strName = ref.Name
+            Application.References.Remove ref
+            Log.Add "  Removed " & strName, False
+        End If
+        Set ref = Nothing
+    Next intCnt
+    
+End Sub

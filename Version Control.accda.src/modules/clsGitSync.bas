@@ -17,7 +17,7 @@ Private Enum eGitCommand
     egcSetTaggedCommit
 End Enum
 
-Private m_State As clsGitState
+Private m_State As clsVCSIndex
 
 
 ' Peforms operations related to interrogating the status of Git
@@ -275,13 +275,12 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : State
+' Procedure : GetModifiedSourceFiles
 ' Author    : Adam Waller
-' Date      : 11/24/2020
-' Purpose   : A reference to the state class where we manage our own index of changes
+' Date      : 11/21/2020
+' Purpose   : Return the modified source file paths for this component type.
 '---------------------------------------------------------------------------------------
 '
-Public Property Get State() As clsGitState
-    If m_State Is Nothing Then Set m_State = New clsGitState
-    Set State = m_State
-End Property
+Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
+
+End Function

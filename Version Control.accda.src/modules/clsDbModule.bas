@@ -31,6 +31,7 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     SaveComponentAsText acModule, m_Module.Name, IDbComponent_SourceFile
+    VCSIndex.Update Me, eatExport, GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
 End Sub
 
 
@@ -42,7 +43,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    LoadComponentFromText acModule, GetObjectNameFromFileName(strFile), strFile
+    Dim strName As String
+    strName = GetObjectNameFromFileName(strFile)
+    LoadComponentFromText acModule, strName, strFile
+    Set m_Module = CurrentProject.AllModules(strName)
+    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
 End Sub
 
 

@@ -33,21 +33,13 @@ Private Sub IDbComponent_Export()
 
     Dim dProject As Dictionary
     
-    ' Read project properties
-    Set dProject = New Dictionary
-    With dProject
-        .Add "Name", m_Project.Name
-        .Add "Description", m_Project.Description
-        .Add "FileName", GetRelativePath(m_Project.FileName)
-        .Add "HelpFile", m_Project.HelpFile
-        .Add "HelpContextId", m_Project.HelpContextId
-        .Add "Mode", m_Project.Mode
-        .Add "Protection", m_Project.Protection
-        .Add "Type", m_Project.Type
-    End With
+    Set dProject = GetDictionary
     
     ' Save in JSON format.
     WriteJsonFile Me, dProject, IDbComponent_SourceFile, "VBE Project"
+    
+    ' Save to index
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(dProject)
     
 End Sub
 
@@ -66,7 +58,8 @@ Private Sub IDbComponent_Import(strFile As String)
     
     ' Update project properties
     Set dProject = ReadJsonFile(strFile)
-    With GetVBProjectForCurrentDB
+    Set m_Project = GetVBProjectForCurrentDB
+    With m_Project
         .Name = dNZ(dProject, "Items\Name")
         .Description = dNZ(dProject, "Items\Description")
         
@@ -89,8 +82,39 @@ Private Sub IDbComponent_Import(strFile As String)
         '.Protection = dNZ(dProject, "Items\Protection")
         '.Type = dNZ(dProject, "Items\Type")
     End With
+    
+    ' Save to index
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 12/1/2020
+' Purpose   : Return a dictionary object of project properties.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary() As Dictionary
+
+    ' Make sure we have a reference to the VB project
+    If m_Project Is Nothing Then Set m_Project = GetVBProjectForCurrentDB
+    
+    ' Read project properties
+    Set GetDictionary = New Dictionary
+    With GetDictionary
+        .Add "Name", m_Project.Name
+        .Add "Description", m_Project.Description
+        .Add "FileName", GetRelativePath(m_Project.FileName)
+        .Add "HelpFile", m_Project.HelpFile
+        .Add "HelpContextId", m_Project.HelpContextId
+        .Add "Mode", m_Project.Mode
+        .Add "Protection", m_Project.Protection
+        .Add "Type", m_Project.Type
+    End With
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -102,7 +126,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-
+    IDbComponent_Import strFile
 End Sub
 
 

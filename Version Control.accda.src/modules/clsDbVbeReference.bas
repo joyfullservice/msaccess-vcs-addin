@@ -13,7 +13,7 @@ Option Compare Database
 Option Explicit
 
 Private m_Ref As VBIDE.Reference
-Public AllItems As Collection
+Private m_AllItems As Collection
 
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -32,40 +32,15 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
 
-    Dim dRef As Dictionary
     Dim dItems As Dictionary
-    Dim cRef As clsDbVbeReference
-    Dim ref As VBIDE.Reference
-    Dim strPath As String
     
-    Set dItems = New Dictionary
-    
-    ' Loop through cached references (Duplicates have already been removed)
-    For Each cRef In Me.AllItems
-        Set dRef = New Dictionary
-        Set ref = cRef.Parent.DbObject
-        With dRef
-            If ref.Type = vbext_rk_Project Then
-                ' references of types mdb,accdb,mde etc don't have a GUID
-                strPath = GetRelativePath(ref.FullPath)
-                If strPath <> ref.FullPath Or Options.Security = esNone Then
-                    ' Use relative path, or full path if not secured.
-                    .Add "FullPath", strPath
-                Else
-                    ' Found a non-relative path.
-                    .Add "File", FSO.GetFileName(ref.FullPath)
-                    If Options.Security <> esRemove Then .Add "FullPath", Secure(ref.FullPath)
-                End If
-            Else
-                If ref.Guid <> vbNullString Then .Add "GUID", ref.Guid
-                .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
-            End If
-        End With
-        dItems.Add ref.Name, dRef
-    Next cRef
-    
+    Set dItems = GetDictionary
+
     ' Write to a json file.
     WriteJsonFile Me, dItems, IDbComponent_SourceFile, "VBE References"
+    
+    ' Update index
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(dItems)
     
 End Sub
 
@@ -120,7 +95,57 @@ Private Sub IDbComponent_Import(strFile As String)
         Next varKey
     End If
     
+    ' Update index
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
+    
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 12/1/2020
+' Purpose   : Return a dictionary of the VBE references
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary() As Dictionary
+
+    Dim dRef As Dictionary
+    Dim dItems As Dictionary
+    Dim cItem As IDbComponent
+    Dim cRef As clsDbVbeReference
+    Dim ref As VBIDE.Reference
+    Dim strPath As String
+    
+    Set GetDictionary = New Dictionary
+    With GetDictionary
+        ' Loop through cached references (Duplicates have already been removed)
+        For Each cItem In IDbComponent_GetAllFromDB
+            Set cRef = cItem
+            Set dRef = New Dictionary
+            Set ref = cRef.Parent.DbObject
+            With dRef
+                If ref.Type = vbext_rk_Project Then
+                    ' references of types mdb,accdb,mde etc don't have a GUID
+                    strPath = GetRelativePath(ref.FullPath)
+                    If strPath <> ref.FullPath Or Options.Security = esNone Then
+                        ' Use relative path, or full path if not secured.
+                        .Add "FullPath", strPath
+                    Else
+                        ' Found a non-relative path.
+                        .Add "File", FSO.GetFileName(ref.FullPath)
+                        If Options.Security <> esRemove Then .Add "FullPath", Secure(ref.FullPath)
+                    End If
+                Else
+                    If ref.Guid <> vbNullString Then .Add "GUID", ref.Guid
+                    .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
+                End If
+            End With
+            .Add ref.Name, dRef
+        Next cItem
+    End With
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -188,6 +213,12 @@ End Sub
 '
 Private Sub IDbComponent_Merge(strFile As String)
 
+    ' Remove existing references first.
+    RemoveNonBuiltInReferences
+    
+    ' Import the references
+    IDbComponent_Import strFile
+    
 End Sub
 
 
@@ -201,32 +232,29 @@ End Sub
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
     
     Dim ref As VBIDE.Reference
-    Dim cRef As clsDbVbeReference
-    Dim colNames As Collection
+    Dim cRef As IDbComponent
+    Dim dNames As Dictionary
 
     ' Build collection if not already cached
-    If Me.AllItems Is Nothing Then
-        Set Me.AllItems = New Collection
-        Set colNames = New Collection
+    If m_AllItems Is Nothing Then
+        Set m_AllItems = New Collection
+        Set dNames = New Dictionary
         For Each ref In GetVBProjectForCurrentDB.References
             If Not ref.BuiltIn Then
-                Set cRef = New clsDbVbeReference
-                Set cRef.Parent.DbObject = ref
-                ' Export outputs single file, so every item needs a reference
-                ' to the whole collection of references.
-                Set cRef.AllItems = Me.AllItems
-                ' Don't attempt add two references with the same name.
-                ' (Take the first one, but ignore subsequent ones with the same name.)
-                If Not InCollection(colNames, ref.Name) Then
-                    Me.AllItems.Add cRef, ref.Name
-                    colNames.Add ref.Name
+                If Not dNames.Exists(ref.Name) Then
+                    Set cRef = New clsDbVbeReference
+                    Set cRef.DbObject = ref
+                    m_AllItems.Add cRef
+                    ' Don't attempt add two references with the same name, such as
+                    ' circular references to nested library database files.
+                    dNames.Add ref.Name, vbNullString
                 End If
             End If
         Next ref
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = Me.AllItems
+    Set IDbComponent_GetAllFromDB = m_AllItems
         
 End Function
 
