@@ -308,7 +308,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "imex specs"
+    IDbComponent_Category = "IMEX Specs"
 End Property
 
 

@@ -161,7 +161,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "macros"
+    IDbComponent_Category = "Macros"
 End Property
 
 

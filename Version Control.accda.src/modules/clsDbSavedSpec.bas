@@ -194,7 +194,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "saved specs"
+    IDbComponent_Category = "Saved Specs"
 End Property
 
 

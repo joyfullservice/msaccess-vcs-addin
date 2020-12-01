@@ -83,11 +83,11 @@ Public Sub ExportSource()
         ' Only show category details when it contains objects
         If cCategory.Count = 0 Then
             Log.Spacer Options.ShowDebug
-            Log.Add "No " & cCategory.Category & " found in this database.", Options.ShowDebug
+            Log.Add "No " & LCase(cCategory.Category) & " found in this database.", Options.ShowDebug
         Else
             ' Show category header and clear out any orphaned files.
             Log.Spacer Options.ShowDebug
-            Log.PadRight "Exporting " & cCategory.Category & "...", , Options.ShowDebug
+            Log.PadRight "Exporting " & LCase(cCategory.Category) & "...", , Options.ShowDebug
             Log.ProgMax = cCategory.Count
             Perf.ComponentStart cCategory.Category
 
@@ -117,7 +117,7 @@ Public Sub ExportSource()
             Next cDbObject
             
             ' Show category wrap-up.
-            Log.Add "[" & cCategory.Count & "]" & IIf(Options.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
+            Log.Add "[" & cCategory.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
             'Log.Flush  ' Gives smoother output, but slows down export.
             Perf.ComponentEnd cCategory.Count
         End If
@@ -262,11 +262,11 @@ Public Sub Build(strSourceFolder As String)
         ' Only show category details when source files are found
         If colFiles.Count = 0 Then
             Log.Spacer Options.ShowDebug
-            Log.Add "No " & cCategory.Category & " source files found.", Options.ShowDebug
+            Log.Add "No " & LCase(cCategory.Category) & " source files found.", Options.ShowDebug
         Else
             ' Show category header
             Log.Spacer Options.ShowDebug
-            Log.PadRight "Importing " & cCategory.Category & "...", , Options.ShowDebug
+            Log.PadRight "Importing " & LCase(cCategory.Category) & "...", , Options.ShowDebug
             Log.ProgMax = colFiles.Count
             Perf.ComponentStart cCategory.Category
 
@@ -279,7 +279,7 @@ Public Sub Build(strSourceFolder As String)
             Next varFile
             
             ' Show category wrap-up.
-            Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & cCategory.Category & " processed.", vbNullString)
+            Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
             'Log.Flush  ' Gives smoother output, but slows down the import.
             Perf.ComponentEnd colFiles.Count
         End If
@@ -409,16 +409,16 @@ Public Sub MergeBuild(strSourceFolder As String)
     For Each cCategory In GetAllContainers
         
         ' Get changed files from state class...
-        Set colFiles = Git.State.GetModifiedSourceFiles(cCategory)
+        Set colFiles = Git.GetModifiedSourceFiles(cCategory)
         
         ' Only show category details when source files are found
         If colFiles.Count = 0 Then
             Log.Spacer Options.ShowDebug
-            Log.Add "No modified " & cCategory.Category & " source files found.", Options.ShowDebug
+            Log.Add "No modified " & LCase(cCategory.Category) & " source files found.", Options.ShowDebug
         Else
             ' Show category header
             Log.Spacer Options.ShowDebug
-            Log.PadRight "Merging " & cCategory.Category & "...", , Options.ShowDebug
+            Log.PadRight "Merging " & LCase(cCategory.Category) & "...", , Options.ShowDebug
             Log.ProgMax = colFiles.Count
             Perf.ComponentStart cCategory.Category
 
@@ -431,7 +431,7 @@ Public Sub MergeBuild(strSourceFolder As String)
             Next varFile
             
             ' Show category wrap-up.
-            Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & cCategory.Category & " merged.", vbNullString)
+            Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " merged.", vbNullString)
             'Log.Flush  ' Gives smoother output, but slows down the import.
             Perf.ComponentEnd colFiles.Count
         End If

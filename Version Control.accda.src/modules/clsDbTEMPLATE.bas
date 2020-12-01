@@ -182,7 +182,7 @@ Attribute VB_Exposed = False
 ''---------------------------------------------------------------------------------------
 ''
 'Private Property Get IDbComponent_Category() As String
-'    'IDbComponent_Category = "forms"
+'    'IDbComponent_Category = "Forms"
 'End Property
 '
 '

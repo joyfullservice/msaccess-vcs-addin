@@ -247,7 +247,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "hidden attributes"
+    IDbComponent_Category = "Hidden Attributes"
 End Property
 
 

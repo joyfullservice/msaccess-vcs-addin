@@ -294,7 +294,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "relations"
+    IDbComponent_Category = "Relations"
 End Property
 
 

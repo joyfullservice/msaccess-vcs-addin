@@ -271,7 +271,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "db properties"
+    IDbComponent_Category = "DB Properties"
 End Property
 
 

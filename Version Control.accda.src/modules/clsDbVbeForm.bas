@@ -166,7 +166,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "vbe forms"
+    IDbComponent_Category = "VBE Forms"
 End Property
 
 

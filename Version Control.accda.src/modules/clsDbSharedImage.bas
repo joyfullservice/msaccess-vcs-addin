@@ -310,7 +310,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "shared images"
+    IDbComponent_Category = "Shared Images"
 End Property
 
 

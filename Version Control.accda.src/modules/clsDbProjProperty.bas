@@ -239,7 +239,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "proj properties"
+    IDbComponent_Category = "Proj Properties"
 End Property
 
 

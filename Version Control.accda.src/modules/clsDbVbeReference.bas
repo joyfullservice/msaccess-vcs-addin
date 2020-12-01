@@ -309,7 +309,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "vbe references"
+    IDbComponent_Category = "VBE References"
 End Property
 
 

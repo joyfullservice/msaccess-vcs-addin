@@ -306,7 +306,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "nav pane groups"
+    IDbComponent_Category = "Nav Pane Groups"
 End Property
 
 
