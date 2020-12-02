@@ -175,6 +175,23 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetModifiedSourceFiles
+' Author    : Adam Waller
+' Date      : 12/2/2020
+' Purpose   : Return a collection of source files that appear to be modified from
+'           : the previous export. If Git integration is enabled, this will be used
+'           : to improve the performance of the determination. Otherwise file modified
+'           : dates will be used to determine which files have changed.
+'           : NOTE: This will also include paths for files that no longer exist
+'           : in source files.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : FileName
 ' Author    : Adam Waller
 ' Date      : 11/24/2020

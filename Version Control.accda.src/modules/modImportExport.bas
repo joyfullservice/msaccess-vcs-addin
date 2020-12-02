@@ -421,7 +421,7 @@ Public Sub MergeBuild(strSourceFolder As String)
     For Each cCategory In GetAllContainers
         
         ' Get changed files from state class...
-        Set colFiles = Git.GetModifiedSourceFiles(cCategory)
+        Set colFiles = VCSIndex.GetModifiedSourceFiles(cCategory)
         
         ' Only show category details when source files are found
         If colFiles.Count = 0 Then
