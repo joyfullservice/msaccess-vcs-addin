@@ -14,6 +14,7 @@ Option Explicit
 
 Private m_Module As AccessObject
 Private m_AllItems As Collection
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -61,7 +62,11 @@ End Sub
 '
 Private Sub IDbComponent_Merge(strFile As String)
     DeleteObjectIfExists acModule, GetObjectNameFromFileName(strFile)
-    IDbComponent_Import strFile
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me
+    End If
 End Sub
 
 
@@ -76,14 +81,19 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim oMod As AccessObject
     Dim cModule As IDbComponent
-
+    
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_AllItems Is Nothing Or blnModifiedOnly <> m_blnModifiedOnly Then
+        m_blnModifiedOnly = blnModifiedOnly
         Set m_AllItems = New Collection
         For Each oMod In CurrentProject.AllModules
             Set cModule = New clsDbModule
             Set cModule.DbObject = oMod
-            m_AllItems.Add cModule, oMod.Name
+            If blnModifiedOnly Then
+                If cModule.IsModified Then m_AllItems.Add cModule, oMod.Name
+            Else
+                m_AllItems.Add cModule, oMod.Name
+            End If
         Next oMod
     End If
 
@@ -122,11 +132,33 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
 ' Purpose   : Returns true if the object in the database has been modified since
-'           : the last export of the object.
+'           : the last export/import of the object.
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    
+    Dim dteDate As Date
+    Dim strHash As String
+    
+    ' Item is considered modified unless proven otherwise.
+    IDbComponent_IsModified = True
+    
+    With VCSIndex.Item(Me)
+        
+        ' Check modification date
+        dteDate = Largest(VCSIndex.FullBuildDate, VCSIndex.FullExportDate, _
+            .Item("ExportDate"), .Item("ImportDate"))
+        
+        ' Check the modified date first.
+        ' (This may not reflect some code changes)
+        If m_Module.DateModified <= dteDate Then
+                
+            ' Date is okay, check hash
+            IDbComponent_IsModified = .Item("Hash") = GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
+        End If
+        
+    End With
+    
 End Function
 
 
