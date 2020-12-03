@@ -53,6 +53,7 @@ End Enum
 ' Private collections for options and enum values.
 Private m_colOptions As Collection
 Private m_dEnum As Dictionary
+Private m_strOptionsFilePath As String
 
 
 '---------------------------------------------------------------------------------------
@@ -79,13 +80,13 @@ Public Sub LoadDefaults()
         .AggressiveSanitize = True
         .Security = esNone
         .KeyName = modEncrypt.DefaultKeyName
-        
+
         ' Table data export
         Set .TablesToExportData = New Dictionary
         ' Save specific tables by default
         AddTableToExportData "USysRibbons", etdTabDelimited
         AddTableToExportData "USysRegInfo", etdTabDelimited
-        
+
         ' Print settings to export
         Set .ExportPrintSettings = New Dictionary
         With .ExportPrintSettings
@@ -110,7 +111,7 @@ Public Sub LoadDefaults()
             .Add "PaperWidth", False
             .Add "TTOption", False
         End With
-        
+
         ' Git integration settings
         Set .GitSettings = New Dictionary
         With .GitSettings
@@ -123,9 +124,9 @@ Public Sub LoadDefaults()
             .Add "InspectSharedImages", False
             .Add "InspectThemeFiles", False
         End With
-        
+
     End With
-    
+
 End Sub
 
 
@@ -137,12 +138,12 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub AddTableToExportData(strName As String, intExportFormat As eTableDataExportFormat)
-    
+
     Dim strFormat(etdTabDelimited To etdXML) As String
     Dim dTable As Dictionary
-    
+
     Set dTable = New Dictionary
-    
+
     strFormat(etdTabDelimited) = "TabDelimited"
     strFormat(etdXML) = "XMLFormat"
     With Me.TablesToExportData
@@ -150,7 +151,7 @@ Public Sub AddTableToExportData(strName As String, intExportFormat As eTableData
         .Item(strName)("Format") = GetTableExportFormatName(intExportFormat)
         ' Could add ExcludeColumns here later...
     End With
-    
+
 End Sub
 
 
@@ -206,7 +207,12 @@ Public Sub LoadOptionsFromFile(strFile As String)
     Dim dOptions As Dictionary
     Dim varOption As Variant
     Dim strKey As String
-    
+
+    ' Save file path, in case we need to use it to determine
+    ' the export folder location with no database open.
+    m_strOptionsFilePath = strFile
+
+    ' Read in the options from the json file.
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
         If dFile.Exists("Options") Then
@@ -231,7 +237,7 @@ Public Sub LoadOptionsFromFile(strFile As String)
             Next varOption
         End If
     End If
-    
+
 End Sub
 
 
@@ -243,13 +249,18 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadProjectOptions()
-    
+
+    Dim strSaved As String
+
     ' Get saved path from database (if defined)
-    Me.ExportFolder = SavedSourcePath
-    
+    strSaved = SavedSourcePath
+
     ' Attempt to load the project options file.
-    LoadOptionsFromFile Me.GetExportFolder & cstrOptionsFilename
-    
+    If strSaved <> vbNullString Then
+        Me.ExportFolder = strSaved
+        LoadOptionsFromFile Me.GetExportFolder & cstrOptionsFilename
+    End If
+
 End Sub
 
 
@@ -281,15 +292,18 @@ End Sub
 ' Procedure : GetExportFolder
 ' Author    : Adam Waller
 ' Date      : 4/14/2020
-' Purpose   : Returns the actual export folder, even if a path hasn't been defined.
+' Purpose   : Returns the actual export folder path from the ExportFolder option.
+'           : NOTE: We cannot return a relative export folder path without an open
+'           : database file.
 '---------------------------------------------------------------------------------------
 '
 Public Function GetExportFolder() As String
 
     Dim strFullPath As String
-    
+    Dim strPath As String
+
     If Me.ExportFolder = vbNullString Then
-        ' Build default path using project name
+        ' Build default path using project file name
         strFullPath = CurrentProject.FullName & ".src\"
     Else
         If Left$(Me.ExportFolder, 2) = "\\" Then
@@ -304,9 +318,20 @@ Public Function GetExportFolder() As String
         End If
     End If
 
-    ' Return export path with a trailing slash
-    GetExportFolder = StripSlash(strFullPath) & "\"
-    
+    ' Check to make sure we have built a valid path.
+    Select Case strFullPath
+        Case "\\", "\", ".src\", vbNullString
+            ' Invalid paths
+            MsgBox2 "Cannot determine export path", _
+                "A database file must be open to return a relative export path.", _
+                "This is probably due to a problem in the build sequence logic.", vbExclamation
+            Log.Add "ERROR: Cannot build relative export folder path without an open database file."
+            GetExportFolder = vbNullString
+        Case Else
+            ' Return export path with a trailing slash
+            GetExportFolder = StripSlash(strFullPath) & "\"
+    End Select
+
 End Function
 
 
@@ -325,11 +350,11 @@ Private Function SerializeOptions() As Dictionary
     Dim varOption As Variant
     Dim strOption As String
     Dim strBit As String
-    
+
     Set dOptions = New Dictionary
     Set dInfo = New Dictionary
     Set dWrapper = New Dictionary
-    
+
     ' Add some header information (For debugging or upgrading)
     #If Win64 Then
         strBit = " 64-bit"
@@ -339,7 +364,7 @@ Private Function SerializeOptions() As Dictionary
     dInfo.Add "AddinVersion", AppVersion
     dInfo.Add "AccessVersion", Application.Version & strBit
     If Me.Security = esEncrypt Then dInfo.Add "Hash", GetHash
-    
+
     ' Loop through options
     For Each varOption In m_colOptions
         strOption = CStr(varOption)
@@ -352,12 +377,12 @@ Private Function SerializeOptions() As Dictionary
                 dOptions.Add strOption, CallByName(Me, strOption, VbGet)
         End Select
     Next varOption
-    
+
     'Set SerializeOptions = new Dictionary
     Set dWrapper("Info") = dInfo
     Set dWrapper("Options") = dOptions
     Set SerializeOptions = dWrapper
-    
+
 End Function
 
 
@@ -449,10 +474,10 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Initialize()
-    
+
     ' Initialize the options collection
     Set m_colOptions = New Collection
-    
+
     ' Load enum values
     Set m_dEnum = New Dictionary
     With m_dEnum
@@ -460,7 +485,7 @@ Private Sub Class_Initialize()
         .Add Enum_Security_Remove, "Remove"
         .Add Enum_Security_None, "None"
     End With
-    
+
     ' Load list of property names for reflection type behavior.
     With m_colOptions
         .Add "ExportFolder"
@@ -482,13 +507,13 @@ Private Sub Class_Initialize()
         .Add "Security"
         .Add "KeyName"
     End With
-    
+
     ' Load default values
     Me.LoadDefaults
-    
+
     ' Other run-time options
     JsonOptions.AllowUnicodeChars = True
-    
+
 End Sub
 
 
@@ -516,13 +541,13 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Let SavedSourcePath(strPath As String)
-    
+
     Dim prp As AccessObjectProperty
     Dim proj As CurrentProject
-    
+
     Set proj = CurrentProject
     Set prp = GetSavedSourcePathProperty
-    
+
     If strPath = vbNullString Then
         ' Remove the property when no longer used.
         If Not prp Is Nothing Then proj.Properties.Remove prp.Name
@@ -535,7 +560,7 @@ Private Property Let SavedSourcePath(strPath As String)
             prp.Value = strPath
         End If
     End If
-    
+
 End Property
 
 
