@@ -403,7 +403,7 @@ Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
     
     ' Cache a list of source file names for actual database objects
     Set colNames = New Collection
-    For Each cItem In cType.GetAllFromDB
+    For Each cItem In cType.GetAllFromDB(False)
         colNames.Add FSO.GetFileName(cItem.SourceFile)
     Next cItem
     
@@ -450,7 +450,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     ' Cache a list of source file names for actual database objects
     Perf.OperationStart "Clear Orphaned"
     Set colNames = New Collection
-    For Each cItem In cType.GetAllFromDB
+    For Each cItem In cType.GetAllFromDB(False)
         colNames.Add FSO.GetFileName(cItem.SourceFile)
     Next cItem
     If colNames.Count > 0 Then strPrimaryExt = "." & FSO.GetExtensionName(colNames(1))

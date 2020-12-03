@@ -287,7 +287,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList() As Collection
+Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
     ' Get list of folders (extracted files) as well as zip files.
     Set IDbComponent_GetFileList = GetSubfolderPaths(IDbComponent_BaseFolder)
     MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
@@ -405,7 +405,7 @@ End Property
 ' Purpose   : Return a count of how many items are in this category.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_Count() As Long
+Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB.Count
 End Property
 

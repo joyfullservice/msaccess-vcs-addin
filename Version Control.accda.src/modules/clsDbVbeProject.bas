@@ -84,7 +84,7 @@ Private Sub IDbComponent_Import(strFile As String)
     End With
     
     ' Save to index
-    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
 
 End Sub
 
@@ -164,7 +164,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList() As Collection
+Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
     Set IDbComponent_GetFileList = New Collection
     IDbComponent_GetFileList.Add IDbComponent_SourceFile
 End Function
@@ -277,7 +277,7 @@ End Property
 ' Purpose   : Return a count of how many items are in this category.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_Count() As Long
+Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = 1
 End Property
 

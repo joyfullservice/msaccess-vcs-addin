@@ -93,7 +93,6 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IsModified() As Boolean
-
 End Function
 
 
@@ -153,7 +152,7 @@ End Property
 '           : Based on the export folder defined in options.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFileList() As Collection
+Public Function GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
 End Function
 
 
@@ -209,7 +208,7 @@ End Property
 ' Purpose   : Return a count of how many items are in this category.
 '---------------------------------------------------------------------------------------
 '
-Public Property Get Count() As Long
+Public Property Get Count(Optional blnModifiedOnly As Boolean = False) As Long
 End Property
 
 
