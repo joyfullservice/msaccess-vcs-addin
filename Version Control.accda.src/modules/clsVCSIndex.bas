@@ -27,8 +27,12 @@ Public Enum eIndexActionType
     eatImport
 End Enum
 
+' Reference to Git Integration
+Private Git As clsGitIntegration
+
 ' Index of component/file information, based on source files
 Private m_dIndex As Dictionary
+Private m_strFile As String
 
 
 '---------------------------------------------------------------------------------------
@@ -38,7 +42,7 @@ Private m_dIndex As Dictionary
 ' Purpose   : Load the state for the project.
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadFromFile()
+Public Sub LoadFromFile(Optional strFile As String)
 
     Dim dFile As Dictionary
     Dim dItem As Dictionary
@@ -48,8 +52,10 @@ Public Sub LoadFromFile()
     Call Class_Initialize
     
     ' Load properties
-    If FSO.FileExists(FileName) Then
-        Set dFile = ReadJsonFile(FileName)
+    m_strFile = strFile
+    If m_strFile = vbNullString Then m_strFile = DefaultFileName
+    If FSO.FileExists(m_strFile) Then
+        Set dFile = ReadJsonFile(m_strFile)
         If Not dFile Is Nothing Then
             If dFile.Exists("Items") Then
                 ' Load properties from class
@@ -90,8 +96,11 @@ Public Sub Save()
         If varKey <> "Components" Then
             varValue = CallByName(Me, CStr(varKey), VbGet)
             ' Save blank dates as null
-            If Right(varKey, 4) = "Date" And varValue = 0 Then varValue = Null
-            m_dIndex(varKey) = varValue
+            If Right(varKey, 4) = "Date" Then
+                If varValue = 0 Then varValue = Null
+            Else
+                m_dIndex(varKey) = CStr(varValue)
+            End If
         End If
     Next varKey
 
@@ -103,7 +112,9 @@ Public Sub Save()
     Set m_dIndex("Components") = SortDictionaryByKeys(dComponents)
 
     ' Save index to file
-    WriteJsonFile Me, m_dIndex, FileName, "Version Control System Index"
+    If m_strFile <> vbNullString Then
+        WriteJsonFile Me, m_dIndex, m_strFile, "Version Control System Index"
+    End If
     
 End Sub
 
@@ -121,7 +132,7 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexActionType, _
     Dim dItem As Dictionary
     
     ' Look up dictionary item, creating if needed.
-    Set dItem = Me.GetItem(cItem)
+    Set dItem = Me.Item(cItem)
     
     ' Update dictionary values
     With dItem
@@ -137,9 +148,13 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexActionType, _
         ' Add timestamp, defaulting to now
         If dteDateTime = 0 Then dteDateTime = Now
         Select Case intAction
-            Case eatExport: .Item("ExportDate") = dteDateTime
-            Case eatImport: .Item("ImportDate") = dteDateTime
+            Case eatExport: .Item("ExportDate") = CStr(dteDateTime)
+            Case eatImport: .Item("ImportDate") = CStr(dteDateTime)
         End Select
+        
+        ' Save timestamp of exported source file.
+        dteDateTime = GetLastModifiedDate(cItem.SourceFile)
+        .Item("SourceModified") = ZN(CStr(dteDateTime))
     
     End With
     
@@ -151,25 +166,83 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetItem
+' Procedure : Remove
 ' Author    : Adam Waller
-' Date      : 11/30/2020
-' Purpose   : Returns a dictionary object with the saved values, creating if needed.
+' Date      : 12/2/2020
+' Purpose   : Remove an item from the index when the object and file no longer exist.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetItem(cItem As IDbComponent) As Dictionary
+Public Sub Remove(cItem As IDbComponent)
     
     Dim strFile As String
     
     ' Get just the file name from the path.
     strFile = FSO.GetFileName(cItem.SourceFile)
     
-    ' Get or creat dictionary objects.
+    ' Remove dictionary objects.
+    With m_dIndex("Components")
+        If .Exists(cItem.Category) Then
+            If .Item(cItem.Category).Exists(strFile) Then
+                .Item(cItem.Category).Remove strFile
+                ' Remove category if no more items
+                If .Item(cItem.Category).Count = 0 Then
+                    .Remove cItem.Category
+                End If
+            End If
+        End If
+    End With
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetItem
+' Author    : Adam Waller
+' Date      : 11/30/2020
+' Purpose   : Returns a dictionary object with the saved values, creating if needed.
+'---------------------------------------------------------------------------------------
+'
+Public Function Item(cItem As IDbComponent) As Dictionary
+    
+    Dim strFile As String
+    
+    ' Get just the file name from the path.
+    strFile = FSO.GetFileName(cItem.SourceFile)
+    
+    ' Get or create dictionary objects.
     With m_dIndex("Components")
         If Not .Exists(cItem.Category) Then Set .Item(cItem.Category) = New Dictionary
         If Not .Item(cItem.Category).Exists(strFile) Then Set .Item(cItem.Category)(strFile) = New Dictionary
-        Set GetItem = .Item(cItem.Category)(strFile)
+        Set Item = .Item(cItem.Category)(strFile)
     End With
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Exists
+' Author    : Adam Waller
+' Date      : 12/2/2020
+' Purpose   : Returns true if the file exists in the index.
+'---------------------------------------------------------------------------------------
+'
+Public Function Exists(cCategory As IDbComponent, strSourceFilePath As String) As Boolean
+
+    Dim strFile As String
+    Dim blnExists
+    
+    ' Get just the file name from the path.
+    strFile = FSO.GetFileName(strSourceFilePath)
+    
+    ' See if the entry exists in the index
+    With m_dIndex("Components")
+        If .Exists(cCategory.Category) Then
+            blnExists = .Item(cCategory.Category).Exists(strFile)
+        End If
+    End With
+    
+    ' Return result
+    Exists = blnExists
     
 End Function
 
@@ -188,6 +261,31 @@ End Function
 '
 Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
 
+    Dim colAllFiles As Collection
+    Dim varFile As Variant
+    Dim strFile As String
+    Dim strPath As String
+    Dim blnModified As Boolean
+    
+    ' Get a list of all the files for this component.
+    Set colAllFiles = cCategory.GetFileList
+
+    Set GetModifiedSourceFiles = New Collection
+    With GetModifiedSourceFiles
+        For Each varFile In colAllFiles
+            strFile = varFile
+            ' Reset flag
+            blnModified = True
+            If Me.Exists(cCategory, strFile) Then
+                strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "SourceModified"), "\")
+                ' Compare modified date of file with modified date in index.
+                blnModified = Not dNZ(m_dIndex, strPath) = GetLastModifiedDate(strFile)
+            End If
+            ' Add modified files to collection
+            If blnModified Then .Add strFile
+        Next varFile
+    End With
+
 End Function
 
 
@@ -198,8 +296,8 @@ End Function
 ' Purpose   : Return file name for git state json file.
 '---------------------------------------------------------------------------------------
 '
-Private Function FileName() As String
-    FileName = Options.GetExportFolder & "vcs-index.json"
+Private Function DefaultFileName() As String
+    DefaultFileName = Options.GetExportFolder & "vcs-index.json"
 End Function
 
 
@@ -213,7 +311,6 @@ End Function
 Private Sub Class_Initialize()
 
     Set m_dIndex = New Dictionary
-    
     With m_dIndex
         .Add "MergeBuildDate", Null
         .Add "FullBuildDate", Null
@@ -222,5 +319,8 @@ Private Sub Class_Initialize()
         .Add "LastMergedCommit", vbNullString
         Set .Item("Components") = New Dictionary
     End With
+    
+    ' Load Git integration
+    Set Git = New clsGitIntegration
     
 End Sub

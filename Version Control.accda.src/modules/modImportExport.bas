@@ -16,13 +16,14 @@ Public Sub ExportSource()
     Dim cDbObject As IDbComponent
     Dim sngStart As Single
     Dim blnFullExport As Boolean
+    Dim lngCount As Long
 
     ' Can't export without an open database
     If CurrentDb Is Nothing And CurrentProject.Connection Is Nothing Then Exit Sub
     
     ' If we are running this from the current database, we need to run it a different
     ' way to prevent file corruption issues.
-    If CurrentProject.FullName = CodeProject.FullName Then
+    If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
         RunExportForCurrentDB
         Exit Sub
     Else
@@ -83,34 +84,24 @@ Public Sub ExportSource()
         cCategory.ClearOrphanedSourceFiles
             
         ' Only show category details when it contains objects
-        If cCategory.Count = 0 Then
+        lngCount = cCategory.Count(Options.UseFastSave)
+        If lngCount = 0 Then
             Log.Spacer Options.ShowDebug
             Log.Add "No " & LCase(cCategory.Category) & " found in this database.", Options.ShowDebug
         Else
             ' Show category header and clear out any orphaned files.
             Log.Spacer Options.ShowDebug
             Log.PadRight "Exporting " & LCase(cCategory.Category) & "...", , Options.ShowDebug
-            Log.ProgMax = cCategory.Count
+            Log.ProgMax = lngCount
             Perf.ComponentStart cCategory.Category
 
             ' Loop through each object in this category.
-            For Each cDbObject In cCategory.GetAllFromDB
+            For Each cDbObject In cCategory.GetAllFromDB(Options.UseFastSave)
                 
-                ' Check for fast save option
-                If Options.UseFastSave And Not blnFullExport Then
-                    If HasMoreRecentChanges(cDbObject) Then
-                        Log.Increment
-                        Log.Add "  " & cDbObject.Name, Options.ShowDebug
-                        cDbObject.Export
-                    Else
-                        Log.Add "  (Skipping '" & cDbObject.Name & "')", Options.ShowDebug
-                    End If
-                Else
-                    ' Always export object
-                    Log.Increment
-                    Log.Add "  " & cDbObject.Name, Options.ShowDebug
-                    cDbObject.Export
-                End If
+                ' Export object
+                Log.Increment
+                Log.Add "  " & cDbObject.Name, Options.ShowDebug
+                cDbObject.Export
                     
                 ' Some kinds of objects are combined into a single export file, such
                 ' as database properties. For these, we just need to run the export once.
@@ -119,9 +110,9 @@ Public Sub ExportSource()
             Next cDbObject
             
             ' Show category wrap-up.
-            Log.Add "[" & cCategory.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
+            Log.Add "[" & lngCount & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
             'Log.Flush  ' Gives smoother output, but slows down export.
-            Perf.ComponentEnd cCategory.Count
+            Perf.ComponentEnd lngCount
         End If
     Next cCategory
     
@@ -154,6 +145,8 @@ Public Sub ExportSource()
     Options.SaveOptionsForProject
     
     ' Save index file
+    VCSIndex.ExportDate = Now
+    If Not Options.UseFastSave Then VCSIndex.FullExportDate = Now
     VCSIndex.Save
     
     ' Clear references to FileSystemObject and other objects
@@ -192,14 +185,11 @@ Public Sub Build(strSourceFolder As String)
         Exit Sub
     End If
     
-    ' Now reset the options and logs
+    ' If we are using encryption, make sure we are able to decrypt the values.
+    ' NOTE: There is no CurrentProject at this point, so we will have limited
+    ' functionality with the options class.
     Set Options = Nothing
     Options.LoadOptionsFromFile strSourceFolder & "vcs-options.json"
-    Log.Clear
-    Set VCSIndex = Nothing
-    VCSIndex.LoadFromFile
-
-    ' If we are using encryption, make sure we are able to decrypt the values
     If Options.Security = esEncrypt And Not VerifyHash(strSourceFolder & "vcs-options.json") Then
         MsgBox2 "Encryption Key Mismatch", "The required encryption key is either missing or incorrect.", _
             "Please update the encryption key before building this project from source.", vbExclamation
@@ -213,7 +203,8 @@ Public Sub Build(strSourceFolder As String)
         Exit Sub
     End If
     
-    ' Start performance timers
+    ' Start log and performance timers
+    Log.Clear
     sngStart = Timer
     Perf.StartTiming
     
@@ -256,6 +247,10 @@ Public Sub Build(strSourceFolder As String)
     End If
     Log.Add "Created blank database for import."
     Log.Spacer
+    
+    ' Now that we have a new database file, we can load the index.
+    Set VCSIndex = Nothing
+    VCSIndex.LoadFromFile
     
     ' Remove any non-built-in references before importing from source.
     Log.Add "Removing non built-in references...", False
@@ -313,6 +308,7 @@ Public Sub Build(strSourceFolder As String)
     Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Import.log")
 
     ' Save index file
+    VCSIndex.FullBuildDate = Now
     VCSIndex.Save
     Set VCSIndex = Nothing
     

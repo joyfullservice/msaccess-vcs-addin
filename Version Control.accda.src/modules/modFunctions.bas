@@ -68,7 +68,6 @@ Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPt
 Private m_Perf As clsPerformance
 Private m_Log As clsLog
 Private m_Options As clsOptions
-Private m_Git As clsGitSync
 Private m_VCSIndex As clsVCSIndex
 
 ' Keep a persistent reference to file system object after initializing version control.
@@ -1601,19 +1600,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Git
-' Author    : Adam Waller
-' Date      : 11/21/2020
-' Purpose   : Wrapper for Git class
-'---------------------------------------------------------------------------------------
-'
-Public Function Git() As clsGitSync
-    If m_Git Is Nothing Then Set m_Git = New clsGitSync
-    Set Git = m_Git
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : FSO
 ' Author    : Adam Waller
 ' Date      : 1/18/2019
@@ -2663,3 +2649,37 @@ Public Sub RemoveNonBuiltInReferences()
     Next intCnt
     
 End Sub
+'---------------------------------------------------------------------------------------
+' Procedure : Largest
+' Author    : Adam Waller
+' Date      : 12/2/2020
+' Purpose   : Return the largest of an array of values
+'---------------------------------------------------------------------------------------
+'
+Public Function Largest(ParamArray varValues()) As Variant
+
+    Dim varLargest As Variant
+    Dim intCnt As Integer
+    
+    For intCnt = LBound(varValues) To UBound(varValues)
+        If varLargest < varValues(intCnt) Then varLargest = varValues(intCnt)
+    Next intCnt
+    Largest = varLargest
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ZN
+' Author    : Adam Waller
+' Date      : 12/2/2020
+' Purpose   : Opposite of the NZ function, where we convert an empty string or 0 to null.
+'---------------------------------------------------------------------------------------
+'
+Public Function ZN(varValue As Variant) As Variant
+    If varValue = vbNullString Or varValue = 0 Then
+        ZN = Null
+    Else
+        ZN = varValue
+    End If
+End Function
