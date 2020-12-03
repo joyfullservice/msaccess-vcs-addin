@@ -2452,8 +2452,7 @@ Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
     On Error Resume Next
     DoCmd.DeleteObject intType, strName
     Catch 7874 ' Object not found
-    If Err Then Log.Add "Error: Unable to delete existing object '" & strName & _
-        "'. Error " & Err.Number & ": " & Err.Description
+    CatchAny "Deleting object " & strName
 End Sub
 
 
@@ -2474,6 +2473,24 @@ Public Function Catch(ParamArray lngErrorNumbers()) As Boolean
             Exit For
         End If
     Next intCnt
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CatchAny
+' Author    : Adam Waller
+' Date      : 12/3/2020
+' Purpose   : Generic error handler with logging.
+'---------------------------------------------------------------------------------------
+'
+Public Function CatchAny(Optional strSource As String, Optional blnLogError As Boolean = True, _
+    Optional blnClearError As Boolean = True) As Boolean
+    If Err Then
+        If blnLogError Then Log.Add "Error " & Err.Number & ": " & Err.Description & _
+            IIf(strSource <> vbNullString, " Source: " & strSource, vbNullString)
+        If blnClearError Then Err.Clear
+        CatchAny = True
+    End If
 End Function
 
 
