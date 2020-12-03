@@ -77,6 +77,7 @@ Private Sub IDbComponent_Import(strFile As String)
         
         ' Add any references from file that don't already exist
         Set dItems = dFile("Items")
+        On Error Resume Next
         For Each varKey In dItems.Keys
             Set dRef = dItems(varKey)
             If Not dExisting.Exists(CStr(varKey)) Then
@@ -87,12 +88,15 @@ Private Sub IDbComponent_Import(strFile As String)
                     strPath = GetPathFromRelative(Decrypt(dRef("FullPath")))
                     If FSO.FileExists(strPath) Then
                         proj.References.AddFromFile strPath
+                        CatchAny "Adding VBE reference from " & strPath
                     Else
-                        Log.Add "ERROR: Failed to add reference " & strPath
+                        Log.Add "ERROR: Failed to add reference " & strPath & " (File not found)"
                     End If
                 End If
             End If
         Next varKey
+        CatchAny "Adding VBE references"
+        On Error GoTo 0
     End If
     
     ' Update index
