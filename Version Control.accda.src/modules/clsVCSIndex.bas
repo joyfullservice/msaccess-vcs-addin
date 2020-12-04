@@ -97,7 +97,7 @@ Public Sub Save()
             varValue = CallByName(Me, CStr(varKey), VbGet)
             ' Save blank dates as null
             If Right(varKey, 4) = "Date" Then
-                If varValue = 0 Then varValue = Null
+                m_dIndex(varKey) = ZN(CStr(varValue))
             Else
                 m_dIndex(varKey) = CStr(varValue)
             End If
