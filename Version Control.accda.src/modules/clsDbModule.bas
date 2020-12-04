@@ -154,7 +154,7 @@ Public Function IDbComponent_IsModified() As Boolean
         If m_Module.DateModified <= dteDate Then
                 
             ' Date is okay, check hash
-            IDbComponent_IsModified = .Item("Hash") = GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
+            IDbComponent_IsModified = .Item("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
         End If
         
     End With
