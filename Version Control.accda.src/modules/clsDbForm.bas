@@ -127,6 +127,28 @@ End Sub
 '
 Public Function IDbComponent_IsModified() As Boolean
 
+    Dim dteDate As Date
+    Dim strHash As String
+    
+    ' Item is considered modified unless proven otherwise.
+    IDbComponent_IsModified = True
+    
+    With VCSIndex.Item(Me)
+        
+        ' Check modification date
+        dteDate = Largest(VCSIndex.FullBuildDate, VCSIndex.FullExportDate, _
+            .Item("ExportDate"), .Item("ImportDate"))
+        
+        ' Check the modified date first.
+        ' (This may not reflect some code changes)
+        If m_Form.DateModified <= dteDate Then
+                
+            ' Date is okay, check hash
+            IDbComponent_IsModified = .Item("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
+        End If
+        
+    End With
+    
 End Function
 
 
