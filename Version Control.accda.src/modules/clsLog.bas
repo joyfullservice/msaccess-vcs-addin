@@ -7,6 +7,7 @@ Option Explicit
 
 Public PadLength As Integer
 Public LogFilePath As String
+Public ErrorLevel As eErrorLevel
 
 Private Const cstrSpacer As String = "-------------------------------------"
 
@@ -128,6 +129,48 @@ Public Sub Flush()
     ' Update the display (especially for immediate window)
     DoEvents
     Perf.OperationEnd
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Error
+' Author    : Adam Waller
+' Date      : 12/4/2020
+' Purpose   : Log an error, and update error level if needed. Reads Err object values.
+'           : A critical error will also present a message box with the details.
+'---------------------------------------------------------------------------------------
+'
+Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSource As String)
+
+    Dim strPrefix As String
+    Dim strErrorDetail As String
+    
+    Select Case eLevel
+        Case eelWarning:    strPrefix = "WARNING: "
+        Case eelError:      strPrefix = "ERROR: "
+        Case eelCritical:   strPrefix = "CRITICAL: "
+    End Select
+    
+    ' Build the error message string.
+    With New clsConcat
+        .AppendOnAdd = vbNullString
+        .Add strPrefix, strDescription
+        If strSource <> vbNullString Then .Add " Source: ", strSource
+        If Err Then .Add " Error ", Err.Number, ": ", Err.Description
+        
+        ' Log the error and display if higher than warning.
+        Me.Add .GetStr, eLevel > eelWarning
+        
+        ' Show message box for fatal error.
+        If eLevel = eelCritical Then
+            MsgBox2 "Unable to Continue", .GetStr, _
+                "Please review the log file for additional details.", vbCritical
+        End If
+    End With
+    
+    ' Update error level if higher.
+    If Me.ErrorLevel < eLevel Then Me.ErrorLevel = eLevel
     
 End Sub
 

@@ -64,6 +64,8 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strPath As String
     Dim dExisting As Dictionary
     
+    On Error Resume Next
+    
     ' Read in references from file
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
@@ -86,16 +88,16 @@ Private Sub IDbComponent_Import(strFile As String)
                     AddFromGuid proj, CStr(varKey), dRef("GUID"), CLng(varVersion(0)), CLng(varVersion(1))
                 ElseIf dRef.Exists("FullPath") Then
                     strPath = GetPathFromRelative(Decrypt(dRef("FullPath")))
-                    If FSO.FileExists(strPath) Then
-                        proj.References.AddFromFile strPath
-                        CatchAny "Adding VBE reference from " & strPath
+                    If Not FSO.FileExists(strPath) Then
+                        Log.Error eelError, "File not found. Unable to add reference to " & strPath, "clsVbeReference.Import"
                     Else
-                        Log.Add "ERROR: Failed to add reference " & strPath & " (File not found)"
+                        proj.References.AddFromFile strPath
+                        CatchAny eelError, "Adding VBE reference from " & strPath
                     End If
                 End If
             End If
         Next varKey
-        CatchAny "Adding VBE references"
+        CatchAny eelError, "Adding VBE references"
         On Error GoTo 0
     End If
     

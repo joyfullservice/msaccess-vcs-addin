@@ -61,6 +61,16 @@ Public Enum eDatabaseComponentType
     edbVbeReference
 End Enum
 
+' Error levels used for logging and monitoring the status
+' of the current operation.
+Public Enum eErrorLevel
+    eelNoError
+    eelWarning      ' Logged to file
+    eelError        ' Displayed and logged
+    eelCritical     ' Cancel operation
+End Enum
+
+
 ' API function to pause processing
 Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)
 
@@ -2438,7 +2448,7 @@ Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
     On Error Resume Next
     DoCmd.DeleteObject intType, strName
     Catch 7874 ' Object not found
-    CatchAny "Deleting object " & strName
+    CatchAny eelError, "Deleting object " & strName
 End Sub
 
 
@@ -2469,11 +2479,10 @@ End Function
 ' Purpose   : Generic error handler with logging.
 '---------------------------------------------------------------------------------------
 '
-Public Function CatchAny(Optional strSource As String, Optional blnLogError As Boolean = True, _
-    Optional blnClearError As Boolean = True) As Boolean
+Public Function CatchAny(eLevel As eErrorLevel, strDescription As String, Optional strSource As String, _
+    Optional blnLogError As Boolean = True, Optional blnClearError As Boolean = True) As Boolean
     If Err Then
-        If blnLogError Then Log.Add "Error " & Err.Number & ": " & Err.Description & _
-            IIf(strSource <> vbNullString, " Source: " & strSource, vbNullString)
+        If blnLogError Then Log.Error eLevel, strDescription, strSource
         If blnClearError Then Err.Clear
         CatchAny = True
     End If

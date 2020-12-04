@@ -114,6 +114,10 @@ Public Sub ExportSource()
             'Log.Flush  ' Gives smoother output, but slows down export.
             Perf.ComponentEnd lngCount
         End If
+        
+        ' Bail out if we hit a critical error.
+        If Log.ErrorLevel = eelCritical Then GoTo CleanUp
+        
     Next cCategory
     
     ' Run any cleanup routines
@@ -148,7 +152,9 @@ Public Sub ExportSource()
     VCSIndex.ExportDate = Now
     If Not Options.UseFastSave Then VCSIndex.FullExportDate = Now
     VCSIndex.Save
-    
+
+CleanUp:
+
     ' Clear references to FileSystemObject and other objects
     Set FSO = Nothing
     Set VCSIndex = Nothing
