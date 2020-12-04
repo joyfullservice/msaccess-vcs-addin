@@ -2426,6 +2426,7 @@ Public Function GetLastModifiedDate(strPath As String) As Date
     Dim oFile As Scripting.File
     Dim oFolder As Scripting.Folder
     
+    Perf.OperationStart "Get Modified Date"
     If FSO.FileExists(strPath) Then
         Set oFile = FSO.GetFile(strPath)
         GetLastModifiedDate = oFile.DateLastModified
@@ -2433,6 +2434,7 @@ Public Function GetLastModifiedDate(strPath As String) As Date
         Set oFolder = FSO.GetFolder(strPath)
         GetLastModifiedDate = oFolder.DateLastModified
     End If
+    Perf.OperationEnd
         
 End Function
 
@@ -2541,6 +2543,7 @@ Private Function Sha1(bteContent() As Byte, Optional intLength As Integer) As St
     Dim strSha1 As String
     Dim intPos As Integer
     
+    Perf.OperationStart "Compute SHA1"
     Set objEnc = CreateObject("System.Security.Cryptography.SHA1CryptoServiceProvider")
     bteSha1 = objEnc.ComputeHash_2(bteContent)
     Set objEnc = Nothing
@@ -2559,6 +2562,7 @@ Private Function Sha1(bteContent() As Byte, Optional intLength As Integer) As St
     Else
         Sha1 = strSha1
     End If
+    Perf.OperationEnd
     
 End Function
 
@@ -2578,6 +2582,7 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
     Dim proj As VBProject
     Dim blnNoCode As Boolean
     
+    Perf.OperationStart "Get VBA Hash"
     Select Case intType
         Case edbForm:   strPrefix = "Form_"
         Case edbReport: strPrefix = "Report_"
@@ -2612,6 +2617,7 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
     
     ' Return hash (if any)
     GetCodeModuleHash = strHash
+    Perf.OperationEnd
     
 End Function
 
@@ -2658,6 +2664,8 @@ Public Sub RemoveNonBuiltInReferences()
     Next intCnt
     
 End Sub
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : Largest
 ' Author    : Adam Waller

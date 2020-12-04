@@ -263,8 +263,8 @@ Public Function GetReports() As String
         ' Table for object types
         .Add ListResult("Object Type", "Count", "Seconds", 20, 30), vbCrLf, cstrSpacer
         For Each varKey In m_dComponents.Keys
-            .Add ListResult(CStr(varKey), CStr(m_dComponents(varKey).dblCount), _
-                Format(m_dComponents(varKey).curTotal, "0.00"), 20, 30)
+            .Add ListResult(CStr(varKey), CStr(m_dComponents(varKey).Count), _
+                Format(m_dComponents(varKey).Total, "0.00"), 20, 30)
             ' Add to totals
             dblCount = dblCount + m_dComponents(varKey).Count
             curTotal = curTotal + m_dComponents(varKey).Total
