@@ -3,14 +3,14 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
-' Module    : clsGitState
+' Module    : clsGitIndex
 ' Author    : Adam Waller
 ' Date      : 11/25/2020
 ' Purpose   :
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Explicit
+
 
 ' General properties
 Public MergeBuildDate As Date
@@ -97,7 +97,7 @@ Public Sub Save()
             varValue = CallByName(Me, CStr(varKey), VbGet)
             ' Save blank dates as null
             If Right(varKey, 4) = "Date" Then
-                m_dIndex(varKey) = ZN(CStr(CDbl((varValue))))
+                m_dIndex(varKey) = ZNDate(CStr(varValue))
             Else
                 m_dIndex(varKey) = CStr(varValue)
             End If
@@ -154,7 +154,7 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexActionType, _
         
         ' Save timestamp of exported source file.
         dteDateTime = GetLastModifiedDate(cItem.SourceFile)
-        .Item("SourceModified") = ZN(CStr(CDbl(dteDateTime)))
+        .Item("SourceModified") = ZNDate(CStr(dteDateTime))
     
     End With
     

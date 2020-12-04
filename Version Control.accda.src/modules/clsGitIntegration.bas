@@ -18,6 +18,10 @@ Private Enum eGitCommand
 End Enum
 
 
+' The structure of this dictionary is very similar to the VCS Index of components.
+Private m_dChangedItems As Dictionary
+
+
 ' Peforms operations related to interrogating the status of Git
 ' Note: All of these operations make certain assumptions:
 ' 1) The database is in the root of the git repository.
@@ -255,4 +259,42 @@ End Function
 '
 Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
 
+    ' Make sure the changes are loaded from Git
+    If m_dChangedItems Is Nothing Then LoadChangesFromGit
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadChangesFromGit
+' Author    : Adam Waller
+' Date      : 12/4/2020
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Private Function LoadChangesFromGit()
+
+    Dim dCategory As IDbComponent
+    Dim dFolders As Dictionary
+    
+    Set m_dChangedItems = New Dictionary
+    
+    ' Build a list of source path folders by category.
+    ' For single file items, it will be the full path.
+    For Each dCategory In GetAllContainers
+        With dCategory
+            If .SingleFile Then
+                dFolders.Add .BaseFolder & FSO.GetFileName(.SourceFile), .Category
+            Else
+                dFolders.Add .BaseFolder, .Category
+            End If
+            Set m_dChangedItems(.Category) = New Dictionary
+        End With
+    Next dCategory
+    Debug.Print ConvertToJson(dFolders, "  ")
+    
+    ' Check for match on entire file, then on the folder to determine
+    ' the type of source file.
+    
+    
 End Function

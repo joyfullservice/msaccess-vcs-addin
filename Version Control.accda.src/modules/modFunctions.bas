@@ -531,3 +531,21 @@ Public Function ZN(varValue As Variant) As Variant
         ZN = varValue
     End If
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ZNDate
+' Author    : Adam Waller
+' Date      : 12/4/2020
+' Purpose   : Return null for an empty date value
+'---------------------------------------------------------------------------------------
+'
+Public Function ZNDate(varValue As Variant) As Variant
+    Dim blnDateValue As Boolean
+    If IsDate(varValue) Then blnDateValue = (CDate(varValue) <> 0)
+    If blnDateValue Then
+        ZNDate = varValue
+    Else
+        ZNDate = Null
+    End If
+End Function
