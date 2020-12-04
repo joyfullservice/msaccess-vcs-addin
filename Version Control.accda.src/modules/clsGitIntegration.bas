@@ -17,8 +17,6 @@ Private Enum eGitCommand
     egcSetTaggedCommit
 End Enum
 
-Private m_State As clsVCSIndex
-
 
 ' Peforms operations related to interrogating the status of Git
 ' Note: All of these operations make certain assumptions:
@@ -69,7 +67,6 @@ Public Function GetHeadCommitDate() As Date
 
     Dim strDate As String
     Dim varParts As Variant
-    Dim dteDate As Date
     
     ' Returns something like "2020-11-23 16:08:47 -0600"
     strDate = RunGitCommand(egcGetHeadCommitDate)
@@ -133,31 +130,6 @@ Private Function ShellRun(strCmd As String) As String
 End Function
 
 
-' NOTE: This approach was 50% slower and flashed the command prompt window
-' so I went with the Shell.Run and temporary file version instead.
-'
-' Returns the result of a shell command as a string
-' Commands are always run in the current directory
-' Based on StackOverflow #2784367
-Private Function ShellRun2(sCmd As String) As String
-    
-    Dim oShell As WshShell
-    Dim oExec As WshExec
-    Dim strFile As String
-    
-    Set oShell = New WshShell
-
-    ' run command
-    'Dim oExec As Object
-    'Dim oOutput As Object
-    Set oExec = oShell.Exec("cmd.exe /c cd " & Options.GetExportFolder & " & " & sCmd)
-    
-    ' handle the results as they are written to and read from the StdOut object
-    ShellRun2 = oExec.StdOut.ReadAll
-
-End Function
-
-'
 '
 '' Returns a collcetion containing two lists:
 '' first, of all the objects to modify or re-import based on the state of the git repo
@@ -233,7 +205,7 @@ End Function
 '    Set ReturnArray(1) = SourceFilesToRemoveCollection
 '    GetSourceFilesSinceLastImport = ReturnArray
 'End Function
-
+'
 'Public Sub SetLastImportedCommitToCurrent()
 '    ShellRun SetTaggedCommitCommand
 'End Sub

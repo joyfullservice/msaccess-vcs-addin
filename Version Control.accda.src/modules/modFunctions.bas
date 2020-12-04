@@ -294,7 +294,6 @@ End Function
 Public Function SortCollectionByValue(colSource As Collection) As Collection
 
     Dim colSorted As Collection
-    Dim varItem As Variant
     Dim varItems() As Variant
     Dim lngCnt As Long
     

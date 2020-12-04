@@ -378,8 +378,8 @@ Public Function UninstallVCSAddin() As Boolean
         Err.Clear
     Else
         ' Register the Menu controls
-        RemoveMenuItem "&Version Control", "=AddInMenuItemLaunch()"
-        RemoveMenuItem "&Export All Source", "=AddInMenuItemExport()"
+        RemoveMenuItem "&Version Control"
+        RemoveMenuItem "&Export All Source"
         ' Update installed version number
         InstalledVersion = 0
         ' Return success
@@ -488,7 +488,7 @@ End Sub
 ' Purpose   : Remove the menu item through the registry
 '---------------------------------------------------------------------------------------
 '
-Private Sub RemoveMenuItem(ByVal strName As String, Optional ByVal strFunction As String = "=LaunchMe()", Optional Hive As eHive = ehHKCU)
+Private Sub RemoveMenuItem(ByVal strName As String, Optional Hive As eHive = ehHKCU)
 
     Dim strPath As String
     Dim objShell As WshShell
@@ -698,8 +698,8 @@ End Sub
 Private Sub RemoveLegacyInstall()
 
     ' These registry keys require admin access to remove
-    RemoveMenuItem "&Version Control", "=AddInMenuItemLaunch()", ehHKLM
-    RemoveMenuItem "&Export All Source", "=AddInMenuItemExport()", ehHKLM
+    RemoveMenuItem "&Version Control", ehHKLM
+    RemoveMenuItem "&Export All Source", ehHKLM
 
     MsgBox2 "Legacy Items Removed", "Thanks for getting those cleaned up!" _
         , "Microsoft Access will now close so you can continue.", vbInformation

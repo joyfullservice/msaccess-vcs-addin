@@ -300,7 +300,6 @@ End Sub
 Public Function GetExportFolder() As String
 
     Dim strFullPath As String
-    Dim strPath As String
 
     If Me.ExportFolder = vbNullString Then
         ' Build default path using project file name

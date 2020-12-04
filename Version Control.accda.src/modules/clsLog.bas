@@ -144,7 +144,6 @@ End Sub
 Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSource As String)
 
     Dim strPrefix As String
-    Dim strErrorDetail As String
     
     Select Case eLevel
         Case eelWarning:    strPrefix = "WARNING: "

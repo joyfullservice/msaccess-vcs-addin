@@ -87,12 +87,14 @@ Public Sub CopyFolderToZip(strFolder As String, strZip As String, _
     oApp.Namespace(varZip).CopyHere oApp.Namespace(varFolder).Items
     
     ' Pause till the copying is complete, or we hit the timeout.
-    sngTimeout = Timer + intTimeoutSeconds
-    Do While Timer < sngTimeout
-        ' Check to see if all the items have been copied.
-        If oApp.Namespace(varZip).Items.Count = lngCount Then Exit Do
-        Pause 0.5
-    Loop
+    If blnPauseTillFinished Then
+        sngTimeout = Timer + intTimeoutSeconds
+        Do While Timer < sngTimeout
+            ' Check to see if all the items have been copied.
+            If oApp.Namespace(varZip).Items.Count = lngCount Then Exit Do
+            Pause 0.5
+        Loop
+    End If
     
 End Sub
 

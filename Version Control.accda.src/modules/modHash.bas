@@ -31,7 +31,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetFileHash(strPath As String, Optional intLength As Integer = 7) As String
-    GetFileHash = Sha1(GetFileBytes("C:\Users\Adam Waller\Documents\code.bas"), intLength)
+    GetFileHash = Sha1(GetFileBytes(strPath), intLength)
 End Function
 
 

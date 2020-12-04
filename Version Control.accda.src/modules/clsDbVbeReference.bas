@@ -117,7 +117,6 @@ End Sub
 Private Function GetDictionary() As Dictionary
 
     Dim dRef As Dictionary
-    Dim dItems As Dictionary
     Dim cItem As IDbComponent
     Dim cRef As clsDbVbeReference
     Dim ref As VBIDE.Reference

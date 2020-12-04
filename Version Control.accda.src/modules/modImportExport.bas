@@ -351,7 +351,6 @@ End Sub
 Public Sub MergeBuild(strSourceFolder As String)
 
     Dim strPath As String
-    Dim strBackup As String
     Dim cCategory As IDbComponent
     Dim sngStart As Single
     Dim colFiles As Collection

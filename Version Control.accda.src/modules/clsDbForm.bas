@@ -128,7 +128,6 @@ End Sub
 Public Function IDbComponent_IsModified() As Boolean
 
     Dim dteDate As Date
-    Dim strHash As String
     
     ' Item is considered modified unless proven otherwise.
     IDbComponent_IsModified = True

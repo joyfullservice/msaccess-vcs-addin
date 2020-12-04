@@ -3828,7 +3828,6 @@ End Sub
 Private Sub RefreshTableDisplay()
     
     Dim varTable As Variant
-    Dim blnShow As Boolean
     
     ' Update the list box of table names from the collection.
     With Me.lstTables
