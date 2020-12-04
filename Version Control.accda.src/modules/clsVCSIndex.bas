@@ -97,7 +97,7 @@ Public Sub Save()
             varValue = CallByName(Me, CStr(varKey), VbGet)
             ' Save blank dates as null
             If Right(varKey, 4) = "Date" Then
-                m_dIndex(varKey) = ZN(CStr(varValue))
+                m_dIndex(varKey) = ZN(CStr(CDbl((varValue))))
             Else
                 m_dIndex(varKey) = CStr(varValue)
             End If
@@ -154,7 +154,7 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexActionType, _
         
         ' Save timestamp of exported source file.
         dteDateTime = GetLastModifiedDate(cItem.SourceFile)
-        .Item("SourceModified") = ZN(CStr(dteDateTime))
+        .Item("SourceModified") = ZN(CStr(CDbl(dteDateTime)))
     
     End With
     
