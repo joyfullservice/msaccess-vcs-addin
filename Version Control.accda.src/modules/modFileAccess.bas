@@ -1,6 +1,13 @@
-Option Explicit
+'---------------------------------------------------------------------------------------
+' Module    : modFileAccess
+' Author    : Adam Waller
+' Date      : 12/4/2020
+' Purpose   : General functions for reading and writing files, building and verifying
+'           : paths, and parsing file names.
+'---------------------------------------------------------------------------------------
 Option Compare Database
 Option Private Module
+Option Explicit
 
 
 Private Declare PtrSafe Function getTempPath Lib "kernel32" Alias "GetTempPathA" ( _
@@ -12,276 +19,8 @@ Private Declare PtrSafe Function getTempFileName Lib "kernel32" Alias "GetTempFi
     ByVal lpPrefixString As String, _
     ByVal wUnique As Long, _
     ByVal lpTempFileName As String) As Long
-
-''' Maps a character string to a UTF-16 (wide character) string
-Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
-    ByVal CodePage As Long, _
-    ByVal dwFlags As Long, _
-    ByVal lpMultiByteStr As LongPtr, _
-    ByVal cchMultiByte As Long, _
-    ByVal lpWideCharStr As LongPtr, _
-    ByVal cchWideChar As Long _
-    ) As Long
-
-''' WinApi function that maps a UTF-16 (wide character) string to a new character string
-Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" ( _
-    ByVal CodePage As Long, _
-    ByVal dwFlags As Long, _
-    ByVal lpWideCharStr As LongPtr, _
-    ByVal cchWideChar As Long, _
-    ByVal lpMultiByteStr As LongPtr, _
-    ByVal cbMultiByte As Long, _
-    ByVal lpDefaultChar As Long, _
-    ByVal lpUsedDefaultChar As Long _
-    ) As Long
-
-
-' CodePage constant for UTF-8
-Private Const CP_UTF8 = 65001
-
-' Cache the Ucs2 requirement for this database
-Private m_blnUcs2 As Boolean
-Private m_strDbPath As String
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : RequiresUcs2
-' Author    : Adam Waller
-' Date      : 5/5/2020
-' Purpose   : Returns true if the current database requires objects to be converted
-'           : to Ucs2 format before importing. (Caching value for subsequent calls.)
-'           : While this involves creating a new querydef object each time, the idea
-'           : is that this would be faster than exporting a form if no queries exist
-'           : in the current database.
-'---------------------------------------------------------------------------------------
-'
-Public Function RequiresUcs2(Optional blnUseCache As Boolean = True) As Boolean
-
-    Dim strTempFile As String
-    Dim frm As Access.Form
-    Dim strName As String
-    Dim dbs As DAO.Database
     
-    ' See if we already have a cached value
-    If (m_strDbPath <> CurrentProject.FullName) Or Not blnUseCache Then
     
-        ' Get temp file name
-        strTempFile = GetTempFile
-        
-        ' Can't create querydef objects in ADP databases, so we have to use something else.
-        If CurrentProject.ProjectType = acADP Then
-            ' Create and export a blank form object.
-            ' Turn of screen updates to improve performance and avoid flash.
-            DoCmd.Echo False
-            'strName = "frmTEMP_UCS2_" & Round(Timer)
-            Set frm = Application.CreateForm
-            strName = frm.Name
-            DoCmd.Close acForm, strName, acSaveYes
-            Perf.OperationStart "App.SaveAsText()"
-            Application.SaveAsText acForm, strName, strTempFile
-            Perf.OperationEnd
-            DoCmd.DeleteObject acForm, strName
-            DoCmd.Echo True
-        Else
-            ' Standard MDB database.
-            ' Create and export a querydef object. Fast and light.
-            strName = "qryTEMP_UCS2_" & Round(Timer)
-            Set dbs = CurrentDb
-            dbs.CreateQueryDef strName, "SELECT 1"
-            Perf.OperationStart "App.SaveAsText()"
-            Application.SaveAsText acQuery, strName, strTempFile
-            Perf.OperationEnd
-            dbs.QueryDefs.Delete strName
-        End If
-        
-        ' Test and delete temp file
-        m_strDbPath = CurrentProject.FullName
-        m_blnUcs2 = HasUcs2Bom(strTempFile)
-        DeleteFile strTempFile, True
-
-    End If
-
-    ' Return cached value
-    RequiresUcs2 = m_blnUcs2
-    
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ConvertUcs2Utf8
-' Author    : Adam Waller
-' Date      : 1/23/2019
-' Purpose   : Convert a UCS2-little-endian encoded file to UTF-8.
-'           : Typically the source file will be a temp file.
-'---------------------------------------------------------------------------------------
-'
-Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String, _
-    Optional blnDeleteSourceFileAfterConversion As Boolean = True)
-
-    Dim cData As clsConcat
-    Dim blnIsAdp As Boolean
-    Dim intTristate As Tristate
-    
-    ' Remove any existing file.
-    If FSO.FileExists(strDestinationFile) Then DeleteFile strDestinationFile, True
-    
-    ' ADP Projects do not use the UCS BOM, but may contain mixed UTF-16 content
-    ' representing unicode characters.
-    blnIsAdp = (CurrentProject.ProjectType = acADP)
-    
-    ' Check the first couple characters in the file for a UCS BOM.
-    If HasUcs2Bom(strSourceFile) Or blnIsAdp Then
-    
-        ' Determine format
-        If blnIsAdp Then
-            ' Possible mixed UTF-16 content
-            intTristate = TristateMixed
-        Else
-            ' Fully encoded as UTF-16
-            intTristate = TristateTrue
-        End If
-        
-        ' Log performance
-        Perf.OperationStart "Unicode Conversion"
-        
-        ' Read file contents and delete (temp) source file
-        Set cData = New clsConcat
-        With FSO.OpenTextFile(strSourceFile, ForReading, False, intTristate)
-            ' Read chunks of text, rather than the whole thing at once for massive
-            ' performance gains when reading large files.
-            ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
-            Do While Not .AtEndOfStream
-                cData.Add .Read(131072) ' 128K
-            Loop
-            .Close
-        End With
-        
-        ' Write as UTF-8 in the destination file.
-        ' (Path will be verified before writing)
-        WriteFile cData.GetStr, strDestinationFile
-        Perf.OperationEnd
-        
-        ' Remove the source (temp) file if specified
-        If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile, True
-    Else
-        ' No conversion needed, move/copy to destination.
-        VerifyPath strDestinationFile
-        If blnDeleteSourceFileAfterConversion Then
-            FSO.MoveFile strSourceFile, strDestinationFile
-        Else
-            FSO.CopyFile strSourceFile, strDestinationFile
-        End If
-    End If
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ConvertUtf8Ucs2
-' Author    : Adam Waller
-' Date      : 1/24/2019
-' Purpose   : Convert the file to old UCS-2 unicode format.
-'           : Typically the destination file will be a temp file.
-'---------------------------------------------------------------------------------------
-'
-Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String, _
-    Optional blnDeleteSourceFileAfterConversion As Boolean = True)
-
-    Dim strText As String
-    Dim utf8Bytes() As Byte
-
-    ' Make sure the path exists before we write a file.
-    VerifyPath strDestinationFile
-    If FSO.FileExists(strDestinationFile) Then DeleteFile strDestinationFile, True
-    
-    If HasUcs2Bom(strSourceFile) Then
-        ' No conversion needed, move/copy to destination.
-        If blnDeleteSourceFileAfterConversion Then
-            FSO.MoveFile strSourceFile, strDestinationFile
-        Else
-            FSO.CopyFile strSourceFile, strDestinationFile
-        End If
-    Else
-        ' Monitor performance
-        Perf.OperationStart "Unicode Conversion"
-        
-        ' Read file contents and convert byte array to string
-        utf8Bytes = GetFileBytes(strSourceFile)
-        strText = Utf8BytesToString(utf8Bytes)
-        
-        ' Write as UCS-2 LE (BOM)
-        With FSO.CreateTextFile(strDestinationFile, True, TristateTrue)
-            .Write strText
-            .Close
-        End With
-        Perf.OperationEnd
-        
-        ' Remove original file if specified.
-        If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile, True
-    End If
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : HasUtf8Bom
-' Author    : Adam Waller
-' Date      : 7/30/2020
-' Purpose   : Returns true if the file begins with a UTF-8 BOM
-'---------------------------------------------------------------------------------------
-'
-Public Function HasUtf8Bom(strFilePath As String) As Boolean
-    HasUtf8Bom = FileHasBom(strFilePath, UTF8_BOM)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : HasUcs2Bom
-' Author    : Adam Waller
-' Date      : 8/1/2020
-' Purpose   : Returns true if the file begins with
-'---------------------------------------------------------------------------------------
-'
-Public Function HasUcs2Bom(strFilePath As String) As Boolean
-    HasUcs2Bom = FileHasBom(strFilePath, UCS2_BOM)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : FileHasBom
-' Author    : Adam Waller
-' Date      : 8/1/2020
-' Purpose   : Check for the specified BOM
-'---------------------------------------------------------------------------------------
-'
-Private Function FileHasBom(strFilePath As String, strBom As String) As Boolean
-    Dim strFound As String
-    strFound = StrConv((GetFileBytes(strFilePath, Len(strBom))), vbUnicode)
-    FileHasBom = (strFound = strBom)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : RemoveUTF8BOM
-' Author    : Adam Kauffman
-' Date      : 1/24/2019
-' Purpose   : Will remove a UTF8 BOM from the start of the string passed in.
-'---------------------------------------------------------------------------------------
-'
-Public Function RemoveUTF8BOM(ByVal fileContents As String) As String
-    Dim UTF8BOM As String
-    UTF8BOM = Chr$(239) & Chr$(187) & Chr$(191) ' == &HEFBBBF
-    Dim fileBOM As String
-    fileBOM = Left$(fileContents, 3)
-    
-    If fileBOM = UTF8BOM Then
-        RemoveUTF8BOM = Mid$(fileContents, 4)
-    Else ' No BOM detected
-        RemoveUTF8BOM = fileContents
-    End If
-End Function
-
-
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTempFile
 ' Author    : Adapted by Adam Waller
@@ -298,93 +37,6 @@ Public Function GetTempFile(Optional strPrefix As String = "VBA") As String
     lngReturn = getTempPath(512, strPath)
     lngReturn = getTempFileName(strPath, strPrefix, 0, strName)
     If lngReturn <> 0 Then GetTempFile = Left$(strName, InStr(strName, vbNullChar) - 1)
-    
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : BytesLength
-' Author    : Casper Englund
-' Date      : 2020/05/01
-' Purpose   : Return length of byte array
-'---------------------------------------------------------------------------------------
-Private Function BytesLength(abBytes() As Byte) As Long
-    
-    ' Ignore error if array is uninitialized
-    On Error Resume Next
-    BytesLength = UBound(abBytes) - LBound(abBytes) + 1
-    If Err.Number <> 0 Then Err.Clear
-    On Error GoTo 0
-    
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Utf8BytesToString
-' Author    : Adapted by Casper Englund
-' Date      : 2020/05/01
-' Purpose   : Return VBA "Unicode" string from byte array encoded in UTF-8
-'---------------------------------------------------------------------------------------
-Public Function Utf8BytesToString(abUtf8Array() As Byte) As String
-    
-    Dim nBytes As Long
-    Dim nChars As Long
-    Dim strOut As String
-    Dim bUtf8Bom As Boolean
-    
-    Utf8BytesToString = vbNullString
-    
-    ' Catch uninitialized input array
-    nBytes = BytesLength(abUtf8Array)
-    If nBytes <= 0 Then Exit Function
-    bUtf8Bom = abUtf8Array(0) = 239 _
-      And abUtf8Array(1) = 187 _
-      And abUtf8Array(2) = 191
-    
-    If bUtf8Bom Then
-        Dim i As Long
-        Dim abTempArr() As Byte
-        ReDim abTempArr(BytesLength(abUtf8Array) - 3)
-        For i = 3 To UBound(abUtf8Array)
-            abTempArr(i - 3) = abUtf8Array(i)
-        Next i
-        
-        abUtf8Array = abTempArr
-    End If
-    
-    ' Get number of characters in output string
-    nChars = MultiByteToWideChar(CP_UTF8, 0&, VarPtr(abUtf8Array(0)), nBytes, 0&, 0&)
-    
-    ' Dimension output buffer to receive string
-    strOut = String(nChars, 0)
-    nChars = MultiByteToWideChar(CP_UTF8, 0&, VarPtr(abUtf8Array(0)), nBytes, StrPtr(strOut), nChars)
-    Utf8BytesToString = Left$(strOut, nChars)
-
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Utf8BytesFromString
-' Author    : Adapted by Casper Englund
-' Date      : 2020/05/01
-' Purpose   : Return byte array with VBA "Unicode" string encoded in UTF-8
-'---------------------------------------------------------------------------------------
-Public Function Utf8BytesFromString(strInput As String) As Byte()
-
-    Dim nBytes As Long
-    Dim abBuffer() As Byte
-    
-    ' Catch empty or null input string
-    Utf8BytesFromString = vbNullString
-    If Len(strInput) < 1 Then Exit Function
-    
-    ' Get length in bytes *including* terminating null
-    nBytes = WideCharToMultiByte(CP_UTF8, 0&, StrPtr(strInput), -1, 0&, 0&, 0&, 0&)
-    
-    ' We don't want the terminating null in our byte array, so ask for `nBytes-1` bytes
-    ReDim abBuffer(nBytes - 2)  ' NB ReDim with one less byte than you need
-    nBytes = WideCharToMultiByte(CP_UTF8, 0&, StrPtr(strInput), -1, ByVal VarPtr(abBuffer(0)), nBytes - 1, 0&, 0&)
-    Utf8BytesFromString = abBuffer
     
 End Function
 
@@ -414,118 +66,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ReadFile
-' Author    : Adam Waller / Indigo
-' Date      : 11/4/2020
-' Purpose   : Read text file.
-'           : Read in UTF-8 encoding, removing a BOM if found at start of file.
-'---------------------------------------------------------------------------------------
-'
-Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF-8") As String
-
-    Dim stm As ADODB.Stream
-    Dim strText As String
-    Dim cData As clsConcat
-    Dim strBom As String
-    
-    ' Get BOM header, if applicable
-    Select Case strCharset
-        Case "UTF-8": strBom = UTF8_BOM
-        Case "Unicode": strBom = UCS2_BOM
-    End Select
-    
-    If FSO.FileExists(strPath) Then
-        Perf.OperationStart "Read File"
-        Set cData = New clsConcat
-        Set stm = New ADODB.Stream
-        With stm
-            .Charset = strCharset
-            .Open
-            .LoadFromFile strPath
-            ' Check for BOM
-            If strBom <> vbNullString Then
-                strText = .ReadText(Len(strBom))
-                If strText <> strBom Then cData.Add strText
-            End If
-            ' Read chunks of text, rather than the whole thing at once for massive
-            ' performance gains when reading large files.
-            ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
-            Do While Not .EOS
-                cData.Add .ReadText(131072) ' 128K
-            Loop
-            .Close
-        End With
-        Set stm = Nothing
-        Perf.OperationEnd
-    End If
-    
-    ' Return text contents of file.
-    ReadFile = cData.GetStr
-    
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : WriteFile
-' Author    : Adam Waller
-' Date      : 1/23/2019
-' Purpose   : Save string variable to text file. (Building the folder path if needed)
-'           : Saves in UTF-8 encoding, adding a BOM if extended or unicode content
-'           : is found in the file. https://stackoverflow.com/a/53036838/4121863
-'---------------------------------------------------------------------------------------
-'
-Public Sub WriteFile(strText As String, strPath As String)
-
-    Dim strContent As String
-    Dim bteUtf8() As Byte
-    
-    ' Ensure that we are ending the content with a vbcrlf
-    strContent = strText
-    If Right$(strText, 2) <> vbCrLf Then strContent = strContent & vbCrLf
-
-    ' Build a byte array from the text
-    bteUtf8 = Utf8BytesFromString(strContent)
-    
-    ' Write binary content to file.
-    WriteBinaryFile bteUtf8, StringHasUnicode(strContent), strPath
-        
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : WriteBinaryFile
-' Author    : Adam Waller
-' Date      : 8/3/2020
-' Purpose   : Write binary content to a file with optional UTF-8 BOM.
-'---------------------------------------------------------------------------------------
-'
-Public Sub WriteBinaryFile(bteContent() As Byte, blnUtf8Bom As Boolean, strPath As String)
-
-    Dim stm As ADODB.Stream
-    Dim bteBOM(0 To 2) As Byte
-    
-    ' Write to a binary file using a Stream object
-    Set stm = New ADODB.Stream
-    With stm
-        .Type = adTypeBinary
-        .Open
-        If blnUtf8Bom Then
-            bteBOM(0) = &HEF
-            bteBOM(1) = &HBB
-            bteBOM(2) = &HBF
-            .Write bteBOM
-        End If
-        .Write bteContent
-        VerifyPath strPath
-        Perf.OperationStart "Write to Disk"
-        .SaveToFile strPath, adSaveCreateOverWrite
-        Perf.OperationEnd
-    End With
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : DeleteFile
 ' Author    : Adam Waller
 ' Date      : 11/5/2020
@@ -540,23 +80,312 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : StringHasUnicode
+' Procedure : MkDirIfNotExist
 ' Author    : Adam Waller
-' Date      : 3/6/2020
-' Purpose   : Returns true if the string contains non-ASCI characters.
+' Date      : 1/25/2019
+' Purpose   : Create folder `Path`. Silently do nothing if it already exists.
 '---------------------------------------------------------------------------------------
 '
-Public Function StringHasUnicode(strText As String) As Boolean
+Public Sub MkDirIfNotExist(strPath As String)
+    If Not FSO.FolderExists(StripSlash(strPath)) Then FSO.CreateFolder StripSlash(strPath)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : clearfilesbyextension
+' Author    : Adam Waller
+' Date      : 1/25/2019
+' Purpose   : Erase all *.`ext` files in `Path`.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
+
+    Dim oFile As Scripting.File
+    Dim strFolderNoSlash As String
     
-    Dim reg As VBScript_RegExp_55.RegExp
+    ' While the Dir() function would be simpler, it does not support Unicode.
+    strFolderNoSlash = StripSlash(strFolder)
+    If FSO.FolderExists(strFolderNoSlash) Then
+        For Each oFile In FSO.GetFolder(strFolderNoSlash).Files
+            If StrComp(FSO.GetExtensionName(oFile.Name), strExt, vbTextCompare) = 0 Then
+                ' Found at least one matching file. Use the wildcard delete.
+                DeleteFile strFolderNoSlash & "\*." & strExt
+                Exit Sub
+            End If
+        Next
+    End If
     
-    Perf.OperationStart "Unicode Check"
-    Set reg = New VBScript_RegExp_55.RegExp
-    With reg
-        ' Include extended ASCII characters here.
-        .Pattern = "[^\u0000-\u007F]"
-        StringHasUnicode = .Test(strText)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyPath
+' Author    : Adam Waller
+' Date      : 8/3/2020
+' Purpose   : Verifies that the folder path to a folder or file exists.
+'           : Use this to verify the folder path before attempting to write a file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub VerifyPath(strPath As String)
+    
+    Dim strFolder As String
+    Dim varParts As Variant
+    Dim intPart As Integer
+    Dim strVerified As String
+    
+    ' Determine if the path is a file or folder
+    If Right$(strPath, 1) = "\" Then
+        ' Folder name. (Folder names can contain periods)
+        strFolder = Left$(strPath, Len(strPath) - 1)
+    Else
+        ' File name
+        strFolder = FSO.GetParentFolderName(strPath)
+    End If
+    
+    ' Check if full path exists.
+    If Not FSO.FolderExists(strFolder) Then
+        ' Start from the root, and build out full path, creating folders as needed.
+        varParts = Split(strFolder, "\")
+        ' Make sure the root folder exists. If it doesn't we probably have some other
+        ' issue.
+        If Not FSO.FolderExists(varParts(0)) Then
+            MsgBox2 "Path Not Found", "Could not find the path '" & varParts(0) & "' on this system.", _
+                "I was simply trying to verify this path: " & strFolder, vbExclamation
+        Else
+            ' Loop through folder structure, creating as needed.
+            strVerified = varParts(0)
+            For intPart = 1 To UBound(varParts)
+                strVerified = strVerified & "\" & varParts(intPart)
+                If Not FSO.FolderExists(strVerified) Then FSO.CreateFolder strVerified
+            Next intPart
+        End If
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ProgramFilesFolder
+' Author    : Adam Waller
+' Date      : 5/15/2015
+' Purpose   : Returns the program files folder on the OS. (32 or 64 bit)
+'---------------------------------------------------------------------------------------
+'
+Public Function ProgramFilesFolder() As String
+    Dim strFolder As String
+    strFolder = Environ$("PROGRAMFILES")
+    ' Should always work, but just in case!
+    If strFolder = vbNullString Then strFolder = "C:\Program Files (x86)"
+    ProgramFilesFolder = strFolder & "\"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFilePathsInFolder
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Returns a collection containing the full paths of files in a folder.
+'           : Wildcards are supported.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFilePathsInFolder(strFolder As String, Optional strFilePattern As String = "*.*") As Collection
+    
+    Dim oFile As Scripting.File
+    Dim strBaseFolder As String
+    
+    strBaseFolder = StripSlash(strFolder)
+    Set GetFilePathsInFolder = New Collection
+    
+    If FSO.FolderExists(strBaseFolder) Then
+        For Each oFile In FSO.GetFolder(strBaseFolder).Files
+            ' Add files that match the pattern.
+            If oFile.Name Like strFilePattern Then GetFilePathsInFolder.Add oFile.Path
+        Next oFile
+    End If
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSubfolderPaths
+' Author    : Adam Waller
+' Date      : 7/30/2020
+' Purpose   : Return a collection of subfolders inside a folder.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSubfolderPaths(strPath As String) As Collection
+
+    Dim strBase As String
+    Dim oFolder As Scripting.Folder
+    
+    Set GetSubfolderPaths = New Collection
+    
+    strBase = StripSlash(strPath)
+    If FSO.FolderExists(strBase) Then
+        For Each oFolder In FSO.GetFolder(strBase).SubFolders
+            GetSubfolderPaths.Add oFolder.Path
+        Next oFolder
+    End If
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReadJsonFile
+' Author    : Adam Waller
+' Date      : 5/5/2020
+' Purpose   : Reads a Json file into a dictionary object
+'---------------------------------------------------------------------------------------
+'
+Public Function ReadJsonFile(strPath As String) As Dictionary
+    
+    Dim strText As String
+    Dim stm As ADODB.Stream
+    
+    If FSO.FileExists(strPath) Then
+        Set stm = New ADODB.Stream
+        With stm
+            .Charset = "UTF-8"
+            .Open
+            .LoadFromFile strPath
+            strText = .ReadText(adReadAll)
+            .Close
+        End With
+        
+        ' If it looks like json content, then parse into a dictionary object.
+        If Left$(strText, 3) = UTF8_BOM Then strText = Mid$(strText, 4)
+        If Left$(strText, 1) = "{" Then Set ReadJsonFile = ParseJson(strText)
+    End If
+    
+    Set stm = Nothing
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetRelativePath
+' Author    : Adam Waller
+' Date      : 5/11/2020
+' Purpose   : Returns a path relative to current database.
+'           : If a relative path is not possible, it returns the original full path.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetRelativePath(strPath As String) As String
+    
+    Dim strFolder As String
+    Dim strUncPath As String
+    Dim strUncTest As String
+    Dim strRelative As String
+    
+    ' Check for matching parent folder as relative to the project path.
+    strFolder = GetUncPath(CurrentProject.Path) & "\"
+    
+    ' Default to original path if no relative path could be resolved.
+    strRelative = strPath
+    
+    ' Compare strPath to the current project path
+    If InStr(1, strPath, strFolder, vbTextCompare) = 1 Then
+        ' In export folder or subfolder. Simple replacement
+        strRelative = "rel:" & Mid$(strPath, Len(strFolder) + 1)
+    Else
+        ' Make sure we have a path, not just a file name.
+        If InStr(1, strRelative, "\") > 0 Then
+            ' Check UNC path for network drives
+            strUncPath = GetUncPath(strPath)
+            If StrComp(strUncPath, strPath, vbTextCompare) <> 0 Then
+                ' We are dealing with a network drive
+                strUncTest = GetRelativePath(strUncPath)
+                If StrComp(strUncPath, strUncTest, vbTextCompare) <> 0 Then
+                    ' Resolved to relative UNC path
+                    strRelative = strUncTest
+                End If
+            End If
+        End If
+    End If
+    
+    ' Return relative (or original) path
+    GetRelativePath = strRelative
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetPathFromRelative
+' Author    : Adam Waller
+' Date      : 5/11/2020
+' Purpose   : Expands a relative path out to the full path.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetPathFromRelative(strPath As String) As String
+    If Left$(strPath, 4) = "rel:" Then
+        GetPathFromRelative = CurrentProject.Path & "\" & Mid$(strPath, 5)
+    Else
+        ' No relative path used.
+        GetPathFromRelative = strPath
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetUncPath
+' Author    : Adam Waller
+' Date      : 7/14/2020
+' Purpose   : Returns the UNC path for a network location (if applicable)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetUncPath(strPath As String)
+
+    Dim strDrive As String
+    Dim strUNC As String
+    
+    strUNC = strPath
+    strDrive = FSO.GetDriveName(strPath)
+    With FSO.GetDrive(strDrive)
+        If .DriveType = Remote Then
+            strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
+        End If
     End With
-    Perf.OperationEnd
+    GetUncPath = strUNC
     
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetLastModifiedDate
+' Author    : Adam Waller
+' Date      : 7/30/2020
+' Purpose   : Get the last modified date on a folder or file with Unicode support.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetLastModifiedDate(strPath As String) As Date
+    
+    Dim oFile As Scripting.File
+    Dim oFolder As Scripting.Folder
+    
+    Perf.OperationStart "Get Modified Date"
+    If FSO.FileExists(strPath) Then
+        Set oFile = FSO.GetFile(strPath)
+        GetLastModifiedDate = oFile.DateLastModified
+    ElseIf FSO.FolderExists(strPath) Then
+        Set oFolder = FSO.GetFolder(strPath)
+        GetLastModifiedDate = oFolder.DateLastModified
+    End If
+    Perf.OperationEnd
+        
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StripSlash
+' Author    : Adam Waller
+' Date      : 1/25/2019
+' Purpose   : Strip the trailing slash
+'---------------------------------------------------------------------------------------
+'
+Public Function StripSlash(strText As String) As String
+    If Right$(strText, 1) = "\" Then
+        StripSlash = Left$(strText, Len(strText) - 1)
+    Else
+        StripSlash = strText
+    End If
 End Function

@@ -1,6 +1,12 @@
+'---------------------------------------------------------------------------------------
+' Module    : modImportExport
+' Author    : Adam Waller
+' Date      : 12/4/2020
+' Purpose   : Main export/import/merge functions for add-in.
+'---------------------------------------------------------------------------------------
 Option Compare Database
-Option Explicit
 Option Private Module
+Option Explicit
 
 
 '---------------------------------------------------------------------------------------
@@ -487,65 +493,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetAllContainers
-' Author    : Adam Waller
-' Date      : 5/4/2020
-' Purpose   : Return a collection of all containers.
-'           : NOTE: The order doesn't matter for export, but is VERY important
-'           : when building the project from source.
-'---------------------------------------------------------------------------------------
-'
-Private Function GetAllContainers() As Collection
-    
-    Dim blnADP As Boolean
-    Dim blnMDB As Boolean
-    
-    blnADP = (CurrentProject.ProjectType = acADP)
-    blnMDB = (CurrentProject.ProjectType = acMDB)
-    
-    Set GetAllContainers = New Collection
-    With GetAllContainers
-        ' Shared objects in both MDB and ADP formats
-        If blnMDB Then .Add New clsDbTheme
-        .Add New clsDbVbeProject
-        .Add New clsDbVbeReference
-        .Add New clsDbVbeForm
-        .Add New clsDbProjProperty
-        .Add New clsDbSavedSpec
-        If blnADP Then
-            ' Some types of objects only exist in ADP projects
-            .Add New clsAdpFunction
-            .Add New clsAdpServerView
-            .Add New clsAdpProcedure
-            .Add New clsAdpTable
-            .Add New clsAdpTrigger
-        ElseIf blnMDB Then
-            ' These objects only exist in DAO databases
-            .Add New clsDbSharedImage
-            .Add New clsDbImexSpec
-            .Add New clsDbProperty
-            .Add New clsDbTableDef
-            .Add New clsDbQuery
-        End If
-        ' Additional objects to import after ADP/MDB specific items
-        .Add New clsDbForm
-        .Add New clsDbMacro
-        .Add New clsDbModule
-        .Add New clsDbReport
-        .Add New clsDbTableData
-        If blnMDB Then
-            .Add New clsDbTableDataMacro
-            .Add New clsDbRelation
-            .Add New clsDbDocument
-            .Add New clsDbNavPaneGroup
-            .Add New clsDbHiddenAttribute
-        End If
-    End With
-    
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetBackupFileName
 ' Author    : Adam Waller
 ' Date      : 5/4/2020
@@ -629,3 +576,23 @@ Private Function VerifyHash(strOptionsFile As String) As Boolean
     End If
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckForLegacyModules
+' Author    : Adam Waller
+' Date      : 7/16/2020
+' Purpose   : Informs the user if the database contains a legacy module from another
+'           : fork of this project. (Some users might not realize that these are not
+'           : needed anymore.)
+'---------------------------------------------------------------------------------------
+'
+Private Sub CheckForLegacyModules()
+    If FSO.FileExists(Options.GetExportFolder & "modules\VCS_ImportExport.bas") Then
+        MsgBox2 "Legacy Files not Needed", _
+            "Other forks of the MSAccessVCS project used additional VBA modules to export code." & vbCrLf & _
+            "This is no longer needed when using the installed Version Control Add-in.", _
+            "Feel free to remove the legacy VCS_* modules from your database project and enjoy" & vbCrLf & _
+            "a simpler, cleaner code base for ongoing development.  :-)", vbInformation, "Just a Suggestion..."
+    End If
+End Sub

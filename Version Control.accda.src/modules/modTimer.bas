@@ -1,5 +1,13 @@
-Option Explicit
+'---------------------------------------------------------------------------------------
+' Module    : modTimer
+' Author    : Adam Waller
+' Date      : 12/4/2020
+' Purpose   : API timer functions for callbacks
+'---------------------------------------------------------------------------------------
+Option Compare Database
 Option Private Module
+Option Explicit
+
 
 Private Declare PtrSafe Function SetTimer Lib "user32" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr, ByVal uElapse As Long, ByVal lpTimerFunc As LongPtr) As LongPtr
 Private Declare PtrSafe Function KillTimer Lib "user32" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr) As Long

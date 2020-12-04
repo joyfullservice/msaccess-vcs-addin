@@ -113,7 +113,7 @@ Private Sub TestParseSpecialCharsInJson()
     Debug.Print strPath
     
     'Act:
-    Set dict = modFunctions.ReadJsonFile(strPath)
+    Set dict = modFileAccess.ReadJsonFile(strPath)
     
     'Assert:
     If dict Is Nothing Then

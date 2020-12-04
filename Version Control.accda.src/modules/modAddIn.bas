@@ -1,6 +1,13 @@
+'---------------------------------------------------------------------------------------
+' Module    : modAddIn
+' Author    : Adam Waller
+' Date      : 12/4/2020
+' Purpose   : Manages the Microsoft Access Add-in, including installation, deployment
+'           : menu items and VCS version.
+'---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
-Option Private Module
+
 
 Public Enum eReleaseType
     Major_Vxx = 0
