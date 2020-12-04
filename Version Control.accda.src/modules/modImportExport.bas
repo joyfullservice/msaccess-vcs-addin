@@ -319,11 +319,7 @@ Public Sub Build(strSourceFolder As String)
     ' Write log file to disk
     Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Import.log")
 
-    ' Save index file
-    VCSIndex.FullBuildDate = Now
-    VCSIndex.Save
-    Set VCSIndex = Nothing
-    
+    ' Wrap up build.
     DoCmd.Hourglass False
     If Forms.Count > 0 Then
         ' Finish up on GUI
@@ -331,6 +327,16 @@ Public Sub Build(strSourceFolder As String)
     Else
         ' Allow navigation pane to refresh list of objects.
         DoEvents
+    End If
+    
+    ' Save index file (After build complete)
+    ' NOTE: Add a couple seconds since some items may still be in the process of saving.
+    VCSIndex.FullBuildDate = DateAdd("s", 2, Now)
+    VCSIndex.Save
+    Set VCSIndex = Nothing
+        
+    ' Show MessageBox if not using GUI for build.
+    If Forms.Count = 0 Then
         ' Show message box when build is complete.
         MsgBox2 "Build Complete for '" & CurrentProject.Name & "'", _
             "Note that some settings may not take effect until this database is reopened.", _

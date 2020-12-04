@@ -134,9 +134,8 @@ Public Function IDbComponent_IsModified() As Boolean
     
     With VCSIndex.Item(Me)
         
-        ' Check modification date
-        dteDate = Largest(VCSIndex.FullBuildDate, VCSIndex.FullExportDate, _
-            .Item("ExportDate"), .Item("ImportDate"))
+        ' Check dates of last FULL export or build
+        dteDate = Largest(VCSIndex.FullBuildDate, VCSIndex.FullExportDate)
         
         ' Check the modified date first.
         ' (This may not reflect some code changes)
