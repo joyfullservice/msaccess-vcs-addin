@@ -102,13 +102,16 @@ Public Sub ExportSource()
             Perf.ComponentStart cCategory.Category
 
             ' Loop through each object in this category.
-            For Each cDbObject In cCategory.GetAllFromDB(Options.UseFastSave)
-                
-                ' Export object
+            For Each cDbObject In cCategory.GetAllFromDB(Options.UseFastSave)                
+                ' Export object, catching and logging any errors
+                On Error Resume Next
                 Log.Increment
                 Log.Add "  " & cDbObject.Name, Options.ShowDebug
-                cDbObject.Export
-                    
+                cDbObject.Export                
+
+                CatchAny eelError, "Exporting " & LCase(cCategory.Category) & " " & cDbObject.Name
+                On Error Goto 0
+
                 ' Some kinds of objects are combined into a single export file, such
                 ' as database properties. For these, we just need to run the export once.
                 If cCategory.SingleFile Then Exit For
