@@ -1,5 +1,5 @@
-﻿Version =20
-VersionRequired =20
+﻿Version =30
+VersionRequired =30
 Begin Form
     RecordSelectors = NotDefault
     NavigationButtons = NotDefault

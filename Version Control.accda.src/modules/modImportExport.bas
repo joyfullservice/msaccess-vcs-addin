@@ -287,10 +287,13 @@ Public Sub Build(strSourceFolder As String)
 
             ' Loop through each file in this category.
             For Each varFile In colFiles
-                ' Import the file
+                On Error Resume Next
+                ' Import the file, catching any errors
                 Log.Increment
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
                 cCategory.Import CStr(varFile)
+                CatchAny eelError, "Importing " & LCase(cCategory.Category) & " " & varFile
+                On Error Goto 0
             Next varFile
             
             ' Show category wrap-up.
