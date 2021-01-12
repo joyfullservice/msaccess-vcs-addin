@@ -2,6 +2,13 @@ Option Compare Database
 Option Explicit
 Option Private Module
 
+Public Enum eReleaseType
+    Major_Vxx = 0
+    Minor_xVx = 1
+    Build_xxV = 2
+    Same_Version = 3
+End Enum
+
 Private Enum eHive
     ehHKLM
     ehHKCU
