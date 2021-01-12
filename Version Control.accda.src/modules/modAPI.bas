@@ -1,6 +1,14 @@
 Option Compare Database
 Option Explicit
 
+'Exposes the release types to referencing files.
+Public Enum eReleaseType
+    Major_Vxx = 0
+    Minor_xVx = 1
+    Build_xxV = 2
+    Same_Version = 3
+End Enum
+
 'Wrapper module for exposing selected routines to the referencing database.
 'Required especially for when users cannot load the addin as an application
 'level addin.
