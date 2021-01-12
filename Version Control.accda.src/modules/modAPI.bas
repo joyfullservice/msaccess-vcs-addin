@@ -16,7 +16,7 @@ End Enum
 'VCS Functions (Addin specific)
 'These load / unload the VCS Addin, return the installed version, etc.
 Public Function LaunchVCS() As Boolean
-    Launch = AddInMenuItemLaunch
+    LaunchVCS = AddInMenuItemLaunch
 End Function
 
 Public Property Get VCSVersion() As String
