@@ -20,7 +20,3 @@ End Property
 Public Sub ExportSourceAPI()
     RunExportForCurrentDB
 End Sub
-
-Public Sub DeployMyApp(Optional ReleaseType As eReleaseType = Build_xxV)
-    Deploy (ReleaseType)
-End Sub
