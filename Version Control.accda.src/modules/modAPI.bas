@@ -19,15 +19,6 @@ Public Function LaunchVCS() As Boolean
     Launch = AddInMenuItemLaunch
 End Function
 
-Public Sub ApplicationAddinloadVCS()
-    AutoRun
-End Sub
-
-Public Function ApplicationAddinUninstallVCS() As Boolean
-    'pass out the uninstall call.
-    ApplicationAddinUninstallVCS = UninstallVCSAddin
-End Function
-
 Public Property Get VCSVersion() As String
     VCSVersion = InstalledVersion
 End Property
