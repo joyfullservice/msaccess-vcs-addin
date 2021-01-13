@@ -35,6 +35,9 @@ Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExec
 
 Private Const SW_SHOWNORMAL = 1
 
+' Used to add a trusted location for the add-in path (when necessary)
+Private Const mcstrTrustedLocationName = "Office Add-ins"
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : AddInMenuItemLaunch
@@ -382,11 +385,14 @@ Public Function UninstallVCSAddin() As Boolean
         RemoveMenuItem "&Export All Source"
         ' Update installed version number
         InstalledVersion = 0
+        ' Remove trusted location added by this add-in. (if found)
+        RemoveTrustedLocation
         ' Return success
         UninstallVCSAddin = True
     End If
     
 End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetAddinFileName
@@ -503,7 +509,6 @@ Private Sub RemoveMenuItem(ByVal strName As String, Optional Hive As eHive = ehH
         .RegDelete strPath & "Library"
         .RegDelete strPath & "Version"
         .RegDelete strPath
-        If Err Then Err.Clear
         On Error GoTo 0
     End With
     
@@ -722,3 +727,116 @@ Public Sub PreloadVBE()
     strName = VBE.ActiveVBProject.Name
     DoCmd.Hourglass False
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyTrustedLocation
+' Author    : Adam Waller
+' Date      : 1/12/2021
+' Purpose   : The location of the add-in must be trusted, or the user will be unable
+'           : to run the add-in. This function ensures that the path has been added
+'           : as a trusted location after confirming this with the user. If the user
+'           : declines to add as a trusted location, it warns them that the add-in may
+'           : not function correctly.
+'---------------------------------------------------------------------------------------
+'
+Public Function VerifyTrustedLocation() As Boolean
+
+    Dim strPath As String
+    Dim strTrusted As String
+    Dim strVal As String
+    
+    ' Get registry path for trusted locations
+    strPath = GetTrustedLocationRegPath
+    strTrusted = FSO.GetParentFolderName(GetAddinFileName) & "\"
+    
+    ' Use Windows Scripting Shell to read/write to registry
+    With New IWshRuntimeLibrary.WshShell
+        
+        ' Check for existing value
+        If Not HasTrustedLocationKey Then
+        
+            ' Get permission from user to add trusted location
+            If MsgBox2("Add as Trusted Location?", _
+                strTrusted, _
+                "In some environments the add-in location must be trusted to use" & vbCrLf & _
+                "the Version Control add-in in Microsoft Access.", _
+                vbQuestion + vbOKCancel) = vbOK Then
+                
+                ' Add trusted location
+                .RegWrite strPath & "Path", strTrusted
+                .RegWrite strPath & "Date", Now()
+                .RegWrite strPath & "Description", mcstrTrustedLocationName
+                .RegWrite strPath & "AllowSubfolders", 0, "REG_DWORD"
+                
+                ' Return true
+                VerifyTrustedLocation = True
+            Else
+                MsgBox2 "Trusted location NOT added", _
+                    "The Version Control add-in may not function correctly.", _
+                    "Please run the command again if you would like to add the trusted location." _
+                    , vbExclamation
+            End If
+        Else
+            ' Found trusted location with this name.
+            VerifyTrustedLocation = True
+        End If
+    End With
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveTrustedLocation
+' Author    : Adam Waller
+' Date      : 1/12/2021
+' Purpose   : Remove trusted location entry.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RemoveTrustedLocation()
+
+    Dim strPath As String
+    Dim strVal As String
+    
+    ' Get registry path for trusted locations
+    strPath = GetTrustedLocationRegPath
+    
+    With New IWshRuntimeLibrary.WshShell
+        On Error Resume Next
+        .RegDelete strPath & "Path"
+        .RegDelete strPath & "Date"
+        .RegDelete strPath & "Description"
+        .RegDelete strPath & "AllowSubfolders"
+        .RegDelete strPath
+        On Error GoTo 0
+    End With
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTrustedLocationRegPath
+' Author    : Adam Waller
+' Date      : 1/12/2021
+' Purpose   : Return the trusted location registry path. (Added to trusted locations)
+'---------------------------------------------------------------------------------------
+'
+Private Function GetTrustedLocationRegPath() As String
+    GetTrustedLocationRegPath = "HKEY_CURRENT_USER\Software\Microsoft\Office\" & _
+        Application.Version & "\Access\Security\Trusted Locations\" & mcstrTrustedLocationName & "\"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasTrustedLocationKey
+' Author    : Adam Waller
+' Date      : 1/13/2021
+' Purpose   : Returns true if we find the trusted location added by this add-in.
+'---------------------------------------------------------------------------------------
+'
+Private Function HasTrustedLocationKey() As Boolean
+    With New IWshRuntimeLibrary.WshShell
+        On Error Resume Next
+        HasTrustedLocationKey = Nz(.RegRead(GetTrustedLocationRegPath & "Path")) <> vbNullString
+    End With
+End Function
