@@ -32,7 +32,7 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     IDbComponent_GetAllFromDB
-    WriteJsonFile Me, m_dItems, IDbComponent_SourceFile, "Navigation Pane Custom Groups"
+    WriteJsonFile TypeName(Me), m_dItems, IDbComponent_SourceFile, "Navigation Pane Custom Groups"
 End Sub
 
 

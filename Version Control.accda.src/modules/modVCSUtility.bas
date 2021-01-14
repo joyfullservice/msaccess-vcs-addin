@@ -124,9 +124,13 @@ End Function
 '           : and then removes any existing file before saving the object as text.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFile As String)
+Public Sub SaveComponentAsText(intType As AcObjectType, _
+                                strName As String, _
+                                strFile As String, _
+                                Optional cDbObjectClass As IDbComponent = Nothing)
     
     Dim strTempFile As String
+    Dim strPrintSettingsFile As String
     
     On Error GoTo ErrHandler
     
@@ -139,11 +143,37 @@ Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFi
     
     ' Sanitize certain object types
     Select Case intType
-        Case acForm, acReport, acQuery, acMacro
+        Case acForm, acReport
+            With New clsDevMode
+                ' Build print settings file name.
+                strPrintSettingsFile = .GetPrintSettingsFileName(cDbObjectClass)
+                ' See if we are exporting print vars.
+                If Options.SavePrintVars = True Then
+                    ' Grab the printer settings before sanitizing the file.
+                    .LoadFromExportFile strTempFile
+                    If .HasData Then
+                        WriteJsonFile TypeName(cDbObjectClass), .GetDictionary, _
+                        strPrintSettingsFile, strName & " Print Settings"
+                    Else
+                        ' No print settings in this object.
+                        If FSO.FileExists(strPrintSettingsFile) Then DeleteFile strPrintSettingsFile
+                    End If
+                Else
+                    ' Remove any existing (now orphaned) print settings file.
+                    If FSO.FileExists(strPrintSettingsFile) Then DeleteFile strPrintSettingsFile
+                End If
+            End With
             ' Sanitizing converts to UTF-8
             If FSO.FileExists(strFile) Then DeleteFile (strFile)
             SanitizeFile strTempFile
             FSO.MoveFile strTempFile, strFile
+    
+        Case acQuery, acMacro
+            ' Sanitizing converts to UTF-8
+            If FSO.FileExists(strFile) Then DeleteFile (strFile)
+            SanitizeFile strTempFile
+            FSO.MoveFile strTempFile, strFile
+            
         Case Else
             ' Handle UCS conversion if needed
             ConvertUcs2Utf8 strTempFile, strFile
@@ -172,10 +202,38 @@ End Sub
 ' Purpose   : Load the object into the database from the saved source file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, strFile As String)
+Public Sub LoadComponentFromText(intType As AcObjectType, _
+                                strName As String, _
+                                strFile As String, _
+                                Optional cDbObjectClass As IDbComponent = Nothing)
 
     Dim strTempFile As String
+    Dim strPrintSettingsFile As String
     Dim blnConvert As Boolean
+    Dim dFile As Dictionary
+    
+    ' Add DevMode structures back into forms/reports
+    Select Case intType
+        Case acForm, acReport
+            'Insert print settings (if needed)
+            If Not (cDbObjectClass Is Nothing) Then
+                With New clsDevMode
+                    ' Manually build the print settings file path since we don't have
+                    ' a database object we can use with the clsDevMode.GetPrintSettingsFileName
+                    strPrintSettingsFile = cDbObjectClass.BaseFolder & GetSafeFileName(strName) & ".json"
+                    Set dFile = ReadJsonFile(strPrintSettingsFile)
+                    ' Check to ensure dictionary was loaded
+                    If Not (dFile Is Nothing) Then
+                    ' Insert DevMode structures into file before importing.
+                        ' Load default printer settings, then overlay
+                        ' settings saved with report.
+                        .ApplySettings dFile("Items")
+                        ' Insert the settings into a combined export file.
+                        strTempFile = .AddToExportFile(strFile)
+                    End If
+                End With
+            End If
+    End Select
     
     ' Check UCS-2-LE requirement for the current database.
     ' (Cached after first call)
@@ -295,13 +353,11 @@ End Function
 ' Date      : 4/24/2020
 ' Purpose   : Creates a json file with an info header giving some clues about the
 '           : contents of the file. (Helps with upgrades or changes later.)
-'           : Set blnIgnoreHeaderOnlyChanges to true when the file should only be
-'           : written when the dItems dictionary value changes. This helps reduce the
-'           : number of files marked as changed when the actual content is the same,
-'           : but a newer version of VCS was used to export the file.
+'           : Set the file format version only when the dictionary structure changes
+'           : with potentially breaking changes for prior versions.
 '---------------------------------------------------------------------------------------
 '
-Public Sub WriteJsonFile(ClassMe As Object, dItems As Dictionary, strFile As String, strDescription As String, _
+Public Sub WriteJsonFile(strClassName As String, dItems As Dictionary, strFile As String, strDescription As String, _
     Optional strFileFormat As String = "0.0")
     
     Dim dContents As Dictionary
@@ -332,7 +388,7 @@ Public Sub WriteJsonFile(ClassMe As Object, dItems As Dictionary, strFile As Str
     End If
     
     ' Build dictionary structure
-    dHeader.Add "Class", TypeName(ClassMe)
+    dHeader.Add "Class", strClassName
     dHeader.Add "Description", strDescription
     If strFileFormat <> "0.0" Then dHeader.Add "Export File Format", strFileFormat
     dContents.Add "Info", dHeader

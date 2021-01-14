@@ -83,7 +83,7 @@ Private Sub IDbComponent_Export()
     dSpec.Add "Columns", dCols
     
     ' Write as Json format.
-    WriteJsonFile Me, dSpec, IDbComponent_SourceFile, "Import/Export Specification from MSysIMEXSpecs"
+    WriteJsonFile TypeName(Me), dSpec, IDbComponent_SourceFile, "Import/Export Specification from MSysIMEXSpecs"
     
 End Sub
 

@@ -61,7 +61,7 @@ Private Sub IDbComponent_Export()
     Next prp
     
     ' Write to file. The order of properties may change, so sort them to keep the order consistent.
-    WriteJsonFile Me, SortDictionaryByKeys(dCollection), IDbComponent_SourceFile, "Project Properties (Access)"
+    WriteJsonFile TypeName(Me), SortDictionaryByKeys(dCollection), IDbComponent_SourceFile, "Project Properties (Access)"
     
 End Sub
 

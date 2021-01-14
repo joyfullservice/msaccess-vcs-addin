@@ -75,7 +75,7 @@ Private Sub IDbComponent_Export()
         End With
         
         ' Write export file.
-        WriteJsonFile Me, dItem, strFile, "Linked Table"
+        WriteJsonFile TypeName(Me), dItem, strFile, "Linked Table"
         
     End If
     

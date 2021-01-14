@@ -47,7 +47,7 @@ Private Sub IDbComponent_Export()
     On Error GoTo 0
     
     ' Write as Json format.
-    WriteJsonFile Me, dSpec, IDbComponent_SourceFile, "Saved Import/Export Specification"
+    WriteJsonFile TypeName(Me), dSpec, IDbComponent_SourceFile, "Saved Import/Export Specification"
     
 End Sub
 

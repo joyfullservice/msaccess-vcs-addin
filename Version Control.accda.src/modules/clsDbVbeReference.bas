@@ -37,7 +37,7 @@ Private Sub IDbComponent_Export()
     Set dItems = GetDictionary
 
     ' Write to a json file.
-    WriteJsonFile Me, dItems, IDbComponent_SourceFile, "VBE References"
+    WriteJsonFile TypeName(Me), dItems, IDbComponent_SourceFile, "VBE References"
     
     ' Update index
     VCSIndex.Update Me, eatExport, GetDictionaryHash(dItems)

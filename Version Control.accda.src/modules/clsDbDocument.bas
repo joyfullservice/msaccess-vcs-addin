@@ -31,7 +31,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    WriteJsonFile Me, m_dItems, IDbComponent_SourceFile, "Database Documents Properties (DAO)"
+    WriteJsonFile TypeName(Me), m_dItems, IDbComponent_SourceFile, "Database Documents Properties (DAO)"
 End Sub
 
 

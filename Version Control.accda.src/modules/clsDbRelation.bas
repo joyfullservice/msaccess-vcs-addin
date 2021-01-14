@@ -72,7 +72,7 @@ Private Sub IDbComponent_Export()
     dItem.Add "Fields", colItems
     
     ' Write to json file
-    WriteJsonFile Me, dItem, IDbComponent_SourceFile, "Database relationship"
+    WriteJsonFile TypeName(Me), dItem, IDbComponent_SourceFile, "Database relationship"
     
 End Sub
 

@@ -113,7 +113,7 @@ Public Sub Save()
 
     ' Save index to file
     If m_strFile <> vbNullString Then
-        WriteJsonFile Me, m_dIndex, m_strFile, "Version Control System Index"
+        WriteJsonFile TypeName(Me), m_dIndex, m_strFile, "Version Control System Index"
     End If
     
 End Sub

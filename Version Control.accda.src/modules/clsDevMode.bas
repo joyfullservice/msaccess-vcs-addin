@@ -8,7 +8,6 @@ Attribute VB_Exposed = False
 ' Date      : 5/15/2020
 ' Purpose   : Helper class to handle the parsing of saved print settings.
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Explicit
 
@@ -470,6 +469,18 @@ End Function
 Private Function MipHasData() As Boolean
     ' Item layout should either be 1953 or 1954
     MipHasData = (m_tMip.rItemLayout > 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasData
+' Author    : Adam Waller
+' Date      : 1/14/2021
+' Purpose   : Returns true if we have data in any of the three structures.
+'---------------------------------------------------------------------------------------
+'
+Public Function HasData() As Boolean
+    HasData = (DevModeHasData Or DevNamesHasData Or MipHasData)
 End Function
 
 
@@ -956,6 +967,18 @@ Public Sub ApplySettings(dSettings As Dictionary)
     End With
         
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetPrintSettingsFileName
+' Author    : Adam Waller
+' Date      : 1/14/2021
+' Purpose   : Return the file name for the print vars json file.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetPrintSettingsFileName(cDbObject As IDbComponent) As String
+    GetPrintSettingsFileName = cDbObject.BaseFolder & GetSafeFileName(cDbObject.Name) & ".json"
+End Function
 
 
 '---------------------------------------------------------------------------------------

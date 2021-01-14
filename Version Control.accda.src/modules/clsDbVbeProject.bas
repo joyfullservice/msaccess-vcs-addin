@@ -36,7 +36,7 @@ Private Sub IDbComponent_Export()
     Set dProject = GetDictionary
     
     ' Save in JSON format.
-    WriteJsonFile Me, dProject, IDbComponent_SourceFile, "VBE Project"
+    WriteJsonFile TypeName(Me), dProject, IDbComponent_SourceFile, "VBE Project"
     
     ' Save to index
     VCSIndex.Update Me, eatExport, GetDictionaryHash(dProject)

@@ -55,7 +55,7 @@ Private Sub IDbComponent_Export()
     dItem.Add "Extension", m_Extension
     
     ' Save json file with header details
-    WriteJsonFile Me, dItem, IDbComponent_SourceFile, "Shared Image Gallery Item"
+    WriteJsonFile TypeName(Me), dItem, IDbComponent_SourceFile, "Shared Image Gallery Item"
     
     ' Save image file
     strFile = IDbComponent_BaseFolder & FSO.GetBaseName(IDbComponent_SourceFile) & "." & m_Extension
