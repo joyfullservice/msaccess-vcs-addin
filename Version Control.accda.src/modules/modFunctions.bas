@@ -1357,6 +1357,20 @@ End Function
 '
 Public Sub WriteJsonFile(ClassMe As Object, dItems As Dictionary, strFile As String, strDescription As String, _
     Optional blnIgnoreHeaderOnlyChanges As Boolean = True)
+
+    WriteJsonFileSub TypeName(ClassMe), dItems, strFile, strDescription, blnIgnoreHeaderOnlyChanges
+End Sub
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteJsonFileSub
+' Author    : Adam Waller / hecon5
+' Date      : 4/24/2020 Rev 01/14/2021
+' Purpose   : Rewritten to allow directly inserting from this module where we don't have
+'           : (or want) to access the object Class directly.
+'---------------------------------------------------------------------------------------
+'
+Private Sub WriteJsonFileSub(strTypeName As String, dItems As Dictionary, strFile As String, strDescription As String, _
+    Optional blnIgnoreHeaderOnlyChanges As Boolean = True)
     
     Dim dContents As Dictionary
     Dim dHeader As Dictionary
@@ -1383,7 +1397,7 @@ Public Sub WriteJsonFile(ClassMe As Object, dItems As Dictionary, strFile As Str
     End If
     
     ' Build dictionary structure
-    dHeader.Add "Class", TypeName(ClassMe)
+    dHeader.Add "Class", strTypeName
     dHeader.Add "Description", strDescription
     dHeader.Add "VCS Version", GetVCSVersion
     dContents.Add "Info", dHeader
@@ -1612,10 +1626,14 @@ End Property
 '           : and then removes any existing file before saving the object as text.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFile As String)
+Public Sub SaveComponentAsText(intType As AcObjectType, _
+                                strName As String, _
+                                strFile As String, _
+                                Optional strPrintVarsFileName As String = vbNullString)
     
     Dim strTempFile As String
-    
+    Dim cDevMode As clsDevMode
+
     On Error GoTo ErrHandler
     
     ' Export to temporary file
@@ -1627,7 +1645,20 @@ Public Sub SaveComponentAsText(intType As AcObjectType, strName As String, strFi
     
     ' Sanitize certain object types
     Select Case intType
-        Case acForm, acReport, acQuery, acMacro
+        Case acForm, acReport
+            If Options.SavePrintVars = True Then
+                ' Grab the printer settings before sanitizing the file.
+                Set cDevMode = New clsDevMode
+                cDevMode.LoadFromExportFile strTempFile
+                WriteJsonFileSub TypeName(intType), cDevMode.GetDictionary, _
+                strPrintVarsFileName, strName & " Print Settings"
+            End If
+            ' Sanitizing converts to UTF-8
+            If FSO.FileExists(strFile) Then DeleteFile (strFile)
+            SanitizeFile strTempFile
+            FSO.MoveFile strTempFile, strFile
+            
+        Case acQuery, acMacro
             ' Sanitizing converts to UTF-8
             If FSO.FileExists(strFile) Then DeleteFile (strFile)
             SanitizeFile strTempFile
@@ -1660,11 +1691,43 @@ End Sub
 ' Purpose   : Load the object into the database from the saved source file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, strFile As String)
+Public Sub LoadComponentFromText(intType As AcObjectType, _
+                                strName As String, _
+                                strFile As String, _
+                                Optional strPrintVarsFileName As String = vbNullString)
 
     Dim strTempFile As String
     Dim blnConvert As Boolean
-    
+    Dim dFile As Dictionary
+
+    Select Case intType
+        Case acForm, acReport
+            'Insert print settings (if needed)
+            If strPrintVarsFileName <> vbNullString Then
+                Set dFile = ReadJsonFile(strPrintVarsFileName)
+                ' Check to ensure dictionary was loaded
+                If Not (dFile Is Nothing) Then
+                    'skip;
+                'Else
+                    ' Insert DevMode structures into file before importing.
+                    With New clsDevMode
+                        ' Load default printer settings, then overlay
+                        ' settings saved with report.
+                        .ApplySettings dFile("Items")
+                        ' Insert the settings into a combined export file.
+                        strTempFile = .AddToExportFile(strFile)
+                        ' Load the report file with the DevMode settings
+                    End With
+                End If
+            End If
+
+            blnConvert = RequiresUcs2
+
+        Case acQuery, acMacro, acTableDataMacro
+            blnConvert = RequiresUcs2
+    End Select
+
+
     ' Check UCS-2-LE requirement for the current database.
     ' (Cached after first call)
     Select Case intType

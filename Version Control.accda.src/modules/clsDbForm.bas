@@ -30,7 +30,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    SaveComponentAsText acForm, m_Form.Name, IDbComponent_SourceFile
+    SaveComponentAsText acForm, m_Form.Name, IDbComponent_SourceFile, GetPrintVarsFileName(m_Form.Name)
 End Sub
 
 
@@ -42,7 +42,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    LoadComponentFromText acForm, GetObjectNameFromFileName(strFile), strFile
+    Dim strImportedObject As String
+    strImportedObject = GetObjectNameFromFileName(strFile)
+    LoadComponentFromText acForm, strImportedObject, strFile, GetPrintVarsFileName(strImportedObject)
 End Sub
 
 
@@ -73,6 +75,16 @@ Private Function IDbComponent_GetAllFromDB() As Collection
 
 End Function
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetPrintVarsFileName
+' Author    : Adam Waller
+' Date      : 5/7/2020
+' Purpose   : Return the file name used to export/import print vars
+'---------------------------------------------------------------------------------------
+'
+Private Function GetPrintVarsFileName(strForm As String) As String
+    GetPrintVarsFileName = IDbComponent_BaseFolder & GetSafeFileName(strForm) & ".json"
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetFileList
