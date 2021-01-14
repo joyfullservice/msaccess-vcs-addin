@@ -96,6 +96,7 @@ Public Function AutoRun() As Boolean
                     MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
                         "Please restart any open instances of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
                     CheckForLegacyInstall
+                    VerifyTrustedLocation
                     DoCmd.Quit
                 End If
             Else
@@ -114,8 +115,8 @@ Public Function AutoRun() As Boolean
                     MsgBox2 "Success!", "Version Control System has now been installed.", _
                         "You may begin using this tool after reopening Microsoft Access", vbInformation, "Version Control Add-in"
                     CheckForLegacyInstall
+                    VerifyTrustedLocation
                 End If
-                
                 DoCmd.Quit
             End If
         End If
