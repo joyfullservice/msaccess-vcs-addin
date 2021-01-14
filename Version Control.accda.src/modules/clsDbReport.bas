@@ -31,7 +31,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    SaveComponentAsText acForm, m_Report.Name, IDbComponent_SourceFile, GetPrintVarsFileName(m_Report.Name)
+    SaveComponentAsText acReport, m_Report.Name, IDbComponent_SourceFile, GetPrintVarsFileName(m_Report.Name)
 End Sub
 
 
