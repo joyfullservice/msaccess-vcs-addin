@@ -30,35 +30,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-
-    Dim cDevMode As clsDevMode
-
-    ' Make sure path exists before attempting export.
-    VerifyPath IDbComponent_SourceFile
-    
-    ' Check Save Print Vars settings
-    If Options.SavePrintVars Then
-
-        ' Take a little more manual approach on the export so we can grab the
-        ' printer settings before sanitizing the file.
-        Set cDevMode = New clsDevMode
-        
-        ' Save as text, then grab and save printer info.
-        Perf.OperationStart "App.SaveAsText()"
-        Application.SaveAsText acForm, m_Form.Name, IDbComponent_SourceFile
-        Perf.OperationEnd
-        cDevMode.LoadFromExportFile IDbComponent_SourceFile
-        WriteJsonFile Me, cDevMode.GetDictionary, _
-            GetPrintVarsFileName(m_Form.Name), "Form Print Settings"
-        ' Sanitize source file (Also converts to UTF-8)
-        SanitizeFile IDbComponent_SourceFile
-        
-    Else
-        ' Simple export of form object
-        SaveComponentAsText acForm, m_Form.Name, IDbComponent_SourceFile
-    
-    End If
-    
+    SaveComponentAsText acForm, m_Form.Name, IDbComponent_SourceFile, GetPrintVarsFileName(m_Form.Name)
 End Sub
 
 
@@ -70,7 +42,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    LoadComponentFromText acForm, GetObjectNameFromFileName(strFile), strFile
+    Dim strImportedObject As String
+    strImportedObject = GetObjectNameFromFileName(strFile)
+    LoadComponentFromText acForm, strImportedObject, strFile, GetPrintVarsFileName(strImportedObject)
 End Sub
 
 
