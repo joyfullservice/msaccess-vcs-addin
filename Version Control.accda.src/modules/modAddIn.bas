@@ -863,13 +863,16 @@ Private Sub OpenAddinFile(strAddinFileName As String, _
         .Add "SET /a counter=0"
         .Add "IF !counter!==600 GOTO MOVEON"
         .Add "IF EXIST """, lockFilePathAddin, """ GOTO WAITCLOSEADDIN"
+        .Add ":OPENADDIN"
+        .Add "REM Opening Addin; this window will automatically close when complete."
+        .Add """", strAddinFileName, """"
+        .Add "GOTO DONE"
         .Add ":MOVEON"
         .Add "Del """, lockFilePathAddin, """"
         .Add "Del """, lockFilepathInstaller, """"
-        .Add "REM Opening Addin; this window will automatically close when complete."
-        .Add """", strAddinFileName, """"
+        .Add "GOTO OPENADDIN"
+        .Add ":DONE"
         .Add "Del """, strScriptFile, """"
-        
     End With
     
     WriteFile cOpenAddin.GetStr, strScriptFile
