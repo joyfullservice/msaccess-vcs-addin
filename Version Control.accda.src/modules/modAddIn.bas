@@ -793,7 +793,7 @@ Public Function VerifyTrustedLocation() As Boolean
                 .RegWrite strPath & "Date", Now()
                 .RegWrite strPath & "Description", mcstrTrustedLocationName
                 .RegWrite strPath & "AllowSubfolders", 0, "REG_DWORD"
-                
+
                 ' Return true
                 VerifyTrustedLocation = True
             Else
@@ -829,42 +829,51 @@ End Function
 Private Sub OpenAddinFile(strAddinFileName As String, _
                             strInstallerFileName As String)
 
-    'Dim strOpenAddinFile As String
     Dim cOpenAddin As New clsConcat
-    
-    Dim LockFilePathAddin As String
-    Dim lockfilepathInstaller As String
+    Dim strScriptFile As String
+    Dim lockFilePathAddin As String
+    Dim lockFilepathInstaller As String
     
     Dim filedot As Integer
+    filedot = InStr(strInstallerFileName, ".")
+    lockFilepathInstaller = Left$(strInstallerFileName, filedot) & "laccdb"
     filedot = InStr(strAddinFileName, ".")
-    lockfilepathInstaller = Left$(strAddinFileName, filedot) & "laccdb"
-    
-    filedot = InStr(strAddinFileName, ".")
-    LockFilePathAddin = Left$(strAddinFileName, filedot) & "laccdb"
+    lockFilePathAddin = Left$(strAddinFileName, filedot) & "laccdb"
+    strScriptFile = Left$(strAddinFileName, filedot) & "cmd"
     
     With cOpenAddin
-        .Add "@Echo Off", vbCrLf
-        .Add "setlocal ENABLEDELAYEDEXPANSION", vbCrLf
-        .Add "SET /a counter=0", vbCrLf
-        .Add ":WAITCLOSEINSTALLER", vbCrLf
-        .Add "ping 127.0.0.1 -n 1 -w 100 > nul", vbCrLf
-        .Add "SET /a counter+=1 ", vbCrLf
-        .Add "IF !counter!==600 GOTO MOVEON", vbCrLf
-        .Add "IF EXIST " & lockfilepathInstaller & " GOTO WAITCLOSEINSTALLER", vbCrLf
-        .Add ":WAITCLOSEADDIN", vbCrLf
-        .Add "ping 127.0.0.1 -n 1 -w 100 > nul", vbCrLf
-        .Add "SET /a counter=0 ", vbCrLf
-        .Add "IF !counter!==600 GOTO MOVEON", vbCrLf
-        .Add "IF EXIST " & LockFilePathAddin & " GOTO WAITCLOSEADDIN", vbCrLf
-        .Add ":MOVEON", vbCrLf
-        .Add strAddinFileName, vbCrLf
-        
-        With New IWshRuntimeLibrary.WshShell
-            .Run .GetStr, vbHide
-        End With
-        
+        .AppendOnAdd = vbCrLf
+        .Add "@Echo Off"
+        .Add "setlocal ENABLEDELAYEDEXPANSION"
+        .Add "REM Waiting for Addin file to copy over."
+        .Add ":WAITFORADDIN"
+        .Add "ping 127.0.0.1 -n 1 -w 100 > nul"
+        .Add "SET /a counter+=1"
+        .Add "IF !counter!==600 GOTO MOVEON"
+        .Add "IF NOT EXIST """, strAddinFileName, """ GOTO WAITFORADDIN"
+        .Add "REM Waiting for Access to close."
+        .Add "SET /a counter=0"
+        .Add ":WAITCLOSEINSTALLER"
+        .Add "ping 127.0.0.1 -n 1 -w 100 > nul"
+        .Add "SET /a counter+=1"
+        .Add "IF !counter!==600 GOTO MOVEON"
+        .Add "IF EXIST """, lockFilepathInstaller, """ GOTO WAITCLOSEINSTALLER"
+        .Add ":WAITCLOSEADDIN"
+        .Add "ping 127.0.0.1 -n 1 -w 100 > nul"
+        .Add "SET /a counter=0"
+        .Add "IF !counter!==600 GOTO MOVEON"
+        .Add "IF EXIST """, lockFilePathAddin, """ GOTO WAITCLOSEADDIN"
+        .Add ":MOVEON"
+        .Add "Del """, lockFilePathAddin, """"
+        .Add "Del """, lockFilepathInstaller, """"
+        .Add "REM Opening Addin; this window will automatically close when complete."
+        .Add """", strAddinFileName, """"
+        .Add "Del """, strScriptFile, """"
         
     End With
+    
+    WriteFile cOpenAddin.GetStr, strScriptFile
+    Shell strScriptFile, vbNormalFocus
 
 End Sub
 
