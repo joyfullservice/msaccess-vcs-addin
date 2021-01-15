@@ -7,8 +7,8 @@
 Option Compare Database
 Option Private Module
 Option Explicit
-
-
+Private Const moduleName As String = "modImportExport"
+ 
 '---------------------------------------------------------------------------------------
 ' Procedure : ExportSource
 ' Author    : Adam Waller
@@ -17,7 +17,10 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportSource()
-
+    On Error Resume Next
+    Dim errFunctionName As String
+    errFunctionName = moduleName & "ExportSource:"
+    
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
     Dim sngStart As Single
@@ -108,7 +111,7 @@ Public Sub ExportSource()
                 Log.Increment
                 Log.Add "  " & cDbObject.Name, Options.ShowDebug
                 cDbObject.Export
-                    
+                CatchAny eelError, Err.Number & ":" & Err.Description, errFunctionName & "Importingfiles", True, True
                 ' Some kinds of objects are combined into a single export file, such
                 ' as database properties. For these, we just need to run the export once.
                 If cCategory.SingleFile Then Exit For
@@ -184,6 +187,10 @@ Public Sub Build(strSourceFolder As String)
     Dim colFiles As Collection
     Dim varFile As Variant
     
+    Dim errFunctionName As String
+    errFunctionName = moduleName & "Build:"
+    
+    On Error Resume Next
     ' Close the current database if it is currently open.
     If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
         ' Need to close the current database before we can replace it.
@@ -291,6 +298,7 @@ Public Sub Build(strSourceFolder As String)
                 Log.Increment
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
                 cCategory.Import CStr(varFile)
+                CatchAny eelError, Err.Number & ":" & Err.Description, errFunctionName & "Importingfiles", True, True
             Next varFile
             
             ' Show category wrap-up.
