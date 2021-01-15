@@ -191,7 +191,7 @@ Public Function RunExportForCurrentDB()
     ' change the project name of the add-in so we can call it as distinct from the
     ' current project.
     Set projAddIn = GetAddInProject
-    If StrComp(CurrentProject.FullName, projAddIn.FullName, vbTextCompare) = 0 Then
+    If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
         ' When this is run from the CurrentDB, we should rename the add-in project,
         ' then call it again using the renamed project to ensure we are running it
         ' from the add-in.
