@@ -80,11 +80,32 @@ End Function
 Public Function AutoRun() As Boolean
     Dim strMsgBoxTitle As String
     Dim strMsgBoxText As String
+    
+    Dim strThisFileName As String
+    Dim strAddinFileName As String
+    
+    strThisFileName = CodeProject.FullName
+    strAddinFileName = GetAddinFileName
 
-    If CodeProject.FullName = GetAddinFileName Then
+    If strThisFileName = strAddinFileName Then
         ' Opening the file from add-in location, which would normally be unusual unless we are trying to remove
         ' legacy registry entries.
         If IsUserAnAdmin = 1 Then RemoveLegacyInstall
+        
+        ' Adding a message box to here to autoclose the addin once the prompt is cleared.
+        ' This handles the last step of the install for users that just installed the file.
+        ' Since no code will run until the "Trust Document/Enable" is completed, this allows for the trust
+        ' process to complete then close itself (if desired).
+        
+        strMsgBoxTitle = "Trust Process and Install Complete!"
+        strMsgBoxText = "Version " & AppVersion & " is now installed and trusted." & _
+                        "You must close all instances of Access to enable the Addin." & vbCrLf & vbCrLf & _
+                        "It's strongly reccomended you close this file and do not edit it."
+        If MsgBox2(strMsgBoxTitle, strMsgBoxText, "Click 'Yes' to close or 'No' to cancel.", vbQuestion + vbYesNo, strMsgBoxTitle) = vbYes Then
+            DoCmd.Quit
+        End If
+        
+
     Else
         ' Could be running it from another location, such as after downloading
         ' and updated version of the addin. In that case, we are either trying
@@ -103,6 +124,7 @@ Public Function AutoRun() As Boolean
                     MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
                         "Please restart any open instances of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
                     CheckForLegacyInstall
+                    If VerifyTrustedLocation = True Then OpenAddinFile strAddinFileName, strThisFileName
                     DoCmd.Quit
                 End If
             Else
@@ -121,6 +143,7 @@ Public Function AutoRun() As Boolean
                     MsgBox2 "Success!", "Version Control System has now been installed.", _
                         "You may begin using this tool after reopening Microsoft Access", vbInformation, "Version Control Add-in"
                     CheckForLegacyInstall
+                    If VerifyTrustedLocation = True Then OpenAddinFile strAddinFileName, strThisFileName
                 End If
                 
                 DoCmd.Quit
@@ -760,7 +783,9 @@ Public Function VerifyTrustedLocation() As Boolean
             If MsgBox2("Add as Trusted Location?", _
                 strTrusted, _
                 "In some environments the add-in location must be trusted to use" & vbCrLf & _
-                "the Version Control add-in in Microsoft Access.", _
+                "the Version Control add-in in Microsoft Access." & vbCrLf & vbCrLf & _
+                "You need to close all instances of Access. " & vbCrLf & vbCrLf & _
+                "Once added, the addin file will be opened so you can trust it to complete the process.", _
                 vbQuestion + vbOKCancel) = vbOK Then
                 
                 ' Add trusted location
@@ -785,6 +810,63 @@ Public Function VerifyTrustedLocation() As Boolean
     
 End Function
 
+'---------------------------------------------------------------------------------------
+' Procedure : OpenAddinFile
+' Author    : hecon5
+' Date      : 1/15/2021
+' Purpose   : runs a script to complete the addin trusting process. Once a trusted
+'           : location is set, the file needs to be opened to trust it in many
+'           : Corporate / Government environments due to security concerns.
+'           : This will complete the process without the user needing to know
+'           : where the file resides.
+'           : It waits for two files to close (the "installer" and the "addin".
+'           : This should hopefully ensure Access was closed prior to relaunch and
+'           : significantly reduces instance of the application
+'           : The subroutine is private because if you have called the addin from
+'           : somewhere (aka, you're not installing it), opening the same file twice
+'           : will cause headaches and likely corrupt the file.
+'---------------------------------------------------------------------------------------
+Private Sub OpenAddinFile(strAddinFileName As String, _
+                            strInstallerFileName As String)
+
+    'Dim strOpenAddinFile As String
+    Dim cOpenAddin As New clsConcat
+    
+    Dim LockFilePathAddin As String
+    Dim lockfilepathInstaller As String
+    
+    Dim filedot As Integer
+    filedot = InStr(strAddinFileName, ".")
+    lockfilepathInstaller = Left$(strAddinFileName, filedot) & "laccdb"
+    
+    filedot = InStr(strAddinFileName, ".")
+    LockFilePathAddin = Left$(strAddinFileName, filedot) & "laccdb"
+    
+    With cOpenAddin
+        .Add "@Echo Off", vbCrLf
+        .Add "setlocal ENABLEDELAYEDEXPANSION", vbCrLf
+        .Add "SET /a counter=0", vbCrLf
+        .Add ":WAITCLOSEINSTALLER", vbCrLf
+        .Add "ping 127.0.0.1 -n 1 -w 100 > nul", vbCrLf
+        .Add "SET /a counter+=1 ", vbCrLf
+        .Add "IF !counter!==600 GOTO MOVEON", vbCrLf
+        .Add "IF EXIST " & lockfilepathInstaller & " GOTO WAITCLOSEINSTALLER", vbCrLf
+        .Add ":WAITCLOSEADDIN", vbCrLf
+        .Add "ping 127.0.0.1 -n 1 -w 100 > nul", vbCrLf
+        .Add "SET /a counter=0 ", vbCrLf
+        .Add "IF !counter!==600 GOTO MOVEON", vbCrLf
+        .Add "IF EXIST " & LockFilePathAddin & " GOTO WAITCLOSEADDIN", vbCrLf
+        .Add ":MOVEON", vbCrLf
+        .Add strAddinFileName, vbCrLf
+        
+        With New IWshRuntimeLibrary.WshShell
+            .Run .GetStr, vbHide
+        End With
+        
+        
+    End With
+
+End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RemoveTrustedLocation
