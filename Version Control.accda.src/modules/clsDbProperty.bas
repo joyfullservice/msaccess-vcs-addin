@@ -140,6 +140,9 @@ Private Sub IDbComponent_Import(strFile As String)
                         ' Add properties that don't exist.
                         blnAdd = True
                     End If
+					' Can't add a text property with a null value. See issue #126
+                    If varValue = vbNullChar And dItems(varKey)("Type") = 10 Then blnAdd = False
+                    ' Add the property if the flag has been set.
                     If blnAdd Then
                         ' Create property, then append to collection
                         Set prp = dbs.CreateProperty(varKey, dItems(varKey)("Type"), varValue)
