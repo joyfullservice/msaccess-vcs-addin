@@ -160,6 +160,8 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
         
         ' Log the error and display if higher than warning.
         Me.Add .GetStr, eLevel > eelWarning
+
+        SaveErrorFile FSO.BuildPath(Options.GetExportFolder, "ERRORLOG:" & Format(Now, "YYYY-MM-DD-hh.mm.ss") & ".log")
         
         ' Show message box for fatal error.
         If eLevel = eelCritical Then
@@ -229,6 +231,20 @@ Public Sub SaveFile(strPath As String)
     LogFilePath = strPath
 End Sub
 
+'---------------------------------------------------------------------------------------
+' Procedure : SaveErrorFile
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Saves the error log data to a file, and does not reset the log buffer.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveErrorFile(strPath As String)
+    
+    WriteFile m_Log.GetStr, strPath
+    'Set m_Log = New clsConcat
+    'Don't reset log for errors
+    'LogFilePath = strPath
+End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Class_Initialize

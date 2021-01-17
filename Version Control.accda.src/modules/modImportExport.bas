@@ -7,7 +7,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
-Private Const moduleName As String = "modImportExport"
+Private Const moduleName As String = "modImportExport:"
  
 '---------------------------------------------------------------------------------------
 ' Procedure : ExportSource
@@ -18,8 +18,8 @@ Private Const moduleName As String = "modImportExport"
 '
 Public Sub ExportSource()
     On Error Resume Next
-    Dim errFunctionName As String
-    errFunctionName = moduleName & "ExportSource:"
+    Dim FunctionName as String
+    FunctionName = moduleName & "ExportSource:"
     
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
@@ -111,7 +111,9 @@ Public Sub ExportSource()
                 Log.Increment
                 Log.Add "  " & cDbObject.Name, Options.ShowDebug
                 cDbObject.Export
-                CatchAny eelError, Err.Number & ":" & Err.Description, errFunctionName & "Importingfiles", True, True
+                CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Exporting:" & _
+                    Options.UseFastSave & LCase(cCategory.Category) & " " & cDbObject.Name, True, True
+                On Error Goto 0
                 ' Some kinds of objects are combined into a single export file, such
                 ' as database properties. For these, we just need to run the export once.
                 If cCategory.SingleFile Then Exit For
@@ -149,7 +151,7 @@ Public Sub ExportSource()
     Log.Add vbCrLf & Perf.GetReports, False
     
     ' Save log file to disk
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export-" & Format(Now, "YYYY-MM-DD-hh.mm.ss") & ".log")
     
     ' Check for VCS_ImportExport.bas (Used with other forks)
     CheckForLegacyModules
@@ -180,17 +182,17 @@ End Sub
 '
 Public Sub Build(strSourceFolder As String)
 
+    On Error Resume Next    
+    Dim FunctionName As String
+    FunctionName = moduleName & "ExportSource:"
+
     Dim strPath As String
     Dim strBackup As String
     Dim cCategory As IDbComponent
     Dim sngStart As Single
     Dim colFiles As Collection
     Dim varFile As Variant
-    
-    Dim errFunctionName As String
-    errFunctionName = moduleName & "Build:"
-    
-    On Error Resume Next
+ 
     ' Close the current database if it is currently open.
     If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
         ' Need to close the current database before we can replace it.
@@ -298,7 +300,9 @@ Public Sub Build(strSourceFolder As String)
                 Log.Increment
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
                 cCategory.Import CStr(varFile)
-                CatchAny eelError, Err.Number & ":" & Err.Description, errFunctionName & "Importingfiles", True, True
+                CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Importing:" & _
+                    Options.UseFastSave & LCase(cCategory.Category) & " " & FSO.GetFileName(varFile), True, True
+                On Error GoTo 0
             Next varFile
             
             ' Show category wrap-up.
@@ -325,7 +329,7 @@ Public Sub Build(strSourceFolder As String)
     Log.Add vbCrLf & Perf.GetReports, False
     
     ' Write log file to disk
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Import.log")
+    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Import-" & Format(Now, "YYYY-MM-DD-hh.mm.ss") & ".log")
 
     ' Wrap up build.
     DoCmd.Hourglass False
@@ -488,7 +492,7 @@ Public Sub MergeBuild(strSourceFolder As String)
     Log.Add vbCrLf & Perf.GetReports, False
     
     ' Write log file to disk
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Merge.log")
+    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Merge-" & Now & ".log")
 
     DoCmd.Hourglass False
     If Forms.Count > 0 Then
