@@ -169,13 +169,13 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Build
+' Procedure : Build (Full build or Merge Build)
 ' Author    : Adam Waller
 ' Date      : 5/4/2020
 ' Purpose   : Build the project from source files.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Build(strSourceFolder As String)
+Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
 
     Dim strPath As String
     Dim strBackup As String
@@ -323,7 +323,7 @@ Public Sub Build(strSourceFolder As String)
     DoCmd.Hourglass False
     If Forms.Count > 0 Then
         ' Finish up on GUI
-        Form_frmVCSMain.FinishBuild
+        Form_frmVCSMain.FinishBuild blnFullBuild
     Else
         ' Allow navigation pane to refresh list of objects.
         DoEvents
@@ -485,7 +485,7 @@ Public Sub MergeBuild(strSourceFolder As String)
     DoCmd.Hourglass False
     If Forms.Count > 0 Then
         ' Finish up on GUI
-        Form_frmVCSMain.FinishBuild
+        Form_frmVCSMain.FinishBuild False
     Else
         ' Allow navigation pane to refresh list of objects.
         DoEvents
