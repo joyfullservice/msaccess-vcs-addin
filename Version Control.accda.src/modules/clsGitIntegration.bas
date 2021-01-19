@@ -15,11 +15,13 @@ Private Enum eGitCommand
     egcGetUntrackedFiles
     egcGetHeadCommit
     egcSetTaggedCommit
+    egcGetReproPath
 End Enum
 
 
 ' The structure of this dictionary is very similar to the VCS Index of components.
 Private m_dChangedItems As Dictionary
+Private m_strRepositoryRoot As String
 
 
 ' Peforms operations related to interrogating the status of Git
@@ -37,7 +39,7 @@ Private m_dChangedItems As Dictionary
 '           : (Define the specific git commands in this function)
 '---------------------------------------------------------------------------------------
 '
-Private Function RunGitCommand(intCmd As eGitCommand) As String
+Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As String) As String
 
     Dim strCmd As String
     Dim strResult As String
@@ -45,16 +47,20 @@ Private Function RunGitCommand(intCmd As eGitCommand) As String
     ' Translate enum to command
     Select Case intCmd
         Case egcGetHeadCommitDate:      strCmd = "git show -s --format=%ci HEAD"
-        Case egcGetCommittedFiles:      strCmd = "git diff --name-status access-vcs-last-imported-commit..HEAD"
+        Case egcGetCommittedFiles:      strCmd = "git diff --name-status {MyArg}..HEAD"
         Case egcGetUntrackedFiles:      strCmd = "git ls-files . --exclude-standard --others"
         Case egcGetVersion:             strCmd = "git version"
-        Case egcSetTaggedCommit:        strCmd = "git tag access-vcs-last-imported-commit HEAD -f"
-        Case egcGetAllChangedFiles:     strCmd = "git diff --name-status access-vcs-last-imported-commit"
+        Case egcSetTaggedCommit:        strCmd = "git tag {MyArg} HEAD -f"
+        Case egcGetAllChangedFiles:     strCmd = "git diff --name-status"
         Case egcGetHeadCommit:          strCmd = "git show -s --format=%h HEAD"
+        Case egcGetReproPath:           strCmd = "git rev-parse --show-toplevel"
     End Select
 
+    ' Add argument, if supplied
+    strCmd = Replace(strCmd, "{MyArg}", strArgument)
+
     ' Run command, and get result
-    Perf.OperationStart "Git Commands"
+    Perf.OperationStart "Git Command (id:" & intCmd & ")"
     strResult = ShellRun(strCmd)
     Perf.OperationEnd
     
@@ -97,6 +103,21 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetRepositoryPath
+' Author    : Adam Waller
+' Date      : 1/19/2021
+' Purpose   : Returns the path to the root of the repository.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetRepositoryPath() As String
+    If m_strRepositoryRoot = vbNullString Then
+        m_strRepositoryRoot = Replace(RunGitCommand(egcGetReproPath), "/", "\") & "\"
+    End If
+    GetRepositoryPath = m_strRepositoryRoot
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ShellRun
 ' Author    : Adam Waller
 ' Date      : 11/24/2020
@@ -107,6 +128,14 @@ Private Function ShellRun(strCmd As String) As String
     
     Dim oShell As WshShell
     Dim strFile As String
+    Dim strWorking As String
+    
+    ' Get working path for command. (Prefer repository root, if available)
+    If m_strRepositoryRoot = vbNullString Then
+        strWorking = Options.GetExportFolder
+    Else
+        strWorking = m_strRepositoryRoot
+    End If
     
     ' Get path to temp file
     strFile = GetTempFile
@@ -114,7 +143,7 @@ Private Function ShellRun(strCmd As String) As String
     ' Build command line string
     With New clsConcat
         ' Open command prompt in export folder
-        .Add "cmd.exe /c cd ", Options.GetExportFolder
+        .Add "cmd.exe /c cd ", strWorking
         ' Run git command
         .Add " & ", strCmd
         ' Output to temp file
@@ -215,26 +244,6 @@ End Function
 'End Sub
 
 
-'---------------------------------------------------------------------------------------
-' Procedure : GetChangedFileList
-' Author    : Adam Waller
-' Date      : 11/25/2020
-' Purpose   : Returns a collection of the files that have been changed. Only includes
-'           : source files used by VCS.
-'---------------------------------------------------------------------------------------
-'
-Public Function GetChangedFileList() As Dictionary
-
-    Dim varItems As Variant
-    Dim strBasePath As String
-    
-    Set GetChangedFileList = New Dictionary
-    
-'    varitems = split(RunGitCommand(egcGetAllChangedFiles
-    
-    
-
-End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -259,42 +268,141 @@ End Function
 '
 Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
 
+    Dim varKey As Variant
+    
     ' Make sure the changes are loaded from Git
-    If m_dChangedItems Is Nothing Then LoadChangesFromGit
+    If m_dChangedItems Is Nothing Then Set m_dChangedItems = GetChangedFileIndex
+    
+    ' Check for any matching changes.
+    Set GetModifiedSourceFiles = New Collection
+    With m_dChangedItems
+        If .Exists(cCategory.Category) Then
+            For Each varKey In .Item(cCategory.Category).Keys
+                ' Add source file
+                GetModifiedSourceFiles.Add CStr(varKey)
+            Next varKey
+        End If
+    End With
     
 End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : LoadChangesFromGit
+' Procedure : GetChangedFileList
 ' Author    : Adam Waller
-' Date      : 12/4/2020
-' Purpose   :
+' Date      : 11/25/2020
+' Purpose   : Returns a collection of the files that have been changed. Only includes
+'           : source files used by VCS.
 '---------------------------------------------------------------------------------------
 '
-Private Function LoadChangesFromGit()
+Public Function GetChangedFileIndex() As Dictionary
 
-    Dim dCategory As IDbComponent
+    Dim varItems As Variant
+    Dim varFile As Variant
+    Dim strPath As String
+    Dim strBasePath As String
+    Dim varParts As Variant
+    Dim strExportFolder As String
+    Dim strCategory As String
+    Dim dIndex As Dictionary
     Dim dFolders As Dictionary
+    Dim dCategory As Dictionary
+    Dim cComp As IDbComponent
+    Dim strSourceFile As String
+    Dim strFlag As String
+    Dim strRootPath As String
     
-    Set m_dChangedItems = New Dictionary
+    ' Get the base export folder
+    strExportFolder = Options.GetExportFolder
+    varParts = Split(strExportFolder, "\")
+    strBasePath = varParts(UBound(varParts) - 1)
+    strRootPath = GetRepositoryPath
     
-    ' Build a list of source path folders by category.
-    ' For single file items, it will be the full path.
-    For Each dCategory In GetAllContainers
-        With dCategory
-            If .SingleFile Then
-                dFolders.Add .BaseFolder & FSO.GetFileName(.SourceFile), .Category
+    ' Get base folder list from component types.
+    ' (Used to organize the changed files by type)
+    Set dFolders = New Dictionary
+    For Each cComp In GetAllContainers
+        strCategory = StripSlash(Mid$(cComp.BaseFolder, Len(strRootPath) + 1))
+        If strCategory = strBasePath Then
+            ' Include file name in category
+            strCategory = Mid$(cComp.SourceFile, Len(strRootPath) + 1)
+        End If
+        ' Replace backslashes with forward slashes to match git output
+        strCategory = Replace(strCategory, "\", "/")
+        dFolders.Add strCategory, cComp.Category
+    Next cComp
+
+    ' Windows 10 can optionally support case-sensitive file names, but for
+    ' now we will go with case insensitive names for the purpose of the index.
+    Set dIndex = New Dictionary
+    dIndex.CompareMode = TextCompare
+    
+    ' Return a list of changed and new files from git.
+    varItems = Split( _
+        RunGitCommand(egcGetAllChangedFiles) & vbLf & _
+        RunGitCommand(egcGetUntrackedFiles) _
+        , vbLf)
+
+    ' Loop through list of changed files
+    For Each varFile In varItems
+    
+        ' Check for flag from changed files.
+        If Mid(varFile, 2, 1) = vbTab Then
+            strFlag = Mid(varFile, 1, 1)
+            strPath = Mid(varFile, 3)
+        Else
+            strFlag = "U" ' Unversioned file.
+            strPath = varFile
+        End If
+        
+        ' Skip any blank lines
+        If strPath <> vbNullString Then
+        
+            ' Check for match on entire file name. (For single file items
+            ' in the root export folder.)
+            If dFolders.Exists(strPath) Then
+                ' Use this component type.
+                strCategory = dFolders(strPath)
             Else
-                dFolders.Add .BaseFolder, .Category
+                ' Use the folder name to look up component type.
+                strCategory = dNZ(dFolders, FSO.GetParentFolderName(strPath))
             End If
-            Set m_dChangedItems(.Category) = New Dictionary
-        End With
-    Next dCategory
-    Debug.Print ConvertToJson(dFolders, "  ")
-    
-    ' Check for match on entire file, then on the folder to determine
-    ' the type of source file.
-    
+            
+            ' Ignore files outside standard VCS source folders.
+            If strCategory <> vbNullString Then
+                
+                ' Add to index of changed files.
+                With dIndex
+                
+                    ' Add category if it does not exist.
+                    If Not .Exists(strCategory) Then
+                        Set dCategory = New Dictionary
+                        .Add strCategory, dCategory
+                    End If
+
+                    ' Build full path to source file, and add to index.
+                    strSourceFile = strRootPath & Replace(strPath, "/", "\")
+
+                    ' Add full file path to category, including flag with change type.
+                    .Item(strCategory).Add strSourceFile, strFlag
+                End With
+            End If
+        End If
+    Next varFile
+
+    ' Return dictionary of file paths.
+    Set GetChangedFileIndex = dIndex
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Initialize
+' Author    : Adam Waller
+' Date      : 1/19/2021
+' Purpose   : Load path to root repository
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Initialize()
+    GetRepositoryPath
+End Sub
