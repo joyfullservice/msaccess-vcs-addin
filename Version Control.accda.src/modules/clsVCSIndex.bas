@@ -27,13 +27,11 @@ Public Enum eIndexActionType
     eatImport
 End Enum
 
-' Reference to Git Integration
-Private Git As clsGitIntegration
-
 ' Index of component/file information, based on source files
 Private m_dIndex As Dictionary
 Private m_dGitIndex As Dictionary
 Private m_strFile As String
+Private m_Git As clsGitIntegration
 
 
 '---------------------------------------------------------------------------------------
@@ -74,9 +72,6 @@ Public Sub LoadFromFile(Optional strFile As String)
             End If
         End If
     End If
-    
-    ' Load changed files from Git, if enabled
-    If Options.UseGitIntegration Then Set m_dGitIndex = Git.GetChangedFileIndex
 
 End Sub
 
@@ -274,7 +269,8 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
     
     Set GetModifiedSourceFiles = New Collection
     With GetModifiedSourceFiles
-        If Options.UseGitIntegration Then
+        ' Make sure we have a previous commit to reference.
+        If Options.UseGitIntegration And LastMergedCommit <> vbNullString Then
             ' Return list of any modified files of this type as served by Git.
             Set GetModifiedSourceFiles = Git.GetModifiedSourceFiles(cCategory)
         Else
@@ -298,6 +294,19 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
         End If
     End With
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Git
+' Author    : Adam Waller
+' Date      : 1/19/2021
+' Purpose   : Reference to the Git integration class
+'---------------------------------------------------------------------------------------
+'
+Private Function Git() As clsGitIntegration
+    If m_Git Is Nothing Then Set m_Git = New clsGitIntegration
+    Set Git = m_Git
 End Function
 
 
@@ -334,6 +343,5 @@ Private Sub Class_Initialize()
     
     ' Load Git integration
     Set m_dGitIndex = Nothing
-    Set Git = New clsGitIntegration
     
 End Sub

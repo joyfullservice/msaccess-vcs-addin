@@ -5,6 +5,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+' Hash for revision we are diffing from.
+Public FromRevision As String
 
 ' Enum for commands we can run with Git.
 Private Enum eGitCommand
@@ -16,6 +18,7 @@ Private Enum eGitCommand
     egcGetHeadCommit
     egcSetTaggedCommit
     egcGetReproPath
+    egcGetRevision
 End Enum
 
 
@@ -51,9 +54,10 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
         Case egcGetUntrackedFiles:      strCmd = "git ls-files . --exclude-standard --others"
         Case egcGetVersion:             strCmd = "git version"
         Case egcSetTaggedCommit:        strCmd = "git tag {MyArg} HEAD -f"
-        Case egcGetAllChangedFiles:     strCmd = "git diff --name-status"
+        Case egcGetAllChangedFiles:     strCmd = "git diff --name-status {MyArg}"
         Case egcGetHeadCommit:          strCmd = "git show -s --format=%h HEAD"
         Case egcGetReproPath:           strCmd = "git rev-parse --show-toplevel"
+        Case egcGetRevision:            strCmd = "git rev-parse --verify {MyArg}"
     End Select
 
     ' Add argument, if supplied
@@ -271,7 +275,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
     Dim varKey As Variant
     
     ' Make sure the changes are loaded from Git
-    If m_dChangedItems Is Nothing Then Set m_dChangedItems = GetChangedFileIndex
+    If m_dChangedItems Is Nothing Then Set m_dChangedItems = GetChangedFileIndex(Me.FromRevision)
     
     ' Check for any matching changes.
     Set GetModifiedSourceFiles = New Collection
@@ -288,6 +292,18 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RevisionExists
+' Author    : Adam Waller
+' Date      : 1/19/2021
+' Purpose   : Returns true if the revision exists on Git.
+'---------------------------------------------------------------------------------------
+'
+Public Function RevisionExists(strHash As String) As Boolean
+    RevisionExists = (RunGitCommand(egcGetRevision, strHash) <> vbNullString)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetChangedFileList
 ' Author    : Adam Waller
 ' Date      : 11/25/2020
@@ -295,7 +311,7 @@ End Function
 '           : source files used by VCS.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetChangedFileIndex() As Dictionary
+Public Function GetChangedFileIndex(strFromCommit As String) As Dictionary
 
     Dim varItems As Variant
     Dim varFile As Variant
@@ -311,13 +327,14 @@ Public Function GetChangedFileIndex() As Dictionary
     Dim strSourceFile As String
     Dim strFlag As String
     Dim strRootPath As String
-    
+    Dim strResponse As String
+
     ' Get the base export folder
     strExportFolder = Options.GetExportFolder
     varParts = Split(strExportFolder, "\")
     strBasePath = varParts(UBound(varParts) - 1)
     strRootPath = GetRepositoryPath
-    
+
     ' Get base folder list from component types.
     ' (Used to organize the changed files by type)
     Set dFolders = New Dictionary
@@ -336,59 +353,69 @@ Public Function GetChangedFileIndex() As Dictionary
     ' now we will go with case insensitive names for the purpose of the index.
     Set dIndex = New Dictionary
     dIndex.CompareMode = TextCompare
-    
+
     ' Return a list of changed and new files from git.
-    varItems = Split( _
-        RunGitCommand(egcGetAllChangedFiles) & vbLf & _
-        RunGitCommand(egcGetUntrackedFiles) _
-        , vbLf)
+    strResponse = RunGitCommand(egcGetAllChangedFiles, strFromCommit) & vbLf & _
+        RunGitCommand(egcGetUntrackedFiles)
 
-    ' Loop through list of changed files
-    For Each varFile In varItems
-    
-        ' Check for flag from changed files.
-        If Mid(varFile, 2, 1) = vbTab Then
-            strFlag = Mid(varFile, 1, 1)
-            strPath = Mid(varFile, 3)
-        Else
-            strFlag = "U" ' Unversioned file.
-            strPath = varFile
-        End If
-        
-        ' Skip any blank lines
-        If strPath <> vbNullString Then
-        
-            ' Check for match on entire file name. (For single file items
-            ' in the root export folder.)
-            If dFolders.Exists(strPath) Then
-                ' Use this component type.
-                strCategory = dFolders(strPath)
+    ' Check for errors such as invalid commit
+    If InStr(1, strResponse, ": unknown revision") > 0 Then
+        Log.Error eelError, "Unknown git revision: " & strFromCommit, "clsGitIntegration.GetChangedFileIndex"
+        Log.Spacer False
+        Log.Add strResponse, False
+        Log.Spacer
+    Else
+        ' Convert to list of items
+        varItems = Split(strResponse, vbLf)
+
+        ' Loop through list of changed files
+        For Each varFile In varItems
+
+            ' Check for flag from changed files.
+            If Mid(varFile, 2, 1) = vbTab Then
+                strFlag = Mid(varFile, 1, 1)
+                strPath = Mid(varFile, 3)
             Else
-                ' Use the folder name to look up component type.
-                strCategory = dNZ(dFolders, FSO.GetParentFolderName(strPath))
+                strFlag = "U" ' Unversioned file.
+                strPath = varFile
             End If
-            
-            ' Ignore files outside standard VCS source folders.
-            If strCategory <> vbNullString Then
-                
-                ' Add to index of changed files.
-                With dIndex
-                
-                    ' Add category if it does not exist.
-                    If Not .Exists(strCategory) Then
-                        Set dCategory = New Dictionary
-                        .Add strCategory, dCategory
-                    End If
 
-                    ' Build full path to source file, and add to index.
-                    strSourceFile = strRootPath & Replace(strPath, "/", "\")
+            ' Skip any blank lines
+            If strPath <> vbNullString Then
 
-                    ' Add full file path to category, including flag with change type.
-                    .Item(strCategory).Add strSourceFile, strFlag
-                End With
+                ' Check for match on entire file name. (For single file items
+                ' in the root export folder.)
+                If dFolders.Exists(strPath) Then
+                    ' Use this component type.
+                    strCategory = dFolders(strPath)
+                Else
+                    ' Use the folder name to look up component type.
+                    strCategory = dNZ(dFolders, FSO.GetParentFolderName(strPath))
+                End If
+
+                ' Ignore files outside standard VCS source folders.
+                If strCategory <> vbNullString Then
+
+                    ' Add to index of changed files.
+                    With dIndex
+
+                        ' Add category if it does not exist.
+                        If Not .Exists(strCategory) Then
+                            Set dCategory = New Dictionary
+                            .Add strCategory, dCategory
+                        End If
+
+                        ' Build full path to source file, and add to index.
+                        strSourceFile = strRootPath & Replace(strPath, "/", "\")
+
+                        ' Add full file path to category, including flag with change type.
+                        .Item(strCategory).Add strSourceFile, strFlag
+                    End With
+                End If
             End If
-        End If
-    Next varFile
+        Next varFile
+
+    End If
 
     ' Return dictionary of file paths.
     Set GetChangedFileIndex = dIndex
