@@ -275,19 +275,8 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
     Set GetModifiedSourceFiles = New Collection
     With GetModifiedSourceFiles
         If Options.UseGitIntegration Then
-            If m_dGitIndex.Exists(cCategory.Category) Then
-                ' Loop through list of files that git flagged as changed
-                'for each dItem in
-            
-                ' Compare modified files to index.
-    
-                'set dItem =
-                'if m_dIndex.Exists(
-            
-                ' Compare with the SourceSha1 to see if the file has changed.
-                'blnModified = not dnz(m_dIndex
-            End If
-        
+            ' Return list of any modified files of this type as served by Git.
+            Set GetModifiedSourceFiles = Git.GetModifiedSourceFiles(cCategory)
         Else
             ' Loop through files and check modified dates.
             ' Get a list of all the files for this component.

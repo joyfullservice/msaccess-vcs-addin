@@ -183,18 +183,41 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Dim sngStart As Single
     Dim colFiles As Collection
     Dim varFile As Variant
+    Dim strType As String
     
-    ' Close the current database if it is currently open.
-    If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
-        ' Need to close the current database before we can replace it.
-        RunBuildAfterClose strSourceFolder
-        Exit Sub
+    Dim strText As String   ' Remove later
+    
+    ' The type of build will be used in various messages and log entries.
+    strType = IIf(blnFullBuild, "Build", "Merge")
+    
+    ' For full builds, close the current database if it is currently open.
+    If blnFullBuild Then
+        If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
+            ' Need to close the current database before we can replace it.
+            RunBuildAfterClose strSourceFolder
+            Exit Sub
+        End If
     End If
     
     ' Make sure we can find the source files
     If Not FolderHasVcsOptionsFile(strSourceFolder) Then
         MsgBox2 "Source files not found", "Required source files were not found in the following folder:", strSourceFolder, vbExclamation
         Exit Sub
+    End If
+    
+    ' Verify that the source files are being merged into the correct database.
+    If Not blnFullBuild Then
+        strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
+        If strPath = vbNullString Then
+            MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
+            Exit Sub
+        ElseIf StrComp(strPath, CurrentProject.FullName, vbTextCompare) <> 0 Then
+            MsgBox2 "Cannot merge to a different database", _
+                "The database file name for the source files must match the currently open database.", _
+                "Current: " & CurrentProject.FullName & vbCrLf & _
+                "Source: " & strPath, vbExclamation
+            Exit Sub
+        End If
     End If
     
     ' If we are using encryption, make sure we are able to decrypt the values.
@@ -209,10 +232,21 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     End If
     
     ' Build original file name for database
-    strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
-    If strPath = vbNullString Then
-        MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
-        Exit Sub
+    If blnFullBuild Then
+        strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
+        If strPath = vbNullString Then
+            MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
+            Exit Sub
+        End If
+    Else
+        ' Run any pre-merge instructions
+        'strText = dNZ(Options.GitSettings, "RunBeforeMerge")
+        If strText <> vbNullString Then
+            Log.Add "Running " & strText & "..."
+            Perf.OperationStart "RunBeforeMerge"
+            RunSubInCurrentProject strText
+            Perf.OperationEnd
+        End If
     End If
     
     ' Start log and performance timers
@@ -235,7 +269,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     DoCmd.Hourglass True
     With Log
         .Spacer
-        .Add "Beginning Build from Source", False
+        .Add "Beginning " & strType & " from Source", False
         .Add FSO.GetFileName(strPath)
         .Add "VCS Version " & GetVCSVersion
         .Add Now
@@ -250,29 +284,33 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
     
     ' Create a new database with the original name
-    If LCase$(FSO.GetExtensionName(strPath)) = "adp" Then
-        ' ADP project
-        Application.NewAccessProject strPath
-    Else
-        ' Regular Access database
-        Application.NewCurrentDatabase strPath
+    If blnFullBuild Then
+        If LCase$(FSO.GetExtensionName(strPath)) = "adp" Then
+            ' ADP project
+            Application.NewAccessProject strPath
+        Else
+            ' Regular Access database
+            Application.NewCurrentDatabase strPath
+        End If
+        Log.Add "Created blank database for import."
     End If
-    Log.Add "Created blank database for import."
-    Log.Spacer
     
     ' Now that we have a new database file, we can load the index.
     Set VCSIndex = Nothing
     VCSIndex.LoadFromFile
     
     ' Remove any non-built-in references before importing from source.
-    Log.Add "Removing non built-in references...", False
-    RemoveNonBuiltInReferences
+    Log.Spacer
+    If blnFullBuild Then
+        Log.Add "Removing non built-in references...", False
+        RemoveNonBuiltInReferences
+    End If
 
     ' Loop through all categories
     For Each cCategory In GetAllContainers
         
         ' Get collection of source files
-        Set colFiles = cCategory.GetFileList
+        Set colFiles = VCSIndex.GetModifiedSourceFiles(cCategory)
         
         ' Only show category details when source files are found
         If colFiles.Count = 0 Then
@@ -281,16 +319,20 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         Else
             ' Show category header
             Log.Spacer Options.ShowDebug
-            Log.PadRight "Importing " & LCase(cCategory.Category) & "...", , Options.ShowDebug
+            Log.PadRight IIf(blnFullBuild, "Importing ", "Merging ") & LCase(cCategory.Category) & "...", , Options.ShowDebug
             Log.ProgMax = colFiles.Count
             Perf.ComponentStart cCategory.Category
 
             ' Loop through each file in this category.
             For Each varFile In colFiles
-                ' Import the file
+                ' Import/merge the file
                 Log.Increment
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
-                cCategory.Import CStr(varFile)
+                If blnFullBuild Then
+                    cCategory.Import CStr(varFile)
+                Else
+                    cCategory.Merge CStr(varFile)
+                End If
             Next varFile
             
             ' Show category wrap-up.
@@ -300,12 +342,22 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         End If
     Next cCategory
 
-    ' Run any post-build instructions
-    If Options.RunAfterBuild <> vbNullString Then
-        Log.Add "Running " & Options.RunAfterBuild & "..."
-        Perf.OperationStart "RunAfterBuild"
-        RunSubInCurrentProject Options.RunAfterBuild
-        Perf.OperationEnd
+    ' Run any post-build/merge instructions
+    If blnFullBuild Then
+        If Options.RunAfterBuild <> vbNullString Then
+            Log.Add "Running " & Options.RunAfterBuild & "..."
+            Perf.OperationStart "RunAfterBuild"
+            RunSubInCurrentProject Options.RunAfterBuild
+            Perf.OperationEnd
+        End If
+    Else
+        ' Merge build
+        'If Options.runaftermerge <> vbNullString Then
+            Log.Add "Running " & Options.RunAfterBuild & "..."
+            Perf.OperationStart "RunAfterBuild"
+            RunSubInCurrentProject Options.RunAfterBuild
+            Perf.OperationEnd
+        'End If
     End If
 
     ' Show final output and save log
@@ -317,7 +369,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Log.Add vbCrLf & Perf.GetReports, False
     
     ' Write log file to disk
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Import.log")
+    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, IIf(blnFullBuild, "Import.log", "Merge.log"))
 
     ' Wrap up build.
     DoCmd.Hourglass False
@@ -330,168 +382,21 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     End If
     
     ' Save index file (After build complete)
-    ' NOTE: Add a couple seconds since some items may still be in the process of saving.
-    VCSIndex.FullBuildDate = DateAdd("s", 2, Now)
+    If blnFullBuild Then
+        ' NOTE: Add a couple seconds since some items may still be in the process of saving.
+        VCSIndex.FullBuildDate = DateAdd("s", 2, Now)
+    Else
+        VCSIndex.MergeBuildDate = DateAdd("s", 2, Now)
+    End If
     VCSIndex.Save
     Set VCSIndex = Nothing
         
     ' Show MessageBox if not using GUI for build.
     If Forms.Count = 0 Then
         ' Show message box when build is complete.
-        MsgBox2 "Build Complete for '" & CurrentProject.Name & "'", _
+        MsgBox2 strType & " Complete for '" & CurrentProject.Name & "'", _
             "Note that some settings may not take effect until this database is reopened.", _
             "A backup of the previous build was saved as '" & FSO.GetFileName(strBackup) & "'.", vbInformation
-    End If
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : MergeBuild
-' Author    : Adam Waller
-' Date      : 11/21/2020
-' Purpose   : Merge the changed source files into the current database project.
-'           : Unlike a full build, this does not build the project from scratch.
-'---------------------------------------------------------------------------------------
-'
-Public Sub MergeBuild(strSourceFolder As String)
-
-    Dim strPath As String
-    Dim cCategory As IDbComponent
-    Dim sngStart As Single
-    Dim colFiles As Collection
-    Dim varFile As Variant
-    Dim strText As String
-    
-    ' Verify that the source files are being merged into the correct database.
-    strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
-    If strPath = vbNullString Then
-        MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
-        Exit Sub
-    ElseIf StrComp(strPath, CurrentProject.FullName, vbTextCompare) <> 0 Then
-        MsgBox2 "Cannot merge to a different database", _
-            "The database file name for the source files must match the currently open database.", _
-            "Current: " & CurrentProject.FullName & vbCrLf & _
-            "Source: " & strPath, vbExclamation
-        Exit Sub
-    End If
-    
-    ' Make sure we can find the source files
-    If Not FolderHasVcsOptionsFile(strSourceFolder) Then
-        MsgBox2 "Source files not found", "Required source files were not found in the following folder:", strSourceFolder, vbExclamation
-        Exit Sub
-    End If
-    
-    ' Now reset the options and logs
-    Set Options = Nothing
-    Options.LoadOptionsFromFile strSourceFolder & "vcs-options.json"
-    Log.Clear
-
-    ' If we are using encryption, make sure we are able to decrypt the values
-    If Options.Security = esEncrypt And Not VerifyHash(strSourceFolder & "vcs-options.json") Then
-        MsgBox2 "Encryption Key Mismatch", "The required encryption key is either missing or incorrect.", _
-            "Please update the encryption key before building this project from source.", vbExclamation
-        Exit Sub
-    End If
-    
-    ' Run any pre-merge instructions
-    strText = dNZ(Options.GitSettings, "RunBeforeMerge")
-    If strText <> vbNullString Then
-        Log.Add "Running " & strText & "..."
-        Perf.OperationStart "RunBeforeMerge"
-        RunSubInCurrentProject strText
-        Perf.OperationEnd
-    End If
-    
-    ' Start performance timers
-    sngStart = Timer
-    Perf.StartTiming
-    
-    ' Check if we are building the add-in file
-    If FSO.GetFileName(strPath) = CodeProject.Name Then
-        ' When building this add-in file, we should output to the debug
-        ' window instead of the GUI form. (Since we are importing
-        ' a form with the same name as the GUI form.)
-        ShowIDE
-    Else
-        ' Launch the GUI form
-        Form_frmVCSMain.StartBuild
-    End If
-
-    ' Display the build header.
-    DoCmd.Hourglass True
-    With Log
-        .Spacer
-        .Add "Beginning Merge Build", False
-        .Add FSO.GetFileName(strPath)
-        .Add "VCS Version " & GetVCSVersion
-        .Add Now
-        .Spacer
-        .Flush
-    End With
-    
-    ' Loop through all categories
-    For Each cCategory In GetAllContainers
-        
-        ' Get changed files from state class...
-        Set colFiles = VCSIndex.GetModifiedSourceFiles(cCategory)
-        
-        ' Only show category details when source files are found
-        If colFiles.Count = 0 Then
-            Log.Spacer Options.ShowDebug
-            Log.Add "No modified " & LCase(cCategory.Category) & " source files found.", Options.ShowDebug
-        Else
-            ' Show category header
-            Log.Spacer Options.ShowDebug
-            Log.PadRight "Merging " & LCase(cCategory.Category) & "...", , Options.ShowDebug
-            Log.ProgMax = colFiles.Count
-            Perf.ComponentStart cCategory.Category
-
-            ' Loop through each file in this category.
-            For Each varFile In colFiles
-                ' Import the file
-                Log.Increment
-                Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
-                cCategory.Merge CStr(varFile)
-            Next varFile
-            
-            ' Show category wrap-up.
-            Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " merged.", vbNullString)
-            'Log.Flush  ' Gives smoother output, but slows down the import.
-            Perf.ComponentEnd colFiles.Count
-        End If
-    Next cCategory
-
-    ' Run any post-build instructions
-    strText = dNZ(Options.GitSettings, "RunAfterMerge")
-    If strText <> vbNullString Then
-        Log.Add "Running " & strText & "..."
-        Perf.OperationStart "RunAfterMerge"
-        RunSubInCurrentProject strText
-        Perf.OperationEnd
-    End If
-
-    ' Show final output and save log
-    Log.Spacer
-    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
-    
-    ' Add performance data to log file
-    Perf.EndTiming
-    Log.Add vbCrLf & Perf.GetReports, False
-    
-    ' Write log file to disk
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Merge.log")
-
-    DoCmd.Hourglass False
-    If Forms.Count > 0 Then
-        ' Finish up on GUI
-        Form_frmVCSMain.FinishBuild False
-    Else
-        ' Allow navigation pane to refresh list of objects.
-        DoEvents
-        ' Show message box when build is complete.
-        MsgBox2 "Merge Complete for '" & CurrentProject.Name & "'", _
-            "Note that some settings may not take effect until this database is reopened.", , vbInformation
     End If
     
 End Sub
