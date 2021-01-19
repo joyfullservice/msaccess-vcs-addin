@@ -336,6 +336,7 @@ Private Sub IDbComponent_Import(strFile As String)
                 Application.ImportXML strFile, acStructureOnly
             End If
     End Select
+    
 End Sub
 
 

@@ -48,7 +48,12 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
+    
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.xml" Then Exit Sub
+
     LoadComponentFromText acTableDataMacro, GetObjectNameFromFileName(strFile), strFile
+    
 End Sub
 
 

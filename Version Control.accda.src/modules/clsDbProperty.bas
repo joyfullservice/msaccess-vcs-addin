@@ -94,7 +94,10 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim varValue As Variant
     Dim strDecrypted As String
     Dim blnAdd As Boolean
-    
+
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+
     Set dbs = CurrentDb
     
     ' Pull a list of the existing properties so we know whether
@@ -140,7 +143,7 @@ Private Sub IDbComponent_Import(strFile As String)
                         ' Add properties that don't exist.
                         blnAdd = True
                     End If
-					' Can't add a text property with a null value. See issue #126
+                    ' Can't add a text property with a null value. See issue #126
                     If varValue = vbNullChar And dItems(varKey)("Type") = 10 Then blnAdd = False
                     ' Add the property if the flag has been set.
                     If blnAdd Then

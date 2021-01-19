@@ -42,6 +42,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
+
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.bas" Then Exit Sub
+
     LoadComponentFromText acMacro, GetObjectNameFromFileName(strFile), strFile
 End Sub
 

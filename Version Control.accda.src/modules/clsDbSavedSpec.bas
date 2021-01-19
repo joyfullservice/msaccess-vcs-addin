@@ -65,6 +65,9 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim dSpec As Dictionary
     Dim dItem As Dictionary
     
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+
     Set dSpec = ReadJsonFile(strFile)
     If Not dSpec Is Nothing Then
         Set dItem = dSpec("Items")

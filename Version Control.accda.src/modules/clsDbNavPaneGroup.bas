@@ -58,6 +58,9 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim lngObjectID As Long
     Dim lngLinkID As Long
     
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
         If dFile("Items").Exists("Groups") Then
