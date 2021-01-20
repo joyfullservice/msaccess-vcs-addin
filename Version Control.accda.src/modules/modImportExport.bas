@@ -77,7 +77,7 @@ Public Sub ExportSource()
         Log.Add "Beginning Export of all Source", False
         Log.Add CurrentProject.Name
         Log.Add "VCS Version " & GetVCSVersion
-        If .UseFastSave Then Log.Add "Using Fast Save"
+        If Not blnFullExport Then Log.Add "Using Fast Save"
         Log.Add Now
         Log.Spacer
         Log.Flush
@@ -310,7 +310,14 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     For Each cCategory In GetAllContainers
         
         ' Get collection of source files
-        Set colFiles = VCSIndex.GetModifiedSourceFiles(cCategory)
+        If blnFullBuild Then
+            ' Return all the source files
+            Set colFiles = cCategory.GetFileList
+        Else
+            ' Return just the modified source files for merge
+            ' (Optionally uses the git integration to determine changes.)
+            Set colFiles = VCSIndex.GetModifiedSourceFiles(cCategory)
+        End If
         
         ' Only show category details when source files are found
         If colFiles.Count = 0 Then
