@@ -20,10 +20,6 @@ Option Private Module
 Option Explicit
 
 
-
-
-#If Win64 And VBA7 Then
-
 Public Declare PtrSafe Function BCryptOpenAlgorithmProvider Lib "BCrypt.dll" ( _
                             ByRef phAlgorithm As LongPtr, _
                             ByVal pszAlgId As LongPtr, _
@@ -65,62 +61,7 @@ Public Declare PtrSafe Function BCryptGetProperty Lib "BCrypt.dll" ( _
                             ByVal dfFlags As Long) As Long
 
 
-#Else
-
-Private Declare Function BCryptOpenAlgorithmProvider Lib "BCrypt.dll" ( _
-                            ByRef phAlgorithm As Long, _
-                            ByVal pszAlgId As Long
-                            ByVal pszImplementation As Long
-                            Optional ByVal dwFlags As Long) As Long
-
-Private Declare Function BCryptCloseAlgorithmProvider Lib "BCrypt.dll" ( _
-                            ByVal hAlgorithm As Long, _
-                            Optional ByVal dwFlags As Long) As Long
-
-Public Declare Function BCryptCreateHash Lib "BCrypt.dll" ( _
-                            ByVal hAlgorithm As Long, _
-                            ByRef phHash As Long, _
-                            pbHashObject As Any, _
-                            ByVal cbHashObject As Long, _
-                            ByVal pbSecret As Long, _
-                            ByVal cbSecret As Long, _
-                            ByVal dwFlags As Long) As Long
-
-Public Declare Function BCryptHashData Lib "BCrypt.dll" ( _
-                            ByVal hHash As LongPtr, _
-                            pbInput As Any, _
-                            ByVal cbInput As Long, _
-                            Optional ByVal dwFlags As Long = 0) As Long
-
-Public Declare Function BCryptFinishHash Lib "BCrypt.dll" ( _
-                            ByVal hHash As Long, _
-                            pbOutput As Any, _
-                            ByVal cbOutput As Long, _
-                            ByVal dwFlags As Long) As Long
-
-Public Declare Function BCryptDestroyHash Lib "BCrypt.dll" (ByVal hHash As Long) As Long
-
-Public Declare Function BCryptGetProperty Lib "BCrypt.dll" ( _
-                            ByVal hObject As Long, _
-                            ByVal pszProperty As LongPtr, _
-                            ByRef pbOutput As Any, _
-                            ByVal cbOutput As Long, _
-                            ByRef pcbResult As Long, _
-                            ByVal dfFlags As Long) As Long
-
-Private Declare Function BCryptEnumAlgorithms Lib "Brypt.dll" ( _
-                            ByVal dwAlgOperations As Long, _
-                            ByRef pAlgCount As Long, _
-                            ByRef ppAlgList As Any, _
-                            ByVal dwFlags As Long) As Long
-
-
-
-#End If
-
-
-Public Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgorithm As String = "SHA1") As Byte()
-    
+Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgorithm As String = "SHA1") As Byte()
     
     'Erik A, 2019
     'Hash data by using the Next Generation Cryptography API
@@ -176,14 +117,21 @@ ErrHandler:
 End Function
 
 
-Public Function HashBytes(Data() As Byte, Optional HashingAlgorithm As String = "SHA512") As Byte()
+'---------------------------------------------------------------------------------------
+' Procedure : HashBytes
+' Author    : Adam Waller
+' Date      : 1/21/2021
+' Purpose   : Wrappers for NGHash functions
+'---------------------------------------------------------------------------------------
+'
+Private Function HashBytes(Data() As Byte, Optional HashingAlgorithm As String = "SHA512") As Byte()
     HashBytes = NGHash(VarPtr(Data(LBound(Data))), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
 End Function
 
-Public Function hashString(str As String, Optional HashingAlgorithm As String = "SHA512") As Byte()
-    
-    hashString = NGHash(StrPtr(str), Len(str) * 2, HashingAlgorithm)
+Private Function HashString(str As String, Optional HashingAlgorithm As String = "SHA512") As Byte()
+    HashString = NGHash(StrPtr(str), Len(str) * 2, HashingAlgorithm)
 End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetStringHash
@@ -238,10 +186,8 @@ Private Function Sha1(bteContent() As Byte, Optional intLength As Integer) As St
     Dim intPos As Integer
     
     Perf.OperationStart "Compute SHA1"
-    'Set objEnc = CreateObject("System.Security.Cryptography.SHA1CryptoServiceProvider")
-    'bteSha1 = objEnc.ComputeHash_2(bteContent)
-    'Set objEnc = Nothing
     bteSha1 = HashBytes(bteContent, "SHA1")
+    
     ' Create string buffer to avoid concatenation
     strSha1 = Space(LenB(bteSha1) * 2)
     
