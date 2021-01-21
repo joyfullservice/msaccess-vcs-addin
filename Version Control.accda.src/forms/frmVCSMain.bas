@@ -15,11 +15,11 @@ Begin Form
     GridY =24
     Width =9360
     DatasheetFontHeight =11
-    ItemSuffix =27
-    Left =3225
-    Top =2430
-    Right =28545
-    Bottom =15015
+    ItemSuffix =32
+    Left =4770
+    Top =2505
+    Right =14130
+    Bottom =8970
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -111,6 +111,15 @@ Begin Form
             PressedForeThemeColorIndex =0
             PressedForeTint =75.0
         End
+        Begin CheckBox
+            BorderLineStyle =0
+            LabelX =230
+            LabelY =-30
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
         Begin TextBox
             AddColon = NotDefault
             FELineBreak = NotDefault
@@ -187,7 +196,7 @@ Begin Form
                 Begin CommandButton
                     OverlapFlags =93
                     Left =4740
-                    Top =2400
+                    Top =2220
                     Width =2880
                     Height =900
                     TabIndex =1
@@ -676,9 +685,9 @@ Begin Form
                     End
 
                     LayoutCachedLeft =4740
-                    LayoutCachedTop =2400
+                    LayoutCachedTop =2220
                     LayoutCachedWidth =7620
-                    LayoutCachedHeight =3300
+                    LayoutCachedHeight =3120
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -1572,38 +1581,6 @@ Begin Form
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                 End
-                Begin TextBox
-                    Visible = NotDefault
-                    EnterKeyBehavior = NotDefault
-                    SpecialEffect =2
-                    OldBorderStyle =0
-                    OverlapFlags =215
-                    TextFontFamily =49
-                    IMESentenceMode =3
-                    Left =3120
-                    Top =1140
-                    Width =5160
-                    Height =4440
-                    FontSize =10
-                    LeftMargin =144
-                    TopMargin =144
-                    RightMargin =144
-                    BottomMargin =144
-                    BorderColor =10921638
-                    Name ="txtLog"
-                    FontName ="Lucida Console"
-                    GridlineColor =10921638
-                    TextFormat =1
-                    HorizontalAnchor =2
-                    VerticalAnchor =2
-
-                    LayoutCachedLeft =3120
-                    LayoutCachedTop =1140
-                    LayoutCachedWidth =8280
-                    LayoutCachedHeight =5580
-                    ThemeFontIndex =-1
-                    ForeTint =100.0
-                End
                 Begin Label
                     Visible = NotDefault
                     OverlapFlags =93
@@ -1679,6 +1656,123 @@ Begin Form
                     BorderTint =100.0
                     BorderShade =65.0
                     ForeThemeColorIndex =10
+                    ForeTint =100.0
+                End
+                Begin Line
+                    Visible = NotDefault
+                    OverlapFlags =95
+                    Left =2460
+                    Top =1080
+                    Width =660
+                    BorderColor =16777215
+                    Name ="Line27"
+                    GridlineColor =10921638
+                    LayoutCachedLeft =2460
+                    LayoutCachedTop =1080
+                    LayoutCachedWidth =3120
+                    LayoutCachedHeight =1080
+                    BorderThemeColorIndex =1
+                End
+                Begin CheckBox
+                    OverlapFlags =93
+                    Left =5340
+                    Top =3210
+                    TabIndex =7
+                    BorderColor =10921638
+                    Name ="chkFullExport"
+                    GridlineColor =10921638
+
+                    LayoutCachedLeft =5340
+                    LayoutCachedTop =3210
+                    LayoutCachedWidth =5600
+                    LayoutCachedHeight =3450
+                    Begin
+                        Begin Label
+                            OverlapFlags =255
+                            Left =5565
+                            Top =3180
+                            Width =1335
+                            Height =270
+                            FontSize =10
+                            BorderColor =8355711
+                            ForeColor =5324600
+                            Name ="Label29"
+                            Caption ="Full Export"
+                            GridlineColor =10921638
+                            LayoutCachedLeft =5565
+                            LayoutCachedTop =3180
+                            LayoutCachedWidth =6900
+                            LayoutCachedHeight =3450
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =93
+                    Left =5340
+                    Top =4770
+                    TabIndex =8
+                    BorderColor =10921638
+                    Name ="chkFullBuild"
+                    GridlineColor =10921638
+
+                    LayoutCachedLeft =5340
+                    LayoutCachedTop =4770
+                    LayoutCachedWidth =5600
+                    LayoutCachedHeight =5010
+                    Begin
+                        Begin Label
+                            OverlapFlags =255
+                            Left =5565
+                            Top =4740
+                            Width =1335
+                            Height =270
+                            FontSize =10
+                            BorderColor =8355711
+                            ForeColor =5324600
+                            Name ="Label31"
+                            Caption ="Full Build"
+                            GridlineColor =10921638
+                            LayoutCachedLeft =5565
+                            LayoutCachedTop =4740
+                            LayoutCachedWidth =6900
+                            LayoutCachedHeight =5010
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin TextBox
+                    Visible = NotDefault
+                    EnterKeyBehavior = NotDefault
+                    SpecialEffect =2
+                    OldBorderStyle =0
+                    OverlapFlags =247
+                    TextFontFamily =49
+                    IMESentenceMode =3
+                    Left =3120
+                    Top =1080
+                    Width =5160
+                    Height =4500
+                    FontSize =10
+                    LeftMargin =144
+                    TopMargin =144
+                    RightMargin =144
+                    BottomMargin =144
+                    BorderColor =10921638
+                    Name ="txtLog"
+                    FontName ="Lucida Console"
+                    GridlineColor =10921638
+                    TextFormat =1
+                    HorizontalAnchor =2
+                    VerticalAnchor =2
+
+                    LayoutCachedLeft =3120
+                    LayoutCachedTop =1080
+                    LayoutCachedWidth =8280
+                    LayoutCachedHeight =5580
+                    ThemeFontIndex =-1
                     ForeTint =100.0
                 End
             End
@@ -1773,7 +1867,7 @@ Private Sub cmdBuild_Click()
     End If
 
     ' Build using selected folder
-    Build strFolder
+    Build strFolder, chkFullBuild
     
 End Sub
 
@@ -1812,13 +1906,16 @@ End Sub
 ' Purpose   : Finish the build process
 '---------------------------------------------------------------------------------------
 '
-Public Sub FinishBuild(Optional strType As String = "Build")
+Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "Build")
 
+    Dim strType As String
+    
     ' Turn on scroll bars in case the user wants to scroll back through the log.
     txtLog.ScrollBars = 2
     
     ' Display final UI messages.
     Log.Flush
+    strType = IIf(blnFullBuild, "Build", "Merge")
     SetStatusText "Finished", strType & " Complete", "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
     lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     
@@ -1883,7 +1980,9 @@ End Sub
 '
 Private Sub HideActionButtons()
     cmdExport.Visible = False
+    chkFullExport.Visible = False
     cmdBuild.Visible = False
+    chkFullBuild.Visible = False
     cmdOptions.Visible = False
     cmdHelp.Visible = False
 End Sub
@@ -1922,12 +2021,22 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Form_Load()
+
+    ' Display version (better performance than bound control)
     lblVersion.Caption = "Version " & GetVCSVersion()
+    
+    ' Set defaults based on current options.
+    chkFullBuild = Not Options.UseFastSave
+    chkFullExport = Not Options.UseFastSave
+    
     SetStatusText "Choose Action", "What would you like to do?", _
         "<strong><em>Export</em></strong> source to generate source files from the current database." & _
         "<br><br><strong><em>Import</em></strong> source files to rebuild this database from source."
+        
     ' You can only export if you have a database open.
     cmdExport.Enabled = DatabaseOpen
+    chkFullExport.Enabled = DatabaseOpen
+    
 End Sub
 
 

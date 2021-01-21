@@ -114,6 +114,9 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim lngIndex As Long
     Dim proj As CurrentProject
     
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+
     ' Read json header file
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then

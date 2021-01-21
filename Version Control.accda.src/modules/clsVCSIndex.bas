@@ -27,12 +27,11 @@ Public Enum eIndexActionType
     eatImport
 End Enum
 
-' Reference to Git Integration
-Private Git As clsGitIntegration
-
 ' Index of component/file information, based on source files
 Private m_dIndex As Dictionary
+Private m_dGitIndex As Dictionary
 Private m_strFile As String
+Private m_Git As clsGitIntegration
 
 
 '---------------------------------------------------------------------------------------
@@ -50,7 +49,7 @@ Public Sub LoadFromFile(Optional strFile As String)
     
     ' Reset class to blank values
     Call Class_Initialize
-    
+        
     ' Load properties
     m_strFile = strFile
     If m_strFile = vbNullString Then m_strFile = DefaultFileName
@@ -265,27 +264,49 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
     Dim varFile As Variant
     Dim strFile As String
     Dim strPath As String
+    Dim dItem As Dictionary
     Dim blnModified As Boolean
     
-    ' Get a list of all the files for this component.
-    Set colAllFiles = cCategory.GetFileList
-
     Set GetModifiedSourceFiles = New Collection
     With GetModifiedSourceFiles
-        For Each varFile In colAllFiles
-            strFile = varFile
-            ' Reset flag
-            blnModified = True
-            If Me.Exists(cCategory, strFile) Then
-                strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "SourceModified"), "\")
-                ' Compare modified date of file with modified date in index.
-                blnModified = Not dNZ(m_dIndex, strPath) = GetLastModifiedDate(strFile)
-            End If
-            ' Add modified files to collection
-            If blnModified Then .Add strFile
-        Next varFile
+        ' Make sure we have a previous commit to reference.
+        If Options.UseGitIntegration And LastMergedCommit <> vbNullString Then
+            ' Return list of any modified files of this type as served by Git.
+            Set GetModifiedSourceFiles = Git.GetModifiedSourceFiles(cCategory)
+        Else
+            ' Loop through files and check modified dates.
+            ' Get a list of all the files for this component.
+            Set colAllFiles = cCategory.GetFileList
+            For Each varFile In colAllFiles
+                strFile = varFile
+                ' Reset flag
+                blnModified = True
+                If Me.Exists(cCategory, strFile) Then
+                    ' Build the path to find the item in the index.
+                    strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "SourceModified"), "\")
+                    ' Compare modified date of file with modified date in index.
+                    ' File is considered not modified if the index date matches the file modification date.
+                    blnModified = Not dNZ(m_dIndex, strPath) = GetLastModifiedDate(strFile)
+                End If
+                ' Add modified files to collection
+                If blnModified Then .Add strFile
+            Next varFile
+        End If
     End With
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Git
+' Author    : Adam Waller
+' Date      : 1/19/2021
+' Purpose   : Reference to the Git integration class
+'---------------------------------------------------------------------------------------
+'
+Private Function Git() As clsGitIntegration
+    If m_Git Is Nothing Then Set m_Git = New clsGitIntegration
+    Set Git = m_Git
 End Function
 
 
@@ -321,6 +342,6 @@ Private Sub Class_Initialize()
     End With
     
     ' Load Git integration
-    Set Git = New clsGitIntegration
+    Set m_dGitIndex = Nothing
     
 End Sub

@@ -145,18 +145,27 @@ Public Sub VerifyPath(strPath As String)
     ' Check if full path exists.
     If Not FSO.FolderExists(strFolder) Then
         ' Start from the root, and build out full path, creating folders as needed.
+        ' UNC path? change 3 "\" into 3 "@"
+        If strFolder Like "\\*\*" Then
+            strFolder = Replace(strFolder, "\", "@", 1, 3)
+        End If
+
+        ' Separate folders from server name
         varParts = Split(strFolder, "\")
-        ' Make sure the root folder exists. If it doesn't we probably have some other
-        ' issue.
+        ' Get the slashes back
+        varParts(0) = Replace(varParts(0), "@", "\", 1, 3)
+                
+        ' Make sure the root folder exists. If it doesn't we probably have some other issue.
         If Not FSO.FolderExists(varParts(0)) Then
             MsgBox2 "Path Not Found", "Could not find the path '" & varParts(0) & "' on this system.", _
-                "I was simply trying to verify this path: " & strFolder, vbExclamation
+                    "While trying to verify this path: " & strFolder, vbExclamation
         Else
             ' Loop through folder structure, creating as needed.
             strVerified = varParts(0)
             For intPart = 1 To UBound(varParts)
                 strVerified = strVerified & "\" & varParts(intPart)
-                If Not FSO.FolderExists(strVerified) Then FSO.CreateFolder strVerified
+                MkDirIfNotExist strVerified
+
             Next intPart
         End If
     End If

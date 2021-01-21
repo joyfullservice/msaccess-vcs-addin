@@ -64,6 +64,9 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strPath As String
     Dim dExisting As Dictionary
     
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+
     On Error Resume Next
     
     ' Read in references from file

@@ -43,11 +43,17 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
+
     Dim strName As String
+    
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.bas" Then Exit Sub
+
     strName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acForm, strName, strFile, Me
     Set m_Form = CurrentProject.AllForms(strName)
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
+    
 End Sub
 
 

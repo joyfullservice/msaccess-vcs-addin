@@ -56,6 +56,9 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim dProject As Dictionary
     Dim HelpID As Variant
     
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+
     ' Update project properties
     Set dProject = ReadJsonFile(strFile)
     Set m_Project = GetVBProjectForCurrentDB

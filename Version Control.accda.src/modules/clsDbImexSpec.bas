@@ -105,7 +105,10 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim fld As DAO.Field
     Dim lngID As Long
     Dim varKey As Variant
-    
+
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+
     ' Read data from JSON file
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then

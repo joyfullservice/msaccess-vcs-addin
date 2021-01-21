@@ -65,6 +65,9 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strFileSql As String
     Dim strSql As String
     
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.bas" Then Exit Sub
+    
     ' Import query from file
     strQueryName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acQuery, strQueryName, strFile

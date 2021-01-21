@@ -51,6 +51,9 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim varDoc As Variant
     Dim objType As AcObjectType
 
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
         Set dbs = CurrentDb

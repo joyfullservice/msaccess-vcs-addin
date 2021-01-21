@@ -879,93 +879,97 @@ Public Sub ApplySettings(dSettings As Dictionary)
     End If
 
     ' Set the properties in the DevMode structure.
-    With m_tDevMode
-        Set dItems = dSettings("Printer")
-        For Each varKey In dItems.Keys
-            Select Case varKey
-                ' Note that any specified DeviceName in m_tDevMode would have already been set through
-                ' the intial call that loaded the DevMode structure directly from the printer using the Windows API.
-            
-                ' These properties can be set on the report/form object, or through PrtDevMode
-                Case "Orientation": SetDmProp .intOrientation, DM_ORIENTATION, GetEnum(epeOrientation, dItems(varKey)), .lngFields, blnSetDevMode
-                Case "PaperSize":   SetDmProp .intPaperSize, DM_PAPERSIZE, GetEnum(epePaperSize, dItems(varKey)), .lngFields, blnSetDevMode
-                Case "Copies":      SetDmProp .intCopies, DM_COPIES, dItems(varKey), .lngFields, blnSetDevMode
-                Case "PrintQuality":    SetDmProp .intPrintQuality, DM_PRINTQUALITY, GetEnum(epePrintQuality, dItems(varKey)), .lngFields, blnSetDevMode
-                Case "Color":       SetDmProp .intColor, DM_COLOR, GetEnum(epeColor, dItems(varKey)), .lngFields, blnSetDevMode
-                Case "Duplex":      SetDmProp .intDuplex, DM_DUPLEX, GetEnum(epeDuplex, dItems(varKey)), .lngFields, blnSetDevMode
-                Case "DefaultSource":   SetDmProp .intDefaultSource, DM_DEFAULTSOURCE, GetEnum(epePaperBin, dItems(varKey)), .lngFields, blnSetDevMode
-            
-                ' These can only be set through PrtDevMode
-                Case "PaperLength": SetDmProp .intPaperLength, DM_PAPERLENGTH, Round(dItems(varKey) / TEN_MIL, 0), .lngFields, blnSetDevMode
-                Case "PaperWidth":  SetDmProp .intPaperWidth, DM_PAPERWIDTH, Round(dItems(varKey) / TEN_MIL, 0), .lngFields, blnSetDevMode
-                Case "Scale":       SetDmProp .intScale, DM_SCALE, dItems(varKey), .lngFields, blnSetDevMode
-                Case "Resolution":  SetDmProp .intResolution, DM_YRESOLUTION, dItems(varKey), .lngFields, blnSetDevMode
-                Case "TTOption":    SetDmProp .intTTOption, DM_TTOPTION, GetEnum(epeTTOption, dItems(varKey)), .lngFields, blnSetDevMode
-                Case "Collate":     SetDmProp .intCollate, DM_COLLATE, GetEnum(epeCollate, dItems(varKey)), .lngFields, blnSetDevMode
-                Case "DisplayFlags":        SetDmProp .lngDisplayFlags, DM_DISPLAYFLAGS, GetEnum(epeDisplayFlags, dItems(varKey)), .lngFields, blnSetDevMode
-                Case "DisplayFrequency":    SetDmProp .lngDisplayFrequency, DM_DISPLAYFREQUENCY, dItems(varKey), .lngFields, blnSetDevMode
-                Case "ICMMethod":   SetDmProp .lngICMMethod, DM_ICMMETHOD, GetEnum(epeICMMethod, dItems(varKey)), .lngFields, blnSetDevMode
-                Case "ICMIntent":   SetDmProp .lngICMIntent, DM_ICMINTENT, GetEnum(epeICMIntent, dItems(varKey)), .lngFields, blnSetDevMode
-                Case "MediaType":   SetDmProp .lngMediaType, DM_MEDIATYPE, GetEnum(epeMediaType, dItems(varKey)), .lngFields, blnSetDevMode
-                Case "DitherType":  SetDmProp .lngDitherType, DM_DITHERTYPE, GetEnum(epeDitherType, dItems(varKey)), .lngFields, blnSetDevMode
+    If IsObject(dSettings("Printer")) Then
+        With m_tDevMode
+            Set dItems = dSettings("Printer")
+            For Each varKey In dItems.Keys
+                Select Case varKey
+                    ' Note that any specified DeviceName in m_tDevMode would have already been set through
+                    ' the intial call that loaded the DevMode structure directly from the printer using the Windows API.
                 
-                ' String values are a little more fun...
-                Case "FormName"
-                    If (Not BitSet(.lngFields, DM_FORMNAME)) _
-                        Or (dItems(varKey) <> NTrim(StrConv(.strFormName, vbUnicode))) Then
-                        ' Assign byte arrays for string values
-                        strForm = StrConv(dItems(varKey) & vbNullChar, vbFromUnicode)
-                        bteForm = strForm & NullPad(32 - Len(strForm))
-                        For intCnt = 1 To 32
-                            .strFormName(intCnt) = bteForm(intCnt - 1)
-                        Next intCnt
-                        blnSetDevMode = True
-                        ' Update fields flag
-                        If Not BitSet(.lngFields, DM_FORMNAME) Then
-                            .lngFields = .lngFields Or DM_FORMNAME
+                    ' These properties can be set on the report/form object, or through PrtDevMode
+                    Case "Orientation": SetDmProp .intOrientation, DM_ORIENTATION, GetEnum(epeOrientation, dItems(varKey)), .lngFields, blnSetDevMode
+                    Case "PaperSize":   SetDmProp .intPaperSize, DM_PAPERSIZE, GetEnum(epePaperSize, dItems(varKey)), .lngFields, blnSetDevMode
+                    Case "Copies":      SetDmProp .intCopies, DM_COPIES, dItems(varKey), .lngFields, blnSetDevMode
+                    Case "PrintQuality":    SetDmProp .intPrintQuality, DM_PRINTQUALITY, GetEnum(epePrintQuality, dItems(varKey)), .lngFields, blnSetDevMode
+                    Case "Color":       SetDmProp .intColor, DM_COLOR, GetEnum(epeColor, dItems(varKey)), .lngFields, blnSetDevMode
+                    Case "Duplex":      SetDmProp .intDuplex, DM_DUPLEX, GetEnum(epeDuplex, dItems(varKey)), .lngFields, blnSetDevMode
+                    Case "DefaultSource":   SetDmProp .intDefaultSource, DM_DEFAULTSOURCE, GetEnum(epePaperBin, dItems(varKey)), .lngFields, blnSetDevMode
+                
+                    ' These can only be set through PrtDevMode
+                    Case "PaperLength": SetDmProp .intPaperLength, DM_PAPERLENGTH, Round(dItems(varKey) / TEN_MIL, 0), .lngFields, blnSetDevMode
+                    Case "PaperWidth":  SetDmProp .intPaperWidth, DM_PAPERWIDTH, Round(dItems(varKey) / TEN_MIL, 0), .lngFields, blnSetDevMode
+                    Case "Scale":       SetDmProp .intScale, DM_SCALE, dItems(varKey), .lngFields, blnSetDevMode
+                    Case "Resolution":  SetDmProp .intResolution, DM_YRESOLUTION, dItems(varKey), .lngFields, blnSetDevMode
+                    Case "TTOption":    SetDmProp .intTTOption, DM_TTOPTION, GetEnum(epeTTOption, dItems(varKey)), .lngFields, blnSetDevMode
+                    Case "Collate":     SetDmProp .intCollate, DM_COLLATE, GetEnum(epeCollate, dItems(varKey)), .lngFields, blnSetDevMode
+                    Case "DisplayFlags":        SetDmProp .lngDisplayFlags, DM_DISPLAYFLAGS, GetEnum(epeDisplayFlags, dItems(varKey)), .lngFields, blnSetDevMode
+                    Case "DisplayFrequency":    SetDmProp .lngDisplayFrequency, DM_DISPLAYFREQUENCY, dItems(varKey), .lngFields, blnSetDevMode
+                    Case "ICMMethod":   SetDmProp .lngICMMethod, DM_ICMMETHOD, GetEnum(epeICMMethod, dItems(varKey)), .lngFields, blnSetDevMode
+                    Case "ICMIntent":   SetDmProp .lngICMIntent, DM_ICMINTENT, GetEnum(epeICMIntent, dItems(varKey)), .lngFields, blnSetDevMode
+                    Case "MediaType":   SetDmProp .lngMediaType, DM_MEDIATYPE, GetEnum(epeMediaType, dItems(varKey)), .lngFields, blnSetDevMode
+                    Case "DitherType":  SetDmProp .lngDitherType, DM_DITHERTYPE, GetEnum(epeDitherType, dItems(varKey)), .lngFields, blnSetDevMode
+                    
+                    ' String values are a little more fun...
+                    Case "FormName"
+                        If (Not BitSet(.lngFields, DM_FORMNAME)) _
+                            Or (dItems(varKey) <> NTrim(StrConv(.strFormName, vbUnicode))) Then
+                            ' Assign byte arrays for string values
+                            strForm = StrConv(dItems(varKey) & vbNullChar, vbFromUnicode)
+                            bteForm = strForm & NullPad(32 - Len(strForm))
+                            For intCnt = 1 To 32
+                                .strFormName(intCnt) = bteForm(intCnt - 1)
+                            Next intCnt
+                            blnSetDevMode = True
+                            ' Update fields flag
+                            If Not BitSet(.lngFields, DM_FORMNAME) Then
+                                .lngFields = .lngFields Or DM_FORMNAME
+                            End If
                         End If
-                    End If
-            End Select
-        Next varKey
-    End With
+                End Select
+            Next varKey
+        End With
+    End If
     
     ' Set the printer margins in the MIP structure
-    With m_tMip
-        Set dItems = dSettings("Margins")
-        For Each varKey In dItems.Keys
-            Select Case varKey
-            
-                ' Set margins from dictionary values
-                Case "LeftMargin": .xLeftMargin = GetTwips(dItems(varKey))
-                Case "TopMargin": .yTopMargin = GetTwips(dItems(varKey))
-                Case "RightMargin": .xRightMargin = GetTwips(dItems(varKey))
-                Case "BotMargin": .yBotMargin = GetTwips(dItems(varKey))
-                Case "DataOnly": .fDataOnly = dItems(varKey)
-                Case "Columns": .cxColumns = dItems(varKey)
-                Case "ColumnSpacing": .yColumnSpacing = GetTwips(dItems(varKey))
-                Case "RowSpacing": .xRowSpacing = GetTwips(dItems(varKey))
-                Case "ItemLayout": .rItemLayout = GetEnum(epeColumnLayout, dItems(varKey))
+    If IsObject(dSettings("Margins")) Then
+        With m_tMip
+            Set dItems = dSettings("Margins")
+            For Each varKey In dItems.Keys
+                Select Case varKey
                 
-                ' Special handling for paper size
-                Case "DefaultSize": .fDefaultSize = Abs(dItems(varKey))
-                Case "Width":
-                    If .xWidth <> GetTwips(dItems(varKey)) Then
-                        If CBool(.fDefaultSize) Then .fDefaultSize = Abs(False)
-                        .xWidth = GetTwips(dItems(varKey))
-                    End If
-                Case "Height":
-                    If .yHeight <> GetTwips(dItems(varKey)) Then
-                        If CBool(.fDefaultSize) Then .fDefaultSize = Abs(False)
-                        .yHeight = GetTwips(dItems(varKey))
-                    End If
-            
-                Case Else
-                    ' Could not find that property.
-                    Log.Add "WARNING: Margin property " & CStr(varKey) & " not found."
-            End Select
-        Next varKey
-    End With
-        
+                    ' Set margins from dictionary values
+                    Case "LeftMargin": .xLeftMargin = GetTwips(dItems(varKey))
+                    Case "TopMargin": .yTopMargin = GetTwips(dItems(varKey))
+                    Case "RightMargin": .xRightMargin = GetTwips(dItems(varKey))
+                    Case "BotMargin": .yBotMargin = GetTwips(dItems(varKey))
+                    Case "DataOnly": .fDataOnly = dItems(varKey)
+                    Case "Columns": .cxColumns = dItems(varKey)
+                    Case "ColumnSpacing": .yColumnSpacing = GetTwips(dItems(varKey))
+                    Case "RowSpacing": .xRowSpacing = GetTwips(dItems(varKey))
+                    Case "ItemLayout": .rItemLayout = GetEnum(epeColumnLayout, dItems(varKey))
+                    
+                    ' Special handling for paper size
+                    Case "DefaultSize": .fDefaultSize = Abs(dItems(varKey))
+                    Case "Width":
+                        If .xWidth <> GetTwips(dItems(varKey)) Then
+                            If CBool(.fDefaultSize) Then .fDefaultSize = Abs(False)
+                            .xWidth = GetTwips(dItems(varKey))
+                        End If
+                    Case "Height":
+                        If .yHeight <> GetTwips(dItems(varKey)) Then
+                            If CBool(.fDefaultSize) Then .fDefaultSize = Abs(False)
+                            .yHeight = GetTwips(dItems(varKey))
+                        End If
+                
+                    Case Else
+                        ' Could not find that property.
+                        Log.Add "WARNING: Margin property " & CStr(varKey) & " not found."
+                End Select
+            Next varKey
+        End With
+    End If
+    
 End Sub
 
 

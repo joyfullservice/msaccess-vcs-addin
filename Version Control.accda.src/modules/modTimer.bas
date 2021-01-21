@@ -58,7 +58,8 @@ Public Sub BuildTimerCallback()
     strFolder = GetSetting(GetCodeVBProject.Name, "Build", "SourceFolder")
     SaveSetting GetCodeVBProject.Name, "Build", "SourceFolder", vbNullString
     If strFolder <> vbNullString Then
-        Build strFolder
+        ' We would only do a full build with the callback.
+        Build strFolder, True
     End If
     
 End Sub

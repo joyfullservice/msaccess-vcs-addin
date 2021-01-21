@@ -83,6 +83,9 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim varKey As Variant
     Dim varValue As Variant
     
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+
     Set projCurrent = CurrentProject
     
     ' Pull a list of the existing properties so we know whether
