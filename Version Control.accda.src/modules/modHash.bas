@@ -138,7 +138,7 @@ End Function
 Private Function HashString(str As String, Optional HashingAlgorithm As String = "SHA512") As Byte()
     On Error Resume Next
     HashString = NGHash(StrPtr(str), Len(str) * 2, HashingAlgorithm)
-    If Catch(9) Then HashString = NGHash(StrPtr(Null), Len(str) * 2, HashingAlgorithm)
+    If Catch(9) Then HashString = NGHash(StrPtr(vbNullString), Len(str) * 2, HashingAlgorithm)
     CatchAny eelError, Err.Number & ":" & Err.Description, moduleName & ":HashString" , True, True
     On Error GoTo 0
 
