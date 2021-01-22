@@ -119,7 +119,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFiles Me, "bas"
+    ClearOrphanedSourceFiles Me, "bas", "json"
 End Sub
 
 
