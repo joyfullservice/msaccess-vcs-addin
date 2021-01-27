@@ -347,7 +347,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
     
     ' Open a handle to read the default printer
     udtDefaults.DesiredAccess = READ_CONTROL
-    lngReturn = OpenPrinter(strPrinter, hPrinter,  ByVal 0&)
+    lngReturn = OpenPrinter(strPrinter, hPrinter, ByVal 0&)
     If lngReturn <> 0 And hPrinter <> 0 Then
         
         ' Check size of DevMode structure to make sure it fits in our buffer.
@@ -630,7 +630,7 @@ Private Function MipToDictionary() As Dictionary
         .Add "ColumnSpacing", GetInch(cMip.yColumnSpacing)
         .Add "RowSpacing", GetInch(cMip.xRowSpacing)
         .Add "ItemLayout", GetEnum(epeColumnLayout, cMip.rItemLayout)
-        .Add "FastPrint", cMip.fFastPrint  ' Reserved 
+        .Add "FastPrint", cMip.fFastPrint  ' Reserved
         .Add "Datasheet", cMip.fDatasheet  ' Reserved
     End With
 
@@ -1012,7 +1012,8 @@ Public Function AddToExportFile(strFile As String) As String
 
     ' Use concatenation class for performance reasons.
     With New clsConcat
-    
+        .AppendOnAdd = vbCrLf
+        
         ' Loop through lines in file, searching for location to insert blocks.
         For lngLine = LBound(varLines) To UBound(varLines)
             
@@ -1029,27 +1030,27 @@ Public Function AddToExportFile(strFile As String) As String
                         blnInBlock = True
                     Case "End"
                         ' End of a block section.
-                        If Not blnInBlock Then .Add strLine, vbCrLf
+                        If Not blnInBlock Then .Add strLine
                         blnInBlock = False
                     Case "Begin"
                         'Verify indent level
                         If strLine <> "    Begin" Then
-                            .Add strLine, vbCrLf
+                            .Add strLine
                         Else
                             ' Insert our blocks before this line.
                             .Add GetPrtMipBlock
                             .Add GetPrtDevModeBlock
                             .Add GetPrtDevNamesBlock
-                            .Add strLine, vbCrLf
+                            .Add strLine
                             blnFound = True
                         End If
                     Case Else
                         ' Continue building file contents
-                        .Add strLine, vbCrLf
+                        .Add strLine
                 End Select
             Else
                 ' Already inserted block content.
-                .Add strLine, vbCrLf
+                .Add strLine
             End If
         Next lngLine
     
@@ -1537,7 +1538,7 @@ Private Function GetBlobFromString(strSection As String, strContent As String, O
 
         ' Add section closing
         .Add vbCrLf
-        .Add Space$(intIndent), "End", vbCrLf
+        .Add Space$(intIndent), "End"
         
         ' Return blob string
         GetBlobFromString = .GetStr

@@ -131,7 +131,7 @@ Private Function HashBytes(Data() As Byte, Optional HashingAlgorithm As String =
     HashBytes = NGHash(VarPtr(Data(LBound(Data))), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
     
     If Catch(9) Then HashBytes = NGHash(VarPtr(Null), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
-    CatchAny eelError, Err.Number & ":" & Err.Description, moduleName & ":HashBytes" , True, True
+    CatchAny eelError, Err.Number & ":" & Err.Description, moduleName & ":HashBytes", True, True
     On Error GoTo 0
 End Function
 
@@ -139,7 +139,7 @@ Private Function HashString(str As String, Optional HashingAlgorithm As String =
     On Error Resume Next
     HashString = NGHash(StrPtr(str), Len(str) * 2, HashingAlgorithm)
     If Catch(9) Then HashString = NGHash(StrPtr(vbNullString), Len(str) * 2, HashingAlgorithm)
-    CatchAny eelError, Err.Number & ":" & Err.Description, moduleName & ":HashString" , True, True
+    CatchAny eelError, Err.Number & ":" & Err.Description, moduleName & ":HashString", True, True
     On Error GoTo 0
 
 End Function
