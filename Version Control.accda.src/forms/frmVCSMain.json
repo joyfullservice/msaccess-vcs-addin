@@ -20,7 +20,9 @@
       "Columns": 1,
       "ColumnSpacing": 0.25,
       "RowSpacing": 0,
-      "ItemLayout": "Horizontal Columns"
+      "ItemLayout": "Horizontal Columns",
+      "FastPrint": 0,
+      "Datasheet": 0
     }
   }
 }
