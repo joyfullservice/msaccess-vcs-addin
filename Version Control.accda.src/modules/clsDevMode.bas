@@ -280,7 +280,7 @@ Public Sub LoadFromExportFile(strFile As String)
             strHex = cBlock(intBlock).GetStr
             Set cBuffer(intBlock) = New clsConcat
             ' Each two hex characters represent one bit
-            ReDim bteBuffer(0 To (Len(strHex) / 2) - 1)
+            ReDim bteBuffer(0 To (Len(strHex) / 2) + 1)
             ' Loop through each set of 2 characters to get bytes
             For lngChar = 1 To Len(strHex) Step 2
                 ' Apply two characters to buffer. (Faster than concatenating strings)
