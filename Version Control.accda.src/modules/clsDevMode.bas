@@ -630,8 +630,8 @@ Private Function MipToDictionary() As Dictionary
         .Add "ColumnSpacing", GetInch(cMip.yColumnSpacing)
         .Add "RowSpacing", GetInch(cMip.xRowSpacing)
         .Add "ItemLayout", GetEnum(epeColumnLayout, cMip.rItemLayout)
-        '.Add "FastPrint", cMip.fFastPrint  ' Reserved
-        '.Add "Datasheet", cMip.fDatasheet  ' Reserved
+        .Add "FastPrint", cMip.fFastPrint  ' Reserved 
+        .Add "Datasheet", cMip.fDatasheet  ' Reserved
     End With
 
 End Function
@@ -948,7 +948,9 @@ Public Sub ApplySettings(dSettings As Dictionary)
                     Case "ColumnSpacing": .yColumnSpacing = GetTwips(dItems(varKey))
                     Case "RowSpacing": .xRowSpacing = GetTwips(dItems(varKey))
                     Case "ItemLayout": .rItemLayout = GetEnum(epeColumnLayout, dItems(varKey))
-                    
+                    Case "FastPrint": .fFastPrint = Abs(CBool(dItems(varKey))) 'These are quite likely unneded; they do not appear to have an effect on the file creation/export.
+                    Case "Datasheet": .fDatasheet = Abs(CBool(dItems(varKey))) 'These are quite likely unneded; they do not appear to have an effect on the file creation/export.
+
                     ' Special handling for paper size
                     Case "DefaultSize": .fDefaultSize = Abs(dItems(varKey))
                     Case "Width":
@@ -1030,12 +1032,17 @@ Public Function AddToExportFile(strFile As String) As String
                         If Not blnInBlock Then .Add strLine, vbCrLf
                         blnInBlock = False
                     Case "Begin"
-                        ' Insert our blocks before this line.
-                        .Add GetPrtMipBlock
-                        .Add GetPrtDevModeBlock
-                        .Add GetPrtDevNamesBlock
-                        .Add strLine, vbCrLf
-                        blnFound = True
+                        'Verify indent level
+                        If strLine <> "    Begin" Then
+                            .Add strLine, vbCrLf
+                        Else
+                            ' Insert our blocks before this line.
+                            .Add GetPrtMipBlock
+                            .Add GetPrtDevModeBlock
+                            .Add GetPrtDevNamesBlock
+                            .Add strLine, vbCrLf
+                            blnFound = True
+                        End If
                     Case Else
                         ' Continue building file contents
                         .Add strLine, vbCrLf
