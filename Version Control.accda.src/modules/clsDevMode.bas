@@ -107,7 +107,7 @@ Private Type PRINTER_DEFAULTS
 End Type
 
 Private Declare PtrSafe Function OpenPrinter Lib "winspool.drv" Alias "OpenPrinterA" _
-    (ByVal pPrinterName As String, phPrinter As Long, pDefault As Any) As Long
+    (ByVal pPrinterName As String, phPrinter As Long, pDefault As PRINTER_DEFAULTS) As Long
 Private Declare PtrSafe Function ClosePrinter Lib "winspool.drv" (ByVal hPrinter As Long) As Long
 Private Declare PtrSafe Function DocumentProperties Lib "winspool.drv" Alias "DocumentPropertiesA" _
     (ByVal hwnd As Long, ByVal hPrinter As Long, ByVal pDeviceName As String, _
@@ -347,7 +347,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
     
     ' Open a handle to read the default printer
     udtDefaults.DesiredAccess = READ_CONTROL
-    lngReturn = OpenPrinter(strPrinter, hPrinter,  ByVal 0&)
+    lngReturn = OpenPrinter(strPrinter, hPrinter, udtDefaults)
     If lngReturn <> 0 And hPrinter <> 0 Then
         
         ' Check size of DevMode structure to make sure it fits in our buffer.
