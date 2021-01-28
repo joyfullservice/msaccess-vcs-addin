@@ -107,7 +107,7 @@ Private Type PRINTER_DEFAULTS
 End Type
 
 Private Declare PtrSafe Function OpenPrinter Lib "winspool.drv" Alias "OpenPrinterA" _
-    (ByVal pPrinterName As String, phPrinter As Long, pDefault As PRINTER_DEFAULTS) As Long
+    (ByVal pPrinterName As String, phPrinter As Long, pDefault As Any) As Long
 Private Declare PtrSafe Function ClosePrinter Lib "winspool.drv" (ByVal hPrinter As Long) As Long
 Private Declare PtrSafe Function DocumentProperties Lib "winspool.drv" Alias "DocumentPropertiesA" _
     (ByVal hwnd As Long, ByVal hPrinter As Long, ByVal pDeviceName As String, _
@@ -280,7 +280,7 @@ Public Sub LoadFromExportFile(strFile As String)
             strHex = cBlock(intBlock).GetStr
             Set cBuffer(intBlock) = New clsConcat
             ' Each two hex characters represent one bit
-            ReDim bteBuffer(0 To (Len(strHex) / 2) - 1)
+            ReDim bteBuffer(0 To (Len(strHex) / 2) + 1)
             ' Loop through each set of 2 characters to get bytes
             For lngChar = 1 To Len(strHex) Step 2
                 ' Apply two characters to buffer. (Faster than concatenating strings)
@@ -347,7 +347,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
     
     ' Open a handle to read the default printer
     udtDefaults.DesiredAccess = READ_CONTROL
-    lngReturn = OpenPrinter(strPrinter, hPrinter, udtDefaults)
+    lngReturn = OpenPrinter(strPrinter, hPrinter, ByVal 0&)
     If lngReturn <> 0 And hPrinter <> 0 Then
         
         ' Check size of DevMode structure to make sure it fits in our buffer.
@@ -630,8 +630,8 @@ Private Function MipToDictionary() As Dictionary
         .Add "ColumnSpacing", GetInch(cMip.yColumnSpacing)
         .Add "RowSpacing", GetInch(cMip.xRowSpacing)
         .Add "ItemLayout", GetEnum(epeColumnLayout, cMip.rItemLayout)
-        '.Add "FastPrint", cMip.fFastPrint  ' Reserved
-        '.Add "Datasheet", cMip.fDatasheet  ' Reserved
+        .Add "FastPrint", cMip.fFastPrint  ' Reserved
+        .Add "Datasheet", cMip.fDatasheet  ' Reserved
     End With
 
 End Function
@@ -948,7 +948,9 @@ Public Sub ApplySettings(dSettings As Dictionary)
                     Case "ColumnSpacing": .yColumnSpacing = GetTwips(dItems(varKey))
                     Case "RowSpacing": .xRowSpacing = GetTwips(dItems(varKey))
                     Case "ItemLayout": .rItemLayout = GetEnum(epeColumnLayout, dItems(varKey))
-                    
+                    Case "FastPrint": .fFastPrint = Abs(CBool(dItems(varKey))) 'These are quite likely unneded; they do not appear to have an effect on the file creation/export.
+                    Case "Datasheet": .fDatasheet = Abs(CBool(dItems(varKey))) 'These are quite likely unneded; they do not appear to have an effect on the file creation/export.
+
                     ' Special handling for paper size
                     Case "DefaultSize": .fDefaultSize = Abs(dItems(varKey))
                     Case "Width":
@@ -1010,7 +1012,8 @@ Public Function AddToExportFile(strFile As String) As String
 
     ' Use concatenation class for performance reasons.
     With New clsConcat
-    
+        .AppendOnAdd = vbCrLf
+        
         ' Loop through lines in file, searching for location to insert blocks.
         For lngLine = LBound(varLines) To UBound(varLines)
             
@@ -1027,22 +1030,27 @@ Public Function AddToExportFile(strFile As String) As String
                         blnInBlock = True
                     Case "End"
                         ' End of a block section.
-                        If Not blnInBlock Then .Add strLine, vbCrLf
+                        If Not blnInBlock Then .Add strLine
                         blnInBlock = False
                     Case "Begin"
-                        ' Insert our blocks before this line.
-                        .Add GetPrtMipBlock
-                        .Add GetPrtDevModeBlock
-                        .Add GetPrtDevNamesBlock
-                        .Add strLine, vbCrLf
-                        blnFound = True
+                        'Verify indent level
+                        If strLine <> "    Begin" Then
+                            .Add strLine
+                        Else
+                            ' Insert our blocks before this line.
+                            .Add GetPrtMipBlock
+                            .Add GetPrtDevModeBlock
+                            .Add GetPrtDevNamesBlock
+                            .Add strLine
+                            blnFound = True
+                        End If
                     Case Else
                         ' Continue building file contents
-                        .Add strLine, vbCrLf
+                        .Add strLine
                 End Select
             Else
                 ' Already inserted block content.
-                .Add strLine, vbCrLf
+                .Add strLine
             End If
         Next lngLine
     
@@ -1530,7 +1538,7 @@ Private Function GetBlobFromString(strSection As String, strContent As String, O
 
         ' Add section closing
         .Add vbCrLf
-        .Add Space$(intIndent), "End", vbCrLf
+        .Add Space$(intIndent), "End"
         
         ' Return blob string
         GetBlobFromString = .GetStr

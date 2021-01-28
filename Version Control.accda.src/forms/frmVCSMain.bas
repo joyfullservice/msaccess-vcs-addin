@@ -16,10 +16,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =32
-    Left =4770
-    Top =2505
-    Right =14130
-    Bottom =8970
+    Left =-25575
+    Top =1710
+    Right =-255
+    Bottom =14295
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1709,12 +1709,14 @@ Begin Form
                     End
                 End
                 Begin CheckBox
+                    Enabled = NotDefault
                     OverlapFlags =93
                     Left =5340
                     Top =4770
                     TabIndex =8
                     BorderColor =10921638
                     Name ="chkFullBuild"
+                    DefaultValue ="True"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =5340
@@ -2026,7 +2028,7 @@ Private Sub Form_Load()
     lblVersion.Caption = "Version " & GetVCSVersion()
     
     ' Set defaults based on current options.
-    chkFullBuild = Not Options.UseFastSave
+    chkFullBuild = True ' Not Options.UseFastSave (Till we finish merge build functionality)
     chkFullExport = Not Options.UseFastSave
     
     SetStatusText "Choose Action", "What would you like to do?", _

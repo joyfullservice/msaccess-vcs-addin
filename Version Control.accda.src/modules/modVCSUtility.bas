@@ -209,8 +209,12 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
 
     Dim strTempFile As String
     Dim strPrintSettingsFile As String
+    Dim strSourceFile As String
     Dim blnConvert As Boolean
     Dim dFile As Dictionary
+    
+    ' The path to the source file may change if we add print settings.
+    strSourceFile = strFile
     
     ' Add DevMode structures back into forms/reports
     Select Case intType
@@ -229,7 +233,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
                         ' settings saved with report.
                         .ApplySettings dFile("Items")
                         ' Insert the settings into a combined export file.
-                        strTempFile = .AddToExportFile(strFile)
+                        strSourceFile = .AddToExportFile(strFile)
                     End If
                 End With
             End If
@@ -246,7 +250,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
     If blnConvert Then
         ' Perform file conversion, and import from temp file.
         strTempFile = GetTempFile
-        ConvertUtf8Ucs2 strFile, strTempFile, False
+        ConvertUtf8Ucs2 strSourceFile, strTempFile, False
         Perf.OperationStart "App.LoadFromText()"
         Application.LoadFromText intType, strName, strTempFile
         Perf.OperationEnd
@@ -254,9 +258,12 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
     Else
         ' Load UTF-8 file
         Perf.OperationStart "App.LoadFromText()"
-        Application.LoadFromText intType, strName, strFile
+        Application.LoadFromText intType, strName, strSourceFile
         Perf.OperationEnd
     End If
+    
+    ' Remove any temporary combined source file
+    If strSourceFile <> strFile Then DeleteFile strSourceFile
     
 End Sub
 

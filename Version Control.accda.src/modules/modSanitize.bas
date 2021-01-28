@@ -28,12 +28,21 @@ Public Sub SanitizeFile(strPath As String)
     Dim intIndent As Integer
     Dim blnIsReport As Boolean
     Dim sngStartTime As Single
+    Dim strTempFile As String
 
     ' Read text from file, and split into lines
     If HasUcs2Bom(strPath) Then
         strFile = ReadFile(strPath, "Unicode")
     Else
-        strFile = ReadFile(strPath)
+        ' ADP projects may contain mixed Unicode content
+        If CurrentProject.ProjectType = acADP Then
+            strTempFile = GetTempFile
+            ConvertUcs2Utf8 strPath, strTempFile, False
+            strFile = ReadFile(strTempFile)
+            DeleteFile strTempFile
+        Else
+            strFile = ReadFile(strPath)
+        End If
     End If
     Perf.OperationStart "Sanitize File"
     varLines = Split(strFile, vbCrLf)
