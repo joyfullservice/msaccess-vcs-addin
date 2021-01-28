@@ -57,8 +57,8 @@ Private Sub IDbComponent_Export()
     ' Save json file with header details
     WriteJsonFile TypeName(Me), dItem, IDbComponent_SourceFile, "Shared Image Gallery Item"
     
-    ' Save image file
-    strFile = IDbComponent_BaseFolder & FSO.GetBaseName(IDbComponent_SourceFile) & "." & m_Extension
+    ' Save image file using extension from embedded file.
+    strFile = IDbComponent_BaseFolder & FSO.GetBaseName(IDbComponent_SourceFile) & "." & FSO.GetExtensionName(m_FileName)
     Set stm = New ADODB.Stream
     With stm
         .Type = adTypeBinary
@@ -259,7 +259,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFiles Me, "json", "jpg", "jpeg", "jpe", "gif", "png"
+    ClearOrphanedSourceFiles Me, "json", "jpg", "jpeg", "jpe", "gif", "png", "ico"
 End Sub
 
 
