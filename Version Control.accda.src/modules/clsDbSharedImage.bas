@@ -132,7 +132,7 @@ Private Sub IDbComponent_Import(strFile As String)
             End If
             Name strImageFile As strOriginalName
         End If
-        ' Reame image to original name
+        ' Rename image to original name
         ' Import as image, then rename back to image file name that matches json file.
         Set proj = CurrentProject
         With proj
