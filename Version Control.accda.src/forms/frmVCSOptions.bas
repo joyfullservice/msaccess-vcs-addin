@@ -17,10 +17,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =214
-    Left =-17265
+    Left =3225
     Top =2430
-    Right =-255
-    Bottom =10335
+    Right =13305
+    Bottom =9615
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1900,9 +1900,9 @@ Begin Form
                                     OverlapFlags =247
                                     IMESentenceMode =3
                                     Left =7020
-                                    Top =3705
+                                    Top =3480
                                     Width =2400
-                                    Height =660
+                                    Height =900
                                     TabIndex =3
                                     BackColor =15921906
                                     BorderColor =10921638
@@ -1911,15 +1911,15 @@ Begin Form
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =7020
-                                    LayoutCachedTop =3705
+                                    LayoutCachedTop =3480
                                     LayoutCachedWidth =9420
-                                    LayoutCachedHeight =4365
+                                    LayoutCachedHeight =4380
                                     BackShade =95.0
                                     Begin
                                         Begin Label
                                             OverlapFlags =255
                                             Left =7020
-                                            Top =3405
+                                            Top =3180
                                             Width =1500
                                             Height =300
                                             BorderColor =8355711
@@ -1928,9 +1928,9 @@ Begin Form
                                             Caption ="Selected Table:"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =7020
-                                            LayoutCachedTop =3405
+                                            LayoutCachedTop =3180
                                             LayoutCachedWidth =8520
-                                            LayoutCachedHeight =3705
+                                            LayoutCachedHeight =3480
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -1984,7 +1984,7 @@ Begin Form
                                     Left =7020
                                     Top =2265
                                     Width =2400
-                                    Height =840
+                                    Height =735
                                     FontSize =10
                                     BorderColor =8355711
                                     ForeColor =5324600
@@ -1995,7 +1995,7 @@ Begin Form
                                     LayoutCachedLeft =7020
                                     LayoutCachedTop =2265
                                     LayoutCachedWidth =9420
-                                    LayoutCachedHeight =3105
+                                    LayoutCachedHeight =3000
                                     ForeThemeColorIndex =-1
                                     ForeTint =100.0
                                 End
@@ -2114,7 +2114,7 @@ Begin Form
                                     FontUnderline = NotDefault
                                     OverlapFlags =247
                                     Left =8760
-                                    Top =3405
+                                    Top =3180
                                     Width =720
                                     Height =240
                                     FontSize =10
@@ -2127,9 +2127,9 @@ Begin Form
                                     HyperlinkAddress ="#"
                                     GridlineColor =10921638
                                     LayoutCachedLeft =8760
-                                    LayoutCachedTop =3405
+                                    LayoutCachedTop =3180
                                     LayoutCachedWidth =9480
-                                    LayoutCachedHeight =3645
+                                    LayoutCachedHeight =3420
                                     BackThemeColorIndex =-1
                                     BorderThemeColorIndex =-1
                                     BorderTint =100.0
