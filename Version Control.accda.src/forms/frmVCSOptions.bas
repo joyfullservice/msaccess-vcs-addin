@@ -17,10 +17,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =216
-    Left =-30511
-    Top =6180
-    Right =-18106
-    Bottom =15525
+    Left =7635
+    Top =5310
+    Right =20040
+    Bottom =14655
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -406,7 +406,7 @@ Begin Form
                     Left =540
                     Top =1500
                     Width =9015
-                    Height =5340
+                    Height =5355
                     TabIndex =2
                     Name ="tabOptions"
                     GridlineColor =10921638
@@ -414,7 +414,7 @@ Begin Form
                     LayoutCachedLeft =540
                     LayoutCachedTop =1500
                     LayoutCachedWidth =9555
-                    LayoutCachedHeight =6840
+                    LayoutCachedHeight =6855
                     ThemeFontIndex =1
                     Shape =1
                     Gradient =12
@@ -437,7 +437,7 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8865
-                            Height =4785
+                            Height =4800
                             BorderColor =10921638
                             Name ="pgeGeneral"
                             Caption ="General"
@@ -445,7 +445,7 @@ Begin Form
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9480
-                            LayoutCachedHeight =6765
+                            LayoutCachedHeight =6780
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -803,7 +803,7 @@ Begin Form
                                     ColumnCount =2
                                     ListWidth =1440
                                     Left =5760
-                                    Top =5040
+                                    Top =5400
                                     Width =1920
                                     Height =315
                                     TabIndex =10
@@ -817,14 +817,14 @@ Begin Form
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =5760
-                                    LayoutCachedTop =5040
+                                    LayoutCachedTop =5400
                                     LayoutCachedWidth =7680
-                                    LayoutCachedHeight =5355
+                                    LayoutCachedHeight =5715
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
                                             Left =4740
-                                            Top =5040
+                                            Top =5400
                                             Width =900
                                             Height =320
                                             BorderColor =8355711
@@ -833,9 +833,9 @@ Begin Form
                                             Caption ="Security:"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =4740
-                                            LayoutCachedTop =5040
+                                            LayoutCachedTop =5400
                                             LayoutCachedWidth =5640
-                                            LayoutCachedHeight =5360
+                                            LayoutCachedHeight =5720
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -845,7 +845,7 @@ Begin Form
                                     OverlapFlags =215
                                     IMESentenceMode =3
                                     Left =3480
-                                    Top =5460
+                                    Top =5820
                                     Width =2640
                                     Height =315
                                     TabIndex =11
@@ -855,14 +855,14 @@ Begin Form
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =3480
-                                    LayoutCachedTop =5460
+                                    LayoutCachedTop =5820
                                     LayoutCachedWidth =6120
-                                    LayoutCachedHeight =5775
+                                    LayoutCachedHeight =6135
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
                                             Left =1200
-                                            Top =5460
+                                            Top =5820
                                             Width =2205
                                             Height =315
                                             BorderColor =8355711
@@ -871,9 +871,9 @@ Begin Form
                                             Caption ="Run Sub Before Export:"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =1200
-                                            LayoutCachedTop =5460
+                                            LayoutCachedTop =5820
                                             LayoutCachedWidth =3405
-                                            LayoutCachedHeight =5775
+                                            LayoutCachedHeight =6135
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -883,7 +883,7 @@ Begin Form
                                     OverlapFlags =215
                                     IMESentenceMode =3
                                     Left =3480
-                                    Top =5880
+                                    Top =6240
                                     Width =2640
                                     Height =315
                                     TabIndex =12
@@ -893,14 +893,14 @@ Begin Form
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =3480
-                                    LayoutCachedTop =5880
+                                    LayoutCachedTop =6240
                                     LayoutCachedWidth =6120
-                                    LayoutCachedHeight =6195
+                                    LayoutCachedHeight =6555
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
                                             Left =1200
-                                            Top =5880
+                                            Top =6240
                                             Width =2055
                                             Height =315
                                             BorderColor =8355711
@@ -909,9 +909,9 @@ Begin Form
                                             Caption ="Run Sub After Export:"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =1200
-                                            LayoutCachedTop =5880
+                                            LayoutCachedTop =6240
                                             LayoutCachedWidth =3255
-                                            LayoutCachedHeight =6195
+                                            LayoutCachedHeight =6555
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -921,7 +921,7 @@ Begin Form
                                     FontUnderline = NotDefault
                                     OverlapFlags =215
                                     Left =6780
-                                    Top =6000
+                                    Top =6360
                                     Width =2340
                                     TabIndex =13
                                     ForeColor =16711680
@@ -969,9 +969,9 @@ Begin Form
                                     BackStyle =0
 
                                     LayoutCachedLeft =6780
-                                    LayoutCachedTop =6000
+                                    LayoutCachedTop =6360
                                     LayoutCachedWidth =9120
-                                    LayoutCachedHeight =6360
+                                    LayoutCachedHeight =6720
                                     PictureCaptionArrangement =4
                                     ForeThemeColorIndex =10
                                     ForeTint =100.0
@@ -1082,7 +1082,7 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8865
-                            Height =4785
+                            Height =4800
                             BorderColor =10921638
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
@@ -1090,7 +1090,7 @@ Begin Form
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9480
-                            LayoutCachedHeight =6765
+                            LayoutCachedHeight =6780
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1818,7 +1818,7 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8865
-                            Height =4785
+                            Height =4800
                             BorderColor =10921638
                             Name ="pgeTable"
                             Caption ="Table Data"
@@ -1826,7 +1826,7 @@ Begin Form
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9480
-                            LayoutCachedHeight =6765
+                            LayoutCachedHeight =6780
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1841,7 +1841,7 @@ Begin Form
                                     Left =735
                                     Top =2280
                                     Width =6120
-                                    Height =3240
+                                    Height =4020
                                     ForeColor =4210752
                                     BorderColor =10921638
                                     Name ="lstTables"
@@ -1850,17 +1850,18 @@ Begin Form
                                     ColumnWidths ="341;4536"
                                     OnClick ="[Event Procedure]"
                                     GridlineColor =10921638
+                                    VerticalAnchor =2
                                     AllowValueListEdits =0
 
                                     LayoutCachedLeft =735
                                     LayoutCachedTop =2280
                                     LayoutCachedWidth =6855
-                                    LayoutCachedHeight =5520
+                                    LayoutCachedHeight =6300
                                 End
                                 Begin CheckBox
                                     OverlapFlags =247
                                     Left =1020
-                                    Top =5760
+                                    Top =6480
                                     TabIndex =1
                                     BorderColor =10921638
                                     Name ="chkTableShowHidden"
@@ -1869,14 +1870,14 @@ Begin Form
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =1020
-                                    LayoutCachedTop =5760
+                                    LayoutCachedTop =6480
                                     LayoutCachedWidth =1280
-                                    LayoutCachedHeight =6000
+                                    LayoutCachedHeight =6720
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
                                             Left =1320
-                                            Top =5700
+                                            Top =6420
                                             Width =1380
                                             Height =315
                                             BorderColor =8355711
@@ -1885,9 +1886,9 @@ Begin Form
                                             Caption ="Show Hidden"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =1320
-                                            LayoutCachedTop =5700
+                                            LayoutCachedTop =6420
                                             LayoutCachedWidth =2700
-                                            LayoutCachedHeight =6015
+                                            LayoutCachedHeight =6735
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -1896,7 +1897,7 @@ Begin Form
                                 Begin CheckBox
                                     OverlapFlags =247
                                     Left =2940
-                                    Top =5760
+                                    Top =6480
                                     TabIndex =2
                                     BorderColor =10921638
                                     Name ="chkTableShowSystem"
@@ -1905,14 +1906,14 @@ Begin Form
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =2940
-                                    LayoutCachedTop =5760
+                                    LayoutCachedTop =6480
                                     LayoutCachedWidth =3200
-                                    LayoutCachedHeight =6000
+                                    LayoutCachedHeight =6720
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
                                             Left =3240
-                                            Top =5700
+                                            Top =6420
                                             Width =1380
                                             Height =315
                                             BorderColor =8355711
@@ -1921,9 +1922,9 @@ Begin Form
                                             Caption ="Show System"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =3240
-                                            LayoutCachedTop =5700
+                                            LayoutCachedTop =6420
                                             LayoutCachedWidth =4620
-                                            LayoutCachedHeight =6015
+                                            LayoutCachedHeight =6735
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -1936,18 +1937,20 @@ Begin Form
                                     Left =7020
                                     Top =3705
                                     Width =2400
-                                    Height =660
+                                    Height =1815
                                     TabIndex =3
                                     BackColor =15921906
                                     BorderColor =10921638
                                     ForeColor =4210752
                                     Name ="txtTableName"
                                     GridlineColor =10921638
+                                    HorizontalAnchor =2
+                                    VerticalAnchor =2
 
                                     LayoutCachedLeft =7020
                                     LayoutCachedTop =3705
                                     LayoutCachedWidth =9420
-                                    LayoutCachedHeight =4365
+                                    LayoutCachedHeight =5520
                                     BackShade =95.0
                                     Begin
                                         Begin Label
@@ -1976,7 +1979,7 @@ Begin Form
                                     IMESentenceMode =3
                                     ListWidth =1695
                                     Left =7020
-                                    Top =4905
+                                    Top =5940
                                     Width =2400
                                     Height =315
                                     TabIndex =4
@@ -1988,14 +1991,14 @@ Begin Form
                                     AllowValueListEdits =0
 
                                     LayoutCachedLeft =7020
-                                    LayoutCachedTop =4905
+                                    LayoutCachedTop =5940
                                     LayoutCachedWidth =9420
-                                    LayoutCachedHeight =5220
+                                    LayoutCachedHeight =6255
                                     Begin
                                         Begin Label
                                             OverlapFlags =255
                                             Left =7020
-                                            Top =4605
+                                            Top =5640
                                             Width =1455
                                             Height =305
                                             BorderColor =8355711
@@ -2005,9 +2008,9 @@ Begin Form
                                             EventProcPrefix ="Data_to_Export_Label"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =7020
-                                            LayoutCachedTop =4605
+                                            LayoutCachedTop =5640
                                             LayoutCachedWidth =8475
-                                            LayoutCachedHeight =4910
+                                            LayoutCachedHeight =5945
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -2036,7 +2039,7 @@ Begin Form
                                 Begin CommandButton
                                     OverlapFlags =247
                                     Left =7020
-                                    Top =5325
+                                    Top =6360
                                     TabIndex =5
                                     ForeColor =4210752
                                     Name ="cmdUpdateTableData"
@@ -2085,9 +2088,9 @@ Begin Form
                                     End
 
                                     LayoutCachedLeft =7020
-                                    LayoutCachedTop =5325
+                                    LayoutCachedTop =6360
                                     LayoutCachedWidth =8460
-                                    LayoutCachedHeight =5685
+                                    LayoutCachedHeight =6720
                                     PictureCaptionArrangement =5
                                     BackColor =14262935
                                     BackThemeColorIndex =-1
@@ -2111,7 +2114,7 @@ Begin Form
                                 Begin CheckBox
                                     OverlapFlags =247
                                     Left =4860
-                                    Top =5760
+                                    Top =6480
                                     TabIndex =6
                                     BorderColor =10921638
                                     Name ="chkTableShowOther"
@@ -2120,14 +2123,14 @@ Begin Form
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =4860
-                                    LayoutCachedTop =5760
+                                    LayoutCachedTop =6480
                                     LayoutCachedWidth =5120
-                                    LayoutCachedHeight =6000
+                                    LayoutCachedHeight =6720
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
                                             Left =5160
-                                            Top =5700
+                                            Top =6420
                                             Width =1200
                                             Height =315
                                             BorderColor =8355711
@@ -2136,9 +2139,9 @@ Begin Form
                                             Caption ="Show Other"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =5160
-                                            LayoutCachedTop =5700
+                                            LayoutCachedTop =6420
                                             LayoutCachedWidth =6360
-                                            LayoutCachedHeight =6015
+                                            LayoutCachedHeight =6735
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -2177,7 +2180,7 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8865
-                            Height =4785
+                            Height =4800
                             BorderColor =10921638
                             Name ="pgeBuild"
                             Caption ="Build"
@@ -2185,7 +2188,7 @@ Begin Form
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9480
-                            LayoutCachedHeight =6765
+                            LayoutCachedHeight =6780
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2311,7 +2314,7 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8865
-                            Height =4785
+                            Height =4800
                             BorderColor =10921638
                             Name ="pgeGitIntegration"
                             Caption ="Git Integration"
@@ -2319,7 +2322,7 @@ Begin Form
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9480
-                            LayoutCachedHeight =6765
+                            LayoutCachedHeight =6780
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2675,7 +2678,7 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8865
-                            Height =4785
+                            Height =4800
                             BorderColor =10921638
                             Name ="pgeEncrypt"
                             Caption ="Encryption"
@@ -2683,7 +2686,7 @@ Begin Form
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9480
-                            LayoutCachedHeight =6765
+                            LayoutCachedHeight =6780
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2949,7 +2952,7 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8865
-                            Height =4785
+                            Height =4800
                             BorderColor =10921638
                             Name ="pgeSettings"
                             Caption ="Settings"
@@ -2957,7 +2960,7 @@ Begin Form
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9480
-                            LayoutCachedHeight =6765
+                            LayoutCachedHeight =6780
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
