@@ -49,6 +49,7 @@
     "RunAfterExport": "",
     "RunAfterBuild": "",
     "Security": "None",
-    "KeyName": "MSAccessVCS"
+    "KeyName": "MSAccessVCS",
+    "ShowVCSLegacy": true
   }
 }
