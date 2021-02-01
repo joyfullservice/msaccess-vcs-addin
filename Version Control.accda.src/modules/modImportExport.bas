@@ -505,14 +505,14 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub CheckForLegacyModules()
-    If (FSO.FileExists(Options.GetExportFolder & "modules\VCS_ImportExport.bas") And (Options.ShowVCSLegacy = True)  Then
+    If (FSO.FileExists(Options.GetExportFolder & "modules\VCS_ImportExport.bas")) And (Options.ShowVCSLegacy = True) Then
         MsgBox2 "Legacy Files not Needed", _
             "Other forks of the MSAccessVCS project used additional VBA modules to export code." & vbCrLf & _
             "This is no longer needed when using the installed Version Control Add-in.", _
             "Feel free to remove the legacy VCS_* modules from your database project and enjoy" & vbCrLf & _
             "a simpler, cleaner code base for ongoing development.  :-)", vbInformation, "Just a Suggestion..."
 
-        If MsgBox2 "Hide VCS Nag Next time?", "Click Yes to skip the Legacy Prompt next time.", vbYesNo = vbYes Then
+        If (MsgBox2("Hide VCS Nag Next time?", "Click Yes to skip the Legacy Prompt next time.", vbYesNo) = vbYes) Then
             Options.ShowVCSLegacy = False
         End If
 
