@@ -505,7 +505,10 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub CheckForLegacyModules()
-    If (FSO.FileExists(Options.GetExportFolder & "modules\VCS_ImportExport.bas")) And (Options.ShowVCSLegacy = True) Then
+
+    If (Options.ShowVCSLegacy = False) Then Exit Sub
+
+    If FSO.FileExists(Options.GetExportFolder & "modules\VCS_ImportExport.bas") Then
         MsgBox2 "Legacy Files not Needed", _
             "Other forks of the MSAccessVCS project used additional VBA modules to export code." & vbCrLf & _
             "This is no longer needed when using the installed Version Control Add-in.", _
