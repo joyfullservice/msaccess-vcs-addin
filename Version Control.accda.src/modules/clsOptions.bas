@@ -33,6 +33,7 @@ Public RunAfterExport As String
 Public RunAfterBuild As String
 Public Security As eSecurity
 Public KeyName As String
+Public ShowVCSLegacy as Boolean
 
 ' Constants for enum values
 ' (These values are not permanently stored and
@@ -80,6 +81,7 @@ Public Sub LoadDefaults()
         .AggressiveSanitize = True
         .Security = esNone
         .KeyName = modEncrypt.DefaultKeyName
+        .ShowVCSLegacy = True
 
         ' Table data export
         Set .TablesToExportData = New Dictionary
@@ -511,6 +513,7 @@ Private Sub Class_Initialize()
         .Add "RunAfterBuild"
         .Add "Security"
         .Add "KeyName"
+        .Add "ShowVCSLegacy"
     End With
 
     ' Load default values
