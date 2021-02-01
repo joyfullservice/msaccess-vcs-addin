@@ -512,7 +512,7 @@ Private Sub CheckForLegacyModules()
             "Feel free to remove the legacy VCS_* modules from your database project and enjoy" & vbCrLf & _
             "a simpler, cleaner code base for ongoing development.  :-)", vbInformation, "Just a Suggestion..."
 
-        If (MsgBox2("Hide VCS Nag Next time?", "Click Yes to skip the Legacy Prompt next time.", vbYesNo) = vbYes) Then
+        If (MsgBox2("Hide VCS nag next time?", "Click YES to skip the Legacy prompt next time.", , vbYesNo) = vbYes) Then
             Options.ShowVCSLegacy = False
         End If
 
