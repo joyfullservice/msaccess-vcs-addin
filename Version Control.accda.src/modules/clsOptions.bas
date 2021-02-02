@@ -254,15 +254,17 @@ Public Sub LoadProjectOptions()
 
     Dim strSaved As String
 
+    ' We can only load the options for the current project if we
+    ' have a database file open.
+    If Not DatabaseOpen Then Exit Sub
+    
     ' Get saved path from database (if defined)
     strSaved = SavedSourcePath
 
     ' Attempt to load the project options file.
-    If strSaved <> vbNullString Then
-        Me.ExportFolder = strSaved
-        LoadOptionsFromFile Me.GetExportFolder & cstrOptionsFilename
-    End If
-
+    If strSaved <> vbNullString Then Me.ExportFolder = strSaved
+    LoadOptionsFromFile Me.GetExportFolder & cstrOptionsFilename
+    
 End Sub
 
 
