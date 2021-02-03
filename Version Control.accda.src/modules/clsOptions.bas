@@ -33,7 +33,7 @@ Public RunAfterExport As String
 Public RunAfterBuild As String
 Public Security As eSecurity
 Public KeyName As String
-Public ShowVCSLegacy as Boolean
+Public ShowVCSLegacy As Boolean
 
 ' Constants for enum values
 ' (These values are not permanently stored and
