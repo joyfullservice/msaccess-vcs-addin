@@ -83,7 +83,8 @@ Public Function AutoRun() As Boolean
     
     Dim strThisFileName As String
     Dim strAddinFileName As String
-    
+
+Retry_Entry:
     strThisFileName = CodeProject.FullName
     strAddinFileName = GetAddinFileName
 
@@ -98,13 +99,12 @@ Public Function AutoRun() As Boolean
         ' process to complete then close itself (if desired).
         
         strMsgBoxTitle = "Trust Process and Install Complete!"
-        strMsgBoxText = "Version " & AppVersion & " is now installed and trusted." & _
+        strMsgBoxText = "Addin Version " & AppVersion & " is now installed and trusted." & _
                         "You must close all instances of Access to enable the Addin." & vbCrLf & vbCrLf & _
                         "It's strongly reccomended you close this file and do not edit it."
         If MsgBox2(strMsgBoxTitle, strMsgBoxText, "Click 'Yes' to close or 'No' to cancel.", vbQuestion + vbYesNo, strMsgBoxTitle) = vbYes Then
             DoCmd.Quit
         End If
-        
 
     Else
         ' Could be running it from another location, such as after downloading
@@ -113,44 +113,43 @@ Public Function AutoRun() As Boolean
         If IsAlreadyInstalled Then
             If InstalledVersion <> AppVersion Then
                 strMsgBoxTitle = "Upgrade Version Control?"
-                strMsgBoxText = "Would you like to upgrade to version " & AppVersion & "?"
+                strMsgBoxText = "Would you like to upgrade to addin version " & AppVersion & "?"
             Else
                 strMsgBoxTitle = "Reinstall Version Control?"
-                strMsgBoxText = "Version " & AppVersion & " is already installed, would you like to reinstall it?"
+                strMsgBoxText = "Addin Version " & AppVersion & " is already installed, would you like to reinstall it?"
             End If
             
-            If MsgBox2(strMsgBoxTitle, strMsgBoxText, "Click 'Yes' to continue or 'No' to cancel.", vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then
-                If InstallVCSAddin Then
-                    MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
-                        "Please restart any open instances of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
-                    CheckForLegacyInstall
-                    If VerifyTrustedLocation = True Then OpenAddinFile strAddinFileName, strThisFileName
-                    DoCmd.Quit
-                End If
-            Else
-                ' Go to visual basic editor
-                DoEvents
-                DoCmd.RunCommand acCmdVisualBasicEditor
-                DoEvents
-            End If
         Else
             ' Not yet installed. Offer to install.
-            If MsgBox2("Install Version Control?", _
-                "Would you like to install version " & AppVersion & "?", _
-                "Click 'Yes' to continue or 'No' to cancel.", vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then
-                
-                If InstallVCSAddin Then
-                    MsgBox2 "Success!", "Version Control System has now been installed.", _
-                        "You may begin using this tool after reopening Microsoft Access", vbInformation, "Version Control Add-in"
-                    CheckForLegacyInstall
-                    If VerifyTrustedLocation = True Then OpenAddinFile strAddinFileName, strThisFileName
-                End If
-                
-                DoCmd.Quit
-            End If
+            strMsgBoxTitle = "Install Version Control?"
+            strMsgBoxText = "Would you like to install addin version " & AppVersion & "?"
         End If
+
+        'Now prompt the user for the next action.
+        If MsgBox2(strMsgBoxTitle, strMsgBoxText, "Click 'Yes' to continue or 'No' to cancel.", _
+                    vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then GoTo InstallAddin
     End If
+
+Exit_Here:
+    ' Go to visual basic editor
+    DoEvents
+    DoCmd.RunCommand acCmdVisualBasicEditor
+    DoEvents
     AutoRun = True
+    Exit Function
+
+InstallAddin:
+    If InstallVCSAddin Then
+        MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
+            "Please restart any open instances of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
+        CheckForLegacyInstall
+        VerifyTrustedLocation
+        OpenAddinFile strAddinFileName, strThisFileName
+        DoCmd.Quit
+    
+    Else
+        GoTo Retry_Entry
+    End If
 
 End Function
 
@@ -360,6 +359,7 @@ Private Function InstallVCSAddin() As Boolean
     If Err Then
         MsgBox2 "Unable to update file", _
             "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
+            "This is likely due to having the Addin loaded in another Access Project; close out of Access and reopen this file. " & _
             "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
         Err.Clear
         On Error GoTo 0
@@ -785,8 +785,9 @@ Public Function VerifyTrustedLocation() As Boolean
                 "In some environments the add-in location must be trusted to use" & vbCrLf & _
                 "the Version Control add-in in Microsoft Access." & vbCrLf & vbCrLf & _
                 "You need to close all instances of Access. " & vbCrLf & vbCrLf & _
-                "Once added, the addin file will be opened so you can trust it to complete the process.", _
-                vbQuestion + vbOKCancel) = vbOK Then
+                "Once added, the addin file will be opened so you can trust it to complete the process." & vbNewLine & vbNewLine & _ 
+                " It is reccomended to only do this if the normal install did not work, first.", _
+                vbQuestion + vbOKCancel + vbDefaultButton2) = vbOK Then
                 
                 ' Add trusted location
                 .RegWrite strPath & "Path", strTrusted
@@ -809,6 +810,62 @@ Public Function VerifyTrustedLocation() As Boolean
     End With
     
 End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveTrustedLocation
+' Author    : Adam Waller
+' Date      : 1/12/2021
+' Purpose   : Remove trusted location entry.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RemoveTrustedLocation()
+
+    Dim strPath As String
+    Dim strVal As String
+    
+    ' Get registry path for trusted locations
+    strPath = GetTrustedLocationRegPath
+    
+    With New IWshRuntimeLibrary.WshShell
+        On Error Resume Next
+        .RegDelete strPath & "Path"
+        .RegDelete strPath & "Date"
+        .RegDelete strPath & "Description"
+        .RegDelete strPath & "AllowSubfolders"
+        .RegDelete strPath
+        On Error GoTo 0
+    End With
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTrustedLocationRegPath
+' Author    : Adam Waller
+' Date      : 1/12/2021
+' Purpose   : Return the trusted location registry path. (Added to trusted locations)
+'---------------------------------------------------------------------------------------
+'
+Private Function GetTrustedLocationRegPath() As String
+    GetTrustedLocationRegPath = "HKEY_CURRENT_USER\Software\Microsoft\Office\" & _
+        Application.Version & "\Access\Security\Trusted Locations\" & mcstrTrustedLocationName & "\"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasTrustedLocationKey
+' Author    : Adam Waller
+' Date      : 1/13/2021
+' Purpose   : Returns true if we find the trusted location added by this add-in.
+'---------------------------------------------------------------------------------------
+'
+Private Function HasTrustedLocationKey() As Boolean
+    With New IWshRuntimeLibrary.WshShell
+        On Error Resume Next
+        HasTrustedLocationKey = Nz(.RegRead(GetTrustedLocationRegPath & "Path")) <> vbNullString
+    End With
+End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : OpenAddinFile
@@ -879,58 +936,3 @@ Private Sub OpenAddinFile(strAddinFileName As String, _
     Shell strScriptFile, vbNormalFocus
 
 End Sub
-
-'---------------------------------------------------------------------------------------
-' Procedure : RemoveTrustedLocation
-' Author    : Adam Waller
-' Date      : 1/12/2021
-' Purpose   : Remove trusted location entry.
-'---------------------------------------------------------------------------------------
-'
-Public Sub RemoveTrustedLocation()
-
-    Dim strPath As String
-    Dim strVal As String
-    
-    ' Get registry path for trusted locations
-    strPath = GetTrustedLocationRegPath
-    
-    With New IWshRuntimeLibrary.WshShell
-        On Error Resume Next
-        .RegDelete strPath & "Path"
-        .RegDelete strPath & "Date"
-        .RegDelete strPath & "Description"
-        .RegDelete strPath & "AllowSubfolders"
-        .RegDelete strPath
-        On Error GoTo 0
-    End With
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetTrustedLocationRegPath
-' Author    : Adam Waller
-' Date      : 1/12/2021
-' Purpose   : Return the trusted location registry path. (Added to trusted locations)
-'---------------------------------------------------------------------------------------
-'
-Private Function GetTrustedLocationRegPath() As String
-    GetTrustedLocationRegPath = "HKEY_CURRENT_USER\Software\Microsoft\Office\" & _
-        Application.Version & "\Access\Security\Trusted Locations\" & mcstrTrustedLocationName & "\"
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : HasTrustedLocationKey
-' Author    : Adam Waller
-' Date      : 1/13/2021
-' Purpose   : Returns true if we find the trusted location added by this add-in.
-'---------------------------------------------------------------------------------------
-'
-Private Function HasTrustedLocationKey() As Boolean
-    With New IWshRuntimeLibrary.WshShell
-        On Error Resume Next
-        HasTrustedLocationKey = Nz(.RegRead(GetTrustedLocationRegPath & "Path")) <> vbNullString
-    End With
-End Function
