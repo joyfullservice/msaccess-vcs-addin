@@ -17,10 +17,10 @@ Begin Form
     GridY =24
     DatasheetFontHeight =11
     ItemSuffix =39
-    Left =-18045
-    Top =2670
-    Right =-10845
-    Bottom =7515
+    Left =-25575
+    Top =1710
+    Right =-5925
+    Bottom =14295
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1422,8 +1422,7 @@ Begin Form
                     ForeColor =16711680
                     Name ="cmdExplainOptions"
                     Caption ="Explain options..."
-                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation#op"
-                        "tions"
+                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Installation"
                     GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
@@ -1551,19 +1550,6 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : cmdHelp_Click
-' Author    : Adam Waller
-' Date      : 4/14/2020
-' Purpose   : Go to the GitHub documentation page.
-'---------------------------------------------------------------------------------------
-'
-Private Sub cmdHelp_Click()
-    Application.FollowHyperlink _
-        "https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Installation"
-End Sub
 
 
 '---------------------------------------------------------------------------------------
