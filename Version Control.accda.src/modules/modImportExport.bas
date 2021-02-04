@@ -174,7 +174,7 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Build
+' Procedure : Build (Full build or Merge Build)
 ' Author    : Adam Waller
 ' Date      : 5/4/2020
 ' Purpose   : Build the project from source files.
@@ -193,19 +193,19 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Dim colFiles As Collection
     Dim varFile As Variant
     Dim strType As String
- 
+    
     Dim strText As String   ' Remove later
-    ' Close the current database if it is currently open.
+    
     ' The type of build will be used in various messages and log entries.
     strType = IIf(blnFullBuild, "Build", "Merge")
     
     ' For full builds, close the current database if it is currently open.
     If blnFullBuild Then
-    If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
-        ' Need to close the current database before we can replace it.
-        RunBuildAfterClose strSourceFolder
-        Exit Sub
-    End If
+        If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
+            ' Need to close the current database before we can replace it.
+            RunBuildAfterClose strSourceFolder
+            Exit Sub
+        End If
     End If
     
     ' Make sure we can find the source files
@@ -228,8 +228,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             Exit Sub
         End If
     End If
-    ' NOTE: There is no CurrentProject at this point, so we will have limited
-    ' functionality with the options class.
+    
+    ' If we are using encryption, make sure we are able to decrypt the values.
     ' NOTE: There is no CurrentProject at this point, so we will have limited
     ' functionality with the options class.
     Set Options = Nothing
@@ -242,14 +242,14 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Build original file name for database
     If blnFullBuild Then
-    strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
-    If strPath = vbNullString Then
-        MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
-        Exit Sub
-    End If
+        strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
+        If strPath = vbNullString Then
+            MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
+            Exit Sub
+        End If
     Else
-    
-    ' Start log and performance timers
+        ' Run any pre-merge instructions
+        'strText = dNZ(Options.GitSettings, "RunBeforeMerge")
         If strText <> vbNullString Then
             Log.Add "Running " & strText & "..."
             Perf.OperationStart "RunBeforeMerge"
@@ -294,14 +294,14 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Create a new database with the original name
     If blnFullBuild Then
-    If LCase$(FSO.GetExtensionName(strPath)) = "adp" Then
-        ' ADP project
-        Application.NewAccessProject strPath
-    Else
-        ' Regular Access database
-        Application.NewCurrentDatabase strPath
-    End If
-    Log.Add "Created blank database for import."
+        If LCase$(FSO.GetExtensionName(strPath)) = "adp" Then
+            ' ADP project
+            Application.NewAccessProject strPath
+        Else
+            ' Regular Access database
+            Application.NewCurrentDatabase strPath
+        End If
+        Log.Add "Created blank database for import."
     End If
     
     ' Now that we have a new database file, we can load the index.
@@ -311,8 +311,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     ' Remove any non-built-in references before importing from source.
     Log.Spacer
     If blnFullBuild Then
-    Log.Add "Removing non built-in references...", False
-    RemoveNonBuiltInReferences
+        Log.Add "Removing non built-in references...", False
+        RemoveNonBuiltInReferences
     End If
 
     ' Loop through all categories
@@ -321,10 +321,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         ' Get collection of source files
         If blnFullBuild Then
             ' Return all the source files
-        Set colFiles = cCategory.GetFileList
+            Set colFiles = cCategory.GetFileList
         Else
-        
-        ' Only show category details when source files are found
+            ' Return just the modified source files for merge
+            ' (Optionally uses the git integration to determine changes.)
             Set colFiles = VCSIndex.GetModifiedSourceFiles(cCategory)
         End If
         
@@ -345,10 +345,15 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
                 Log.Increment
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
                 If blnFullBuild Then
-                cCategory.Import CStr(varFile)
-                CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Importing:" & _
-                    Options.UseFastSave & LCase(cCategory.Category) & " " & FSO.GetFileName(varFile), True, True
-                On Error GoTo 0
+	                cCategory.Import CStr(varFile)
+	                CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Importing:" & _
+	                    Options.UseFastSave & LCase(cCategory.Category) & " " & FSO.GetFileName(varFile), True, True
+	                On Error GoTo 0
+                Else
+                    cCategory.Merge CStr(varFile)
+	                CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Merging:" & _
+	                    Options.UseFastSave & LCase(cCategory.Category) & " " & FSO.GetFileName(varFile), True, True
+                End If
             Next varFile
             
             ' Show category wrap-up.
@@ -358,17 +363,17 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         End If
     Next cCategory
 
-    ' Run any post-build instructions
+    ' Run any post-build/merge instructions
     If blnFullBuild Then
-    If Options.RunAfterBuild <> vbNullString Then
-        Log.Add "Running " & Options.RunAfterBuild & "..."
-        Perf.OperationStart "RunAfterBuild"
-        RunSubInCurrentProject Options.RunAfterBuild
-        Perf.OperationEnd
-    End If
+        If Options.RunAfterBuild <> vbNullString Then
+            Log.Add "Running " & Options.RunAfterBuild & "..."
+            Perf.OperationStart "RunAfterBuild"
+            RunSubInCurrentProject Options.RunAfterBuild
+            Perf.OperationEnd
+        End If
     Else
-
-    ' Show final output and save log
+        ' Merge build
+        'If Options.runaftermerge <> vbNullString Then
             Log.Add "Running " & Options.RunAfterBuild & "..."
             Perf.OperationStart "RunAfterBuild"
             RunSubInCurrentProject Options.RunAfterBuild
@@ -400,7 +405,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     ' Save index file (After build complete)
     If blnFullBuild Then
     ' NOTE: Add a couple seconds since some items may still be in the process of saving.
-    VCSIndex.FullBuildDate = DateAdd("s", 2, Now)
+        VCSIndex.FullBuildDate = DateAdd("s", 2, Now)
     Else
         VCSIndex.MergeBuildDate = DateAdd("s", 2, Now)
     End If
@@ -419,12 +424,12 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : MergeBuild
+' Procedure : GetBackupFileName
 ' Author    : Adam Waller
-' Date      : 11/21/2020
-' Purpose   : Merge the changed source files into the current database project.
-'           : Unlike a full build, this does not build the project from scratch.
+' Date      : 5/4/2020
+' Purpose   : Return an unused filename for the database backup befor build
 '---------------------------------------------------------------------------------------
+'
 Private Function GetBackupFileName(strPath As String) As String
     
     Const cstrSuffix As String = "_VCSBackup"
