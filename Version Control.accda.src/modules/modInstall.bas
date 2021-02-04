@@ -61,6 +61,7 @@ Public Function AutoRun() As Boolean
             "You did it! Add-in version " & AppVersion & " is now installed.", _
             "Please reopen any instances of Microsoft Access before using the add-in." & vbCrLf & _
             "This instance of Microsoft Access will now close.", vbInformation
+        DoCmd.Quit
 
     Else
         ' Could be running it from another location, such as after downloading
@@ -590,53 +591,57 @@ End Function
 Public Sub OpenAddinFile(strAddinFileName As String, _
                             strInstallerFileName As String)
 
-    Dim cOpenAddin As New clsConcat
     Dim strScriptFile As String
+    Dim strExt As String
     Dim lockFilePathAddin As String
-    Dim lockFilepathInstaller As String
+    Dim lockFilePathInstaller As String
     
-    Dim filedot As Integer
-    filedot = InStr(strInstallerFileName, ".")
-    lockFilepathInstaller = Left$(strInstallerFileName, filedot) & "laccdb"
-    filedot = InStr(strAddinFileName, ".")
-    lockFilePathAddin = Left$(strAddinFileName, filedot) & "laccdb"
-    strScriptFile = Left$(strAddinFileName, filedot) & "cmd"
+    ' Build file paths for lock files and batch script
+    strExt = "." & FSO.GetExtensionName(strInstallerFileName)
+    lockFilePathAddin = Replace(strAddinFileName, strExt, ".laccdb", , , vbTextCompare)
+    lockFilePathInstaller = Replace(strInstallerFileName, strExt, ".laccdb", , , vbTextCompare)
+    strScriptFile = Replace(strAddinFileName, strExt, ".cmd", , , vbTextCompare)
     
-    With cOpenAddin
+    ' Build batch script content
+    With New clsConcat
         .AppendOnAdd = vbCrLf
         .Add "@Echo Off"
         .Add "setlocal ENABLEDELAYEDEXPANSION"
-        .Add "REM Waiting for Addin file to copy over."
+        .Add "ECHO Waiting for Addin file to copy over..."
         .Add ":WAITFORADDIN"
         .Add "ping 127.0.0.1 -n 1 -w 100 > nul"
         .Add "SET /a counter+=1"
         .Add "IF !counter!==300 GOTO DONE"
         .Add "IF NOT EXIST """, strAddinFileName, """ GOTO WAITFORADDIN"
-        .Add "REM Waiting for Access to close."
+        .Add "ECHO Waiting for Access to close..."
         .Add "SET /a counter=0"
         .Add ":WAITCLOSEINSTALLER"
         .Add "ping 127.0.0.1 -n 1 -w 100 > nul"
         .Add "SET /a counter+=1"
         .Add "IF !counter!==30 GOTO WAITCLOSEADDIN"
-        .Add "IF EXIST """, lockFilepathInstaller, """ GOTO WAITCLOSEINSTALLER"
+        .Add "IF EXIST """, lockFilePathInstaller, """ GOTO WAITCLOSEINSTALLER"
         .Add ":WAITCLOSEADDIN"
         .Add "ping 127.0.0.1 -n 1 -w 100 > nul"
         .Add "SET /a counter=0"
         .Add "IF !counter!==10 GOTO MOVEON"
         .Add "IF EXIST """, lockFilePathAddin, """ GOTO WAITCLOSEADDIN"
         .Add ":OPENADDIN"
-        .Add "REM Opening Addin; this window will automatically close when complete."
+        .Add "ECHO Opening Add-in to finish installation..."
+        .Add "ECHO (This window will automatically close when complete.)"
         .Add """", strAddinFileName, """"
         .Add "GOTO DONE"
         .Add ":MOVEON"
         .Add "Del """, lockFilePathAddin, """"
-        .Add "Del """, lockFilepathInstaller, """"
+        .Add "Del """, lockFilePathInstaller, """"
         .Add "GOTO OPENADDIN"
         .Add ":DONE"
         .Add "Del """, strScriptFile, """"
+        
+        ' Write to file
+        WriteFile .GetStr, strScriptFile
     End With
     
-    WriteFile cOpenAddin.GetStr, strScriptFile
+    ' Execute script
     Shell strScriptFile, vbNormalFocus
 
 End Sub

@@ -17,10 +17,10 @@ Begin Form
     GridY =24
     DatasheetFontHeight =11
     ItemSuffix =39
-    Left =-25575
-    Top =1710
-    Right =-5925
-    Bottom =14295
+    Left =-18045
+    Top =2670
+    Right =-10845
+    Bottom =7515
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1603,12 +1603,10 @@ Private Sub cmdInstall_Click()
         VerifyTrustedLocation
     
         ' Relaunch from install folder to allow user to trust file.
-        If chkOpenAfterInstall Then
-            modInstall.OpenAddinFile GetAddinFileName, CodeProject.FullName
-        Else
-            ' Close the installer add-in file.
-            DoCmd.Quit
-        End If
+        If chkOpenAfterInstall Then modInstall.OpenAddinFile GetAddinFileName, CodeProject.FullName
+
+        ' Close the installer add-in file.
+        DoCmd.Quit
     End If
     
 End Sub
