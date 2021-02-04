@@ -2,6 +2,7 @@ Version =20
 VersionRequired =20
 Begin Form
     PopUp = NotDefault
+    Modal = NotDefault
     RecordSelectors = NotDefault
     AutoCenter = NotDefault
     NavigationButtons = NotDefault
@@ -194,11 +195,13 @@ Begin Form
                     ForeTint =100.0
                 End
                 Begin CommandButton
+                    TabStop = NotDefault
                     OverlapFlags =85
                     Left =4260
                     Top =1860
                     Width =2400
                     Height =780
+                    TabIndex =1
                     ForeColor =4210752
                     Name ="cmdInstall"
                     Caption ="   Install Add-In"
@@ -1334,10 +1337,11 @@ Begin Form
                     TabIndex =5
                 End
                 Begin CheckBox
+                    TabStop = NotDefault
                     OverlapFlags =85
                     Left =4440
                     Top =2970
-                    TabIndex =1
+                    TabIndex =2
                     BorderColor =10921638
                     Name ="chkAddTrustedLocation"
                     DefaultValue ="True"
@@ -1370,10 +1374,11 @@ Begin Form
                     End
                 End
                 Begin CheckBox
+                    TabStop = NotDefault
                     OverlapFlags =85
                     Left =4440
                     Top =3390
-                    TabIndex =2
+                    TabIndex =3
                     BorderColor =10921638
                     Name ="chkOpenAfterInstall"
                     DefaultValue ="False"
@@ -1407,12 +1412,13 @@ Begin Form
                 End
                 Begin CommandButton
                     FontUnderline = NotDefault
+                    TabStop = NotDefault
                     OverlapFlags =85
                     Left =4200
                     Top =3900
                     Width =2160
                     FontSize =9
-                    TabIndex =3
+                    TabIndex =4
                     ForeColor =16711680
                     Name ="cmdExplainOptions"
                     Caption ="Explain options..."
@@ -1513,7 +1519,6 @@ Begin Form
                     Top =120
                     Width =240
                     Height =180
-                    TabIndex =4
                     ForeColor =4210752
                     Name ="cmdCancel"
                     OnClick ="[Event Procedure]"
@@ -1556,7 +1561,8 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdHelp_Click()
-    Application.FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Installation"
+    Application.FollowHyperlink _
+        "https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Installation"
 End Sub
 
 
@@ -1582,20 +1588,26 @@ End Sub
 Private Sub cmdInstall_Click()
 
     ' Check trusted location
-    If chkAddTrustedLocation Then
-        If Not modInstall.HasTrustedLocationKey Then
-            If Not modInstall.VerifyTrustedLocation Then
-                ' show message.
-            End If
-        End If
-    End If
+    If chkAddTrustedLocation Then modInstall.VerifyTrustedLocation
     
     ' Main install
     If modInstall.InstallVCSAddin Then
     
+        ' Show success message
+        MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
+            "The installer will now close. Please restart any open instances" & vbCrLf & _
+            "of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
+                
+        ' Run post-install processes.
+        CheckForLegacyInstall
+        VerifyTrustedLocation
+    
         ' Relaunch from install folder to allow user to trust file.
         If chkOpenAfterInstall Then
             modInstall.OpenAddinFile GetAddinFileName, CodeProject.FullName
+        Else
+            ' Close the installer add-in file.
+            DoCmd.Quit
         End If
     End If
     

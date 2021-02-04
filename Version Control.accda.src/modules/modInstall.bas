@@ -72,92 +72,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : AutoRun
-' Author    : Adam Waller
-' Date      : 4/15/2020
-' Purpose   : This code runs when the add-in file is opened directly. It provides the
-'           : user an easy way to update the add-in on their system.
-'---------------------------------------------------------------------------------------
-'
-Public Function OriginalAutoRun() As Boolean
-
-    Dim strMsgBoxTitle As String
-    Dim strMsgBoxText As String
-    
-    Dim strThisFileName As String
-    Dim strAddinFileName As String
-
-Retry_Entry:
-    strThisFileName = CodeProject.FullName
-    strAddinFileName = GetAddinFileName
-
-    If strThisFileName = strAddinFileName Then
-        ' Opening the file from add-in location, which would normally be unusual unless we are trying to remove
-        ' legacy registry entries.
-        If IsUserAnAdmin = 1 Then RemoveLegacyInstall
-        
-        ' Adding a message box to here to autoclose the addin once the prompt is cleared.
-        ' This handles the last step of the install for users that just installed the file.
-        ' Since no code will run until the "Trust Document/Enable" is completed, this allows for the trust
-        ' process to complete then close itself (if desired).
-        
-        strMsgBoxTitle = "Trust Process and Install Complete!"
-        strMsgBoxText = "Addin Version " & AppVersion & " is now installed and trusted." & _
-                        "You must close all instances of Access to enable the Addin." & vbCrLf & vbCrLf & _
-                        "It's strongly reccomended you close this file and do not edit it."
-        If MsgBox2(strMsgBoxTitle, strMsgBoxText, "Click 'Yes' to close or 'No' to cancel.", vbQuestion + vbYesNo, strMsgBoxTitle) = vbYes Then
-            DoCmd.Quit
-        End If
-
-    Else
-        ' Could be running it from another location, such as after downloading
-        ' and updated version of the addin. In that case, we are either trying
-        ' to install it for the first time, or trying to upgrade it.
-        If IsAlreadyInstalled Then
-            If InstalledVersion <> AppVersion Then
-                strMsgBoxTitle = "Upgrade Version Control?"
-                strMsgBoxText = "Would you like to upgrade to addin version " & AppVersion & "?"
-            Else
-                strMsgBoxTitle = "Reinstall Version Control?"
-                strMsgBoxText = "Addin Version " & AppVersion & " is already installed, would you like to reinstall it?"
-            End If
-            
-        Else
-            ' Not yet installed. Offer to install.
-            strMsgBoxTitle = "Install Version Control?"
-            strMsgBoxText = "Would you like to install addin version " & AppVersion & "?"
-        End If
-
-        'Now prompt the user for the next action.
-        If MsgBox2(strMsgBoxTitle, strMsgBoxText, "Click 'Yes' to continue or 'No' to cancel.", _
-                    vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then GoTo InstallAddin
-    End If
-
-Exit_Here:
-    ' Go to visual basic editor
-    DoEvents
-    DoCmd.RunCommand acCmdVisualBasicEditor
-    DoEvents
-    OriginalAutoRun = True
-    Exit Function
-
-InstallAddin:
-    If InstallVCSAddin Then
-        MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
-            "Please restart any open instances of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
-        CheckForLegacyInstall
-        VerifyTrustedLocation
-        OpenAddinFile strAddinFileName, strThisFileName
-        DoCmd.Quit
-    
-    Else
-        GoTo Retry_Entry
-    End If
-
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : InstallVCSAddin
 ' Author    : Adam Waller
 ' Date      : 10/19/2020
@@ -192,15 +106,15 @@ Public Function InstallVCSAddin() As Boolean
     End If
     
     ' Copy the file, overwriting any existing file.
-    ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
+    ' Requires FSO to copy open database files. (VBA.FileCopy may give a permission denied error.)
     ' We also use FSO to force the deletion of the existing file, if found.
     On Error Resume Next
     If FSO.FileExists(strDest) Then DeleteFile strDest, True
     FSO.CopyFile strSource, strDest, True
     If Err Then
-        MsgBox2 "Unable to update file", _
+        MsgBox2 "Unable to Update File", _
             "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
-            "This is likely due to having the Addin loaded in another Access Project; close out of Access and reopen this file. " & _
+            "Is the Version Control Add-in loaded in another instance of Microsoft Access?" & vbCrLf & _
             "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
         Err.Clear
         On Error GoTo 0
@@ -307,8 +221,6 @@ Public Function IsAlreadyInstalled() As Boolean
 End Function
 
 
-
-
 '---------------------------------------------------------------------------------------
 ' Procedure : AddinLoaded
 ' Author    : Adam Waller
@@ -319,8 +231,6 @@ End Function
 Public Function AddinLoaded() As Boolean
     AddinLoaded = Not GetAddInProject Is Nothing
 End Function
-
-
 
 
 '---------------------------------------------------------------------------------------
@@ -476,7 +386,6 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Same_Version)
 End Sub
 
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : HasLegacyInstall
 ' Author    : Adam Waller
@@ -532,7 +441,6 @@ Private Sub RemoveLegacyInstall()
 End Sub
 
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : VerifyTrustedLocation
 ' Author    : Adam Waller
@@ -548,10 +456,7 @@ Public Function VerifyTrustedLocation() As Boolean
 
     Dim strPath As String
     Dim strTrusted As String
-    Dim strVal As String
-    Dim runOnce As Integer
-    'set first entry to nothing.
-    runOnce = 0
+
     ' Get registry path for trusted locations
     strPath = GetTrustedLocationRegPath
     strTrusted = FSO.GetParentFolderName(GetAddinFileName) & "\"
@@ -559,45 +464,49 @@ Public Function VerifyTrustedLocation() As Boolean
     ' Use Windows Scripting Shell to read/write to registry
     With New IWshRuntimeLibrary.WshShell
         
-Recheck_Entry:
         ' Check for existing value
-        If Not HasTrustedLocationKey Then
-            If runOnce = 0 Then
-            ' Get permission from user to add trusted location
-                If MsgBox2("Add as Trusted Location?", _
-                    strTrusted, _
-                    "In some environments the add-in location must be trusted to use" & vbCrLf & _
-                    "the Version Control add-in in Microsoft Access." & vbCrLf & vbCrLf & _
-                    "You need to close all instances of Access. " & vbCrLf & vbCrLf & _
-                    "Once added, the addin file will be opened so you can trust it to complete the process." & vbNewLine & vbNewLine & _
-                    " It is reccomended to only do this if the normal install did not work, first.", _
-                    vbQuestion + vbOKCancel + vbDefaultButton2) = vbOK Then
-                    
-                    ' Add trusted location
-                    .RegWrite strPath & "Path", strTrusted
-                    .RegWrite strPath & "Date", Now()
-                    .RegWrite strPath & "Description", mcstrTrustedLocationName
-                    .RegWrite strPath & "AllowSubfolders", 0, "REG_DWORD"
-                    runOnce = 1
-
-                    ' Verify it was actually set.
-                    GoTo Recheck_Entry
-                End If
-            ElseIf MsgBox2("Trusted location NOT added", _
-                    "The Version Control add-in may not function correctly.", _
-                    "Do you want to retry? Click YES to retry." _
-                    , vbExclamation + vbYesNo + vbDefaultButton2) = vbYes Then
-                'Reset runonce and try again.
-                runOnce = 0
-                GoTo Recheck_Entry
-            End If
-        Else
+        If HasTrustedLocationKey Then
+        
             ' Found trusted location with this name.
             VerifyTrustedLocation = True
+            
+        Else
+            ' Get permission from user to add trusted location
+            If MsgBox2("Add Trusted Location?", _
+                "To function correctly, this add-in needs to be ""trusted"" by Microsoft Access." & vbCrLf & _
+                "Typically this is accomplished by adding the AddIns folder as a trusted location" & vbCrLf & _
+                "in your security settings. More information is available on the GitHub wiki for" & vbCrLf & _
+                "this add-in project.", _
+                "<<PLEASE CONFIRM>> Add the following path as a trusted location?" & vbCrLf & vbCrLf & strTrusted _
+                , vbQuestion + vbOKCancel + vbDefaultButton2) = vbOK Then
+                
+                ' Add trusted location
+                .RegWrite strPath & "Path", strTrusted
+                .RegWrite strPath & "Date", Now()
+                .RegWrite strPath & "Description", mcstrTrustedLocationName
+                .RegWrite strPath & "AllowSubfolders", 0, "REG_DWORD"
+                
+                ' Verify it was actually set.
+                If HasTrustedLocationKey Then
+                    VerifyTrustedLocation = True
+                Else
+                    ' Could not find registry entry.
+                    MsgBox2 "Hmm... Something didn't work", _
+                        "The new trusted location entry was not found in the registry.", _
+                        "Please open an issue on GitHub if the issue persists.", vbExclamation
+                End If
+            
+            Else
+                MsgBox2 "Location NOT Added", _
+                    "No problem. You can always run the installer again" & vbCrLf & _
+                    "if you change your mind.", _
+                    "Note that the add-in may not function correctly.", vbInformation
+            End If
         End If
     End With
     
 End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RemoveTrustedLocation
@@ -609,7 +518,6 @@ End Function
 Public Sub RemoveTrustedLocation()
 
     Dim strPath As String
-    Dim strVal As String
     
     ' Get registry path for trusted locations
     strPath = GetTrustedLocationRegPath
@@ -623,6 +531,14 @@ Public Sub RemoveTrustedLocation()
         .RegDelete strPath
         On Error GoTo 0
     End With
+    
+    ' Make sure it was removed
+    If HasTrustedLocationKey Then
+        MsgBox2 "Error Removing Trusted Location", _
+            "You may need to manually remove the trusted location" & vbCrLf & _
+            "in the Microsoft Access Security settings.", _
+            "Please open an issue on GitHub if the issue persists.", vbExclamation
+    End If
     
 End Sub
 
