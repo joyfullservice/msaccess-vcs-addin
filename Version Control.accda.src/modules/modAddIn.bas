@@ -768,40 +768,47 @@ Public Function VerifyTrustedLocation() As Boolean
     Dim strPath As String
     Dim strTrusted As String
     Dim strVal As String
-    
+    Dim runOnce as Integer
+    'set first entry to nothing.
+    runOnce = 0    
     ' Get registry path for trusted locations
     strPath = GetTrustedLocationRegPath
     strTrusted = FSO.GetParentFolderName(GetAddinFileName) & "\"
-    
+
     ' Use Windows Scripting Shell to read/write to registry
     With New IWshRuntimeLibrary.WshShell
         
+Recheck_Entry:
         ' Check for existing value
         If Not HasTrustedLocationKey Then
-        
+            If runOnce = 0 Then
             ' Get permission from user to add trusted location
-            If MsgBox2("Add as Trusted Location?", _
-                strTrusted, _
-                "In some environments the add-in location must be trusted to use" & vbCrLf & _
-                "the Version Control add-in in Microsoft Access." & vbCrLf & vbCrLf & _
-                "You need to close all instances of Access. " & vbCrLf & vbCrLf & _
-                "Once added, the addin file will be opened so you can trust it to complete the process." & vbNewLine & vbNewLine & _ 
-                " It is reccomended to only do this if the normal install did not work, first.", _
-                vbQuestion + vbOKCancel + vbDefaultButton2) = vbOK Then
-                
-                ' Add trusted location
-                .RegWrite strPath & "Path", strTrusted
-                .RegWrite strPath & "Date", Now()
-                .RegWrite strPath & "Description", mcstrTrustedLocationName
-                .RegWrite strPath & "AllowSubfolders", 0, "REG_DWORD"
+                If MsgBox2("Add as Trusted Location?", _
+                    strTrusted, _
+                    "In some environments the add-in location must be trusted to use" & vbCrLf & _
+                    "the Version Control add-in in Microsoft Access." & vbCrLf & vbCrLf & _
+                    "You need to close all instances of Access. " & vbCrLf & vbCrLf & _
+                    "Once added, the addin file will be opened so you can trust it to complete the process." & vbNewLine & vbNewLine & _ 
+                    " It is reccomended to only do this if the normal install did not work, first.", _
+                    vbQuestion + vbOKCancel + vbDefaultButton2) = vbOK Then
+                    
+                    ' Add trusted location
+                    .RegWrite strPath & "Path", strTrusted
+                    .RegWrite strPath & "Date", Now()
+                    .RegWrite strPath & "Description", mcstrTrustedLocationName
+                    .RegWrite strPath & "AllowSubfolders", 0, "REG_DWORD"
+                    runOnce = 1
 
-                ' Return true
-                VerifyTrustedLocation = True
-            Else
-                MsgBox2 "Trusted location NOT added", _
+                    ' Verify it was actually set.
+                    GoTo Recheck_Entry
+                End If
+            ElseIf MsgBox2("Trusted location NOT added", _
                     "The Version Control add-in may not function correctly.", _
-                    "Please run the command again if you would like to add the trusted location." _
-                    , vbExclamation
+                    "Do you want to retry? Click YES to retry." _
+                    , vbExclamation + vbYesNo + vbDefaultButton2) = vbYes Then
+                'Reset runonce and try again.
+                runOnce = 0
+                GoTo Recheck_Entry
             End If
         Else
             ' Found trusted location with this name.
