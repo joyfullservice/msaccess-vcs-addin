@@ -80,11 +80,32 @@ End Function
 Public Function AutoRun() As Boolean
     Dim strMsgBoxTitle As String
     Dim strMsgBoxText As String
+    
+    Dim strThisFileName As String
+    Dim strAddinFileName As String
 
-    If CodeProject.FullName = GetAddinFileName Then
+Retry_Entry:
+    strThisFileName = CodeProject.FullName
+    strAddinFileName = GetAddinFileName
+
+    If strThisFileName = strAddinFileName Then
         ' Opening the file from add-in location, which would normally be unusual unless we are trying to remove
         ' legacy registry entries.
         If IsUserAnAdmin = 1 Then RemoveLegacyInstall
+        
+        ' Adding a message box to here to autoclose the addin once the prompt is cleared.
+        ' This handles the last step of the install for users that just installed the file.
+        ' Since no code will run until the "Trust Document/Enable" is completed, this allows for the trust
+        ' process to complete then close itself (if desired).
+        
+        strMsgBoxTitle = "Trust Process and Install Complete!"
+        strMsgBoxText = "Addin Version " & AppVersion & " is now installed and trusted." & _
+                        "You must close all instances of Access to enable the Addin." & vbCrLf & vbCrLf & _
+                        "It's strongly reccomended you close this file and do not edit it."
+        If MsgBox2(strMsgBoxTitle, strMsgBoxText, "Click 'Yes' to close or 'No' to cancel.", vbQuestion + vbYesNo, strMsgBoxTitle) = vbYes Then
+            DoCmd.Quit
+        End If
+
     Else
         ' Could be running it from another location, such as after downloading
         ' and updated version of the addin. In that case, we are either trying
@@ -92,42 +113,43 @@ Public Function AutoRun() As Boolean
         If IsAlreadyInstalled Then
             If InstalledVersion <> AppVersion Then
                 strMsgBoxTitle = "Upgrade Version Control?"
-                strMsgBoxText = "Would you like to upgrade to version " & AppVersion & "?"
+                strMsgBoxText = "Would you like to upgrade to addin version " & AppVersion & "?"
             Else
                 strMsgBoxTitle = "Reinstall Version Control?"
-                strMsgBoxText = "Version " & AppVersion & " is already installed, would you like to reinstall it?"
+                strMsgBoxText = "Addin Version " & AppVersion & " is already installed, would you like to reinstall it?"
             End If
             
-            If MsgBox2(strMsgBoxTitle, strMsgBoxText, "Click 'Yes' to continue or 'No' to cancel.", vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then
-                If InstallVCSAddin Then
-                    MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
-                        "Please restart any open instances of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
-                    CheckForLegacyInstall
-                    DoCmd.Quit
-                End If
-            Else
-                ' Go to visual basic editor
-                DoEvents
-                DoCmd.RunCommand acCmdVisualBasicEditor
-                DoEvents
-            End If
         Else
             ' Not yet installed. Offer to install.
-            If MsgBox2("Install Version Control?", _
-                "Would you like to install version " & AppVersion & "?", _
-                "Click 'Yes' to continue or 'No' to cancel.", vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then
-                
-                If InstallVCSAddin Then
-                    MsgBox2 "Success!", "Version Control System has now been installed.", _
-                        "You may begin using this tool after reopening Microsoft Access", vbInformation, "Version Control Add-in"
-                    CheckForLegacyInstall
-                End If
-                
-                DoCmd.Quit
-            End If
+            strMsgBoxTitle = "Install Version Control?"
+            strMsgBoxText = "Would you like to install addin version " & AppVersion & "?"
         End If
+
+        'Now prompt the user for the next action.
+        If MsgBox2(strMsgBoxTitle, strMsgBoxText, "Click 'Yes' to continue or 'No' to cancel.", _
+                    vbQuestion + vbYesNo, "Version Control Add-in") = vbYes Then GoTo InstallAddin
     End If
+
+Exit_Here:
+    ' Go to visual basic editor
+    DoEvents
+    DoCmd.RunCommand acCmdVisualBasicEditor
+    DoEvents
     AutoRun = True
+    Exit Function
+
+InstallAddin:
+    If InstallVCSAddin Then
+        MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
+            "Please restart any open instances of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
+        CheckForLegacyInstall
+        VerifyTrustedLocation
+        OpenAddinFile strAddinFileName, strThisFileName
+        DoCmd.Quit
+    
+    Else
+        GoTo Retry_Entry
+    End If
 
 End Function
 
@@ -337,6 +359,7 @@ Private Function InstallVCSAddin() As Boolean
     If Err Then
         MsgBox2 "Unable to update file", _
             "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
+            "This is likely due to having the Addin loaded in another Access Project; close out of Access and reopen this file. " & _
             "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
         Err.Clear
         On Error GoTo 0
@@ -745,37 +768,47 @@ Public Function VerifyTrustedLocation() As Boolean
     Dim strPath As String
     Dim strTrusted As String
     Dim strVal As String
-    
+    Dim runOnce as Integer
+    'set first entry to nothing.
+    runOnce = 0    
     ' Get registry path for trusted locations
     strPath = GetTrustedLocationRegPath
     strTrusted = FSO.GetParentFolderName(GetAddinFileName) & "\"
-    
+
     ' Use Windows Scripting Shell to read/write to registry
     With New IWshRuntimeLibrary.WshShell
         
+Recheck_Entry:
         ' Check for existing value
         If Not HasTrustedLocationKey Then
-        
+            If runOnce = 0 Then
             ' Get permission from user to add trusted location
-            If MsgBox2("Add as Trusted Location?", _
-                strTrusted, _
-                "In some environments the add-in location must be trusted to use" & vbCrLf & _
-                "the Version Control add-in in Microsoft Access.", _
-                vbQuestion + vbOKCancel) = vbOK Then
-                
-                ' Add trusted location
-                .RegWrite strPath & "Path", strTrusted
-                .RegWrite strPath & "Date", Now()
-                .RegWrite strPath & "Description", mcstrTrustedLocationName
-                .RegWrite strPath & "AllowSubfolders", 0, "REG_DWORD"
-                
-                ' Return true
-                VerifyTrustedLocation = True
-            Else
-                MsgBox2 "Trusted location NOT added", _
+                If MsgBox2("Add as Trusted Location?", _
+                    strTrusted, _
+                    "In some environments the add-in location must be trusted to use" & vbCrLf & _
+                    "the Version Control add-in in Microsoft Access." & vbCrLf & vbCrLf & _
+                    "You need to close all instances of Access. " & vbCrLf & vbCrLf & _
+                    "Once added, the addin file will be opened so you can trust it to complete the process." & vbNewLine & vbNewLine & _ 
+                    " It is reccomended to only do this if the normal install did not work, first.", _
+                    vbQuestion + vbOKCancel + vbDefaultButton2) = vbOK Then
+                    
+                    ' Add trusted location
+                    .RegWrite strPath & "Path", strTrusted
+                    .RegWrite strPath & "Date", Now()
+                    .RegWrite strPath & "Description", mcstrTrustedLocationName
+                    .RegWrite strPath & "AllowSubfolders", 0, "REG_DWORD"
+                    runOnce = 1
+
+                    ' Verify it was actually set.
+                    GoTo Recheck_Entry
+                End If
+            ElseIf MsgBox2("Trusted location NOT added", _
                     "The Version Control add-in may not function correctly.", _
-                    "Please run the command again if you would like to add the trusted location." _
-                    , vbExclamation
+                    "Do you want to retry? Click YES to retry." _
+                    , vbExclamation + vbYesNo + vbDefaultButton2) = vbYes Then
+                'Reset runonce and try again.
+                runOnce = 0
+                GoTo Recheck_Entry
             End If
         Else
             ' Found trusted location with this name.
@@ -784,7 +817,6 @@ Public Function VerifyTrustedLocation() As Boolean
     End With
     
 End Function
-
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RemoveTrustedLocation
@@ -840,3 +872,74 @@ Private Function HasTrustedLocationKey() As Boolean
         HasTrustedLocationKey = Nz(.RegRead(GetTrustedLocationRegPath & "Path")) <> vbNullString
     End With
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OpenAddinFile
+' Author    : hecon5
+' Date      : 1/15/2021
+' Purpose   : runs a script to complete the addin trusting process. Once a trusted
+'           : location is set, the file needs to be opened to trust it in many
+'           : Corporate / Government environments due to security concerns.
+'           : This will complete the process without the user needing to know
+'           : where the file resides.
+'           : It waits for two files to close (the "installer" and the "addin".
+'           : This should hopefully ensure Access was closed prior to relaunch and
+'           : significantly reduces instance of the application
+'           : The subroutine is private because if you have called the addin from
+'           : somewhere (aka, you're not installing it), opening the same file twice
+'           : will cause headaches and likely corrupt the file.
+'---------------------------------------------------------------------------------------
+Private Sub OpenAddinFile(strAddinFileName As String, _
+                            strInstallerFileName As String)
+
+    Dim cOpenAddin As New clsConcat
+    Dim strScriptFile As String
+    Dim lockFilePathAddin As String
+    Dim lockFilepathInstaller As String
+    
+    Dim filedot As Integer
+    filedot = InStr(strInstallerFileName, ".")
+    lockFilepathInstaller = Left$(strInstallerFileName, filedot) & "laccdb"
+    filedot = InStr(strAddinFileName, ".")
+    lockFilePathAddin = Left$(strAddinFileName, filedot) & "laccdb"
+    strScriptFile = Left$(strAddinFileName, filedot) & "cmd"
+    
+    With cOpenAddin
+        .AppendOnAdd = vbCrLf
+        .Add "@Echo Off"
+        .Add "setlocal ENABLEDELAYEDEXPANSION"
+        .Add "REM Waiting for Addin file to copy over."
+        .Add ":WAITFORADDIN"
+        .Add "ping 127.0.0.1 -n 1 -w 100 > nul"
+        .Add "SET /a counter+=1"
+        .Add "IF !counter!==300 GOTO DONE"
+        .Add "IF NOT EXIST """, strAddinFileName, """ GOTO WAITFORADDIN"
+        .Add "REM Waiting for Access to close."
+        .Add "SET /a counter=0"
+        .Add ":WAITCLOSEINSTALLER"
+        .Add "ping 127.0.0.1 -n 1 -w 100 > nul"
+        .Add "SET /a counter+=1"
+        .Add "IF !counter!==30 GOTO WAITCLOSEADDIN"
+        .Add "IF EXIST """, lockFilepathInstaller, """ GOTO WAITCLOSEINSTALLER"
+        .Add ":WAITCLOSEADDIN"
+        .Add "ping 127.0.0.1 -n 1 -w 100 > nul"
+        .Add "SET /a counter=0"
+        .Add "IF !counter!==10 GOTO MOVEON"
+        .Add "IF EXIST """, lockFilePathAddin, """ GOTO WAITCLOSEADDIN"
+        .Add ":OPENADDIN"
+        .Add "REM Opening Addin; this window will automatically close when complete."
+        .Add """", strAddinFileName, """"
+        .Add "GOTO DONE"
+        .Add ":MOVEON"
+        .Add "Del """, lockFilePathAddin, """"
+        .Add "Del """, lockFilepathInstaller, """"
+        .Add "GOTO OPENADDIN"
+        .Add ":DONE"
+        .Add "Del """, strScriptFile, """"
+    End With
+    
+    WriteFile cOpenAddin.GetStr, strScriptFile
+    Shell strScriptFile, vbNormalFocus
+
+End Sub
