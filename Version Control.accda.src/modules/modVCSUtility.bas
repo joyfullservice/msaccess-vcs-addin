@@ -177,7 +177,7 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
         Case acModule '(ANSI text file)
             ' Modules may contain extended characters that need UTF-8 conversion
             ' to display correctly in some editors.
-            If StringHasUnicode(ReadFile(strTempFile)) Then
+            If StringHasUnicode(ReadFile(strTempFile, "_autodetect_all")) Then
                 ' Convert to UTF-8 BOM
                 ConvertAnsiUtf8 strTempFile, strFile
             Else
@@ -257,8 +257,9 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
         Case acForm, acReport, acQuery, acMacro, acTableDataMacro
             blnConvert = RequiresUcs2
         Case acModule
-            ' May need conversion back to ANSI. Check for BOM
-            blnConvert = HasUtf8Bom(strSourceFile)
+            ' Always convert from UTF-8 in case the file contains
+            ' UTF-8 encoded characters but does not have a BOM.
+            blnConvert = True
     End Select
     
     ' Only run conversion if needed.
