@@ -257,8 +257,9 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
         Case acForm, acReport, acQuery, acMacro, acTableDataMacro
             blnConvert = RequiresUcs2
         Case acModule
-            ' May need conversion back to ANSI. Check for BOM
-            blnConvert = HasUtf8Bom(strSourceFile)
+            ' Always convert from UTF-8 in case the file contains
+            ' UTF-8 encoded characters but does not have a BOM.
+            blnConvert = True
     End Select
     
     ' Only run conversion if needed.
