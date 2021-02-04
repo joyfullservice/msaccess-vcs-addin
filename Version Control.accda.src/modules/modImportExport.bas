@@ -16,7 +16,7 @@ Private Const moduleName As String = "modImportExport:"
 ' Purpose   : Export source files from the currently open database.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportSource()
+Public Sub ExportSource(blnFullExport As Boolean)
     On Error Resume Next
     Dim FunctionName as String
     FunctionName = moduleName & "ExportSource:"
@@ -24,7 +24,6 @@ Public Sub ExportSource()
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
     Dim sngStart As Single
-    Dim blnFullExport As Boolean
     Dim lngCount As Long
 
     ' Can't export without an open database
@@ -93,7 +92,7 @@ Public Sub ExportSource()
         cCategory.ClearOrphanedSourceFiles
             
         ' Only show category details when it contains objects
-        lngCount = cCategory.Count(Options.UseFastSave)
+        lngCount = cCategory.Count(Not blnFullExport)
         If lngCount = 0 Then
             Log.Spacer Options.ShowDebug
             Log.Add "No " & LCase(cCategory.Category) & " found in this database.", Options.ShowDebug
@@ -105,7 +104,7 @@ Public Sub ExportSource()
             Perf.ComponentStart cCategory.Category
 
             ' Loop through each object in this category.
-            For Each cDbObject In cCategory.GetAllFromDB(Options.UseFastSave)
+            For Each cDbObject In cCategory.GetAllFromDB(Not blnFullExport)
                 
                 ' Export object
                 Log.Increment
@@ -161,7 +160,7 @@ Public Sub ExportSource()
     
     ' Save index file
     VCSIndex.ExportDate = Now
-    If Not Options.UseFastSave Then VCSIndex.FullExportDate = Now
+    If blnFullExport Then VCSIndex.FullExportDate = Now
     VCSIndex.Save
 
 CleanUp:

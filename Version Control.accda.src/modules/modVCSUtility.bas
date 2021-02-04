@@ -164,15 +164,27 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
                 End If
             End With
             ' Sanitizing converts to UTF-8
-            If FSO.FileExists(strFile) Then DeleteFile (strFile)
+            If FSO.FileExists(strFile) Then DeleteFile strFile
             SanitizeFile strTempFile
             FSO.MoveFile strTempFile, strFile
     
         Case acQuery, acMacro
             ' Sanitizing converts to UTF-8
-            If FSO.FileExists(strFile) Then DeleteFile (strFile)
+            If FSO.FileExists(strFile) Then DeleteFile strFile
             SanitizeFile strTempFile
             FSO.MoveFile strTempFile, strFile
+            
+        Case acModule '(ANSI text file)
+            ' Modules may contain extended characters that need UTF-8 conversion
+            ' to display correctly in some editors.
+            If StringHasUnicode(ReadFile(strTempFile)) Then
+                ' Convert to UTF-8 BOM
+                ConvertAnsiUtf8 strTempFile, strFile
+            Else
+                ' Leave as ANSI
+                If FSO.FileExists(strFile) Then DeleteFile strFile
+                FSO.MoveFile strTempFile, strFile
+            End If
             
         Case Else
             ' Handle UCS conversion if needed
@@ -244,13 +256,22 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
     Select Case intType
         Case acForm, acReport, acQuery, acMacro, acTableDataMacro
             blnConvert = RequiresUcs2
+        Case acModule
+            ' May need conversion back to ANSI. Check for BOM
+            blnConvert = HasUtf8Bom(strSourceFile)
     End Select
     
     ' Only run conversion if needed.
     If blnConvert Then
         ' Perform file conversion, and import from temp file.
         strTempFile = GetTempFile
-        ConvertUtf8Ucs2 strSourceFile, strTempFile, False
+        If intType = acModule Then
+            ' Convert back to ANSI for VBA modules
+            ConvertUtf8Ansi strSourceFile, strTempFile, False
+        Else
+            ' Other objects converted to UCS2
+            ConvertUtf8Ucs2 strSourceFile, strTempFile, False
+        End If
         Perf.OperationStart "App.LoadFromText()"
         Application.LoadFromText intType, strName, strTempFile
         Perf.OperationEnd

@@ -1962,7 +1962,7 @@ Public Sub cmdExport_Click()
     SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
     
     ' Export the source code
-    modImportExport.ExportSource
+    modImportExport.ExportSource chkFullExport
     ' Turn on scroll bars in case the user wants to scroll back through the log.
     txtLog.ScrollBars = 2
     Log.Flush

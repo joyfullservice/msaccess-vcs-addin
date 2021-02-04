@@ -262,7 +262,7 @@ Public Function ExampleLoadAddInAndRunExport()
             "and is functioning correctly. (It should be available in the Add-ins menu.)", vbExclamation
     Else
         ' Launch add-in export for current database.
-        Application.Run "MSAccessVCS.ExportSource"
+        Application.Run "MSAccessVCS.ExportSource", True
     End If
     
 End Function

@@ -220,6 +220,52 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ConvertAnsiiUtf8
+' Author    : Adam Waller
+' Date      : 2/3/2021
+' Purpose   : Convert an ANSI encoded file to UTF-8. This allows extended characters
+'           : to properly display in diffs and other programs. See issue #154
+'---------------------------------------------------------------------------------------
+'
+Public Sub ConvertAnsiUtf8(strSourceFile As String, strDestinationFile As String, _
+    Optional blnDeleteSourceFileAfterConversion As Boolean = True)
+    
+    ' Convert the ANSI content to UTF-8, and write to a new file.
+    ' (Adds UTF-8 BOM if extended characters are used.)
+    WriteFile ReadFile(strSourceFile, "_autodetect_all"), strDestinationFile
+    If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ConvertUtf8Ansii
+' Author    : Adam Waller
+' Date      : 2/3/2021
+' Purpose   : Convert a UTF-8 file back to ANSI.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ConvertUtf8Ansi(strSourceFile As String, strDestinationFile As String, _
+    Optional blnDeleteSourceFileAfterConversion As Boolean = True)
+    
+    ' Perform file conversion
+    Perf.OperationStart "ANSI Conversion"
+    With New ADODB.Stream
+        .Charset = "_autodetect_all"
+        .Open
+        .WriteText ReadFile(strSourceFile)
+        .SaveToFile strDestinationFile, adSaveCreateOverWrite
+        .Close
+    End With
+    Perf.OperationEnd
+    
+    ' Remove original file if specified.
+    If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : HasUtf8Bom
 ' Author    : Adam Waller
 ' Date      : 7/30/2020
