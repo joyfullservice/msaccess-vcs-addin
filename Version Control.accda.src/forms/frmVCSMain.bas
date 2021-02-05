@@ -1945,7 +1945,7 @@ End Sub
 ' Purpose   : Export source code from current database
 '---------------------------------------------------------------------------------------
 '
-Public Sub cmdExport_Click()
+Private Sub cmdExport_Click()
     
     cmdClose.SetFocus
     HideActionButtons
@@ -2038,7 +2038,29 @@ Private Sub Form_Load()
     ' You can only export if you have a database open.
     cmdExport.Enabled = DatabaseOpen
     chkFullExport.Enabled = DatabaseOpen
-    
+    HandleCmd
+End Sub
+
+Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = erlVCSOpen)
+    Select Case RibbonCmdIn
+        Case erlVCSOpen
+            Me.Visible = True
+            'PlaceHolder; do nothing.
+        Case erlVCSOptions
+            'Open Settings
+            Me.Visible = True
+            cmdOptions_Click
+        Case erlExportAllRibbon
+            'Start export, then close if no errors.
+            Me.Visible = True
+            cmdExport_Click
+            If Log.ErrorLevel = eelNoError Then cmdClose_Click
+        Case Else
+            'default to export and close if no errors.
+            Me.Visible = True
+            cmdExport_Click
+            If Log.ErrorLevel = eelNoError Then cmdClose_Click
+    End Select
 End Sub
 
 

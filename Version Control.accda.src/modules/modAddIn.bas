@@ -15,6 +15,33 @@ Public Enum eReleaseType
     Same_Version = 3
 End Enum
 
+Public Enum eRibbonLaunch
+    
+    erlVCSOpen
+    erlVCSOptions
+
+    erlExportAllRibbon
+    erlExportFormsReportsRibbon
+    erlExportFormsRibbon
+    erlExportReportsRibbon
+    erlExportModulesMacros
+    erlExportTablesQuerie
+    erlExportTables
+    erlExportQueries
+End Enum
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddInLaunch
+' Author    : hecon5
+' Date      : 2/05/2020
+' Purpose   : Launch the main add-in form.
+'---------------------------------------------------------------------------------------
+'
+Private Function AddInLaunch(RibbonCmdIn as Long) As Boolean
+    PreloadVBE
+    Form_frmVCSMain.HandleCmd RibbonCmdIn
+    AddInLaunch = True
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : AddInMenuItemLaunch
@@ -24,9 +51,21 @@ End Enum
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemLaunch() As Boolean
-    PreloadVBE
-    Form_frmVCSMain.Visible = True
+    AddInLaunch erlVCSOpen
     AddInMenuItemLaunch = True
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddInOptionsLaunch
+' Author    : Hecon5
+' Date      : 2/05/2020
+' Purpose   : Launch the main add-in form.
+'---------------------------------------------------------------------------------------
+'
+Public Function AddInOptionsLaunch() As Boolean
+    AddInLaunch erlVCSOptions
+    AddInOptionsLaunch = True
 End Function
 
 
@@ -38,10 +77,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemExport() As Boolean
-    PreloadVBE
-    Form_frmVCSMain.Visible = True
-    DoEvents
-    Form_frmVCSMain.cmdExport_Click
+    AddInLaunch erlExportAllRibbon
     AddInMenuItemExport = True
 End Function
 

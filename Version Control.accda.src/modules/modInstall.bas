@@ -122,9 +122,11 @@ Public Function InstallVCSAddin() As Boolean
         On Error GoTo 0
     Else
         On Error GoTo 0
+
         ' Register the Menu controls
-        RegisterMenuItem "&Version Control", "=AddInMenuItemLaunch()"
-        RegisterMenuItem "&Export All Source", "=AddInMenuItemExport()"
+        RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
+        RegisterMenuItem "&VCS Options", "=AddInOptionsLaunch()"
+        RegisterMenuItem "&VCS Export All Source", "=AddInMenuItemExport()"
         ' Update installed version number
         InstalledVersion = AppVersion
         ' Return success
@@ -162,7 +164,13 @@ Public Function UninstallVCSAddin() As Boolean
     Else
         ' Remove the add-in Menu controls
         RemoveMenuItem "&Version Control"
+        RemoveMenuItem "&Version Control Options"
         RemoveMenuItem "&Export All Source"
+
+        RemoveMenuItem "&VCS Open"
+        RemoveMenuItem "&VCS Options"
+        RemoveMenuItem "&VCS Export All Source"
+
         ' Update installed version number
         InstalledVersion = 0
         ' Remove trusted location added by this add-in. (if found)
@@ -389,9 +397,9 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : CheckForLegacyInstall
+' Procedure : HasLegacyInstall
 ' Author    : Adam Waller
-' Date      : 2/5/2021
+' Date      : 5/27/2020
 ' Purpose   : Returns true if legacy registry entries are found.
 '---------------------------------------------------------------------------------------
 '
@@ -403,6 +411,11 @@ Public Sub CheckForLegacyInstall()
     Dim strTest As String
     Dim objShell As IWshRuntimeLibrary.WshShell
     
+    ' Remove any Legacy Menu controls
+    RemoveMenuItem "&Version Control"
+    RemoveMenuItem "&Version Control Options"
+    RemoveMenuItem "&Export All Source"
+
     ' Legacy HKLM install
     If InstalledVersion < "3.2.0" Then
         ' Check for installation in HKLM hive.
@@ -444,7 +457,7 @@ Public Sub CheckForLegacyInstall()
                 ' Move settings to new location
                 VerifyPath strNewPath
                 FSO.MoveFile strOldPath, strNewPath
-            End If
+    End If
         End If
         
         ' Register the Menu controls
@@ -588,8 +601,8 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 1/12/2021
 ' Purpose   : Return the trusted location registry path. (Added to trusted locations)
-'           : Defaults to current name of trusted location.
 '---------------------------------------------------------------------------------------
+'
 '
 Private Function GetTrustedLocationRegPath(Optional ByVal strName As String) As String
 
