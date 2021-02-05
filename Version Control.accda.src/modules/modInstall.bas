@@ -30,7 +30,7 @@ Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExec
 Private Const SW_SHOWNORMAL = 1
 
 ' Used to add a trusted location for the add-in path (when necessary)
-Private Const mcstrTrustedLocationName = "Office Add-ins"
+Private Const mcstrTrustedLocationName = "MSAccessVCS Version Control"
 
 
 '---------------------------------------------------------------------------------------
@@ -89,6 +89,7 @@ Public Function InstallVCSAddin() As Boolean
     
     strSource = CodeProject.FullName
     strDest = GetAddinFileName
+    VerifyPath strDest
     
     ' We can't replace a file with itself.  :-)
     If strSource = strDest Then Exit Function
@@ -161,7 +162,7 @@ Public Function UninstallVCSAddin() As Boolean
             "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
         Err.Clear
     Else
-        ' Remove the Menu controls
+        ' Remove the add-in Menu controls
         RemoveMenuItem "&Version Control"
         RemoveMenuItem "&Version Control Options"
         RemoveMenuItem "&Export All Source"
@@ -189,7 +190,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetAddinFileName() As String
-    GetAddinFileName = Environ$("AppData") & "\Microsoft\AddIns\" & CodeProject.Name
+    GetAddinFileName = Environ$("AppData") & "\MSAccessVCS\" & CodeProject.Name
 End Function
 
 
@@ -404,7 +405,9 @@ End Sub
 '
 Public Sub CheckForLegacyInstall()
     
-    Dim strPath As String
+    Dim strName As String
+    Dim strOldPath As String
+    Dim strNewPath As String
     Dim strTest As String
     Dim objShell As IWshRuntimeLibrary.WshShell
     
@@ -413,11 +416,12 @@ Public Sub CheckForLegacyInstall()
     RemoveMenuItem "&Version Control Options"
     RemoveMenuItem "&Export All Source"
 
-    If InstalledVersion < "3.2.0" Then
-        strPath = GetAddinRegPath(ehHKLM) & "&Version Control\Library"
+    ' Legacy HKLM install    If InstalledVersion < "3.2.0" Then
+        ' Check for installation in HKLM hive.
+        strOldPath = GetAddinRegPath(ehHKLM) & "&Version Control\Library"
         Set objShell = New IWshRuntimeLibrary.WshShell
         On Error Resume Next
-        strTest = objShell.RegRead(strPath)
+        strTest = objShell.RegRead(strOldPath)
         If Err Then Err.Clear
         On Error GoTo 0
         If strTest <> vbNullString Then
@@ -430,7 +434,41 @@ Public Sub CheckForLegacyInstall()
                 RelaunchAsAdmin
             End If
         End If
+    
+    ' Install in Microsoft\AddIns\ folder
+    ElseIf InstalledVersion < "3.3.0" Then
+        
+        ' Check for install in AddIns folder (before we used the dedicated install folder)
+        strOldPath = Environ$("AppData") & "\Microsoft\AddIns\" & CodeProject.Name
+        
+        ' Remove add-in from legacy location
+        If FSO.FileExists(strOldPath) Then DeleteFile strOldPath
+        
+        ' Migrate settings json file to new location
+        strOldPath = Replace(strOldPath, ".accda", ".json", , , vbTextCompare)
+        If FSO.FileExists(strOldPath) Then
+            ' Check for settings file in new location
+            strNewPath = Replace(GetAddinFileName, ".accda", ".json", , , vbTextCompare)
+            If FSO.FileExists(strNewPath) Then
+                ' Leave new settings file, and delete old one.
+                DeleteFile strOldPath
+            Else
+                ' Move settings to new location
+                VerifyPath strNewPath
+                FSO.MoveFile strOldPath, strNewPath
     End If
+        End If
+        
+        ' Register the Menu controls
+        RemoveMenuItem "&Version Control"
+        RemoveMenuItem "&Export All Source"
+        
+        ' Remove custom trusted location for Office AddIns folder.
+        strName = "Office Add-ins"
+        If HasTrustedLocationKey(strName) Then RemoveTrustedLocation strName
+        
+    End If
+    
 End Sub
 
 
@@ -488,7 +526,7 @@ Public Function VerifyTrustedLocation() As Boolean
             ' Get permission from user to add trusted location
             If MsgBox2("Add Trusted Location?", _
                 "To function correctly, this add-in needs to be ""trusted"" by Microsoft Access." & vbCrLf & _
-                "Typically this is accomplished by adding the AddIns folder as a trusted location" & vbCrLf & _
+                "Typically this is accomplished by adding the add-in folder as a trusted location" & vbCrLf & _
                 "in your security settings. More information is available on the GitHub wiki for" & vbCrLf & _
                 "this add-in project.", _
                 "<<PLEASE CONFIRM>> Add the following path as a trusted location?" & vbCrLf & vbCrLf & strTrusted _
@@ -529,12 +567,12 @@ End Function
 ' Purpose   : Remove trusted location entry.
 '---------------------------------------------------------------------------------------
 '
-Public Sub RemoveTrustedLocation()
+Public Sub RemoveTrustedLocation(Optional strName As String)
 
     Dim strPath As String
     
     ' Get registry path for trusted locations
-    strPath = GetTrustedLocationRegPath
+    strPath = GetTrustedLocationRegPath(strName)
     
     With New IWshRuntimeLibrary.WshShell
         On Error Resume Next
@@ -564,9 +602,16 @@ End Sub
 ' Purpose   : Return the trusted location registry path. (Added to trusted locations)
 '---------------------------------------------------------------------------------------
 '
-Private Function GetTrustedLocationRegPath() As String
+'
+Private Function GetTrustedLocationRegPath(Optional ByVal strName As String) As String
+
+    ' If no (other) name was specified, default to the standard one.
+    If strName = vbNullString Then strName = mcstrTrustedLocationName
+    
+    ' Return the full registry path to the trusted location
     GetTrustedLocationRegPath = "HKEY_CURRENT_USER\Software\Microsoft\Office\" & _
-        Application.Version & "\Access\Security\Trusted Locations\" & mcstrTrustedLocationName & "\"
+        Application.Version & "\Access\Security\Trusted Locations\" & strName & "\"
+        
 End Function
 
 
@@ -577,10 +622,10 @@ End Function
 ' Purpose   : Returns true if we find the trusted location added by this add-in.
 '---------------------------------------------------------------------------------------
 '
-Public Function HasTrustedLocationKey() As Boolean
+Public Function HasTrustedLocationKey(Optional strName As String) As Boolean
     With New IWshRuntimeLibrary.WshShell
         On Error Resume Next
-        HasTrustedLocationKey = Nz(.RegRead(GetTrustedLocationRegPath & "Path")) <> vbNullString
+        HasTrustedLocationKey = Nz(.RegRead(GetTrustedLocationRegPath(strName) & "Path")) <> vbNullString
     End With
 End Function
 
