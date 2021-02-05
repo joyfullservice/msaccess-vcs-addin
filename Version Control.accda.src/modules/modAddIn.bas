@@ -39,7 +39,7 @@ End Enum
 '
 Private Function AddInLaunch(RibbonCmdIn as Long) As Boolean
     PreloadVBE
-    Form_frmVCSMain.HandleCmd (RibbonCmdIn)
+    Form_frmVCSMain.HandleCmd RibbonCmdIn
     AddInLaunch = True
 End Function
 
@@ -51,7 +51,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemLaunch() As Boolean
-    AddInLaunch(VCSOpen)
+    AddInLaunch VCSOpen
     AddInMenuItemLaunch = True
 End Function
 
@@ -64,7 +64,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInOptionsLaunch() As Boolean
-    AddInLaunch(VCSOptions)
+    AddInLaunch VCSOptions
     AddInOptionsLaunch = True
 End Function
 
@@ -77,7 +77,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemExport() As Boolean
-    AddInLaunch(ExportAllRibbon) ' Set ribbon launched to the value needed.
+    AddInLaunch ExportAllRibbon
     AddInMenuItemExport = True
 End Function
 
