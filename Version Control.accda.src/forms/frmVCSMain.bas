@@ -2042,8 +2042,8 @@ Private Sub Form_Load()
 End Sub
 
 Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = VCSOpen)   
-    Select Case RibbonCmd 
-        Case VCSOpen   
+    Select Case RibbonCmdIn 
+        Case VCSOpen
             me.Visible = true
             'PlaceHolder; do nothing.
         Case VCSOptions

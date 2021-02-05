@@ -38,9 +38,8 @@ End Enum
 '---------------------------------------------------------------------------------------
 '
 Private Function AddInLaunch(RibbonCmdIn as Long) As Boolean
-   ' RibbonCmd = RibbonCmdIn ' Set ribbon launched to the value needed first.
     PreloadVBE
-    Form_frmVCSMain.HandleCmd (RibbonCmd)
+    Form_frmVCSMain.HandleCmd (RibbonCmdIn)
     AddInLaunch = True
 End Function
 
