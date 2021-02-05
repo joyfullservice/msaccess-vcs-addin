@@ -1344,7 +1344,7 @@ Begin Form
                     TabIndex =2
                     BorderColor =10921638
                     Name ="chkAddTrustedLocation"
-                    DefaultValue ="True"
+                    DefaultValue ="False"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =4440
@@ -1381,7 +1381,7 @@ Begin Form
                     TabIndex =3
                     BorderColor =10921638
                     Name ="chkOpenAfterInstall"
-                    DefaultValue ="False"
+                    DefaultValue ="True"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =4440
