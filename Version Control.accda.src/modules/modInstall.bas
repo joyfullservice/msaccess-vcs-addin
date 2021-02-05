@@ -163,14 +163,15 @@ Public Function UninstallVCSAddin() As Boolean
         Err.Clear
     Else
         ' Remove the add-in Menu controls
-        RemoveMenuItem "&Version Control"
-        RemoveMenuItem "&Version Control Options"
-        RemoveMenuItem "&Export All Source"
-
         RemoveMenuItem "&VCS Open"
         RemoveMenuItem "&VCS Options"
         RemoveMenuItem "&VCS Export All Source"
-
+        
+        ' Remove any legacy menu items.
+        RemoveMenuItem "&Version Control"
+        RemoveMenuItem "&Version Control Options"
+        RemoveMenuItem "&Export All Source"
+        
         ' Update installed version number
         InstalledVersion = 0
         ' Remove trusted location added by this add-in. (if found)
@@ -410,11 +411,6 @@ Public Sub CheckForLegacyInstall()
     Dim strNewPath As String
     Dim strTest As String
     Dim objShell As IWshRuntimeLibrary.WshShell
-    
-    ' Remove any Legacy Menu controls
-    RemoveMenuItem "&Version Control"
-    RemoveMenuItem "&Version Control Options"
-    RemoveMenuItem "&Export All Source"
 
     ' Legacy HKLM install
     If InstalledVersion < "3.2.0" Then
@@ -457,13 +453,14 @@ Public Sub CheckForLegacyInstall()
                 ' Move settings to new location
                 VerifyPath strNewPath
                 FSO.MoveFile strOldPath, strNewPath
-    End If
+            End If
         End If
-        
-        ' Register the Menu controls
+            
+        ' Remove any Legacy Menu controls
         RemoveMenuItem "&Version Control"
+        RemoveMenuItem "&Version Control Options"
         RemoveMenuItem "&Export All Source"
-        
+            
         ' Remove custom trusted location for Office AddIns folder.
         strName = "Office Add-ins"
         If HasTrustedLocationKey(strName) Then RemoveTrustedLocation strName

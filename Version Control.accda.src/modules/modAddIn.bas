@@ -16,19 +16,18 @@ Public Enum eReleaseType
 End Enum
 
 Public Enum eRibbonLaunch
-    
     erlVCSOpen
     erlVCSOptions
-
     erlExportAllRibbon
     erlExportFormsReportsRibbon
     erlExportFormsRibbon
     erlExportReportsRibbon
     erlExportModulesMacros
-    erlExportTablesQuerie
+    erlExportTablesQueries
     erlExportTables
     erlExportQueries
 End Enum
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : AddInLaunch
@@ -37,7 +36,7 @@ End Enum
 ' Purpose   : Launch the main add-in form.
 '---------------------------------------------------------------------------------------
 '
-Private Function AddInLaunch(RibbonCmdIn as Long) As Boolean
+Private Function AddInLaunch(RibbonCmdIn As Long) As Boolean
     PreloadVBE
     Form_frmVCSMain.HandleCmd RibbonCmdIn
     AddInLaunch = True
@@ -80,7 +79,6 @@ Public Function AddInMenuItemExport() As Boolean
     AddInLaunch erlExportAllRibbon
     AddInMenuItemExport = True
 End Function
-
 
 
 '---------------------------------------------------------------------------------------
