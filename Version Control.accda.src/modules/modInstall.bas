@@ -163,14 +163,15 @@ Public Function UninstallVCSAddin() As Boolean
         Err.Clear
     Else
         ' Remove the add-in Menu controls
-        RemoveMenuItem "&Version Control"
-        RemoveMenuItem "&Version Control Options"
-        RemoveMenuItem "&Export All Source"
-
         RemoveMenuItem "&VCS Open"
         RemoveMenuItem "&VCS Options"
         RemoveMenuItem "&VCS Export All Source"
-
+        
+        ' Remove any legacy menu items.
+        RemoveMenuItem "&Version Control"
+        RemoveMenuItem "&Version Control Options"
+        RemoveMenuItem "&Export All Source"
+        
         ' Update installed version number
         InstalledVersion = 0
         ' Remove trusted location added by this add-in. (if found)
@@ -410,11 +411,6 @@ Public Sub CheckForLegacyInstall()
     Dim strNewPath As String
     Dim strTest As String
     Dim objShell As IWshRuntimeLibrary.WshShell
-    
-    ' Remove any Legacy Menu controls
-    RemoveMenuItem "&Version Control"
-    RemoveMenuItem "&Version Control Options"
-    RemoveMenuItem "&Export All Source"
 
     ' Legacy HKLM install
     If InstalledVersion < "3.2.0" Then
@@ -457,13 +453,14 @@ Public Sub CheckForLegacyInstall()
                 ' Move settings to new location
                 VerifyPath strNewPath
                 FSO.MoveFile strOldPath, strNewPath
-    End If
+            End If
         End If
-        
-        ' Register the Menu controls
+            
+        ' Remove any Legacy Menu controls
         RemoveMenuItem "&Version Control"
+        RemoveMenuItem "&Version Control Options"
         RemoveMenuItem "&Export All Source"
-        
+            
         ' Remove custom trusted location for Office AddIns folder.
         strName = "Office Add-ins"
         If HasTrustedLocationKey(strName) Then RemoveTrustedLocation strName
@@ -493,6 +490,20 @@ Private Sub RemoveLegacyInstall()
     
 End Sub
 
+'---------------------------------------------------------------------------------------
+' Procedure : InstallSettingTrustedLocation
+' Author    : hecon5
+' Date      : 2/05/2021
+' Purpose   : Saves the setting used on install; elimiminates need to save separate
+'           : fork.
+'---------------------------------------------------------------------------------------
+'
+Public Property Let InstallSettingTrustedLocation(InstallTrust As Integer)
+    SaveSetting GetCodeVBProject.Name, "Install", "Trust Folder", InstallTrust
+End Property
+Public Property Get InstallSettingTrustedLocation() As Integer
+    InstallSettingTrustedLocation = GetSetting(GetCodeVBProject.Name, "Install", "Trust Folder", True)
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : VerifyTrustedLocation
@@ -630,6 +641,21 @@ Public Function HasTrustedLocationKey(Optional strName As String) As Boolean
     End With
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : InstallSettingOpenFile
+' Author    : hecon5
+' Date      : 2/05/2021
+' Purpose   : Saves the setting used on install; elimiminates need to save separate
+'           : fork.
+'---------------------------------------------------------------------------------------
+'
+Public Property Let InstallSettingOpenFile(InstallOpen As Integer)
+    SaveSetting GetCodeVBProject.Name, "Install", "Open File", InstallOpen
+End Property
+Public Property Get InstallSettingOpenFile() As Integer
+    InstallSettingOpenFile = GetSetting(GetCodeVBProject.Name, "Install", "Open File", 0)
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : OpenAddinFile
