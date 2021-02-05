@@ -121,6 +121,12 @@ Public Function InstallVCSAddin() As Boolean
         On Error GoTo 0
     Else
         On Error GoTo 0
+
+        ' Remove any Legacy Menu controls
+        RemoveMenuItem "&Version Control"
+        RemoveMenuItem "&Version Control Options"
+        RemoveMenuItem "&Export All Source"
+
         ' Register the Menu controls
         RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
         RegisterMenuItem "&VCS Options", "=AddInOptionsLaunch()"
@@ -160,9 +166,15 @@ Public Function UninstallVCSAddin() As Boolean
             "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
         Err.Clear
     Else
-        ' Register the Menu controls
+        ' Remove the Menu controls
         RemoveMenuItem "&Version Control"
+        RemoveMenuItem "&Version Control Options"
         RemoveMenuItem "&Export All Source"
+
+        RemoveMenuItem "&VCS Open"
+        RemoveMenuItem "&VCS Options"
+        RemoveMenuItem "&VCS Export All Source"
+
         ' Update installed version number
         InstalledVersion = 0
         ' Remove trusted location added by this add-in. (if found)
