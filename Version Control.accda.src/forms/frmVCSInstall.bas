@@ -1576,6 +1576,10 @@ Private Sub cmdInstall_Click()
     ' Check for legacy installations (before updating version)
     CheckForLegacyInstall
 
+    ' Save the trusted location and open file settings.
+    InstallSettingTrustedLocation = chkAddTrustedLocation.Value
+    InstallSettingOpenFile = chkOpenAfterInstall.Value
+
     ' Check trusted location
     If chkAddTrustedLocation Then modInstall.VerifyTrustedLocation
     
@@ -1609,6 +1613,9 @@ Private Sub Form_Load()
     
     ' Display version (better performance than bound control)
     lblVersion.Caption = "Version " & GetVCSVersion()
+    
+    chkAddTrustedLocation.Value = CBool(InstallSettingTrustedLocation)
+    chkOpenAfterInstall.Value = CBool(InstallSettingOpenFile)
     
     ' Show installed version
     If InstalledVersion = vbNullString Then
