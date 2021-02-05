@@ -502,7 +502,7 @@ Public Property Let InstallSettingTrustedLocation(InstallTrust As Integer)
     SaveSetting GetCodeVBProject.Name, "Install", "Trust Folder", InstallTrust
 End Property
 Public Property Get InstallSettingTrustedLocation() As Integer
-    InstalledVersion = GetSetting(GetCodeVBProject.Name, "Install", "Trust Folder", 1)
+    InstallSettingTrustedLocation = GetSetting(GetCodeVBProject.Name, "Install", "Trust Folder", True)
 End Property
 
 '---------------------------------------------------------------------------------------
@@ -654,7 +654,7 @@ Public Property Let InstallSettingOpenFile(InstallOpen As Integer)
     SaveSetting GetCodeVBProject.Name, "Install", "Open File", InstallOpen
 End Property
 Public Property Get InstallSettingOpenFile() As Integer
-    InstalledVersion = GetSetting(GetCodeVBProject.Name, "Install", "Open File", 0)
+    InstallSettingOpenFile = GetSetting(GetCodeVBProject.Name, "Install", "Open File", 0)
 End Property
 
 '---------------------------------------------------------------------------------------
