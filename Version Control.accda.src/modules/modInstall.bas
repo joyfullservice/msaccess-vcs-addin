@@ -490,6 +490,20 @@ Private Sub RemoveLegacyInstall()
     
 End Sub
 
+'---------------------------------------------------------------------------------------
+' Procedure : InstallSettingTrustedLocation
+' Author    : hecon5
+' Date      : 2/05/2021
+' Purpose   : Saves the setting used on install; elimiminates need to save separate
+'           : fork.
+'---------------------------------------------------------------------------------------
+'
+Public Property Let InstallSettingTrustedLocation(InstallTrust As Integer)
+    SaveSetting GetCodeVBProject.Name, "Install", "Trust Folder", InstallTrust
+End Property
+Public Property Get InstallSettingTrustedLocation() As Integer
+    InstalledVersion = GetSetting(GetCodeVBProject.Name, "Install", "Trust Folder", 1)
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : VerifyTrustedLocation
@@ -627,6 +641,21 @@ Public Function HasTrustedLocationKey(Optional strName As String) As Boolean
     End With
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : InstallSettingOpenFile
+' Author    : hecon5
+' Date      : 2/05/2021
+' Purpose   : Saves the setting used on install; elimiminates need to save separate
+'           : fork.
+'---------------------------------------------------------------------------------------
+'
+Public Property Let InstallSettingOpenFile(InstallOpen As Integer)
+    SaveSetting GetCodeVBProject.Name, "Install", "Open File", InstallOpen
+End Property
+Public Property Get InstallSettingOpenFile() As Integer
+    InstalledVersion = GetSetting(GetCodeVBProject.Name, "Install", "Open File", 0)
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : OpenAddinFile
