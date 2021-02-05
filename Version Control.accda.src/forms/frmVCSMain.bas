@@ -2054,12 +2054,12 @@ Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = VCSOpen)
             'Start export, then close.
             me.Visible = true
             cmdExport_Click
-            cmdClose_Click
+            If Log.ErrorLevel = eelNoError Then cmdClose_Click
         Case Else
             'For now, these will export right away; but not close.
             me.Visible = true
             cmdExport_Click
-            cmdClose_Click
+            If Log.ErrorLevel = eelNoError Then cmdClose_Click
     End Select
 End Sub
 
