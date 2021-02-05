@@ -122,11 +122,6 @@ Public Function InstallVCSAddin() As Boolean
     Else
         On Error GoTo 0
 
-        ' Remove any Legacy Menu controls
-        RemoveMenuItem "&Version Control"
-        RemoveMenuItem "&Version Control Options"
-        RemoveMenuItem "&Export All Source"
-
         ' Register the Menu controls
         RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
         RegisterMenuItem "&VCS Options", "=AddInOptionsLaunch()"
@@ -413,6 +408,11 @@ Public Sub CheckForLegacyInstall()
     Dim strTest As String
     Dim objShell As IWshRuntimeLibrary.WshShell
     
+    ' Remove any Legacy Menu controls
+    RemoveMenuItem "&Version Control"
+    RemoveMenuItem "&Version Control Options"
+    RemoveMenuItem "&Export All Source"
+
     If InstalledVersion < "3.2.0" Then
         strPath = GetAddinRegPath(ehHKLM) & "&Version Control\Library"
         Set objShell = New IWshRuntimeLibrary.WshShell

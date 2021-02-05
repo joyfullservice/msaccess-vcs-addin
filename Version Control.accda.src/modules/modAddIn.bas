@@ -15,19 +15,19 @@ Public Enum eReleaseType
     Same_Version = 3
 End Enum
 
-Public Enum RibbonLaunch
+Public Enum eRibbonLaunch
     
-    VCSOpen = 0
-    VCSOptions = 1
+    erlVCSOpen
+    erlVCSOptions
 
-    ExportAllRibbon = 2
-    ExportFormsReportsRibbon = 3
-    ExportFormsRibbon = 4
-    ExportReportsRibbon = 5
-    ExportModulesMacros = 6
-    ExportTablesQueries = 7
-    ExportTables = 8
-    ExportQueries = 9
+    erlExportAllRibbon
+    erlExportFormsReportsRibbon
+    erlExportFormsRibbon
+    erlExportReportsRibbon
+    erlExportModulesMacros
+    erlExportTablesQuerie
+    erlExportTables
+    erlExportQueries
 End Enum
 
 '---------------------------------------------------------------------------------------
@@ -51,7 +51,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemLaunch() As Boolean
-    AddInLaunch VCSOpen
+    AddInLaunch erlVCSOpen
     AddInMenuItemLaunch = True
 End Function
 
@@ -64,7 +64,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInOptionsLaunch() As Boolean
-    AddInLaunch VCSOptions
+    AddInLaunch erlVCSOptions
     AddInOptionsLaunch = True
 End Function
 
@@ -77,7 +77,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemExport() As Boolean
-    AddInLaunch ExportAllRibbon
+    AddInLaunch erlExportAllRibbon
     AddInMenuItemExport = True
 End Function
 
