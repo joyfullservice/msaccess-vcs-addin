@@ -2054,7 +2054,10 @@ Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = erlVCSOpen)
             'Start export, then close if no errors.
             Me.Visible = True
             cmdExport_Click
-            If Log.ErrorLevel = eelNoError Then cmdClose_Click
+            If Log.ErrorLevel = eelNoError Then
+                Pause 1
+                cmdClose_Click
+            End If
         Case Else
             'default to export and close if no errors.
             Me.Visible = True
