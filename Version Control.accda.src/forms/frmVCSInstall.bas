@@ -1573,9 +1573,6 @@ End Sub
 '
 Private Sub cmdInstall_Click()
 
-    ' Check trusted location
-    If chkAddTrustedLocation Then modInstall.VerifyTrustedLocation
-    
     ' Main install
     If modInstall.InstallVCSAddin Then
     
@@ -1586,7 +1583,8 @@ Private Sub cmdInstall_Click()
                 
         ' Run post-install processes.
         CheckForLegacyInstall
-        VerifyTrustedLocation
+        ' Check trusted location
+        If chkAddTrustedLocation Then modInstall.VerifyTrustedLocation
     
         ' Relaunch from install folder to allow user to trust file.
         If chkOpenAfterInstall Then modInstall.OpenAddinFile GetAddinFileName, CodeProject.FullName
