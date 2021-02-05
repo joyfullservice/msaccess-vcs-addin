@@ -172,6 +172,18 @@ Public Function UninstallVCSAddin() As Boolean
         RemoveMenuItem "&Version Control Options"
         RemoveMenuItem "&Export All Source"
         
+        ' Remove registry entries
+        On Error Resume Next
+        DeleteSetting GetCodeVBProject.Name, "Install"
+        DeleteSetting GetCodeVBProject.Name, "Build"
+        DeleteSetting GetCodeVBProject.Name, "Add-In"
+        
+        ' (Not sure if we should delete private "keys", since there is no other
+        '  copy of this data, and they would be required to decrypt encrypted content.)
+        'DeleteSetting GetCodeVBProject.Name, "Private Keys"
+        If Err Then Err.Clear
+        On Error GoTo 0
+        
         ' Update installed version number
         InstalledVersion = 0
         ' Remove trusted location added by this add-in. (if found)
