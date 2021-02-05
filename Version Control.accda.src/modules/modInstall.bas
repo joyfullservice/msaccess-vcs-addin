@@ -416,7 +416,7 @@ Public Sub CheckForLegacyInstall()
     RemoveMenuItem "&Version Control Options"
     RemoveMenuItem "&Export All Source"
 
-    ' Legacy HKLM install   
+    ' Legacy HKLM install
     If InstalledVersion < "3.2.0" Then
         ' Check for installation in HKLM hive.
         strOldPath = GetAddinRegPath(ehHKLM) & "&Version Control\Library"
