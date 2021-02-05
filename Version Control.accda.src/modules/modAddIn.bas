@@ -15,6 +15,34 @@ Public Enum eReleaseType
     Same_Version = 3
 End Enum
 
+Public Enum RibbonLaunch
+    
+    VCSOpen = 0
+    VCSOptions = 1
+
+    ExportAllRibbon = 2
+    ExportFormsReportsRibbon = 3
+    ExportFormsRibbon = 4
+    ExportReportsRibbon = 5
+    ExportModulesMacros = 6
+    ExportTablesQueries = 7
+    ExportTables = 8
+    ExportQueries = 9
+End Enum
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddInLaunch
+' Author    : hecon5
+' Date      : 2/05/2020
+' Purpose   : Launch the main add-in form.
+'---------------------------------------------------------------------------------------
+'
+Private Function AddInLaunch(RibbonCmdIn as Long) As Boolean
+   ' RibbonCmd = RibbonCmdIn ' Set ribbon launched to the value needed first.
+    PreloadVBE
+    Form_frmVCSMain.HandleCmd (RibbonCmd)
+    AddInLaunch = True
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : AddInMenuItemLaunch
@@ -24,9 +52,21 @@ End Enum
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemLaunch() As Boolean
-    PreloadVBE
-    Form_frmVCSMain.Visible = True
+    AddInLaunch(VCSOpen)
     AddInMenuItemLaunch = True
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddInOptionsLaunch
+' Author    : Hecon5
+' Date      : 2/05/2020
+' Purpose   : Launch the main add-in form.
+'---------------------------------------------------------------------------------------
+'
+Public Function AddInOptionsLaunch() As Boolean
+    AddInLaunch(VCSOptions)
+    AddInOptionsLaunch = True
 End Function
 
 
@@ -38,10 +78,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddInMenuItemExport() As Boolean
-    PreloadVBE
-    Form_frmVCSMain.Visible = True
-    DoEvents
-    Form_frmVCSMain.cmdExport_Click
+    AddInLaunch(ExportAllRibbon) ' Set ribbon launched to the value needed.
     AddInMenuItemExport = True
 End Function
 
