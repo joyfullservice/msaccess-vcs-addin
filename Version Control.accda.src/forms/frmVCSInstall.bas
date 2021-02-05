@@ -1362,7 +1362,7 @@ Begin Form
                             BorderColor =8355711
                             ForeColor =5324600
                             Name ="Label34"
-                            Caption ="Trust AddIns Folder"
+                            Caption ="Trust Add-In Folder"
                             GridlineColor =10921638
                             LayoutCachedLeft =4725
                             LayoutCachedTop =2940
@@ -1573,6 +1573,12 @@ End Sub
 '
 Private Sub cmdInstall_Click()
 
+    ' Check for legacy installations (before updating version)
+    CheckForLegacyInstall
+
+    ' Check trusted location
+    If chkAddTrustedLocation Then modInstall.VerifyTrustedLocation
+    
     ' Main install
     If modInstall.InstallVCSAddin Then
     
@@ -1582,10 +1588,6 @@ Private Sub cmdInstall_Click()
             "of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
                 
         ' Run post-install processes.
-        CheckForLegacyInstall
-        ' Check trusted location
-        If chkAddTrustedLocation Then modInstall.VerifyTrustedLocation
-    
         ' Relaunch from install folder to allow user to trust file.
         If chkOpenAfterInstall Then modInstall.OpenAddinFile GetAddinFileName, CodeProject.FullName
 

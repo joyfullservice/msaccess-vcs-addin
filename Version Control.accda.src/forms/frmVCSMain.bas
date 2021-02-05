@@ -2041,22 +2041,22 @@ Private Sub Form_Load()
     HandleCmd
 End Sub
 
-Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = VCSOpen)
+Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = erlVCSOpen)
     Select Case RibbonCmdIn
-        Case VCSOpen
+        Case erlVCSOpen
             Me.Visible = True
             'PlaceHolder; do nothing.
-        Case VCSOptions
-            'Open Settings Right away.
+        Case erlVCSOptions
+            'Open Settings
             Me.Visible = True
             cmdOptions_Click
-        Case ExportAllRibbon
-            'Start export, then close.
+        Case erlExportAllRibbon
+            'Start export, then close if no errors.
             Me.Visible = True
             cmdExport_Click
             If Log.ErrorLevel = eelNoError Then cmdClose_Click
         Case Else
-            'For now, these will export right away; but not close.
+            'default to export and close if no errors.
             Me.Visible = True
             cmdExport_Click
             If Log.ErrorLevel = eelNoError Then cmdClose_Click
