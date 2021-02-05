@@ -122,9 +122,9 @@ Public Function InstallVCSAddin() As Boolean
     Else
         On Error GoTo 0
         ' Register the Menu controls
-        RegisterMenuItem "&Version Control", "=AddInMenuItemLaunch()"
-        RegisterMenuItem "&Version Control Options", "=AddInOptionsLaunch()"
-        RegisterMenuItem "&Export All Source", "=AddInMenuItemExport()"
+        RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
+        RegisterMenuItem "&VCS Options", "=AddInOptionsLaunch()"
+        RegisterMenuItem "&VCS Export All Source", "=AddInMenuItemExport()"
         ' Update installed version number
         InstalledVersion = AppVersion
         ' Return success
