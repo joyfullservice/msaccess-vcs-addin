@@ -185,6 +185,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
+    On Error Resume Next
+    Dim FunctionName as String
+    FunctionName = moduleName & "Build:blnFullBuild:" & CStr$(blnFullBuild)
 
     Dim strPath As String
     Dim strBackup As String

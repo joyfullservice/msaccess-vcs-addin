@@ -11,7 +11,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
-
+Private Const moduleName As String = "clsDbTheme:"
 
 Private m_AllItems As Collection
 Private m_Dbs As DAO.Database
@@ -51,13 +51,23 @@ Private Sub IDbComponent_Export()
     Dim rstAtc As Recordset2
     Dim strSql As String
     
+    On Error Resume Next
+    Dim FunctionName As String
+    FunctionName = moduleName & "IDbComponent_Export:"
+
     ' Query theme file details
     strSql = "SELECT [Data] FROM MSysResources WHERE [Name]='" & m_Name & "' AND Extension='" & m_Extension & "'"
     Set m_Dbs = CurrentDb
     Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
     
     ' If we get multiple records back we don't know which to use
-    If rst.RecordCount > 1 Then Err.Raise 42, , "Multiple records in MSysResources table were found that matched name '" & m_Name & "' and extension '" & m_Extension & "' - Compact and repair database and try again."
+    If rst.RecordCount > 1 Then 
+        Err.Raise 42, , "Multiple records in MSysResources table were found that matched name '" & _
+                            m_Name & "' and extension '" & m_Extension & "' - Compact and repair database and try again."
+        CatchAny eelCritical, Err.Number & ":" & Err.Description, FunctionName & ":Too Many Themes:" & _
+                    Options.UseFastSave & LCase(m_Name) & " " & m_Extension, True, False
+        Exit Sub
+    End If
 
     ' Get full name of theme file. (*.thmx)
     strFile = IDbComponent_SourceFile
@@ -102,6 +112,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
+    On Error Goto Err
+    Dim FunctionName As String
+    FunctionName = moduleName & "IDbComponent_Import:"
 
     Dim rstResources As DAO.Recordset2
     Dim rstAttachment As DAO.Recordset2
@@ -117,8 +130,8 @@ Private Sub IDbComponent_Import(strFile As String)
 
     If blnIsFolder Then
         ' We need to compress this folder back into a zipped theme file.
-        ' Build zip file name
-        strZip = FSO.GetBaseName(strFile) & ".zip"
+        ' Build zip file name; if it's a folder, just add the extension.
+        strZip = strFile & ".zip"
         ' Get theme name
         strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strZip))
         ' Remove any existing zip file
@@ -182,6 +195,14 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Clear object (Important with DAO/ADO)
     Set rstAttachment = Nothing
     Set rstResources = Nothing
+
+Exit Sub
+
+Err:
+
+    CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":strFile:"  & strFile & ", blnIsFolder:" & _
+            blnIsFolder & ", strThemeFile:" & strThemeFile & ", Extension:" & m_Extension, True, True
+    Resume Next
 
 End Sub
 
