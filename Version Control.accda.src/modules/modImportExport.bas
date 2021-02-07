@@ -7,6 +7,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+Private Const moduleName As String = "modImportExport:"
 
 
 '---------------------------------------------------------------------------------------
@@ -17,6 +18,9 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportSource(blnFullExport As Boolean)
+    On Error Resume Next
+    Dim FunctionName as String
+    FunctionName = moduleName & "ExportSource:"
 
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
@@ -107,6 +111,8 @@ Public Sub ExportSource(blnFullExport As Boolean)
                 Log.Increment
                 Log.Add "  " & cDbObject.Name, Options.ShowDebug
                 cDbObject.Export
+                CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Exporting:" & _
+                    Options.UseFastSave & LCase(cCategory.Category) & " " & cDbObject.Name, True, True
                     
                 ' Some kinds of objects are combined into a single export file, such
                 ' as database properties. For these, we just need to run the export once.
@@ -144,8 +150,12 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Perf.EndTiming
     Log.Add vbCrLf & Perf.GetReports, False
     
+    If Log.ErrorLevel = eelNoError Then 
+        Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+    Else
     ' Save log file to disk
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+        Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export-Errors-" & Format(Now, "YYYY-MM-DD-hh.mm.ss") & ".log")
+    End If
     
     ' Check for VCS_ImportExport.bas (Used with other forks)
     CheckForLegacyModules
@@ -336,8 +346,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
                 If blnFullBuild Then
                     cCategory.Import CStr(varFile)
+                    CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Importing:" & _
+                        Options.UseFastSave & LCase(cCategory.Category) & " " & FSO.GetFileName(varFile), True, True
                 Else
                     cCategory.Merge CStr(varFile)
+                    CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Merging:" & _
+                        Options.UseFastSave & LCase(cCategory.Category) & " " & FSO.GetFileName(varFile), True, True
                 End If
             Next varFile
             
@@ -374,8 +388,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Perf.EndTiming
     Log.Add vbCrLf & Perf.GetReports, False
     
+    If Log.ErrorLevel = eelNoError Then 
+        Log.SaveFile FSO.BuildPath(Options.GetExportFolder, IIf(blnFullBuild, "Import", "Merge") & ".log")
+    Else
     ' Write log file to disk
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, IIf(blnFullBuild, "Import.log", "Merge.log"))
+        Log.SaveFile FSO.BuildPath(Options.GetExportFolder, IIf(blnFullBuild, "Import-Error", "Merge-Error") & Format(Now, "-YYYY-MM-DD-hh.mm.ss") & ".log")
+    End If
 
     ' Wrap up build.
     DoCmd.Hourglass False
