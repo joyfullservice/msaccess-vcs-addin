@@ -181,7 +181,7 @@ End Sub
 '
 Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
 
-    On Error Resume Next    
+    On Error Resume Next
     Dim FunctionName As String
     FunctionName = moduleName & "ExportSource:"
 
@@ -344,14 +344,13 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
                 Log.Increment
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
                 If blnFullBuild Then
-	                cCategory.Import CStr(varFile)
-	                CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Importing:" & _
-	                    Options.UseFastSave & LCase(cCategory.Category) & " " & FSO.GetFileName(varFile), True, True
-	                On Error GoTo 0
+                    cCategory.Import CStr(varFile)
+                    CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Importing:" & _
+                        Options.UseFastSave & LCase(cCategory.Category) & " " & FSO.GetFileName(varFile), True, True
                 Else
                     cCategory.Merge CStr(varFile)
-	                CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Merging:" & _
-	                    Options.UseFastSave & LCase(cCategory.Category) & " " & FSO.GetFileName(varFile), True, True
+                    CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Merging:" & _
+                        Options.UseFastSave & LCase(cCategory.Category) & " " & FSO.GetFileName(varFile), True, True
                 End If
             Next varFile
             
