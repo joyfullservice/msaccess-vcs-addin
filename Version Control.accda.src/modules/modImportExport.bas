@@ -149,9 +149,13 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Perf.EndTiming
     Log.Add vbCrLf & Perf.GetReports, False
     
-    ' Save log file to disk
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export-" & Format(Now, "YYYY-MM-DD-hh.mm.ss") & ".log")
-    
+    If Log.ErrorLevel = eelNoError Then 
+        Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+    Else
+        ' Save log file to disk
+        Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export-Errors-" & Format(Now, "YYYY-MM-DD-hh.mm.ss") & ".log")
+    End If
+
     ' Check for VCS_ImportExport.bas (Used with other forks)
     CheckForLegacyModules
     
@@ -387,8 +391,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Perf.EndTiming
     Log.Add vbCrLf & Perf.GetReports, False
     
-    ' Write log file to disk
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, IIf(blnFullBuild, "Import", "Merge") & Format(Now, "-YYYY-MM-DD-hh.mm.ss") & ".log")
+    If Log.ErrorLevel = eelNoError Then 
+        Log.SaveFile FSO.BuildPath(Options.GetExportFolder, IIf(blnFullBuild, "Import", "Merge") & ".log")
+    Else
+        ' Write log file to disk
+        Log.SaveFile FSO.BuildPath(Options.GetExportFolder, IIf(blnFullBuild, "Import-Error", "Merge-Error") & Format(Now, "-YYYY-MM-DD-hh.mm.ss") & ".log")
+    End If
 
     ' Wrap up build.
     DoCmd.Hourglass False
