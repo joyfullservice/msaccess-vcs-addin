@@ -19,7 +19,7 @@ Private Const moduleName As String = "modImportExport:"
 Public Sub ExportSource(blnFullExport As Boolean)
     On Error Resume Next
     Dim FunctionName as String
-    FunctionName = moduleName & "ExportSource:"
+    FunctionName = moduleName & "ExportSource:blnFullBuild:" & CStr$(blnFullBuild)
     
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
@@ -112,7 +112,6 @@ Public Sub ExportSource(blnFullExport As Boolean)
                 cDbObject.Export
                 CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Exporting:" & _
                     Options.UseFastSave & LCase(cCategory.Category) & " " & cDbObject.Name, True, True
-                On Error Goto 0
                 ' Some kinds of objects are combined into a single export file, such
                 ' as database properties. For these, we just need to run the export once.
                 If cCategory.SingleFile Then Exit For
@@ -184,10 +183,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
-
     On Error Resume Next
-    Dim FunctionName As String
-    FunctionName = moduleName & "ExportSource:"
+    Dim FunctionName as String
+    FunctionName = moduleName & "Build:blnFullBuild:" & CStr$(blnFullBuild)
 
     Dim strPath As String
     Dim strBackup As String
