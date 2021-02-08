@@ -20,7 +20,7 @@ Private Const moduleName As String = "modImportExport:"
 Public Sub ExportSource(blnFullExport As Boolean)
     On Error Resume Next
     Dim FunctionName as String
-    FunctionName = moduleName & "ExportSource:"
+    FunctionName = moduleName & "ExportSource:blnFullBuild:" & CStr$(blnFullBuild)
 
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
