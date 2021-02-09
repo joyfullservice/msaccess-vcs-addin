@@ -17,10 +17,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =217
-    Left =-25575
-    Top =1710
-    Right =-5925
-    Bottom =14295
+    Left =3225
+    Top =2430
+    Right =28545
+    Bottom =15015
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -4183,6 +4183,8 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                 dTables.Add varItem(etcName), dTable
             End If
         Next varItem
+        ' Make sure list is sorted correctly
+        SortDictionaryByKeys dTables
         Set Options.TablesToExportData = dTables
     End If
     
