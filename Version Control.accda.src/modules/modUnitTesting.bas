@@ -157,6 +157,22 @@ TestFail:
     Assert.Fail "Test raised an error: #" & Err.Number & " - " & Err.Description
 End Sub
 
+
+'@TestMethod("QuickSort")
+Private Sub TestQuickSort()
+    
+    Dim arr() As String
+    Dim result As String
+    
+    arr = Split("u i a")
+    
+    QuickSort arr
+    result = Join(arr, " ")
+    Assert.AreEqual result, "a i u"
+    
+End Sub
+
+
 '@TestMethod("Encryption")
 Private Sub TestSecureBetween()
     On Error GoTo TestFail

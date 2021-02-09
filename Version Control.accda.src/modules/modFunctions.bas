@@ -341,21 +341,18 @@ Public Function SortDictionaryByKeys(dSource As Dictionary) As Dictionary
         Exit Function
     End If
     
-    Dim sourceCount As Long
-    sourceCount = dSource.Count - 1
-    
     ' Build and sort array of keys
-    ReDim varKeys(0 To sourceCount)
+    ReDim varKeys(0 To dSource.Count - 1)
     For Each varKey In dSource.Keys
         varKeys(lngCnt) = varKey
         lngCnt = lngCnt + 1
     Next varKey
     
-    QuickSort varKeys, 0, sourceCount
+    QuickSort varKeys
     
     ' Build and return new dictionary using sorted keys
     Set dSorted = New Dictionary
-    For lngCnt = 0 To sourceCount
+    For lngCnt = 0 To dSource.Count - 1
         dSorted.Add varKeys(lngCnt), dSource(varKeys(lngCnt))
     Next lngCnt
     
@@ -372,7 +369,7 @@ End Function
 ' Usage     : QuickSort MyArray
 '---------------------------------------------------------------------------------------
 '
-Public Sub QuickSort(ByRef vArray As Variant, Optional ByVal inLow As Long, Optional ByVal inHi As Long)
+Public Sub QuickSort(ByRef vArray As Variant, Optional ByVal inLow, Optional ByVal inHi)
 
     Dim pivot   As Variant
     Dim tmpSwap As Variant
