@@ -257,7 +257,7 @@ End Sub
 '
 Public Property Get AppVersion() As String
     Dim strVersion As String
-    strVersion = GetDBProperty("AppVersion")
+    strVersion = GetDBProperty("AppVersion", CodeDb)
     If strVersion = vbNullString Then strVersion = "1.0.0"
     AppVersion = strVersion
 End Property
@@ -271,7 +271,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Let AppVersion(strVersion As String)
-    SetDBProperty "AppVersion", strVersion
+    SetDBProperty "AppVersion", strVersion, , CodeDb
 End Property
 
 
