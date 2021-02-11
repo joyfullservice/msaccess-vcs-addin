@@ -16,10 +16,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =32
-    Left =-25575
-    Top =1710
-    Right =-255
-    Bottom =14295
+    Left =3225
+    Top =2430
+    Right =28545
+    Bottom =15015
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -2055,7 +2055,7 @@ Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = erlVCSOpen)
             Me.Visible = True
             cmdExport_Click
             If Log.ErrorLevel = eelNoError Then
-                Pause 1
+                Pause 2
                 cmdClose_Click
             End If
         Case Else

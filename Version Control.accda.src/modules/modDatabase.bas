@@ -30,7 +30,7 @@ End Function
 ' Purpose   : Get a database property (Default to MDB version)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetDBProperty(strName As String) As Variant
+Public Function GetDBProperty(strName As String, Optional dbs As DAO.Database) As Variant
 
     Dim prp As Object ' DAO.Property
     Dim oParent As Object
@@ -39,7 +39,8 @@ Public Function GetDBProperty(strName As String) As Variant
     If CurrentProject.ProjectType = acADP Then
         Set oParent = CurrentProject.Properties
     Else
-        Set oParent = CurrentDb.Properties
+        If dbs Is Nothing Then Set dbs = CurrentDb
+        Set oParent = dbs.Properties
     End If
     
     ' Look for property by name
@@ -61,18 +62,17 @@ End Function
 ' Purpose   : Set a database property
 '---------------------------------------------------------------------------------------
 '
-Public Sub SetDBProperty(ByVal strName As String, ByVal varValue As Variant, Optional ByVal prpType As Long = dbText)
+Public Sub SetDBProperty(ByVal strName As String, ByVal varValue As Variant, Optional ByVal prpType As Long = dbText, Optional dbs As DAO.Database)
 
     Dim prp As Object ' DAO.Property
     Dim blnFound As Boolean
-    Dim dbs As DAO.Database
     Dim oParent As Object
     
     ' Properties set differently for databases and ADP projects
     If CurrentProject.ProjectType = acADP Then
         Set oParent = CurrentProject.Properties
     Else
-        Set dbs = CurrentDb
+        If dbs Is Nothing Then Set dbs = CurrentDb
         Set oParent = dbs.Properties
     End If
     
