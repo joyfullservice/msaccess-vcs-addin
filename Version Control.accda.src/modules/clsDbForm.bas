@@ -14,6 +14,7 @@ Option Explicit
 
 Private m_Form As AccessObject
 Private m_AllItems As Collection
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -84,12 +85,17 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cForm As IDbComponent
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
         Set m_AllItems = New Collection
+        m_blnModifiedOnly = blnModifiedOnly
         For Each frm In CurrentProject.AllForms
             Set cForm = New clsDbForm
             Set cForm.DbObject = frm
-            m_AllItems.Add cForm, frm.Name
+            If blnModifiedOnly Then
+                If cForm.IsModified Then m_AllItems.Add cForm, frm.Name
+            Else
+                 m_AllItems.Add cForm, frm.Name
+            End If
         Next frm
     End If
 
@@ -140,19 +146,16 @@ Public Function IDbComponent_IsModified() As Boolean
     
     With VCSIndex.Item(Me)
         
-        ' Check dates of last FULL export or build
-        dteDate = Largest(VCSIndex.FullBuildDate, VCSIndex.FullExportDate)
-        
         ' Check the modified date first.
         ' (This may not reflect some code changes)
-        If m_Form.DateModified <= dteDate Then
+        If m_Form.DateModified <= .Item("ExportDate") Then
                 
             ' Date is okay, check hash
             IDbComponent_IsModified = .Item("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
         End If
         
     End With
-    
+
 End Function
 
 
