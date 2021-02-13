@@ -14,7 +14,7 @@ Option Explicit
 
 Private m_Query As AccessObject
 Private m_AllItems As Collection
-
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -37,6 +37,7 @@ Private Sub IDbComponent_Export()
 
     ' Save and sanitize file
     SaveComponentAsText acQuery, m_Query.Name, IDbComponent_SourceFile
+    VCSIndex.Update Me, eatExport
     
     ' Export as SQL (if using that option)
     If Options.SaveQuerySQL Then
@@ -71,6 +72,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Import query from file
     strQueryName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acQuery, strQueryName, strFile
+    VCSIndex.Update Me, eatImport
     
     ' In some cases, such as when a query contains a subquery, AND has been modified in the
     ' visual query designer, it may be imported incorrectly and unable to run. For these
@@ -127,18 +129,22 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cQuery As IDbComponent
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
         Set m_AllItems = New Collection
         For Each qry In CurrentData.AllQueries
             Set cQuery = New clsDbQuery
             Set cQuery.DbObject = qry
-            m_AllItems.Add cQuery, qry.Name
+            If blnModifiedOnly Then
+                If cQuery.IsModified Then m_AllItems.Add cQuery, qry.Name
+            Else
+                m_AllItems.Add cQuery, qry.Name
+            End If
         Next qry
     End If
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_AllItems
-
+            
 End Function
 
 
@@ -175,7 +181,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = (m_Query.DateModified > VCSIndex.Item(Me).Item("ExportDate"))
 End Function
 
 
