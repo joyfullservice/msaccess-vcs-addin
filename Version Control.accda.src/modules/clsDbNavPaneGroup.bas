@@ -32,7 +32,7 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     IDbComponent_GetAllFromDB
-    WriteJsonFile Me, m_dItems, IDbComponent_SourceFile, "Navigation Pane Custom Groups"
+    WriteJsonFile TypeName(Me), m_dItems, IDbComponent_SourceFile, "Navigation Pane Custom Groups"
 End Sub
 
 
@@ -58,6 +58,9 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim lngObjectID As Long
     Dim lngLinkID As Long
     
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
         If dFile("Items").Exists("Groups") Then
@@ -87,6 +90,19 @@ Private Sub IDbComponent_Import(strFile As String)
         End If
     End If
     
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Merge
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Merge the source file into the existing database, updating or replacing
+'           : any existing object.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Merge(strFile As String)
+
 End Sub
 
 
@@ -131,7 +147,7 @@ End Function
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB() As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
 
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
@@ -224,7 +240,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList() As Collection
+Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_SourceFile)
 End Function
 
@@ -241,6 +257,19 @@ Private Sub IDbComponent_ClearOrphanedSourceFiles()
         If FSO.FileExists(IDbComponent_SourceFile) Then DeleteFile IDbComponent_SourceFile, True
     End If
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsModified
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Returns true if the object in the database has been modified since
+'           : the last export of the object.
+'---------------------------------------------------------------------------------------
+'
+Public Function IDbComponent_IsModified() As Boolean
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -280,7 +309,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "nav pane groups"
+    IDbComponent_Category = "Nav Pane Groups"
 End Property
 
 
@@ -326,7 +355,7 @@ End Property
 ' Purpose   : Return a count of how many items are in this category.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_Count() As Long
+Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_GetAllFromDB
     IDbComponent_Count = m_Count
 End Property

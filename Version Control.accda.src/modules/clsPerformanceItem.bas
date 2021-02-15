@@ -6,6 +6,6 @@ Option Compare Database
 Option Explicit
 
 ' See usage in clsPerformance
-Public sngStart As Single
-Public sngTotal As Single
-Public lngCount As Long
+Public Start As Currency
+Public Total As Currency
+Public Count As Double

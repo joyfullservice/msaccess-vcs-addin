@@ -45,7 +45,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function Options() As clsOptions
-    Set Options = modFunctions.Options
+    Set Options = modObjects.Options
 End Function
 
 

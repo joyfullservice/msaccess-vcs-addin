@@ -1,12 +1,13 @@
 {
   "Info": {
-    "AddinVersion": "3.2.2",
+    "AddinVersion": "3.2.3",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
     "ExportFolder": "",
     "ShowDebug": false,
-    "UseFastSave": false,
+    "UseFastSave": true,
+    "UseGitIntegration": false,
     "SavePrintVars": true,
     "ExportPrintSettings": {
       "Orientation": true,
@@ -37,11 +38,18 @@
     "AggressiveSanitize": true,
     "ExtractThemeFiles": false,
     "TablesToExportData": {
+      "USysRibbons": {
+        "Format": "Tab Delimited"
+      },
+      "USysRegInfo": {
+        "Format": "Tab Delimited"
+      }
     },
     "RunBeforeExport": "",
     "RunAfterExport": "",
     "RunAfterBuild": "",
     "Security": "None",
-    "KeyName": "VCS"
+    "KeyName": "MSAccessVCS",
+    "ShowVCSLegacy": true
   }
 }

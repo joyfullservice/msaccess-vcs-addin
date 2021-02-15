@@ -14,6 +14,7 @@ Option Explicit
 
 Private m_Macro As AccessObject
 Private m_AllItems As Collection
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -31,6 +32,7 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     SaveComponentAsText acMacro, m_Macro.Name, IDbComponent_SourceFile
+    VCSIndex.Update Me, eatExport
 End Sub
 
 
@@ -42,7 +44,30 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    LoadComponentFromText acMacro, GetObjectNameFromFileName(strFile), strFile
+
+    Dim strName As String
+    
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.bas" Then Exit Sub
+
+    strName = GetObjectNameFromFileName(strFile)
+    LoadComponentFromText acMacro, strName, strFile
+    Set m_Macro = CurrentProject.AllMacros(strName)
+    VCSIndex.Update Me, eatImport
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Merge
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Merge the source file into the existing database, updating or replacing
+'           : any existing object.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Merge(strFile As String)
+
 End Sub
 
 
@@ -53,24 +78,28 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB() As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
     
     Dim oMac As AccessObject
     Dim cMac As IDbComponent
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
         Set m_AllItems = New Collection
         For Each oMac In CurrentProject.AllMacros
             Set cMac = New clsDbMacro
             Set cMac.DbObject = oMac
-            m_AllItems.Add cMac, oMac.Name
+            If blnModifiedOnly Then
+                If cMac.IsModified Then m_AllItems.Add cMac, oMac.Name
+            Else
+                m_AllItems.Add cMac, oMac.Name
+            End If
         Next oMac
     End If
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_AllItems
-        
+
 End Function
 
 
@@ -81,7 +110,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList() As Collection
+Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
 End Function
 
@@ -96,6 +125,19 @@ End Function
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearOrphanedSourceFiles Me, "bas"
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsModified
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Returns true if the object in the database has been modified since
+'           : the last export of the object.
+'---------------------------------------------------------------------------------------
+'
+Public Function IDbComponent_IsModified() As Boolean
+    IDbComponent_IsModified = (m_Macro.DateModified > VCSIndex.Item(Me).Item("ExportDate"))
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -135,7 +177,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "macros"
+    IDbComponent_Category = "Macros"
 End Property
 
 
@@ -181,8 +223,8 @@ End Property
 ' Purpose   : Return a count of how many items are in this category.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_Count() As Long
-    IDbComponent_Count = IDbComponent_GetAllFromDB.Count
+Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
+    IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
 End Property
 
 

@@ -14,6 +14,7 @@ Option Explicit
 
 Private m_Table As DAO.TableDef
 Private m_AllItems As Collection
+Private m_blnModifiedOnly As Boolean
 Private m_Dbs As Database
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -73,9 +74,10 @@ Private Sub IDbComponent_Export()
                 Next idx
             End If
         End With
-        ' If Fast Save is enabled, make sure we write this file each time so the
-        ' modified date on the file is updated.
-        WriteJsonFile Me, dItem, strFile, "Linked Table", Not Options.UseFastSave
+        
+        ' Write export file.
+        WriteJsonFile TypeName(Me), dItem, strFile, "Linked Table"
+        
     End If
     
     ' Optionally save in SQL format
@@ -84,6 +86,9 @@ Private Sub IDbComponent_Export()
         SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder
     End If
 
+    ' Update index
+    VCSIndex.Update Me, eatExport
+    
 End Sub
 
 
@@ -318,10 +323,15 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim blnUseTemp As Boolean
     Dim strTempFile As String
+    Dim strName As String
     
+    ' Determine import type from extension
     Select Case LCase$(FSO.GetExtensionName(strFile))
+    
         Case "json"
             ImportLinkedTable strFile
+            VCSIndex.Update Me, eatImport
+        
         Case "xml"
             ' The ImportXML function does not properly handle UrlEncoded paths
             blnUseTemp = (InStr(1, strFile, "%") > 0)
@@ -334,7 +344,33 @@ Private Sub IDbComponent_Import(strFile As String)
             Else
                 Application.ImportXML strFile, acStructureOnly
             End If
+            VCSIndex.Update Me, eatImport
+        
+        Case Else
+            ' Unsupported file
+            Exit Sub
+            
     End Select
+    
+    ' Update index
+    strName = GetObjectNameFromFileName(strFile)
+    Set m_Dbs = CurrentDb
+    Set m_Table = m_Dbs.TableDefs(strName)
+    VCSIndex.Update Me, eatImport
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Merge
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Merge the source file into the existing database, updating or replacing
+'           : any existing object.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Merge(strFile As String)
+
 End Sub
 
 
@@ -454,14 +490,15 @@ End Function
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB() As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
     
     Dim tdf As TableDef
     Dim cTable As IDbComponent
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
         Set m_AllItems = New Collection
+        m_blnModifiedOnly = blnModifiedOnly
         Set m_Dbs = CurrentDb
         For Each tdf In m_Dbs.TableDefs
             If tdf.Name Like "MSys*" Or tdf.Name Like "~*" Then
@@ -469,7 +506,11 @@ Private Function IDbComponent_GetAllFromDB() As Collection
             Else
                 Set cTable = New clsDbTableDef
                 Set cTable.DbObject = tdf
-                m_AllItems.Add cTable, tdf.Name
+                If blnModifiedOnly Then
+                    If cTable.IsModified Then m_AllItems.Add cTable, tdf.Name
+                Else
+                    m_AllItems.Add cTable, tdf.Name
+                End If
             End If
         Next tdf
     End If
@@ -487,7 +528,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList() As Collection
+Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml")
     MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
 End Function
@@ -507,6 +548,19 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IsModified
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Returns true if the object in the database has been modified since
+'           : the last export of the object.
+'---------------------------------------------------------------------------------------
+'
+Public Function IDbComponent_IsModified() As Boolean
+    IDbComponent_IsModified = (m_Table.LastUpdated > VCSIndex.Item(Me).Item("ExportDate"))
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DateModified
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -516,7 +570,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = CurrentData.AllTables(m_Table.Name).DateModified
+    IDbComponent_DateModified = m_Table.LastUpdated
 End Function
 
 
@@ -543,7 +597,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "tables"
+    IDbComponent_Category = "Tables"
 End Property
 
 
@@ -594,8 +648,8 @@ End Property
 ' Purpose   : Return a count of how many items are in this category.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_Count() As Long
-    IDbComponent_Count = IDbComponent_GetAllFromDB.Count
+Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
+    IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
 End Property
 
 

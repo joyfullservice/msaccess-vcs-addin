@@ -15,10 +15,95 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+
 Public Const DefaultKeyName = "MSAccessVCS"
 
 Private m_Name As String
 Private m_Key As String
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Secure
+' Author    : Adam Waller
+' Date      : 6/1/2020
+' Purpose   : Secure the text based on the loaded option.
+'---------------------------------------------------------------------------------------
+'
+Public Function Secure(strText As String) As String
+    Select Case Options.Security
+        Case esEncrypt: Secure = Encrypt(strText)
+        Case esRemove:  Secure = vbNullString
+        Case esNone:    Secure = strText
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SecureBetween
+' Author    : Casper Englund
+' Date      : 2020-06-03
+' Purpose   : Secures content between two strings.
+'---------------------------------------------------------------------------------------
+'
+Public Function SecureBetween(strText As String, strStartAfter As String, strEndBefore As String, Optional Compare As VbCompareMethod) As String
+        
+        If strText = vbNullString Or Options.Security = esNone Then
+            SecureBetween = strText
+        Else
+            If Options.Security = esEncrypt Then
+                SecureBetween = EncryptBetween(strText, strStartAfter, strEndBefore, Compare)
+            ElseIf Options.Security = esRemove Then
+                Dim lngPos As Long
+                Dim lngStart As Long
+                Dim lngLen As Long
+                
+                lngPos = InStr(1, strText, strStartAfter, Compare)
+                If lngPos > 0 Then
+                    lngStart = lngPos + Len(strStartAfter) - 1
+                    lngPos = InStr(lngStart + 1, strText, strEndBefore)
+                    If lngPos > 0 Then
+                        lngLen = lngPos - lngStart
+                    End If
+                End If
+                
+                If lngLen = 0 Then
+                    ' No tags found. Return original string
+                    SecureBetween = strText
+                Else
+                    SecureBetween = Left$(strText, lngStart) & Mid$(strText, lngStart + lngLen)
+                End If
+    
+            End If
+        End If
+        
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SecurePath
+' Author    : Adam Waller
+' Date      : 6/1/2020
+' Purpose   : Secures just the folder path, not the filename.
+'---------------------------------------------------------------------------------------
+'
+Public Function SecurePath(strPath As String) As String
+
+    Dim strParent As String
+
+    strParent = FSO.GetParentFolderName(strPath)
+    If strParent = vbNullString Then
+        ' Could be relative path or just a filename.
+        SecurePath = strPath
+    Else
+        If Options.Security = esRemove Then
+            SecurePath = FSO.GetFileName(strPath)
+        Else
+            ' Could be encrypted or plain text, depending on options.
+            SecurePath = Secure(strParent) & "\" & FSO.GetFileName(strPath)
+        End If
+    End If
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

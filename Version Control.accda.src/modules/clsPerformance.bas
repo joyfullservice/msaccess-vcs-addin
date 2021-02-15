@@ -5,13 +5,15 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 ' Module    : clsPerformance
 ' Author    : Adam Waller
-' Date      : 11/3/2020
+' Date      : 12/4/2020
 ' Purpose   : Measure the performance of the export/import process. Since different
 '           : users have different needs and work with sometimes very different
 '           : databases, this tool will help identify potential bottlenecks in the
 '           : performance of the add-in in real-life scenarios. The results are
 '           : typically added to the log files.
-'           : Note: This class uses the Timer() function for basic timing operations.
+'           : Note: This class has been updated to use API calls for timing to the
+'           : microsecond level. For additional details, see the following link:
+'           : http://www.mendipdatasystems.co.uk/timer-comparison-tests/4594552971
 '---------------------------------------------------------------------------------------
 
 Option Compare Database
@@ -23,6 +25,10 @@ Private m_strComponent As String
 Private m_dComponents As Dictionary
 Private m_strOperation As String
 Private m_dOperations As Dictionary
+
+' API calls to get more precise time than Timer function
+Private Declare PtrSafe Function GetFrequencyAPI Lib "kernel32" Alias "QueryPerformanceFrequency" (ByRef Frequency As Currency) As Long
+Private Declare PtrSafe Function GetTimeAPI Lib "kernel32" Alias "QueryPerformanceCounter" (ByRef Counter As Currency) As Long
 
 ' Manage a type of call stack to track nested operations.
 ' When an operation finishes, it goes back to timing the
@@ -39,7 +45,7 @@ Private m_colOpsCallStack As Collection
 '
 Public Sub StartTiming()
     ResetAll
-    m_Overall.sngStart = Timer
+    m_Overall.Start = MicroTimer
 End Sub
 
 
@@ -152,6 +158,28 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MicroTimer
+' Author    : Adam Waller
+' Date      : 12/4/2020
+' Purpose   : Return time in seconds with microsecond precision
+'---------------------------------------------------------------------------------------
+'
+Public Function MicroTimer() As Currency
+    
+    Dim curFrequency As Currency
+    Dim curTime As Currency
+    
+    ' Call API to get current time
+    GetFrequencyAPI curFrequency
+    GetTimeAPI curTime
+    
+    ' Convert to seconds
+    MicroTimer = (curTime / curFrequency)
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : StartTimer
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
@@ -164,7 +192,7 @@ Private Sub StartTimer(dItems As Dictionary, strName As String)
         Set cItem = New clsPerformanceItem
         dItems.Add strName, cItem
     End If
-    dItems(strName).sngStart = Timer
+    dItems(strName).Start = MicroTimer
 End Sub
 
 
@@ -177,10 +205,10 @@ End Sub
 '
 Private Sub LapTimer(cItem As clsPerformanceItem, lngCount As Long)
     With cItem
-        If .sngStart > 0 Then
-            .sngTotal = .sngTotal + GetElapsed(.sngStart)
-            .sngStart = 0
-            .lngCount = .lngCount + lngCount
+        If .Start > 0 Then
+            .Total = .Total + GetElapsed(.Start)
+            .Start = 0
+            .Count = .Count + lngCount
         End If
     End With
 End Sub
@@ -199,7 +227,7 @@ Private Function GetElapsed(sngStart As Single) As Single
     
     ' Only return a value if we have a starting time.
     If sngStart > 0 Then
-        sngNow = Timer
+        sngNow = MicroTimer
         If sngStart <= sngNow Then
             GetElapsed = sngNow - sngStart
         Else
@@ -223,8 +251,8 @@ Public Function GetReports() As String
     Const cstrSpacer As String = "-------------------------------------"
     
     Dim varKey As Variant
-    Dim sngTotal As Single
-    Dim lngCount As Long
+    Dim curTotal As Currency
+    Dim dblCount As Double
 
     With New clsConcat
         .AppendOnAdd = vbCrLf
@@ -235,28 +263,28 @@ Public Function GetReports() As String
         ' Table for object types
         .Add ListResult("Object Type", "Count", "Seconds", 20, 30), vbCrLf, cstrSpacer
         For Each varKey In m_dComponents.Keys
-            .Add ListResult(CStr(varKey), CStr(m_dComponents(varKey).lngCount), _
-                Format(m_dComponents(varKey).sngTotal, "0.00"), 20, 30)
+            .Add ListResult(CStr(varKey), CStr(m_dComponents(varKey).Count), _
+                Format(m_dComponents(varKey).Total, "0.00"), 20, 30)
             ' Add to totals
-            lngCount = lngCount + m_dComponents(varKey).lngCount
-            sngTotal = sngTotal + m_dComponents(varKey).sngTotal
+            dblCount = dblCount + m_dComponents(varKey).Count
+            curTotal = curTotal + m_dComponents(varKey).Total
         Next varKey
         .Add cstrSpacer
-        .Add ListResult("TOTALS:", CStr(lngCount), _
-                Format(sngTotal, "0.00"), 20, 30)
+        .Add ListResult("TOTALS:", CStr(dblCount), _
+                Format(curTotal, "0.00"), 20, 30)
         .Add vbNullString
         
         ' Table for operations
-        sngTotal = 0
+        curTotal = 0
         .Add cstrSpacer
         .Add ListResult("Operations", "Count", "Seconds", 20, 30), vbCrLf, cstrSpacer
         For Each varKey In m_dOperations.Keys
-            .Add ListResult(CStr(varKey), CStr(m_dOperations(varKey).lngCount), _
-                Format(m_dOperations(varKey).sngTotal, "0.00"), 20, 30)
-            sngTotal = sngTotal + m_dOperations(varKey).sngTotal
+            .Add ListResult(CStr(varKey), CStr(m_dOperations(varKey).Count), _
+                Format(m_dOperations(varKey).Total, "0.00"), 20, 30)
+            curTotal = curTotal + m_dOperations(varKey).Total
         Next varKey
         .Add ListResult("Other Operations", vbNullString, _
-                Format(m_Overall.sngTotal - sngTotal, "0.00"), 20, 30)
+                Format(m_Overall.Total - curTotal, "0.00"), 20, 30)
         .Add vbNullString
         
         ' Check for unfinished operations

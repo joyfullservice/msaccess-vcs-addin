@@ -12,9 +12,9 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-
 Private m_Report As AccessObject
 Private m_AllItems As Collection
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -31,7 +31,8 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    SaveComponentAsText acReport, m_Report.Name, IDbComponent_SourceFile, GetPrintVarsFileName(m_Report.Name)
+    SaveComponentAsText acReport, m_Report.Name, IDbComponent_SourceFile, Me
+    VCSIndex.Update Me, eatExport, GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
 End Sub
 
 
@@ -43,9 +44,29 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    Dim strImportedObject As String
-    strImportedObject = GetObjectNameFromFileName(strFile)
-    LoadComponentFromText acReport, strImportedObject, strFile, GetPrintVarsFileName(strImportedObject)
+
+    Dim strName As String
+    
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.bas" Then Exit Sub
+
+    strName = GetObjectNameFromFileName(strFile)
+    LoadComponentFromText acReport, strName, strFile, Me
+    Set m_Report = CurrentProject.AllReports(strName)
+    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Merge
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Merge the source file into the existing database, updating or replacing
+'           : any existing object.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Merge(strFile As String)
 
 End Sub
 
@@ -57,18 +78,23 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB() As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
 
     Dim rpt As AccessObject
     Dim cReport As IDbComponent
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
         Set m_AllItems = New Collection
+        m_blnModifiedOnly = blnModifiedOnly
         For Each rpt In CurrentProject.AllReports
             Set cReport = New clsDbReport
             Set cReport.DbObject = rpt
-            m_AllItems.Add cReport, rpt.Name
+            If blnModifiedOnly Then
+                If cReport.IsModified Then m_AllItems.Add cReport, rpt.Name
+            Else
+                m_AllItems.Add cReport, rpt.Name
+            End If
         Next rpt
     End If
 
@@ -79,25 +105,13 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetPrintVarsFileName
-' Author    : Adam Waller
-' Date      : 5/7/2020
-' Purpose   : Return the file name used to export/import print vars
-'---------------------------------------------------------------------------------------
-'
-Private Function GetPrintVarsFileName(strReport As String) As String
-    GetPrintVarsFileName = IDbComponent_BaseFolder & GetSafeFileName(strReport) & ".json"
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetFileList
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList() As Collection
+Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
 End Function
 
@@ -114,6 +128,34 @@ Private Sub IDbComponent_ClearOrphanedSourceFiles()
     If Not Options.SavePrintVars Then ClearFilesByExtension IDbComponent_BaseFolder, "json"
     ClearOrphanedSourceFiles Me, "bas", "json"
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsModified
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Returns true if the object in the database has been modified since
+'           : the last export of the object.
+'---------------------------------------------------------------------------------------
+'
+Public Function IDbComponent_IsModified() As Boolean
+    
+    ' Item is considered modified unless proven otherwise.
+    IDbComponent_IsModified = True
+    
+    With VCSIndex.Item(Me)
+        
+        ' Check the modified date first.
+        ' (This may not reflect some code changes)
+        If m_Report.DateModified <= .Item("ExportDate") Then
+                
+            ' Date is okay, check hash
+            IDbComponent_IsModified = .Item("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
+        End If
+        
+    End With
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -153,7 +195,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "reports"
+    IDbComponent_Category = "Reports"
 End Property
 
 
@@ -199,8 +241,8 @@ End Property
 ' Purpose   : Return a count of how many items are in this category.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_Count() As Long
-    IDbComponent_Count = IDbComponent_GetAllFromDB.Count
+Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
+    IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
 End Property
 
 
