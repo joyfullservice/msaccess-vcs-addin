@@ -11,7 +11,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
-Private Const moduleName As String = "clsDbTheme:"
+Private Const ModuleName As String = "clsDbTheme:"
 
 Private m_AllItems As Collection
 Private m_Dbs As DAO.Database
