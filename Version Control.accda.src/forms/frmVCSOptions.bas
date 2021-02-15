@@ -9,7 +9,6 @@ Begin Form
     AllowDesignChanges = NotDefault
     DefaultView =0
     ScrollBars =0
-    BorderStyle =3
     PictureAlignment =2
     DatasheetGridlinesBehavior =3
     GridX =24
@@ -17,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =217
-    Left =3225
-    Top =2430
-    Right =28545
-    Bottom =15015
+    Left =7290
+    Top =2040
+    Right =20025
+    Bottom =10035
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -223,6 +222,7 @@ Begin Form
                     BorderColor =15321539
                     Name ="Line10"
                     GridlineColor =10921638
+                    HorizontalAnchor =2
                     LayoutCachedTop =1080
                     LayoutCachedWidth =10080
                     LayoutCachedHeight =1080
@@ -239,6 +239,7 @@ Begin Form
                     BorderColor =10921638
                     Name ="Box1"
                     GridlineColor =10921638
+                    HorizontalAnchor =2
                     LayoutCachedWidth =10080
                     LayoutCachedHeight =1020
                     BackThemeColorIndex =-1
@@ -276,6 +277,7 @@ Begin Form
                     Name ="Label9"
                     Caption ="Version Control System "
                     GridlineColor =10921638
+                    HorizontalAnchor =1
                     LayoutCachedLeft =7140
                     LayoutCachedTop =300
                     LayoutCachedWidth =9180
@@ -299,6 +301,8 @@ Begin Form
                     RightPadding =150
                     BottomPadding =150
                     GridlineColor =10921638
+                    HorizontalAnchor =1
+                    VerticalAnchor =1
 
                     LayoutCachedLeft =5880
                     LayoutCachedTop =6540
@@ -340,6 +344,8 @@ Begin Form
                     RightPadding =150
                     BottomPadding =150
                     GridlineColor =10921638
+                    HorizontalAnchor =1
+                    VerticalAnchor =1
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -410,6 +416,8 @@ Begin Form
                     TabIndex =2
                     Name ="tabOptions"
                     GridlineColor =10921638
+                    HorizontalAnchor =2
+                    VerticalAnchor =2
 
                     LayoutCachedLeft =540
                     LayoutCachedTop =1500
@@ -1787,6 +1795,7 @@ Begin Form
                                     Caption ="Select any additional settings that you would like saved to version control and "
                                         "used when building a database from source files."
                                     GridlineColor =10921638
+                                    HorizontalAnchor =2
                                     LayoutCachedLeft =3720
                                     LayoutCachedTop =2340
                                     LayoutCachedWidth =8760
@@ -1804,6 +1813,7 @@ Begin Form
                                     BorderColor =10921638
                                     Name ="Line161"
                                     GridlineColor =10921638
+                                    HorizontalAnchor =2
                                     LayoutCachedLeft =960
                                     LayoutCachedTop =3360
                                     LayoutCachedWidth =9120
@@ -1850,6 +1860,7 @@ Begin Form
                                     ColumnWidths ="340;4320"
                                     OnClick ="[Event Procedure]"
                                     GridlineColor =10921638
+                                    HorizontalAnchor =2
                                     VerticalAnchor =2
                                     AllowValueListEdits =0
 
@@ -1868,6 +1879,7 @@ Begin Form
                                     DefaultValue ="False"
                                     OnClick ="[Event Procedure]"
                                     GridlineColor =10921638
+                                    VerticalAnchor =1
 
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =5760
@@ -1885,6 +1897,7 @@ Begin Form
                                             Name ="Label71"
                                             Caption ="Show Hidden"
                                             GridlineColor =10921638
+                                            VerticalAnchor =1
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =5700
                                             LayoutCachedWidth =2700
@@ -1904,6 +1917,7 @@ Begin Form
                                     DefaultValue ="False"
                                     OnClick ="[Event Procedure]"
                                     GridlineColor =10921638
+                                    VerticalAnchor =1
 
                                     LayoutCachedLeft =2940
                                     LayoutCachedTop =5760
@@ -1921,6 +1935,7 @@ Begin Form
                                             Name ="Label73"
                                             Caption ="Show System"
                                             GridlineColor =10921638
+                                            VerticalAnchor =1
                                             LayoutCachedLeft =3240
                                             LayoutCachedTop =5700
                                             LayoutCachedWidth =4620
@@ -1944,8 +1959,7 @@ Begin Form
                                     ForeColor =4210752
                                     Name ="txtTableName"
                                     GridlineColor =10921638
-                                    HorizontalAnchor =2
-                                    VerticalAnchor =2
+                                    HorizontalAnchor =1
 
                                     LayoutCachedLeft =6960
                                     LayoutCachedTop =3540
@@ -1964,6 +1978,7 @@ Begin Form
                                             Name ="Label79"
                                             Caption ="Selected Table:"
                                             GridlineColor =10921638
+                                            HorizontalAnchor =1
                                             LayoutCachedLeft =6960
                                             LayoutCachedTop =3240
                                             LayoutCachedWidth =8460
@@ -1988,6 +2003,7 @@ Begin Form
                                     Name ="cboTableDataSaveType"
                                     RowSourceType ="Value List"
                                     GridlineColor =10921638
+                                    HorizontalAnchor =1
                                     AllowValueListEdits =0
 
                                     LayoutCachedLeft =6960
@@ -2007,6 +2023,7 @@ Begin Form
                                             Caption ="Data to Export"
                                             EventProcPrefix ="Data_to_Export_Label"
                                             GridlineColor =10921638
+                                            HorizontalAnchor =1
                                             LayoutCachedLeft =6960
                                             LayoutCachedTop =4620
                                             LayoutCachedWidth =8415
@@ -2029,6 +2046,7 @@ Begin Form
                                     Caption ="You may optionally include data from specific tables as part of the export proce"
                                         "ss."
                                     GridlineColor =10921638
+                                    HorizontalAnchor =1
                                     LayoutCachedLeft =6960
                                     LayoutCachedTop =2280
                                     LayoutCachedWidth =9360
@@ -2050,6 +2068,7 @@ Begin Form
                                     RightPadding =150
                                     BottomPadding =150
                                     GridlineColor =10921638
+                                    HorizontalAnchor =1
                                     ImageData = Begin
                                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -2121,6 +2140,7 @@ Begin Form
                                     DefaultValue ="False"
                                     OnClick ="[Event Procedure]"
                                     GridlineColor =10921638
+                                    VerticalAnchor =1
 
                                     LayoutCachedLeft =4860
                                     LayoutCachedTop =5760
@@ -2138,6 +2158,7 @@ Begin Form
                                             Name ="Label85"
                                             Caption ="Show Other"
                                             GridlineColor =10921638
+                                            VerticalAnchor =1
                                             LayoutCachedLeft =5160
                                             LayoutCachedTop =5700
                                             LayoutCachedWidth =6360
@@ -2163,6 +2184,7 @@ Begin Form
                                     OnClick ="[Event Procedure]"
                                     HyperlinkAddress ="#"
                                     GridlineColor =10921638
+                                    HorizontalAnchor =1
                                     LayoutCachedLeft =8640
                                     LayoutCachedTop =3255
                                     LayoutCachedWidth =9360
@@ -3266,6 +3288,7 @@ Begin Form
                                     BorderColor =10921638
                                     Name ="Frame62"
                                     GridlineColor =10921638
+                                    HorizontalAnchor =2
 
                                     LayoutCachedLeft =960
                                     LayoutCachedTop =2280
@@ -3305,6 +3328,7 @@ Begin Form
                                     BorderColor =10921638
                                     Name ="Frame65"
                                     GridlineColor =10921638
+                                    HorizontalAnchor =2
 
                                     LayoutCachedLeft =960
                                     LayoutCachedTop =4860
@@ -3447,6 +3471,7 @@ Begin Form
                     Caption ="See Docs..."
                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation"
                     GridlineColor =10921638
+                    HorizontalAnchor =1
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x000000000000000000000000000000000000000000000000e0e8e000e0c8b000 ,
@@ -3526,6 +3551,7 @@ Begin Form
                     Name ="Label32"
                     Caption ="joyfullservice/msaccess-vcs-integration"
                     GridlineColor =10921638
+                    VerticalAnchor =1
                     LayoutCachedLeft =240
                     LayoutCachedTop =6660
                     LayoutCachedWidth =3615
@@ -3551,6 +3577,7 @@ Begin Form
                     Name ="Label45"
                     ControlSource ="=GetVCSVersion()"
                     GridlineColor =10921638
+                    HorizontalAnchor =1
 
                     LayoutCachedLeft =7140
                     LayoutCachedTop =540
