@@ -12,9 +12,9 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-
 Private m_Report As AccessObject
 Private m_AllItems As Collection
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -32,6 +32,7 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     SaveComponentAsText acReport, m_Report.Name, IDbComponent_SourceFile, Me
+    VCSIndex.Update Me, eatExport, GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
 End Sub
 
 
@@ -44,14 +45,16 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim strImportedObject As String
+    Dim strName As String
     
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
 
-    strImportedObject = GetObjectNameFromFileName(strFile)
-    LoadComponentFromText acReport, strImportedObject, strFile, Me
-    
+    strName = GetObjectNameFromFileName(strFile)
+    LoadComponentFromText acReport, strName, strFile, Me
+    Set m_Report = CurrentProject.AllReports(strName)
+    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
+
 End Sub
 
 
@@ -81,12 +84,16 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cReport As IDbComponent
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
         Set m_AllItems = New Collection
         For Each rpt In CurrentProject.AllReports
             Set cReport = New clsDbReport
             Set cReport.DbObject = rpt
-            m_AllItems.Add cReport, rpt.Name
+            If blnModifiedOnly Then
+                If cReport.IsModified Then m_AllItems.Add cReport, rpt.Name
+            Else
+                m_AllItems.Add cReport, rpt.Name
+            End If
         Next rpt
     End If
 
@@ -131,7 +138,22 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    
+    ' Item is considered modified unless proven otherwise.
+    IDbComponent_IsModified = True
+    
+    With VCSIndex.Item(Me)
+        
+        ' Check the modified date first.
+        ' (This may not reflect some code changes)
+        If m_Report.DateModified <= .Item("ExportDate") Then
+                
+            ' Date is okay, check hash
+            IDbComponent_IsModified = .Item("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
+        End If
+        
+    End With
+    
 End Function
 
 

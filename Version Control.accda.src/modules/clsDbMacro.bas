@@ -14,6 +14,7 @@ Option Explicit
 
 Private m_Macro As AccessObject
 Private m_AllItems As Collection
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -31,6 +32,7 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export()
     SaveComponentAsText acMacro, m_Macro.Name, IDbComponent_SourceFile
+    VCSIndex.Update Me, eatExport
 End Sub
 
 
@@ -47,6 +49,8 @@ Private Sub IDbComponent_Import(strFile As String)
     If Not strFile Like "*.bas" Then Exit Sub
 
     LoadComponentFromText acMacro, GetObjectNameFromFileName(strFile), strFile
+    VCSIndex.Update Me, eatImport
+
 End Sub
 
 
@@ -76,18 +80,22 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cMac As IDbComponent
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
         Set m_AllItems = New Collection
         For Each oMac In CurrentProject.AllMacros
             Set cMac = New clsDbMacro
             Set cMac.DbObject = oMac
-            m_AllItems.Add cMac, oMac.Name
+            If blnModifiedOnly Then
+                If cMac.IsModified Then m_AllItems.Add cMac, oMac.Name
+            Else
+                m_AllItems.Add cMac, oMac.Name
+            End If
         Next oMac
     End If
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_AllItems
-        
+
 End Function
 
 
@@ -124,7 +132,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = (m_Macro.DateModified > VCSIndex.Item(Me).Item("ExportDate"))
 End Function
 
 
