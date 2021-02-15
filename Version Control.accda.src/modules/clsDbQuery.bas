@@ -72,6 +72,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Import query from file
     strQueryName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acQuery, strQueryName, strFile
+    Set m_Query = CurrentData.AllQueries(strQueryName)
     VCSIndex.Update Me, eatImport
     
     ' In some cases, such as when a query contains a subquery, AND has been modified in the

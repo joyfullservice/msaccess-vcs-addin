@@ -45,10 +45,14 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Dim strName As String
+    
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
 
-    LoadComponentFromText acMacro, GetObjectNameFromFileName(strFile), strFile
+    strName = GetObjectNameFromFileName(strFile)
+    LoadComponentFromText acMacro, strName, strFile
+    Set m_Macro = CurrentProject.AllMacros(strName)
     VCSIndex.Update Me, eatImport
 
 End Sub

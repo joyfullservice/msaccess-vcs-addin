@@ -323,11 +323,15 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim blnUseTemp As Boolean
     Dim strTempFile As String
+    Dim strName As String
     
+    ' Determine import type from extension
     Select Case LCase$(FSO.GetExtensionName(strFile))
+    
         Case "json"
             ImportLinkedTable strFile
             VCSIndex.Update Me, eatImport
+        
         Case "xml"
             ' The ImportXML function does not properly handle UrlEncoded paths
             blnUseTemp = (InStr(1, strFile, "%") > 0)
@@ -341,7 +345,18 @@ Private Sub IDbComponent_Import(strFile As String)
                 Application.ImportXML strFile, acStructureOnly
             End If
             VCSIndex.Update Me, eatImport
+        
+        Case Else
+            ' Unsupported file
+            Exit Sub
+            
     End Select
+    
+    ' Update index
+    strName = GetObjectNameFromFileName(strFile)
+    Set m_Dbs = CurrentDb
+    Set m_Table = m_Dbs.TableDefs(strName)
+    VCSIndex.Update Me, eatImport
     
 End Sub
 
