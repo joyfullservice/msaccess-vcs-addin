@@ -7,7 +7,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
-Private Const moduleName As String = "modImportExport:"
+Private Const ModuleName As String = "modImportExport:"
 
 
 '---------------------------------------------------------------------------------------
@@ -19,8 +19,6 @@ Private Const moduleName As String = "modImportExport:"
 '
 Public Sub ExportSource(blnFullExport As Boolean)
     On Error Resume Next
-    Dim FunctionName as String
-    FunctionName = moduleName & "ExportSource:blnFullExport:" & CStr$(blnFullExport)
 
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
@@ -111,8 +109,8 @@ Public Sub ExportSource(blnFullExport As Boolean)
                 Log.Increment
                 Log.Add "  " & cDbObject.Name, Options.ShowDebug
                 cDbObject.Export
-                CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Exporting:" & _
-                    Options.UseFastSave & LCase(cCategory.Category) & " " & cDbObject.Name, True, True
+                CatchAny eelError, "Error exporting " & varFile, _
+                    ModuleName & ".ExportSource", True, True
                     
                 ' Some kinds of objects are combined into a single export file, such
                 ' as database properties. For these, we just need to run the export once.
@@ -140,6 +138,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
         Perf.OperationStart "RunAfterExport"
         RunSubInCurrentProject Options.RunAfterExport
         Perf.OperationEnd
+        CatchAny eelError, "Error exporting " & varFile, ModuleName & ".ExportSource:AfterExport", True, True
     End If
     
     ' Show final output and save log
@@ -149,13 +148,8 @@ Public Sub ExportSource(blnFullExport As Boolean)
     ' Add performance data to log file
     Perf.EndTiming
     Log.Add vbCrLf & Perf.GetReports, False
-    
-    If Log.ErrorLevel = eelNoError Then 
-        Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
-    Else
-    ' Save log file to disk
-        Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export-Errors-" & Format(Now, "YYYY-MM-DD-hh.mm.ss") & ".log")
-    End If
+ 
+    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
     
     ' Check for VCS_ImportExport.bas (Used with other forks)
     CheckForLegacyModules
@@ -186,8 +180,6 @@ End Sub
 '
 Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     On Error Resume Next
-    Dim FunctionName as String
-    FunctionName = moduleName & "Build:blnFullBuild:" & CStr$(blnFullBuild)
 
     Dim strPath As String
     Dim strBackup As String
@@ -200,7 +192,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Dim strText As String   ' Remove later
     
     ' The type of build will be used in various messages and log entries.
-    strType = IIf(blnFullBuild, "Build", "Merge")
+    strType = IIf(blnFullBuild, "Import", "Merge")
     
     ' For full builds, close the current database if it is currently open.
     If blnFullBuild Then
@@ -224,7 +216,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
             Exit Sub
         ElseIf StrComp(strPath, CurrentProject.FullName, vbTextCompare) <> 0 Then
-            MsgBox2 "Cannot merge to a different database", _
+            MsgBox2 "Cannot " & strType & " to a different database", _
                 "The database file name for the source files must match the currently open database.", _
                 "Current: " & CurrentProject.FullName & vbCrLf & _
                 "Source: " & strPath, vbExclamation
@@ -338,7 +330,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         Else
             ' Show category header
             Log.Spacer Options.ShowDebug
-            Log.PadRight IIf(blnFullBuild, "Importing ", "Merging ") & LCase(cCategory.Category) & "...", , Options.ShowDebug
+            Log.PadRight strType & "ing " & LCase(cCategory.Category) & "...", , Options.ShowDebug
             Log.ProgMax = colFiles.Count
             Perf.ComponentStart cCategory.Category
 
@@ -349,13 +341,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
                 If blnFullBuild Then
                     cCategory.Import CStr(varFile)
-                    CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Importing:" & _
-                        Options.UseFastSave & LCase(cCategory.Category) & " " & FSO.GetFileName(varFile), True, True
                 Else
                     cCategory.Merge CStr(varFile)
-                    CatchAny eelError, Err.Number & ":" & Err.Description, FunctionName & ":Merging:" & _
-                        Options.UseFastSave & LCase(cCategory.Category) & " " & FSO.GetFileName(varFile), True, True
                 End If
+                CatchAny eelError, strType & " error in: " & varFile, ModuleName & ".Build", True, True
             Next varFile
             
             ' Show category wrap-up.
@@ -369,7 +358,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     If blnFullBuild Then
         If Options.RunAfterBuild <> vbNullString Then
             Log.Add "Running " & Options.RunAfterBuild & "..."
-            Perf.OperationStart "RunAfterBuild"
+            Perf.OperationStart "RunAfter" & strType
             RunSubInCurrentProject Options.RunAfterBuild
             Perf.OperationEnd
         End If
@@ -377,12 +366,14 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         ' Merge build
         'If Options.runaftermerge <> vbNullString Then
             Log.Add "Running " & Options.RunAfterBuild & "..."
-            Perf.OperationStart "RunAfterBuild"
+            Perf.OperationStart "RunAfter" & strType
             RunSubInCurrentProject Options.RunAfterBuild
             Perf.OperationEnd
         'End If
     End If
-
+    
+    CatchAny eelError, strType & " error in: " & varFile, ModuleName & ".Build:RunAfter" & strType, True, True
+    
     ' Show final output and save log
     Log.Spacer
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
@@ -390,14 +381,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     ' Add performance data to log file
     Perf.EndTiming
     Log.Add vbCrLf & Perf.GetReports, False
-    
-    If Log.ErrorLevel = eelNoError Then 
-        Log.SaveFile FSO.BuildPath(Options.GetExportFolder, IIf(blnFullBuild, "Import", "Merge") & ".log")
-    Else
-    ' Write log file to disk
-        Log.SaveFile FSO.BuildPath(Options.GetExportFolder, IIf(blnFullBuild, "Import-Error", "Merge-Error") & Format(Now, "-YYYY-MM-DD-hh.mm.ss") & ".log")
-    End If
 
+    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, strType & ".log")
+    
     ' Wrap up build.
     DoCmd.Hourglass False
     If Forms.Count > 0 Then
