@@ -197,6 +197,11 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     
     Dim strMsg As String
     Dim varLines(0 To 3) As String
+    Dim intCursor As Integer
+    
+    ' Turn off any hourglass
+    intCursor = Screen.MousePointer
+    If intCursor > 0 Then Screen.MousePointer = 0
     
     ' Escape single quotes by doubling them.
     varLines(0) = Replace(strBold, "'", "''")
@@ -207,6 +212,9 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
     strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
     MsgBox2 = Eval(strMsg)
+    
+    ' Restore MousePointer (if needed)
+    If intCursor > 0 Then Screen.MousePointer = intCursor
     
 End Function
 

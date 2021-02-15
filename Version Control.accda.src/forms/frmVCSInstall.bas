@@ -17,10 +17,10 @@ Begin Form
     GridY =24
     DatasheetFontHeight =11
     ItemSuffix =39
-    Left =-25575
-    Top =1710
-    Right =-5925
-    Bottom =14295
+    Left =-17265
+    Top =2430
+    Right =-6105
+    Bottom =10335
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1573,6 +1573,9 @@ End Sub
 '
 Private Sub cmdInstall_Click()
 
+    ' Show hourglass, as there may be a brief pause before the confirmation message.
+    DoCmd.Hourglass True
+
     ' Check for legacy installations (before updating version)
     CheckForLegacyInstall
 
@@ -1597,6 +1600,8 @@ Private Sub cmdInstall_Click()
         ' Close the installer add-in file.
         DoCmd.Quit
     End If
+    
+    DoCmd.Hourglass False
     
 End Sub
 
