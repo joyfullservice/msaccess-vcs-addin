@@ -151,8 +151,7 @@ Private Sub IDbComponent_Import(strFile As String)
         strThemeFile = strFile
     End If
 
-    CatchAny eelError, Err.Number & ":" & Err.Description, ModuleName & ".Import:strFile:"  & strFile & _ 
-        ", blnIsFolder:" & blnIsFolder, True, True
+    CatchAny eelError, "Error getting theme file. File:" & strThemeFile ", IsFolder:" & blnIsFolder, ModuleName & ".Import", True, True
 
     ' Create/edit record in resources table.
     strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strFile))
@@ -195,8 +194,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Remove compressed theme file if we are using a folder.
     If blnIsFolder Then DeleteFile strThemeFile, True
     
-    CatchAny eelError, Err.Number & ":" & Err.Description, ModuleName & ".Import:strThemeFile:"  & strThemeFile & _ 
-        ", blnIsFolder:" & blnIsFolder, True, True
+    CatchAny eelError, "Error importing theme. File:" & strThemeFile ", IsFolder:" & blnIsFolder, ModuleName & ".Import", True, True
 
     ' Clear object (Important with DAO/ADO)
     Set rstAttachment = Nothing
