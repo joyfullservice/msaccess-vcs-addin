@@ -17,6 +17,7 @@ Public MergeBuildDate As Date
 Public FullBuildDate As Date
 Public ExportDate As Date
 Public FullExportDate As Date
+Public RequireFullExport As Boolean
 Public OptionsChangeDate As Date
 
 ' Git integration
