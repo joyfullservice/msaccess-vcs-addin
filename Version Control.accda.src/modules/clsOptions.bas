@@ -128,7 +128,8 @@ Public Sub LoadDefaults()
         End With
 
     End With
-
+    ' Save the date to ensure any changes get exported correctly
+    VCSIndex.OptionsChangeDate = Now
 End Sub
 
 
@@ -193,6 +194,7 @@ Public Sub SaveOptionsForProject()
     SavedSourcePath = Me.ExportFolder
     ' Save options to the export folder location
     Me.SaveOptionsToFile Me.GetExportFolder & cstrOptionsFilename
+    VCSIndex.OptionsChangeDate = Now
 End Sub
 
 

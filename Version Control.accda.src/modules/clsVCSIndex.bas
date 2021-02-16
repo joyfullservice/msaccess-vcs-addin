@@ -17,6 +17,7 @@ Public MergeBuildDate As Date
 Public FullBuildDate As Date
 Public ExportDate As Date
 Public FullExportDate As Date
+Public OptionsChangeDate As Date
 
 ' Git integration
 Public LastMergedCommit As String
@@ -337,6 +338,7 @@ Private Sub Class_Initialize()
         .Add "FullBuildDate", Null
         .Add "ExportDate", Null
         .Add "FullExportDate", Null
+        .Add "OptionsChangeDate", Null
         .Add "LastMergedCommit", vbNullString
         Set .Item("Components") = New Dictionary
     End With
