@@ -57,13 +57,9 @@ Public Sub ExportSource(blnFullExport As Boolean)
         Perf.OperationEnd
     End If
 
-    ' Save property with the version of Version Control we used for the export.
-    If GetDBProperty("Last VCS Version") <> GetVCSVersion Then
-        SetDBProperty "Last VCS Version", GetVCSVersion
-        blnFullExport = True
-    ElseIf (VCSIndex.OptionsChangeDate > VCSIndex.FullExportDate) Then
-        blnFullExport = True
-    End If
+    ' If options (or VCS version) have changed, a full export will be required
+    If (VCSIndex.OptionsHash <> Options.GetOptionsHash) Then blnFullExport = True
+    
     ' Set this as text to save display in current user's locale rather than Zulu time.
     SetDBProperty "Last VCS Export", Now, dbText ' dbDate
 
@@ -156,10 +152,13 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Options.SaveOptionsForProject
     
     ' Save index file
-    VCSIndex.ExportDate = Now
-    If blnFullExport Then VCSIndex.FullExportDate = Now
-    VCSIndex.Save
-
+    With VCSIndex
+        .ExportDate = Now
+        If blnFullExport Then .FullExportDate = Now
+        .OptionsHash = Options.GetOptionsHash
+        .Save
+    End With
+    
 CleanUp:
 
     ' Clear references to FileSystemObject and other objects

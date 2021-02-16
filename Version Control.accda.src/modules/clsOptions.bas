@@ -128,8 +128,7 @@ Public Sub LoadDefaults()
         End With
 
     End With
-    ' Save the date to ensure any changes get exported correctly
-    VCSIndex.OptionsChangeDate = Now
+
 End Sub
 
 
@@ -194,7 +193,6 @@ Public Sub SaveOptionsForProject()
     SavedSourcePath = Me.ExportFolder
     ' Save options to the export folder location
     Me.SaveOptionsToFile Me.GetExportFolder & cstrOptionsFilename
-    VCSIndex.OptionsChangeDate = Now
 End Sub
 
 
@@ -392,6 +390,19 @@ Private Function SerializeOptions() As Dictionary
     Set dWrapper("Options") = dOptions
     Set SerializeOptions = dWrapper
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OptionsHash
+' Author    : Adam Waller
+' Date      : 2/16/2021
+' Purpose   : Return a hash of the current options. Used to detect if options have
+'           : changed, which may require a full export to reflect the change.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetOptionsHash() As String
+    GetOptionsHash = GetDictionaryHash(SerializeOptions)
 End Function
 
 
