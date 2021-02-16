@@ -138,7 +138,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
         Perf.OperationStart "RunAfterExport"
         RunSubInCurrentProject Options.RunAfterExport
         Perf.OperationEnd
-        CatchAny eelError, "Error exporting " & varFile, ModuleName & ".ExportSource:AfterExport", True, True
+        CatchAny eelError, "Error after export.", ModuleName & ".ExportSource:RunAfterExport", True, True
     End If
     
     ' Show final output and save log
@@ -192,7 +192,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Dim strText As String   ' Remove later
     
     ' The type of build will be used in various messages and log entries.
-    strType = IIf(blnFullBuild, "Import", "Merge")
+    strType = IIf(blnFullBuild, "Build", "Merge")
     
     ' For full builds, close the current database if it is currently open.
     If blnFullBuild Then
@@ -330,7 +330,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         Else
             ' Show category header
             Log.Spacer Options.ShowDebug
-            Log.PadRight strType & "ing " & LCase(cCategory.Category) & "...", , Options.ShowDebug
+            Log.PadRight IIf(blnFullBuild, "Importing ", "Merging ") & LCase(cCategory.Category) & "...", , Options.ShowDebug
             Log.ProgMax = colFiles.Count
             Perf.ComponentStart cCategory.Category
 
@@ -358,7 +358,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     If blnFullBuild Then
         If Options.RunAfterBuild <> vbNullString Then
             Log.Add "Running " & Options.RunAfterBuild & "..."
-            Perf.OperationStart "RunAfter" & strType
+            Perf.OperationStart "RunAfterBuild"
             RunSubInCurrentProject Options.RunAfterBuild
             Perf.OperationEnd
         End If
@@ -366,13 +366,13 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         ' Merge build
         'If Options.runaftermerge <> vbNullString Then
             Log.Add "Running " & Options.RunAfterBuild & "..."
-            Perf.OperationStart "RunAfter" & strType
+            Perf.OperationStart "RunAfterMerge"
             RunSubInCurrentProject Options.RunAfterBuild
             Perf.OperationEnd
         'End If
     End If
     
-    CatchAny eelError, strType & " error in: " & varFile, ModuleName & ".Build:RunAfter" & strType, True, True
+    CatchAny eelError, strType & " error.", ModuleName & ".Build:RunAfterBuild", True, True
     
     ' Show final output and save log
     Log.Spacer
