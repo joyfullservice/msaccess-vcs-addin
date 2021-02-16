@@ -12,6 +12,7 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+Private Const ModuleName As String = "clsDbTheme"
 
 Private m_AllItems As Collection
 Private m_Dbs As DAO.Database
@@ -51,13 +52,19 @@ Private Sub IDbComponent_Export()
     Dim rstAtc As Recordset2
     Dim strSql As String
     
+    On Error Resume Next
+
     ' Query theme file details
     strSql = "SELECT [Data] FROM MSysResources WHERE [Name]='" & m_Name & "' AND Extension='" & m_Extension & "'"
     Set m_Dbs = CurrentDb
     Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
     
     ' If we get multiple records back we don't know which to use
-    If rst.RecordCount > 1 Then Err.Raise 42, , "Multiple records in MSysResources table were found that matched name '" & m_Name & "' and extension '" & m_Extension & "' - Compact and repair database and try again."
+    If rst.RecordCount > 1 Then
+        Log.Error eelCritical, "Multiple records in MSysResources table were found that matched this name. " & _
+            "Compact and repair database and try again. Theme Name: " & LCase(m_Name) & "." & m_Extension, ModuleName & ".Export"
+        Exit Sub
+    End If
 
     ' Get full name of theme file. (*.thmx)
     strFile = IDbComponent_SourceFile
@@ -67,7 +74,7 @@ Private Sub IDbComponent_Export()
         Set rstAtc = rst!Data.Value
         If FSO.FileExists(strFile) Then DeleteFile strFile, True
         VerifyPath strFile
-        Perf.OperationStart "Extract Theme"
+        Perf.OperationStart "Export Theme"
         rstAtc!FileData.SaveToFile strFile
         Perf.OperationEnd
         rstAtc.Close
@@ -75,10 +82,13 @@ Private Sub IDbComponent_Export()
     End If
     rst.Close
     Set rst = Nothing
-    
+
+    CatchAny eelError, "Error exporting theme file: " & strFile, ModuleName & ".Export", True, True
+
     ' See if we need to extract the theme source files.
     ' (Only really needed when you are tracking themes customizations.)
     If Options.ExtractThemeFiles Then
+        Perf.OperationStart "Extract Theme"
         ' Extract to folder and delete zip file.
         strFolder = FSO.GetParentFolderName(strFile) & "\" & FSO.GetBaseName(strFile)
         If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
@@ -89,6 +99,8 @@ Private Sub IDbComponent_Export()
         ExtractFromZip strZip, strFolder, False
         ' Rather than holding up the export while we extract the file,
         ' use a cleanup sub to do this after the export.
+        Perf.OperationEnd
+        CatchAny eelError, "Error extracting theme. Folder: " & strFolder, ModuleName & ".Export", True, True
     End If
 
 End Sub
@@ -112,13 +124,15 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strSql As String
     Dim blnIsFolder As Boolean
     
+    On Error Resume Next
+    
     ' Are we dealing with a folder, or a file?
     blnIsFolder = (Right$(strFile, 5) <> ".thmx")
 
     If blnIsFolder Then
         ' We need to compress this folder back into a zipped theme file.
-        ' Build zip file name
-        strZip = FSO.GetBaseName(strFile) & ".zip"
+        ' Build zip file name; if it's a folder, just add the extension.
+        strZip = strFile & ".zip"
         ' Get theme name
         strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strZip))
         ' Remove any existing zip file
@@ -137,6 +151,9 @@ Private Sub IDbComponent_Import(strFile As String)
         ' Theme file is ready to go
         strThemeFile = strFile
     End If
+
+    ' Log any errors encountered.
+    CatchAny eelError, "Error getting theme file. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName & ".Import", True, True
 
     ' Create/edit record in resources table.
     strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strFile))
@@ -179,6 +196,9 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Remove compressed theme file if we are using a folder.
     If blnIsFolder Then DeleteFile strThemeFile, True
     
+    ' Log any errors
+    CatchAny eelError, "Error importing theme. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName & ".Import", True, True
+
     ' Clear object (Important with DAO/ADO)
     Set rstAttachment = Nothing
     Set rstResources = Nothing
