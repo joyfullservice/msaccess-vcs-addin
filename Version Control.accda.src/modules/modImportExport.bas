@@ -61,6 +61,8 @@ Public Sub ExportSource(blnFullExport As Boolean)
     If GetDBProperty("Last VCS Version") <> GetVCSVersion Then
         SetDBProperty "Last VCS Version", GetVCSVersion
         blnFullExport = True
+    ElseIf (VCSIndex.OptionsChangeDate > VCSIndex.FullExportDate) Then
+        blnFullExport = True
     End If
     ' Set this as text to save display in current user's locale rather than Zulu time.
     SetDBProperty "Last VCS Export", Now, dbText ' dbDate
