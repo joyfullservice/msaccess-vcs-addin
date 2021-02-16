@@ -18,6 +18,7 @@
 # Comment out the following line if you wish to include the log files in git.
 Export.log
 Import.log
+Build.log
 Merge.log
 
 # The local VCS index file is paired with the database and should not
