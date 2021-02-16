@@ -65,7 +65,7 @@ Public Sub Initialize(BackLabel As Access.Label, FrontLabel As Access.Label, Cap
     ' refresh parent form
     'mobjParent.Repaint
     
-    ' set properties for back lable
+    ' set properties for back label
     With mlblBack
         .Visible = True
         .SpecialEffect = 2  ' sunken. Seems to lose when not visible.
