@@ -95,12 +95,7 @@ Public Sub SanitizeFile(strPath As String)
                     "NameMap = Begin", _
                     "dbLongBinary ""DOL"" = Begin", _
                     "dbBinary ""GUID"" = Begin"
-                    If Options.AggressiveSanitize Then 
-                        blnInsideIgnoredBlock = True
-                    Else
-                        ' Keep the header
-                        cData.Add strLine
-                    End If
+                    If Options.AggressiveSanitize Then blnInsideIgnoredBlock = True
                     
                 ' Single lines to ignore
                 Case "NoSaveCTIWhenDisabled =1"
