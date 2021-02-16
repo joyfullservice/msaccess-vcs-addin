@@ -95,10 +95,10 @@ Public Sub SanitizeFile(strPath As String)
                     "NameMap = Begin", _
                     "dbLongBinary ""DOL"" = Begin", _
                     "dbBinary ""GUID"" = Begin"
-                    If Options.AggressiveSanitize Then 
+                    If Options.AggressiveSanitize Then
                         blnInsideIgnoredBlock = True
                     Else
-                        ' Keep the header
+                        ' Include these sections
                         cData.Add strLine
                     End If
                     
