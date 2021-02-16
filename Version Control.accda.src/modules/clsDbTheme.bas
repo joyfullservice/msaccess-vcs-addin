@@ -60,8 +60,8 @@ Private Sub IDbComponent_Export()
     
     ' If we get multiple records back we don't know which to use
     If rst.RecordCount > 1 Then 
-        Log.Error eelCritical, moduleName & ".Export:Multiple records in MSysResources table were found that matched this name. '" & _ 
-            "Compact and repair database and try again.", LCase(m_Name) & "." & m_Extension, True, False
+        Log.Error eelCritical, "Multiple records in MSysResources table were found that matched this name. " & _
+            "Compact and repair database and try again. ThemeName:" & LCase(m_Name) & "." & m_Extension, ModuleName & ".Export"
         Exit Sub
     End If
 
@@ -82,7 +82,7 @@ Private Sub IDbComponent_Export()
     rst.Close
     Set rst = Nothing
 
-    CatchAny eelError, Err.Number & ":" & Err.Description, ModuleName & ".Export:strFile:" & strFile &, True, True
+    CatchAny eelError, "Error exporting theme file: " & strFile, ModuleName & ".Export", True, True
 
     ' See if we need to extract the theme source files.
     ' (Only really needed when you are tracking themes customizations.)
@@ -99,8 +99,8 @@ Private Sub IDbComponent_Export()
         ' Rather than holding up the export while we extract the file,
         ' use a cleanup sub to do this after the export.
         Perf.OperationEnd
-        CatchAny eelError, Err.Number & ":" & Err.Description, ModuleName & ".Export:ExtractThemeFiles:" & Options.ExtractThemeFiles & _ 
-            ",strFolder:"  & strFolder, True, True
+        CatchAny eelError, "Error extracting theme. strFolder:" & strFolder, ModuleName & ".Export:ExtractThemeFile", _ 
+            True, True
     End If
 
 End Sub
@@ -151,7 +151,7 @@ Private Sub IDbComponent_Import(strFile As String)
         strThemeFile = strFile
     End If
 
-    CatchAny eelError, "Error getting theme file. File:" & strThemeFile ", IsFolder:" & blnIsFolder, ModuleName & ".Import", True, True
+    CatchAny eelError, "Error getting theme file. File:" & strThemeFile & ", IsFolder:" & blnIsFolder, ModuleName & ".Import", True, True
 
     ' Create/edit record in resources table.
     strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strFile))
@@ -194,7 +194,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Remove compressed theme file if we are using a folder.
     If blnIsFolder Then DeleteFile strThemeFile, True
     
-    CatchAny eelError, "Error importing theme. File:" & strThemeFile ", IsFolder:" & blnIsFolder, ModuleName & ".Import", True, True
+    CatchAny eelError, "Error importing theme. File:" & strThemeFile & ", IsFolder:" & blnIsFolder, ModuleName & ".Import", True, True
 
     ' Clear object (Important with DAO/ADO)
     Set rstAttachment = Nothing
