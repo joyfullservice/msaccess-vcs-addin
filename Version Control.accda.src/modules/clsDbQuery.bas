@@ -72,6 +72,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Import query from file
     strQueryName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acQuery, strQueryName, strFile
+    Set m_Query = CurrentData.AllQueries(strQueryName)
     VCSIndex.Update Me, eatImport
     
     ' In some cases, such as when a query contains a subquery, AND has been modified in the
@@ -131,6 +132,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
         Set m_AllItems = New Collection
+        m_blnModifiedOnly = blnModifiedOnly
         For Each qry In CurrentData.AllQueries
             Set cQuery = New clsDbQuery
             Set cQuery.DbObject = qry

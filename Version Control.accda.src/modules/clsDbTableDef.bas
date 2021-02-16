@@ -14,6 +14,7 @@ Option Explicit
 
 Private m_Table As DAO.TableDef
 Private m_AllItems As Collection
+Private m_blnModifiedOnly As Boolean
 Private m_Dbs As Database
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -85,6 +86,9 @@ Private Sub IDbComponent_Export()
         SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder
     End If
 
+    ' Update index
+    VCSIndex.Update Me, eatExport
+    
 End Sub
 
 
@@ -319,10 +323,15 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim blnUseTemp As Boolean
     Dim strTempFile As String
+    Dim strName As String
     
+    ' Determine import type from extension
     Select Case LCase$(FSO.GetExtensionName(strFile))
+    
         Case "json"
             ImportLinkedTable strFile
+            VCSIndex.Update Me, eatImport
+        
         Case "xml"
             ' The ImportXML function does not properly handle UrlEncoded paths
             blnUseTemp = (InStr(1, strFile, "%") > 0)
@@ -335,7 +344,19 @@ Private Sub IDbComponent_Import(strFile As String)
             Else
                 Application.ImportXML strFile, acStructureOnly
             End If
+            VCSIndex.Update Me, eatImport
+        
+        Case Else
+            ' Unsupported file
+            Exit Sub
+            
     End Select
+    
+    ' Update index
+    strName = GetObjectNameFromFileName(strFile)
+    Set m_Dbs = CurrentDb
+    Set m_Table = m_Dbs.TableDefs(strName)
+    VCSIndex.Update Me, eatImport
     
 End Sub
 
@@ -475,8 +496,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cTable As IDbComponent
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
         Set m_AllItems = New Collection
+        m_blnModifiedOnly = blnModifiedOnly
         Set m_Dbs = CurrentDb
         For Each tdf In m_Dbs.TableDefs
             If tdf.Name Like "MSys*" Or tdf.Name Like "~*" Then
@@ -484,7 +506,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             Else
                 Set cTable = New clsDbTableDef
                 Set cTable.DbObject = tdf
-                m_AllItems.Add cTable, tdf.Name
+                If blnModifiedOnly Then
+                    If cTable.IsModified Then m_AllItems.Add cTable, tdf.Name
+                Else
+                    m_AllItems.Add cTable, tdf.Name
+                End If
             End If
         Next tdf
     End If
@@ -530,7 +556,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = (m_Table.LastUpdated > VCSIndex.Item(Me).Item("ExportDate"))
 End Function
 
 
@@ -544,7 +570,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = CurrentData.AllTables(m_Table.Name).DateModified
+    IDbComponent_DateModified = m_Table.LastUpdated
 End Function
 
 
