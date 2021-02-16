@@ -11,7 +11,8 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
-Private Const ModuleName As String = "clsDbTheme:"
+
+Private Const ModuleName As String = "clsDbTheme"
 
 Private m_AllItems As Collection
 Private m_Dbs As DAO.Database
@@ -59,9 +60,9 @@ Private Sub IDbComponent_Export()
     Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
     
     ' If we get multiple records back we don't know which to use
-    If rst.RecordCount > 1 Then 
+    If rst.RecordCount > 1 Then
         Log.Error eelCritical, "Multiple records in MSysResources table were found that matched this name. " & _
-            "Compact and repair database and try again. ThemeName:" & LCase(m_Name) & "." & m_Extension, ModuleName & ".Export"
+            "Compact and repair database and try again. Theme Name: " & LCase(m_Name) & "." & m_Extension, ModuleName & ".Export"
         Exit Sub
     End If
 
@@ -99,8 +100,7 @@ Private Sub IDbComponent_Export()
         ' Rather than holding up the export while we extract the file,
         ' use a cleanup sub to do this after the export.
         Perf.OperationEnd
-        CatchAny eelError, "Error extracting theme. strFolder:" & strFolder, ModuleName & ".Export:ExtractThemeFile", _ 
-            True, True
+        CatchAny eelError, "Error extracting theme. Folder: " & strFolder, ModuleName & ".Export", True, True
     End If
 
 End Sub
@@ -114,7 +114,6 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    On Error Resume Next
 
     Dim rstResources As DAO.Recordset2
     Dim rstAttachment As DAO.Recordset2
@@ -124,6 +123,8 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strThemeName As String
     Dim strSql As String
     Dim blnIsFolder As Boolean
+    
+    On Error Resume Next
     
     ' Are we dealing with a folder, or a file?
     blnIsFolder = (Right$(strFile, 5) <> ".thmx")
@@ -151,7 +152,8 @@ Private Sub IDbComponent_Import(strFile As String)
         strThemeFile = strFile
     End If
 
-    CatchAny eelError, "Error getting theme file. File:" & strThemeFile & ", IsFolder:" & blnIsFolder, ModuleName & ".Import", True, True
+    ' Log any errors encountered.
+    CatchAny eelError, "Error getting theme file. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName & ".Import", True, True
 
     ' Create/edit record in resources table.
     strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strFile))
@@ -194,7 +196,8 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Remove compressed theme file if we are using a folder.
     If blnIsFolder Then DeleteFile strThemeFile, True
     
-    CatchAny eelError, "Error importing theme. File:" & strThemeFile & ", IsFolder:" & blnIsFolder, ModuleName & ".Import", True, True
+    ' Log any errors
+    CatchAny eelError, "Error importing theme. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName & ".Import", True, True
 
     ' Clear object (Important with DAO/ADO)
     Set rstAttachment = Nothing

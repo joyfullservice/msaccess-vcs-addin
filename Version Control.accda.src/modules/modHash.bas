@@ -60,12 +60,12 @@ Public Declare PtrSafe Function BCryptGetProperty Lib "BCrypt.dll" ( _
                             ByRef pcbResult As Long, _
                             ByVal dfFlags As Long) As Long
 
-Private Const ModuleName As String = "modHash:"
+Private Const ModuleName As String = "modHash"
 
 
 Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgorithm As String = "SHA1") As Byte()
     
-    'Erik A, 2019
+    'Erik A, 2019, adapted by Adam Waller
     'Hash data by using the Next Generation Cryptography API
     'Loosely based on https://docs.microsoft.com/en-us/windows/desktop/SecCNG/creating-a-hash-with-cng
     'Allowed algorithms:  https://docs.microsoft.com/en-us/windows/desktop/SecCNG/cng-algorithm-identifiers. Note: only hash algorithms, check OS support
@@ -106,16 +106,20 @@ Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgor
 
     'Return result
     NGHash = bHash
+
 ExitHandler:
     'Cleanup
     If hAlg <> 0 Then BCryptCloseAlgorithmProvider hAlg, 0
     If hHash <> 0 Then BCryptDestroyHash hHash
     Exit Function
+
 VBErrHandler:
     errorMessage = "VB Error " & Err.Number & ": " & Err.Description
+
 ErrHandler:
-    CatchAny eelCritical, "Error hashing! Algorithm:" & HashingAlgorithm, ModuleName & ".NGHash", True, True
+    CatchAny eelCritical, "Error hashing! " & errorMessage & ". Algorithm: " & HashingAlgorithm, ModuleName & ".NGHash", True, True
     Resume ExitHandler
+    
 End Function
 
 
@@ -129,10 +133,8 @@ End Function
 Private Function HashBytes(Data() As Byte, Optional HashingAlgorithm As String = "SHA512") As Byte()
     On Error Resume Next
     HashBytes = NGHash(VarPtr(Data(LBound(Data))), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
-    
     If Catch(9) Then HashBytes = NGHash(VarPtr(Null), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
     CatchAny eelCritical, "Error hashing data!", ModuleName & ".HashBytes", True, True
-    On Error GoTo 0
 End Function
 
 Private Function HashString(str As String, Optional HashingAlgorithm As String = "SHA512") As Byte()
@@ -140,8 +142,6 @@ Private Function HashString(str As String, Optional HashingAlgorithm As String =
     HashString = NGHash(StrPtr(str), Len(str) * 2, HashingAlgorithm)
     If Catch(9) Then HashString = NGHash(StrPtr(vbNullString), Len(str) * 2, HashingAlgorithm)
     CatchAny eelCritical, "Error hashing string!", ModuleName & ".HashString", True, True
-    On Error GoTo 0
-
 End Function
 
 
