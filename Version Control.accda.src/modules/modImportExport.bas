@@ -78,7 +78,11 @@ Public Sub ExportSource(blnFullExport As Boolean)
         Log.Add "Beginning Export of all Source", False
         Log.Add CurrentProject.Name
         Log.Add "VCS Version " & GetVCSVersion
-        If Not blnFullExport Then Log.Add "Using Fast Save"
+        If Not blnFullExport Then 
+            Log.Add "Using Fast Save"
+        Else
+            Log.Add "Performing Full Export"
+        End If
         Log.Add Now
         Log.Spacer
         Log.Flush
