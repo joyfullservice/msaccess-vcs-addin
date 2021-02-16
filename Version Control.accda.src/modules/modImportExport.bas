@@ -109,8 +109,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
                 Log.Increment
                 Log.Add "  " & cDbObject.Name, Options.ShowDebug
                 cDbObject.Export
-                CatchAny eelError, "Error exporting " & varFile, _
-                    ModuleName & ".ExportSource", True, True
+                CatchAny eelError, "Error exporting " & varFile, ModuleName & ".ExportSource", True, True
                     
                 ' Some kinds of objects are combined into a single export file, such
                 ' as database properties. For these, we just need to run the export once.
@@ -349,7 +348,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             
             ' Show category wrap-up.
             Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
-            'Log.Flush  ' Gives smoother output, but slows down the import.
+
             Perf.ComponentEnd colFiles.Count
         End If
     Next cCategory
