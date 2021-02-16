@@ -7,6 +7,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+Private Const ModuleName As String = "modImportExport"
 
 
 '---------------------------------------------------------------------------------------
@@ -22,6 +23,9 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Dim cDbObject As IDbComponent
     Dim sngStart As Single
     Dim lngCount As Long
+    
+    ' Use inline error handling functions to trap and log errors.
+    On Error Resume Next
     
     ' Can't export without an open database
     If CurrentDb Is Nothing And CurrentProject.Connection Is Nothing Then Exit Sub
@@ -74,7 +78,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
         Log.Add "Beginning Export of all Source", False
         Log.Add CurrentProject.Name
         Log.Add "VCS Version " & GetVCSVersion
-        If Not blnFullExport Then Log.Add "Using Fast Save"
+        Log.Add IIf(blnFullExport, "Performing Full Export", "Using Fast Save")
         Log.Add Now
         Log.Spacer
         Log.Flush
@@ -105,6 +109,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
                 Log.Increment
                 Log.Add "  " & cDbObject.Name, Options.ShowDebug
                 cDbObject.Export
+                CatchAny eelError, "Error exporting " & cDbObject.Name, ModuleName & ".ExportSource", True, True
                     
                 ' Some kinds of objects are combined into a single export file, such
                 ' as database properties. For these, we just need to run the export once.
@@ -132,17 +137,16 @@ Public Sub ExportSource(blnFullExport As Boolean)
         Perf.OperationStart "RunAfterExport"
         RunSubInCurrentProject Options.RunAfterExport
         Perf.OperationEnd
+        CatchAny eelError, "Error running " & Options.RunAfterExport, ModuleName & ".ExportSource", True, True
     End If
     
     ' Show final output and save log
     Log.Spacer
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
     
-    ' Add performance data to log file
+    ' Add performance data to log file and save file
     Perf.EndTiming
     Log.Add vbCrLf & Perf.GetReports, False
-    
-    ' Save log file to disk
     Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
     
     ' Check for VCS_ImportExport.bas (Used with other forks)
@@ -186,6 +190,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Dim strType As String
     
     Dim strText As String   ' Remove later
+    
+    On Error Resume Next
     
     ' The type of build will be used in various messages and log entries.
     strType = IIf(blnFullBuild, "Build", "Merge")
@@ -340,11 +346,11 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
                 Else
                     cCategory.Merge CStr(varFile)
                 End If
+                CatchAny eelError, strType & " error in: " & varFile, ModuleName & ".Build", True, True
             Next varFile
             
             ' Show category wrap-up.
             Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
-            'Log.Flush  ' Gives smoother output, but slows down the import.
             Perf.ComponentEnd colFiles.Count
         End If
     Next cCategory
@@ -359,25 +365,26 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         End If
     Else
         ' Merge build
-        'If Options.runaftermerge <> vbNullString Then
-            Log.Add "Running " & Options.RunAfterBuild & "..."
-            Perf.OperationStart "RunAfterBuild"
-            RunSubInCurrentProject Options.RunAfterBuild
-            Perf.OperationEnd
+        'If Options.RunAfterMerge <> vbNullString Then
+        '    Log.Add "Running " & Options.RunAfterMerge & "..."
+        '    Perf.OperationStart "RunAfterMerge"
+        '    RunSubInCurrentProject Options.RunAfterMerge
+        '    Perf.OperationEnd
         'End If
     End If
-
+    
+    ' Log any errors after build/merge
+    CatchAny eelError, "Error running " & CallByName(Options, "RunAfter" & strType, VbGet), ModuleName & ".Build", True, True
+    
     ' Show final output and save log
     Log.Spacer
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
     
-    ' Add performance data to log file
+    ' Add performance data to log file and save file.
     Perf.EndTiming
     Log.Add vbCrLf & Perf.GetReports, False
+    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, strType & ".log")
     
-    ' Write log file to disk
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, IIf(blnFullBuild, "Import.log", "Merge.log"))
-
     ' Wrap up build.
     DoCmd.Hourglass False
     If Forms.Count > 0 Then
