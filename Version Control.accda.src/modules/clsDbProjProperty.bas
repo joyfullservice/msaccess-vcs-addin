@@ -42,8 +42,7 @@ Private Sub IDbComponent_Export()
     For Each prp In CurrentProject.Properties
         Select Case prp.Name
             Case "Last VCS Export", "Last VCS Version"
-                ' Reduce noise by ignoring these values.
-                ' (We already have this information in the header.)
+                ' Legacy properties no longer needed.
             Case "AppIcon"
                 ' Try to use a relative path
                 strPath = GetRelativePath(CStr(prp.Value))
