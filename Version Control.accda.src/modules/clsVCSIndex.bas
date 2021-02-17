@@ -248,6 +248,33 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : DefaultDevModeHash
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Return a hash of the printer settings from the default printer. (Used to
+'           : determine whether a form or report is using any specific or custom
+'           : print settings, thereby requiring us to save the print settings.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get DefaultDevModeHash() As String
+
+    ' Cache the result for future calls
+    Static strHash As String
+    
+    If strHash = vbNullString Then
+        With New clsDevMode
+            .LoadFromDefaultPrinter
+            strHash = .GetHash
+        End With
+    End If
+    
+    ' Return hash
+    DefaultDevModeHash = strHash
+    
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetModifiedSourceFiles
 ' Author    : Adam Waller
 ' Date      : 12/2/2020

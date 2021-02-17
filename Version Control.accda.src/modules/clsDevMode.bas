@@ -1449,6 +1449,36 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetHash
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Returns a hash of the devmode structure *without* the two reserved
+'           : settings of FastPrint and Datasheet. This is useful in comparing to
+'           : see if the print settings match the default printer settings.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetHash()
+
+    Dim dSettings As Dictionary
+    
+    Set dSettings = Me.GetDictionary
+    
+    ' Remove the reserved settings, which are Access specific and may not match the
+    ' settings retrieved from the default printer.
+    If dSettings.Exists("Margins") Then
+        With dSettings("Margins")
+            If .Exists("FastPrint") Then .Remove "FastPrint"
+            If .Exists("Datasheet") Then .Remove "Datasheet"
+        End With
+    End If
+    
+    'Debug.Print ConvertToJson(dSettings, "  ")
+    GetHash = GetDictionaryHash(dSettings)
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetPrtDevModeBlock
 ' Author    : Adam Waller
 ' Date      : 10/27/2020

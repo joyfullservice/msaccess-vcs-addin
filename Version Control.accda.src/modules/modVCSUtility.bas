@@ -151,7 +151,9 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
                 If Options.SavePrintVars = True Then
                     ' Grab the printer settings before sanitizing the file.
                     .LoadFromExportFile strTempFile
-                    If .HasData Then
+                    ' Only need to save print settings if they are different
+                    ' from the default printer settings.
+                    If (.GetHash <> VCSIndex.DefaultDevModeHash) And .HasData Then
                         WriteJsonFile TypeName(cDbObjectClass), .GetDictionary, _
                         strPrintSettingsFile, strName & " Print Settings"
                     Else
