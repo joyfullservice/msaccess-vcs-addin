@@ -45,8 +45,7 @@ Private Sub IDbComponent_Export()
             Case "Connection"
                 ' Connection object for ODBCDirect workspaces. Not needed.
             Case "Last VCS Export", "Last VCS Version"
-                ' Reduce noise by ignoring these values.
-                ' (We already have this information in the header.)
+                ' Legacy properties no longer needed.
             Case Else
                 varValue = prp.Value
                 If prp.Name = "AppIcon" Or prp.Name = "Name" Then

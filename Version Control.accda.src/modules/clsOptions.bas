@@ -394,6 +394,19 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : OptionsHash
+' Author    : Adam Waller
+' Date      : 2/16/2021
+' Purpose   : Return a hash of the current options. Used to detect if options have
+'           : changed, which may require a full export to reflect the change.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetOptionsHash() As String
+    GetOptionsHash = GetDictionaryHash(SerializeOptions)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetHash
 ' Author    : Adam Waller
 ' Date      : 7/29/2020
