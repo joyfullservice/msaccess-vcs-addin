@@ -46,11 +46,10 @@ Public Sub ExportSource(blnFullExport As Boolean)
     End If
     
     ' Reload the project options and reset the logs
+    Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Set VCSIndex = Nothing
-    VCSIndex.LoadFromFile
     Perf.StartTiming
 
     ' Run any custom sub before export
@@ -300,7 +299,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Now that we have a new database file, we can load the index.
     Set VCSIndex = Nothing
-    VCSIndex.LoadFromFile
     
     ' Remove any non-built-in references before importing from source.
     Log.Spacer

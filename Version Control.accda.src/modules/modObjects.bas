@@ -107,7 +107,10 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get VCSIndex() As clsVCSIndex
-    If m_VCSIndex Is Nothing Then Set m_VCSIndex = New clsVCSIndex
+    If m_VCSIndex Is Nothing Then
+        Set m_VCSIndex = New clsVCSIndex
+        m_VCSIndex.LoadFromFile
+    End If
     Set VCSIndex = m_VCSIndex
 End Property
 Public Property Set VCSIndex(cIndex As clsVCSIndex)
