@@ -2,76 +2,85 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
+'---------------------------------------------------------------------------------------
+' Module    : clsLblProg
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Display a progress bar using three labels on a form
+'---------------------------------------------------------------------------------------
 Option Explicit
 Option Compare Database
 
-' By Adam Waller
-' Last Modified:  12/16/05
 
 ' Set the application name here to utilize the appropriate
 ' object types in early binding.
-Private Const APPLICATION_NAME As String = "Microsoft Access"
-
+#Const APPLICATION_NAME = "Microsoft Access"
 
 #If APPLICATION_NAME = "Microsoft Access" Then
     ' Use Access specific controls/sizing
     Private Const sngOffset As Single = 15
-    Private mlblBack As Access.Label     ' existing label for back
+    Private mlblBack As Access.Label    ' existing label for back
     Private mlblFront As Access.Label   ' label created for front
     Private mlblCaption As Access.Label ' progress bar caption
 #Else
     ' Generic VBA objects
     Private Const sngOffset As Single = 1.5
-    Private mlblBack As Label     ' existing label for back
-    Private mlblFront As Label   ' label created for front
-    Private mlblCaption As Label ' progress bar caption
+    Private mlblBack As Label           ' existing label for back
+    Private mlblFront As Label          ' label created for front
+    Private mlblCaption As Label        ' progress bar caption
 #End If
 
 
-Private mdblMax As Double   ' max value of progress bar
-Private mdblVal As Double   ' current value of progress bar
-Private mdblFullWidth As Double ' width of front label at 100%
-Private mdblIncSize As Double
-Private mblnHideCap As Boolean  ' display percent complete
-Private mobjParent As Object    ' parent of back label
-Private mdteLastUpdate As Date      ' Time last updated
-Private mblnNotSmooth As Boolean    ' Display smooth bar by doevents after every update.
+' Public properties
+Public Max As Double                    ' Maximum value of progress bar at 100%
+Public Smooth As Boolean                ' Set to true for smooth updates < 1%
 
-' This class displays a progress bar created
-' from 3 labels.
-' to use, just add a label to your form,
-' and use this back label to position the
-' progress bar.
+' Private properties
+Private mdblVal As Double               ' Current value of progress bar
+Private mdblFullWidth As Double         ' Width of front label at 100%
+Private mdblIncSize As Double           ' Icrement size
+Private mblnHideCap As Boolean          ' Show percent complete caption
+Private mobjParent As Object            ' Parent object of back label
+Private mdteLastUpdate As Date          ' Time last updated
+Private mblnNotSmooth As Boolean        ' Display smoothly by doevents after every update.
 
-Public Sub Initialize(BackLabel As Access.Label, FrontLabel As Access.Label, CaptionLabel As Access.Label)
 
-    On Error GoTo 0    ' Debug Mode
+'---------------------------------------------------------------------------------------
+' Procedure : Initialize
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Initialize the progress bar before using it
+'---------------------------------------------------------------------------------------
+'
+Public Sub Initialize(BackLabel As Label, Optional FrontLabel As Label, Optional CaptionLabel As Label)
 
-    
     Dim objParent As Object ' could be a form or tab control
     Dim frm As Form
     
     Set mobjParent = BackLabel.Parent
-    ' set private variables
     Set mlblBack = BackLabel
-    Set mlblFront = FrontLabel
-    Set mlblCaption = CaptionLabel
     
-    'Set mlblFront = mobjParent.Controls.Add("forms.label.1", "", False)
-    'Set mlblFront = CreateControl(ParentForm(BackLabel), acLabel, , BackLabel.Parent.Name)
-    'Set mlblCaption = mobjParent.Controls.Add("forms.label.1", "", False)
-    'Set mlblCaption = CreateControl(ParentForm(BackLabel), acLabel, , BackLabel.Parent)
-    
-    ' refresh parent form
-    'mobjParent.Repaint
-    
-    ' set properties for back label
+    #If APPLICATION_NAME = "Microsoft Access" Then
+        ' Use existing controls
+        Set mlblFront = FrontLabel
+        Set mlblCaption = CaptionLabel
+    #Else
+        ' Create front controls dynamically
+        Set mlblFront = mobjParent.Controls.Add("forms.label.1", "", False)
+        Set mlblFront = CreateControl(GetParentFormName(BackLabel), acLabel, , BackLabel.Parent.Name)
+        Set mlblCaption = mobjParent.Controls.Add("forms.label.1", "", False)
+        Set mlblCaption = CreateControl(GetParentFormName(BackLabel), acLabel, , BackLabel.Parent)
+        ' Refresh display of parent form
+        mobjParent.Repaint
+    #End If
+        
+    ' Set properties for back label
     With mlblBack
         .Visible = True
         .SpecialEffect = 2  ' sunken. Seems to lose when not visible.
     End With
     
-    ' set properties for front label
+    ' Set properties for front label
     With mlblFront
         mdblFullWidth = mlblBack.Width - (sngOffset * 2)
         .Left = mlblBack.Left + sngOffset
@@ -79,7 +88,7 @@ Public Sub Initialize(BackLabel As Access.Label, FrontLabel As Access.Label, Cap
         .Width = 0
         .Height = mlblBack.Height - (sngOffset * 2)
         .Caption = ""
-        .BackColor = 5324600    '8388608
+        .BackColor = 8388608
         .BackStyle = 1
         .Visible = True
     End With
@@ -96,208 +105,129 @@ Public Sub Initialize(BackLabel As Access.Label, FrontLabel As Access.Label, Cap
         .Visible = Not Me.HideCaption
         .ForeColor = 16777215   ' white
     End With
-    'Stop
-
-    Exit Sub
-
-ErrHandler:
-
-    Select Case Err.Number
-        Case Else
-            LogErr Err, "clsLblProg", "Initialize", Erl
-            Resume Next ' Resume at next line.
-    End Select
 
 End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Terminate
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Remove temporary controls, if applicable
+'---------------------------------------------------------------------------------------
+'
 Private Sub Class_Terminate()
 
-    On Error GoTo 0    ' Debug Mode
-
-    On Error Resume Next
-    'Me.Value = 0
-    'mobjParent.Controls.Remove (mlblFront.Name)
-    mlblFront.Visible = False
-    mlblCaption.Visible = False
-    'mobjParent.Controls.Remove (mlblCaption.Name)
-    On Error GoTo 0    ' Debug Mode
-    
-    Exit Sub
-
-ErrHandler:
-
-    Select Case Err.Number
-        Case Else
-            LogErr Err, "clsLblProg", "Class_Terminate", Erl
-            Resume Next ' Resume at next line.
-    End Select
+    #If APPLICATION_NAME = "Microsoft Access" Then
+        ' Hide front controls
+        mlblFront.Visible = False
+        mlblCaption.Visible = False
+    #Else
+        ' Remove front controls
+        mobjParent.Controls.Remove (mlblFront.Name)
+        mobjParent.Controls.Remove (mlblCaption.Name)
+    #End If
 
 End Sub
 
-Public Property Get Max() As Double
 
-    On Error GoTo 0    ' Debug Mode
-
-    Max = mdblMax
-
-    Exit Property
-
-ErrHandler:
-
-    Select Case Err.Number
-        Case Else
-            LogErr Err, "clsLblProg", "Max", Erl
-            Resume Next ' Resume at next line.
-    End Select
-
-End Property
-
-Public Property Let Max(ByVal dblMax As Double)
-
-    On Error GoTo 0    ' Debug Mode
-
-    mdblMax = dblMax
-
-    Exit Property
-
-ErrHandler:
-
-    Select Case Err.Number
-        Case Else
-            LogErr Err, "clsLblProg", "Max", Erl
-            Resume Next ' Resume at next line.
-    End Select
-
-End Property
-
+'---------------------------------------------------------------------------------------
+' Procedure : Value
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Get the current value of the progress bar.
+'---------------------------------------------------------------------------------------
+'
 Public Property Get Value() As Double
-
-    On Error GoTo 0    ' Debug Mode
-
     Value = mdblVal
-
-    Exit Property
-
-ErrHandler:
-
-    Select Case Err.Number
-        Case Else
-            LogErr Err, "clsLblProg", "Value", Erl
-            Resume Next ' Resume at next line.
-    End Select
-
 End Property
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : Value
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Set the value of the progress bar, checking visibility of controls, and
+'           : updating screen as needed.
+'---------------------------------------------------------------------------------------
+'
 Public Property Let Value(ByVal dblVal As Double)
 
-    On Error GoTo 0    ' Debug Mode
-
-    If mdblMax = 0 Then Exit Property
+    Dim dblChange As Double
     
-    'update only if change is => 1%
-    If (CInt(dblVal * (100 / mdblMax))) > (CInt(mdblVal * (100 / mdblMax))) Then
-        mdblVal = dblVal
-        Update
+    ' Check visibility
+    If Me.Max = 0 Or dblVal = 0 Then
+        mlblFront.Visible = False
+        mlblCaption.Visible = False
     Else
-        mdblVal = dblVal
+        ' Ensure controls are visible
+        If Not mlblBack.Visible Then mlblBack.Visible = True
+        If Not mlblFront.Visible Then mlblFront.Visible = True
+        If Not mblnHideCap And Not mlblCaption.Visible Then mlblCaption.Visible = True
     End If
     
-    Exit Property
-
-ErrHandler:
-
-    Select Case Err.Number
-        Case Else
-            LogErr Err, "clsLblProg", "Value", Erl
-            Resume Next ' Resume at next line.
-    End Select
+    ' Measure change
+    dblChange = Abs(dblVal - mdblVal)
+    
+    ' Set value and update display if needed.
+    If dblChange > 0 And Me.Max > 0 Then
+        mdblVal = dblVal
+        ' See if we need to update the display
+        ' (Normally updated every 1% or each increment if Smooth = True
+        If Me.Smooth Or ((dblChange / Me.Max) > 0.01) Then Update
+    End If
 
 End Property
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : IncrementSize
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Can use a custom increment size if other than 1.
+'---------------------------------------------------------------------------------------
+'
 Public Property Get IncrementSize() As Double
-
-    On Error GoTo 0    ' Debug Mode
-
     IncrementSize = mdblIncSize
-
-    Exit Property
-
-ErrHandler:
-
-    Select Case Err.Number
-        Case Else
-            LogErr Err, "clsLblProg", "IncrementSize", Erl
-            Resume Next ' Resume at next line.
-    End Select
-
 End Property
-
 Public Property Let IncrementSize(ByVal dblSize As Double)
-
-    On Error GoTo 0    ' Debug Mode
-
     mdblIncSize = dblSize
-
-    Exit Property
-
-ErrHandler:
-
-    Select Case Err.Number
-        Case Else
-            LogErr Err, "clsLblProg", "IncrementSize", Erl
-            Resume Next ' Resume at next line.
-    End Select
-
 End Property
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : HideCaption
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Optionally hide the caption display
+'---------------------------------------------------------------------------------------
+'
 Public Property Get HideCaption() As Boolean
-
-    On Error GoTo 0    ' Debug Mode
-
     HideCaption = mblnHideCap
-
-    Exit Property
-
-ErrHandler:
-
-    Select Case Err.Number
-        Case Else
-            LogErr Err, "clsLblProg", "HideCaption", Erl
-            Resume Next ' Resume at next line.
-    End Select
-
 End Property
 
 Public Property Let HideCaption(ByVal blnHide As Boolean)
-
-    On Error GoTo 0    ' Debug Mode
-
     mblnHideCap = blnHide
-
-    Exit Property
-
-ErrHandler:
-
-    Select Case Err.Number
-        Case Else
-            LogErr Err, "clsLblProg", "HideCaption", Erl
-            Resume Next ' Resume at next line.
-    End Select
-
 End Property
 
-Private Sub Update()
 
-    On Error GoTo 0    ' Debug Mode
+'---------------------------------------------------------------------------------------
+' Procedure : Update
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Update the display
+'---------------------------------------------------------------------------------------
+'
+Private Sub Update()
 
     Dim intPercent As Integer
     Dim dblWidth As Double
-    'On Error Resume Next
-    intPercent = mdblVal * (100 / mdblMax)
-    dblWidth = mdblVal * (mdblFullWidth / mdblMax)
+    
+    ' Set size and caption
+    intPercent = mdblVal * (100 / Me.Max)
+    dblWidth = mdblVal * (mdblFullWidth / Me.Max)
     mlblFront.Width = dblWidth
     mlblCaption.Caption = intPercent & "%"
-    'mlblFront.Parent.Repaint    ' may not be needed
     
     ' Use white or black, depending on progress
     If Me.Value > (Me.Max / 2) Then
@@ -306,61 +236,94 @@ Private Sub Update()
         mlblCaption.ForeColor = 0  ' black
     End If
 
+    ' Use DoEvents to repaint display
     If mblnNotSmooth Then
         If mdteLastUpdate <> Now Then
-            ' update every second.
+            ' Update every second
             DoEvents
             mdteLastUpdate = Now
         End If
     Else
         DoEvents
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Increment
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Increment the progress bar, defaulting to custom increment size, then
+'           : passed value, then 1 as default. (Normally used without any argument.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub Increment(Optional dblAmount As Double = 1)
+
+    Dim dblAdd As Double
+    Dim dblNew As Double
     
-    Exit Sub
+    ' Calculate how much to add
+    If dblAmount = 1 And Me.IncrementSize > 0 Then dblAdd = Me.IncrementSize
+    If dblAdd = 0 Then dblAdd = dblAmount
+    
+    ' Check boundaries
+    dblNew = Me.Value + dblAdd
+    If dblNew > Me.Max Then dblNew = Me.Max
+    If dblNew < 0 Then dblNew = 0
 
-ErrHandler:
-
-    Select Case Err.Number
-        Case Else
-            LogErr Err, "clsLblProg", "Update", Erl
-            Resume Next ' Resume at next line.
-    End Select
-
-End Sub
-
-Public Sub Increment()
-
-    On Error GoTo 0    ' Debug Mode
-
-    Dim dblVal As Double
-    dblVal = Me.Value
-    If dblVal < Me.Max Then
-        Me.Value = dblVal + 1
-    End If
-
-    Exit Sub
-
-ErrHandler:
-
-    Select Case Err.Number
-        Case Else
-            LogErr Err, "clsLblProg", "Increment", Erl
-            Resume Next ' Resume at next line.
-    End Select
+    ' Set new value (and any needed display updates)
+    Me.Value = dblNew
 
 End Sub
 
-Public Property Let Visible(blnVisible As Boolean)
-    mlblBack.Visible = blnVisible
-    mlblFront.Visible = blnVisible
-    mlblCaption.Visible = blnVisible
-End Property
 
+'---------------------------------------------------------------------------------------
+' Procedure : Clear
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Remove or hide front labels. (Will need to initialize again after this.)
+'---------------------------------------------------------------------------------------
+'
 Public Sub Clear()
     Call Class_Terminate
 End Sub
 
-Private Function ParentForm(ctlControl As Control) As String
+
+'---------------------------------------------------------------------------------------
+' Procedure : Reset
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Reset back to zero.
+'---------------------------------------------------------------------------------------
+'
+Public Sub Reset()
+    Me.Value = 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Hide
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Hide the visible elements of the progress bar (but retain values)
+'---------------------------------------------------------------------------------------
+'
+Public Sub Hide()
+    mlblCaption.Visible = False
+    mlblFront.Visible = False
+    mlblBack.Visible = False
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetParentFormName
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Return the name of the parent form
+'---------------------------------------------------------------------------------------
+'
+Private Function GetParentFormName(ctlControl As Control) As String
 
     ' returns the name of the parent form
     Dim objParent As Object
@@ -372,25 +335,6 @@ Private Function ParentForm(ctlControl As Control) As String
     Loop
     
     ' Now we should have the parent form
-    ParentForm = objParent.Name
+    GetParentFormName = objParent.Name
     
 End Function
-
-Public Property Get Smooth() As Boolean
-    ' Display the progress bar smoothly.
-    ' True by default, this property allows the call
-    ' to doevents after every increment.
-    ' If False, it will only update once per second.
-    ' (This may increase speed for fast progresses.)
-    '
-    ' negative to set default to true
-    Smooth = mblnNotSmooth
-End Property
-
-Public Property Let Smooth(ByVal IsSmooth As Boolean)
-    mblnNotSmooth = Not IsSmooth
-End Property
-
-Private Sub LogErr(objErr, strMod, strProc, intLine)
-    ' For future use.
-End Sub

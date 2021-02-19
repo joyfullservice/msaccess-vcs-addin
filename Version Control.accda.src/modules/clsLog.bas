@@ -62,7 +62,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional 
         ' Remove existing progress indicator if in use.
         If m_blnProgressActive Then
             m_blnProgressActive = False
-            m_Prog.Visible = False
+            m_Prog.Hide
         End If
     
         ' Use bold/green text for completion line.
@@ -112,7 +112,7 @@ Public Sub Flush()
     If Not m_RichText Is Nothing Then
         With Form_frmVCSMain.txtLog
             m_blnProgressActive = False
-            If Not m_Prog Is Nothing Then m_Prog.Visible = False
+            If Not m_Prog Is Nothing Then m_Prog.Hide
             ' Set value, not text to avoid errors with large text strings.
             Echo False
             '.SelStart = Len(.Text & vbNullString)
@@ -296,7 +296,6 @@ Public Sub Increment()
     If Not m_blnProgressActive Then
         ' Show the progress bar
         lngProgress = 1
-        m_Prog.Visible = True
         ' Flush any pending output
         With m_RichText
             Echo False

@@ -195,8 +195,8 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =93
-                    Left =4740
-                    Top =2220
+                    Left =5100
+                    Top =2400
                     Width =2880
                     Height =900
                     TabIndex =1
@@ -684,10 +684,10 @@ Begin Form
                         0x0000000049454e44ae426082
                     End
 
-                    LayoutCachedLeft =4740
-                    LayoutCachedTop =2220
-                    LayoutCachedWidth =7620
-                    LayoutCachedHeight =3120
+                    LayoutCachedLeft =5100
+                    LayoutCachedTop =2400
+                    LayoutCachedWidth =7980
+                    LayoutCachedHeight =3300
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -731,8 +731,8 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =93
-                    Left =4740
-                    Top =3780
+                    Left =5100
+                    Top =3960
                     Width =2880
                     Height =900
                     TabIndex =2
@@ -1238,10 +1238,10 @@ Begin Form
                         0xc50be7919696f6d83c807f0002cb58d9e9f027800000000049454e44ae426082
                     End
 
-                    LayoutCachedLeft =4740
-                    LayoutCachedTop =3780
-                    LayoutCachedWidth =7620
-                    LayoutCachedHeight =4680
+                    LayoutCachedLeft =5100
+                    LayoutCachedTop =3960
+                    LayoutCachedWidth =7980
+                    LayoutCachedHeight =4860
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -1675,22 +1675,22 @@ Begin Form
                 End
                 Begin CheckBox
                     OverlapFlags =93
-                    Left =5340
-                    Top =3210
+                    Left =5700
+                    Top =3390
                     TabIndex =7
                     BorderColor =10921638
                     Name ="chkFullExport"
                     GridlineColor =10921638
 
-                    LayoutCachedLeft =5340
-                    LayoutCachedTop =3210
-                    LayoutCachedWidth =5600
-                    LayoutCachedHeight =3450
+                    LayoutCachedLeft =5700
+                    LayoutCachedTop =3390
+                    LayoutCachedWidth =5960
+                    LayoutCachedHeight =3630
                     Begin
                         Begin Label
                             OverlapFlags =255
-                            Left =5565
-                            Top =3180
+                            Left =5925
+                            Top =3360
                             Width =1335
                             Height =270
                             FontSize =10
@@ -1699,10 +1699,10 @@ Begin Form
                             Name ="Label29"
                             Caption ="Full Export"
                             GridlineColor =10921638
-                            LayoutCachedLeft =5565
-                            LayoutCachedTop =3180
-                            LayoutCachedWidth =6900
-                            LayoutCachedHeight =3450
+                            LayoutCachedLeft =5925
+                            LayoutCachedTop =3360
+                            LayoutCachedWidth =7260
+                            LayoutCachedHeight =3630
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1711,23 +1711,23 @@ Begin Form
                 Begin CheckBox
                     Enabled = NotDefault
                     OverlapFlags =93
-                    Left =5340
-                    Top =4770
+                    Left =5700
+                    Top =4950
                     TabIndex =8
                     BorderColor =10921638
                     Name ="chkFullBuild"
                     DefaultValue ="True"
                     GridlineColor =10921638
 
-                    LayoutCachedLeft =5340
-                    LayoutCachedTop =4770
-                    LayoutCachedWidth =5600
-                    LayoutCachedHeight =5010
+                    LayoutCachedLeft =5700
+                    LayoutCachedTop =4950
+                    LayoutCachedWidth =5960
+                    LayoutCachedHeight =5190
                     Begin
                         Begin Label
                             OverlapFlags =255
-                            Left =5565
-                            Top =4740
+                            Left =5925
+                            Top =4920
                             Width =1335
                             Height =270
                             FontSize =10
@@ -1736,10 +1736,10 @@ Begin Form
                             Name ="Label31"
                             Caption ="Full Build"
                             GridlineColor =10921638
-                            LayoutCachedLeft =5565
-                            LayoutCachedTop =4740
-                            LayoutCachedWidth =6900
-                            LayoutCachedHeight =5010
+                            LayoutCachedLeft =5925
+                            LayoutCachedTop =4920
+                            LayoutCachedWidth =7260
+                            LayoutCachedHeight =5190
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -2027,20 +2027,39 @@ Private Sub Form_Load()
     ' Display version (better performance than bound control)
     lblVersion.Caption = "Version " & GetVCSVersion()
     
+    SetStatusText "Choose Action", "What would you like to do?", _
+        "<strong><em>Export</em></strong> source to generate source files from the current database." & _
+        "<br><br><strong><em>Import</em></strong> source files to rebuild this database from source."
+    
     ' Set defaults based on current options.
     chkFullBuild = True ' Not Options.UseFastSave (Till we finish merge build functionality)
     chkFullExport = Not Options.UseFastSave
     
-    SetStatusText "Choose Action", "What would you like to do?", _
-        "<strong><em>Export</em></strong> source to generate source files from the current database." & _
-        "<br><br><strong><em>Import</em></strong> source files to rebuild this database from source."
-        
     ' You can only export if you have a database open.
     cmdExport.Enabled = DatabaseOpen
     chkFullExport.Enabled = DatabaseOpen
+    
+    ' Require full export after options change
+    If DatabaseOpen Then
+        If VCSIndex.OptionsHash <> Options.GetOptionsHash Then
+            chkFullExport = True
+            chkFullExport.Enabled = False
+        End If
+    End If
+    
+    ' Run any incomming commands
     HandleCmd
+    
 End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : HandleCmd
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Support automation of the form
+'---------------------------------------------------------------------------------------
+'
 Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = erlVCSOpen)
     Select Case RibbonCmdIn
         Case erlVCSOpen

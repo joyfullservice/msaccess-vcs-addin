@@ -46,11 +46,10 @@ Public Sub ExportSource(blnFullExport As Boolean)
     End If
     
     ' Reload the project options and reset the logs
+    Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Set VCSIndex = Nothing
-    VCSIndex.LoadFromFile
     Perf.StartTiming
 
     ' Run any custom sub before export
@@ -63,9 +62,6 @@ Public Sub ExportSource(blnFullExport As Boolean)
 
     ' If options (or VCS version) have changed, a full export will be required
     If (VCSIndex.OptionsHash <> Options.GetOptionsHash) Then blnFullExport = True
-    
-    ' Set this as text to save display in current user's locale rather than Zulu time.
-    SetDBProperty "Last VCS Export", Now, dbText ' dbDate
 
     ' Begin timer at start of export.
     sngStart = Timer
@@ -303,7 +299,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Now that we have a new database file, we can load the index.
     Set VCSIndex = Nothing
-    VCSIndex.LoadFromFile
     
     ' Remove any non-built-in references before importing from source.
     Log.Spacer
