@@ -1,8 +1,7 @@
 {
   "Info": {
     "Class": "clsDbDocument",
-    "Description": "Database Documents Properties (DAO)",
-    "VCS Version": "3.1.25"
+    "Description": "Database Documents Properties (DAO)"
   },
   "Items": {
     "Databases": {
@@ -19,6 +18,9 @@
       }
     },
     "Tables": {
+      "tblHidden": {
+        "Description": "This table should be hidden."
+      },
       "tblLinkedCSV": {
         "Description": "This is simply a test CSV file that were are linking to."
       },

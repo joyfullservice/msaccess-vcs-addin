@@ -1,37 +1,35 @@
 {
   "Info": {
     "Class": "clsDbNavPaneGroup",
-    "Description": "Navigation Pane Custom Groups",
-    "VCS Version": "3.1.25"
+    "Description": "Navigation Pane Custom Groups"
   },
   "Items": {
     "Groups": [
       {
-        "Name": "Linked Tables",
+        "Name": "My Modules",
         "Flags": 0,
         "Position": 1,
         "Objects": [
           {
-            "Name": "tblLinkedAccess",
-            "Type": 6,
+            "Name": "basUtility",
+            "Type": -32761,
             "Flags": 0,
             "Icon": 0,
             "Position": 0
           },
           {
-            "Name": "tblLinkedCSV",
-            "Type": 6,
+            "Name": "Module1",
+            "Type": -32761,
             "Flags": 0,
             "Icon": 0,
-            "Position": 1,
-            "NameInGroup": "Linked Name"
+            "Position": 1
           }
         ]
       },
       {
         "Name": "Unassigned Objects",
         "Flags": 4,
-        "Position": 2,
+        "Position": 3,
         "Objects": [
         ]
       }

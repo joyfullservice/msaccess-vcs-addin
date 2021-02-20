@@ -1,41 +1,28 @@
-﻿{
+{
   "Info": {
     "Class": "clsDbReport",
-    "Description": "Report Print Settings",
-    "VCS Version": "3.1.25"
+    "Description": "rptNavigationPaneGroups Print Settings"
   },
   "Items": {
-    "DeviceName": "㕃㈵䌠汯牯\u0000⸜「\u0001\u0000\u0001\u0000\u0004\u0000\u0001ĀЁĀᶔ뼏Ȁ\u0002\u0003૪࡯\u0000\u0001\u0007ɘ\u0002\u0001",
-    "SpecVersion": 600,
-    "DriverVersion": 3,
-    "Size": 0,
-    "DriverExtra": 12593,
-    "Fields": 3617144,
-    "Orientation": -14952,
-    "PaperSize": 4292,
-    "PaperLength": -19676,
-    "PaperWidth": 12440,
-    "Scale": 6712,
-    "Copies": 2275,
-    "DefaultSource": -25112,
-    "PrintQuality": 143,
-    "Color": 932,
-    "Duplex": 12326,
-    "Resolution": -24960,
-    "TTOption": 143,
-    "Collate": -12450,
-    "FormName": "\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0001\u0000\u0002\u0000ā\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000ᶈ\u0000偓",
-    "UnusedPadding": 22604,
-    "BitsPerPel": 1,
-    "PelsWidth": 7560,
-    "PelsHeight": 842348099,
-    "DisplayFlags": 13151,
-    "DisplayFrequency": 0,
-    "ICMMethod": 0,
-    "ICMIntent": 1481392976,
-    "MediaType": 76,
-    "DitherType": 0,
-    "Reserved1": 0,
-    "Reserved2": 0
+    "Printer": {
+      "Orientation": "Landscape",
+      "PaperSize": "Letter"
+    },
+    "Margins": {
+      "LeftMargin": 0.25,
+      "TopMargin": 0.25,
+      "RightMargin": 0.25,
+      "BotMargin": 0.25,
+      "DataOnly": false,
+      "Width": 8.125,
+      "Height": 0.2708,
+      "DefaultSize": true,
+      "Columns": 1,
+      "ColumnSpacing": 0.25,
+      "RowSpacing": 0,
+      "ItemLayout": "Horizontal Columns",
+      "FastPrint": 1,
+      "Datasheet": 1
+    }
   }
 }

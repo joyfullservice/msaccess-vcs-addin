@@ -14,15 +14,10 @@ Begin Report
     DatasheetFontHeight =11
     ItemSuffix =1
     DatasheetGridlinesColor =14806254
-    OnNoData ="[Event Procedure]"
     RecSrcDt = Begin
         0xe05ff061b477e540
     End
     DatasheetFontName ="Calibri"
-    PrtMip = Begin
-        0x6801000068010000680100006801000000000000201c0000e010000001000000 ,
-        0x010000006801000000000000a10700000100000001000000
-    End
     FilterOnLoad =0
     FitToPage =1
     DisplayOnSharePointSite =1
@@ -101,7 +96,3 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
-
-Private Sub Report_NoData(Cancel As Integer)
-
-End Sub
