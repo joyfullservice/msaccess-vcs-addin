@@ -1814,6 +1814,7 @@ Private Sub cmdBuild_Click()
     If CodeProject.FullName = CurrentProject.FullName Then
         MsgBox2 "Build must be run from Add-In", "Instead of opening this form to build the add-in," & vbCrLf & _
             "please install and use the Version Control add-in from the Add-in menu", , vbExclamation
+        DoCmd.Hourglass False
         Exit Sub
     End If
     
@@ -1830,6 +1831,7 @@ Private Sub cmdBuild_Click()
             strFolder = Options.GetExportFolder
         ElseIf intChoice = vbCancel Then
             ' Canceled out of build option.
+            DoCmd.Hourglass False
             Exit Sub
         End If
     End If
