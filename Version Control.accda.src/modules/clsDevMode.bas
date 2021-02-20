@@ -10,7 +10,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
-
+Private Const ModuleName As String = "clsDevMode"
 
 ' See the following links for additional technical details regarding the DEVMODE strcture:
 ' https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
@@ -223,6 +223,7 @@ Public Sub LoadFromExportFile(strFile As String)
     Dim udtDevModeBuffer As tDevModeBuffer
     Dim udtDevNamesBuffer As tDevNamesBuffer
     
+    On Error Resume Next
     ' Blocks: 1=Mip, 2=DevMode, 3=DevNames
 
     ' Clear existing structures and create block classes.
@@ -270,7 +271,7 @@ Public Sub LoadFromExportFile(strFile As String)
             End If
         End If
     Next lngLine
-
+    
     ' Convert hex block data to string
     strChar = "&h00"
     For intBlock = 1 To 3
@@ -302,7 +303,8 @@ Public Sub LoadFromExportFile(strFile As String)
         End If
     Next intBlock
     Perf.OperationEnd
-    
+    CatchAny eelError, "Error loading printer settings from file: " & strFile, ModuleName & ".LoadFromExportFile", True, True
+
 End Sub
 
 
@@ -341,15 +343,18 @@ Public Sub LoadFromPrinter(strPrinter As String)
     Dim strBuffer As String
     Dim udtBuffer As tDevModeBuffer
     Dim objPrinter As Access.Printer
-    
+    On Error Resume Next
     ' Clear our existing devmode structures
     ClearStructures
     
     ' Open a handle to read the default printer
     udtDefaults.DesiredAccess = READ_CONTROL
     lngReturn = OpenPrinter(strPrinter, hPrinter, ByVal 0&)
+
+    CatchAny eelError, "Error getting printer Pointer " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
     If lngReturn <> 0 And hPrinter <> 0 Then
-        
+        'log lngReturn  for now
+        log.add "lngReturn: " & lngReturn 
         ' Check size of DevMode structure to make sure it fits in our buffer.
         lngReturn = DocumentProperties(0, hPrinter, strPrinter, 0, 0, 0)
         If lngReturn > 0 Then
@@ -364,23 +369,30 @@ Public Sub LoadFromPrinter(strPrinter As String)
                 LSet m_tDevMode = udtBuffer
             
             End If
+        Else
+            Log.Error eelError, "WARNING: There has been an error with loading DevMode structure. lngReturn:'" & lngReturn & "'", _
+                ModuleName & ".LoadFromPrinter"
         End If
     End If
-    
+
+    CatchAny eelError, "Error getting printer devMode " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
     ' Close printer handle
     If hPrinter <> 0 Then ClosePrinter hPrinter
     
     ' Attempt to load the printer object
     Set objPrinter = GetPrinterByName(strPrinter)
     If objPrinter Is Nothing Then
-        Log.Add "WARNING: Could not find printer '" & strPrinter & "' on this system."
+        'Log.Add "WARNING: Could not find printer '" & strPrinter & "' on this system."
+        Log.Error eelError, "WARNING: Could not find printer '" & strPrinter & "' on this system.", _
+            ModuleName & ".LoadFromPrinter"
     Else
         ' Load in the DevNames structure
         SetDevNames objPrinter
         ' Load in the margin defaults
         SetMipFromPrinter objPrinter
     End If
-    
+    CatchAny eelError, "Error with printer devMode " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
+
 End Sub
 
 
