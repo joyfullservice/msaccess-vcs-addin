@@ -175,7 +175,7 @@ End Function
 '
 Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
     Set IDbComponent_GetFileList = New Collection
-    IDbComponent_GetFileList.Add IDbComponent_SourceFile
+    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile
 End Function
 
 
