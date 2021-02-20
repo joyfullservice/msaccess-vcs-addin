@@ -4,5 +4,5 @@ CREATE TABLE [tblSaveXML] (
   [Notes] VARCHAR (255),
   [AddDate] DATETIME ,
   [UpdateDate] DATETIME ,
-   CONSTRAINT [PrimaryKey] PRIMARY KEY (ID, ObjectType)
+   CONSTRAINT [PrimaryKey] PRIMARY KEY ([ID], [ObjectType])
 )

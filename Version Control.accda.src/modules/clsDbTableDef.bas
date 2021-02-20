@@ -330,7 +330,6 @@ Private Sub IDbComponent_Import(strFile As String)
     
         Case "json"
             ImportLinkedTable strFile
-            VCSIndex.Update Me, eatImport
         
         Case "xml"
             ' The ImportXML function does not properly handle UrlEncoded paths
@@ -344,7 +343,6 @@ Private Sub IDbComponent_Import(strFile As String)
             Else
                 Application.ImportXML strFile, acStructureOnly
             End If
-            VCSIndex.Update Me, eatImport
         
         Case Else
             ' Unsupported file

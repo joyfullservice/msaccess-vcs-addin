@@ -1,8 +1,7 @@
 {
   "Info": {
     "Class": "clsDbProperty",
-    "Description": "Database Properties (DAO)",
-    "VCS Version": "3.1.25"
+    "Description": "Database Properties (DAO)"
   },
   "Items": {
     "AccessVersion": {
@@ -90,8 +89,12 @@
       "Type": 12
     },
     "NavPane Category": {
-      "Value": 0,
+      "Value": 4,
       "Type": 4
+    },
+    "NavPane Category Name": {
+      "Value": "Custom",
+      "Type": 10
     },
     "NavPane Closed": {
       "Value": 0,

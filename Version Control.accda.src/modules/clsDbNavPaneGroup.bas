@@ -241,7 +241,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_SourceFile)
+    Set IDbComponent_GetFileList = New Collection
+    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile
 End Function
 
 

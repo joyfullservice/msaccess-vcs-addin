@@ -14,7 +14,7 @@ Begin Form
     DatasheetFontHeight =11
     ItemSuffix =13
     Right =25575
-    Bottom =12375
+    Bottom =12585
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x18691eff0b76e540
@@ -502,8 +502,8 @@ Public Sub cmdRunTests_Click()
     strTest = Nz(DLookup("SpecName", "MSysIMEXSpecs", "SpecName=""Test 2"""))
     ShowResult "Saved IMEX spec (Table based)", (strTest = "Test 2")
     
-    strTest = Nz(DLookup("Name", "MSysNavPaneGroups", "GroupCategoryID=3 AND Name=""Linked Tables"""))
-    ShowResult "Custom navigation pane group", (strTest = "Linked Tables")
+    strTest = Nz(DLookup("Name", "MSysNavPaneGroups", "GroupCategoryID=3 AND Name=""My Modules"""))
+    ShowResult "Custom navigation pane group", (strTest = "My Modules")
     
     ' VBE Project
     With GetVBProjectForCurrentDB

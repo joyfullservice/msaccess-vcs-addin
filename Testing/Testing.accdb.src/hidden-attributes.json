@@ -1,0 +1,14 @@
+{
+  "Info": {
+    "Class": "clsDbHiddenAttribute",
+    "Description": "Database objects hidden attribute"
+  },
+  "Items": {
+    "Modules": [
+      "clsPerson"
+    ],
+    "Tables": [
+      "tblHidden"
+    ]
+  }
+}

@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =32
     Left =3225
     Top =2430
-    Right =28545
+    Right =22695
     Bottom =15015
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
@@ -1812,7 +1812,6 @@ Private Sub cmdBuild_Click()
     
     ' Make sure we use the add-in to build the add-in.
     If CodeProject.FullName = CurrentProject.FullName Then
-        DoCmd.Hourglass False
         MsgBox2 "Build must be run from Add-In", "Instead of opening this form to build the add-in," & vbCrLf & _
             "please install and use the Version Control add-in from the Add-in menu", , vbExclamation
         Exit Sub
@@ -1821,12 +1820,10 @@ Private Sub cmdBuild_Click()
     ' Close the current database if it is currently open.
     If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) _
         And FolderHasVcsOptionsFile(Options.GetExportFolder) Then
-        ' Build message text before we turn off the hourglass since first access may take a second.
         strMsg(0) = "Build " & GetVBProjectForCurrentDB.Name & " (" & CurrentProject.Name & ") from source?"
         strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
             "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)"
         strMsg(2) = "Click 'No' to select another project, or 'Cancel' to go back to the previous screen."
-        DoCmd.Hourglass False
         intChoice = MsgBox2(strMsg(0), strMsg(1), strMsg(2), vbYesNoCancel + vbQuestion + vbDefaultButton3)
         If intChoice = vbYes Then
             ' Rebuild the open project
@@ -1839,7 +1836,6 @@ Private Sub cmdBuild_Click()
     
     ' If we aren't doing the current database, then prompt user to find a folder
     ' with source files to use for the build.
-    DoCmd.Hourglass False
     If strFolder = vbNullString Then
     
         ' Show a folder picker to select the file with source code.

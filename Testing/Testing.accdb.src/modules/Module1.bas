@@ -76,7 +76,7 @@ Public Sub TestPrinterMIP()
 
     Dim rpt As Report
     Dim tDevNames As DEVNAMES
-    Dim tBuffer As str_Buffer
+    Dim tBuffer As tDevNamesBuffer
     Dim strData As String
     Dim lngNull As Long
     Dim lngStart As Long
@@ -84,7 +84,7 @@ Public Sub TestPrinterMIP()
     Set rpt = Report_rptDefaultPrinter
     Set rpt = Report_rptNavigationPaneGroups
     
-    tBuffer.strRGB = rpt.PrtDevNames
+    tBuffer.strBuffer = rpt.PrtDevNames
     LSet tDevNames = tBuffer
     
     ' Bytes in structure before the data string starts
