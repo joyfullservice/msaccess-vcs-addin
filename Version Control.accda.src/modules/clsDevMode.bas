@@ -357,12 +357,12 @@ Public Sub LoadFromPrinter(strPrinter As String)
         log.add "lngReturn: " & lngReturn 
         ' Check size of DevMode structure to make sure it fits in our buffer.
         lngReturn = DocumentProperties(0, hPrinter, strPrinter, 0, 0, 0)
-        If lngReturn > 0 Then
+        If lngReturn <> 0 Then
 
             ' Read the devmode structure
             strBuffer = NullPad(lngReturn + 100)
             lngReturn = DocumentProperties(0, hPrinter, strPrinter, StrPtr(strBuffer), 0, DM_OUT_BUFFER)
-            If lngReturn > 0 Then
+            If lngReturn <> 0 Then
             
                 ' Load into DevMode type
                 udtBuffer.strBuffer = strBuffer
@@ -387,6 +387,8 @@ Public Sub LoadFromPrinter(strPrinter As String)
             ModuleName & ".LoadFromPrinter"
     Else
         ' Load in the DevNames structure
+        If Options.ShowDebug Then Log.Add "Loading Printer info for: '" & strPrinter & "'."
+        
         SetDevNames objPrinter
         ' Load in the margin defaults
         SetMipFromPrinter objPrinter
