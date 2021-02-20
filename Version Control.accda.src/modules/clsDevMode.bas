@@ -353,7 +353,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
 
     CatchAny eelError, "Error getting printer Pointer " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
     If lngReturn <> 0 And hPrinter <> 0 Then
-        'log lngReturn  for now
+        'log lngReturn  for now DELETE THIS LINE AFTER DISCOVERING ISSUE!
         log.add "lngReturn: " & lngReturn 
         ' Check size of DevMode structure to make sure it fits in our buffer.
         lngReturn = DocumentProperties(0, hPrinter, strPrinter, 0, 0, 0)
@@ -370,7 +370,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
             
             End If
         Else
-            Log.Error eelError, "WARNING: There has been an error with loading DevMode structure. lngReturn:'" & lngReturn & "'", _
+            Log.Error eelError, "There has been an error with loading DevMode structure. lngReturn:'" & lngReturn & "'", _
                 ModuleName & ".LoadFromPrinter"
         End If
     End If
@@ -383,7 +383,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
     Set objPrinter = GetPrinterByName(strPrinter)
     If objPrinter Is Nothing Then
         'Log.Add "WARNING: Could not find printer '" & strPrinter & "' on this system."
-        Log.Error eelError, "WARNING: Could not find printer '" & strPrinter & "' on this system.", _
+        Log.Error eelError, "Could not find printer '" & strPrinter & "' on this system.", _
             ModuleName & ".LoadFromPrinter"
     Else
         ' Load in the DevNames structure
