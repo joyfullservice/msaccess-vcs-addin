@@ -26,7 +26,7 @@ Private Const TEN_MIL As Double = 0.00393701
 'Private Const READ_CONTROL = &H20000
 'Private Const PRINTER_ACCESS_USE = &H8
 'Private Const GENERIC_READ = &H80000000
-'Private Const DM_OUT_BUFFER = 2
+Private Const DM_OUT_BUFFER = 2
 
 ' DevMode for printer details
 Private Type tDevModeBuffer
