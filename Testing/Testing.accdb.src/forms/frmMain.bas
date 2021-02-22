@@ -457,6 +457,8 @@ Public Sub cmdRunTests_Click()
     ' Reports
     strTest = CurrentProject.AllReports("rptNavigationPaneGroups").Name
     ShowResult "Report exists", (strTest = "rptNavigationPaneGroups")
+    ShowResult "Landscape Orientation", (Report_rptNonDefaultPaperSize.Printer.Orientation = acPRORLandscape)
+    ShowResult "A4 Paper Size", (Report_rptNonDefaultPaperSize.Printer.PaperSize = acPRPSA4)
     
     
     ' Macros
