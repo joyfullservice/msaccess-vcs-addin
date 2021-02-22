@@ -1,36 +1,86 @@
 {
   "Info": {
     "Class": "clsDbNavPaneGroup",
-    "Description": "Navigation Pane Custom Groups"
+    "Description": "Navigation Pane Custom Groups",
+    "Export File Format": 1.1
   },
   "Items": {
-    "Groups": [
+    "Categories": [
       {
-        "Name": "My Modules",
+        "Name": "Custom",
         "Flags": 0,
-        "Position": 1,
-        "Objects": [
-          {
-            "Name": "basUtility",
-            "Type": -32761,
-            "Flags": 0,
-            "Icon": 0,
-            "Position": 0
-          },
-          {
-            "Name": "Module1",
-            "Type": -32761,
-            "Flags": 0,
-            "Icon": 0,
-            "Position": 1
-          }
+        "Position": 3,
+        "Groups": [
         ]
       },
       {
-        "Name": "Unassigned Objects",
-        "Flags": 4,
-        "Position": 3,
-        "Objects": [
+        "Name": "My Category",
+        "Flags": 0,
+        "Position": 2,
+        "Groups": [
+          {
+            "Name": "Unassigned Objects",
+            "Flags": 4,
+            "Position": 1,
+            "Objects": [
+            ]
+          },
+          {
+            "Name": "Macros & Reports",
+            "Flags": 0,
+            "Position": 1,
+            "Objects": [
+              {
+                "Name": "AutoExec",
+                "Type": -32766,
+                "Flags": 0,
+                "Icon": 0,
+                "Position": 0
+              },
+              {
+                "Name": "rptDefaultPrinter",
+                "Type": -32764,
+                "Flags": 0,
+                "Icon": 0,
+                "Position": 1
+              },
+              {
+                "Name": "rptNavigationPaneGroups",
+                "Type": -32764,
+                "Flags": 0,
+                "Icon": 0,
+                "Position": 2
+              }
+            ]
+          },
+          {
+            "Name": "My Modules",
+            "Flags": 0,
+            "Position": 2,
+            "Objects": [
+              {
+                "Name": "basUtility",
+                "Type": -32761,
+                "Flags": 0,
+                "Icon": 0,
+                "Position": 0
+              },
+              {
+                "Name": "Module1",
+                "Type": -32761,
+                "Flags": 0,
+                "Icon": 0,
+                "Position": 1
+              }
+            ]
+          },
+          {
+            "Name": "Unassigned Objects",
+            "Flags": 4,
+            "Position": 3,
+            "Objects": [
+            ]
+          }
         ]
       }
     ]

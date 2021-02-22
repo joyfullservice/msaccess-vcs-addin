@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =32
     Left =3225
     Top =2430
-    Right =22695
+    Right =28545
     Bottom =15015
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
@@ -1819,20 +1819,21 @@ Private Sub cmdBuild_Click()
     End If
     
     ' Close the current database if it is currently open.
-    If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) _
-        And FolderHasVcsOptionsFile(Options.GetExportFolder) Then
-        strMsg(0) = "Build " & GetVBProjectForCurrentDB.Name & " (" & CurrentProject.Name & ") from source?"
-        strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
-            "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)"
-        strMsg(2) = "Click 'No' to select another project, or 'Cancel' to go back to the previous screen."
-        intChoice = MsgBox2(strMsg(0), strMsg(1), strMsg(2), vbYesNoCancel + vbQuestion + vbDefaultButton3)
-        If intChoice = vbYes Then
-            ' Rebuild the open project
-            strFolder = Options.GetExportFolder
-        ElseIf intChoice = vbCancel Then
-            ' Canceled out of build option.
-            DoCmd.Hourglass False
-            Exit Sub
+    If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
+        If FolderHasVcsOptionsFile(Options.GetExportFolder) Then
+            strMsg(0) = "Build " & GetVBProjectForCurrentDB.Name & " (" & CurrentProject.Name & ") from source?"
+            strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
+                "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)"
+            strMsg(2) = "Click 'No' to select another project, or 'Cancel' to go back to the previous screen."
+            intChoice = MsgBox2(strMsg(0), strMsg(1), strMsg(2), vbYesNoCancel + vbQuestion + vbDefaultButton3)
+            If intChoice = vbYes Then
+                ' Rebuild the open project
+                strFolder = Options.GetExportFolder
+            ElseIf intChoice = vbCancel Then
+                ' Canceled out of build option.
+                DoCmd.Hourglass False
+                Exit Sub
+            End If
         End If
     End If
     
@@ -1844,7 +1845,7 @@ Private Sub cmdBuild_Click()
         With Application.FileDialog(msoFileDialogFolderPicker)
             .AllowMultiSelect = False
             .ButtonName = "Select Source Files Folder"
-            .InitialFileName = Options.GetExportFolder
+            '.InitialFileName = Options.GetExportFolder
             .Title = "Select Source Folder"
             .Show
             If .SelectedItems.Count > 0 Then
@@ -1861,6 +1862,8 @@ Private Sub cmdBuild_Click()
                 Else
                     MsgBox2 "Source files not found", "Required source files were not found in this folder.", _
                         "You selected: " & .SelectedItems(1), vbExclamation
+                    DoCmd.Hourglass False
+                    Exit Sub
                 End If
             End If
         End With

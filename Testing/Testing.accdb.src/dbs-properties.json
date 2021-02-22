@@ -89,12 +89,8 @@
       "Type": 12
     },
     "NavPane Category": {
-      "Value": 4,
+      "Value": 0,
       "Type": 4
-    },
-    "NavPane Category Name": {
-      "Value": "Custom",
-      "Type": 10
     },
     "NavPane Closed": {
       "Value": 0,

@@ -5,7 +5,7 @@
   },
   "Items": {
     "Name": "tblLinkedCSV",
-    "Connect": "@{7206d6308b5687aae5932a3d955b70a4292e0b44f512f3d5821ce09a9f96ac43f75cd0ef7212129e386912cf09dd3fdbc2b5bc23c75d551ca07f52676075f675c4dcd3e299968af95827c2829fe7bbca5d794da82dfaaf686f3a5ba68cd23b05b831cdc045e7150f0aba739cce4fa5d3858f3c3a933688bbf6799b18845964f070060723e806419d5088c3e8ed8fc056e429426927de47e2606121d4d7467e9deb3b2b7208084ffc88ff69c4}",
+    "Connect": "Text;DSN=Linked Link Specification;FMT=Delimited;HDR=NO;IMEX=2;CharacterSet=437;ACCDB=YES;DATABASE=rel:",
     "SourceTableName": "Linked.csv",
     "Attributes": 1073741824
   }

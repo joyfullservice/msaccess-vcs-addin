@@ -502,7 +502,7 @@ Public Sub cmdRunTests_Click()
     strTest = Nz(DLookup("SpecName", "MSysIMEXSpecs", "SpecName=""Test 2"""))
     ShowResult "Saved IMEX spec (Table based)", (strTest = "Test 2")
     
-    strTest = Nz(DLookup("Name", "MSysNavPaneGroups", "GroupCategoryID=3 AND Name=""My Modules"""))
+    strTest = Nz(DLookup("Name", "MSysNavPaneGroups", "Name=""My Modules"""))
     ShowResult "Custom navigation pane group", (strTest = "My Modules")
     
     ' VBE Project

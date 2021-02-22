@@ -36,6 +36,9 @@ Public Sub RunAfterBuild()
     ' Compile and save VBA code. Should prompt for any errors here.
     DoCmd.RunCommand acCmdCompileAndSaveAllModules
     
+    ' Run startup macro to execute tests.
+    DoCmd.RunMacro "AutoExec"
+    
 End Sub
 
 
