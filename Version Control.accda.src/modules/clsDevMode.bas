@@ -21,6 +21,13 @@ Private Const ModuleName As String = "clsDevMode"
 ' Constant to convert tenths of millimeters to inches for human readability
 Private Const TEN_MIL As Double = 0.00393701
 
+' API constants for reading printer properties
+' These may not be needed any longer but are kept here for referencing.
+'Private Const READ_CONTROL = &H20000
+'Private Const PRINTER_ACCESS_USE = &H8
+'Private Const GENERIC_READ = &H80000000
+'Private Const DM_OUT_BUFFER = 2
+
 ' DevMode for printer details
 Private Type tDevModeBuffer
     strBuffer As String * 220 ' Pad with plenty of extra room.
@@ -107,12 +114,11 @@ Private Type PRINTER_DEFAULTS
 End Type
 
 Private Declare PtrSafe Function OpenPrinter Lib "winspool.drv" Alias "OpenPrinterA" _
-    (ByVal pPrinterName As String, phPrinter As Long, pDefault As Any) As Long
-Private Declare PtrSafe Function ClosePrinter Lib "winspool.drv" (ByVal hPrinter As Long) As Long
+    (ByVal pPrinterName As String, phPrinter As LongPtr, pDefault As Any) As Long
+Private Declare PtrSafe Function ClosePrinter Lib "winspool.drv" (ByVal hPrinter As LongPtr) As Long
 Private Declare PtrSafe Function DocumentProperties Lib "winspool.drv" Alias "DocumentPropertiesA" _
-    (ByVal hwnd As Long, ByVal hPrinter As Long, ByVal pDeviceName As String, _
-    ByVal pDevModeOutput As LongPtr, ByVal pDevModeInput As Long, ByVal fMode As Long) As Long
-
+    (ByVal hwnd As Long, ByVal hPrinter As LongPtr, ByVal pDeviceName As String, _
+    ByVal pDevModeOutput As LongPtr, ByVal pDevModeInput As LongPtr, ByVal fMode As Long) As Long
 
 ' Enum for types that can be expanded to friendly
 ' values for storing in version control.
@@ -333,11 +339,7 @@ End Sub
 '
 Public Sub LoadFromPrinter(strPrinter As String)
 
-    ' API constants for reading printer properties
-    Const READ_CONTROL = &H20000
-    Const DM_OUT_BUFFER = 2
-
-    Dim hPrinter As Long
+    Dim hPrinter As LongPtr
     Dim udtDefaults As PRINTER_DEFAULTS
     Dim lngReturn As Long
     Dim strBuffer As String
@@ -348,22 +350,19 @@ Public Sub LoadFromPrinter(strPrinter As String)
     ClearStructures
     
     ' Open a handle to read the default printer
-    udtDefaults.DesiredAccess = READ_CONTROL
     lngReturn = OpenPrinter(strPrinter, hPrinter, ByVal 0&)
 
-    CatchAny eelError, "Error getting printer Pointer " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
-    If lngReturn <> 0 And hPrinter <> 0 Then
-        'log lngReturn  for now DELETE THIS LINE AFTER DISCOVERING ISSUE!
-        log.add "lngReturn: " & lngReturn 
+    CatchAny eelError, "Error getting printer pointer " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
+    If lngReturn > 0 And hPrinter <> 0 Then
+
         ' Check size of DevMode structure to make sure it fits in our buffer.
         lngReturn = DocumentProperties(0, hPrinter, strPrinter, 0, 0, 0)
-        If lngReturn <> 0 Then
-
+        If lngReturn > 0 Then
             ' Read the devmode structure
             strBuffer = NullPad(lngReturn + 100)
             lngReturn = DocumentProperties(0, hPrinter, strPrinter, StrPtr(strBuffer), 0, DM_OUT_BUFFER)
-            If lngReturn <> 0 Then
             
+            If lngReturn > 0 Then
                 ' Load into DevMode type
                 udtBuffer.strBuffer = strBuffer
                 LSet m_tDevMode = udtBuffer
@@ -381,8 +380,8 @@ Public Sub LoadFromPrinter(strPrinter As String)
     
     ' Attempt to load the printer object
     Set objPrinter = GetPrinterByName(strPrinter)
+
     If objPrinter Is Nothing Then
-        'Log.Add "WARNING: Could not find printer '" & strPrinter & "' on this system."
         Log.Error eelError, "Could not find printer '" & strPrinter & "' on this system.", _
             ModuleName & ".LoadFromPrinter"
     Else
@@ -852,7 +851,8 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
     With objFormOrReport
         .Caption = .Caption
     End With
-
+    CatchAny eelError, "Error setting print settings for: " & objFormOrReport.Name, _
+        ModuleName & ".SetPrinterOptions", True, True
 End Sub
 
 
@@ -985,7 +985,8 @@ Public Sub ApplySettings(dSettings As Dictionary)
             Next varKey
         End With
     End If
-    
+    CatchAny eelError, "Error applying print settings for: " & strPrinter, _
+        ModuleName & ".ApplySettings", True, True
 End Sub
 
 
@@ -1020,6 +1021,7 @@ Public Function AddToExportFile(strFile As String) As String
     Dim blnFound As Boolean
     Dim blnInBlock As Boolean
     
+    On Error Resume Next
     ' Load data from export file
     strData = ReadFile(strFile)
     varLines = Split(strData, vbCrLf)
@@ -1076,7 +1078,8 @@ Public Function AddToExportFile(strFile As String) As String
 
     ' Return path to temp file
     AddToExportFile = strTempFile
-
+    CatchAny eelError, "Error adding to export file: " & strFile, _
+        ModuleName & ".AddToExportFile", True, True
 End Function
 
 
