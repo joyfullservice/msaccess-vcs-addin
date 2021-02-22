@@ -404,8 +404,8 @@ Public Sub WriteJsonFile(strClassName As String, dItems As Dictionary, strFile A
         Set dFile = ReadJsonFile(strFile)
         If Not dFile Is Nothing Then
             ' Check file format version
-            If dblExportFormatVersion <> 0 And dNZ(dFile, "Info\Export File Format") <> 0 Then
-                ' Rewrite file using new format.
+            If dblExportFormatVersion <> 0 And dNZ(dFile, "Info\Export File Format") <> vbNullString Then
+                ' Rewrite file using upgraded format.
             Else
                 If dFile.Exists("Items") Then
                     Set dExisting = dFile("Items")
