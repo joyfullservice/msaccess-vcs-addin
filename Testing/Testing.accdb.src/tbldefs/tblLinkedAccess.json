@@ -5,7 +5,7 @@
   },
   "Items": {
     "Name": "tblLinkedAccess",
-    "Connect": "@{7206d65faa6fa7d0e3813778e471249319394e7aef20d991b001a5ae979ca945e474fdef7f5c39b6022025f622dd26fac3b28475fc7864428b431a035b53dd659f89e4ef9f968aee452dde8daef6f58a072011b53adc985e3b0d79dbd6f519359b}",
+    "Connect": ";DATABASE=rel:Testing.accdb",
     "SourceTableName": "tblInternal",
     "Attributes": 1073741824,
     "PrimaryKey": "[ID], [ObjectType]"
