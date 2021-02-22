@@ -431,6 +431,7 @@ Public Function DictionaryEqual(dOne As Dictionary, dTwo As Dictionary) As Boole
     Dim strTwo As String
     Dim blnEqual As Boolean
     
+    Perf.OperationStart "Compare Dictionary"
     If dOne Is Nothing And dTwo Is Nothing Then
         ' Neither object set.
         blnEqual = True
@@ -446,6 +447,7 @@ Public Function DictionaryEqual(dOne As Dictionary, dTwo As Dictionary) As Boole
             End If
         End If
     End If
+    Perf.OperationEnd
     
     ' Return comparison result
     DictionaryEqual = blnEqual

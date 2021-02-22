@@ -60,7 +60,7 @@ Private Sub IDbComponent_Export()
         Set dItem = New Dictionary
         With dItem
             .Add "Name", tbl.Name
-            .Add "Connect", Secure(tbl.Connect)
+            .Add "Connect", Secure(GetRelativeConnect(tbl.Connect))
             .Add "SourceTableName", tbl.SourceTableName
             .Add "Attributes", tbl.Attributes
             ' indexes (Find primary key)
@@ -396,7 +396,7 @@ Private Sub ImportLinkedTable(strFile As String)
         Set dbs = CurrentDb
         Set tdf = dbs.CreateTableDef(dItem("Name"))
         With tdf
-            .Connect = Decrypt(dItem("Connect"))
+            .Connect = GetFullConnect(Decrypt(dItem("Connect")))
             .SourceTableName = dItem("SourceTableName")
             .Attributes = SafeAttributes(dItem("Attributes"))
         End With
@@ -459,10 +459,102 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetRelativeConnect
+' Author    : Adam Waller
+' Date      : 2/22/2021
+' Purpose   : Convert the connection string to a relative path if possible
+'---------------------------------------------------------------------------------------
+'
+Private Function GetRelativeConnect(strConnect As String) As String
+    
+    Dim strPath As String
+    Dim strAdd As String
+    
+    ' Extract the file path from the connection string
+    strPath = GetConnectPath(strConnect)
+    
+    ' With linked text files, it may just be the folder path. If so, include
+    ' a final slash so it can correctly resolve to a relative path.
+    If strPath = GetUncPath(CurrentProject.Path) Then strAdd = "\"
+    
+    ' Prefix with the database property name, just in case the same string is used in
+    ' another part of the connection string.
+    GetRelativeConnect = Replace(strConnect, "DATABASE=" & strPath, _
+        "DATABASE=" & GetRelativePath(strPath & strAdd), , , vbTextCompare)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFullConnect
+' Author    : Adam Waller
+' Date      : 2/22/2021
+' Purpose   : Return the full path expanded from a relative one.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetFullConnect(strRelative As String) As String
+
+    Dim strPath As String
+    Dim strFull As String
+    
+    ' Extract the file path from the connection string
+    strPath = GetConnectPath(strRelative)
+    
+    ' Convert to full path
+    strFull = GetPathFromRelative(strPath)
+    
+    ' Remove any trailing slash after conversion from relative.
+    If strFull <> strPath And Right$(strFull, 1) = "\" Then
+        strFull = Left$(strFull, Len(strFull) - 1)
+    End If
+    
+    ' Prefix with the database property name, just in case the same string is used in
+    ' another part of the connection string.
+    GetFullConnect = Replace(strRelative, "DATABASE=" & strPath, _
+        "DATABASE=" & strFull, , , vbTextCompare)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetConnectPath
+' Author    : Adam Waller
+' Date      : 2/22/2021
+' Purpose   : Return embedded connect path
+'---------------------------------------------------------------------------------------
+'
+Private Function GetConnectPath(strConnect As String) As String
+
+    Dim lngPos As Integer
+    Dim lngStart As String
+    Dim strPath As String
+    
+    ' Look for path after "Database" connection property
+    lngPos = InStr(1, strConnect, "Database=", vbTextCompare)
+    If lngPos > 0 Then
+        lngStart = lngPos + Len("Database=")
+        lngPos = InStr(lngStart, strConnect, ";")
+        If lngPos > 0 Then
+            ' Stop at semi-colon
+            strPath = Mid$(strConnect, lngStart, lngPos - lngStart)
+        Else
+            ' Grab the rest of the string
+            strPath = Mid$(strConnect, lngStart)
+        End If
+    End If
+    
+    ' Return path, if any
+    GetConnectPath = strPath
+    
+End Function
+
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : HasUniqueIndex
 ' Author    : Adam Waller
-' Date      : 6/29/2020
-' Purpose   : Returns true if a unique index exists on this table.
+' Date      : 2/22/2021
+' Purpose   :
 '---------------------------------------------------------------------------------------
 '
 Private Function HasUniqueIndex(tdf As TableDef) As Boolean
