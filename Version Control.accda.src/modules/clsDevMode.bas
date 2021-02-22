@@ -358,7 +358,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
     lngReturn = OpenPrinter(strPrinter, hPrinter, ByVal 0&)
 
     CatchAny eelError, "Error getting printer pointer " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
-    If lngReturn > 0 And hPrinter <> 0 Then
+    If lngReturn <> 0 And hPrinter <> 0 Then
 
         ' Check size of DevMode structure to make sure it fits in our buffer.
         lngReturn = DocumentProperties(0, hPrinter, strPrinter, 0, 0, 0)
