@@ -1,13 +1,20 @@
 Operation =1
 Option =0
-Where ="(((MSysNavPaneGroups.Name) Is Not Null) AND ((MSysNavPaneGroups.GroupCategoryID)"
-    "=3))"
+Where ="(((MSysNavPaneGroups.Name) Is Not Null) AND ((MSysNavPaneGroupCategories.Type)=4"
+    "))"
 Begin InputTables
     Name ="MSysNavPaneGroups"
     Name ="MSysNavPaneGroupToObjects"
     Name ="MSysObjects"
+    Name ="MSysNavPaneGroupCategories"
 End
 Begin OutputColumns
+    Alias ="CategoryName"
+    Expression ="MSysNavPaneGroupCategories.Name"
+    Alias ="CategoryPosition"
+    Expression ="MSysNavPaneGroupCategories.Position"
+    Alias ="CategoryFlags"
+    Expression ="MSysNavPaneGroupCategories.Flags"
     Alias ="GroupName"
     Expression ="MSysNavPaneGroups.Name"
     Alias ="GroupFlags"
@@ -26,18 +33,30 @@ Begin OutputColumns
     Expression ="MSysNavPaneGroupToObjects.Position"
     Alias ="NameInGroup"
     Expression ="MSysNavPaneGroupToObjects.Name"
+    Alias ="CategoryID"
+    Expression ="MSysNavPaneGroupCategories.Id"
+    Alias ="GroupID"
+    Expression ="MSysNavPaneGroups.Id"
+    Alias ="LinkID"
+    Expression ="MSysNavPaneGroupToObjects.Id"
 End
 Begin Joins
     LeftTable ="MSysNavPaneGroupToObjects"
     RightTable ="MSysObjects"
     Expression ="MSysNavPaneGroupToObjects.ObjectID = MSysObjects.Id"
     Flag =2
+    LeftTable ="MSysNavPaneGroupCategories"
+    RightTable ="MSysNavPaneGroups"
+    Expression ="MSysNavPaneGroupCategories.Id = MSysNavPaneGroups.GroupCategoryID"
+    Flag =1
     LeftTable ="MSysNavPaneGroups"
     RightTable ="MSysNavPaneGroupToObjects"
     Expression ="MSysNavPaneGroups.Id = MSysNavPaneGroupToObjects.GroupID"
     Flag =2
 End
 Begin OrderBy
+    Expression ="MSysNavPaneGroupCategories.Name"
+    Flag =0
     Expression ="MSysNavPaneGroups.Name"
     Flag =0
     Expression ="MSysObjects.Type"
@@ -93,45 +112,98 @@ Begin
         dbText "Name" ="NameInGroup"
         dbLong "AggregateType" ="-1"
     End
+    Begin
+        dbText "Name" ="CategoryName"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="CategoryPosition"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="CategoryFlags"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="LinkID"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="GroupID"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="CategoryID"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="MSysNavPaneGroupToObjects.Id"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="MSysNavPaneGroups.Id"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="MSysNavPaneGroupCategories.Id"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="MSysNavPaneGroupCategories.Position"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="MSysNavPaneGroupCategories.Flags"
+        dbLong "AggregateType" ="-1"
+    End
 End
 Begin
     State =0
     Left =0
     Top =0
-    Right =646
-    Bottom =800
+    Right =1094
+    Bottom =544
     Left =-1
     Top =-1
-    Right =630
-    Bottom =504
+    Right =1078
+    Bottom =397
     Left =0
     Top =0
     ColumnsShown =539
     Begin
-        Left =48
-        Top =12
-        Right =192
-        Bottom =156
+        Left =251
+        Top =42
+        Right =440
+        Bottom =234
         Top =0
         Name ="MSysNavPaneGroups"
         Name =""
     End
     Begin
-        Left =238
-        Top =11
-        Right =389
-        Bottom =187
+        Left =513
+        Top =40
+        Right =752
+        Bottom =247
         Top =0
         Name ="MSysNavPaneGroupToObjects"
         Name =""
     End
     Begin
-        Left =432
-        Top =12
-        Right =576
-        Bottom =210
+        Left =853
+        Top =40
+        Right =997
+        Bottom =376
         Top =0
         Name ="MSysObjects"
+        Name =""
+    End
+    Begin
+        Left =44
+        Top =44
+        Right =188
+        Bottom =236
+        Top =0
+        Name ="MSysNavPaneGroupCategories"
         Name =""
     End
 End
