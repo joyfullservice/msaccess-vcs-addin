@@ -230,6 +230,7 @@ Public Sub LoadFromExportFile(strFile As String)
     Dim udtDevNamesBuffer As tDevNamesBuffer
     
     On Error Resume Next
+
     ' Blocks: 1=Mip, 2=DevMode, 3=DevNames
 
     ' Clear existing structures and create block classes.
@@ -309,7 +310,9 @@ Public Sub LoadFromExportFile(strFile As String)
         End If
     Next intBlock
     Perf.OperationEnd
-    CatchAny eelError, "Error loading printer settings from file: " & strFile, ModuleName & ".LoadFromExportFile", True, True
+
+    CatchAny eelError, "Error loading printer settings from file: " & strFile, _
+        ModuleName & ".LoadFromExportFile", True, True
 
 End Sub
 
@@ -345,7 +348,9 @@ Public Sub LoadFromPrinter(strPrinter As String)
     Dim strBuffer As String
     Dim udtBuffer As tDevModeBuffer
     Dim objPrinter As Access.Printer
+
     On Error Resume Next
+
     ' Clear our existing devmode structures
     ClearStructures
     
@@ -369,7 +374,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
             
             End If
         Else
-            Log.Error eelError, "There has been an error with loading DevMode structure. lngReturn:'" & lngReturn & "'", _
+            Log.Error eelWarning, "There has been an error with loading DevMode structure. lngReturn:'" & lngReturn & "'", _
                 ModuleName & ".LoadFromPrinter"
         End If
     End If
@@ -382,7 +387,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
     Set objPrinter = GetPrinterByName(strPrinter)
 
     If objPrinter Is Nothing Then
-        Log.Error eelError, "Could not find printer '" & strPrinter & "' on this system.", _
+        Log.Error eelWarning, "Could not find printer '" & strPrinter & "' on this system.", _
             ModuleName & ".LoadFromPrinter"
     Else
         ' Load in the DevNames structure
@@ -392,7 +397,9 @@ Public Sub LoadFromPrinter(strPrinter As String)
         ' Load in the margin defaults
         SetMipFromPrinter objPrinter
     End If
-    CatchAny eelError, "Error with printer devMode " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
+
+    CatchAny eelError, "Error with printer devMode " & strPrinter, _
+        ModuleName & ".LoadFromPrinter", True, True
 
 End Sub
 
@@ -753,13 +760,16 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
     Dim strDevModeExtra As String
     Dim tBuffer As tDevModeBuffer
     
+    On Error Resume Next
+
     ' Make sure we are using the correct object type
     If TypeOf objFormOrReport Is Access.Report Then
         intType = acReport
     ElseIf TypeOf objFormOrReport Is Access.Form Then
         intType = acForm
     Else
-        MsgBox "Can only set printer options for a form or report object", vbExclamation
+        Log.Error eelCritical, "Can only set printer options for a form or report object: " & _
+            objFormOrReport.Name, ModuleName & ".SetPrinterOptions"
         Exit Sub
     End If
     
@@ -767,7 +777,8 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
     If dSettings.Exists("DeviceName") Then
         Set oPrinter = GetPrinterByName(dSettings("DeviceName"))
         If oPrinter Is Nothing Then
-            Log.Add "WARNING: Printer " & dSettings("DeviceName") & " not found for " & objFormOrReport.Name
+            Log.Error eelWarning, "Printer " & dSettings("DeviceName") & " not found for " & objFormOrReport.Name, _
+                ModuleName & ":SetPrinterOptions"
             Exit Sub
         End If
         ' Set as printer for this report or form.
@@ -874,6 +885,8 @@ Public Sub ApplySettings(dSettings As Dictionary)
     Dim blnSetDevMode As Boolean
     Dim dItems As Dictionary
     Dim strPrinter As String
+
+    On Error Resume Next
     
     ' Set the properties in the DevNames structure.
     ' Note that this simply sets the printer to one with a matching name. It doesn't try to reconstruct
@@ -980,7 +993,8 @@ Public Sub ApplySettings(dSettings As Dictionary)
                 
                     Case Else
                         ' Could not find that property.
-                        Log.Add "WARNING: Margin property " & CStr(varKey) & " not found."
+                        Log.Error eelWarning, "Margin property " & CStr(varKey) & " not found.", _
+                            ModuleName & ":ApplySettings"
                 End Select
             Next varKey
         End With
@@ -1022,6 +1036,7 @@ Public Function AddToExportFile(strFile As String) As String
     Dim blnInBlock As Boolean
     
     On Error Resume Next
+
     ' Load data from export file
     strData = ReadFile(strFile)
     varLines = Split(strData, vbCrLf)
