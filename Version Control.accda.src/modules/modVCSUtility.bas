@@ -389,7 +389,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub WriteJsonFile(strClassName As String, dItems As Dictionary, strFile As String, strDescription As String, _
-    Optional strFileFormat As String = "0.0")
+    Optional dblExportFormatVersion As Double)
     
     Dim dContents As Dictionary
     Dim dHeader As Dictionary
@@ -404,7 +404,7 @@ Public Sub WriteJsonFile(strClassName As String, dItems As Dictionary, strFile A
         Set dFile = ReadJsonFile(strFile)
         If Not dFile Is Nothing Then
             ' Check file format version
-            If strFileFormat <> "0.0" And dNZ(dFile, "Info\Export File Format") <> strFileFormat Then
+            If dblExportFormatVersion <> 0 And dNZ(dFile, "Info\Export File Format") <> 0 Then
                 ' Rewrite file using new format.
             Else
                 If dFile.Exists("Items") Then
@@ -421,7 +421,7 @@ Public Sub WriteJsonFile(strClassName As String, dItems As Dictionary, strFile A
     ' Build dictionary structure
     dHeader.Add "Class", strClassName
     dHeader.Add "Description", strDescription
-    If strFileFormat <> "0.0" Then dHeader.Add "Export File Format", strFileFormat
+    If dblExportFormatVersion <> 0 Then dHeader.Add "Export File Format", dblExportFormatVersion
     dContents.Add "Info", dHeader
     dContents.Add "Items", dItems
     

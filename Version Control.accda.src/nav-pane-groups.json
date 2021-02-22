@@ -2,15 +2,22 @@
   "Info": {
     "Class": "clsDbNavPaneGroup",
     "Description": "Navigation Pane Custom Groups",
-    "VCS Version": "3.1.76"
+    "Export File Format": "1.1"
   },
   "Items": {
-    "Groups": [
+    "Categories": [
       {
-        "Name": "Custom Group 1",
+        "Name": "Custom",
         "Flags": 0,
-        "Position": 2,
-        "Objects": [
+        "Position": 3,
+        "Groups": [
+          {
+            "Name": "Custom Group 1",
+            "Flags": 0,
+            "Position": 2,
+            "Objects": [
+            ]
+          }
         ]
       }
     ]
