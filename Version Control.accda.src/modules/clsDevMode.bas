@@ -10,7 +10,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
-
+Private Const ModuleName As String = "clsDevMode"
 
 ' See the following links for additional technical details regarding the DEVMODE strcture:
 ' https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
@@ -20,6 +20,13 @@ Option Explicit
 
 ' Constant to convert tenths of millimeters to inches for human readability
 Private Const TEN_MIL As Double = 0.00393701
+
+' API constants for reading printer properties
+' These may not be needed any longer but are kept here for referencing.
+'Private Const READ_CONTROL = &H20000
+'Private Const PRINTER_ACCESS_USE = &H8
+'Private Const GENERIC_READ = &H80000000
+Private Const DM_OUT_BUFFER = 2
 
 ' DevMode for printer details
 Private Type tDevModeBuffer
@@ -107,12 +114,11 @@ Private Type PRINTER_DEFAULTS
 End Type
 
 Private Declare PtrSafe Function OpenPrinter Lib "winspool.drv" Alias "OpenPrinterA" _
-    (ByVal pPrinterName As String, phPrinter As Long, pDefault As Any) As Long
-Private Declare PtrSafe Function ClosePrinter Lib "winspool.drv" (ByVal hPrinter As Long) As Long
+    (ByVal pPrinterName As String, phPrinter As LongPtr, pDefault As Any) As Long
+Private Declare PtrSafe Function ClosePrinter Lib "winspool.drv" (ByVal hPrinter As LongPtr) As Long
 Private Declare PtrSafe Function DocumentProperties Lib "winspool.drv" Alias "DocumentPropertiesA" _
-    (ByVal hwnd As Long, ByVal hPrinter As Long, ByVal pDeviceName As String, _
-    ByVal pDevModeOutput As LongPtr, ByVal pDevModeInput As Long, ByVal fMode As Long) As Long
-
+    (ByVal hwnd As Long, ByVal hPrinter As LongPtr, ByVal pDeviceName As String, _
+    ByVal pDevModeOutput As LongPtr, ByVal pDevModeInput As LongPtr, ByVal fMode As Long) As Long
 
 ' Enum for types that can be expanded to friendly
 ' values for storing in version control.
@@ -223,6 +229,8 @@ Public Sub LoadFromExportFile(strFile As String)
     Dim udtDevModeBuffer As tDevModeBuffer
     Dim udtDevNamesBuffer As tDevNamesBuffer
     
+    On Error Resume Next
+
     ' Blocks: 1=Mip, 2=DevMode, 3=DevNames
 
     ' Clear existing structures and create block classes.
@@ -270,7 +278,7 @@ Public Sub LoadFromExportFile(strFile As String)
             End If
         End If
     Next lngLine
-
+    
     ' Convert hex block data to string
     strChar = "&h00"
     For intBlock = 1 To 3
@@ -302,7 +310,10 @@ Public Sub LoadFromExportFile(strFile As String)
         End If
     Next intBlock
     Perf.OperationEnd
-    
+
+    CatchAny eelError, "Error loading printer settings from file: " & strFile, _
+        ModuleName & ".LoadFromExportFile", True, True
+
 End Sub
 
 
@@ -331,56 +342,65 @@ End Sub
 '
 Public Sub LoadFromPrinter(strPrinter As String)
 
-    ' API constants for reading printer properties
-    Const READ_CONTROL = &H20000
-    Const DM_OUT_BUFFER = 2
-
-    Dim hPrinter As Long
+    Dim hPrinter As LongPtr
     Dim udtDefaults As PRINTER_DEFAULTS
     Dim lngReturn As Long
     Dim strBuffer As String
     Dim udtBuffer As tDevModeBuffer
     Dim objPrinter As Access.Printer
-    
+
+    On Error Resume Next
+
     ' Clear our existing devmode structures
     ClearStructures
     
     ' Open a handle to read the default printer
-    udtDefaults.DesiredAccess = READ_CONTROL
     lngReturn = OpenPrinter(strPrinter, hPrinter, ByVal 0&)
+
+    CatchAny eelError, "Error getting printer pointer " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
     If lngReturn <> 0 And hPrinter <> 0 Then
-        
+
         ' Check size of DevMode structure to make sure it fits in our buffer.
         lngReturn = DocumentProperties(0, hPrinter, strPrinter, 0, 0, 0)
         If lngReturn > 0 Then
-
             ' Read the devmode structure
             strBuffer = NullPad(lngReturn + 100)
             lngReturn = DocumentProperties(0, hPrinter, strPrinter, StrPtr(strBuffer), 0, DM_OUT_BUFFER)
-            If lngReturn > 0 Then
             
+            If lngReturn > 0 Then
                 ' Load into DevMode type
                 udtBuffer.strBuffer = strBuffer
                 LSet m_tDevMode = udtBuffer
             
             End If
+        Else
+            Log.Error eelWarning, "There has been an error with loading DevMode structure. lngReturn:'" & lngReturn & "'", _
+                ModuleName & ".LoadFromPrinter"
         End If
     End If
-    
+
+    CatchAny eelError, "Error getting printer devMode " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
     ' Close printer handle
     If hPrinter <> 0 Then ClosePrinter hPrinter
     
     ' Attempt to load the printer object
     Set objPrinter = GetPrinterByName(strPrinter)
+
     If objPrinter Is Nothing Then
-        Log.Add "WARNING: Could not find printer '" & strPrinter & "' on this system."
+        Log.Error eelWarning, "Could not find printer '" & strPrinter & "' on this system.", _
+            ModuleName & ".LoadFromPrinter"
     Else
         ' Load in the DevNames structure
+        If Options.ShowDebug Then Log.Add "Loading Printer info for: '" & strPrinter & "'."
+        
         SetDevNames objPrinter
         ' Load in the margin defaults
         SetMipFromPrinter objPrinter
     End If
-    
+
+    CatchAny eelError, "Error with printer devMode " & strPrinter, _
+        ModuleName & ".LoadFromPrinter", True, True
+
 End Sub
 
 
@@ -740,13 +760,16 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
     Dim strDevModeExtra As String
     Dim tBuffer As tDevModeBuffer
     
+    On Error Resume Next
+
     ' Make sure we are using the correct object type
     If TypeOf objFormOrReport Is Access.Report Then
         intType = acReport
     ElseIf TypeOf objFormOrReport Is Access.Form Then
         intType = acForm
     Else
-        MsgBox "Can only set printer options for a form or report object", vbExclamation
+        Log.Error eelCritical, "Can only set printer options for a form or report object: " & _
+            objFormOrReport.Name, ModuleName & ".SetPrinterOptions"
         Exit Sub
     End If
     
@@ -754,7 +777,8 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
     If dSettings.Exists("DeviceName") Then
         Set oPrinter = GetPrinterByName(dSettings("DeviceName"))
         If oPrinter Is Nothing Then
-            Log.Add "WARNING: Printer " & dSettings("DeviceName") & " not found for " & objFormOrReport.Name
+            Log.Error eelWarning, "Printer " & dSettings("DeviceName") & " not found for " & objFormOrReport.Name, _
+                ModuleName & ":SetPrinterOptions"
             Exit Sub
         End If
         ' Set as printer for this report or form.
@@ -838,7 +862,8 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
     With objFormOrReport
         .Caption = .Caption
     End With
-
+    CatchAny eelError, "Error setting print settings for: " & objFormOrReport.Name, _
+        ModuleName & ".SetPrinterOptions", True, True
 End Sub
 
 
@@ -860,6 +885,8 @@ Public Sub ApplySettings(dSettings As Dictionary)
     Dim blnSetDevMode As Boolean
     Dim dItems As Dictionary
     Dim strPrinter As String
+
+    On Error Resume Next
     
     ' Set the properties in the DevNames structure.
     ' Note that this simply sets the printer to one with a matching name. It doesn't try to reconstruct
@@ -966,12 +993,14 @@ Public Sub ApplySettings(dSettings As Dictionary)
                 
                     Case Else
                         ' Could not find that property.
-                        Log.Add "WARNING: Margin property " & CStr(varKey) & " not found."
+                        Log.Error eelWarning, "Margin property " & CStr(varKey) & " not found.", _
+                            ModuleName & ":ApplySettings"
                 End Select
             Next varKey
         End With
     End If
-    
+    CatchAny eelError, "Error applying print settings for: " & strPrinter, _
+        ModuleName & ".ApplySettings", True, True
 End Sub
 
 
@@ -1006,6 +1035,8 @@ Public Function AddToExportFile(strFile As String) As String
     Dim blnFound As Boolean
     Dim blnInBlock As Boolean
     
+    On Error Resume Next
+
     ' Load data from export file
     strData = ReadFile(strFile)
     varLines = Split(strData, vbCrLf)
@@ -1062,7 +1093,8 @@ Public Function AddToExportFile(strFile As String) As String
 
     ' Return path to temp file
     AddToExportFile = strTempFile
-
+    CatchAny eelError, "Error adding to export file: " & strFile, _
+        ModuleName & ".AddToExportFile", True, True
 End Function
 
 
