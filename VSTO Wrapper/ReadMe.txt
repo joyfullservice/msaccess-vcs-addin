@@ -1,1 +1,0 @@
-This is the root folder where we will put the VSTO COM add-in project, which serves as a wrapper to the Version Control.accda add-in.
