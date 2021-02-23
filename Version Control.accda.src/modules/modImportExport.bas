@@ -90,7 +90,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
         lngCount = cCategory.Count(Not blnFullExport)
         If lngCount = 0 Then
             Log.Spacer Options.ShowDebug
-            Log.Add "No " & LCase(cCategory.Category) & " found in this database.", Options.ShowDebug
+            Log.Add IIf(blnFullExport, "No ", "No modified ") & LCase(cCategory.Category) & " found in this database.", Options.ShowDebug
         Else
             ' Show category header and clear out any orphaned files.
             Log.Spacer Options.ShowDebug
