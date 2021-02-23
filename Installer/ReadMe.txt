@@ -1,1 +1,0 @@
-This is the folder where we will maintain the NSIS installer script for creating installation packages of the VSTO add-in and Access add-in.

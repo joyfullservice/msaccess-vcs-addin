@@ -478,7 +478,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : ClearOrphanedSourceFiles
 ' Author    : Adam Waller
-' Date      : 12/14/2016
+' Date      : 2/23/2021
 ' Purpose   : Clears existing source files that don't have a matching object in the
 '           : database.
 '---------------------------------------------------------------------------------------
@@ -487,48 +487,53 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     
     Dim oFolder As Folder
     Dim oFile As File
-    Dim colNames As Collection
+    Dim dBaseNames As Dictionary
+    Dim dExtensions As Dictionary
+    Dim strBaseName As String
     Dim strFile As String
     Dim varExt As Variant
-    Dim strPrimaryExt As String
+    Dim strExt As String
     Dim cItem As IDbComponent
     
     ' No orphaned files if the folder doesn't exist.
     If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
     
-    ' Cache a list of source file names for actual database objects
-    Perf.OperationStart "Clear Orphaned"
-    Set colNames = New Collection
-    For Each cItem In cType.GetAllFromDB(False)
-        colNames.Add FSO.GetFileName(cItem.SourceFile)
-    Next cItem
-    If colNames.Count > 0 Then strPrimaryExt = "." & FSO.GetExtensionName(colNames(1))
+    ' Set up dictionary objects for case-insensitive comparison
+    Set dBaseNames = New Dictionary
+    dBaseNames.CompareMode = TextCompare
+    Set dExtensions = New Dictionary
+    dExtensions.CompareMode = TextCompare
     
+    ' Cache a list of base source file names for actual database objects
+    Perf.OperationStart "Clear Orphaned"
+    For Each cItem In cType.GetAllFromDB(False)
+        dBaseNames.Add FSO.GetBaseName(cItem.SourceFile), vbNullString
+    Next cItem
+    
+    ' Build dictionary of allowed extensions
+    For Each varExt In StrExtensions
+        dExtensions.Add varExt, vbNullString
+    Next varExt
+        
     ' Loop through files in folder
     Set oFolder = FSO.GetFolder(cType.BaseFolder)
     For Each oFile In oFolder.Files
     
-        ' Check against list of extensions
-        For Each varExt In StrExtensions
+        ' Get base name and file extension
+        ' (For performance reasons, minimize property access on oFile)
+        strFile = oFile.Name
+        strBaseName = FSO.GetBaseName(strFile)
+        strExt = Mid$(strFile, Len(strBaseName) + 2)
         
-            ' Check for matching extension on wanted list.
-            If FSO.GetExtensionName(oFile.Path) = varExt Then
-                
-                ' Build a file name using the primary extension to
-                ' match the list of source files.
-                strFile = FSO.GetBaseName(oFile.Name) & strPrimaryExt
-                ' Remove any file that doesn't have a matching name.
-                If Not InCollection(colNames, strFile) Then
-                    ' Object not found in database. Remove file.
-                    DeleteFile oFile.ParentFolder.Path & "\" & oFile.Name, True
-                    Log.Add "  Removing orphaned file: " & strFile, Options.ShowDebug
-                End If
-                
-                ' No need to check other extensions since we
-                ' already had a match and processed the file.
-                Exit For
+        ' See if extension exists in cached list
+        If dExtensions.Exists(strExt) Then
+            ' See if base file name exists in list of database objects
+            If Not dBaseNames.Exists(strBaseName) Then
+                ' Object not found in database. Remove file.
+                DeleteFile oFile.ParentFolder.Path & "\" & oFile.Name, True
+                Log.Add "  Removing orphaned file: " & strFile, Options.ShowDebug
             End If
-        Next varExt
+        End If
     Next oFile
     
     ' Remove base folder if we don't have any files in it
