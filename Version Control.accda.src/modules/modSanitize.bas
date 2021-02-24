@@ -8,6 +8,8 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+Private Const ModuleName = "modSanitize"
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SanitizeFile
@@ -27,8 +29,11 @@ Public Sub SanitizeFile(strPath As String)
     Dim blnInsideIgnoredBlock As Boolean
     Dim intIndent As Integer
     Dim blnIsReport As Boolean
+    Dim blnIsPassThroughQuery As Boolean
     Dim sngStartTime As Single
     Dim strTempFile As String
+    
+    On Error Resume Next
 
     ' Read text from file, and split into lines
     If HasUcs2Bom(strPath) Then
@@ -125,7 +130,16 @@ Public Sub SanitizeFile(strPath As String)
                     ' Turn flag on to ignore Right and Bottom lines
                     blnIsReport = True
                     cData.Add strLine
-                    
+                
+                ' Beginning of main section
+                Case "Begin"
+                    If blnIsPassThroughQuery And Options.AggressiveSanitize Then
+                        ' Ignore remaining content. (See Issue #182)
+                        Exit Do
+                    Else
+                        cData.Add strLine
+                    End If
+                
                 Case Else
                     If blnInsideIgnoredBlock Then
                         ' Skip if we are in an ignored block
@@ -150,6 +164,11 @@ Public Sub SanitizeFile(strPath As String)
                     Else
                         ' All other lines will be added.
                         cData.Add strLine
+                        
+                        ' Check for pass-through query connection string
+                        If StartsWith(strLine, "dbMemo ""Connect"" =""") Then
+                            blnIsPassThroughQuery = True
+                        End If
                     End If
             
             End Select
@@ -168,6 +187,9 @@ Public Sub SanitizeFile(strPath As String)
     
     ' Replace original file with sanitized version
     WriteFile cData.GetStr, strPath
+    
+    ' Log any errors
+    CatchAny eelError, "Error sanitizing file " & FSO.GetFileName(strPath), ModuleName & ".SanitizeFile"
     
 End Sub
 
