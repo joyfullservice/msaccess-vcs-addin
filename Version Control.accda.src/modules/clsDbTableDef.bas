@@ -488,9 +488,11 @@ Private Function SanitizeConnectionString(strConnection As String) As String
                 Case StartsWith(strPart, "UID=", vbTextCompare), _
                     StartsWith(strPart, "PWD=", vbTextCompare)
                     ' These values are not needed when using a trusted connection.
-                    If InStr(1, strConnection, "Trusted_Connection=True", vbTextCompare) > 0 Then
-                        ' Strip out username/pwd if AggressiveSanitize option set. (Typically True)
-                        If Not Options.AggressiveSanitize Then .Add strPart
+                    If InStr(1, strConnection, "Trusted_Connection=True", vbTextCompare) = 0 _
+                        Or Not Options.AggressiveSanitize Then
+                        ' Retain the values if not using trusted connection, or if
+                        ' AggressiveSanitize option is set to false (Defaults to true).
+                        .Add strPart
                     End If
                 
                 ' Check database path to convert to relative
