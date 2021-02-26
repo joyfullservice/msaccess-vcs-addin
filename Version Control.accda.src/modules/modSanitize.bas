@@ -297,3 +297,26 @@ Public Function GetIndent(strLine As Variant) As Integer
     strChar = Left$(Trim(strLine), 1)
     If strLine <> vbNullString Then GetIndent = InStr(1, strLine, strChar) - 1
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SanitizeConnection
+' Author    : hecon5
+' Date      : 02/26/2021
+' Purpose   : Sanitizes a connection string.
+'---------------------------------------------------------------------------------------
+Public Sub SanitizeConnectionString(ByRef SourceString As String)
+
+    Dim objRE As New RegExp
+    Dim str As String
+    
+    If Options.AggressiveSanitize <> True Then Exit Sub
+    
+    With objRE
+        .Global = True
+        .IgnoreCase = True
+        .Pattern = "(.*)(;UID=)[^ \r\n]*(?=;Trusted_Connection=Yes)|(;PWD=)[^ \r\n]*(?=;Trusted_Connection=Yes)"
+        SourceString = .Replace(SourceString, "$1")   'Return the sanitized string.
+    End With
+    
+End Sub
