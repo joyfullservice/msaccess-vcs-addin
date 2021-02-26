@@ -9,6 +9,8 @@ Option Private Module
 Option Explicit
 
 
+Private Const ModuleName = "modObjects"
+
 ' Logging and options classes
 Private m_Perf As clsPerformance
 Private m_Log As clsLog
@@ -17,7 +19,7 @@ Private m_VCSIndex As clsVCSIndex
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
-Private m_FSO As FileSystemObject
+Private m_FSO As Scripting.FileSystemObject
 
 
 '---------------------------------------------------------------------------------------
@@ -90,11 +92,13 @@ End Function
 '           : reference when we have completed an export or import operation.
 '---------------------------------------------------------------------------------------
 '
-Public Property Get FSO() As FileSystemObject
-    If m_FSO Is Nothing Then Set m_FSO = New FileSystemObject
+Public Property Get FSO() As Scripting.FileSystemObject
+    On Error Resume Next
+    If m_FSO Is Nothing Then Set m_FSO = New Scripting.FileSystemObject
     Set FSO = m_FSO
+    CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", ModuleName & ".FSO"
 End Property
-Public Property Set FSO(ByVal RHS As FileSystemObject)
+Public Property Set FSO(ByVal RHS As Scripting.FileSystemObject)
     Set m_FSO = RHS
 End Property
 
