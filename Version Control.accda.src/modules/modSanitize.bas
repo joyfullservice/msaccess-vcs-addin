@@ -305,7 +305,7 @@ End Function
 ' Date      : 02/26/2021
 ' Purpose   : Sanitizes a connection string.
 '---------------------------------------------------------------------------------------
-Public Sub SanitizeConnectionString(ByRef SourceString As String)
+Public Function SanitizeConnectionString(ByRef SourceString As String) As String
 
     Dim objRE As New RegExp
     Dim str As String
@@ -316,7 +316,7 @@ Public Sub SanitizeConnectionString(ByRef SourceString As String)
         .Global = True
         .IgnoreCase = True
         .Pattern = "(.*)(;UID=)[^ \r\n]*(?=;Trusted_Connection=Yes)|(;PWD=)[^ \r\n]*(?=;Trusted_Connection=Yes)"
-        SourceString = .Replace(SourceString, "$1")   'Return the sanitized string.
+        SanitizeConnectionString = .Replace(SourceString, "$1")   'Return the sanitized string.
     End With
     
-End Sub
+End Function
