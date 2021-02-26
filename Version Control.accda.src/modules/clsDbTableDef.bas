@@ -701,7 +701,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = (m_Table.LastUpdated > VCSIndex.Item(Me).Item("ExportDate"))
+    IDbComponent_IsModified = (m_Table.LastUpdated > VCSIndex.GetExportDate(Me))
 End Function
 
 
