@@ -12,6 +12,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+Private Const ModuleName = "clsDbQuery"
+
 Private m_Query As AccessObject
 Private m_AllItems As Collection
 Private m_blnModifiedOnly As Boolean
@@ -36,13 +38,18 @@ Private Sub IDbComponent_Export()
     Dim dbs As DAO.Database
     Dim qry As DAO.QueryDef
     
+    On Error Resume Next
+    
+    Set dbs = CurrentDb
     Set qry = dbs.QueryDefs(m_Query.Name)
     
-    If qry.Connect <> vbNullString Then SanitizeConnectionString qry.Connect
+    If qry.Connect <> vbNullString Then qry.Connect = SanitizeConnectionString(qry.Connect)
     
     ' Save and sanitize file
     SaveComponentAsText acQuery, m_Query.Name, IDbComponent_SourceFile
     VCSIndex.Update Me, eatExport
+    
+    CatchAny eelError, "Error exporting Query: " & m_Query.Name, ModuleName & ".Export"
     
     ' Export as SQL (if using that option)
     If Options.SaveQuerySQL Then
@@ -52,6 +59,8 @@ Private Sub IDbComponent_Export()
         WriteFile qry.SQL, strFile
         Perf.OperationEnd
         Log.Add "  " & m_Query.Name & " (SQL)", Options.ShowDebug
+
+        CatchAny eelError, "Error exporting Query SQL: " & m_Query.Name, ModuleName & ".Export"
     End If
     
 End Sub
