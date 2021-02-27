@@ -20,6 +20,8 @@ Private Const ModuleName = "modSanitize"
 '
 Public Sub SanitizeFile(strPath As String)
 
+    Const cintWrapSize As Integer = 100 ' (change to correct value)
+    
     Dim strFile As String
     Dim varLines As Variant
     Dim lngLine As Long
@@ -156,6 +158,18 @@ Public Sub SanitizeFile(strPath As String)
                             ' Move
                             lngLine = lngLine + 1
                         Loop
+                    ' Check for pass-through query connection string
+                    ElseIf StartsWith(strLine, "dbMemo ""Connect"" =""") Then
+                        blnIsPassThroughQuery = True
+                        intIndent = GetIndent(strLine)
+                        ' Preview the next line, and check the indent level
+                        Do While GetIndent(varLines(lngLine + 1)) > intIndent
+                            ' Continue building string
+                            strLine = strLine & varLines(lngLine + 1)
+                            lngLine = lngLine + 1
+                        Loop
+                        ' Write sanitized connection string to output with appropriate wrapping
+                        cData.Add WrapLine(SanitizeConnectionString(strLine), cintWrapSize)
                     ElseIf blnIsReport And StartsWith(strLine, "    Right =") Then
                         ' Ignore this line. (Not important, and frequently changes.)
                     ElseIf blnIsReport And StartsWith(strLine, "    Bottom =") Then
@@ -164,11 +178,6 @@ Public Sub SanitizeFile(strPath As String)
                     Else
                         ' All other lines will be added.
                         cData.Add strLine
-                        
-                        ' Check for pass-through query connection string
-                        If StartsWith(strLine, "dbMemo ""Connect"" =""") Then
-                            blnIsPassThroughQuery = True
-                        End If
                     End If
             
             End Select
@@ -296,6 +305,19 @@ Public Function GetIndent(strLine As Variant) As Integer
     Dim strChar As String
     strChar = Left$(Trim(strLine), 1)
     If strLine <> vbNullString Then GetIndent = InStr(1, strLine, strChar) - 1
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WrapLine
+' Author    : Adam Waller
+' Date      : 2/27/2021
+' Purpose   : Split string into multi-line format at the specified number of characters
+'           : and including an indent in the wrapped lines.
+'---------------------------------------------------------------------------------------
+'
+Private Function WrapLine(strLine As String, lngChars As Long) As String
+
 End Function
 
 
