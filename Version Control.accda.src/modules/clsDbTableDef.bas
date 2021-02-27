@@ -459,61 +459,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : SanitizeConnectionString
-' Author    : Adam Waller
-' Date      : 2/26/2021
-' Purpose   : Sanitize the connection string by removing unneeded information and
-'           : converting database path to relative.
-'---------------------------------------------------------------------------------------
-'
-Private Function SanitizeConnectionString(strConnection As String) As String
-
-    Dim lngPart As Long
-    Dim varParts As Variant
-    Dim strPart As String
-    
-    If strConnection = vbNullString Then Exit Function
-    
-    ' Create array of connection string parts
-    varParts = Split(strConnection, ";")
-
-    ' Loop through parts, building new connection string
-    With New clsConcat
-        .AppendOnAdd = ";"
-        For lngPart = 0 To UBound(varParts)
-            strPart = CStr(varParts(lngPart))
-            Select Case True
-                
-                ' Check for username/password
-                Case StartsWith(strPart, "UID=", vbTextCompare), _
-                    StartsWith(strPart, "PWD=", vbTextCompare)
-                    ' These values are not needed when using a trusted connection.
-                    If (InStr(1, strConnection, "Trusted_Connection=Yes", vbTextCompare) = 0) _
-                        Or Not Options.AggressiveSanitize Then
-                        ' Retain the values if not using trusted connection, or if
-                        ' AggressiveSanitize option is set to false (Defaults to true).
-                        .Add strPart
-                    End If
-                
-                ' Check database path to convert to relative
-                Case StartsWith(strPart, "DATABASE=", vbTextCompare)
-                    .Add GetRelativeConnect(strPart)
-                
-                ' Add all other sections
-                Case Else
-                    .Add strPart
-            End Select
-        Next lngPart
-        
-        ' Remove trailing semicolon, and return string
-        .Remove 1
-        SanitizeConnectionString = .GetStr
-    End With
-    
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetRelativeConnect
 ' Author    : Adam Waller
 ' Date      : 2/22/2021
