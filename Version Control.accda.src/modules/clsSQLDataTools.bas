@@ -12,13 +12,21 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+'Private m_Type as AccessObject           ' Type of object (Table, TableDef, Query, etc.)
+'Private m_Dbs As Database
+
 'Private m_Type as "Qry/Table/LinkedTable/etc"
-Private m_StrSQL As String
-Private m_StrConnection As String
-Private m_Dbs As Database
+'Private m_SQL As String                 ' Will Be used in the future build outs when SQL is wrapped in.
+Private m_Connection As String
+
+Private m_Server as String
+
+Private m_Database as String
+Private m_DatabaseRelative as String
 
 Private Const ModuleName = "clsSQLDataTools"
 
+Public 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SanitizeConnection
@@ -26,7 +34,7 @@ Private Const ModuleName = "clsSQLDataTools"
 ' Date      : 02/26/2021
 ' Purpose   : Sanitizes a connection string.
 '---------------------------------------------------------------------------------------
-Public Function SanitizeConnectionString(strConnection As String) As String
+Private Function SanitizeConnectionString(strConnection As String) As String
     Dim strPart as String
 
     ' Apply additional sanitizing when turned on (Default)
