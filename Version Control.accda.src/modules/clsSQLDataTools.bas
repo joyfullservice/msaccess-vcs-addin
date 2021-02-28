@@ -19,12 +19,6 @@ Private m_Dbs As Database
 
 Private Const ModuleName = "clsSQLDataTools"
 
-Private m_Query As AccessObject
-Private m_AllItems As Collection
-Private m_blnModifiedOnly As Boolean
-
-
-
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SanitizeConnection

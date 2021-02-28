@@ -319,31 +319,3 @@ End Function
 Private Function WrapLine(strLine As String, lngChars As Long) As String
 
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SanitizeConnection
-' Author    : hecon5 / Adam Waller
-' Date      : 02/26/2021
-' Purpose   : Sanitizes a connection string.
-'---------------------------------------------------------------------------------------
-Public Function SanitizeConnectionString(strConnection As String) As String
-
-    ' Apply additional sanitizing when turned on (Default)
-    If Options.AggressiveSanitize Then
-    
-        ' Remove UID and PWD values if using a trusted connection.
-        ' (These are not required or needed in this context, and create differences
-        '  in exported source files when the project is built by different users.)
-        With New RegExp
-            .Global = True
-            .IgnoreCase = True
-            .Pattern = "(.*)(;UID=)[^ \r\n]*(?=;Trusted_Connection=Yes)|(;PWD=)[^ \r\n]*(?=;Trusted_Connection=Yes)"
-            SanitizeConnectionString = .Replace(strConnection, "$1")
-        End With
-    Else
-        ' Not using the AggressiveSanitize option
-        SanitizeConnectionString = strConnection
-    End If
-    
-End Function
