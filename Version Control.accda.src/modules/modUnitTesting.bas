@@ -221,27 +221,32 @@ Private Sub TestSanitizeConnectionString()
 
     ' Trusted connection, remove uid and quoted pwd
     Assert.AreEqual SanitizeConnectionString( _
-        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;UID=johndoe;PWD=""WFEFE"";Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase"), _
-        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase"
+        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;UID=johndoe;PWD=""WFEFE"";Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase;"), _
+        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase;"
 
     ' Not trusted connection, leave uid and pwd
     Assert.AreEqual SanitizeConnectionString( _
-        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;UID=johndoe;PWD=""WFEFE"";APP=Microsoft Office 2010;DATABASE=MySQLDatabase"), _
-        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;UID=johndoe;PWD=""WFEFE"";APP=Microsoft Office 2010;DATABASE=MySQLDatabase"
+        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;UID=johndoe;PWD=""WFEFE"";APP=Microsoft Office 2010;DATABASE=MySQLDatabase;"), _
+        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;UID=johndoe;PWD=""WFEFE"";APP=Microsoft Office 2010;DATABASE=MySQLDatabase;"
 
      ' Trusted connection, uid only
     Assert.AreEqual SanitizeConnectionString( _
-        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;UID=johndoe;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase"), _
-        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase"
+        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;UID=johndoe;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase;"), _
+        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase;"
    
      ' Trusted connection, pwd only
     Assert.AreEqual SanitizeConnectionString( _
-        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;PWD=johndoe;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase"), _
-        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase"
+        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;PWD=johndoe;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase;"), _
+        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase;"
         
      ' Trusted connection, uid and blank pwd
     Assert.AreEqual SanitizeConnectionString( _
-        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;UID=johndoe;PWD=;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase"), _
-        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase"
+        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;UID=johndoe;PWD=;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase;"), _
+        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;Trusted_Connection=Yes;APP=Microsoft Office 2010;DATABASE=MySQLDatabase;"
+
+     ' Trusted connection, Database in different order, other stuff present; Database isn't always 'last'
+    Assert.AreEqual SanitizeConnectionString( _
+        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;Trusted_Connection=Yes;UID=johndoe;PWD=;DATABASE=MySQLDatabase;APP=Microsoft Office 2013;Encrypt=Yes;ApplicationIntent=READWRITE;"), _
+        "ODBC;Description=MyProgram;DRIVER=SQL Server;SERVER=DbServer;Trusted_Connection=Yes;DATABASE=MySQLDatabase;APP=Microsoft Office 2013;Encrypt=Yes;ApplicationIntent=READWRITE;"
 
 End Sub
