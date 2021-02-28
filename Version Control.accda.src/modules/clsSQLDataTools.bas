@@ -17,7 +17,8 @@ Option Explicit
 
 'Private m_Type as "Qry/Table/LinkedTable/etc"
 'Private m_SQL As String                 ' Will Be used in the future build outs when SQL is wrapped in.
-Private m_Connection As String
+Private m_Connect As String
+Private m_ConnectSanitized as String
 
 Private m_Server as String
 
