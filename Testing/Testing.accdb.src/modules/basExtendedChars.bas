@@ -3,11 +3,11 @@ Option Explicit
 
 ' This module is used to prove that all ASCII characters survive the export\import cycle.
 
-'—————————————————————————————————————————————————————————
+'覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧
 ' ASCII printable characters (character code 32-127)
 '  Codes 32-127 are common for all the different variations of the ASCII table, they are called printable characters, represent letters, digits, punctuation marks,
 '  and a few miscellaneous symbols. You will find almost every character on your keyboard. Character 127 represents the command DEL.
-'—————————————————————————————————————————————————————————
+'覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧
 'DEC     OCT     HEX     BIN     Symbol  HTML Number     HTML Name   Description
 '32  040 20  00100000        &#32;       Space
 '33  041 21  00100001    !   &#33;       Exclamation mark
@@ -106,138 +106,138 @@ Option Explicit
 '126 176 7E  01111110    ~   &#126;      Equivalency sign - tilde
 '127 177 7F  01111111        &#127;      Delete
 
-'—————————————————————————————————————————————————————————
+'覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧
 ' The extended ASCII codes (character code 128-255)
 '  There are several different variations of the 8-bit ASCII table. The table below is according to Windows-1252 (CP-1252) which is a superset of ISO 8859-1,
 '  also called ISO Latin-1, in terms of printable characters, but differs from the IANA's ISO-8859-1 by using displayable characters rather than control characters in the 128 to 159 range.
 '  Characters that differ from ISO-8859-1 is marked by light blue color.
-'—————————————————————————————————————————————————————————
+'覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧覧
 'DEC     OCT     HEX     BIN     Symbol  HTML Number     HTML Name   Description
-'128 200 80  10000000    €   &#128;  &euro;  Euro sign
+'128 200 80  10000000       &#128;  &euro;  Euro sign
 '129 201 81  10000001
-'130 202 82  10000010    ‚   &#130;  &sbquo; Single low-9 quotation mark
-'131 203 83  10000011    ƒ   &#131;  &fnof;  Latin small letter f with hook
-'132 204 84  10000100    „   &#132;  &bdquo; Double low-9 quotation mark
-'133 205 85  10000101    …   &#133;  &hellip;    Horizontal ellipsis
-'134 206 86  10000110    †   &#134;  &dagger;    Dagger
-'135 207 87  10000111    ‡   &#135;  &Dagger;    Double dagger
-'136 210 88  10001000    ˆ   &#136;  &circ;  Modifier letter circumflex accent
-'137 211 89  10001001    ‰   &#137;  &permil;    Per mille sign
-'138 212 8A  10001010    Š   &#138;  &Scaron;    Latin capital letter S with caron
-'139 213 8B  10001011    ‹   &#139;  &lsaquo;    Single left-pointing angle quotation
-'140 214 8C  10001100    Œ   &#140;  &OElig; Latin capital ligature OE
+'130 202 82  10000010    ・  &#130;  &sbquo; Single low-9 quotation mark
+'131 203 83  10000011    ・  &#131;  &fnof;  Latin small letter f with hook
+'132 204 84  10000100    ・  &#132;  &bdquo; Double low-9 quotation mark
+'133 205 85  10000101    ・  &#133;  &hellip;    Horizontal ellipsis
+'134 206 86  10000110    ・  &#134;  &dagger;    Dagger
+'135 207 87  10000111    ・  &#135;  &Dagger;    Double dagger
+'136 210 88  10001000    ・  &#136;  &circ;  Modifier letter circumflex accent
+'137 211 89  10001001    ・  &#137;  &permil;    Per mille sign
+'138 212 8A  10001010    ・  &#138;  &Scaron;    Latin capital letter S with caron
+'139 213 8B  10001011    ・  &#139;  &lsaquo;    Single left-pointing angle quotation
+'140 214 8C  10001100    ・  &#140;  &OElig; Latin capital ligature OE
 '141 215 8D  10001101
-'142 216 8E  10001110    Ž   &#142;      Latin capital letter Z with caron
+'142 216 8E  10001110    ・  &#142;      Latin capital letter Z with caron
 '143 217 8F  10001111
 '144 220 90  10010000
-'145 221 91  10010001    ‘   &#145;  &lsquo; Left single quotation mark
-'146 222 92  10010010    ’   &#146;  &rsquo; Right single quotation mark
-'147 223 93  10010011    “   &#147;  &ldquo; Left double quotation mark
-'148 224 94  10010100    ”   &#148;  &rdquo; Right double quotation mark
-'149 225 95  10010101    •   &#149;  &bull;  Bullet
-'150 226 96  10010110    –   &#150;  &ndash; En dash
-'151 227 97  10010111    —   &#151;  &mdash; Em dash
-'152 230 98  10011000    ˜   &#152;  &tilde; Small tilde
-'153 231 99  10011001    ™   &#153;  &trade; Trade mark sign
-'154 232 9A  10011010    š   &#154;  &scaron;    Latin small letter S with caron
-'155 233 9B  10011011    ›   &#155;  &rsaquo;    Single right-pointing angle quotation mark
-'156 234 9C  10011100    œ   &#156;  &oelig; Latin small ligature oe
+'145 221 91  10010001    ・  &#145;  &lsquo; Left single quotation mark
+'146 222 92  10010010    ・  &#146;  &rsquo; Right single quotation mark
+'147 223 93  10010011    ・  &#147;  &ldquo; Left double quotation mark
+'148 224 94  10010100    ・  &#148;  &rdquo; Right double quotation mark
+'149 225 95  10010101    ・  &#149;  &bull;  Bullet
+'150 226 96  10010110    ・  &#150;  &ndash; En dash
+'151 227 97  10010111    ・  &#151;  &mdash; Em dash
+'152 230 98  10011000    ・  &#152;  &tilde; Small tilde
+'153 231 99  10011001    ・  &#153;  &trade; Trade mark sign
+'154 232 9A  10011010    ・  &#154;  &scaron;    Latin small letter S with caron
+'155 233 9B  10011011    ・  &#155;  &rsaquo;    Single right-pointing angle quotation mark
+'156 234 9C  10011100    ・  &#156;  &oelig; Latin small ligature oe
 '157 235 9D  10011101
-'158 236 9E  10011110    ž   &#158;      Latin small letter z with caron
-'159 237 9F  10011111    Ÿ   &#159;  &Yuml;  Latin capital letter Y with diaeresis
+'158 236 9E  10011110    ・  &#158;      Latin small letter z with caron
+'159 237 9F  10011111    ・  &#159;  &Yuml;  Latin capital letter Y with diaeresis
 '160 240 A0  10100000        &#160;  &nbsp;  Non-breaking space
-'161 241 A1  10100001    ¡   &#161;  &iexcl; Inverted exclamation mark
-'162 242 A2  10100010    ¢   &#162;  &cent;  Cent sign
-'163 243 A3  10100011    £   &#163;  &pound; Pound sign
-'164 244 A4  10100100    ¤   &#164;  &curren;    Currency sign
-'165 245 A5  10100101    ¥   &#165;  &yen;   Yen sign
-'166 246 A6  10100110    ¦   &#166;  &brvbar;    Pipe, Broken vertical bar
-'167 247 A7  10100111    §   &#167;  &sect;  Section sign
-'168 250 A8  10101000    ¨   &#168;  &uml;   Spacing diaeresis - umlaut
-'169 251 A9  10101001    ©   &#169;  &copy;  Copyright sign
-'170 252 AA  10101010    ª   &#170;  &ordf;  Feminine ordinal indicator
-'171 253 AB  10101011    «   &#171;  &laquo; Left double angle quotes
-'172 254 AC  10101100    ¬   &#172;  &not;   Not sign
-'173 255 AD  10101101    ­   &#173;  &shy;   Soft hyphen
-'174 256 AE  10101110    ®   &#174;  &reg;   Registered trade mark sign
-'175 257 AF  10101111    ¯   &#175;  &macr;  Spacing macron - overline
-'176 260 B0  10110000    °   &#176;  &deg;   Degree sign
-'177 261 B1  10110001    ±   &#177;  &plusmn;    Plus-or-minus sign
-'178 262 B2  10110010    ²   &#178;  &sup2;  Superscript two - squared
-'179 263 B3  10110011    ³   &#179;  &sup3;  Superscript three - cubed
-'180 264 B4  10110100    ´   &#180;  &acute; Acute accent - spacing acute
-'181 265 B5  10110101    µ   &#181;  &micro; Micro sign
-'182 266 B6  10110110    ¶   &#182;  &para;  Pilcrow sign - paragraph sign
-'183 267 B7  10110111    ·   &#183;  &middot;    Middle dot - Georgian comma
-'184 270 B8  10111000    ¸   &#184;  &cedil; Spacing cedilla
-'185 271 B9  10111001    ¹   &#185;  &sup1;  Superscript one
-'186 272 BA  10111010    º   &#186;  &ordm;  Masculine ordinal indicator
-'187 273 BB  10111011    »   &#187;  &raquo; Right double angle quotes
-'188 274 BC  10111100    ¼   &#188;  &frac14;    Fraction one quarter
-'189 275 BD  10111101    ½   &#189;  &frac12;    Fraction one half
-'190 276 BE  10111110    ¾   &#190;  &frac34;    Fraction three quarters
-'191 277 BF  10111111    ¿   &#191;  &iquest;    Inverted question mark
-'192 300 C0  11000000    À   &#192;  &Agrave;    Latin capital letter A with grave
-'193 301 C1  11000001    Á   &#193;  &Aacute;    Latin capital letter A with acute
-'194 302 C2  11000010    Â   &#194;  &Acirc; Latin capital letter A with circumflex
-'195 303 C3  11000011    Ã   &#195;  &Atilde;    Latin capital letter A with tilde
-'196 304 C4  11000100    Ä   &#196;  &Auml;  Latin capital letter A with diaeresis
-'197 305 C5  11000101    Å   &#197;  &Aring; Latin capital letter A with ring above
-'198 306 C6  11000110    Æ   &#198;  &AElig; Latin capital letter AE
-'199 307 C7  11000111    Ç   &#199;  &Ccedil;    Latin capital letter C with cedilla
-'200 310 C8  11001000    È   &#200;  &Egrave;    Latin capital letter E with grave
-'201 311 C9  11001001    É   &#201;  &Eacute;    Latin capital letter E with acute
-'202 312 CA  11001010    Ê   &#202;  &Ecirc; Latin capital letter E with circumflex
-'203 313 CB  11001011    Ë   &#203;  &Euml;  Latin capital letter E with diaeresis
-'204 314 CC  11001100    Ì   &#204;  &Igrave;    Latin capital letter I with grave
-'205 315 CD  11001101    Í   &#205;  &Iacute;    Latin capital letter I with acute
-'206 316 CE  11001110    Î   &#206;  &Icirc; Latin capital letter I with circumflex
-'207 317 CF  11001111    Ï   &#207;  &Iuml;  Latin capital letter I with diaeresis
-'208 320 D0  11010000    Ð   &#208;  &ETH;   Latin capital letter ETH
-'209 321 D1  11010001    Ñ   &#209;  &Ntilde;    Latin capital letter N with tilde
-'210 322 D2  11010010    Ò   &#210;  &Ograve;    Latin capital letter O with grave
-'211 323 D3  11010011    Ó   &#211;  &Oacute;    Latin capital letter O with acute
-'212 324 D4  11010100    Ô   &#212;  &Ocirc; Latin capital letter O with circumflex
-'213 325 D5  11010101    Õ   &#213;  &Otilde;    Latin capital letter O with tilde
-'214 326 D6  11010110    Ö   &#214;  &Ouml;  Latin capital letter O with diaeresis
-'215 327 D7  11010111    ×   &#215;  &times; Multiplication sign
-'216 330 D8  11011000    Ø   &#216;  &Oslash;    Latin capital letter O with slash
-'217 331 D9  11011001    Ù   &#217;  &Ugrave;    Latin capital letter U with grave
-'218 332 DA  11011010    Ú   &#218;  &Uacute;    Latin capital letter U with acute
-'219 333 DB  11011011    Û   &#219;  &Ucirc; Latin capital letter U with circumflex
-'220 334 DC  11011100    Ü   &#220;  &Uuml;  Latin capital letter U with diaeresis
-'221 335 DD  11011101    Ý   &#221;  &Yacute;    Latin capital letter Y with acute
-'222 336 DE  11011110    Þ   &#222;  &THORN; Latin capital letter THORN
-'223 337 DF  11011111    ß   &#223;  &szlig; Latin small letter sharp s - ess-zed
-'224 340 E0  11100000    à   &#224;  &agrave;    Latin small letter a with grave
-'225 341 E1  11100001    á   &#225;  &aacute;    Latin small letter a with acute
-'226 342 E2  11100010    â   &#226;  &acirc; Latin small letter a with circumflex
-'227 343 E3  11100011    ã   &#227;  &atilde;    Latin small letter a with tilde
-'228 344 E4  11100100    ä   &#228;  &auml;  Latin small letter a with diaeresis
-'229 345 E5  11100101    å   &#229;  &aring; Latin small letter a with ring above
-'230 346 E6  11100110    æ   &#230;  &aelig; Latin small letter ae
-'231 347 E7  11100111    ç   &#231;  &ccedil;    Latin small letter c with cedilla
-'232 350 E8  11101000    è   &#232;  &egrave;    Latin small letter e with grave
-'233 351 E9  11101001    é   &#233;  &eacute;    Latin small letter e with acute
-'234 352 EA  11101010    ê   &#234;  &ecirc; Latin small letter e with circumflex
-'235 353 EB  11101011    ë   &#235;  &euml;  Latin small letter e with diaeresis
-'236 354 EC  11101100    ì   &#236;  &igrave;    Latin small letter i with grave
-'237 355 ED  11101101    í   &#237;  &iacute;    Latin small letter i with acute
-'238 356 EE  11101110    î   &#238;  &icirc; Latin small letter i with circumflex
-'239 357 EF  11101111    ï   &#239;  &iuml;  Latin small letter i with diaeresis
-'240 360 F0  11110000    ð   &#240;  &eth;   Latin small letter eth
-'241 361 F1  11110001    ñ   &#241;  &ntilde;    Latin small letter n with tilde
-'242 362 F2  11110010    ò   &#242;  &ograve;    Latin small letter o with grave
-'243 363 F3  11110011    ó   &#243;  &oacute;    Latin small letter o with acute
-'244 364 F4  11110100    ô   &#244;  &ocirc; Latin small letter o with circumflex
-'245 365 F5  11110101    õ   &#245;  &otilde;    Latin small letter o with tilde
-'246 366 F6  11110110    ö   &#246;  &ouml;  Latin small letter o with diaeresis
-'247 367 F7  11110111    ÷   &#247;  &divide;    Division sign
-'248 370 F8  11111000    ø   &#248;  &oslash;    Latin small letter o with slash
-'249 371 F9  11111001    ù   &#249;  &ugrave;    Latin small letter u with grave
-'250 372 FA  11111010    ú   &#250;  &uacute;    Latin small letter u with acute
-'251 373 FB  11111011    û   &#251;  &ucirc; Latin small letter u with circumflex
-'252 374 FC  11111100    ü   &#252;  &uuml;  Latin small letter u with diaeresis
-'253 375 FD  11111101    ý   &#253;  &yacute;    Latin small letter y with acute
-'254 376 FE  11111110    þ   &#254;  &thorn; Latin small letter thorn
-'255 377 FF  11111111    ÿ   &#255;  &yuml;  Latin small letter y with diaeresis
+'161 241 A1  10100001    ｡   &#161;  &iexcl; Inverted exclamation mark
+'162 242 A2  10100010    ｢   &#162;  &cent;  Cent sign
+'163 243 A3  10100011    ｣   &#163;  &pound; Pound sign
+'164 244 A4  10100100    ､   &#164;  &curren;    Currency sign
+'165 245 A5  10100101    ･   &#165;  &yen;   Yen sign
+'166 246 A6  10100110    ｦ   &#166;  &brvbar;    Pipe, Broken vertical bar
+'167 247 A7  10100111    ｧ   &#167;  &sect;  Section sign
+'168 250 A8  10101000    ｨ   &#168;  &uml;   Spacing diaeresis - umlaut
+'169 251 A9  10101001    ｩ   &#169;  &copy;  Copyright sign
+'170 252 AA  10101010    ｪ   &#170;  &ordf;  Feminine ordinal indicator
+'171 253 AB  10101011    ｫ   &#171;  &laquo; Left double angle quotes
+'172 254 AC  10101100    ｬ   &#172;  &not;   Not sign
+'173 255 AD  10101101    ｭ   &#173;  &shy;   Soft hyphen
+'174 256 AE  10101110    ｮ   &#174;  &reg;   Registered trade mark sign
+'175 257 AF  10101111    ｯ   &#175;  &macr;  Spacing macron - overline
+'176 260 B0  10110000    ｰ   &#176;  &deg;   Degree sign
+'177 261 B1  10110001    ｱ   &#177;  &plusmn;    Plus-or-minus sign
+'178 262 B2  10110010    ｲ   &#178;  &sup2;  Superscript two - squared
+'179 263 B3  10110011    ｳ   &#179;  &sup3;  Superscript three - cubed
+'180 264 B4  10110100    ｴ   &#180;  &acute; Acute accent - spacing acute
+'181 265 B5  10110101    ｵ   &#181;  &micro; Micro sign
+'182 266 B6  10110110    ｶ   &#182;  &para;  Pilcrow sign - paragraph sign
+'183 267 B7  10110111    ｷ   &#183;  &middot;    Middle dot - Georgian comma
+'184 270 B8  10111000    ｸ   &#184;  &cedil; Spacing cedilla
+'185 271 B9  10111001    ｹ   &#185;  &sup1;  Superscript one
+'186 272 BA  10111010    ｺ   &#186;  &ordm;  Masculine ordinal indicator
+'187 273 BB  10111011    ｻ   &#187;  &raquo; Right double angle quotes
+'188 274 BC  10111100    ｼ   &#188;  &frac14;    Fraction one quarter
+'189 275 BD  10111101    ｽ   &#189;  &frac12;    Fraction one half
+'190 276 BE  10111110    ｾ   &#190;  &frac34;    Fraction three quarters
+'191 277 BF  10111111    ｿ   &#191;  &iquest;    Inverted question mark
+'192 300 C0  11000000    ﾀ   &#192;  &Agrave;    Latin capital letter A with grave
+'193 301 C1  11000001    ﾁ   &#193;  &Aacute;    Latin capital letter A with acute
+'194 302 C2  11000010    ﾂ   &#194;  &Acirc; Latin capital letter A with circumflex
+'195 303 C3  11000011    ﾃ   &#195;  &Atilde;    Latin capital letter A with tilde
+'196 304 C4  11000100    ﾄ   &#196;  &Auml;  Latin capital letter A with diaeresis
+'197 305 C5  11000101    ﾅ   &#197;  &Aring; Latin capital letter A with ring above
+'198 306 C6  11000110    ﾆ   &#198;  &AElig; Latin capital letter AE
+'199 307 C7  11000111    ﾇ   &#199;  &Ccedil;    Latin capital letter C with cedilla
+'200 310 C8  11001000    ﾈ   &#200;  &Egrave;    Latin capital letter E with grave
+'201 311 C9  11001001    ﾉ   &#201;  &Eacute;    Latin capital letter E with acute
+'202 312 CA  11001010    ﾊ   &#202;  &Ecirc; Latin capital letter E with circumflex
+'203 313 CB  11001011    ﾋ   &#203;  &Euml;  Latin capital letter E with diaeresis
+'204 314 CC  11001100    ﾌ   &#204;  &Igrave;    Latin capital letter I with grave
+'205 315 CD  11001101    ﾍ   &#205;  &Iacute;    Latin capital letter I with acute
+'206 316 CE  11001110    ﾎ   &#206;  &Icirc; Latin capital letter I with circumflex
+'207 317 CF  11001111    ﾏ   &#207;  &Iuml;  Latin capital letter I with diaeresis
+'208 320 D0  11010000    ﾐ   &#208;  &ETH;   Latin capital letter ETH
+'209 321 D1  11010001    ﾑ   &#209;  &Ntilde;    Latin capital letter N with tilde
+'210 322 D2  11010010    ﾒ   &#210;  &Ograve;    Latin capital letter O with grave
+'211 323 D3  11010011    ﾓ   &#211;  &Oacute;    Latin capital letter O with acute
+'212 324 D4  11010100    ﾔ   &#212;  &Ocirc; Latin capital letter O with circumflex
+'213 325 D5  11010101    ﾕ   &#213;  &Otilde;    Latin capital letter O with tilde
+'214 326 D6  11010110    ﾖ   &#214;  &Ouml;  Latin capital letter O with diaeresis
+'215 327 D7  11010111    ﾗ   &#215;  &times; Multiplication sign
+'216 330 D8  11011000    ﾘ   &#216;  &Oslash;    Latin capital letter O with slash
+'217 331 D9  11011001    ﾙ   &#217;  &Ugrave;    Latin capital letter U with grave
+'218 332 DA  11011010    ﾚ   &#218;  &Uacute;    Latin capital letter U with acute
+'219 333 DB  11011011    ﾛ   &#219;  &Ucirc; Latin capital letter U with circumflex
+'220 334 DC  11011100    ﾜ   &#220;  &Uuml;  Latin capital letter U with diaeresis
+'221 335 DD  11011101    ﾝ   &#221;  &Yacute;    Latin capital letter Y with acute
+'222 336 DE  11011110    ﾞ   &#222;  &THORN; Latin capital letter THORN
+'223 337 DF  11011111    ﾟ   &#223;  &szlig; Latin small letter sharp s - ess-zed
+'224 340 E0  11100000    ・  &#224;  &agrave;    Latin small letter a with grave
+'225 341 E1  11100001    ・  &#225;  &aacute;    Latin small letter a with acute
+'226 342 E2  11100010    ・  &#226;  &acirc; Latin small letter a with circumflex
+'227 343 E3  11100011    ・  &#227;  &atilde;    Latin small letter a with tilde
+'228 344 E4  11100100    ・  &#228;  &auml;  Latin small letter a with diaeresis
+'229 345 E5  11100101    ・  &#229;  &aring; Latin small letter a with ring above
+'230 346 E6  11100110    ・  &#230;  &aelig; Latin small letter ae
+'231 347 E7  11100111    ・  &#231;  &ccedil;    Latin small letter c with cedilla
+'232 350 E8  11101000    ・  &#232;  &egrave;    Latin small letter e with grave
+'233 351 E9  11101001    ・  &#233;  &eacute;    Latin small letter e with acute
+'234 352 EA  11101010    ・  &#234;  &ecirc; Latin small letter e with circumflex
+'235 353 EB  11101011    ・  &#235;  &euml;  Latin small letter e with diaeresis
+'236 354 EC  11101100    ・  &#236;  &igrave;    Latin small letter i with grave
+'237 355 ED  11101101    ・  &#237;  &iacute;    Latin small letter i with acute
+'238 356 EE  11101110    ・  &#238;  &icirc; Latin small letter i with circumflex
+'239 357 EF  11101111    ・  &#239;  &iuml;  Latin small letter i with diaeresis
+'240 360 F0  11110000    ・  &#240;  &eth;   Latin small letter eth
+'241 361 F1  11110001    ・  &#241;  &ntilde;    Latin small letter n with tilde
+'242 362 F2  11110010    ・  &#242;  &ograve;    Latin small letter o with grave
+'243 363 F3  11110011    ・  &#243;  &oacute;    Latin small letter o with acute
+'244 364 F4  11110100    ・  &#244;  &ocirc; Latin small letter o with circumflex
+'245 365 F5  11110101    ・  &#245;  &otilde;    Latin small letter o with tilde
+'246 366 F6  11110110    ・  &#246;  &ouml;  Latin small letter o with diaeresis
+'247 367 F7  11110111    ・  &#247;  &divide;    Division sign
+'248 370 F8  11111000    ・  &#248;  &oslash;    Latin small letter o with slash
+'249 371 F9  11111001    ・  &#249;  &ugrave;    Latin small letter u with grave
+'250 372 FA  11111010    ・  &#250;  &uacute;    Latin small letter u with acute
+'251 373 FB  11111011    ・  &#251;  &ucirc; Latin small letter u with circumflex
+'252 374 FC  11111100    ・  &#252;  &uuml;  Latin small letter u with diaeresis
+'253 375 FD  11111101       &#253;  &yacute;    Latin small letter y with acute
+'254 376 FE  11111110       &#254;  &thorn; Latin small letter thorn
+'255 377 FF  11111111       &#255;  &yuml;  Latin small letter y with diaeresis
