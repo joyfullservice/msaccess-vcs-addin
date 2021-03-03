@@ -1,14 +1,13 @@
 {
   "Info": {
     "Class": "clsDbVbeProject",
-    "Description": "VBE Project",
-    "VCS Version": "3.1.25"
+    "Description": "VBE Project"
   },
   "Items": {
     "Name": "VCS Testing",
     "Description": "For automated testing of Version Control",
     "FileName": "rel:Testing.accdb",
-    "HelpFile": "",
+    "HelpFile": "99672516",
     "HelpContextId": 123456,
     "Mode": 0,
     "Protection": 0,
