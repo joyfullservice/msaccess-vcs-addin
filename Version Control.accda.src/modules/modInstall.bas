@@ -203,7 +203,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetAddinFileName() As String
-    GetAddinFileName = Environ$("AppData") & "\MSAccessVCS\" & CodeProject.Name
+    GetAddinFileName = FSO.BuildPath(FSO.BuildPath(Environ$("AppData"), "MSAccessVCS"), CodeProject.Name)
 End Function
 
 
@@ -336,7 +336,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub RelaunchAsAdmin()
-    ShellExecute 0, "runas", SysCmd(acSysCmdAccessDir) & "\msaccess.exe", """" & GetAddinFileName & """", vbNullString, SW_SHOWNORMAL
+    ShellExecute 0, "runas", FSO.BuildPath(SysCmd(acSysCmdAccessDir), "msaccess.exe"), """" & GetAddinFileName & """", vbNullString, SW_SHOWNORMAL
 End Sub
 
 
@@ -392,7 +392,7 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Same_Version)
     VBE.ActiveVBProject.Description = "Version " & AppVersion & " deployed on " & Date
     
     ' Save copy to zip folder
-    strBinaryFile = CodeProject.Path & "\Version_Control_v" & AppVersion & ".zip"
+    strBinaryFile = FSO.BuildPath(CodeProject.Path, "Version_Control_v" & AppVersion & ".zip")
     If FSO.FileExists(strBinaryFile) Then DeleteFile strBinaryFile, True
     CreateZipFile strBinaryFile
     CopyFileToZip CodeProject.FullName, strBinaryFile
@@ -448,7 +448,7 @@ Public Sub CheckForLegacyInstall()
     ElseIf InstalledVersion < "3.3.0" Then
         
         ' Check for install in AddIns folder (before we used the dedicated install folder)
-        strOldPath = Environ$("AppData") & "\Microsoft\AddIns\" & CodeProject.Name
+        strOldPath = BuildPath2(Environ$("AppData"), "Microsoft", "AddIns", CodeProject.Name)
         
         ' Remove add-in from legacy location
         If FSO.FileExists(strOldPath) Then DeleteFile strOldPath
@@ -537,7 +537,7 @@ Public Function VerifyTrustedLocation() As Boolean
 
     ' Get registry path for trusted locations
     strPath = GetTrustedLocationRegPath
-    strTrusted = FSO.GetParentFolderName(GetAddinFileName) & "\"
+    strTrusted = FSO.GetParentFolderName(GetAddinFileName) & PathSep
 
     ' Use Windows Scripting Shell to read/write to registry
     With New IWshRuntimeLibrary.WshShell

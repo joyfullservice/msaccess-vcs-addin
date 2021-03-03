@@ -115,7 +115,7 @@ End Function
 '
 Public Function GetRepositoryPath() As String
     If m_strRepositoryRoot = vbNullString Then
-        m_strRepositoryRoot = Replace(RunGitCommand(egcGetReproPath), "/", "\") & "\"
+        m_strRepositoryRoot = Replace(RunGitCommand(egcGetReproPath), "/", PathSep) & PathSep
     End If
     GetRepositoryPath = m_strRepositoryRoot
 End Function
@@ -331,7 +331,7 @@ Public Function GetChangedFileIndex(strFromCommit As String) As Dictionary
 
     ' Get the base export folder
     strExportFolder = Options.GetExportFolder
-    varParts = Split(strExportFolder, "\")
+    varParts = Split(strExportFolder, PathSep)
     strBasePath = varParts(UBound(varParts) - 1)
     strRootPath = GetRepositoryPath
 
@@ -345,7 +345,7 @@ Public Function GetChangedFileIndex(strFromCommit As String) As Dictionary
             strCategory = Mid$(cComp.SourceFile, Len(strRootPath) + 1)
         End If
         ' Replace backslashes with forward slashes to match git output
-        strCategory = Replace(strCategory, "\", "/")
+        strCategory = Replace(strCategory, PathSep, "/")
         dFolders.Add strCategory, cComp.Category
     Next cComp
 
@@ -406,7 +406,7 @@ Public Function GetChangedFileIndex(strFromCommit As String) As Dictionary
                         End If
 
                         ' Build full path to source file, and add to index.
-                        strSourceFile = strRootPath & Replace(strPath, "/", "\")
+                        strSourceFile = strRootPath & Replace(strPath, "/", PathSep)
 
                         ' Add full file path to category, including flag with change type.
                         .Item(strCategory).Add strSourceFile, strFlag

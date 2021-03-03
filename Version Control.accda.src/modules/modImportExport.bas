@@ -430,7 +430,7 @@ Private Function GetBackupFileName(strPath As String) As String
     Dim strFolder As String
     Dim strIncrement As String
     
-    strFolder = FSO.GetParentFolderName(strPath) & "\"
+    strFolder = FSO.GetParentFolderName(strPath) & PathSep
     strFile = FSO.GetFileName(strPath)
     strBase = FSO.GetBaseName(strFile) & cstrSuffix
     strExt = "." & FSO.GetExtensionName(strFile)
@@ -463,7 +463,7 @@ End Function
 Public Sub RemoveThemeZipFiles()
     Dim strFolder As String
     If Options.ExtractThemeFiles Then
-        strFolder = Options.GetExportFolder & "themes\"
+        strFolder = Options.GetExportFolder & "themes" & PathSep
         If FSO.FolderExists(strFolder) Then ClearFilesByExtension strFolder, "zip"
     End If
 End Sub
@@ -510,7 +510,7 @@ Private Sub CheckForLegacyModules()
 
     ' Check for legacy file
     If Options.ShowVCSLegacy Then
-        If FSO.FileExists(Options.GetExportFolder & "modules\VCS_ImportExport.bas") Then
+        If FSO.FileExists(Options.GetExportFolder & FSO.BuildPath("modules", "VCS_ImportExport.bas")) Then
             MsgBox2 "Legacy Files not Needed", _
                 "Other forks of the MSAccessVCS project used additional VBA modules to export code." & vbCrLf & _
                 "This is no longer needed when using the installed Version Control Add-in." & vbCrLf & vbCrLf & _

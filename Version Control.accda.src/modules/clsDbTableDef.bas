@@ -530,7 +530,7 @@ Private Function GetRelativeConnect(strConnect As String) As String
     
     ' With linked text files, it may just be the folder path. If so, include
     ' a final slash so it can correctly resolve to a relative path.
-    If strPath = GetUncPath(CurrentProject.Path) Then strAdd = "\"
+    If strPath = GetUncPath(CurrentProject.Path) Then strAdd = PathSep
     
     ' Prefix with the database property name, just in case the same string is used in
     ' another part of the connection string.
@@ -559,7 +559,7 @@ Private Function GetFullConnect(strRelative As String) As String
     strFull = GetPathFromRelative(strPath)
     
     ' Remove any trailing slash after conversion from relative.
-    If strFull <> strPath And Right$(strFull, 1) = "\" Then
+    If strFull <> strPath And Right$(strFull, 1) = PathSep Then
         strFull = Left$(strFull, Len(strFull) - 1)
     End If
     
@@ -753,7 +753,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = Options.GetExportFolder & "tbldefs\"
+    IDbComponent_BaseFolder = Options.GetExportFolder & "tbldefs" & PathSep
 End Property
 
 

@@ -99,7 +99,7 @@ Public Function SecurePath(strPath As String) As String
             SecurePath = FSO.GetFileName(strPath)
         Else
             ' Could be encrypted or plain text, depending on options.
-            SecurePath = Secure(strParent) & "\" & FSO.GetFileName(strPath)
+            SecurePath = FSO.BuildPath(Secure(strParent), FSO.GetFileName(strPath))
         End If
     End If
 

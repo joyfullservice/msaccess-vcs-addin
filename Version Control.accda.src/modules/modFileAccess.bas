@@ -109,7 +109,7 @@ Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
         For Each oFile In FSO.GetFolder(strFolderNoSlash).Files
             If StrComp(FSO.GetExtensionName(oFile.Name), strExt, vbTextCompare) = 0 Then
                 ' Found at least one matching file. Use the wildcard delete.
-                DeleteFile strFolderNoSlash & "\*." & strExt
+                DeleteFile FSO.BuildPath(strFolderNoSlash, "*." & strExt)
                 Exit Sub
             End If
         Next
@@ -134,7 +134,7 @@ Public Sub VerifyPath(strPath As String)
     Dim strVerified As String
     
     ' Determine if the path is a file or folder
-    If Right$(strPath, 1) = "\" Then
+    If Right$(strPath, 1) = PathSep Then
         ' Folder name. (Folder names can contain periods)
         strFolder = Left$(strPath, Len(strPath) - 1)
     Else
@@ -146,14 +146,14 @@ Public Sub VerifyPath(strPath As String)
     If Not FSO.FolderExists(strFolder) Then
         ' Start from the root, and build out full path, creating folders as needed.
         ' UNC path? change 3 "\" into 3 "@"
-        If strFolder Like "\\*\*" Then
-            strFolder = Replace(strFolder, "\", "@", 1, 3)
+        If strFolder Like PathSep & PathSep & "*" & PathSep & "*" Then
+            strFolder = Replace(strFolder, PathSep, "@", 1, 3)
         End If
 
         ' Separate folders from server name
-        varParts = Split(strFolder, "\")
+        varParts = Split(strFolder, PathSep)
         ' Get the slashes back
-        varParts(0) = Replace(varParts(0), "@", "\", 1, 3)
+        varParts(0) = Replace(varParts(0), "@", PathSep, 1, 3)
                 
         ' Make sure the root folder exists. If it doesn't we probably have some other issue.
         If Not FSO.FolderExists(varParts(0)) Then
@@ -161,9 +161,9 @@ Public Sub VerifyPath(strPath As String)
                     "While trying to verify this path: " & strFolder, vbExclamation
         Else
             ' Loop through folder structure, creating as needed.
-            strVerified = varParts(0)
+            strVerified = varParts(0) & PathSep
             For intPart = 1 To UBound(varParts)
-                strVerified = strVerified & "\" & varParts(intPart)
+                strVerified = FSO.BuildPath(strVerified, varParts(intPart))
                 MkDirIfNotExist strVerified
 
             Next intPart
@@ -185,7 +185,7 @@ Public Function ProgramFilesFolder() As String
     strFolder = Environ$("PROGRAMFILES")
     ' Should always work, but just in case!
     If strFolder = vbNullString Then strFolder = "C:\Program Files (x86)"
-    ProgramFilesFolder = strFolder & "\"
+    ProgramFilesFolder = strFolder & PathSep
 End Function
 
 
@@ -287,7 +287,7 @@ Public Function GetRelativePath(strPath As String) As String
     Dim strRelative As String
     
     ' Check for matching parent folder as relative to the project path.
-    strFolder = GetUncPath(CurrentProject.Path) & "\"
+    strFolder = GetUncPath(CurrentProject.Path) & PathSep
     
     ' Default to original path if no relative path could be resolved.
     strRelative = strPath
@@ -298,7 +298,7 @@ Public Function GetRelativePath(strPath As String) As String
         strRelative = "rel:" & Mid$(strPath, Len(strFolder) + 1)
     Else
         ' Make sure we have a path, not just a file name.
-        If InStr(1, strRelative, "\") > 0 Then
+        If InStr(1, strRelative, PathSep) > 0 Then
             ' Check UNC path for network drives
             strUncPath = GetUncPath(strPath)
             If StrComp(strUncPath, strPath, vbTextCompare) <> 0 Then
@@ -327,7 +327,7 @@ End Function
 '
 Public Function GetPathFromRelative(strPath As String) As String
     If Left$(strPath, 4) = "rel:" Then
-        GetPathFromRelative = CurrentProject.Path & "\" & Mid$(strPath, 5)
+        GetPathFromRelative = FSO.BuildPath(CurrentProject.Path, Mid$(strPath, 5))
     Else
         ' No relative path used.
         GetPathFromRelative = strPath
@@ -392,7 +392,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function StripSlash(strText As String) As String
-    If Right$(strText, 1) = "\" Then
+    If Right$(strText, 1) = PathSep Then
         StripSlash = Left$(strText, Len(strText) - 1)
     Else
         StripSlash = strText

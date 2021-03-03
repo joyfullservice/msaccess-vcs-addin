@@ -122,7 +122,7 @@ Public Sub ExtractFromZip(strZip As String, strDestFolder As String, _
     
     ' Must use variants for the CopyHere function to work.
     varZip = strZip
-    varFolder = strFolder & "\"
+    varFolder = strFolder & PathSep
 
     ' Count the total items before we start the copy,
     ' since there might already be files in the zip folder.

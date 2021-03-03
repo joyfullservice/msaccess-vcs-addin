@@ -358,7 +358,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
                 blnModified = True
                 If Me.Exists(cCategory, strFile) Then
                     ' Build the path to find the item in the index.
-                    strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "SourceModified"), "\")
+                    strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "SourceModified"), PathSep)
                     ' Compare modified date of file with modified date in index.
                     ' File is considered not modified if the index date matches the file modification date.
                     blnModified = Not dNZ(m_dIndex, strPath) = GetLastModifiedDate(strFile)

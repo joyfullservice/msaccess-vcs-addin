@@ -19,7 +19,7 @@ Option Explicit
 '
 Public Function ProjectPath() As String
     ProjectPath = CurrentProject.Path
-    If Right$(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
+    If Right$(ProjectPath, 1) <> PathSep Then ProjectPath = ProjectPath & PathSep
 End Function
 
 

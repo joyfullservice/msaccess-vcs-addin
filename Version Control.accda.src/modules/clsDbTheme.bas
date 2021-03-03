@@ -90,7 +90,7 @@ Private Sub IDbComponent_Export()
     If Options.ExtractThemeFiles Then
         Perf.OperationStart "Extract Theme"
         ' Extract to folder and delete zip file.
-        strFolder = FSO.GetParentFolderName(strFile) & "\" & FSO.GetBaseName(strFile)
+        strFolder = FSO.BuildPath(FSO.GetParentFolderName(strFile), FSO.GetBaseName(strFile))
         If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
         DoEvents ' Make sure the folder is deleted before we recreate it.
         ' Rename to zip file before extracting
@@ -389,7 +389,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = Options.GetExportFolder & "themes\"
+    IDbComponent_BaseFolder = Options.GetExportFolder & "themes" & PathSep
 End Property
 
 
