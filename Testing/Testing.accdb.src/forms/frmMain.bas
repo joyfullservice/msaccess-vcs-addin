@@ -13,8 +13,8 @@ Begin Form
     Width =8520
     DatasheetFontHeight =11
     ItemSuffix =13
-    Right =25575
-    Bottom =12585
+    Right =15975
+    Bottom =11745
     DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x18691eff0b76e540
@@ -469,6 +469,8 @@ Public Sub cmdRunTests_Click()
     ' Modules
     strTest = CurrentProject.AllModules("basUtility").Name
     ShowResult "Standard Module exists", (strTest = "basUtility")
+    strTest = GetVBProjectForCurrentDB.VBComponents("basExtendedChars").CodeModule.Lines(6, 1)
+    ShowResult "Extended ASCII text in VBA", (Mid$(strTest, 10, 1) = Chr(151))
     
     strTest = CurrentProject.AllModules("clsPerson").Name
     ShowResult "Class Module exists", (strTest = "clsPerson")
