@@ -39,7 +39,7 @@ Public Sub TestUCS2toUTF8RoundTrip()
     
     'Arrange:
     Dim queryName As String
-    queryName = "Temp_Test_Query_Delete_Me_Æ_ø_Å"
+    queryName = "Temp_Test_Query_Delete_Me_Ã†_Ã¸_Ã…"
     Dim tempFileName As String
     tempFileName = GetTempFile()
     
@@ -53,7 +53,7 @@ Public Sub TestUCS2toUTF8RoundTrip()
     UTFtoUCS = tempFileName & "UTF-8toUCS-2"
     
     ' Use temporary query to export example file
-    CurrentDb.CreateQueryDef queryName, "SELECT * FROM TEST WHERE TESTING='ÆØÅ'"
+    CurrentDb.CreateQueryDef queryName, "SELECT * FROM TEST WHERE TESTING='Ã†Ã˜Ã…'"
     Application.SaveAsText acQuery, queryName, tempFileName
     CurrentDb.QueryDefs.Delete queryName
         
@@ -106,7 +106,7 @@ Private Sub TestParseSpecialCharsInJson()
         
     Set FSO = CreateObject("Scripting.FileSystemObject")
     With FSO.CreateTextFile(strPath, True)
-        .WriteLine "{""Test"":""ÆØÅ are special?""}"
+        .WriteLine "{""Test"":""Ã†Ã˜Ã… are special?""}"
         .Close
     End With
     
@@ -128,12 +128,6 @@ TestExit:
     Exit Sub
 TestFail:
     Assert.Fail "Test raised an error: #" & Err.Number & " - " & Err.Description
-End Sub
-
-'@TestMethod("TextConversion")
-Private Sub TestStringHasUnicode()
-    Assert.IsTrue StringHasUnicode("aß?de?????µ???p?st?f?")
-    Assert.IsFalse StringHasUnicode("'——————————————————————————————————————————————————————————————————————————————————————————")
 End Sub
 
 

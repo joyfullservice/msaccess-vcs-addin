@@ -1,4 +1,4 @@
-{
+﻿{
   "Info": {
     "Class": "clsDbProperty",
     "Description": "Database Properties (DAO)"
@@ -117,7 +117,7 @@
       "Type": 4
     },
     "ProjVer": {
-      "Value": 119,
+      "Value": 142,
       "Type": 3
     },
     "QueryTimeout": {

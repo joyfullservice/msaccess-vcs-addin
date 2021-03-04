@@ -1,4 +1,4 @@
-﻿'---------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------
 ' Module    : modEncoding
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
@@ -206,7 +206,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
         strText = Utf8BytesToString(utf8Bytes)
         
         ' Write as UCS-2 LE (BOM)
-        With FSO.CreateTextFile(strDestinationFile, True, TristateTrue)
+        With FSO.CreateTextFile(strDestinationFile, True, True)
             .Write strText
             .Close
         End With
@@ -230,9 +230,8 @@ End Sub
 Public Sub ConvertAnsiUtf8(strSourceFile As String, strDestinationFile As String, _
     Optional blnDeleteSourceFileAfterConversion As Boolean = True)
     
-    ' Convert the ANSI content to UTF-8, and write to a new file.
-    ' (Adds UTF-8 BOM if extended characters are used.)
-    WriteFile ReadFile(strSourceFile, "_autodetect_all"), strDestinationFile
+    ReEncodeFile strSourceFile, "_autodetect_all", strDestinationFile, "UTF-8", adSaveCreateOverWrite
+
     If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile
     
 End Sub
@@ -250,13 +249,7 @@ Public Sub ConvertUtf8Ansi(strSourceFile As String, strDestinationFile As String
     
     ' Perform file conversion
     Perf.OperationStart "ANSI Conversion"
-    With New ADODB.Stream
-        .Charset = "_autodetect_all"
-        .Open
-        .WriteText ReadFile(strSourceFile)
-        .SaveToFile strDestinationFile, adSaveCreateOverWrite
-        .Close
-    End With
+    ReEncodeFile strSourceFile, "UTF-8", strDestinationFile, "_autodetect_all", adSaveCreateOverWrite
     Perf.OperationEnd
     
     ' Remove original file if specified.
@@ -421,7 +414,6 @@ End Function
 '
 Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF-8") As String
 
-    Dim stm As ADODB.Stream
     Dim strText As String
     Dim cData As clsConcat
     Dim strBom As String
@@ -435,8 +427,7 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF
     If FSO.FileExists(strPath) Then
         Perf.OperationStart "Read File"
         Set cData = New clsConcat
-        Set stm = New ADODB.Stream
-        With stm
+        With New ADODB.Stream
             .Charset = strCharset
             .Open
             .LoadFromFile strPath
@@ -453,7 +444,6 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF
             Loop
             .Close
         End With
-        Set stm = Nothing
         Perf.OperationEnd
     End If
     
@@ -485,7 +475,7 @@ Public Sub WriteFile(strText As String, strPath As String)
     bteUtf8 = Utf8BytesFromString(strContent)
     
     ' Write binary content to file.
-    WriteBinaryFile bteUtf8, StringHasUnicode(strContent), strPath
+    WriteBinaryFile bteUtf8, False, strPath
         
 End Sub
 
@@ -499,12 +489,10 @@ End Sub
 '
 Public Sub WriteBinaryFile(bteContent() As Byte, blnUtf8Bom As Boolean, strPath As String)
 
-    Dim stm As ADODB.Stream
     Dim bteBOM(0 To 2) As Byte
     
     ' Write to a binary file using a Stream object
-    Set stm = New ADODB.Stream
-    With stm
+    With New ADODB.Stream
         .Type = adTypeBinary
         .Open
         If blnUtf8Bom Then
@@ -513,25 +501,69 @@ Public Sub WriteBinaryFile(bteContent() As Byte, blnUtf8Bom As Boolean, strPath 
             bteBOM(2) = &HBF
             .Write bteBOM
         End If
+        
         .Write bteContent
         VerifyPath strPath
         Perf.OperationStart "Write to Disk"
         .SaveToFile strPath, adSaveCreateOverWrite
         Perf.OperationEnd
+        .Close
     End With
     
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : StringHasUnicode
+' Procedure : StringHasExtendedASCII
 ' Author    : Adam Waller
 ' Date      : 3/6/2020
 ' Purpose   : Returns true if the string contains non-ASCI characters.
 '---------------------------------------------------------------------------------------
 '
-Public Function StringHasUnicode(strText As String) As Boolean
+Public Function StringHasExtendedASCII(strText As String) As Boolean
 
-    StringHasUnicode = (StrConv(strText, vbUnicode) = strText)
+    Perf.OperationStart "Unicode Check"
+    With New VBScript_RegExp_55.RegExp
+        ' Include extended ASCII characters here.
+        .Pattern = "[^\u0000-\u007F]"
+        StringHasExtendedASCII = .Test(strText)
+    End With
+    Perf.OperationEnd
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReEncodeFile
+' Author    : Adam Kauffman
+' Date      : 3/4/2021
+' Purpose   : Change File Encoding. It reads and writes at the same time so the files must be different.
+'               intOverwriteMode will take the following values:
+'                   Const adSaveCreateOverWrite = 2
+'                   Const adSaveCreateNotExist = 1
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReEncodeFile(strInputFile, strInputCharset, strOutputFile, strOutputCharset, intOverwriteMode)
+
+    Dim objOutputStream As ADODB.Stream
+    Set objOutputStream = New ADODB.Stream
+    
+    With New ADODB.Stream
+        .Open
+        .Type = adTypeBinary
+        .LoadFromFile strInputFile
+        .Type = adTypeText
+        .Charset = strInputCharset
+        objOutputStream.Open
+        objOutputStream.Charset = strOutputCharset
+        Do While .EOS <> True
+            ' Read from one file and write to the other a line at a time
+            objOutputStream.WriteText .ReadText(adReadLine), adWriteLine
+        Loop
+        
+        .Close
+    End With
+    
+    objOutputStream.SaveToFile strOutputFile, intOverwriteMode
+    objOutputStream.Close
+End Sub
