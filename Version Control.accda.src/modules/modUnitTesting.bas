@@ -1,4 +1,4 @@
-Option Compare Database
+﻿Option Compare Database
 Option Explicit
 Option Private Module
 
@@ -130,6 +130,14 @@ TestFail:
     Assert.Fail "Test raised an error: #" & Err.Number & " - " & Err.Description
 End Sub
 
+'@TestMethod("TextConversion")
+Private Sub TestUTF8BytesToString()
+    Dim inText As String
+    inText = "—T€st€ros—"
+    
+    ' If the text comes out the same as it went in the we have proven both methods
+    Assert.AreEqual Utf8BytesToString(Utf8BytesFromString(inText)), inText
+End Sub
 
 
 '@TestMethod("Sorting")

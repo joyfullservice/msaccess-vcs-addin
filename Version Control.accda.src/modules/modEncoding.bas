@@ -9,31 +9,6 @@ Option Private Module
 Option Explicit
 
 
-''' Maps a character string to a UTF-16 (wide character) string
-Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
-    ByVal CodePage As Long, _
-    ByVal dwFlags As Long, _
-    ByVal lpMultiByteStr As LongPtr, _
-    ByVal cchMultiByte As Long, _
-    ByVal lpWideCharStr As LongPtr, _
-    ByVal cchWideChar As Long _
-    ) As Long
-
-''' WinApi function that maps a UTF-16 (wide character) string to a new character string
-Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" ( _
-    ByVal CodePage As Long, _
-    ByVal dwFlags As Long, _
-    ByVal lpWideCharStr As LongPtr, _
-    ByVal cchWideChar As Long, _
-    ByVal lpMultiByteStr As LongPtr, _
-    ByVal cbMultiByte As Long, _
-    ByVal lpDefaultChar As Long, _
-    ByVal lpUsedDefaultChar As Long _
-    ) As Long
-
-
-' CodePage constant for UTF-8
-Private Const CP_UTF8 = 65001
 
 ' Cache the Ucs2 requirement for this database
 Private m_blnUcs2 As Boolean
@@ -336,71 +311,45 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Utf8BytesToString
-' Author    : Adapted by Casper Englund
-' Date      : 2020/05/01
+' Author    : Adam Kauffman
+' Date      : 2021-03-04
 ' Purpose   : Return VBA "Unicode" string from byte array encoded in UTF-8
 '---------------------------------------------------------------------------------------
 Public Function Utf8BytesToString(abUtf8Array() As Byte) As String
     
-    Dim nBytes As Long
-    Dim nChars As Long
-    Dim strOut As String
-    Dim bUtf8Bom As Boolean
-    
-    Utf8BytesToString = vbNullString
-    
-    ' Catch uninitialized input array
-    nBytes = BytesLength(abUtf8Array)
-    If nBytes <= 0 Then Exit Function
-    bUtf8Bom = abUtf8Array(0) = 239 _
-      And abUtf8Array(1) = 187 _
-      And abUtf8Array(2) = 191
-    
-    If bUtf8Bom Then
-        Dim i As Long
-        Dim abTempArr() As Byte
-        ReDim abTempArr(BytesLength(abUtf8Array) - 3)
-        For i = 3 To UBound(abUtf8Array)
-            abTempArr(i - 3) = abUtf8Array(i)
-        Next i
-        
-        abUtf8Array = abTempArr
-    End If
-    
-    ' Get number of characters in output string
-    nChars = MultiByteToWideChar(CP_UTF8, 0&, VarPtr(abUtf8Array(0)), nBytes, 0&, 0&)
-    
-    ' Dimension output buffer to receive string
-    strOut = String(nChars, 0)
-    nChars = MultiByteToWideChar(CP_UTF8, 0&, VarPtr(abUtf8Array(0)), nBytes, StrPtr(strOut), nChars)
-    Utf8BytesToString = Left$(strOut, nChars)
+    With New ADODB.Stream
+        .Charset = "UTF-8"
+        .Open
+        .Type = adTypeBinary
+        .Write abUtf8Array
+        .Position = 0
+        .Type = adTypeText
+        Utf8BytesToString = .ReadText(adReadAll)
+        .Close
+    End With
 
 End Function
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Utf8BytesFromString
-' Author    : Adapted by Casper Englund
-' Date      : 2020/05/01
+' Author    : Adam Kauffman
+' Date      : 2021-03-04
 ' Purpose   : Return byte array with VBA "Unicode" string encoded in UTF-8
 '---------------------------------------------------------------------------------------
 Public Function Utf8BytesFromString(strInput As String) As Byte()
-
-    Dim nBytes As Long
-    Dim abBuffer() As Byte
     
-    ' Catch empty or null input string
-    Utf8BytesFromString = vbNullString
-    If Len(strInput) < 1 Then Exit Function
-    
-    ' Get length in bytes *including* terminating null
-    nBytes = WideCharToMultiByte(CP_UTF8, 0&, StrPtr(strInput), -1, 0&, 0&, 0&, 0&)
-    
-    ' We don't want the terminating null in our byte array, so ask for `nBytes-1` bytes
-    ReDim abBuffer(nBytes - 2)  ' NB ReDim with one less byte than you need
-    nBytes = WideCharToMultiByte(CP_UTF8, 0&, StrPtr(strInput), -1, ByVal VarPtr(abBuffer(0)), nBytes - 1, 0&, 0&)
-    Utf8BytesFromString = abBuffer
-    
+    With New ADODB.Stream
+        .Charset = "UTF-8"
+        .Open
+        .Type = adTypeText
+        .WriteText strInput
+        .Position = 0
+        .Type = adTypeBinary
+        Utf8BytesFromString = .Read(adReadAll)
+        .Close
+    End With
+       
 End Function
 
 
@@ -557,7 +506,6 @@ Public Sub ReEncodeFile(strInputFile, strInputCharset, strOutputFile, strOutputC
         objOutputStream.Open
         objOutputStream.Charset = strOutputCharset
         Do While .EOS <> True
-            ' Read from one file and write to the other a line at a time
             objOutputStream.WriteText .ReadText(adReadLine), adWriteLine
         Loop
         
