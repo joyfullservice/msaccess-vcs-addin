@@ -1,4 +1,4 @@
-'---------------------------------------------------------------------------------------
+﻿'---------------------------------------------------------------------------------------
 ' Module    : modEncoding
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
@@ -531,16 +531,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function StringHasUnicode(strText As String) As Boolean
-    
-    Dim reg As VBScript_RegExp_55.RegExp
-    
-    Perf.OperationStart "Unicode Check"
-    Set reg = New VBScript_RegExp_55.RegExp
-    With reg
-        ' Include extended ASCII characters here.
-        .Pattern = "[^\u0000-\u007F]"
-        StringHasUnicode = .Test(strText)
-    End With
-    Perf.OperationEnd
+
+    StringHasUnicode = (StrConv(strText, vbUnicode) = strText)
     
 End Function
