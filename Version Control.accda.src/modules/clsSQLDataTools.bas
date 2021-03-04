@@ -20,6 +20,8 @@ Option Explicit
 Private m_Connect As String
 Private m_ConnectSanitized as String
 
+Private m_Fields as New Collection
+
 Private m_Server as String
 
 Private m_Database as String
@@ -27,7 +29,26 @@ Private m_DatabaseRelative as String
 
 Private Const ModuleName = "clsSQLDataTools"
 
-Public 
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Initialize
+' Author    : hecon5
+' Date      : 2/28/2021
+' Purpose   : Clear everything out when creating class
+'---------------------------------------------------------------------------------------
+Private Sub Class_Initialize()
+    Set m_Dbs = CurrentDb
+    'm_Connection = vbNullString
+    'm_Server = vbNullString
+
+End Sub
+
+Public Property Let Connect(StrConnect as String)
+    m_Connection = StrConnect
+End Property
+
+Public Property Get Connect() as String
+
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SanitizeConnection
@@ -45,6 +66,7 @@ Private Function SanitizeConnectionString(strConnection As String) As String
         ' (These are not required or needed in this context, and create differences
         '  in exported source files when the project is built by different users.)
         With New RegExp
+            .MultiLine = False
             .Global = True
             .IgnoreCase = True
             .Pattern = "(.*)(;UID=)[^ \r\n]*(?=;Trusted_Connection=Yes)|(;PWD=)[^ \r\n]*(?=;Trusted_Connection=Yes)|(DATABASE=)([^; \r\n]*)(;)"
