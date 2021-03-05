@@ -303,10 +303,8 @@ Public Sub ReEncodeFile(strInputFile As String, strInputCharset As String, _
         .Charset = strInputCharset
         objOutputStream.Open
         objOutputStream.Charset = strOutputCharset
-        ' Copy data over by chunks to boost performance
-        Do While .EOS <> True
-            .CopyTo objOutputStream, clngChunkSize
-        Loop
+        ' Copy from one stream to the other
+        .CopyTo objOutputStream
         .Close
     End With
     
