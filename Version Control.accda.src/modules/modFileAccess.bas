@@ -42,6 +42,92 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ReadFile
+' Author    : Adam Waller / Indigo
+' Date      : 11/4/2020
+' Purpose   : Read text file.
+'           : Read in UTF-8 encoding, removing a BOM if found at start of file.
+'---------------------------------------------------------------------------------------
+'
+Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF-8") As String
+
+    Dim strText As String
+    Dim cData As clsConcat
+    Dim strBom As String
+    
+    ' Get BOM header, if applicable
+    Select Case strCharset
+        Case "UTF-8": strBom = UTF8_BOM
+        Case "Unicode": strBom = UCS2_BOM
+    End Select
+    
+    Set cData = New clsConcat
+    
+    If FSO.FileExists(strPath) Then
+        Perf.OperationStart "Read File"
+        With New ADODB.Stream
+            .Charset = strCharset
+            .Open
+            .LoadFromFile strPath
+            ' Check for BOM
+            If strBom <> vbNullString Then
+                strText = .ReadText(Len(strBom))
+                If strText <> strBom Then cData.Add strText
+            End If
+            ' Read chunks of text, rather than the whole thing at once for massive
+            ' performance gains when reading large files.
+            ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
+            Do While Not .EOS
+                ' This method might cause corruption of mixed byte width files, see issue #186
+                cData.Add .ReadText(clngChunkSize) ' 128K
+            Loop
+            .Close
+        End With
+        Perf.OperationEnd
+    End If
+    
+    ' Return text contents of file.
+    ReadFile = cData.GetStr
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteFile
+' Author    : Adam Waller
+' Date      : 1/23/2019
+' Purpose   : Save string variable to text file. (Building the folder path if needed)
+'           : Saves in UTF-8 encoding, adding a BOM if extended or unicode content
+'           : is found in the file. https://stackoverflow.com/a/53036838/4121863
+'---------------------------------------------------------------------------------------
+'
+Public Sub WriteFile(strText As String, strPath As String)
+
+    Dim strContent As String
+    Dim dblPos As Double
+    
+    Perf.OperationStart "Write File"
+    
+    ' Write to a UTF-8 eoncoded file
+    With New ADODB.Stream
+        .Type = adTypeText
+        .Open
+        .Charset = "UTF-8"
+        .WriteText strText
+        ' Ensure that we are ending the content with a vbcrlf
+        If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
+        ' Write to disk
+        VerifyPath strPath
+        .SaveToFile strPath, adSaveCreateOverWrite
+        .Close
+    End With
+    
+    Perf.OperationEnd
+        
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetFileBytes
 ' Author    : Adam Waller
 ' Date      : 7/31/2020
