@@ -1,4 +1,4 @@
-CREATE TABLE [tblLinkedAccess] (
+﻿CREATE TABLE [tblLinkedAccess] (
   [ID] AUTOINCREMENT,
   [ObjectType] VARCHAR (255),
   [Notes] VARCHAR (255),

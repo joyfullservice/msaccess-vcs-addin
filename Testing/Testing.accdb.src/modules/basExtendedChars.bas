@@ -1,6 +1,6 @@
 ﻿Option Compare Database
 Option Explicit
 
-' The following line uses extended ASCII characters
-' and should show up as a solid line.
-'—————————————————————————————————————————————————————————
+' This module is used to prove that all ASCII characters survive the export\import cycle.
+
+'——————————————————————————————————————————————————————————————————————————————————————————

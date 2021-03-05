@@ -247,44 +247,56 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetReports() As String
-
-    Const cstrSpacer As String = "-------------------------------------"
+    
+    Const cstrTitle As String = "PERFORMANCE REPORTS"
     
     Dim varKey As Variant
     Dim curTotal As Currency
     Dim dblCount As Double
+    Dim lngCol(0 To 2) As Long
+    Dim strSpacer As String
 
+    ' Set up column sizes
+    lngCol(0) = 25
+    lngCol(1) = 10
+    lngCol(2) = 10
+    strSpacer = Space(lngCol(0) + lngCol(1) + lngCol(2))
+    strSpacer = Replace(strSpacer, " ", "-")
+    
     With New clsConcat
         .AppendOnAdd = vbCrLf
-        .Add cstrSpacer
-        .Add "        PERFORMANCE REPORTS"
-        .Add cstrSpacer
+        .Add strSpacer
+        .Add Space((Len(strSpacer) - Len(cstrTitle)) / 2) & cstrTitle
+        .Add strSpacer
         
         ' Table for object types
-        .Add ListResult("Object Type", "Count", "Seconds", 20, 30), vbCrLf, cstrSpacer
+        .Add ListResult("Object Type", "Count", "Seconds", lngCol), vbCrLf, strSpacer
         For Each varKey In m_dComponents.Keys
             .Add ListResult(CStr(varKey), CStr(m_dComponents(varKey).Count), _
-                Format(m_dComponents(varKey).Total, "0.00"), 20, 30)
+                Format(m_dComponents(varKey).Total, "0.00"), lngCol)
             ' Add to totals
             dblCount = dblCount + m_dComponents(varKey).Count
             curTotal = curTotal + m_dComponents(varKey).Total
         Next varKey
-        .Add cstrSpacer
+        .Add strSpacer
         .Add ListResult("TOTALS:", CStr(dblCount), _
-                Format(curTotal, "0.00"), 20, 30)
+                Format(curTotal, "0.00"), lngCol)
+        .Add strSpacer
         .Add vbNullString
         
         ' Table for operations
         curTotal = 0
-        .Add cstrSpacer
-        .Add ListResult("Operations", "Count", "Seconds", 20, 30), vbCrLf, cstrSpacer
+        .Add strSpacer
+        .Add ListResult("Operations", "Count", "Seconds", lngCol), vbCrLf, strSpacer
         For Each varKey In m_dOperations.Keys
             .Add ListResult(CStr(varKey), CStr(m_dOperations(varKey).Count), _
-                Format(m_dOperations(varKey).Total, "0.00"), 20, 30)
+                Format(m_dOperations(varKey).Total, "0.00"), lngCol)
             curTotal = curTotal + m_dOperations(varKey).Total
         Next varKey
+        .Add strSpacer
         .Add ListResult("Other Operations", vbNullString, _
-                Format(m_Overall.Total - curTotal, "0.00"), 20, 30)
+                Format(m_Overall.Total - curTotal, "0.00"), lngCol)
+        .Add strSpacer
         .Add vbNullString
         
         ' Check for unfinished operations
@@ -318,9 +330,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function ListResult(strHeading As String, strResult1 As String, strResult2 As String, _
-    intResultPos1 As Integer, intResultPos2 As Integer) As String
-    ListResult = PadRight(strHeading, intResultPos1) & _
-        PadRight(strResult1, intResultPos2 - intResultPos1) & strResult2
+    lngCol() As Long) As String
+    ListResult = PadRight(strHeading, lngCol(0)) & _
+        PadRight(strResult1, lngCol(1)) & strResult2
 End Function
 
 
@@ -331,13 +343,13 @@ End Function
 ' Purpose   : Pads a string
 '---------------------------------------------------------------------------------------
 '
-Private Function PadRight(strText As String, intLen As Integer, Optional intMinTrailingSpaces As Integer = 1) As String
+Private Function PadRight(strText As String, lngLen As Long, Optional lngMinTrailingSpaces As Long = 1) As String
 
     Dim strResult As String
     Dim strTrimmed As String
     
-    strResult = Space$(intLen)
-    strTrimmed = Left$(strText, intLen - intMinTrailingSpaces)
+    strResult = Space$(lngLen)
+    strTrimmed = Left$(strText, lngLen - lngMinTrailingSpaces)
     
     ' Use mid function to write over existing string of spaces.
     Mid$(strResult, 1, Len(strTrimmed)) = strTrimmed

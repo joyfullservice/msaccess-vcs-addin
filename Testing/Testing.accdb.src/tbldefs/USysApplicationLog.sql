@@ -1,4 +1,4 @@
-CREATE TABLE [USysApplicationLog] (
+﻿CREATE TABLE [USysApplicationLog] (
   [ID] AUTOINCREMENT CONSTRAINT [PrimaryKey] PRIMARY KEY UNIQUE NOT NULL,
   [SourceObject] VARCHAR (255),
   [Data Macro Instance ID] VARCHAR (255),

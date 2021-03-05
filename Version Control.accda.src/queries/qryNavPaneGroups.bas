@@ -1,4 +1,4 @@
-Operation =1
+﻿Operation =1
 Option =0
 Where ="(((MSysNavPaneGroups.Name) Is Not Null) AND ((MSysNavPaneGroupCategories.Type)=4"
     "))"
