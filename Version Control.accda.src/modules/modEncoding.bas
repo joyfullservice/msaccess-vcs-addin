@@ -266,15 +266,8 @@ End Function
 '
 Private Function FileHasBom(strFilePath As String, strBom As String) As Boolean
     ' Only read the first bytes to check for BOM
-    With New ADODB.Stream
-        .Type = adTypeBinary
-        .Open
-        .LoadFromFile strFilePath
-        ' Check for BOM
-        Dim strFound As String
-        strFound = StrConv(.Read(Len(strBom)), vbUnicode)
-        .Close
-    End With
+    Dim strFound As String
+    strFound = StrConv(GetFileBytes(strFilePath, Len(strBom)), vbUnicode)
     
     FileHasBom = (strFound = strBom)
 End Function
@@ -344,9 +337,10 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF
         Case "Unicode": strBom = UCS2_BOM
     End Select
     
+    Set cData = New clsConcat
+    
     If FSO.FileExists(strPath) Then
         Perf.OperationStart "Read File"
-        Set cData = New clsConcat
         With New ADODB.Stream
             .Charset = strCharset
             .Open
@@ -396,7 +390,7 @@ Public Sub WriteFile(strText As String, strPath As String)
     bteUtf8 = Utf8BytesFromString(strContent)
     
     ' Write binary content to file.
-    WriteBinaryFile bteUtf8, True, strPath
+    WriteBinaryFile bteUtf8, False, strPath
         
 End Sub
 

@@ -249,24 +249,12 @@ End Function
 Public Function ReadJsonFile(strPath As String) As Dictionary
     
     Dim strText As String
-    Dim stm As ADODB.Stream
+    strText = ReadFile(strPath)
     
-    If FSO.FileExists(strPath) Then
-        Set stm = New ADODB.Stream
-        With stm
-            .Charset = "UTF-8"
-            .Open
-            .LoadFromFile strPath
-            strText = .ReadText(adReadAll)
-            .Close
-        End With
-        
-        ' If it looks like json content, then parse into a dictionary object.
-        If Left$(strText, 3) = UTF8_BOM Then strText = Mid$(strText, 4)
-        If Left$(strText, 1) = "{" Then Set ReadJsonFile = ParseJson(strText)
+    ' If it looks like json content, then parse into a dictionary object.
+    If Left$(strText, 1) = "{" Then
+        Set ReadJsonFile = ParseJson(strText)
     End If
-    
-    Set stm = Nothing
     
 End Function
 
