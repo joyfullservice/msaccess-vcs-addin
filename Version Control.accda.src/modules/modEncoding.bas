@@ -114,7 +114,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
         
         ' Log performance
         Perf.OperationStart "Unicode Conversion"
-        ConvertAnsiUtf8 strSourceFile, strDestinationFile
+        ReEncodeFile strSourceFile, "Unicode", strDestinationFile, "UTF-8", adSaveCreateOverWrite
         Perf.OperationEnd
         
         ' Remove the source (temp) file if specified
@@ -160,7 +160,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
     Else
         ' Monitor performance
         Perf.OperationStart "Unicode Conversion"
-        ConvertUtf8Ansi strSourceFile, strDestinationFile
+        ReEncodeFile strSourceFile, "UTF-8", strDestinationFile, "Unicode", adSaveCreateOverWrite
         Perf.OperationEnd
         
         ' Remove original file if specified.
