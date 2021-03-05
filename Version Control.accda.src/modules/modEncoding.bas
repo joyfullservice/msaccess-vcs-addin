@@ -271,49 +271,12 @@ Private Function FileHasBom(strFilePath As String, strBom As String) As Boolean
         .Open
         .LoadFromFile strFilePath
         ' Check for BOM
-        Dim fileBytes() As Byte
-        fileBytes = .Read(Len(strBom))
-        FileHasBom = (strBom = StrConv(fileBytes, vbUnicode))
+        Dim strFound As String
+        strFound = StrConv(.Read(Len(strBom)), vbUnicode)
         .Close
     End With
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : RemoveUTF8BOM
-' Author    : Adam Kauffman
-' Date      : 1/24/2019
-' Purpose   : Will remove a UTF8 BOM from the start of the string passed in.
-'---------------------------------------------------------------------------------------
-'
-Public Function RemoveUTF8BOM(ByVal fileContents As String) As String
-    Dim UTF8BOM As String
-    UTF8BOM = Chr$(239) & Chr$(187) & Chr$(191) ' == &HEFBBBF
-    Dim fileBOM As String
-    fileBOM = Left$(fileContents, 3)
     
-    If fileBOM = UTF8BOM Then
-        RemoveUTF8BOM = Mid$(fileContents, 4)
-    Else ' No BOM detected
-        RemoveUTF8BOM = fileContents
-    End If
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : BytesLength
-' Author    : Casper Englund
-' Date      : 2020/05/01
-' Purpose   : Return length of byte array
-'---------------------------------------------------------------------------------------
-Private Function BytesLength(abBytes() As Byte) As Long
-    
-    ' Ignore error if array is uninitialized
-    On Error Resume Next
-    BytesLength = UBound(abBytes) - LBound(abBytes) + 1
-    If Err.Number <> 0 Then Err.Clear
-    On Error GoTo 0
-    
+    FileHasBom = (strFound = strBom)
 End Function
 
 
@@ -397,6 +360,7 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF
             ' performance gains when reading large files.
             ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
             Do While Not .EOS
+                ' This method might cause corruption of mixed byte width files, see issue #186
                 cData.Add .ReadText(131072) ' 128K
             Loop
             .Close
