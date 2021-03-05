@@ -223,3 +223,47 @@ TestExit:
 TestFail:
     Assert.Fail "Test raised an error: #" & Err.Number & " - " & Err.Description
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Utf8BytesToString
+' Author    : Adam Kauffman
+' Date      : 2021-03-04
+' Purpose   : Return VBA "Unicode" string from byte array encoded in UTF-8
+'---------------------------------------------------------------------------------------
+Private Function Utf8BytesToString(abUtf8Array() As Byte) As String
+    
+    With New ADODB.Stream
+        .Charset = "UTF-8"
+        .Open
+        .Type = adTypeBinary
+        .Write abUtf8Array
+        .Position = 0
+        .Type = adTypeText
+        Utf8BytesToString = .ReadText(adReadAll)
+        .Close
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Utf8BytesFromString
+' Author    : Adam Kauffman
+' Date      : 2021-03-04
+' Purpose   : Return byte array with VBA "Unicode" string encoded in UTF-8
+'---------------------------------------------------------------------------------------
+Private Function Utf8BytesFromString(strInput As String) As Byte()
+    
+    With New ADODB.Stream
+        .Charset = "UTF-8"
+        .Open
+        .Type = adTypeText
+        .WriteText strInput
+        .Position = 0
+        .Type = adTypeBinary
+        Utf8BytesFromString = .Read(adReadAll)
+        .Close
+    End With
+       
+End Function
