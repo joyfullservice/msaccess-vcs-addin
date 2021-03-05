@@ -1,4 +1,4 @@
-CREATE TABLE [tblSaveXML] (
+﻿CREATE TABLE [tblSaveXML] (
   [ID] AUTOINCREMENT,
   [ObjectType] VARCHAR (255),
   [Notes] VARCHAR (255),
