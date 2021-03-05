@@ -51,10 +51,7 @@ End Function
 '
 Public Function GetFileBytes(strPath As String, Optional lngBytes As Long = adReadAll) As Byte()
 
-    Dim stmFile As ADODB.Stream
-
-    Set stmFile = New ADODB.Stream
-    With stmFile
+    With New ADODB.Stream
         .Type = adTypeBinary
         .Open
         .LoadFromFile strPath

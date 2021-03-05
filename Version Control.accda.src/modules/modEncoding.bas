@@ -114,22 +114,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
         
         ' Log performance
         Perf.OperationStart "Unicode Conversion"
-        
-        ' Read file contents and delete (temp) source file
-        Set cData = New clsConcat
-        With FSO.OpenTextFile(strSourceFile, ForReading, False, intTristate)
-            ' Read chunks of text, rather than the whole thing at once for massive
-            ' performance gains when reading large files.
-            ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
-            Do While Not .AtEndOfStream
-                cData.Add .Read(131072) ' 128K
-            Loop
-            .Close
-        End With
-        
-        ' Write as UTF-8 in the destination file.
-        ' (Path will be verified before writing)
-        WriteFile cData.GetStr, strDestinationFile
+        ConvertAnsiUtf8 strSourceFile, strDestinationFile
         Perf.OperationEnd
         
         ' Remove the source (temp) file if specified
@@ -175,16 +160,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
     Else
         ' Monitor performance
         Perf.OperationStart "Unicode Conversion"
-        
-        ' Read file contents and convert byte array to string
-        utf8Bytes = GetFileBytes(strSourceFile)
-        strText = Utf8BytesToString(utf8Bytes)
-        
-        ' Write as UCS-2 LE (BOM)
-        With FSO.CreateTextFile(strDestinationFile, True, True)
-            .Write strText
-            .Close
-        End With
+        ConvertUtf8Ansi strSourceFile, strDestinationFile
         Perf.OperationEnd
         
         ' Remove original file if specified.
