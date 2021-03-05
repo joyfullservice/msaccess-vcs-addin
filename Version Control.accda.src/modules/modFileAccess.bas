@@ -136,7 +136,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function GetFileBytes(strPath As String, Optional lngBytes As Long = adReadAll) As Byte()
-
+    Perf.OperationStart "Read File Bytes"
     With New ADODB.Stream
         .Type = adTypeBinary
         .Open
@@ -144,7 +144,7 @@ Public Function GetFileBytes(strPath As String, Optional lngBytes As Long = adRe
         GetFileBytes = .Read(lngBytes)
         .Close
     End With
-    
+    Perf.OperationEnd
 End Function
 
 
@@ -170,7 +170,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MkDirIfNotExist(strPath As String)
-    If Not FSO.FolderExists(StripSlash(strPath)) Then FSO.CreateFolder StripSlash(strPath)
+    If Not FSO.FolderExists(StripSlash(strPath)) Then
+        Perf.OperationStart "Create Folder"
+        FSO.CreateFolder StripSlash(strPath)
+        Perf.OperationEnd
+    End If
 End Sub
 
 
@@ -216,6 +220,8 @@ Public Sub VerifyPath(strPath As String)
     Dim intPart As Integer
     Dim strVerified As String
     
+    Perf.OperationStart "Verify Path"
+    
     ' Determine if the path is a file or folder
     If Right$(strPath, 1) = PathSep Then
         ' Folder name. (Folder names can contain periods)
@@ -252,7 +258,10 @@ Public Sub VerifyPath(strPath As String)
             Next intPart
         End If
     End If
-
+    
+    ' End timing of operation
+    Perf.OperationEnd
+    
 End Sub
 
 
