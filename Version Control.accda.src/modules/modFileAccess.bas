@@ -79,7 +79,7 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF
             ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
             Do While Not .EOS
                 ' This method might cause corruption of mixed byte width files, see issue #186
-                cData.Add .ReadText(clngChunkSize) ' 128K
+                cData.Add .ReadText(adReadLine), vbCrLf ' 128K
             Loop
             .Close
         End With

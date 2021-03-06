@@ -88,6 +88,11 @@ End Function
 Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String, _
     Optional blnDeleteSourceFileAfterConversion As Boolean = True)
 
+    ' Read/write chunks of text, rather than the whole thing at once for massive
+    ' performance gains when reading large files.
+    ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
+    Const clngChunkSize As Long = 131072    ' (128K)
+
     Dim cData As clsConcat
     Dim blnIsAdp As Boolean
     Dim intTristate As Tristate
@@ -106,30 +111,31 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
         If blnIsAdp Then
             ' Possible mixed UTF-16 content
             intTristate = TristateMixed
+            
+            ' Log performance
+            Perf.OperationStart "Unicode Conversion"
+            
+            ' Read file contents and delete (temp) source file
+            Set cData = New clsConcat
+            With FSO.OpenTextFile(strSourceFile, ForReading, False, intTristate)
+                ' Read chunks of text, rather than the whole thing at once for massive
+                ' performance gains when reading large files.
+                ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
+                Do While Not .AtEndOfStream
+                    cData.Add .Read(clngChunkSize)  ' 128K
+                Loop
+                .Close
+            End With
+            
+            ' Write as UTF-8 in the destination file.
+            ' (Path will be verified before writing)
+            WriteFile cData.GetStr, strDestinationFile
+            Perf.OperationEnd
+                
         Else
             ' Fully encoded as UTF-16
-            intTristate = TristateTrue
+            ReEncodeFile strSourceFile, "UTF-16", strDestinationFile, "UTF-8"
         End If
-        
-        ' Log performance
-        Perf.OperationStart "Unicode Conversion"
-        
-        ' Read file contents and delete (temp) source file
-        Set cData = New clsConcat
-        With FSO.OpenTextFile(strSourceFile, ForReading, False, intTristate)
-            ' Read chunks of text, rather than the whole thing at once for massive
-            ' performance gains when reading large files.
-            ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
-            Do While Not .AtEndOfStream
-                cData.Add .Read(clngChunkSize)  ' 128K
-            Loop
-            .Close
-        End With
-        
-        ' Write as UTF-8 in the destination file.
-        ' (Path will be verified before writing)
-        WriteFile cData.GetStr, strDestinationFile
-        Perf.OperationEnd
         
         ' Remove the source (temp) file if specified
         If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile, True
