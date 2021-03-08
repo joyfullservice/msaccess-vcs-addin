@@ -92,11 +92,6 @@ End Function
 Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String, _
     Optional blnDeleteSourceFileAfterConversion As Boolean = True)
 
-    ' Read/write chunks of text, rather than the whole thing at once for massive
-    ' performance gains when reading large files.
-    ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
-    Const clngChunkSize As Long = 131072    ' (128K)
-
     Dim cData As clsConcat
     Dim blnIsAdp As Boolean
     Dim intTristate As Tristate
@@ -126,7 +121,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
                 ' performance gains when reading large files.
                 ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
                 Do While Not .AtEndOfStream
-                    cData.Add .Read(clngChunkSize)  ' 128K
+                    cData.Add .Read(CHUNK_SIZE)  ' 128K
                 Loop
                 .Close
             End With
