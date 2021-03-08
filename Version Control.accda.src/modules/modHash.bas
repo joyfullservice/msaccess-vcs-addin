@@ -261,7 +261,7 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
         ' Output the hash
         If Not cmpItem Is Nothing Then
             With cmpItem.CodeModule
-                strHash = GetStringHash(.Lines(1, .CountOfLines + .CountOfDeclarationLines), intLength)
+                strHash = GetStringHash(.Lines(1, 999999), intLength)
             End With
         End If
     
