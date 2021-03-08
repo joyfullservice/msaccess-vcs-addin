@@ -179,7 +179,7 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
         Case acModule '(ANSI text file)
             ' Modules may contain extended characters that need UTF-8 conversion
             ' to display correctly in some editors.
-            If StringHasExtendedASCII(ReadFile(strTempFile, "_autodetect_all")) Then
+            If StringHasExtendedASCII(ReadFile(strTempFile, GetSystemEncoding)) Then
                 ' Convert to UTF-8
                 ConvertAnsiUtf8 strTempFile, strFile
             Else

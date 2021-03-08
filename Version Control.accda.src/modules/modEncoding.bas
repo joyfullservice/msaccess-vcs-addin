@@ -9,6 +9,10 @@ Option Private Module
 Option Explicit
 
 
+' API call to determine active code page (default system encoding)
+Private Declare PtrSafe Function GetACP Lib "kernel32" () As Long
+
+
 ' Cache the Ucs2 requirement for this database
 Private m_blnUcs2 As Boolean
 Private m_strDbPath As String
@@ -200,7 +204,7 @@ Public Sub ConvertAnsiUtf8(strSourceFile As String, strDestinationFile As String
     Optional blnDeleteSourceFileAfterConversion As Boolean = True)
     
     ' Perform file conversion
-    ReEncodeFile strSourceFile, "_autodetect_all", strDestinationFile, "UTF-8", adSaveCreateOverWrite
+    ReEncodeFile strSourceFile, GetSystemEncoding, strDestinationFile, "utf-8", adSaveCreateOverWrite
 
     ' Remove original file if specified.
     If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile
@@ -219,7 +223,7 @@ Public Sub ConvertUtf8Ansi(strSourceFile As String, strDestinationFile As String
     Optional blnDeleteSourceFileAfterConversion As Boolean = True)
     
     ' Perform file conversion
-    ReEncodeFile strSourceFile, "UTF-8", strDestinationFile, "_autodetect_all", adSaveCreateOverWrite
+    ReEncodeFile strSourceFile, "utf-8", strDestinationFile, GetSystemEncoding, adSaveCreateOverWrite
     
     ' Remove original file if specified.
     If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile
@@ -297,9 +301,7 @@ Public Sub ReEncodeFile(strInputFile As String, strInputCharset As String, _
     Dim objOutputStream As ADODB.Stream
     
     ' Open streams and copy data
-    Perf.OperationStart "Enc " & _
-        Replace(strInputCharset, "_autodetect_all", "AUTO") & " as " & _
-        Replace(strOutputCharset, "_autodetect_all", "AUTO")
+    Perf.OperationStart "Enc. " & strInputCharset & " as " & strOutputCharset
     Set objOutputStream = New ADODB.Stream
     With New ADODB.Stream
         .Open
@@ -320,3 +322,44 @@ Public Sub ReEncodeFile(strInputFile As String, strInputCharset As String, _
     Perf.OperationEnd
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSystemEncoding
+' Author    : Adam Waller
+' Date      : 3/8/2021
+' Purpose   : Return the current encoding type used for non-UTF-8 text files.
+'           : (Such as VBA code modules.)
+'           : https://docs.microsoft.com/en-us/windows/win32/intl/code-page-identifiers
+'           : https://documentation.help/MS-Office-VB/ofhowConstants.htm
+'           : * Note that using utf-8 as a default system encoding may not work
+'           : correctly with some extended characters in VBA code modules. The VBA IDE
+'           : does not support Unicode characters, and requires code pages to display
+'           : extended/non-English characters. See Issues #60, #186, #180
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSystemEncoding() As String
+    
+    Static lngEncoding As Long
+    
+    ' Call API to determine active code page, caching return value.
+    If lngEncoding = 0 Then lngEncoding = GetACP
+    Select Case lngEncoding
+    
+        ' Language encoding mappings can be defined here
+        Case msoEncodingISO88591Latin1:     GetSystemEncoding = "iso-8859-1"
+        Case msoEncodingWestern:            GetSystemEncoding = "windows-1252"
+        
+        ' *In Windows 10, this is a checkbox in Region settings for
+        ' "Beta: Use Unicode UTF-8 for worldwide language support"
+        Case msoEncodingUTF8:               GetSystemEncoding = "utf-8"
+        
+        ' Any other language encoding not defined above
+        Case Else
+            ' Attempt to autodetect the language based on the content.
+            ' (Note that this does not work as well on code as it does
+            '  with normal written language. See issue #186)
+            GetSystemEncoding = "_autodetect_all"
+    End Select
+    
+End Function

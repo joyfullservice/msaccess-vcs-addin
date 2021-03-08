@@ -257,7 +257,7 @@ Public Function GetReports() As String
     Dim strSpacer As String
 
     ' Set up column sizes
-    lngCol(0) = 25
+    lngCol(0) = 30
     lngCol(1) = 10
     lngCol(2) = 10
     strSpacer = Space(lngCol(0) + lngCol(1) + lngCol(2))
