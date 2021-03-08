@@ -145,7 +145,7 @@ Private Sub ImportTableDataTDF(strFile As String)
     ' Read file line by line
     Set stm = New ADODB.Stream
     With stm
-        .Charset = "UTF-8"
+        .Charset = "utf-8"
         .Open
         .LoadFromFile strFile
     End With

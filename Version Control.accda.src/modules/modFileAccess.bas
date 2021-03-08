@@ -49,7 +49,7 @@ End Function
 '           : Read in UTF-8 encoding, removing a BOM if found at start of file.
 '---------------------------------------------------------------------------------------
 '
-Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF-8") As String
+Public Function ReadFile(strPath As String, Optional strCharset As String = "utf-8") As String
 
     Dim strText As String
     Dim cData As clsConcat
@@ -57,7 +57,7 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "UTF
     
     ' Get BOM header, if applicable
     Select Case strCharset
-        Case "UTF-8": strBom = UTF8_BOM
+        Case "utf-8": strBom = UTF8_BOM
         Case "Unicode": strBom = UCS2_BOM
     End Select
     
@@ -112,7 +112,7 @@ Public Sub WriteFile(strText As String, strPath As String)
     With New ADODB.Stream
         .Type = adTypeText
         .Open
-        .Charset = "UTF-8"
+        .Charset = "utf-8"
         .WriteText strText
         ' Ensure that we are ending the content with a vbcrlf
         If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf

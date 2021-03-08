@@ -227,7 +227,7 @@ Public Sub SanitizeXML(strPath As String, Options As clsOptions)
     
     ' Open file to read contents line by line.
     Set stmInFile = New ADODB.Stream
-    stmInFile.Charset = "UTF-8"
+    stmInFile.Charset = "utf-8"
     stmInFile.Open
     stmInFile.LoadFromFile strPath
     strText = stmInFile.ReadText(adReadLine)

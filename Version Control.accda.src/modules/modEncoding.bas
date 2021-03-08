@@ -134,7 +134,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
                 
         Else
             ' Fully encoded as UTF-16
-            ReEncodeFile strSourceFile, "UTF-16", strDestinationFile, "UTF-8"
+            ReEncodeFile strSourceFile, "utf-16", strDestinationFile, "utf-8"
         End If
         
         ' Remove the source (temp) file if specified
@@ -179,7 +179,7 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
         End If
     Else
         ' Encode as UCS2-LE (UTF-16 LE)
-        ReEncodeFile strSourceFile, "UTF-8", strDestinationFile, "UTF-16"
+        ReEncodeFile strSourceFile, "utf-8", strDestinationFile, "utf-16"
     
         ' Remove original file if specified.
         If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile, True

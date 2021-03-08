@@ -234,7 +234,7 @@ End Sub
 Private Function Utf8BytesToString(abUtf8Array() As Byte) As String
     
     With New ADODB.Stream
-        .Charset = "UTF-8"
+        .Charset = "utf-8"
         .Open
         .Type = adTypeBinary
         .Write abUtf8Array
@@ -256,7 +256,7 @@ End Function
 Private Function Utf8BytesFromString(strInput As String) As Byte()
     
     With New ADODB.Stream
-        .Charset = "UTF-8"
+        .Charset = "utf-8"
         .Open
         .Type = adTypeText
         .WriteText strInput
