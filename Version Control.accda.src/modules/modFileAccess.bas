@@ -51,15 +51,7 @@ End Function
 '
 Public Function ReadFile(strPath As String, Optional strCharset As String = "utf-8") As String
 
-    Dim strText As String
     Dim cData As clsConcat
-    Dim strBom As String
-    
-    ' Get BOM header, if applicable
-    Select Case strCharset
-        Case "utf-8": strBom = UTF8_BOM
-        Case "Unicode": strBom = UCS2_BOM
-    End Select
     
     Set cData = New clsConcat
     
@@ -69,11 +61,6 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "utf
             .Charset = strCharset
             .Open
             .LoadFromFile strPath
-            ' Check for BOM
-            If strBom <> vbNullString Then
-                strText = .ReadText(Len(strBom))
-                If strText <> strBom Then cData.Add strText
-            End If
             ' Read chunks of text, rather than the whole thing at once for massive
             ' performance gains when reading large files.
             ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
