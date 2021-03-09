@@ -590,3 +590,28 @@ Public Function BuildPath2(ParamArray Segments())
     BuildPath2 = .GetStr
     End With
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Nz2
+' Author    : Adam Waller
+' Date      : 2/18/2021
+' Purpose   : Extend the NZ function to also include 0 or empty string.
+'---------------------------------------------------------------------------------------
+'
+Public Function Nz2(varValue, Optional varIfNull) As Variant
+    Select Case varValue
+        Case vbNullString, 0
+            If IsMissing(varIfNull) Then
+                Nz2 = vbNullString
+            Else
+                Nz2 = varIfNull
+            End If
+        Case Else
+            If IsNull(varValue) Then
+                Nz2 = varIfNull
+            Else
+                Nz2 = varValue
+            End If
+    End Select
+End Function

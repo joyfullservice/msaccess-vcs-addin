@@ -34,6 +34,9 @@ Public RunAfterBuild As String
 Public Security As eSecurity
 Public KeyName As String
 Public ShowVCSLegacy As Boolean
+Public HashAlgorithm As String
+Public UseShortHash As Boolean
+Public BreakOnError As Boolean
 
 ' Constants for enum values
 ' (These values are not permanently stored and
@@ -82,6 +85,8 @@ Public Sub LoadDefaults()
         .Security = esNone
         .KeyName = modEncrypt.DefaultKeyName
         .ShowVCSLegacy = True
+        .HashAlgorithm = "SHA256"
+        .UseShortHash = True
 
         ' Table data export
         Set .TablesToExportData = New Dictionary
@@ -527,6 +532,9 @@ Private Sub Class_Initialize()
         .Add "Security"
         .Add "KeyName"
         .Add "ShowVCSLegacy"
+        .Add "HashAlgorithm"
+        .Add "UseShortHash"
+        .Add "BreakOnError"
     End With
 
     ' Load default values

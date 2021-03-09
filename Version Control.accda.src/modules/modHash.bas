@@ -63,7 +63,7 @@ Public Declare PtrSafe Function BCryptGetProperty Lib "BCrypt.dll" ( _
 Private Const ModuleName As String = "modHash"
 
 
-Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgorithm As String = "SHA1") As Byte()
+Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgorithm As String = "SHA256") As Byte()
     
     'Erik A, 2019, adapted by Adam Waller
     'Hash data by using the Next Generation Cryptography API
@@ -90,11 +90,11 @@ Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgor
     ReDim bHashObject(0 To Length - 1)
 
     'Determine digest size, allocate memory
-    Dim hashLength As Long
+    Dim HashLength As Long
     cmd = "HashDigestLength" & vbNullChar
-    If BCryptGetProperty(hAlg, StrPtr(cmd), hashLength, LenB(hashLength), 0, 0) <> 0 Then GoTo ErrHandler
+    If BCryptGetProperty(hAlg, StrPtr(cmd), HashLength, LenB(HashLength), 0, 0) <> 0 Then GoTo ErrHandler
     Dim bHash() As Byte
-    ReDim bHash(0 To hashLength - 1)
+    ReDim bHash(0 To HashLength - 1)
 
     'Create hash object
     Dim hHash As LongPtr
@@ -102,7 +102,7 @@ Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgor
 
     'Hash data
     If BCryptHashData(hHash, ByVal pData, lenData) <> 0 Then GoTo ErrHandler
-    If BCryptFinishHash(hHash, bHash(0), hashLength, 0) <> 0 Then GoTo ErrHandler
+    If BCryptFinishHash(hHash, bHash(0), HashLength, 0) <> 0 Then GoTo ErrHandler
 
     'Return result
     NGHash = bHash
@@ -149,13 +149,13 @@ End Function
 ' Procedure : GetStringHash
 ' Author    : Adam Waller
 ' Date      : 11/30/2020
-' Purpose   : Convert string to byte array, and return a Sha1 hash.
+' Purpose   : Convert string to byte array, and return a hash.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetStringHash(strText As String, Optional intLength As Integer = 7) As String
+Public Function GetStringHash(strText As String) As String
     Dim bteText() As Byte
     bteText = strText
-    GetStringHash = Sha1(bteText, intLength)
+    GetStringHash = GetHash(bteText)
 End Function
 
 
@@ -163,11 +163,11 @@ End Function
 ' Procedure : GetFileHash
 ' Author    : Adam Waller
 ' Date      : 11/30/2020
-' Purpose   : Return a Sha1 hash from a file
+' Purpose   : Return a hash from a file
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFileHash(strPath As String, Optional intLength As Integer = 7) As String
-    GetFileHash = Sha1(GetFileBytes(strPath), intLength)
+Public Function GetFileHash(strPath As String) As String
+    GetFileHash = GetHash(GetFileBytes(strPath))
 End Function
 
 
@@ -178,41 +178,48 @@ End Function
 ' Purpose   : Wrapper to get a hash from a dictionary object (converted to json)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetDictionaryHash(dSource As Dictionary, Optional intLength As Integer = 7) As String
-    GetDictionaryHash = GetStringHash(ConvertToJson(dSource), intLength)
+Public Function GetDictionaryHash(dSource As Dictionary) As String
+    GetDictionaryHash = GetStringHash(ConvertToJson(dSource))
 End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Sha1
+' Procedure : GetHash
 ' Author    : Adam Waller
 ' Date      : 11/30/2020
-' Purpose   : Create a Sha1 hash of the byte array
+' Purpose   : Create a hash from the byte array
 '---------------------------------------------------------------------------------------
 '
-Private Function Sha1(bteContent() As Byte, Optional intLength As Integer) As String
+Private Function GetHash(bteContent() As Byte) As String
     
     Dim objEnc As Object
-    Dim bteSha1 As Variant
-    Dim strSha1 As String
+    Dim bteHash As Variant
+    Dim strHash As String
     Dim intPos As Integer
+    Dim intLength As Integer
+    Dim strAlgorithm As String
     
-    Perf.OperationStart "Compute SHA1"
-    bteSha1 = HashBytes(bteContent, "SHA1")
+    ' Get hashing options
+    strAlgorithm = Nz2(Options.HashAlgorithm, "SHA256")
+    If Options.UseShortHash Then intLength = 7
+    
+    ' Start performance timer and compute the hash
+    Perf.OperationStart "Compute " & strAlgorithm
+    bteHash = HashBytes(bteContent, strAlgorithm)
     
     ' Create string buffer to avoid concatenation
-    strSha1 = Space(LenB(bteSha1) * 2)
+    strHash = Space(LenB(bteHash) * 2)
     
-    ' Convert full sha1 to hexidecimal string
-    For intPos = 1 To LenB(bteSha1)
-        Mid$(strSha1, (intPos * 2) - 1, 2) = LCase(Right("0" & Hex(AscB(MidB(bteSha1, intPos, 1))), 2))
+    ' Convert full hash to hexidecimal string
+    For intPos = 1 To LenB(bteHash)
+        Mid$(strHash, (intPos * 2) - 1, 2) = LCase(Right("0" & Hex(AscB(MidB(bteHash, intPos, 1))), 2))
     Next
     
     ' Return hash, truncating if needed.
-    If intLength > 0 And intLength < Len(strSha1) Then
-        Sha1 = Left$(strSha1, intLength)
+    If intLength > 0 And intLength < Len(strHash) Then
+        GetHash = Left$(strHash, intLength)
     Else
-        Sha1 = strSha1
+        GetHash = strHash
     End If
     Perf.OperationEnd
     
@@ -223,7 +230,7 @@ End Function
 ' Procedure : GetCodeModuleHash
 ' Author    : Adam Waller
 ' Date      : 11/30/2020
-' Purpose   : Return a Sha1 hash of the VBA code module behind an object.
+' Purpose   : Return a hash from the VBA code module behind an object.
 '---------------------------------------------------------------------------------------
 '
 Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As String, Optional intLength As Integer = 7) As String
@@ -261,7 +268,7 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
         ' Output the hash
         If Not cmpItem Is Nothing Then
             With cmpItem.CodeModule
-                strHash = GetStringHash(.Lines(1, 999999), intLength)
+                strHash = GetStringHash(.Lines(1, 999999))
             End With
         End If
     
