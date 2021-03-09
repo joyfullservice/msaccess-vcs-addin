@@ -386,21 +386,29 @@ Private Sub ImportLinkedTable(strFile As String)
     Dim dbs As DAO.Database
     Dim tdf As DAO.TableDef
     Dim strSql As String
+    Dim strConnect As String
     
     ' Read json file
     Set dTable = ReadJsonFile(strFile)
     If Not dTable Is Nothing Then
     
         ' Link the table
+        strConnect = GetFullConnect(Decrypt(dItem("Connect")))
         Set dItem = dTable("Items")
         Set dbs = CurrentDb
         Set tdf = dbs.CreateTableDef(dItem("Name"))
         With tdf
-            .Connect = GetFullConnect(Decrypt(dItem("Connect")))
+            .Connect = strConnect
             .SourceTableName = dItem("SourceTableName")
             .Attributes = SafeAttributes(dItem("Attributes"))
         End With
         dbs.TableDefs.Append tdf
+        
+        ' Verify that the connection matches the source file. (Issue #192)
+        If tdf.Connect <> strConnect Then
+            tdf.Connect = strConnect
+            tdf.RefreshLink
+        End If
         dbs.TableDefs.Refresh
         
         ' Set index on linked table.
