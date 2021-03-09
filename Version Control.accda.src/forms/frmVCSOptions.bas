@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =228
     Left =-25575
     Top =1710
-    Right =-5925
+    Right =-255
     Bottom =14295
     DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
@@ -4201,7 +4201,7 @@ Private Sub cmdSaveAndClose_Click()
     DoCmd.Close acForm, Me.Name
     
     ' Update main form if options changed.
-    If IsLoaded(acForm, "frmVCSMain") Then Form_frmVCSMain.Form_Load
+    If IsLoaded(acForm, "frmVCSMain", True) Then Form_frmVCSMain.Form_Load
     
 End Sub
 
