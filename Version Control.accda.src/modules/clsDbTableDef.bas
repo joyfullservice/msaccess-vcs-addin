@@ -393,10 +393,10 @@ Private Sub ImportLinkedTable(strFile As String)
     If Not dTable Is Nothing Then
     
         ' Link the table
-        strConnect = GetFullConnect(Decrypt(dItem("Connect")))
         Set dItem = dTable("Items")
         Set dbs = CurrentDb
         Set tdf = dbs.CreateTableDef(dItem("Name"))
+        strConnect = GetFullConnect(Decrypt(dItem("Connect")))
         With tdf
             .Connect = strConnect
             .SourceTableName = dItem("SourceTableName")
