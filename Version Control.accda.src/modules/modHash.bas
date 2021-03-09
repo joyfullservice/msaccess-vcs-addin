@@ -131,14 +131,14 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function HashBytes(Data() As Byte, Optional HashingAlgorithm As String = "SHA512") As Byte()
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    On Error Resume Next
     HashBytes = NGHash(VarPtr(Data(LBound(Data))), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
     If Catch(9) Then HashBytes = NGHash(VarPtr(Null), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
     CatchAny eelCritical, "Error hashing data!", ModuleName & ".HashBytes", True, True
 End Function
 
 Private Function HashString(str As String, Optional HashingAlgorithm As String = "SHA512") As Byte()
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    On Error Resume Next
     HashString = NGHash(StrPtr(str), Len(str) * 2, HashingAlgorithm)
     If Catch(9) Then HashString = NGHash(StrPtr(vbNullString), Len(str) * 2, HashingAlgorithm)
     CatchAny eelCritical, "Error hashing string!", ModuleName & ".HashString", True, True
