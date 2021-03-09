@@ -33,7 +33,7 @@ Public Sub SanitizeFile(strPath As String)
     Dim sngStartTime As Single
     Dim strTempFile As String
     
-    On Error Resume Next
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
 
     ' Read text from file, and split into lines
     If HasUcs2Bom(strPath) Then

@@ -67,7 +67,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
-    On Error Resume Next
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
     
     ' Read in references from file
     Set dFile = ReadJsonFile(strFile)

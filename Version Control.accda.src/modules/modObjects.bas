@@ -93,7 +93,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get FSO() As Scripting.FileSystemObject
-    On Error Resume Next
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
     If m_FSO Is Nothing Then Set m_FSO = New Scripting.FileSystemObject
     Set FSO = m_FSO
     CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", ModuleName & ".FSO"
@@ -120,3 +120,16 @@ End Property
 Public Property Set VCSIndex(cIndex As clsVCSIndex)
     Set m_VCSIndex = cIndex
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DebugMode
+' Author    : Adam Waller
+' Date      : 3/9/2021
+' Purpose   : Wrapper for use in error handling.
+'---------------------------------------------------------------------------------------
+'
+Public Function DebugMode() As Boolean
+    ' Don't reference the property this till we have loaded the options.
+    If Not m_Options Is Nothing Then DebugMode = m_Options.BreakOnError
+End Function
