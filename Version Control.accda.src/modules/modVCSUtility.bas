@@ -191,6 +191,7 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
         Case Else
             ' Handle UCS conversion if needed
             ConvertUcs2Utf8 strTempFile, strFile
+        
     End Select
     
     ' Normal exit

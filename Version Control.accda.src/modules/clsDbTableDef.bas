@@ -300,14 +300,14 @@ Private Function IndexAvailable(tdf As TableDef) As Boolean
 
     Dim lngTest As Long
     
-    On Error Resume Next
+    If DebugMode Then On Error Resume Next Else On Error Resume Next
     lngTest = tdf.Indexes.Count
     If Err Then
         Err.Clear
     Else
         IndexAvailable = True
     End If
-    On Error GoTo 0
+    CatchAny eelNoError, vbNullString, , False
     
 End Function
 

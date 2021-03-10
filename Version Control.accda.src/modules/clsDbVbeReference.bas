@@ -12,6 +12,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+Const ModuleName = "clsDbVbeReference"
+
 Private m_Ref As VBIDE.Reference
 Private m_AllItems As Collection
 
@@ -82,7 +84,6 @@ Private Sub IDbComponent_Import(strFile As String)
         
         ' Add any references from file that don't already exist
         Set dItems = dFile("Items")
-        On Error Resume Next
         For Each varKey In dItems.Keys
             Set dRef = dItems(varKey)
             If Not dExisting.Exists(CStr(varKey)) Then
@@ -95,17 +96,17 @@ Private Sub IDbComponent_Import(strFile As String)
                         Log.Error eelError, "File not found. Unable to add reference to " & strPath, "clsVbeReference.Import"
                     Else
                         proj.References.AddFromFile strPath
-                        CatchAny eelError, "Adding VBE reference from " & strPath
+                        CatchAny eelError, "Adding VBE reference from " & strPath, ModuleName & ".Import"
                     End If
                 End If
             End If
         Next varKey
-        CatchAny eelError, "Adding VBE references"
-        On Error GoTo 0
     End If
     
     ' Update index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
+    
+    CatchAny eelError, "Importing VBE references", ModuleName & ".Import"
     
 End Sub
 

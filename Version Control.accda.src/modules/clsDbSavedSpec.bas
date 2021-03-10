@@ -35,7 +35,7 @@ Private Sub IDbComponent_Export()
     
     Set dSpec = New Dictionary
     
-    On Error Resume Next
+    If DebugMode Then On Error Resume Next Else On Error Resume Next
     ' For some reason it throws an error if there is no
     ' description in the specification.
     With dSpec
@@ -43,8 +43,7 @@ Private Sub IDbComponent_Export()
         .Add "Description", m_Spec.Description
         .Add "XML", SecureBetween(m_Spec.XML, "<ImportExportSpecification Path = """, """")
     End With
-    If Err Then Err.Clear
-    On Error GoTo 0
+    CatchAny eelNoError, vbNullString, , False
     
     ' Write as Json format.
     WriteJsonFile TypeName(Me), dSpec, IDbComponent_SourceFile, "Saved Import/Export Specification"

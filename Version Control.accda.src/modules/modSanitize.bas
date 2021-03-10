@@ -212,7 +212,7 @@ Public Sub SanitizeXML(strPath As String, Options As clsOptions)
     Dim stmInFile As ADODB.Stream
     Dim blnFound As Boolean
     
-    On Error GoTo 0
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
     
     Set cData = New clsConcat
     Set rxLine = New VBScript_RegExp_55.RegExp

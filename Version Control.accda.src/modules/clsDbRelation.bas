@@ -116,14 +116,13 @@ Private Sub IDbComponent_Import(strFile As String)
         ' Relationships create indexes, so we need to make sure an index
         ' with this name doesn't already exist. (Also check to be sure that
         ' we don't already have a relationship with this name.
-        On Error Resume Next
+        If DebugMode Then On Error Resume Next Else On Error Resume Next
         With dbs
             .TableDefs(rel.Table).Indexes.Delete rel.Name
             .TableDefs(rel.ForeignTable).Indexes.Delete rel.Name
             .Relations.Delete rel.Name
         End With
-        If Err Then Err.Clear
-        On Error GoTo 0
+        CatchAny eelNoError, vbNullString, , False
         
         ' Add relationship to database
         dbs.Relations.Append rel
