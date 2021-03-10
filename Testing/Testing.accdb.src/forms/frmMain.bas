@@ -13,9 +13,9 @@ Begin Form
     Width =8520
     DatasheetFontHeight =11
     ItemSuffix =13
-    Right =25575
-    Bottom =12585
-    DatasheetGridlinesColor =14806254
+    Right =15975
+    Bottom =11745
+    DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x18691eff0b76e540
     End
@@ -186,10 +186,10 @@ Begin Form
                     LayoutCachedWidth =8520
                     LayoutCachedHeight =3660
                     PictureCaptionArrangement =5
-                    BackColor =14136213
-                    BorderColor =14136213
-                    HoverColor =15060409
-                    PressedColor =9592887
+                    BackColor =14461583
+                    BorderColor =14461583
+                    HoverColor =15189940
+                    PressedColor =9917743
                     HoverForeColor =4210752
                     PressedForeColor =4210752
                     WebImagePaddingLeft =2
@@ -314,10 +314,10 @@ Begin Form
                     LayoutCachedWidth =8520
                     LayoutCachedHeight =4620
                     PictureCaptionArrangement =5
-                    BackColor =14136213
-                    BorderColor =14136213
-                    HoverColor =15060409
-                    PressedColor =9592887
+                    BackColor =14461583
+                    BorderColor =14461583
+                    HoverColor =15189940
+                    PressedColor =9917743
                     HoverForeColor =4210752
                     PressedForeColor =4210752
                     WebImagePaddingLeft =2
@@ -469,6 +469,8 @@ Public Sub cmdRunTests_Click()
     ' Modules
     strTest = CurrentProject.AllModules("basUtility").Name
     ShowResult "Standard Module exists", (strTest = "basUtility")
+    strTest = GetVBProjectForCurrentDB.VBComponents("basExtendedChars").CodeModule.Lines(6, 1)
+    ShowResult "Extended ASCII text in VBA", (Mid$(strTest, 10, 1) = Chr(151))
     
     strTest = CurrentProject.AllModules("clsPerson").Name
     ShowResult "Class Module exists", (strTest = "clsPerson")

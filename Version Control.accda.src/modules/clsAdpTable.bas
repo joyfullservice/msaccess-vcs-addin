@@ -220,7 +220,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = Options.GetExportFolder & "sqltables\"
+    IDbComponent_BaseFolder = Options.GetExportFolder & "sqltables" & PathSep
 End Property
 
 

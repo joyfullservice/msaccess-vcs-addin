@@ -9,6 +9,8 @@ Option Private Module
 Option Explicit
 
 
+Private Const ModuleName = "modObjects"
+
 ' Logging and options classes
 Private m_Perf As clsPerformance
 Private m_Log As clsLog
@@ -17,7 +19,7 @@ Private m_VCSIndex As clsVCSIndex
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
-Private m_FSO As FileSystemObject
+Private m_FSO As Scripting.FileSystemObject
 
 
 '---------------------------------------------------------------------------------------
@@ -90,11 +92,13 @@ End Function
 '           : reference when we have completed an export or import operation.
 '---------------------------------------------------------------------------------------
 '
-Public Property Get FSO() As FileSystemObject
-    If m_FSO Is Nothing Then Set m_FSO = New FileSystemObject
+Public Property Get FSO() As Scripting.FileSystemObject
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If m_FSO Is Nothing Then Set m_FSO = New Scripting.FileSystemObject
     Set FSO = m_FSO
+    CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", ModuleName & ".FSO"
 End Property
-Public Property Set FSO(ByVal RHS As FileSystemObject)
+Public Property Set FSO(ByVal RHS As Scripting.FileSystemObject)
     Set m_FSO = RHS
 End Property
 
@@ -116,3 +120,58 @@ End Property
 Public Property Set VCSIndex(cIndex As clsVCSIndex)
     Set m_VCSIndex = cIndex
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DebugMode
+' Author    : Adam Waller
+' Date      : 3/9/2021
+' Purpose   : Wrapper for use in error handling.
+'---------------------------------------------------------------------------------------
+'
+Public Function DebugMode() As Boolean
+    
+    ' Don't reference the property this till we have loaded the options.
+    If Not m_Options Is Nothing Then DebugMode = m_Options.BreakOnError
+    
+    ' Check for any unhandled errors
+    If Err.Number <> 0 Then
+    
+        ' Check current debug mode
+        If DebugMode Then
+            ' Stop the code here so we can investigate the source of the error.
+            Debug.Print "Error " & Err.Number & ": " & Err.Description
+            Stop
+            '===========================================================================
+            '   NOTE: IF THE CODE STOPS HERE, PLEASE READ BEFORE CONTINUING
+            '===========================================================================
+            '   An unhandled error was (probably) found just before an `On Error ...`
+            '   statement. Since any existing errors are cleared when the On Error
+            '   statement is executed, this is your chance to identify the source of the
+            '   unhandled error.
+            '
+            '   Note that the error will typically be from the THIRD item in the call
+            '   stack, if the On Error statement is at the beginning of the calling
+            '   procedure. Use CTL+L to view the call stack. For example:
+            '
+            '   (1) MSAccessVCS.modObjects.DebugMode    <--- This function
+            '   (2) MSAccessVCS.clsLog.Flush            <--- Calling function
+            '   (3) MSAccessVCS.clsLog.Add              <--- Likely origin of error
+            '
+            '   You can use standard VBA debugging techniques to inspect variables and
+            '   step through code to pinpoint the source and cause of the error.
+            '   For additional information, please see the add-in wiki on GitHub at:
+            '   https://github.com/joyfullservice/msaccess-vcs-integration/wiki
+            '===========================================================================
+        Else
+            ' Log otherwise unhandled error
+            If Not m_Log Is Nothing Then
+                ' We don't know the procedure that it originated from, but we should at least
+                ' log that the error occurred. A review of the log file may help identify the source.
+                Log.Error eelError, "Unhandled error found before `On Error` directive", "Unknown"
+            End If
+        End If
+    
+    End If
+    
+End Function

@@ -46,7 +46,6 @@ Private Sub IDbComponent_Export()
 
     Dim strFile As String
     Dim dItem As Dictionary
-    Dim stm As ADODB.Stream
     
     ' Build header file
     Set dItem = New Dictionary
@@ -59,8 +58,8 @@ Private Sub IDbComponent_Export()
     
     ' Save image file using extension from embedded file.
     strFile = IDbComponent_BaseFolder & FSO.GetBaseName(IDbComponent_SourceFile) & "." & FSO.GetExtensionName(m_FileName)
-    Set stm = New ADODB.Stream
-    With stm
+
+    With New ADODB.Stream
         .Type = adTypeBinary
         .Open
         .Write StripOLEHeader(m_FileData)     ' Binary data
@@ -324,7 +323,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = Options.GetExportFolder & "images\"
+    IDbComponent_BaseFolder = Options.GetExportFolder & "images" & PathSep
 End Property
 
 

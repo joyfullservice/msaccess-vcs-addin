@@ -1,4 +1,4 @@
-Version =20
+﻿Version =20
 VersionRequired =20
 Begin Form
     PopUp = NotDefault
@@ -21,7 +21,7 @@ Begin Form
     Top =2430
     Right =-6105
     Bottom =10335
-    DatasheetGridlinesColor =14806254
+    DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -1419,7 +1419,7 @@ Begin Form
                     Width =2160
                     FontSize =9
                     TabIndex =4
-                    ForeColor =16711680
+                    ForeColor =12673797
                     Name ="cmdExplainOptions"
                     Caption ="Explain options..."
                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Installation"
@@ -1527,10 +1527,10 @@ Begin Form
                     LayoutCachedTop =120
                     LayoutCachedWidth =7080
                     LayoutCachedHeight =300
-                    BackColor =14136213
-                    BorderColor =14136213
-                    HoverColor =15060409
-                    PressedColor =9592887
+                    BackColor =14461583
+                    BorderColor =14461583
+                    HoverColor =15189940
+                    PressedColor =9917743
                     HoverForeColor =4210752
                     PressedForeColor =4210752
                     WebImagePaddingLeft =2

@@ -243,6 +243,7 @@ Private Sub Class_Initialize()
     m_blnProgressActive = False
     m_sngLastUpdate = 0
     Me.PadLength = 30
+    Me.ErrorLevel = eelNoError
 End Sub
 
 

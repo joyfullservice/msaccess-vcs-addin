@@ -220,6 +220,53 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetExportDate
+' Author    : Adam Waller
+' Date      : 2/26/2021
+' Purpose   : Return the date/time the index records this item as exported.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetExportDate(cItem As IDbComponent) As Date
+    GetExportDate = GetDateValue(cItem, "ExportDate")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetImportDate
+' Author    : Adam Waller
+' Date      : 2/26/2021
+' Purpose   : Return the date/time the index records this item as imported.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetImportDate(cItem As IDbComponent) As Date
+    GetImportDate = GetDateValue(cItem, "ImportDate")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDateValue
+' Author    : Adam Waller
+' Date      : 2/26/2021
+' Purpose   : Return a date value from an index key (or 0 if missing)
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDateValue(cItem As IDbComponent, strKey As String) As Date
+
+    Dim varDate As Variant
+    
+    ' Look for Export Date in dictionary
+    varDate = Item(cItem)(strKey)
+    If IsDate(varDate) Then
+        GetDateValue = CDate(varDate)
+    Else
+        ' Return blank date
+        GetDateValue = 0
+    End If
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Exists
 ' Author    : Adam Waller
 ' Date      : 12/2/2020
@@ -311,7 +358,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
                 blnModified = True
                 If Me.Exists(cCategory, strFile) Then
                     ' Build the path to find the item in the index.
-                    strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "SourceModified"), "\")
+                    strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "SourceModified"), PathSep)
                     ' Compare modified date of file with modified date in index.
                     ' File is considered not modified if the index date matches the file modification date.
                     blnModified = Not dNZ(m_dIndex, strPath) = GetLastModifiedDate(strFile)

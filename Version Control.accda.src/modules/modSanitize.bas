@@ -33,7 +33,7 @@ Public Sub SanitizeFile(strPath As String)
     Dim sngStartTime As Single
     Dim strTempFile As String
     
-    On Error Resume Next
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
 
     ' Read text from file, and split into lines
     If HasUcs2Bom(strPath) Then
@@ -212,7 +212,7 @@ Public Sub SanitizeXML(strPath As String, Options As clsOptions)
     Dim stmInFile As ADODB.Stream
     Dim blnFound As Boolean
     
-    On Error GoTo 0
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
     
     Set cData = New clsConcat
     Set rxLine = New VBScript_RegExp_55.RegExp
@@ -227,7 +227,7 @@ Public Sub SanitizeXML(strPath As String, Options As clsOptions)
     
     ' Open file to read contents line by line.
     Set stmInFile = New ADODB.Stream
-    stmInFile.Charset = "UTF-8"
+    stmInFile.Charset = "utf-8"
     stmInFile.Open
     stmInFile.LoadFromFile strPath
     strText = stmInFile.ReadText(adReadLine)

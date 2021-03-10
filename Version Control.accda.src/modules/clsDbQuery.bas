@@ -183,7 +183,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = (m_Query.DateModified > VCSIndex.Item(Me).Item("ExportDate"))
+    IDbComponent_IsModified = (m_Query.DateModified > VCSIndex.GetExportDate(Me))
 End Function
 
 
@@ -235,7 +235,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = Options.GetExportFolder & "queries\"
+    IDbComponent_BaseFolder = Options.GetExportFolder & "queries" & PathSep
 End Property
 
 

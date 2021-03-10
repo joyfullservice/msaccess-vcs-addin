@@ -12,6 +12,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+Private Const ModuleName As String = "clsDbVbeProject"
+
 Private m_Project As VBIDE.VBProject
 Private m_AllItems As Collection
 
@@ -69,15 +71,10 @@ Private Sub IDbComponent_Import(strFile As String)
         ' Setting the HelpContextId can throw random automation errors.
         ' The setting does change despite the error.
         HelpID = dNZ(dProject, "Items\HelpContextId")
-        On Error Resume Next
+        If DebugMode Then On Error Resume Next Else On Error Resume Next
         .HelpContextId = dNZ(dProject, "Items\HelpContextId")
-        If Err.Number <> 0 Then
-            ' If we failed to set the ID then it was a real error, throw it
-            If .HelpContextId <> HelpID Then Err.Raise Err.Number, , Err.Description
-            Err.Clear
-        End If
-        On Error GoTo 0
-        
+        ' If we failed to set the ID then it was a real error, throw it
+        If .HelpContextId <> HelpID Then CatchAny eelError, "Failed to set help context"
         .HelpFile = dNZ(dProject, "Items\HelpFile")
         ' // Read-only properties
         '.FileName = dNZ(dProject, "Items\FileName")
@@ -85,6 +82,8 @@ Private Sub IDbComponent_Import(strFile As String)
         '.Protection = dNZ(dProject, "Items\Protection")
         '.Type = dNZ(dProject, "Items\Type")
     End With
+    
+    CatchAny eelError, "Importing VBE Project", ModuleName & ".Import"
     
     ' Save to index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)

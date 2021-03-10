@@ -52,7 +52,7 @@ Private Sub IDbComponent_Export()
     Dim rstAtc As Recordset2
     Dim strSql As String
     
-    On Error Resume Next
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
 
     ' Query theme file details
     strSql = "SELECT [Data] FROM MSysResources WHERE [Name]='" & m_Name & "' AND Extension='" & m_Extension & "'"
@@ -90,7 +90,7 @@ Private Sub IDbComponent_Export()
     If Options.ExtractThemeFiles Then
         Perf.OperationStart "Extract Theme"
         ' Extract to folder and delete zip file.
-        strFolder = FSO.GetParentFolderName(strFile) & "\" & FSO.GetBaseName(strFile)
+        strFolder = FSO.BuildPath(FSO.GetParentFolderName(strFile), FSO.GetBaseName(strFile))
         If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
         DoEvents ' Make sure the folder is deleted before we recreate it.
         ' Rename to zip file before extracting
@@ -124,7 +124,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strSql As String
     Dim blnIsFolder As Boolean
     
-    On Error Resume Next
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
     
     ' Are we dealing with a folder, or a file?
     blnIsFolder = (Right$(strFile, 5) <> ".thmx")
@@ -389,7 +389,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = Options.GetExportFolder & "themes\"
+    IDbComponent_BaseFolder = Options.GetExportFolder & "themes" & PathSep
 End Property
 
 

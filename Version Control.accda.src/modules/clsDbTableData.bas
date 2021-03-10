@@ -145,7 +145,7 @@ Private Sub ImportTableDataTDF(strFile As String)
     ' Read file line by line
     Set stm = New ADODB.Stream
     With stm
-        .Charset = "UTF-8"
+        .Charset = "utf-8"
         .Open
         .LoadFromFile strFile
     End With
@@ -468,7 +468,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = Options.GetExportFolder & "tables\"
+    IDbComponent_BaseFolder = Options.GetExportFolder & "tables" & PathSep
 End Property
 
 

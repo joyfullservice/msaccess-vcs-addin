@@ -19,7 +19,7 @@ Option Explicit
 '
 Public Function ProjectPath() As String
     ProjectPath = CurrentProject.Path
-    If Right$(ProjectPath, 1) <> "\" Then ProjectPath = ProjectPath & "\"
+    If Right$(ProjectPath, 1) <> PathSep Then ProjectPath = ProjectPath & PathSep
 End Function
 
 
@@ -437,7 +437,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
-    On Error Resume Next
+    If DebugMode Then On Error Resume Next Else On Error Resume Next
     DoCmd.DeleteObject intType, strName
     Catch 7874 ' Object not found
     CatchAny eelError, "Deleting object " & strName

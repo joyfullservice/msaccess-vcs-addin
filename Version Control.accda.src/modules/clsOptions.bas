@@ -34,6 +34,9 @@ Public RunAfterBuild As String
 Public Security As eSecurity
 Public KeyName As String
 Public ShowVCSLegacy As Boolean
+Public HashAlgorithm As String
+Public UseShortHash As Boolean
+Public BreakOnError As Boolean
 
 ' Constants for enum values
 ' (These values are not permanently stored and
@@ -82,6 +85,8 @@ Public Sub LoadDefaults()
         .Security = esNone
         .KeyName = modEncrypt.DefaultKeyName
         .ShowVCSLegacy = True
+        .HashAlgorithm = "SHA256"
+        .UseShortHash = True
 
         ' Table data export
         Set .TablesToExportData = New Dictionary
@@ -177,7 +182,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub SaveOptionsAsDefault()
-    Me.SaveOptionsToFile CodeProject.Path & "\" & FSO.GetBaseName(CodeProject.Name) & ".json"
+    Me.SaveOptionsToFile FSO.BuildPath(CodeProject.Path, FSO.GetBaseName(CodeProject.Name)) & ".json"
 End Sub
 
 
@@ -276,7 +281,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadDefaultOptions()
-    LoadOptionsFromFile CodeProject.Path & "\" & FSO.GetBaseName(CodeProject.Name) & ".json"
+    LoadOptionsFromFile FSO.BuildPath(CodeProject.Path, FSO.GetBaseName(CodeProject.Name)) & ".json"
 End Sub
 
 
@@ -307,12 +312,12 @@ Public Function GetExportFolder() As String
 
     If Me.ExportFolder = vbNullString Then
         ' Build default path using project file name
-        strFullPath = CurrentProject.FullName & ".src\"
+        strFullPath = CurrentProject.FullName & ".src" & PathSep
     Else
-        If Left$(Me.ExportFolder, 2) = "\\" Then
+        If Left$(Me.ExportFolder, 2) = PathSep & PathSep Then
             ' UNC path
             strFullPath = Me.ExportFolder
-        ElseIf Left$(Me.ExportFolder, 1) = "\" Then
+        ElseIf Left$(Me.ExportFolder, 1) = PathSep Then
             ' Relative path (from database file location)
             strFullPath = CurrentProject.Path & Me.ExportFolder
         Else
@@ -327,7 +332,7 @@ Public Function GetExportFolder() As String
 
     ' Check to make sure we have built a valid path.
     Select Case strFullPath
-        Case "\\", "\", ".src\", vbNullString
+        Case PathSep & PathSep, PathSep, ".src" & PathSep, vbNullString
             ' Invalid paths
             MsgBox2 "Cannot determine export path", _
                 "A database file must be open to return a relative export path.", _
@@ -336,7 +341,7 @@ Public Function GetExportFolder() As String
             GetExportFolder = vbNullString
         Case Else
             ' Return export path with a trailing slash
-            GetExportFolder = StripSlash(strFullPath) & "\"
+            GetExportFolder = StripSlash(strFullPath) & PathSep
     End Select
 
 End Function
@@ -527,6 +532,9 @@ Private Sub Class_Initialize()
         .Add "Security"
         .Add "KeyName"
         .Add "ShowVCSLegacy"
+        .Add "HashAlgorithm"
+        .Add "UseShortHash"
+        .Add "BreakOnError"
     End With
 
     ' Load default values

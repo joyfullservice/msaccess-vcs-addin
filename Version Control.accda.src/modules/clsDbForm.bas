@@ -144,17 +144,13 @@ Public Function IDbComponent_IsModified() As Boolean
     ' Item is considered modified unless proven otherwise.
     IDbComponent_IsModified = True
     
-    With VCSIndex.Item(Me)
-        
-        ' Check the modified date first.
-        ' (This may not reflect some code changes)
-        If m_Form.DateModified <= .Item("ExportDate") Then
-                
-            ' Date is okay, check hash
-            IDbComponent_IsModified = .Item("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
-        End If
-        
-    End With
+    ' Check the modified date first.
+    ' (This may not reflect some code changes)
+    If m_Form.DateModified <= VCSIndex.GetExportDate(Me) Then
+            
+        ' Date is okay, check hash
+        IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
+    End If
 
 End Function
 
@@ -207,7 +203,7 @@ End Property
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = Options.GetExportFolder & "forms\"
+    IDbComponent_BaseFolder = Options.GetExportFolder & "forms" & PathSep
 End Property
 
 

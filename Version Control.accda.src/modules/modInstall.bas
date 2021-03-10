@@ -110,7 +110,7 @@ Public Function InstallVCSAddin() As Boolean
     ' Copy the file, overwriting any existing file.
     ' Requires FSO to copy open database files. (VBA.FileCopy may give a permission denied error.)
     ' We also use FSO to force the deletion of the existing file, if found.
-    On Error Resume Next
+    If DebugMode Then On Error Resume Next Else On Error Resume Next
     If FSO.FileExists(strDest) Then DeleteFile strDest, True
     FSO.CopyFile strSource, strDest, True
     If Err Then
@@ -119,9 +119,8 @@ Public Function InstallVCSAddin() As Boolean
             "Is the Version Control Add-in loaded in another instance of Microsoft Access?" & vbCrLf & _
             "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
         Err.Clear
-        On Error GoTo 0
     Else
-        On Error GoTo 0
+        If DebugMode Then On Error GoTo 0 Else On Error Resume Next
 
         ' Register the Menu controls
         RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
@@ -151,7 +150,7 @@ Public Function UninstallVCSAddin() As Boolean
     
     ' Copy the file, overwriting any existing file.
     ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
-    On Error Resume Next
+    If DebugMode Then On Error Resume Next Else On Error Resume Next
     DeleteFile strDest, True
     On Error GoTo 0
     
@@ -173,7 +172,7 @@ Public Function UninstallVCSAddin() As Boolean
         RemoveMenuItem "&Export All Source"
         
         ' Remove registry entries
-        On Error Resume Next
+        If DebugMode Then On Error Resume Next Else On Error Resume Next
         DeleteSetting GetCodeVBProject.Name, "Install"
         DeleteSetting GetCodeVBProject.Name, "Build"
         DeleteSetting GetCodeVBProject.Name, "Add-In"
@@ -203,7 +202,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetAddinFileName() As String
-    GetAddinFileName = Environ$("AppData") & "\MSAccessVCS\" & CodeProject.Name
+    GetAddinFileName = FSO.BuildPath(FSO.BuildPath(Environ$("AppData"), "MSAccessVCS"), CodeProject.Name)
 End Function
 
 
@@ -229,7 +228,7 @@ Public Function IsAlreadyInstalled() As Boolean
             ' Check HKLM registry key
             With New IWshRuntimeLibrary.WshShell
                 ' We should have a value here if the install ran in the past.
-                On Error Resume Next
+                If DebugMode Then On Error Resume Next Else On Error Resume Next
                 strTest = .RegRead(strPath)
             End With
             
@@ -317,7 +316,7 @@ Private Sub RemoveMenuItem(ByVal strName As String, Optional Hive As eHive = ehH
     Set objShell = New WshShell
     With objShell
         ' Just in case someone changed some of the keys...
-        On Error Resume Next
+        If DebugMode Then On Error Resume Next Else On Error Resume Next
         .RegDelete strPath & "Expression"
         .RegDelete strPath & "Library"
         .RegDelete strPath & "Version"
@@ -336,7 +335,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub RelaunchAsAdmin()
-    ShellExecute 0, "runas", SysCmd(acSysCmdAccessDir) & "\msaccess.exe", """" & GetAddinFileName & """", vbNullString, SW_SHOWNORMAL
+    ShellExecute 0, "runas", FSO.BuildPath(SysCmd(acSysCmdAccessDir), "msaccess.exe"), """" & GetAddinFileName & """", vbNullString, SW_SHOWNORMAL
 End Sub
 
 
@@ -392,7 +391,7 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Same_Version)
     VBE.ActiveVBProject.Description = "Version " & AppVersion & " deployed on " & Date
     
     ' Save copy to zip folder
-    strBinaryFile = CodeProject.Path & "\Version_Control_v" & AppVersion & ".zip"
+    strBinaryFile = FSO.BuildPath(CodeProject.Path, "Version_Control_v" & AppVersion & ".zip")
     If FSO.FileExists(strBinaryFile) Then DeleteFile strBinaryFile, True
     CreateZipFile strBinaryFile
     CopyFileToZip CodeProject.FullName, strBinaryFile
@@ -429,7 +428,7 @@ Public Sub CheckForLegacyInstall()
         ' Check for installation in HKLM hive.
         strOldPath = GetAddinRegPath(ehHKLM) & "&Version Control\Library"
         Set objShell = New IWshRuntimeLibrary.WshShell
-        On Error Resume Next
+        If DebugMode Then On Error Resume Next Else On Error Resume Next
         strTest = objShell.RegRead(strOldPath)
         If Err Then Err.Clear
         On Error GoTo 0
@@ -448,7 +447,7 @@ Public Sub CheckForLegacyInstall()
     ElseIf InstalledVersion < "3.3.0" Then
         
         ' Check for install in AddIns folder (before we used the dedicated install folder)
-        strOldPath = Environ$("AppData") & "\Microsoft\AddIns\" & CodeProject.Name
+        strOldPath = BuildPath2(Environ$("AppData"), "Microsoft", "AddIns", CodeProject.Name)
         
         ' Remove add-in from legacy location
         If FSO.FileExists(strOldPath) Then DeleteFile strOldPath
@@ -537,7 +536,7 @@ Public Function VerifyTrustedLocation() As Boolean
 
     ' Get registry path for trusted locations
     strPath = GetTrustedLocationRegPath
-    strTrusted = FSO.GetParentFolderName(GetAddinFileName) & "\"
+    strTrusted = FSO.GetParentFolderName(GetAddinFileName) & PathSep
 
     ' Use Windows Scripting Shell to read/write to registry
     With New IWshRuntimeLibrary.WshShell
@@ -601,7 +600,7 @@ Public Sub RemoveTrustedLocation(Optional strName As String)
     strPath = GetTrustedLocationRegPath(strName)
     
     With New IWshRuntimeLibrary.WshShell
-        On Error Resume Next
+        If DebugMode Then On Error Resume Next Else On Error Resume Next
         .RegDelete strPath & "Path"
         .RegDelete strPath & "Date"
         .RegDelete strPath & "Description"
@@ -650,7 +649,7 @@ End Function
 '
 Public Function HasTrustedLocationKey(Optional strName As String) As Boolean
     With New IWshRuntimeLibrary.WshShell
-        On Error Resume Next
+        If DebugMode Then On Error Resume Next Else On Error Resume Next
         HasTrustedLocationKey = Nz(.RegRead(GetTrustedLocationRegPath(strName) & "Path")) <> vbNullString
     End With
 End Function

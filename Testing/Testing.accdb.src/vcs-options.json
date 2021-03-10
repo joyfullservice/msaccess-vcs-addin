@@ -1,6 +1,6 @@
-{
+﻿{
   "Info": {
-    "AddinVersion": "3.2.3",
+    "AddinVersion": "3.3.12",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
@@ -56,6 +56,9 @@
     "RunAfterBuild": "RunAfterBuild",
     "Security": "None",
     "KeyName": "VCS",
-    "ShowVCSLegacy": true
+    "ShowVCSLegacy": true,
+    "HashAlgorithm": "SHA256",
+    "UseShortHash": true,
+    "BreakOnError": true
   }
 }

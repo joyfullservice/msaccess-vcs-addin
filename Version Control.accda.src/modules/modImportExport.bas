@@ -25,7 +25,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Dim lngCount As Long
     
     ' Use inline error handling functions to trap and log errors.
-    On Error Resume Next
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
     
     ' Can't export without an open database
     If CurrentDb Is Nothing And CurrentProject.Connection Is Nothing Then Exit Sub
@@ -187,7 +187,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     Dim strText As String   ' Remove later
     
-    On Error Resume Next
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
     
     ' The type of build will be used in various messages and log entries.
     strType = IIf(blnFullBuild, "Build", "Merge")
@@ -430,7 +430,7 @@ Private Function GetBackupFileName(strPath As String) As String
     Dim strFolder As String
     Dim strIncrement As String
     
-    strFolder = FSO.GetParentFolderName(strPath) & "\"
+    strFolder = FSO.GetParentFolderName(strPath) & PathSep
     strFile = FSO.GetFileName(strPath)
     strBase = FSO.GetBaseName(strFile) & cstrSuffix
     strExt = "." & FSO.GetExtensionName(strFile)
@@ -463,7 +463,7 @@ End Function
 Public Sub RemoveThemeZipFiles()
     Dim strFolder As String
     If Options.ExtractThemeFiles Then
-        strFolder = Options.GetExportFolder & "themes\"
+        strFolder = Options.GetExportFolder & "themes" & PathSep
         If FSO.FolderExists(strFolder) Then ClearFilesByExtension strFolder, "zip"
     End If
 End Sub
@@ -510,7 +510,7 @@ Private Sub CheckForLegacyModules()
 
     ' Check for legacy file
     If Options.ShowVCSLegacy Then
-        If FSO.FileExists(Options.GetExportFolder & "modules\VCS_ImportExport.bas") Then
+        If FSO.FileExists(Options.GetExportFolder & FSO.BuildPath("modules", "VCS_ImportExport.bas")) Then
             MsgBox2 "Legacy Files not Needed", _
                 "Other forks of the MSAccessVCS project used additional VBA modules to export code." & vbCrLf & _
                 "This is no longer needed when using the installed Version Control Add-in." & vbCrLf & vbCrLf & _

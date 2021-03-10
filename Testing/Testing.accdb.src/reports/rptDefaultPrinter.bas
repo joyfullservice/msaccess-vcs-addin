@@ -1,4 +1,4 @@
-Version =20
+﻿Version =20
 VersionRequired =20
 Begin Report
     LayoutForPrint = NotDefault
@@ -13,7 +13,7 @@ Begin Report
     Width =8884
     DatasheetFontHeight =11
     ItemSuffix =1
-    DatasheetGridlinesColor =14806254
+    DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0xe05ff061b477e540
     End

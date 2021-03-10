@@ -1,4 +1,4 @@
-Version =20
+﻿Version =20
 VersionRequired =20
 Begin Form
     PopUp = NotDefault
@@ -16,11 +16,11 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =32
-    Left =3225
-    Top =2430
-    Right =28545
-    Bottom =15015
-    DatasheetGridlinesColor =14806254
+    Left =-25575
+    Top =1710
+    Right =-5925
+    Bottom =14295
+    DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -1642,7 +1642,7 @@ Begin Form
                     Height =240
                     FontSize =10
                     BorderColor =10921638
-                    ForeColor =16711680
+                    ForeColor =12673797
                     Name ="lblOpenLogFile"
                     Caption ="Open Log File..."
                     OnClick ="[Event Procedure]"
@@ -2023,7 +2023,7 @@ End Sub
 '           : is instant when the form is opened.
 '---------------------------------------------------------------------------------------
 '
-Private Sub Form_Load()
+Public Sub Form_Load()
 
     ' Display version (better performance than bound control)
     lblVersion.Caption = "Version " & GetVCSVersion()

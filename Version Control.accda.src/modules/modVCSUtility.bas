@@ -179,8 +179,8 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
         Case acModule '(ANSI text file)
             ' Modules may contain extended characters that need UTF-8 conversion
             ' to display correctly in some editors.
-            If StringHasUnicode(ReadFile(strTempFile, "_autodetect_all")) Then
-                ' Convert to UTF-8 BOM
+            If StringHasExtendedASCII(ReadFile(strTempFile, GetSystemEncoding)) Then
+                ' Convert to UTF-8
                 ConvertAnsiUtf8 strTempFile, strFile
             Else
                 ' Leave as ANSI
@@ -191,6 +191,7 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
         Case Else
             ' Handle UCS conversion if needed
             ConvertUcs2Utf8 strTempFile, strFile
+        
     End Select
     
     ' Normal exit
@@ -334,17 +335,17 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
     Dim dContents As Dictionary
     Dim strFile As String
     
-    strPath = StripSlash(strFolder) & "\vbe-project.json"
+    strPath = FSO.BuildPath(strFolder, "vbe-project.json")
     If FSO.FileExists(strPath) Then
         Set dContents = ReadJsonFile(strPath)
         strFile = Decrypt(dNZ(dContents, "Items\FileName"))
         If Left$(strFile, 4) = "rel:" Then
             ' Use parent folder of source folder
-            GetOriginalDbFullPathFromSource = StripSlash(strFolder) & "\..\" & FSO.GetFileName(Mid$(strFile, 5))
+            GetOriginalDbFullPathFromSource = BuildPath2(StripSlash(strFolder), "..", FSO.GetFileName(Mid$(strFile, 5)))
         ElseIf InStr(1, strFile, "@{") > 0 Then
             ' Decryption failed.
             ' We might be able to figure out a relative path from the export path.
-            strPath = StripSlash(strFolder) & "\vcs-options.json"
+            strPath = FSO.BuildPath(strFolder, "vcs-options.json")
             If FSO.FileExists(strPath) Then
                 Set dContents = ReadJsonFile(strPath)
                 ' Make sure we can read something, but that the export folder is blank.
@@ -353,7 +354,7 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
                 If dNZ(dContents, "Info\AddinVersion") <> vbNullString _
                     And dNZ(dContents, "Options\ExportFolder") = vbNullString Then
                     ' Use parent folder of source directory
-                    GetOriginalDbFullPathFromSource = StripSlash(strFolder) & "\..\" & FSO.GetFileName(strFile)
+                    GetOriginalDbFullPathFromSource = BuildPath2(StripSlash(strFolder), "..", FSO.GetFileName(strFile))
                 End If
             End If
         Else
@@ -374,7 +375,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function FolderHasVcsOptionsFile(strFolder As String) As Boolean
-    FolderHasVcsOptionsFile = FSO.FileExists(StripSlash(strFolder) & "\vcs-options.json")
+    FolderHasVcsOptionsFile = FSO.FileExists(FSO.BuildPath(strFolder, "vcs-options.json"))
 End Function
 
 
@@ -530,7 +531,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
             ' See if base file name exists in list of database objects
             If Not dBaseNames.Exists(strBaseName) Then
                 ' Object not found in database. Remove file.
-                DeleteFile oFile.ParentFolder.Path & "\" & oFile.Name, True
+                DeleteFile FSO.BuildPath(oFile.ParentFolder.Path, oFile.Name), True
                 Log.Add "  Removing orphaned file: " & strFile, Options.ShowDebug
             End If
         End If

@@ -556,3 +556,62 @@ Public Function ZNDate(varValue As Variant) As Variant
         ZNDate = Null
     End If
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PathSep
+' Author    : Adam Waller
+' Date      : 3/3/2021
+' Purpose   : Return the current path separator, based on language settings.
+'           : Caches value to avoid extra calls to FSO object.
+'---------------------------------------------------------------------------------------
+'
+Public Function PathSep() As String
+    Static strSeparator As String
+    If strSeparator = vbNullString Then strSeparator = Mid$(FSO.BuildPath("a", "b"), 2, 1)
+    PathSep = strSeparator
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildPath2
+' Author    : Adam Waller
+' Date      : 3/3/2021
+' Purpose   : Like FSO.BuildPath, but with unlimited arguments)
+'---------------------------------------------------------------------------------------
+'
+Public Function BuildPath2(ParamArray Segments())
+    Dim lngPart As Long
+    With New clsConcat
+        For lngPart = LBound(Segments) To UBound(Segments)
+            .Add CStr(Segments(lngPart))
+            If lngPart < UBound(Segments) Then .Add PathSep
+        Next lngPart
+    BuildPath2 = .GetStr
+    End With
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Nz2
+' Author    : Adam Waller
+' Date      : 2/18/2021
+' Purpose   : Extend the NZ function to also include 0 or empty string.
+'---------------------------------------------------------------------------------------
+'
+Public Function Nz2(varValue, Optional varIfNull) As Variant
+    Select Case varValue
+        Case vbNullString, 0
+            If IsMissing(varIfNull) Then
+                Nz2 = vbNullString
+            Else
+                Nz2 = varIfNull
+            End If
+        Case Else
+            If IsNull(varValue) Then
+                Nz2 = varIfNull
+            Else
+                Nz2 = varValue
+            End If
+    End Select
+End Function
