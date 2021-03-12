@@ -41,10 +41,10 @@ Private Sub Class_Initialize()
     If lngInitialPages = 0 Then lngInitialPages = clngInitialPages
     
     ' Set up the initial array of pages.
-    ReDim astrPages(0 To clngInitialPages - 1) As String
+    ReDim astrPages(0 To lngInitialPages - 1) As String
     
     ' Prepare first page
-    astrPages(0) = Space$(clngPageSize)
+    astrPages(0) = Space$(lngPageSize)
     
 End Sub
 
@@ -86,7 +86,7 @@ Private Sub AddString(strAddString As String)
         Do While lngAddStrPos <= lngLen
             
             ' Check to see if we need a new page
-            If lngCurrentPos = clngPageSize Then
+            If lngCurrentPos = lngPageSize Then
                 ' See if we already have a new page available in the array
                 If lngCurrentPage = UBound(astrPages) Then
                     ' Need to add a page to the array.
@@ -94,12 +94,12 @@ Private Sub AddString(strAddString As String)
                 End If
                 ' Prepare page as a buffer
                 lngCurrentPage = lngCurrentPage + 1
-                astrPages(lngCurrentPage) = Space$(clngPageSize)
+                astrPages(lngCurrentPage) = Space$(lngPageSize)
                 lngCurrentPos = 0
             End If
             
             ' See if it fits on the current page
-            lngRemaining = clngPageSize - lngCurrentPos
+            lngRemaining = lngPageSize - lngCurrentPos
             If (lngLen - (lngAddStrPos - 1)) <= lngRemaining Then
                 ' Yes, add to current page.
                 lngAddLen = (lngLen - (lngAddStrPos - 1))
@@ -110,7 +110,7 @@ Private Sub AddString(strAddString As String)
                 ' Fill remaining available space on current page.
                 Mid$(astrPages(lngCurrentPage), lngCurrentPos + 1, lngRemaining) = Mid$(strAddString, lngAddStrPos, lngRemaining)
                 ' Note position in new string
-                lngCurrentPos = clngPageSize
+                lngCurrentPos = lngPageSize
                 lngAddStrPos = lngAddStrPos + lngRemaining
             End If
         
@@ -130,7 +130,7 @@ Public Sub Remove(lngChars As Long)
     Dim lngNewPosition As Long
     
     ' Get total length of current string including all pages
-    lngTotalLen = lngCurrentPos + (lngCurrentPage * clngPageSize)
+    lngTotalLen = lngCurrentPos + (lngCurrentPage * lngPageSize)
     
     ' We can't remove more characters than we put in the string to start with.
     If lngChars > lngTotalLen Then
@@ -141,9 +141,9 @@ Public Sub Remove(lngChars As Long)
         ' Get new absolute position
         lngNewPosition = lngTotalLen - lngChars
         ' Calculate full pages
-        lngCurrentPage = (lngNewPosition \ clngPageSize)
+        lngCurrentPage = (lngNewPosition \ lngPageSize)
         ' Set position on partial page
-        lngCurrentPos = lngNewPosition - (lngCurrentPage * clngPageSize)
+        lngCurrentPos = lngNewPosition - (lngCurrentPage * lngPageSize)
     End If
     
 End Sub
@@ -156,13 +156,13 @@ Public Function GetStr() As String
     
     ' Prepare return string. This should be the filled pages plus the last
     ' partial page, divided by 2 to get the string length instead of byte length.
-    GetStr = Space$((lngCurrentPage * clngPageSize) + lngCurrentPos)
+    GetStr = Space$((lngCurrentPage * lngPageSize) + lngCurrentPos)
     
     ' Loop through filled pages, overlaying on return string.
     ' (Last partial page is automatically trimmed based on returned string size.)
     If Len(GetStr) > 0 Then
         For lngCnt = 0 To lngCurrentPage
-            Mid$(GetStr, (lngCnt * clngPageSize) + 1, clngPageSize) = astrPages(lngCnt)
+            Mid$(GetStr, (lngCnt * lngPageSize) + 1, lngPageSize) = astrPages(lngCnt)
         Next lngCnt
     End If
     
@@ -188,8 +188,8 @@ Public Function MidStr(lngStart As Long, Optional lngLength)
     End If
     
     ' Determine start page and position for return string
-    lngStartPage = lngStart \ clngPageSize
-    lngStartPos = lngStart - (lngStartPage * clngPageSize)
+    lngStartPage = (lngStart - 1) \ lngPageSize ' Zero based page
+    lngStartPos = lngStart - (lngStartPage * lngPageSize)
     
     ' Loop through filled pages, overlaying on return string.
     ' (Last partial page is automatically trimmed based on returned string size.)
@@ -198,14 +198,15 @@ Public Function MidStr(lngStart As Long, Optional lngLength)
             ' Could start at any point on first page
             If lngPage = lngStartPage Then
                 Mid$(MidStr, 1) = Mid$(astrPages(lngPage), lngStartPos)
-                lngPos = clngPageSize - lngStartPos
+                ' lngPos is the current position in the new string
+                lngPos = lngPageSize - (lngStartPos - 2)
             Else
                 ' Pull whole pages as needed
                 Mid$(MidStr, lngPos) = astrPages(lngPage)
-                lngPos = lngPos + clngPageSize
+                lngPos = lngPos + lngPageSize
             End If
             ' Exit when we have filled the requested string.
-            If lngPos >= lngLength Then Exit For
+            If lngPos > lngLength Then Exit For
         Next lngPage
     End If
 
@@ -231,7 +232,7 @@ End Function
 ' returns the length of the string, based on the current position
 ' (Faster than building the string just to check the length)
 Public Function Length() As Double
-    Length = (lngCurrentPage * clngPageSize) + lngCurrentPos
+    Length = (lngCurrentPage * lngPageSize) + lngCurrentPos
 End Function
 
 
@@ -263,8 +264,9 @@ End Sub
 ' Test the class to make sure we are paging correctly.
 Public Sub SelfTest()
 
-    SetPageSize 10
+    SetPageSize 10, 5
     
+    Debug.Assert UBound(astrPages) = 4
     Add "abcdefghij"
     Add "k"
     Debug.Assert Len(GetStr) = 11
@@ -284,5 +286,23 @@ Public Sub SelfTest()
     Debug.Assert MidStr(10, 1) = "j"
     Debug.Assert RightStr(1) = "k"
     Debug.Assert RightStr(100) = "abcdefghijk"
+    
+    ' Verify paging
+    With Me
+        .Clear
+        .SetPageSize 5, 2
+        .Add "1234"
+        Debug.Assert .GetStr = "1234"
+        .Add "5"
+        Debug.Assert .GetStr = "12345"
+        .Add "6"
+        Debug.Assert .GetStr = "123456"
+        .Add "789"
+        Debug.Assert .GetStr = "123456789"
+        .Add "0"
+        Debug.Assert .GetStr = "1234567890"
+        .Add "A"
+        Debug.Assert .GetStr = "1234567890A"
+    End With
     
 End Sub
