@@ -303,6 +303,8 @@ Public Sub SelfTest()
         Debug.Assert .GetStr = "1234567890"
         .Add "A"
         Debug.Assert .GetStr = "1234567890A"
+        .Remove 1
+        Debug.Assert .GetStr = "1234567890"
     End With
     
 End Sub
