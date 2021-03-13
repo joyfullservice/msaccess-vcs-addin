@@ -214,3 +214,14 @@ TestExit:
 TestFail:
     Assert.Fail "Test raised an error: #" & Err.Number & " - " & Err.Description
 End Sub
+
+
+'@TestMethod("Concat")
+Private Sub TestConcat()
+    
+    Dim objConcat As clsConcat
+    
+    Set objConcat = New clsConcat
+    objConcat.SelfTest
+    Set objConcat = Nothing
+End Sub
