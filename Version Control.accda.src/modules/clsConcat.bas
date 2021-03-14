@@ -160,8 +160,9 @@ Public Function GetStr() As String
     
     ' Loop through filled pages, overlaying on return string.
     ' (Last partial page is automatically trimmed based on returned string size.)
+    ' (If lngCurrentPos=0 then skip last page)
     If Len(GetStr) > 0 Then
-        For lngCnt = 0 To lngCurrentPage
+        For lngCnt = 0 To lngCurrentPage - Abs(CBool(lngCurrentPos = 0))
             Mid$(GetStr, (lngCnt * lngPageSize) + 1, lngPageSize) = astrPages(lngCnt)
         Next lngCnt
     End If
@@ -305,6 +306,13 @@ Public Sub SelfTest()
         Debug.Assert .GetStr = "1234567890A"
         .Remove 1
         Debug.Assert .GetStr = "1234567890"
+        .Remove 1
+        Debug.Assert .GetStr = "123456789"
+        .Add "0A"
+        Debug.Assert .GetStr = "1234567890A"
+        .Remove 2
+        Debug.Assert .GetStr = "123456789"
+        .Add "0A"
+        Debug.Assert .GetStr = "1234567890A"
     End With
-    
 End Sub
