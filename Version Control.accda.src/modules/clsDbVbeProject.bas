@@ -56,7 +56,7 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
 
     Dim dProject As Dictionary
-    Dim HelpID As Variant
+    Dim strValue As String
     
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
@@ -70,12 +70,14 @@ Private Sub IDbComponent_Import(strFile As String)
         
         ' Setting the HelpContextId can throw random automation errors.
         ' The setting does change despite the error.
-        HelpID = dNZ(dProject, "Items\HelpContextId")
+        strValue = dNZ(dProject, "Items\HelpContextId")
         If DebugMode Then On Error Resume Next Else On Error Resume Next
-        .HelpContextId = dNZ(dProject, "Items\HelpContextId")
+        .HelpContextId = strValue
         ' If we failed to set the ID then it was a real error, throw it
-        If .HelpContextId <> HelpID Then CatchAny eelError, "Failed to set help context"
-        .HelpFile = dNZ(dProject, "Items\HelpFile")
+        If .HelpContextId <> strValue Then CatchAny eelError, "Failed to set help context"
+        strValue = dNZ(dProject, "Items\HelpFile")
+        .HelpFile = strValue
+        If .HelpFile <> strValue Then CatchAny eelError, "Failed to set help file"
         ' // Read-only properties
         '.FileName = dNZ(dProject, "Items\FileName")
         '.Mode = dNZ(dProject, "Items\Mode")
