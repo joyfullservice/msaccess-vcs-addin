@@ -110,7 +110,7 @@ Public Sub Flush()
     ' See if the GUI form is loaded.
     Perf.OperationStart "Console Updates"
     If Not m_RichText Is Nothing Then
-        With Form_frmVCSMain.txtLog
+        With m_RichText
             m_blnProgressActive = False
             If Not m_Prog Is Nothing Then m_Prog.Hide
             ' Set value, not text to avoid errors with large text strings.
