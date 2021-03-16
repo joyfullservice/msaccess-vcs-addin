@@ -35,7 +35,6 @@ Private Sub IDbComponent_Export()
     Dim dCollection As Dictionary
     Dim dItem As Dictionary
     Dim varValue As Variant
-    Dim strPath As String
     
     Set dCollection = New Dictionary
     
@@ -51,12 +50,7 @@ Private Sub IDbComponent_Export()
                 If prp.Name = "AppIcon" Or prp.Name = "Name" Then
                     If Len(varValue) > 0 Then
                         ' Try to use a relative path
-                        strPath = GetRelativePath(CStr(varValue))
-                        If Left(strPath, 4) = "rel:" Then
-                            varValue = strPath
-                        Else
-                            varValue = CStr(varValue)
-                        End If
+                        varValue = GetRelativePath(CStr(varValue))
                     End If
                 End If
                 Set dItem = New Dictionary
