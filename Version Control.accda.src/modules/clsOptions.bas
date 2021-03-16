@@ -221,6 +221,9 @@ Public Sub LoadOptionsFromFile(strFile As String)
                             Set Me.ExportPrintSettings = dOptions(strKey)
                         Case "TablesToExportData"
                             Set Me.TablesToExportData = dOptions(strKey)
+                        Case "Security"
+                            ' It's possible these are still in the saved options.
+                            ' This ignores them, but doesn't error out.
                         Case Else
                             ' Regular top-level properties
                             CallByName Me, strKey, VbLet, dOptions(strKey)
@@ -366,8 +369,8 @@ Private Function SerializeOptions() As Dictionary
         strOption = CStr(varOption)
         Select Case strOption
             Case "Security"
-                ' Translate enums to friendly names.
-                dOptions.Add strOption, GetEnumName(CallByName(Me, strOption, VbGet))
+                ' It's possible these are still in the saved options.
+                ' This ignores them, but doesn't error out.
             Case Else
                 ' Simulate reflection to serialize properties.
                 dOptions.Add strOption, CallByName(Me, strOption, VbGet)
@@ -494,7 +497,6 @@ Private Sub Class_Initialize()
         .Add "RunBeforeExport"
         .Add "RunAfterExport"
         .Add "RunAfterBuild"
-        .Add "Security"
         .Add "KeyName"
         .Add "ShowVCSLegacy"
         .Add "HashAlgorithm"
