@@ -72,7 +72,7 @@ Public Sub LoadDefaults()
         .StripPublishOption = True
         .AggressiveSanitize = True
         .ShowVCSLegacy = True
-        .HashAlgorithm = DefaultHashAlgorythm
+        .HashAlgorithm = DefaultHashAlgorithm
         .UseShortHash = True
 
         ' Table data export

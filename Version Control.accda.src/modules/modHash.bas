@@ -62,9 +62,9 @@ Public Declare PtrSafe Function BCryptGetProperty Lib "BCrypt.dll" ( _
 
 Private Const ModuleName As String = "modHash"
 
-Public Const DefaultHashAlgorythm As String = "SHA256"
+Public Const DefaultHashAlgorithm As String = "SHA256"
 
-Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgorithm As String = DefaultHashAlgorythm) As Byte()
+Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgorithm As String = DefaultHashAlgorithm) As Byte()
     
     'Erik A, 2019, adapted by Adam Waller
     'Hash data by using the Next Generation Cryptography API
@@ -131,14 +131,14 @@ End Function
 ' Purpose   : Wrappers for NGHash functions
 '---------------------------------------------------------------------------------------
 '
-Private Function HashBytes(Data() As Byte, Optional HashingAlgorithm As String = DefaultHashAlgorythm) As Byte()
+Private Function HashBytes(Data() As Byte, Optional HashingAlgorithm As String = DefaultHashAlgorithm) As Byte()
     If DebugMode Then On Error Resume Next Else On Error Resume Next
     HashBytes = NGHash(VarPtr(Data(LBound(Data))), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
     If Catch(9) Then HashBytes = NGHash(VarPtr(Null), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
     CatchAny eelCritical, "Error hashing data!", ModuleName & ".HashBytes", True, True
 End Function
 
-Private Function HashString(str As String, Optional HashingAlgorithm As String = DefaultHashAlgorythm) As Byte()
+Private Function HashString(str As String, Optional HashingAlgorithm As String = DefaultHashAlgorithm) As Byte()
     If DebugMode Then On Error Resume Next Else On Error Resume Next
     HashString = NGHash(StrPtr(str), Len(str) * 2, HashingAlgorithm)
     If Catch(9) Then HashString = NGHash(StrPtr(vbNullString), Len(str) * 2, HashingAlgorithm)
@@ -201,7 +201,7 @@ Private Function GetHash(bteContent() As Byte) As String
     Dim strAlgorithm As String
     
     ' Get hashing options
-    strAlgorithm = Nz2(Options.HashAlgorithm, DefaultHashAlgorythm)
+    strAlgorithm = Nz2(Options.HashAlgorithm, DefaultHashAlgorithm)
     If Options.UseShortHash Then intLength = 7
     
     ' Start performance timer and compute the hash
