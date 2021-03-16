@@ -1629,4 +1629,20 @@ Private Sub Form_Load()
         lblInstalled.Caption = "Version " & InstalledVersion & " currently installed."
     End If
    
+    If EncryptionKeySet Then
+        
+        If MsgBox2("WARNING: Encryption has been discontinued!", _
+                "Your profile appears to have stored keys." & _
+                "We STRONGLY recommend removing them prior to installing this update. " & _
+                "This version will not remove your keys, so you can still get a prior version to decrypt and build your past databases." & _
+                "We recommend exporting your database without encryption first prior to installing this update.", _
+                "Allow update? YES = Install. Anything else = Cancel Update", vbCritical + vbYesNo + vbDefaultButton2, "Security Key found!") <> vbYes Then
+                
+            cmdInstall.Enabled = False
+            chkAddTrustedLocation.Enabled = False
+            chkOpenAfterInstall.Enabled = False
+            lblSubheading.Caption = "Cannot install: encryption key present. Open projects and remove keys first."
+        End If
+    End If
+    
 End Sub
