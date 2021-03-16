@@ -3887,24 +3887,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : SetDefaultKeyName
-' Author    : Adam Waller
-' Date      : 5/2/2020
-' Purpose   : Sets the key name as default for projects.
-'---------------------------------------------------------------------------------------
-'
-Private Sub SetDefaultKeyName(strName As String)
-    Dim cOptions As clsOptions
-    Set cOptions = New clsOptions
-    With cOptions
-        .LoadDefaultOptions
-        .KeyName = strName
-        .SaveOptionsAsDefault
-    End With
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : cmdUpdateTableData_Click
 ' Author    : Adam Waller
 ' Date      : 4/17/2020
