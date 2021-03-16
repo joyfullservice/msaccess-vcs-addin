@@ -1105,10 +1105,10 @@ Begin Form
                                 Begin CommandButton
                                     FontUnderline = NotDefault
                                     OverlapFlags =247
-                                    Left =6900
-                                    Top =5520
+                                    Left =7140
+                                    Top =5640
                                     Width =2160
-                                    TabIndex =11
+                                    TabIndex =10
                                     ForeColor =12673797
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
@@ -1153,10 +1153,10 @@ Begin Form
                                     End
                                     BackStyle =0
 
-                                    LayoutCachedLeft =6900
-                                    LayoutCachedTop =5520
-                                    LayoutCachedWidth =9060
-                                    LayoutCachedHeight =5880
+                                    LayoutCachedLeft =7140
+                                    LayoutCachedTop =5640
+                                    LayoutCachedWidth =9300
+                                    LayoutCachedHeight =6000
                                     PictureCaptionArrangement =4
                                     ForeThemeColorIndex =10
                                     ForeTint =100.0
@@ -1225,19 +1225,22 @@ Begin Form
                                 End
                                 Begin Label
                                     OverlapFlags =247
-                                    Left =6660
-                                    Top =4560
-                                    Width =2400
-                                    Height =600
+                                    TextAlign =2
+                                    Left =5520
+                                    Top =4140
+                                    Width =3780
+                                    Height =1380
+                                    FontWeight =700
                                     BorderColor =8355711
+                                    ForeColor =255
                                     Name ="lblKeyStatus"
-                                    Caption ="No encryption key found for current user."
                                     GridlineColor =10921638
-                                    LayoutCachedLeft =6660
-                                    LayoutCachedTop =4560
-                                    LayoutCachedWidth =9060
-                                    LayoutCachedHeight =5160
+                                    LayoutCachedLeft =5520
+                                    LayoutCachedTop =4140
+                                    LayoutCachedWidth =9300
+                                    LayoutCachedHeight =5520
                                     BorderThemeColorIndex =-1
+                                    ForeThemeColorIndex =-1
                                     ForeTint =100.0
                                 End
                             End
@@ -4100,9 +4103,12 @@ End Sub
 '
 Private Sub SetKeyStatusDisplay()
     If modEncrypt.EncryptionKeySet Then
-        lblKeyStatus.Caption = "WARNING: Encryption key is currently set! The encryption tools are DISCONTINUED!"
+        lblKeyStatus.Visible = True
+        lblKeyStatus.Caption = "WARNING:" & vbNewLine & vbNewLine & "Encryption key is currently set! The encryption tools are DISCONTINUED!"
     Else
-        lblKeyStatus.Caption = "No encryption key found for current user."
+        lblKeyStatus.Caption = vbNullString
+        lblKeyStatus.Visible = False
+        
     End If
 End Sub
 
