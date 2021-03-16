@@ -60,7 +60,7 @@ Private Sub IDbComponent_Export()
         Set dItem = New Dictionary
         With dItem
             .Add "Name", tbl.Name
-            .Add "Connect", SanitizeConnectionString(tbl.Connect)
+            .Add "Connect", Secure(SanitizeConnectionString(tbl.Connect))
             .Add "SourceTableName", tbl.SourceTableName
             .Add "Attributes", tbl.Attributes
             ' indexes (Find primary key)
@@ -396,7 +396,7 @@ Private Sub ImportLinkedTable(strFile As String)
         Set dItem = dTable("Items")
         Set dbs = CurrentDb
         Set tdf = dbs.CreateTableDef(dItem("Name"))
-        strConnect = GetFullConnect(dItem("Connect"))
+        strConnect = GetFullConnect(Decrypt(dItem("Connect")))
         With tdf
             .Connect = strConnect
             .SourceTableName = dItem("SourceTableName")
