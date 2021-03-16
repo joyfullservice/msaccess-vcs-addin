@@ -1102,51 +1102,6 @@ Begin Form
                                         End
                                     End
                                 End
-                                Begin ComboBox
-                                    LimitToList = NotDefault
-                                    RowSourceTypeInt =1
-                                    OverlapFlags =247
-                                    IMESentenceMode =3
-                                    ColumnCount =2
-                                    ListWidth =1440
-                                    Left =7020
-                                    Top =5100
-                                    Width =1920
-                                    Height =315
-                                    TabIndex =10
-                                    BorderColor =10921638
-                                    ForeColor =3484194
-                                    Name ="cboSecurity"
-                                    RowSourceType ="Value List"
-                                    RowSource ="1;\"Encrypt\";2;\"Remove\";3;\"None\""
-                                    ColumnWidths ="0"
-                                    GridlineColor =10921638
-
-                                    LayoutCachedLeft =7020
-                                    LayoutCachedTop =5100
-                                    LayoutCachedWidth =8940
-                                    LayoutCachedHeight =5415
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =247
-                                            Left =6000
-                                            Top =5100
-                                            Width =900
-                                            Height =320
-                                            BorderColor =8355711
-                                            ForeColor =5324600
-                                            Name ="Col1_Label"
-                                            Caption ="Security:"
-                                            GridlineColor =10921638
-                                            LayoutCachedLeft =6000
-                                            LayoutCachedTop =5100
-                                            LayoutCachedWidth =6900
-                                            LayoutCachedHeight =5420
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
-                                End
                                 Begin CommandButton
                                     FontUnderline = NotDefault
                                     OverlapFlags =247
@@ -2888,280 +2843,6 @@ Begin Form
                             Width =8850
                             Height =4185
                             BorderColor =10921638
-                            Name ="pgeEncrypt"
-                            Caption ="Encryption"
-                            GridlineColor =10921638
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
-                            Begin
-                                Begin Label
-                                    OverlapFlags =247
-                                    Left =1140
-                                    Top =2760
-                                    Width =7860
-                                    Height =2040
-                                    BorderColor =8355711
-                                    ForeColor =5324600
-                                    Name ="Label92"
-                                    Caption ="The 'Encryption' used by this tool is based on the RC4 algorithm which provides "
-                                        "a lightweight basic encryption capability using a key stored in the current user"
-                                        "'s registry profile. This provides a convenient way to mask sensitive data when "
-                                        "exporting source code, and to restore it when building from source.\015\012\015\012"
-                                        "This capability comes with some very important caveats that are explained in the"
-                                        " online documentation. Please review the documentation before using this feature"
-                                        ".\015\012"
-                                    GridlineColor =10921638
-                                    LayoutCachedLeft =1140
-                                    LayoutCachedTop =2760
-                                    LayoutCachedWidth =9000
-                                    LayoutCachedHeight =4800
-                                    ForeThemeColorIndex =-1
-                                    ForeTint =100.0
-                                End
-                                Begin CommandButton
-                                    Enabled = NotDefault
-                                    OverlapFlags =247
-                                    Left =3540
-                                    Top =5280
-                                    Width =2880
-                                    Height =630
-                                    ForeColor =4210752
-                                    Name ="cmdSetEncryptionKey"
-                                    Caption ="Set Encryption Key..."
-                                    OnClick ="[Event Procedure]"
-                                    LeftPadding =135
-                                    TopPadding =135
-                                    RightPadding =150
-                                    BottomPadding =150
-                                    GridlineColor =10921638
-
-                                    LayoutCachedLeft =3540
-                                    LayoutCachedTop =5280
-                                    LayoutCachedWidth =6420
-                                    LayoutCachedHeight =5910
-                                    BackColor =14262935
-                                    BackThemeColorIndex =-1
-                                    BackTint =100.0
-                                    BorderColor =15321539
-                                    BorderThemeColorIndex =-1
-                                    BorderTint =100.0
-                                    HoverColor =15321539
-                                    HoverThemeColorIndex =-1
-                                    HoverTint =100.0
-                                    PressedColor =13072231
-                                    PressedThemeColorIndex =-1
-                                    PressedShade =100.0
-                                    HoverForeColor =4210752
-                                    PressedForeColor =4210752
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
-                                End
-                                Begin Label
-                                    OverlapFlags =247
-                                    Left =1140
-                                    Top =2160
-                                    Width =7020
-                                    Height =480
-                                    FontSize =16
-                                    BorderColor =8355711
-                                    ForeColor =5324600
-                                    Name ="Label94"
-                                    Caption ="IMPORTANT NOTICE - PLEASE READ CAREFULLY"
-                                    GridlineColor =10921638
-                                    LayoutCachedLeft =1140
-                                    LayoutCachedTop =2160
-                                    LayoutCachedWidth =8160
-                                    LayoutCachedHeight =2640
-                                    ForeThemeColorIndex =-1
-                                    ForeTint =100.0
-                                End
-                                Begin CommandButton
-                                    FontUnderline = NotDefault
-                                    TabStop = NotDefault
-                                    OverlapFlags =247
-                                    Left =7200
-                                    Top =4860
-                                    Width =1560
-                                    TabIndex =1
-                                    ForeColor =12673797
-                                    Name ="cmdEncryptionDetails"
-                                    Caption ="Details..."
-                                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Encryption"
-                                    GridlineColor =10921638
-                                    ImageData = Begin
-                                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
-                                        0x000000000000000000000000000000000000000000000000e0e8e000e0c8b000 ,
-                                        0xe0d8d000e0d0c010e0d0c010d0d0c010d0d0c000d0d0d000e0e0e00000000000 ,
-                                        0x0000000000000000000000000000000000000000f0e8e0009068303080582080 ,
-                                        0x905010c0804820e0804820c0804810b06040108050381030d0c8c01000000000 ,
-                                        0x000000000000000000000000e0780000e0a05010a0683070c08860f0e0c8b0ff ,
-                                        0xf0f0f0fffffffffffffffffff0f0f0ffe0c8c0ffa07850c040301060d0c8c010 ,
-                                        0xe0d8d0000000000000000000e0882000b0703070e0a880fffff0e0ffe0b8a0ff ,
-                                        0xd08050ffc05820ffc05820ffd08050ffe0b8a0fff0e8e0ffb09070f050301060 ,
-                                        0xd0c8c000e0e0e00000000000b0783030d09870f0fff0e0ffe0a890ffc05010ff ,
-                                        0xc05010ffe0a890ffffffffffb04810ffb04810ffd0a080fff0f0e0ffa07050d0 ,
-                                        0x50381030d0d0d000f0f0f000b0784080f0d8c0fff0c8b0ffe05820ffd05810ff ,
-                                        0xd05010ffe08050ffe0a880ffc05010ffb04810ffb04810ffe0b8a0ffe0c8c0ff ,
-                                        0x50401080d0d0d010f0f0f000d08040e0fff8f0fff09870fff06020ffe05820ff ,
-                                        0xe05820fff0a890ffffffffffd05010ffc05010ffb05010ffc07850fff0f0f0ff ,
-                                        0x804020c0e0d0c000f0f0f000d08040f0ffffffffff7840ffff6830fff06820ff ,
-                                        0xf06020fff08850fffffffffff0c0b0ffc05820ffb05010ffb05820ffffffffff ,
-                                        0x804820e0e0d0c010f0f0f000d08850f0ffffffffff8050ffff7030ffff6830ff ,
-                                        0xff6830ffff6820fff09060fffff8f0fff0d8c0ffc05020ffc05820ffffffffff ,
-                                        0x804820e0e0d8d010f0f0f000d08050c0fff8f0ffffa880ffff7040ffff8850ff ,
-                                        0xffb090ffff7030fff06820fff09070fffffffffff08050ffd08860fffff0f0ff ,
-                                        0x805820b0e0d8d010f0f0f000c0804070f0d8c0ffffd0c0ffff7840ffff9870ff ,
-                                        0xffffffffffc8b0ffff9060ffffc8b0fffff8f0fff07840fff0c8b0ffe0c8b0ff ,
-                                        0x90602070e0c8b00000000000c0884030e0a070f0fff8f0ffffc0a0ffff7840ff ,
-                                        0xffb8a0fffff8f0fffffffffffff0e0ffff9870fff0b8a0fffff0e0ffc08850e0 ,
-                                        0xa0682030f0e8e0000000000000000000c0884060e0b8a0f0fff8f0ffffd0c0ff ,
-                                        0xffa880ffff8850ffff8850ffffa880fff0d0c0fffff0e0ffd0a880f0a0683060 ,
-                                        0xe0c0a00000000000000000000000000000000000c0884060e0a070f0f0d8c0ff ,
-                                        0xfff8f0fffffffffffffffffffff8f0fff0d8c0ffc09060e0a0703050f0b89000 ,
-                                        0x0000000000000000000000000000000000000000f0f0f000c0884030c0804070 ,
-                                        0xe0a070c0d09870e0d09860f0d09870d0b0784070b0784020f0e8f00000000000 ,
-                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
-                                        0xf0f0f000f0f0f000f0f0f000f0f0f000f0f0f00000000000f0f0f00000000000 ,
-                                        0x0000000000000000
-                                    End
-                                    BackStyle =0
-
-                                    LayoutCachedLeft =7200
-                                    LayoutCachedTop =4860
-                                    LayoutCachedWidth =8760
-                                    LayoutCachedHeight =5220
-                                    PictureCaptionArrangement =4
-                                    ForeThemeColorIndex =10
-                                    ForeTint =100.0
-                                    Gradient =0
-                                    BackColor =14262935
-                                    BackThemeColorIndex =-1
-                                    BackTint =100.0
-                                    OldBorderStyle =0
-                                    BorderColor =15321539
-                                    BorderThemeColorIndex =-1
-                                    BorderTint =100.0
-                                    HoverColor =15321539
-                                    HoverThemeColorIndex =-1
-                                    HoverTint =100.0
-                                    PressedColor =13072231
-                                    PressedThemeColorIndex =-1
-                                    PressedShade =100.0
-                                    HoverForeColor =4210752
-                                    PressedForeColor =4210752
-                                    WebImagePaddingLeft =2
-                                    WebImagePaddingTop =2
-                                    WebImagePaddingRight =2
-                                    WebImagePaddingBottom =2
-                                End
-                                Begin CheckBox
-                                    OverlapFlags =247
-                                    Left =4260
-                                    Top =4920
-                                    TabIndex =2
-                                    BorderColor =10921638
-                                    Name ="chkIUnderstand"
-                                    DefaultValue ="False"
-                                    OnClick ="[Event Procedure]"
-                                    GridlineColor =10921638
-
-                                    LayoutCachedLeft =4260
-                                    LayoutCachedTop =4920
-                                    LayoutCachedWidth =4520
-                                    LayoutCachedHeight =5160
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =247
-                                            Left =4545
-                                            Top =4860
-                                            Width =1335
-                                            Height =315
-                                            BorderColor =8355711
-                                            ForeColor =5324600
-                                            Name ="Label97"
-                                            Caption ="I understand"
-                                            GridlineColor =10921638
-                                            LayoutCachedLeft =4545
-                                            LayoutCachedTop =4860
-                                            LayoutCachedWidth =5880
-                                            LayoutCachedHeight =5175
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
-                                End
-                                Begin Label
-                                    OverlapFlags =247
-                                    Left =6840
-                                    Top =5340
-                                    Width =2400
-                                    Height =600
-                                    BorderColor =8355711
-                                    ForeColor =8355711
-                                    Name ="lblKeyStatus"
-                                    Caption ="No encryption key found for current user."
-                                    GridlineColor =10921638
-                                    LayoutCachedLeft =6840
-                                    LayoutCachedTop =5340
-                                    LayoutCachedWidth =9240
-                                    LayoutCachedHeight =5940
-                                End
-                                Begin TextBox
-                                    Enabled = NotDefault
-                                    OverlapFlags =247
-                                    IMESentenceMode =3
-                                    Left =1140
-                                    Top =5460
-                                    Width =2040
-                                    Height =315
-                                    TabIndex =3
-                                    BorderColor =10921638
-                                    ForeColor =4210752
-                                    Name ="txtKeyName"
-                                    GridlineColor =10921638
-
-                                    LayoutCachedLeft =1140
-                                    LayoutCachedTop =5460
-                                    LayoutCachedWidth =3180
-                                    LayoutCachedHeight =5775
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =247
-                                            Left =1140
-                                            Top =5100
-                                            Width =1140
-                                            Height =315
-                                            BorderColor =8355711
-                                            ForeColor =5324600
-                                            Name ="Label100"
-                                            Caption ="Key Name:"
-                                            GridlineColor =10921638
-                                            LayoutCachedLeft =1140
-                                            LayoutCachedTop =5100
-                                            LayoutCachedWidth =2280
-                                            LayoutCachedHeight =5415
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
-                                End
-                            End
-                        End
-                        Begin Page
-                            OverlapFlags =247
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4185
-                            BorderColor =10921638
                             Name ="pgeSettings"
                             Caption ="Settings"
                             GridlineColor =10921638
@@ -3848,31 +3529,6 @@ End Enum
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : cboSecurity_Click
-' Author    : Adam Waller
-' Date      : 6/1/2020
-' Purpose   : Show encryption tab when relevant.
-'---------------------------------------------------------------------------------------
-'
-Private Sub cboSecurity_Click()
-    pgeEncrypt.Visible = (cboSecurity = esEncrypt)
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : chkIUnderstand_Click
-' Author    : Adam Waller
-' Date      : 4/24/2020
-' Purpose   : Make sure the user understands what they are doing before using encryption.
-'---------------------------------------------------------------------------------------
-'
-Private Sub chkIUnderstand_Click()
-    cmdSetEncryptionKey.Enabled = chkIUnderstand
-    txtKeyName.Enabled = chkIUnderstand
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : chkTableShowHidden_Click
 ' Author    : Adam Waller
 ' Date      : 4/17/2020
@@ -4185,15 +3841,6 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdSaveAndClose_Click()
-    
-    ' Encourage user to set encryption key.
-    If Options.Security = esEncrypt And (Not modEncrypt.EncryptionKeySet) Then
-        If MsgBox2("Encryption Key Not Set", "No encryption key has been set for the current user." & vbCrLf & _
-            "This is used to mask sensitive data when exporting source.", "Would you like to do this now?", vbQuestion + vbYesNo) = vbYes Then
-            pgeEncrypt.SetFocus
-            Exit Sub
-        End If
-    End If
 
     ' Save options and close.
     MapControlsToOptions emaFormToClass
@@ -4216,52 +3863,6 @@ End Sub
 Private Sub cmdSaveAsDefault_Click()
     MapControlsToOptions emaFormToClass
     Options.SaveOptionsAsDefault
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : cmdSetEncryptionKey_Click
-' Author    : Adam Waller
-' Date      : 4/24/2020
-' Purpose   : Set a named encryption key.
-'---------------------------------------------------------------------------------------
-'
-Private Sub cmdSetEncryptionKey_Click()
-
-    Dim strName As String
-    Dim strKey As String
-    
-    ' Prompt the user to enter a name for the key. The name will be stored in options.
-    If Nz(txtKeyName) = vbNullString Then
-        MsgBox2 "Key Name Required", "Please enter a friendly name for this encryption key.", _
-            "Developers will need to use the same *name* and *key* to decrypt secured items." & vbCrLf & _
-            "A named key can be used on multiple computers and/or multiple projects, depending" & vbCrLf & _
-            "on your development requirements. See online documentation for more details.", vbInformation
-        txtKeyName.SetFocus
-        Exit Sub
-    Else
-        strName = txtKeyName
-    End If
-    
-    ' Now prompt for the key itself.
-    strKey = InputBox("Enter new encryption key:" & vbCrLf & "(At least 32 characters long)")
-    If strKey = vbNullString Then
-        Exit Sub
-    ElseIf Len(strKey) < 32 Then
-        MsgBox2 "Must be at least 32 characters", "Please enter a longer string of characters to set the key.", , vbExclamation
-    Else
-        modEncrypt.SetEncryptionKey strName, strKey
-        If MsgBox2("Use this key by default?", "Would you like to use '" & strName & "' as the default key name for new projects?", _
-            "In most environments you will use the same key for all your projects.", vbYesNo + vbQuestion) = vbYes Then
-            SetDefaultKeyName strKey
-        End If
-        MsgBox2 "Encryption Key Set", "Please save this key in a safe place. It is not saved with the project or options file.", "You will need to have this key to import encrypted data.", vbInformation
-    End If
-    SetKeyStatusDisplay
-    cmdSaveAndClose.SetFocus
-    chkIUnderstand = False
-    chkIUnderstand_Click
-    
 End Sub
 
 
@@ -4366,7 +3967,7 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                     Else
                         Select Case ctl.Name
                             Case "chkTableShowHidden", "chkTableShowSystem", "chkTableShowOther", _
-                                "cboTableDataSaveType", "txtTableName", "chkIUnderstand"
+                                "cboTableDataSaveType", "txtTableName"
                                 ' Skip these exceptions.
                             Case Else
                                 ' Get option name from control name following prefix.
@@ -4406,7 +4007,7 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
     
     ' Enable pages based on options.
     chkUseGitIntegration_Click
-    cboSecurity_Click
+
     SetKeyStatusDisplay
     
 End Sub
@@ -4482,7 +4083,7 @@ End Sub
 '
 Private Sub SetKeyStatusDisplay()
     If modEncrypt.EncryptionKeySet Then
-        lblKeyStatus.Caption = "Encryption key is currently set."
+        lblKeyStatus.Caption = "WARNING: Encryption key is currently set! The encryption tools are DISCONTINUED!"
     Else
         lblKeyStatus.Caption = "No encryption key found for current user."
     End If

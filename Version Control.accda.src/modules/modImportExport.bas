@@ -222,16 +222,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         End If
     End If
     
-    ' If we are using encryption, make sure we are able to decrypt the values.
-    ' NOTE: There is no CurrentProject at this point, so we will have limited
-    ' functionality with the options class.
     Set Options = Nothing
     Options.LoadOptionsFromFile strSourceFolder & "vcs-options.json"
-    If Options.Security = esEncrypt And Not VerifyHash(strSourceFolder & "vcs-options.json") Then
-        MsgBox2 "Encryption Key Mismatch", "The required encryption key is either missing or incorrect.", _
-            "Please update the encryption key before building this project from source.", vbExclamation
-        Exit Sub
-    End If
     
     ' Build original file name for database
     If blnFullBuild Then
@@ -491,7 +483,7 @@ Private Function VerifyHash(strOptionsFile As String) As Boolean
         VerifyHash = True
     Else
         ' Return true if we can successfully decrypt the hash.
-        VerifyHash = CanDecrypt(strHash)
+        VerifyHash = False
     End If
     
 End Function

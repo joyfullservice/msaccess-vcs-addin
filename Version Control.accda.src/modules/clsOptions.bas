@@ -31,7 +31,6 @@ Public TablesToExportData As Dictionary
 Public RunBeforeExport As String
 Public RunAfterExport As String
 Public RunAfterBuild As String
-Public Security As eSecurity
 Public KeyName As String
 Public ShowVCSLegacy As Boolean
 Public HashAlgorithm As String
@@ -41,18 +40,8 @@ Public BreakOnError As Boolean
 ' Constants for enum values
 ' (These values are not permanently stored and
 '  may change between releases.)
-Private Const Enum_Security_Encrypt = 1
-Private Const Enum_Security_Remove = 2
-Private Const Enum_Security_None = 3
 Private Const Enum_Table_Format_TDF = 10
 Private Const Enum_Table_Format_XML = 11
-
-' Options for security
-Public Enum eSecurity
-    esEncrypt = Enum_Security_Encrypt
-    esRemove = Enum_Security_Remove
-    esNone = Enum_Security_None
-End Enum
 
 ' Private collections for options and enum values.
 Private m_colOptions As Collection
@@ -82,8 +71,6 @@ Public Sub LoadDefaults()
         .SaveTableSQL = True
         .StripPublishOption = True
         .AggressiveSanitize = True
-        .Security = esNone
-        .KeyName = modEncrypt.DefaultKeyName
         .ShowVCSLegacy = True
         .HashAlgorithm = "SHA256"
         .UseShortHash = True
@@ -234,8 +221,6 @@ Public Sub LoadOptionsFromFile(strFile As String)
                             Set Me.ExportPrintSettings = dOptions(strKey)
                         Case "TablesToExportData"
                             Set Me.TablesToExportData = dOptions(strKey)
-                        Case "Security"
-                            Me.Security = GetEnumVal(dOptions(strKey))
                         Case Else
                             ' Regular top-level properties
                             CallByName Me, strKey, VbLet, dOptions(strKey)
@@ -375,7 +360,6 @@ Private Function SerializeOptions() As Dictionary
     #End If
     dInfo.Add "AddinVersion", AppVersion
     dInfo.Add "AccessVersion", Application.Version & strBit
-    If Me.Security = esEncrypt Then dInfo.Add "Hash", GetHash
 
     ' Loop through options
     For Each varOption In m_colOptions
@@ -408,20 +392,6 @@ End Function
 '
 Public Function GetOptionsHash() As String
     GetOptionsHash = GetDictionaryHash(SerializeOptions)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetHash
-' Author    : Adam Waller
-' Date      : 7/29/2020
-' Purpose   : Return a hash of the CodeProject.Name to verify encryption.
-'           : Note that the CodeProject.Name value is sometimes returned in all caps,
-'           : so we will force it to uppercase so the return value is consistent.
-'---------------------------------------------------------------------------------------
-'
-Private Function GetHash() As String
-    GetHash = Encrypt(UCase(CodeProject.Name))
 End Function
 
 
@@ -505,11 +475,6 @@ Private Sub Class_Initialize()
 
     ' Load enum values
     Set m_dEnum = New Dictionary
-    With m_dEnum
-        .Add Enum_Security_Encrypt, "Encrypt"
-        .Add Enum_Security_Remove, "Remove"
-        .Add Enum_Security_None, "None"
-    End With
 
     ' Load list of property names for reflection type behavior.
     With m_colOptions

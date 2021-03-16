@@ -117,7 +117,7 @@
       "Type": 4
     },
     "ProjVer": {
-      "Value": 142,
+      "Value": 141,
       "Type": 3
     },
     "QueryTimeout": {
@@ -197,7 +197,7 @@
       "Type": 2
     },
     "Version": {
-      "Value": "12.0",
+      "Value": "14.0",
       "Type": 12
     },
     "WebDesignMode": {

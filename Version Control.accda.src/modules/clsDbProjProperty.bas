@@ -49,11 +49,10 @@ Private Sub IDbComponent_Export()
                 If Left(strPath, 4) = "rel:" Then
                     varValue = strPath
                 Else
-                    ' The full path may contain sensitive info. Encrypt the path but not the file name.
-                    varValue = SecurePath(CStr(varValue))
+                    varValue = CStr(varValue)
                 End If
                 ' ADP projects may have this property
-                dCollection.Add prp.Name, SecurePath(CStr(varValue))
+                dCollection.Add prp.Name, CStr(varValue)
             Case Else
                 dCollection.Add prp.Name, prp.Value
         End Select
@@ -107,7 +106,7 @@ Private Sub IDbComponent_Import(strFile As String)
                 Case "Name", "Connection"
                     ' Skip these properties
                 Case Else
-                    varValue = Decrypt(dItems(varKey))
+                    varValue = dItems(varKey)
                     If Left$(varValue, 4) = "rel:" Then varValue = GetPathFromRelative(CStr(varValue))
                     If dExisting.Exists(varKey) Then
                         If dItems(varKey) <> dExisting(varKey) Then

@@ -55,10 +55,7 @@ Private Sub IDbComponent_Export()
                         If Left(strPath, 4) = "rel:" Then
                             varValue = strPath
                         Else
-                            ' The full path may contain sensitive info. Secure the path but not the file name.
-                            ' (Whether the value is encrypted, removed or left as plain text depends on
-                            '  what is selected in the options.)
-                            varValue = SecurePath(CStr(varValue))
+                            varValue = CStr(varValue)
                         End If
                     End If
                 End If
@@ -127,9 +124,6 @@ Private Sub IDbComponent_Import(strFile As String)
                     ' Check if value is as Collection
                     If Not TypeOf dItems(varKey)("Value") Is Collection Then
                         varValue = dItems(varKey)("Value")
-                        ' Check for encryption
-                        strDecrypted = Decrypt(CStr(varValue))
-                        If CStr(varValue) <> strDecrypted Then varValue = strDecrypted
                         ' Check for relative path
                         If Left$(varValue, 4) = "rel:" Then varValue = GetPathFromRelative(CStr(varValue))
                     Else
