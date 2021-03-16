@@ -2042,7 +2042,7 @@ Public Sub Form_Load()
     
     ' Require full export after options change
     If DatabaseOpen Then
-        If VCSIndex.OptionsHash <> Options.GetOptionsHash Then
+        If VCSIndex.OptionsHash <> Options.GetHash Then
             chkFullExport = True
             chkFullExport.Enabled = False
         End If

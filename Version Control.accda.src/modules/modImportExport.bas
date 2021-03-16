@@ -61,7 +61,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     End If
 
     ' If options (or VCS version) have changed, a full export will be required
-    If (VCSIndex.OptionsHash <> Options.GetOptionsHash) Then blnFullExport = True
+    If (VCSIndex.OptionsHash <> Options.GetHash) Then blnFullExport = True
 
     ' Begin timer at start of export.
     sngStart = Timer
@@ -155,7 +155,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     With VCSIndex
         .ExportDate = Now
         If blnFullExport Then .FullExportDate = Now
-        .OptionsHash = Options.GetOptionsHash
+        .OptionsHash = Options.GetHash
         .Save
     End With
     
