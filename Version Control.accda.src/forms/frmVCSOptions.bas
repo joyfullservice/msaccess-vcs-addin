@@ -1223,6 +1223,23 @@ Begin Form
                                     ForeThemeColorIndex =10
                                     ForeTint =100.0
                                 End
+                                Begin Label
+                                    OverlapFlags =247
+                                    Left =6660
+                                    Top =4560
+                                    Width =2400
+                                    Height =600
+                                    BorderColor =8355711
+                                    Name ="lblKeyStatus"
+                                    Caption ="No encryption key found for current user."
+                                    GridlineColor =10921638
+                                    LayoutCachedLeft =6660
+                                    LayoutCachedTop =4560
+                                    LayoutCachedWidth =9060
+                                    LayoutCachedHeight =5160
+                                    BorderThemeColorIndex =-1
+                                    ForeTint =100.0
+                                End
                             End
                         End
                         Begin Page
