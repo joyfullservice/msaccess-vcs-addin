@@ -28,6 +28,7 @@ Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExec
     ByVal nShowCmd As Long) As LongPtr
 
 Private Const SW_SHOWNORMAL = 1
+Private Const ModuleName As String = "modInstall"
 
 ' Used to add a trusted location for the add-in path (when necessary)
 Private Const mcstrTrustedLocationName = "MSAccessVCS Version Control"
@@ -121,9 +122,6 @@ Public Function InstallVCSAddin() As Boolean
         Err.Clear
     Else
         If DebugMode Then On Error GoTo 0 Else On Error Resume Next
-
-        ' Remove legacy encryption (obfuscation, more like) keys
-        DeleteSetting GetCodeVBProject.Name, "Private Keys"
 
         ' Register the Menu controls
         RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
@@ -480,8 +478,14 @@ Public Sub CheckForLegacyInstall()
         ' Remove custom trusted location for Office AddIns folder.
         strName = "Office Add-ins"
         If HasTrustedLocationKey(strName) Then RemoveTrustedLocation strName
-        
     End If
+    
+    ' Remove legacy RC4 encryption
+    If DebugMode Then On Error Resume Next Else On Error Resume Next
+    DeleteSetting GetCodeVBProject.Name, "Private Keys"
+    Catch 5 ' Key does not exist
+    
+    CatchAny eelError, "Checking for legacy install", ModuleName & ".CheckForLegacyInstall"
     
 End Sub
 
