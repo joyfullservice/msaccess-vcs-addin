@@ -16,11 +16,11 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =228
-    Left =-25575
-    Top =1710
-    Right =-255
-    Bottom =14295
-    DatasheetGridlinesColor =15132391
+    Left =3225
+    Top =2430
+    Right =22695
+    Bottom =15015
+    DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -607,7 +607,7 @@ Begin Form
                                     Height =315
                                     TabIndex =4
                                     BorderColor =10921638
-                                    ForeColor =3484194
+                                    ForeColor =4138256
                                     Name ="cboHashAlgorithm"
                                     RowSourceType ="Value List"
                                     RowSource ="\"SHA1\";\"SHA256\";\"SHA512\""
@@ -1109,7 +1109,7 @@ Begin Form
                                     Top =5640
                                     Width =2160
                                     TabIndex =10
-                                    ForeColor =12673797
+                                    ForeColor =16711680
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
                                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation#op"
@@ -1208,7 +1208,7 @@ Begin Form
                                     FontSize =10
                                     BackColor =14262935
                                     BorderColor =15321539
-                                    ForeColor =12673797
+                                    ForeColor =16711680
                                     Name ="lblPrintSettingsOptions"
                                     Caption ="Options..."
                                     HyperlinkAddress ="#"
@@ -1221,26 +1221,6 @@ Begin Form
                                     BorderThemeColorIndex =-1
                                     BorderTint =100.0
                                     ForeThemeColorIndex =10
-                                    ForeTint =100.0
-                                End
-                                Begin Label
-                                    OverlapFlags =247
-                                    TextAlign =2
-                                    Left =5520
-                                    Top =4140
-                                    Width =3780
-                                    Height =1380
-                                    FontWeight =700
-                                    BorderColor =8355711
-                                    ForeColor =255
-                                    Name ="lblKeyStatus"
-                                    GridlineColor =10921638
-                                    LayoutCachedLeft =5520
-                                    LayoutCachedTop =4140
-                                    LayoutCachedWidth =9300
-                                    LayoutCachedHeight =5520
-                                    BorderThemeColorIndex =-1
-                                    ForeThemeColorIndex =-1
                                     ForeTint =100.0
                                 End
                             End
@@ -2160,7 +2140,7 @@ Begin Form
                                     Height =315
                                     TabIndex =4
                                     BorderColor =10921638
-                                    ForeColor =3484194
+                                    ForeColor =4138256
                                     Name ="cboTableDataSaveType"
                                     RowSourceType ="Value List"
                                     GridlineColor =10921638
@@ -2339,7 +2319,7 @@ Begin Form
                                     FontSize =10
                                     BackColor =14262935
                                     BorderColor =15321539
-                                    ForeColor =12673797
+                                    ForeColor =16711680
                                     Name ="lblAddOtherTable"
                                     Caption ="Other..."
                                     OnClick ="[Event Procedure]"
@@ -2728,7 +2708,7 @@ Begin Form
                                     Height =315
                                     TabIndex =5
                                     BorderColor =10921638
-                                    ForeColor =3484194
+                                    ForeColor =4138256
                                     Name ="cboMergeConflicts"
                                     RowSourceType ="Value List"
                                     RowSource ="\"Cancel Merge\";\"Skip Object\";\"Overwrite\""
@@ -3353,7 +3333,7 @@ Begin Form
                     Top =1260
                     Width =1560
                     TabIndex =3
-                    ForeColor =12673797
+                    ForeColor =16711680
                     Name ="cmdSeeDocs"
                     Caption ="See Docs..."
                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation"
@@ -4009,8 +3989,6 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
     
     ' Enable pages based on options.
     chkUseGitIntegration_Click
-
-    SetKeyStatusDisplay
     
 End Sub
 
@@ -4073,25 +4051,6 @@ Private Sub lstTables_Click()
         If Nz(cboTableDataSaveType) = vbNullString Then cboTableDataSaveType = "No Data"
         txtTableName = tbleName
     End With
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SetKeyStatusDisplay
-' Author    : Adam Waller
-' Date      : 4/24/2020
-' Purpose   : Display whether we have set an encryption key yet.
-'---------------------------------------------------------------------------------------
-'
-Private Sub SetKeyStatusDisplay()
-    If modEncrypt.EncryptionKeySet Then
-        lblKeyStatus.Visible = True
-        lblKeyStatus.Caption = "WARNING:" & vbNewLine & vbNewLine & "Encryption key is currently set! The encryption tools are DISCONTINUED!"
-    Else
-        lblKeyStatus.Caption = vbNullString
-        lblKeyStatus.Visible = False
-        
-    End If
 End Sub
 
 
