@@ -22,9 +22,11 @@ Option Explicit
 
 Private m_Overall As clsPerformanceItem
 Private m_strComponent As String
-Private m_dComponents As Dictionary
+Private m_dComponents As Scripting.Dictionary
 Private m_strOperation As String
-Private m_dOperations As Dictionary
+Private m_dOperations As Scripting.Dictionary
+Private m_curFrequency As Currency
+Private m_intDigitsAfterDecimal As Integer
 
 ' API calls to get more precise time than Timer function
 Private Declare PtrSafe Function GetFrequencyAPI Lib "kernel32" Alias "QueryPerformanceFrequency" (ByRef Frequency As Currency) As Long
@@ -33,7 +35,7 @@ Private Declare PtrSafe Function GetTimeAPI Lib "kernel32" Alias "QueryPerforman
 ' Manage a type of call stack to track nested operations.
 ' When an operation finishes, it goes back to timing the
 ' previous operation.
-Private m_colOpsCallStack As Collection
+Private m_colOpsCallStack As VBA.Collection
 
 
 '---------------------------------------------------------------------------------------
@@ -121,7 +123,7 @@ Public Sub OperationEnd(Optional lngCount As Long = 1)
 
     ' Verify that we are timing something, and record the elapsed time.
     If m_strOperation <> vbNullString Then
-    
+
         ' Record the elapsed time.
         LapTimer m_dOperations(m_strOperation), lngCount
         
@@ -143,6 +145,17 @@ Public Sub OperationEnd(Optional lngCount As Long = 1)
     
 End Sub
 
+'---------------------------------------------------------------------------------------
+' Procedure : DigitsAfterDecimal
+' Author    : Eugen Albiker
+' Date      : 16/3/2021
+' Purpose   : Set Number of Digits after Decimal for the Elapsed Time
+'---------------------------------------------------------------------------------------
+'
+Public Property Let DigitsAfterDecimal(intDigitsAfterDecimal As Integer)
+    If intDigitsAfterDecimal > 4 Then intDigitsAfterDecimal = 4
+    m_intDigitsAfterDecimal = intDigitsAfterDecimal
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : EndTiming
@@ -166,15 +179,13 @@ End Sub
 '
 Public Function MicroTimer() As Currency
     
-    Dim curFrequency As Currency
     Dim curTime As Currency
     
     ' Call API to get current time
-    GetFrequencyAPI curFrequency
     GetTimeAPI curTime
     
     ' Convert to seconds
-    MicroTimer = (curTime / curFrequency)
+    MicroTimer = (curTime / m_curFrequency)
     
 End Function
 
@@ -186,7 +197,7 @@ End Function
 ' Purpose   : Add the item if it doesn't exist, then set the start time.
 '---------------------------------------------------------------------------------------
 '
-Private Sub StartTimer(dItems As Dictionary, strName As String)
+Private Sub StartTimer(dItems As Scripting.Dictionary, strName As String)
     Dim cItem As clsPerformanceItem
     If Not dItems.Exists(strName) Then
         Set cItem = New clsPerformanceItem
@@ -221,18 +232,18 @@ End Sub
 ' Purpose   : Add current timer to sngStart to get elapsed seconds.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetElapsed(sngStart As Single) As Single
+Private Function GetElapsed(curStart As Currency) As Currency
 
-    Dim sngNow As Single
+    Dim curNow As Currency
     
     ' Only return a value if we have a starting time.
-    If sngStart > 0 Then
-        sngNow = MicroTimer
-        If sngStart <= sngNow Then
-            GetElapsed = sngNow - sngStart
+    If curStart > 0 Then
+        curNow = MicroTimer
+        If curStart <= curNow Then
+            GetElapsed = curNow - curStart
         Else
             ' Just in case someone was up really late, and crossed midnight...
-            GetElapsed = sngStart + ((24# * 60 * 60) - sngStart)
+            GetElapsed = curStart + ((24# * 60 * 60) - curStart)
         End If
     End If
     
@@ -267,35 +278,36 @@ Public Function GetReports() As String
         .AppendOnAdd = vbCrLf
         .Add strSpacer
         .Add Space((Len(strSpacer) - Len(cstrTitle)) / 2) & cstrTitle
-        .Add strSpacer
-        
+
         ' Table for object types
-        .Add ListResult("Object Type", "Count", "Seconds", lngCol), vbCrLf, strSpacer
-        For Each varKey In m_dComponents.Keys
-            .Add ListResult(CStr(varKey), CStr(m_dComponents(varKey).Count), _
-                Format(m_dComponents(varKey).Total, "0.00"), lngCol)
-            ' Add to totals
-            dblCount = dblCount + m_dComponents(varKey).Count
-            curTotal = curTotal + m_dComponents(varKey).Total
-        Next varKey
-        .Add strSpacer
-        .Add ListResult("TOTALS:", CStr(dblCount), _
-                Format(curTotal, "0.00"), lngCol)
-        .Add strSpacer
-        .Add vbNullString
-        
+        If m_dComponents.Count > 0 Then
+            .Add strSpacer
+            .Add ListResult("Object Type", "Count", "Seconds", lngCol), vbCrLf, strSpacer
+            For Each varKey In m_dComponents.Keys
+                .Add ListResult(CStr(varKey), CStr(m_dComponents(varKey).Count), _
+                    Format(m_dComponents(varKey).Total, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol)
+                ' Add to totals
+                dblCount = dblCount + m_dComponents(varKey).Count
+                curTotal = curTotal + m_dComponents(varKey).Total
+            Next varKey
+            .Add strSpacer
+            .Add ListResult("TOTALS:", CStr(dblCount), _
+                Format(curTotal, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol)
+            .Add strSpacer
+            .Add vbNullString
+        End If
         ' Table for operations
         curTotal = 0
         .Add strSpacer
         .Add ListResult("Operations", "Count", "Seconds", lngCol), vbCrLf, strSpacer
         For Each varKey In m_dOperations.Keys
             .Add ListResult(CStr(varKey), CStr(m_dOperations(varKey).Count), _
-                Format(m_dOperations(varKey).Total, "0.00"), lngCol)
+                Format(m_dOperations(varKey).Total, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol)
             curTotal = curTotal + m_dOperations(varKey).Total
         Next varKey
         .Add strSpacer
         .Add ListResult("Other Operations", vbNullString, _
-                Format(m_Overall.Total - curTotal, "0.00"), lngCol)
+            Format(m_Overall.Total - curTotal, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol)
         .Add strSpacer
         .Add vbNullString
         
@@ -369,6 +381,7 @@ Private Sub ResetAll()
     Class_Initialize
     m_strComponent = vbNullString
     m_strOperation = vbNullString
+    m_intDigitsAfterDecimal = 2
 End Sub
 
 
@@ -381,7 +394,11 @@ End Sub
 '
 Private Sub Class_Initialize()
     Set m_Overall = New clsPerformanceItem
-    Set m_dComponents = New Dictionary
-    Set m_dOperations = New Dictionary
-    Set m_colOpsCallStack = New Collection
+    Set m_dComponents = New Scripting.Dictionary
+    Set m_dOperations = New Scripting.Dictionary
+    Set m_colOpsCallStack = New VBA.Collection
+
+    ' m_curFrequency need only be queried once
+    ' https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
+    GetFrequencyAPI m_curFrequency
 End Sub

@@ -176,9 +176,23 @@ End Sub
 '@TestMethod("Concat")
 Private Sub TestConcat()
     
-    Dim objConcat As clsConcat
+    With New clsConcat
+        .SelfTest
+    End With
     
-    Set objConcat = New clsConcat
-    objConcat.SelfTest
-    Set objConcat = Nothing
+End Sub
+
+
+'@TestMethod("SanitizeConnectionString")
+Private Sub TestSanitizeConnectionString()
+
+    ' Verify semicolon placement matches original
+    Debug.Assert SanitizeConnectionString(";test;test;") = ";test;test;"
+    Debug.Assert SanitizeConnectionString("test;test") = "test;test"
+    Debug.Assert SanitizeConnectionString(";test;test") = ";test;test"
+    Debug.Assert SanitizeConnectionString("test;test;") = "test;test;"
+    Debug.Assert SanitizeConnectionString("test;test;") = "test;test;"
+    Debug.Assert SanitizeConnectionString("test") = "test"
+    Debug.Assert SanitizeConnectionString(vbNullString) = vbNullString
+
 End Sub
