@@ -180,10 +180,10 @@ Public Function UninstallVCSAddin() As Boolean
         DeleteSetting GetCodeVBProject.Name, "Build"
         DeleteSetting GetCodeVBProject.Name, "Add-In"
         
-        ' (Not sure if we should delete private "keys", since there is no other
-        '  copy of this data, and they would be required to decrypt encrypted content.)
-        If MsgBox2("Delete RC4 Keys?", "Do you want to delete the RC4 keys from the registry?", "This is strongly recomended!", _
-                    vbQuestion + vbDefaultButton1 + vbYesNo, "Delete RC4 Keys?") = vbYes Then DeleteSetting GetCodeVBProject.Name, "Private Keys"
+        ' Remove private keys; since this (should have been) removed
+        ' during install, just do it again to verify.
+        DeleteSetting GetCodeVBProject.Name, "Private Keys"
+        
         If Err Then Err.Clear
         On Error GoTo 0
         
