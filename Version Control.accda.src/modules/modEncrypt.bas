@@ -20,17 +20,6 @@ Public Const DefaultKeyName = "MSAccessVCS"
 Private m_Name As String
 Private m_Key As String
 
-'---------------------------------------------------------------------------------------
-' Procedure : IsEncrypted
-' Author    : Adam Waller
-' Date      : 4/28/2020
-' Purpose   : Returns true if the value appears to be encrypted.
-'---------------------------------------------------------------------------------------
-'
-Public Function IsEncrypted(strText As String) As Boolean
-    IsEncrypted = (Left$(strText, 2) = "@{" And Right$(strText, 1) = "}")
-End Function
-
 
 '---------------------------------------------------------------------------------------
 ' Procedure : EncryptionKeySet
