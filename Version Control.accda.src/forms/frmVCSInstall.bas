@@ -17,11 +17,11 @@ Begin Form
     GridY =24
     DatasheetFontHeight =11
     ItemSuffix =39
-    Left =-17265
+    Left =3225
     Top =2430
-    Right =-6105
-    Bottom =10335
-    DatasheetGridlinesColor =15132391
+    Right =28545
+    Bottom =15015
+    DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -1419,7 +1419,7 @@ Begin Form
                     Width =2160
                     FontSize =9
                     TabIndex =4
-                    ForeColor =12673797
+                    ForeColor =16711680
                     Name ="cmdExplainOptions"
                     Caption ="Explain options..."
                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Installation"
@@ -1527,10 +1527,10 @@ Begin Form
                     LayoutCachedTop =120
                     LayoutCachedWidth =7080
                     LayoutCachedHeight =300
-                    BackColor =14461583
-                    BorderColor =14461583
-                    HoverColor =15189940
-                    PressedColor =9917743
+                    BackColor =14136213
+                    BorderColor =14136213
+                    HoverColor =15060409
+                    PressedColor =9592887
                     HoverForeColor =4210752
                     PressedForeColor =4210752
                     WebImagePaddingLeft =2
@@ -1572,6 +1572,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdInstall_Click()
+
+    ' Check for legacy encryption key.
+    If EncryptionKeySet Then
+        If MsgBox2("IMPORTANT: Encryption Feature Removed", _
+            "Prior versions of this add-in supported a reversible ""encryption"" of certain potentially sensitive items such as file paths. " & _
+            "This feature has been removed in this version of the add-in. More information can be found on GitHub issue #193." & vbCrLf & vbCrLf & _
+            "For security reasons, this upgrade will REMOVE the existing encryption key. If you have source files that use this key, " & _
+            "and do NOT have a working copy of the built database, please build the project from source BEFORE upgrading the add-in. ", _
+            "REMOVE existing encryption key? (Make sure you have a copy of this key.)", vbExclamation + vbYesNo + vbDefaultButton2) <> vbYes Then
+            
+            MsgBox2 "Installation Canceled", "Removal of existing encryption keys is required to upgrade.", , vbInformation
+        End If
+    End If
 
     ' Show hourglass, as there may be a brief pause before the confirmation message.
     DoCmd.Hourglass True
@@ -1627,22 +1640,6 @@ Private Sub Form_Load()
         lblInstalled.Caption = "(Add-in not currently installed)"
     Else
         lblInstalled.Caption = "Version " & InstalledVersion & " currently installed."
-    End If
-   
-    If EncryptionKeySet Then
-        
-        If MsgBox2("WARNING: Encryption has been discontinued!", _
-                "Your profile appears to have stored keys." & _
-                "We STRONGLY recommend removing them prior to installing this update. " & _
-                "This version will not remove your keys, so you can still get a prior version to decrypt and build your past databases." & _
-                "We recommend exporting your database without encryption first prior to installing this update.", _
-                "Allow update? YES = Install. Anything else = Cancel Update", vbCritical + vbYesNo + vbDefaultButton2, "Security Key found!") <> vbYes Then
-                
-            cmdInstall.Enabled = False
-            chkAddTrustedLocation.Enabled = False
-            chkOpenAfterInstall.Enabled = False
-            lblSubheading.Caption = "Cannot install: encryption key present. Open projects and remove keys first."
-        End If
     End If
     
 End Sub
