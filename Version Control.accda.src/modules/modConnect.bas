@@ -58,6 +58,10 @@ Public Function SanitizeConnectionString(strConnection As String) As String
             End Select
         Next lngPart
         
+        ' Remove final semicolon added with .AppendOnAdd
+        .Remove 1
+        
+        ' Return sanitized string
         SanitizeConnectionString = .GetStr
     End With
     
@@ -98,7 +102,7 @@ End Function
 ' Purpose   : Return the full path expanded from a relative one.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetFullConnect(strRelative As String) As String
+Public Function GetFullConnect(strRelative As String) As String
 
     Dim strPath As String
     Dim strFull As String
