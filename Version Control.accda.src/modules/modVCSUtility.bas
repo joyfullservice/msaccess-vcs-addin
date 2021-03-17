@@ -338,7 +338,7 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
     strPath = FSO.BuildPath(strFolder, "vbe-project.json")
     If FSO.FileExists(strPath) Then
         Set dContents = ReadJsonFile(strPath)
-        strFile = Decrypt(dNZ(dContents, "Items\FileName"))
+        strFile = dNZ(dContents, "Items\FileName")
         If Left$(strFile, 4) = "rel:" Then
             ' Use parent folder of source folder
             GetOriginalDbFullPathFromSource = BuildPath2(StripSlash(strFolder), "..", FSO.GetFileName(Mid$(strFile, 5)))

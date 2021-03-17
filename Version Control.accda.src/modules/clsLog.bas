@@ -9,6 +9,11 @@ Public PadLength As Integer
 Public LogFilePath As String
 Public ErrorLevel As eErrorLevel
 
+' Set this to true when logging an operation such as an export or build
+' then set back to false after writing the log file. This affects
+' how error messages are reported to the user outside of operations.
+Public Active As Boolean
+
 Private Const cstrSpacer As String = "-------------------------------------"
 
 Private m_Log As clsConcat      ' Log file output
@@ -161,10 +166,21 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
         ' Log the error and display if higher than warning.
         Me.Add .GetStr, eLevel > eelWarning
         
-        ' Show message box for fatal error.
-        If eLevel = eelCritical Then
-            MsgBox2 "Unable to Continue", .GetStr, _
-                "Please review the log file for additional details.", vbCritical
+        ' See if we are actively logging an operation
+        If Log.Active Then
+            ' Show message box for fatal error.
+            If eLevel = eelCritical Then
+                MsgBox2 "Unable to Continue", .GetStr, _
+                    "Please review the log file for additional details.", vbCritical
+            End If
+        Else
+            ' Show message on any error level when we are not logging to a file.
+            Select Case eLevel
+                Case eelNoError:    ' Do nothing
+                Case eelWarning:    MsgBox2 "Warning", .GetStr, , vbInformation
+                Case eelError:      MsgBox2 "Error", .GetStr, , vbExclamation
+                Case eelCritical:   MsgBox2 "Critical", .GetStr, , vbCritical
+            End Select
         End If
     End With
     
@@ -244,6 +260,8 @@ Private Sub Class_Initialize()
     m_sngLastUpdate = 0
     Me.PadLength = 30
     Me.ErrorLevel = eelNoError
+    Me.Active = False
+    Me.LogFilePath = vbNullString
 End Sub
 
 

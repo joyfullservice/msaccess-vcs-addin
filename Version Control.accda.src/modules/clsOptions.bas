@@ -12,6 +12,7 @@ Option Explicit
 
 Private Const cstrOptionsFilename As String = "vcs-options.json"
 Private Const cstrSourcePathProperty As String = "VCS Source Path"
+Private Const ModuleName As String = "clsOptions"
 
 ' Options
 Public ExportFolder As String
@@ -31,8 +32,6 @@ Public TablesToExportData As Dictionary
 Public RunBeforeExport As String
 Public RunAfterExport As String
 Public RunAfterBuild As String
-Public Security As eSecurity
-Public KeyName As String
 Public ShowVCSLegacy As Boolean
 Public HashAlgorithm As String
 Public UseShortHash As Boolean
@@ -41,18 +40,8 @@ Public BreakOnError As Boolean
 ' Constants for enum values
 ' (These values are not permanently stored and
 '  may change between releases.)
-Private Const Enum_Security_Encrypt = 1
-Private Const Enum_Security_Remove = 2
-Private Const Enum_Security_None = 3
 Private Const Enum_Table_Format_TDF = 10
 Private Const Enum_Table_Format_XML = 11
-
-' Options for security
-Public Enum eSecurity
-    esEncrypt = Enum_Security_Encrypt
-    esRemove = Enum_Security_Remove
-    esNone = Enum_Security_None
-End Enum
 
 ' Private collections for options and enum values.
 Private m_colOptions As Collection
@@ -82,10 +71,8 @@ Public Sub LoadDefaults()
         .SaveTableSQL = True
         .StripPublishOption = True
         .AggressiveSanitize = True
-        .Security = esNone
-        .KeyName = modEncrypt.DefaultKeyName
         .ShowVCSLegacy = True
-        .HashAlgorithm = "SHA256"
+        .HashAlgorithm = DefaultHashAlgorithm
         .UseShortHash = True
 
         ' Table data export
@@ -215,6 +202,8 @@ Public Sub LoadOptionsFromFile(strFile As String)
     Dim varOption As Variant
     Dim strKey As String
 
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    
     ' Save file path, in case we need to use it to determine
     ' the export folder location with no database open.
     m_strOptionsFilePath = strFile
@@ -234,8 +223,6 @@ Public Sub LoadOptionsFromFile(strFile As String)
                             Set Me.ExportPrintSettings = dOptions(strKey)
                         Case "TablesToExportData"
                             Set Me.TablesToExportData = dOptions(strKey)
-                        Case "Security"
-                            Me.Security = GetEnumVal(dOptions(strKey))
                         Case Else
                             ' Regular top-level properties
                             CallByName Me, strKey, VbLet, dOptions(strKey)
@@ -245,6 +232,8 @@ Public Sub LoadOptionsFromFile(strFile As String)
         End If
     End If
 
+    CatchAny eelError, "Loading options from " & strFile, ModuleName & ".LoadOptionsFromFile"
+    
 End Sub
 
 
@@ -363,6 +352,8 @@ Private Function SerializeOptions() As Dictionary
     Dim strOption As String
     Dim strBit As String
 
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+
     Set dOptions = New Dictionary
     Set dInfo = New Dictionary
     Set dWrapper = New Dictionary
@@ -375,19 +366,11 @@ Private Function SerializeOptions() As Dictionary
     #End If
     dInfo.Add "AddinVersion", AppVersion
     dInfo.Add "AccessVersion", Application.Version & strBit
-    If Me.Security = esEncrypt Then dInfo.Add "Hash", GetHash
 
     ' Loop through options
     For Each varOption In m_colOptions
-        strOption = CStr(varOption)
-        Select Case strOption
-            Case "Security"
-                ' Translate enums to friendly names.
-                dOptions.Add strOption, GetEnumName(CallByName(Me, strOption, VbGet))
-            Case Else
-                ' Simulate reflection to serialize properties.
-                dOptions.Add strOption, CallByName(Me, strOption, VbGet)
-        End Select
+        ' Simulate reflection to serialize properties.
+        dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
     Next varOption
 
     'Set SerializeOptions = new Dictionary
@@ -395,33 +378,21 @@ Private Function SerializeOptions() As Dictionary
     Set dWrapper("Options") = dOptions
     Set SerializeOptions = dWrapper
 
-End Function
+    CatchAny eelError, "Serializing options", ModuleName & ".SerializeOptions"
 
-
-'---------------------------------------------------------------------------------------
-' Procedure : OptionsHash
-' Author    : Adam Waller
-' Date      : 2/16/2021
-' Purpose   : Return a hash of the current options. Used to detect if options have
-'           : changed, which may require a full export to reflect the change.
-'---------------------------------------------------------------------------------------
-'
-Public Function GetOptionsHash() As String
-    GetOptionsHash = GetDictionaryHash(SerializeOptions)
 End Function
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetHash
 ' Author    : Adam Waller
-' Date      : 7/29/2020
-' Purpose   : Return a hash of the CodeProject.Name to verify encryption.
-'           : Note that the CodeProject.Name value is sometimes returned in all caps,
-'           : so we will force it to uppercase so the return value is consistent.
+' Date      : 2/16/2021
+' Purpose   : Return a hash of the current options. Used to detect if options have
+'           : changed, which may require a full export to reflect the change.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetHash() As String
-    GetHash = Encrypt(UCase(CodeProject.Name))
+Public Function GetHash() As String
+    GetHash = GetDictionaryHash(SerializeOptions)
 End Function
 
 
@@ -505,11 +476,6 @@ Private Sub Class_Initialize()
 
     ' Load enum values
     Set m_dEnum = New Dictionary
-    With m_dEnum
-        .Add Enum_Security_Encrypt, "Encrypt"
-        .Add Enum_Security_Remove, "Remove"
-        .Add Enum_Security_None, "None"
-    End With
 
     ' Load list of property names for reflection type behavior.
     With m_colOptions
@@ -529,8 +495,6 @@ Private Sub Class_Initialize()
         .Add "RunBeforeExport"
         .Add "RunAfterExport"
         .Add "RunAfterBuild"
-        .Add "Security"
-        .Add "KeyName"
         .Add "ShowVCSLegacy"
         .Add "HashAlgorithm"
         .Add "UseShortHash"

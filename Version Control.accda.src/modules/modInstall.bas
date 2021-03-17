@@ -28,6 +28,7 @@ Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExec
     ByVal nShowCmd As Long) As LongPtr
 
 Private Const SW_SHOWNORMAL = 1
+Private Const ModuleName As String = "modInstall"
 
 ' Used to add a trusted location for the add-in path (when necessary)
 Private Const mcstrTrustedLocationName = "MSAccessVCS Version Control"
@@ -86,7 +87,9 @@ Public Function InstallVCSAddin() As Boolean
     
     Dim strSource As String
     Dim strDest As String
-    
+
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+
     strSource = CodeProject.FullName
     strDest = GetAddinFileName
     VerifyPath strDest
@@ -177,9 +180,10 @@ Public Function UninstallVCSAddin() As Boolean
         DeleteSetting GetCodeVBProject.Name, "Build"
         DeleteSetting GetCodeVBProject.Name, "Add-In"
         
-        ' (Not sure if we should delete private "keys", since there is no other
-        '  copy of this data, and they would be required to decrypt encrypted content.)
-        'DeleteSetting GetCodeVBProject.Name, "Private Keys"
+        ' Remove private keys; since this (should have been) removed
+        ' during install, just do it again to verify.
+        DeleteSetting GetCodeVBProject.Name, "Private Keys"
+        
         If Err Then Err.Clear
         On Error GoTo 0
         
@@ -309,12 +313,10 @@ End Sub
 Private Sub RemoveMenuItem(ByVal strName As String, Optional Hive As eHive = ehHKCU)
 
     Dim strPath As String
-    Dim objShell As WshShell
     
     ' We need to remove three registry keys for each item.
     strPath = GetAddinRegPath(Hive) & strName & "\"
-    Set objShell = New WshShell
-    With objShell
+    With New IWshRuntimeLibrary.WshShell
         ' Just in case someone changed some of the keys...
         If DebugMode Then On Error Resume Next Else On Error Resume Next
         .RegDelete strPath & "Expression"
@@ -422,6 +424,8 @@ Public Sub CheckForLegacyInstall()
     Dim strNewPath As String
     Dim strTest As String
     Dim objShell As IWshRuntimeLibrary.WshShell
+    
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
 
     ' Legacy HKLM install
     If InstalledVersion < "3.2.0" Then
@@ -476,10 +480,32 @@ Public Sub CheckForLegacyInstall()
         ' Remove custom trusted location for Office AddIns folder.
         strName = "Office Add-ins"
         If HasTrustedLocationKey(strName) Then RemoveTrustedLocation strName
-        
     End If
     
+    ' Remove legacy RC4 encryption
+    If HasLegacyRC4Keys Then DeleteSetting GetCodeVBProject.Name, "Private Keys"
+    
+    CatchAny eelError, "Checking for legacy install", ModuleName & ".CheckForLegacyInstall"
+    
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasLegacyRC4Keys
+' Author    : Adam Waller
+' Date      : 3/17/2021
+' Purpose   : Returns true if legacy RC4 keys were found in the registry.
+'---------------------------------------------------------------------------------------
+'
+Public Function HasLegacyRC4Keys()
+    Dim strValue As String
+    With New IWshRuntimeLibrary.WshShell
+        If DebugMode Then On Error Resume Next Else On Error Resume Next
+        strValue = .RegRead("HKCU\SOFTWARE\VB and VBA Program Settings\MSAccessVCS\Private Keys\")
+        HasLegacyRC4Keys = Not Catch(-2147024894)
+        CatchAny eelError, "Checking for legacy RC4 keys", ModuleName & ".HasLegacyRC4Keys"
+    End With
+End Function
 
 
 '---------------------------------------------------------------------------------------

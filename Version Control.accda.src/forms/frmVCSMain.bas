@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =32
     Left =-25575
     Top =1710
-    Right =-5925
+    Right =-255
     Bottom =14295
     DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
@@ -2011,6 +2011,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdOptions_Click()
+    ' Force reload of options from current project before opening the form.
+    Set Options = Nothing
     DoCmd.OpenForm "frmVCSOptions"
 End Sub
 
@@ -2042,7 +2044,7 @@ Public Sub Form_Load()
     
     ' Require full export after options change
     If DatabaseOpen Then
-        If VCSIndex.OptionsHash <> Options.GetOptionsHash Then
+        If VCSIndex.OptionsHash <> Options.GetHash Then
             chkFullExport = True
             chkFullExport.Enabled = False
         End If

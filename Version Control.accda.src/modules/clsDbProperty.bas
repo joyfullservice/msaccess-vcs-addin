@@ -35,7 +35,6 @@ Private Sub IDbComponent_Export()
     Dim dCollection As Dictionary
     Dim dItem As Dictionary
     Dim varValue As Variant
-    Dim strPath As String
     
     Set dCollection = New Dictionary
     
@@ -51,15 +50,7 @@ Private Sub IDbComponent_Export()
                 If prp.Name = "AppIcon" Or prp.Name = "Name" Then
                     If Len(varValue) > 0 Then
                         ' Try to use a relative path
-                        strPath = GetRelativePath(CStr(varValue))
-                        If Left(strPath, 4) = "rel:" Then
-                            varValue = strPath
-                        Else
-                            ' The full path may contain sensitive info. Secure the path but not the file name.
-                            ' (Whether the value is encrypted, removed or left as plain text depends on
-                            '  what is selected in the options.)
-                            varValue = SecurePath(CStr(varValue))
-                        End If
+                        varValue = GetRelativePath(CStr(varValue))
                     End If
                 End If
                 Set dItem = New Dictionary
@@ -127,9 +118,6 @@ Private Sub IDbComponent_Import(strFile As String)
                     ' Check if value is as Collection
                     If Not TypeOf dItems(varKey)("Value") Is Collection Then
                         varValue = dItems(varKey)("Value")
-                        ' Check for encryption
-                        strDecrypted = Decrypt(CStr(varValue))
-                        If CStr(varValue) <> strDecrypted Then varValue = strDecrypted
                         ' Check for relative path
                         If Left$(varValue, 4) = "rel:" Then varValue = GetPathFromRelative(CStr(varValue))
                     Else
