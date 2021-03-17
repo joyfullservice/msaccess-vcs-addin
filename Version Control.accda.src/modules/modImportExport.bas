@@ -50,6 +50,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
+    Log.Active = True
     Perf.StartTiming
 
     ' Run any custom sub before export
@@ -142,8 +143,11 @@ Public Sub ExportSource(blnFullExport As Boolean)
     
     ' Add performance data to log file and save file
     Perf.EndTiming
-    Log.Add vbCrLf & Perf.GetReports, False
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+    With Log
+        .Add vbCrLf & Perf.GetReports, False
+        .SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+        .Active = False
+    End With
     
     ' Check for VCS_ImportExport.bas (Used with other forks)
     CheckForLegacyModules
@@ -245,6 +249,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Start log and performance timers
     Log.Clear
+    Log.Active = True
     sngStart = Timer
     Perf.StartTiming
     
@@ -369,8 +374,11 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Add performance data to log file and save file.
     Perf.EndTiming
-    Log.Add vbCrLf & Perf.GetReports, False
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, strType & ".log")
+    With Log
+        .Add vbCrLf & Perf.GetReports, False
+        .SaveFile FSO.BuildPath(Options.GetExportFolder, strType & ".log")
+        .Active = False
+    End With
     
     ' Wrap up build.
     DoCmd.Hourglass False
