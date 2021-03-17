@@ -136,15 +136,7 @@ Private Function GetDictionary() As Dictionary
             With dRef
                 If ref.Type = vbext_rk_Project Then
                     ' references of types mdb,accdb,mde etc don't have a GUID
-                    strPath = GetRelativePath(ref.FullPath)
-                    If strPath <> ref.FullPath Then
-                        ' Use relative path, or full path if not secured.
-                        .Add "FullPath", strPath
-                    Else
-                        ' Found a non-relative path.
-                        .Add "File", FSO.GetFileName(ref.FullPath)
-                        .Add "FullPath", ref.FullPath
-                    End If
+                    .Add "FullPath", GetRelativePath(ref.FullPath)
                 Else
                     If ref.Guid <> vbNullString Then .Add "GUID", ref.Guid
                     .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
