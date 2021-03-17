@@ -122,6 +122,9 @@ Public Function InstallVCSAddin() As Boolean
     Else
         If DebugMode Then On Error GoTo 0 Else On Error Resume Next
 
+        ' Remove legacy encryption (obfuscation, more like) keys
+        DeleteSetting GetCodeVBProject.Name, "Private Keys"
+
         ' Register the Menu controls
         RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
         RegisterMenuItem "&VCS Options", "=AddInOptionsLaunch()"
