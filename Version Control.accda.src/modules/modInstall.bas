@@ -442,9 +442,10 @@ Public Sub CheckForLegacyInstall()
                 RelaunchAsAdmin
             End If
         End If
+    End If
     
     ' Install in Microsoft\AddIns\ folder
-    ElseIf InstalledVersion < "3.3.0" Then
+    If InstalledVersion < "3.3.0" Then
         
         ' Check for install in AddIns folder (before we used the dedicated install folder)
         strOldPath = BuildPath2(Environ$("AppData"), "Microsoft", "AddIns", CodeProject.Name)
