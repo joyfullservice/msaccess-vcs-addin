@@ -12,6 +12,7 @@ Option Explicit
 
 Private Const cstrOptionsFilename As String = "vcs-options.json"
 Private Const cstrSourcePathProperty As String = "VCS Source Path"
+Private Const ModuleName As String = "clsOptions"
 
 ' Options
 Public ExportFolder As String
@@ -31,7 +32,6 @@ Public TablesToExportData As Dictionary
 Public RunBeforeExport As String
 Public RunAfterExport As String
 Public RunAfterBuild As String
-Public KeyName As String
 Public ShowVCSLegacy As Boolean
 Public HashAlgorithm As String
 Public UseShortHash As Boolean
@@ -202,6 +202,8 @@ Public Sub LoadOptionsFromFile(strFile As String)
     Dim varOption As Variant
     Dim strKey As String
 
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    
     ' Save file path, in case we need to use it to determine
     ' the export folder location with no database open.
     m_strOptionsFilePath = strFile
@@ -221,9 +223,6 @@ Public Sub LoadOptionsFromFile(strFile As String)
                             Set Me.ExportPrintSettings = dOptions(strKey)
                         Case "TablesToExportData"
                             Set Me.TablesToExportData = dOptions(strKey)
-                        Case "Security"
-                            ' It's possible these are still in the saved options.
-                            ' This ignores them, but doesn't error out.
                         Case Else
                             ' Regular top-level properties
                             CallByName Me, strKey, VbLet, dOptions(strKey)
@@ -233,6 +232,8 @@ Public Sub LoadOptionsFromFile(strFile As String)
         End If
     End If
 
+    CatchAny eelError, "Loading options from " & strFile, ModuleName & ".LoadOptionsFromFile"
+    
 End Sub
 
 
@@ -351,6 +352,8 @@ Private Function SerializeOptions() As Dictionary
     Dim strOption As String
     Dim strBit As String
 
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+
     Set dOptions = New Dictionary
     Set dInfo = New Dictionary
     Set dWrapper = New Dictionary
@@ -366,21 +369,16 @@ Private Function SerializeOptions() As Dictionary
 
     ' Loop through options
     For Each varOption In m_colOptions
-        strOption = CStr(varOption)
-        Select Case strOption
-            Case "Security"
-                ' It's possible these are still in the saved options.
-                ' This ignores them, but doesn't error out.
-            Case Else
-                ' Simulate reflection to serialize properties.
-                dOptions.Add strOption, CallByName(Me, strOption, VbGet)
-        End Select
+        ' Simulate reflection to serialize properties.
+        dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
     Next varOption
 
     'Set SerializeOptions = new Dictionary
     Set dWrapper("Info") = dInfo
     Set dWrapper("Options") = dOptions
     Set SerializeOptions = dWrapper
+
+    CatchAny eelError, "Serializing options", ModuleName & ".SerializeOptions"
 
 End Function
 
@@ -497,7 +495,6 @@ Private Sub Class_Initialize()
         .Add "RunBeforeExport"
         .Add "RunAfterExport"
         .Add "RunAfterBuild"
-        .Add "KeyName"
         .Add "ShowVCSLegacy"
         .Add "HashAlgorithm"
         .Add "UseShortHash"

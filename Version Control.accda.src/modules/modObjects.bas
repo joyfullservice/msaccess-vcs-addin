@@ -44,8 +44,7 @@ End Function
 ' Purpose   : A global property to access options from anywhere in code.
 '           : (Avoiding a global state is better OO programming, but this approach keeps
 '           :  the coding simpler when you don't have to tie everything back to the
-'           :  primary object.) I.e. You can just use `Encrypt("text")` instead of
-'           :  having to use `Options.Encrypt("text")`
+'           :  primary object.)
 '           : To clear the current set of options, simply set the property to nothing.
 '---------------------------------------------------------------------------------------
 '

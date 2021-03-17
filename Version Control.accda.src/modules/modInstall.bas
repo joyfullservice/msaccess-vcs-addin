@@ -87,7 +87,9 @@ Public Function InstallVCSAddin() As Boolean
     
     Dim strSource As String
     Dim strDest As String
-    
+
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+
     strSource = CodeProject.FullName
     strDest = GetAddinFileName
     VerifyPath strDest
@@ -311,12 +313,10 @@ End Sub
 Private Sub RemoveMenuItem(ByVal strName As String, Optional Hive As eHive = ehHKCU)
 
     Dim strPath As String
-    Dim objShell As WshShell
     
     ' We need to remove three registry keys for each item.
     strPath = GetAddinRegPath(Hive) & strName & "\"
-    Set objShell = New WshShell
-    With objShell
+    With New IWshRuntimeLibrary.WshShell
         ' Just in case someone changed some of the keys...
         If DebugMode Then On Error Resume Next Else On Error Resume Next
         .RegDelete strPath & "Expression"
@@ -424,6 +424,8 @@ Public Sub CheckForLegacyInstall()
     Dim strNewPath As String
     Dim strTest As String
     Dim objShell As IWshRuntimeLibrary.WshShell
+    
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
 
     ' Legacy HKLM install
     If InstalledVersion < "3.2.0" Then
@@ -481,13 +483,29 @@ Public Sub CheckForLegacyInstall()
     End If
     
     ' Remove legacy RC4 encryption
-    If DebugMode Then On Error Resume Next Else On Error Resume Next
-    DeleteSetting GetCodeVBProject.Name, "Private Keys"
-    Catch 5 ' Key does not exist
+    If HasLegacyRC4Keys Then DeleteSetting GetCodeVBProject.Name, "Private Keys"
     
     CatchAny eelError, "Checking for legacy install", ModuleName & ".CheckForLegacyInstall"
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasLegacyRC4Keys
+' Author    : Adam Waller
+' Date      : 3/17/2021
+' Purpose   : Returns true if legacy RC4 keys were found in the registry.
+'---------------------------------------------------------------------------------------
+'
+Public Function HasLegacyRC4Keys()
+    Dim strValue As String
+    With New IWshRuntimeLibrary.WshShell
+        If DebugMode Then On Error Resume Next Else On Error Resume Next
+        strValue = .RegRead("HKCU\SOFTWARE\VB and VBA Program Settings\MSAccessVCS\Private Keys\")
+        HasLegacyRC4Keys = Not Catch(-2147024894)
+        CatchAny eelError, "Checking for legacy RC4 keys", ModuleName & ".HasLegacyRC4Keys"
+    End With
+End Function
 
 
 '---------------------------------------------------------------------------------------
