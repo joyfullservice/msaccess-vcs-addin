@@ -21,6 +21,8 @@ Public Const JSON_WHITESPACE As Integer = 2
 Public Const UTF8_BOM As String = "ï»¿"
 Public Const UCS2_BOM As String = "ÿþ"
 
+' Default hashing algorithm
+Public Const DefaultHashAlgorithm As String = "SHA256"
 
 ' Object types used when determining SQL modification date.
 Public Enum eSqlObjectType

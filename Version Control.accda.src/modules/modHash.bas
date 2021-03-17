@@ -62,7 +62,6 @@ Public Declare PtrSafe Function BCryptGetProperty Lib "BCrypt.dll" ( _
 
 Private Const ModuleName As String = "modHash"
 
-Public Const DefaultHashAlgorithm As String = "SHA256"
 
 Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgorithm As String = DefaultHashAlgorithm) As Byte()
     
