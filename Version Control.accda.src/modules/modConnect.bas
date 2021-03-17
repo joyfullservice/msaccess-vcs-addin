@@ -58,8 +58,6 @@ Public Function SanitizeConnectionString(strConnection As String) As String
             End Select
         Next lngPart
         
-        ' Remove trailing semicolon, and return string
-        .Remove 1
         SanitizeConnectionString = .GetStr
     End With
     
