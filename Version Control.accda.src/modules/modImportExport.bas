@@ -50,6 +50,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
+    Log.Active = True
     Perf.StartTiming
 
     ' Run any custom sub before export
@@ -61,7 +62,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     End If
 
     ' If options (or VCS version) have changed, a full export will be required
-    If (VCSIndex.OptionsHash <> Options.GetOptionsHash) Then blnFullExport = True
+    If (VCSIndex.OptionsHash <> Options.GetHash) Then blnFullExport = True
 
     ' Begin timer at start of export.
     sngStart = Timer
@@ -142,8 +143,11 @@ Public Sub ExportSource(blnFullExport As Boolean)
     
     ' Add performance data to log file and save file
     Perf.EndTiming
-    Log.Add vbCrLf & Perf.GetReports, False
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+    With Log
+        .Add vbCrLf & Perf.GetReports, False
+        .SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+        .Active = False
+    End With
     
     ' Check for VCS_ImportExport.bas (Used with other forks)
     CheckForLegacyModules
@@ -155,7 +159,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     With VCSIndex
         .ExportDate = Now
         If blnFullExport Then .FullExportDate = Now
-        .OptionsHash = Options.GetOptionsHash
+        .OptionsHash = Options.GetHash
         .Save
     End With
     
@@ -222,16 +226,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         End If
     End If
     
-    ' If we are using encryption, make sure we are able to decrypt the values.
-    ' NOTE: There is no CurrentProject at this point, so we will have limited
-    ' functionality with the options class.
     Set Options = Nothing
     Options.LoadOptionsFromFile strSourceFolder & "vcs-options.json"
-    If Options.Security = esEncrypt And Not VerifyHash(strSourceFolder & "vcs-options.json") Then
-        MsgBox2 "Encryption Key Mismatch", "The required encryption key is either missing or incorrect.", _
-            "Please update the encryption key before building this project from source.", vbExclamation
-        Exit Sub
-    End If
     
     ' Build original file name for database
     If blnFullBuild Then
@@ -253,6 +249,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Start log and performance timers
     Log.Clear
+    Log.Active = True
     sngStart = Timer
     Perf.StartTiming
     
@@ -377,8 +374,11 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Add performance data to log file and save file.
     Perf.EndTiming
-    Log.Add vbCrLf & Perf.GetReports, False
-    Log.SaveFile FSO.BuildPath(Options.GetExportFolder, strType & ".log")
+    With Log
+        .Add vbCrLf & Perf.GetReports, False
+        .SaveFile FSO.BuildPath(Options.GetExportFolder, strType & ".log")
+        .Active = False
+    End With
     
     ' Wrap up build.
     DoCmd.Hourglass False
@@ -491,7 +491,7 @@ Private Function VerifyHash(strOptionsFile As String) As Boolean
         VerifyHash = True
     Else
         ' Return true if we can successfully decrypt the hash.
-        VerifyHash = CanDecrypt(strHash)
+        VerifyHash = False
     End If
     
 End Function

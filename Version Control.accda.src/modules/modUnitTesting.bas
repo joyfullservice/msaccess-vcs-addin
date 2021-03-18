@@ -173,55 +173,26 @@ Private Sub TestQuickSort()
 End Sub
 
 
-'@TestMethod("Encryption")
-Private Sub TestSecureBetween()
-    On Error GoTo TestFail
-    
-    'Arrange:
-    Dim expNonEncrypted As String
-    Dim actnonEncrypted As String
-    Dim expRemove As String
-    Dim actRemove As String
-    Dim expEncrypted As String
-    Dim actEncrypted As String
-    
-    expNonEncrypted = "<firsttag>this should be not be encrypted</firsttag>"
-    expRemove = "<firsttag></firsttag>"
-    expEncrypted = "<firsttag>@{*"
-    
-    'Act:
-    Options.Security = esNone
-    actnonEncrypted = SecureBetween(expNonEncrypted, "<firsttag>", "</firsttag>")
-    
-    Options.Security = esRemove
-    actRemove = SecureBetween(expNonEncrypted, "<firsttag>", "</firsttag>")
-    
-    Options.Security = esEncrypt
-    actEncrypted = SecureBetween(expNonEncrypted, "<firsttag>", "</firsttag>")
-    
-    Debug.Print actnonEncrypted
-    Debug.Print actRemove
-    Debug.Print actEncrypted
-    
-    'Assert:
-    Assert.AreEqual expNonEncrypted, actnonEncrypted
-    Assert.AreEqual expRemove, actRemove
-    Assert.IsTrue actEncrypted Like expEncrypted
-    
-
-TestExit:
-    Exit Sub
-TestFail:
-    Assert.Fail "Test raised an error: #" & Err.Number & " - " & Err.Description
-End Sub
-
-
 '@TestMethod("Concat")
 Private Sub TestConcat()
     
-    Dim objConcat As clsConcat
+    With New clsConcat
+        .SelfTest
+    End With
     
-    Set objConcat = New clsConcat
-    objConcat.SelfTest
-    Set objConcat = Nothing
+End Sub
+
+
+'@TestMethod("SanitizeConnectionString")
+Private Sub TestSanitizeConnectionString()
+
+    ' Verify semicolon placement matches original
+    Debug.Assert SanitizeConnectionString(";test;test;") = ";test;test;"
+    Debug.Assert SanitizeConnectionString("test;test") = "test;test"
+    Debug.Assert SanitizeConnectionString(";test;test") = ";test;test"
+    Debug.Assert SanitizeConnectionString("test;test;") = "test;test;"
+    Debug.Assert SanitizeConnectionString("test;test;") = "test;test;"
+    Debug.Assert SanitizeConnectionString("test") = "test"
+    Debug.Assert SanitizeConnectionString(vbNullString) = vbNullString
+
 End Sub

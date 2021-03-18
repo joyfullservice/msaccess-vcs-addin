@@ -17,10 +17,10 @@ Begin Form
     GridY =24
     DatasheetFontHeight =11
     ItemSuffix =39
-    Left =-17265
-    Top =2430
-    Right =-6105
-    Bottom =10335
+    Left =-25575
+    Top =1710
+    Right =-255
+    Bottom =14295
     DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1573,6 +1573,23 @@ End Sub
 '
 Private Sub cmdInstall_Click()
 
+    ' Check for legacy encryption key.
+    If HasLegacyRC4Keys Then
+        If MsgBox2("IMPORTANT: Encryption Feature Removed", _
+            "Prior versions of this add-in supported a reversible ""encryption"" of certain potentially sensitive items such as file paths. " & _
+            "This feature has been removed in this version of the add-in. More information can be found on GitHub issue #193 " & _
+            "of the joyfullservice/msaccess-vcs-integration project." & vbCrLf & vbCrLf & _
+            "For security reasons, this upgrade will REMOVE all existing encryption keys used by this add-in. " & _
+            "If you have source files for any projects that use these keys, " & _
+            "and do NOT have a working copy of the built database, please build the project(s) from source BEFORE upgrading the add-in. ", _
+            "REMOVE all existing encryption keys? (Make sure you have a copy of the keys.)", vbExclamation + vbYesNo + vbDefaultButton2) <> vbYes Then
+            
+            ' Cancel the installation if the user clicked anything other than Yes.
+            MsgBox2 "Installation Canceled", "Removal of existing encryption keys is required to upgrade.", , vbInformation
+            Exit Sub
+        End If
+    End If
+
     ' Show hourglass, as there may be a brief pause before the confirmation message.
     DoCmd.Hourglass True
 
@@ -1628,5 +1645,5 @@ Private Sub Form_Load()
     Else
         lblInstalled.Caption = "Version " & InstalledVersion & " currently installed."
     End If
-   
+    
 End Sub

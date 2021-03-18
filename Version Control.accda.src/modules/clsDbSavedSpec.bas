@@ -41,7 +41,7 @@ Private Sub IDbComponent_Export()
     With dSpec
         .Add "Name", m_Spec.Name
         .Add "Description", m_Spec.Description
-        .Add "XML", SecureBetween(m_Spec.XML, "<ImportExportSpecification Path = """, """")
+        .Add "XML", m_Spec.XML
     End With
     CatchAny eelNoError, vbNullString, , False
     
