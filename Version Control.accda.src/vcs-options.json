@@ -1,7 +1,7 @@
 ﻿{
   "Info": {
-    "AddinVersion": "3.3.16",
-    "AccessVersion": "16.0 64-bit"
+    "AddinVersion": "3.3.17",
+    "AccessVersion": "14.0 32-bit"
   },
   "Options": {
     "ExportFolder": "",
@@ -48,7 +48,6 @@
     "RunBeforeExport": "",
     "RunAfterExport": "",
     "RunAfterBuild": "",
-    "KeyName": "MSAccessVCS",
     "ShowVCSLegacy": true,
     "HashAlgorithm": "SHA256",
     "UseShortHash": true,
