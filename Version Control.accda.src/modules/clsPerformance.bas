@@ -2,6 +2,7 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
+
 '---------------------------------------------------------------------------------------
 ' Module    : clsPerformance
 ' Author    : Adam Waller
@@ -133,9 +134,10 @@ Public Sub OperationEnd(Optional lngCount As Long = 1)
                 ' Resume previous activity
                 strLastOperation = .Item(.Count)
                 m_strOperation = vbNullString
-                OperationStart strLastOperation
                 ' Remove last item from call stack
                 .Remove .Count
+                ' Start previous timer
+                OperationStart strLastOperation
             Else
                 ' No longer timing any operations.
                 m_strOperation = vbNullString
@@ -203,6 +205,7 @@ Private Sub StartTimer(dItems As Scripting.Dictionary, strName As String)
         Set cItem = New clsPerformanceItem
         dItems.Add strName, cItem
     End If
+    dItems(strName).Level = m_colOpsCallStack.Count
     dItems(strName).Start = MicroTimer
 End Sub
 
@@ -285,7 +288,7 @@ Public Function GetReports() As String
             .Add ListResult("Object Type", "Count", "Seconds", lngCol), vbCrLf, strSpacer
             For Each varKey In m_dComponents.Keys
                 .Add ListResult(CStr(varKey), CStr(m_dComponents(varKey).Count), _
-                    Format(m_dComponents(varKey).Total, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol)
+                    Format(m_dComponents(varKey).Total, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol, m_dComponents(varKey).Level)
                 ' Add to totals
                 dblCount = dblCount + m_dComponents(varKey).Count
                 curTotal = curTotal + m_dComponents(varKey).Total
@@ -302,7 +305,7 @@ Public Function GetReports() As String
         .Add ListResult("Operations", "Count", "Seconds", lngCol), vbCrLf, strSpacer
         For Each varKey In m_dOperations.Keys
             .Add ListResult(CStr(varKey), CStr(m_dOperations(varKey).Count), _
-                Format(m_dOperations(varKey).Total, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol)
+                Format(m_dOperations(varKey).Total, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol, m_dOperations(varKey).Level)
             curTotal = curTotal + m_dOperations(varKey).Total
         Next varKey
         .Add strSpacer
@@ -342,8 +345,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function ListResult(strHeading As String, strResult1 As String, strResult2 As String, _
-    lngCol() As Long) As String
-    ListResult = PadRight(strHeading, lngCol(0)) & _
+    lngCol() As Long, Optional lngLevel As Long = 0) As String
+    ListResult = PadRight(String$(lngLevel, " ") & strHeading, lngCol(0)) & _
         PadRight(strResult1, lngCol(1)) & strResult2
 End Function
 
@@ -402,3 +405,39 @@ Private Sub Class_Initialize()
     ' https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
     GetFrequencyAPI m_curFrequency
 End Sub
+
+Public Function SelfTest() As String
+    
+    ResetAll
+    StartTiming
+    DigitsAfterDecimal = 4
+
+    ComponentStart "Component A"
+    OperationStart "Level 1 (should be 1 sec)"
+    OperationStart "Level 2 (should be 3 sec)"
+    Pause 1 ' Level 2 = 1 Second
+    
+    ' Level 3 = 0 Second
+    OperationStart "Level 3 (should be 0 sec)"
+    OperationEnd
+    
+    Pause 2 ' Level 2 = 1 + 2 Second
+    OperationEnd
+    
+    OperationStart "Level 2.1 (should be 1 sec)"
+    Pause 1 ' Level 2.1 = 1 Second
+    
+    ' Level 3 = 0 Second
+    OperationStart "Level 3 (should be 0 sec)"
+    OperationEnd
+    
+    OperationEnd
+    
+    Pause 1 ' Level 1 = 1 Second
+    OperationEnd
+    
+    ComponentEnd
+    EndTiming
+    
+    SelfTest = GetReports
+End Function
