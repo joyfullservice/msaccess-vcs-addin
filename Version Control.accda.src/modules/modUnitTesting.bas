@@ -197,7 +197,7 @@ Private Sub TestSanitizeConnectionString()
 
 End Sub
 
-'@TestMethod("clsPerformanceLeel")
+'@TestMethod("clsPerformanceLevel")
 Private Sub TestclsPerformanceLevel()
     Dim strTestResult As String
     
