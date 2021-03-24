@@ -9,4 +9,3 @@ Option Explicit
 Public Start As Currency
 Public Total As Currency
 Public Count As Double
-Public Level As Long

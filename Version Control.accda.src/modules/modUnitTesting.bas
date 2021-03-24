@@ -196,16 +196,3 @@ Private Sub TestSanitizeConnectionString()
     Debug.Assert SanitizeConnectionString(vbNullString) = vbNullString
 
 End Sub
-
-'@TestMethod("clsPerformanceLevel")
-Private Sub TestclsPerformanceLevel()
-    Dim strTestResult As String
-    
-    ' verify the indention of the operations depend of their level
-    strTestResult = Perf.SelfTest
-    Debug.Print strTestResult
-    Debug.Assert InStr(strTestResult, vbCrLf & "Level 1 (should be 1 sec)") > 0
-    Debug.Assert InStr(strTestResult, vbCrLf & " Level 2 (should be 3 sec)") > 0
-    Debug.Assert InStr(strTestResult, vbCrLf & "  Level 3 (should be 0 sec)") > 0
-    Debug.Assert InStr(strTestResult, vbCrLf & " Level 2.1 (should be 1 sec)") > 0
-End Sub
