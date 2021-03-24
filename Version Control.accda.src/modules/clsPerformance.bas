@@ -288,8 +288,7 @@ Public Function GetReports() As String
             .Add ListResult("Object Type", "Count", "Seconds", lngCol), vbCrLf, strSpacer
             For Each varKey In m_dComponents.Keys
                 .Add ListResult(CStr(varKey), CStr(m_dComponents(varKey).Count), _
-                    Format(m_dComponents(varKey).Total, "0." & String$(m_intDigitsAfterDecimal, "0")), _
-                    lngCol, m_dComponents(varKey).Level)
+                    Format(m_dComponents(varKey).Total, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol, m_dComponents(varKey).Level)
                 ' Add to totals
                 dblCount = dblCount + m_dComponents(varKey).Count
                 curTotal = curTotal + m_dComponents(varKey).Total
@@ -306,8 +305,7 @@ Public Function GetReports() As String
         .Add ListResult("Operations", "Count", "Seconds", lngCol), vbCrLf, strSpacer
         For Each varKey In m_dOperations.Keys
             .Add ListResult(CStr(varKey), CStr(m_dOperations(varKey).Count), _
-                Format(m_dOperations(varKey).Total, "0." & String$(m_intDigitsAfterDecimal, "0")), _
-                lngCol, m_dOperations(varKey).Level)
+                Format(m_dOperations(varKey).Total, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol, m_dOperations(varKey).Level)
             curTotal = curTotal + m_dOperations(varKey).Total
         Next varKey
         .Add strSpacer
@@ -344,14 +342,11 @@ End Function
 '           : are positioned at the number of characters specified.
 '           : I.e:
 '           : MyFancyTest      23     2.45
-'           :
-'           : **NOTE** Level is currently disabled, pending discussion on the following
-'           : https://github.com/joyfullservice/msaccess-vcs-integration/pull/205
 '---------------------------------------------------------------------------------------
 '
 Private Function ListResult(strHeading As String, strResult1 As String, strResult2 As String, _
     lngCol() As Long, Optional lngLevel As Long = 0) As String
-    ListResult = PadRight(strHeading, lngCol(0)) & _
+    ListResult = PadRight(String$(lngLevel, " ") & strHeading, lngCol(0)) & _
         PadRight(strResult1, lngCol(1)) & strResult2
 End Function
 
