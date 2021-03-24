@@ -145,6 +145,7 @@ Public Sub OperationEnd(Optional lngCount As Long = 1)
     
 End Sub
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : DigitsAfterDecimal
 ' Author    : Eugen Albiker
@@ -156,6 +157,7 @@ Public Property Let DigitsAfterDecimal(intDigitsAfterDecimal As Integer)
     If intDigitsAfterDecimal > 4 Then intDigitsAfterDecimal = 4
     m_intDigitsAfterDecimal = intDigitsAfterDecimal
 End Property
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : EndTiming
