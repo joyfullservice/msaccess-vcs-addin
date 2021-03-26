@@ -20,7 +20,7 @@ Begin Form
     Top =1710
     Right =-255
     Bottom =14295
-    DatasheetGridlinesColor =15132391
+    DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -1642,7 +1642,7 @@ Begin Form
                     Height =240
                     FontSize =10
                     BorderColor =10921638
-                    ForeColor =12673797
+                    ForeColor =16711680
                     Name ="lblOpenLogFile"
                     Caption ="Open Log File..."
                     OnClick ="[Event Procedure]"

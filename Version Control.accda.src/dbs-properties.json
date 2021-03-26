@@ -41,7 +41,7 @@
       "Type": 10
     },
     "AppVersion": {
-      "Value": "3.3.17",
+      "Value": "3.3.20",
       "Type": 10
     },
     "Auto Compact": {
@@ -117,7 +117,7 @@
       "Type": 4
     },
     "ProjVer": {
-      "Value": 142,
+      "Value": 119,
       "Type": 3
     },
     "QueryTimeout": {
@@ -197,7 +197,7 @@
       "Type": 2
     },
     "Version": {
-      "Value": "12.0",
+      "Value": "14.0",
       "Type": 12
     },
     "WebDesignMode": {
