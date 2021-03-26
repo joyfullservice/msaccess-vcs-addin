@@ -112,19 +112,20 @@ Private Sub IDbComponent_Import(strFile As String)
         
         ' Setting the HelpContextId can throw random automation errors.
         ' The setting does change despite the error.
-        On Error Resume Next
+        If DebugMode Then On Error Resume Next Else On Error Resume Next
         Dim newHelpID As Long
         newHelpID = ValidHelpContextId(dNZ(dProject, "Items\HelpContextId"))
         .HelpContextId = newHelpID
-        On Error GoTo 0
+        If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+        
         ' If we failed to set the ID then it was a real error, throw it
         If CStr(.HelpContextId) <> newHelpID Then CatchAny eelError, "Failed to set help context ID"
         
-        On Error Resume Next
+        If DebugMode Then On Error Resume Next Else On Error Resume Next
         Dim newHelpFile As String
         newHelpFile = ValidHelpFile(dNZ(dProject, "Items\HelpFile"))
         .helpFile = newHelpFile
-        On Error GoTo 0
+        If DebugMode Then On Error GoTo 0 Else On Error Resume Next
         If .helpFile <> newHelpFile Then CatchAny eelError, "Failed to set help file"
         
         ' // Read-only properties
