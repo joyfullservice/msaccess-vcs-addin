@@ -114,13 +114,15 @@ Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue 
     varNew = CallByName(cProj, strProperty, VbGet)
     
     ' Verify that the property was set correctly
-    If varNew = varValue Then
-        ' Clear any errors that were triggered in the process.
-        If Err Then Err.Clear
-    Else
-        ' This might have thrown an actual error.
-        CatchAny eelError, "Failed to set " & strProperty & " to '" & _
-            CStr(varValue) & "'", ModuleName & ".Import"
+    If varNew <> varValue Then
+        ' We might have thrown an actual error.
+        If Not CatchAny(eelError, "Failed to set " & strProperty & " to '" & _
+            CStr(varValue) & "'", ModuleName & ".SafeSetProperty") Then
+            ' No error, but property not set correctly.
+            Log.Error eelError, "Failed to set " & strProperty & ". Set value to '" & _
+                varValue & "' but afterwards it returned '" & varNew & "'.", _
+                ModuleName & ".SafeSetProperty"
+        End If
     End If
     
 End Sub
