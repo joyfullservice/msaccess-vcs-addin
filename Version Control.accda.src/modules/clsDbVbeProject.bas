@@ -45,6 +45,84 @@ Private Sub IDbComponent_Export()
     
 End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : Import
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Import the individual database component from a file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Import(strFile As String)
+
+    Dim dProject As Dictionary
+
+    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+    Set dProject = ReadJsonFile(strFile)
+    Set m_Project = GetVBProjectForCurrentDB
+    
+    ' Update project properties
+    With m_Project
+        .Name = dNZ(dProject, "Items\Name")
+        .Description = dNZ(dProject, "Items\Description")
+        
+        ' Setting the HelpContextId can throw random automation errors.
+        SafeSetProperty m_Project, "HelpContextId", ValidHelpContextId(dNZ(dProject, "Items\HelpContextId"))
+        SafeSetProperty m_Project, "HelpFile", ValidHelpFile(dNZ(dProject, "Items\HelpFile"))
+        
+        ' // Read-only properties
+        '.FileName = dNZ(dProject, "Items\FileName")
+        '.Mode = dNZ(dProject, "Items\Mode")
+        '.Protection = dNZ(dProject, "Items\Protection")
+        '.Type = dNZ(dProject, "Items\Type")
+    End With
+    
+    CatchAny eelError, "Importing VBE Project", ModuleName & ".Import"
+    
+    ' Save to index
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SafeSetProperty
+' Author    : Adam Waller
+' Date      : 3/26/2021
+' Purpose   : For some reason the help properties can sometimes throw strange runtime
+'           : errors when setting them. This function handles the extra error handling
+'           : involved in setting and verifying these properties.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue As Variant)
+
+    Dim varNew As String
+    
+    ' Switch to on error resume next after checking for current errors
+    If DebugMode Then On Error Resume Next Else On Error Resume Next
+    
+    ' Attempt to set the property
+    CallByName cProj, strProperty, VbLet, varValue
+    
+    ' Read the value after setting it
+    varNew = CallByName(cProj, strProperty, VbGet)
+    
+    ' Verify that the property was set correctly
+    If varNew = varValue Then
+        ' Clear any errors that were triggered in the process.
+        If Err Then Err.Clear
+    Else
+        ' This might have thrown an actual error.
+        CatchAny eelError, "Failed to set " & strProperty & " to '" & _
+            CStr(varValue) & "'", ModuleName & ".Import"
+    End If
+    
+End Sub
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : ValidHelpContextId
 ' Author    : Adam Waller
@@ -52,15 +130,15 @@ End Sub
 ' Purpose   : Don't attempt to set the help context id to anything other than a number.
 '---------------------------------------------------------------------------------------
 '
-Private Function ValidHelpContextId(ByVal helpID As String) As Long
-    If helpID = vbNullString Then
+Private Function ValidHelpContextId(strHelpID As String) As Long
+    If strHelpID = vbNullString Then
         ValidHelpContextId = 0
-    ElseIf Not IsNumeric(helpID) Then
+    ElseIf Not IsNumeric(strHelpID) Then
         Log.Error eelWarning, "HelpContextID should be a number. " & _
-            "Found '" & helpID & "' instead.", ModuleName & ".ValidHelpContextId"
+            "Found '" & strHelpID & "' instead.", ModuleName & ".ValidHelpContextId"
         ValidHelpContextId = 0
     Else
-        ValidHelpContextId = CLng(helpID)
+        ValidHelpContextId = CLng(strHelpID)
     End If
 End Function
 
@@ -88,59 +166,6 @@ Private Function ValidHelpFile(ByVal helpFile As String) As String
         End If
     End If
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Import
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Import the individual database component from a file.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Import(strFile As String)
-    
-    ' Only import files with the correct extension.
-    If Not strFile Like "*.json" Then Exit Sub
-
-    ' Update project properties
-    Dim dProject As Dictionary
-    Set dProject = ReadJsonFile(strFile)
-    Set m_Project = GetVBProjectForCurrentDB
-    With m_Project
-        .Name = dNZ(dProject, "Items\Name")
-        .Description = dNZ(dProject, "Items\Description")
-        
-        ' Setting the HelpContextId can throw random automation errors.
-        ' The setting does change despite the error.
-        If DebugMode Then On Error Resume Next Else On Error Resume Next
-        Dim newHelpID As Long
-        newHelpID = ValidHelpContextId(dNZ(dProject, "Items\HelpContextId"))
-        .HelpContextId = newHelpID
-        If DebugMode Then On Error GoTo 0 Else On Error Resume Next
-        
-        ' If we failed to set the ID then it was a real error, throw it
-        If CStr(.HelpContextId) <> newHelpID Then CatchAny eelError, "Failed to set help context ID"
-        
-        If DebugMode Then On Error Resume Next Else On Error Resume Next
-        Dim newHelpFile As String
-        newHelpFile = ValidHelpFile(dNZ(dProject, "Items\HelpFile"))
-        .helpFile = newHelpFile
-        If DebugMode Then On Error GoTo 0 Else On Error Resume Next
-        If .helpFile <> newHelpFile Then CatchAny eelError, "Failed to set help file"
-        
-        ' // Read-only properties
-        '.FileName = dNZ(dProject, "Items\FileName")
-        '.Mode = dNZ(dProject, "Items\Mode")
-        '.Protection = dNZ(dProject, "Items\Protection")
-        '.Type = dNZ(dProject, "Items\Type")
-    End With
-    
-    CatchAny eelError, "Importing VBE Project", ModuleName & ".Import"
-    
-    ' Save to index
-    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
-
-End Sub
 
 
 '---------------------------------------------------------------------------------------
