@@ -73,6 +73,9 @@ Private Sub IDbComponent_Import(strFile As String)
         SafeSetProperty m_Project, "HelpContextId", ValidHelpContextId(dNZ(dProject, "Items\HelpContextId"))
         SafeSetProperty m_Project, "HelpFile", ValidHelpFile(dNZ(dProject, "Items\HelpFile"))
         
+        ' This property is not exposed through the VBProject object model
+        Application.SetOption "Conditional Compilation Arguments", dNZ(dProject, "Items\ConditionalCompilationArguments")
+        
         ' // Read-only properties
         '.FileName = dNZ(dProject, "Items\FileName")
         '.Mode = dNZ(dProject, "Items\Mode")
@@ -188,6 +191,7 @@ Private Function GetDictionary() As Dictionary
         .Add "FileName", GetRelativePath(m_Project.FileName)
         .Add "HelpFile", ValidHelpFile(m_Project.helpFile)
         .Add "HelpContextId", ValidHelpContextId(m_Project.HelpContextId)
+        .Add "ConditionalCompilationArguments", Application.GetOption("Conditional Compilation Arguments")
         .Add "Mode", m_Project.Mode
         .Add "Protection", m_Project.Protection
         .Add "Type", m_Project.Type
