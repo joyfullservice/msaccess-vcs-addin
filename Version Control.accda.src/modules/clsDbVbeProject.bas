@@ -98,14 +98,12 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-
-    Dim dProject As Dictionary
-    Dim strValue As String
     
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
     ' Update project properties
+    Dim dProject As Dictionary
     Set dProject = ReadJsonFile(strFile)
     Set m_Project = GetVBProjectForCurrentDB
     With m_Project
@@ -115,17 +113,19 @@ Private Sub IDbComponent_Import(strFile As String)
         ' Setting the HelpContextId can throw random automation errors.
         ' The setting does change despite the error.
         On Error Resume Next
-        strValue = ValidHelpContextId(dNZ(dProject, "Items\HelpContextId"))
-        .HelpContextId = strValue
+        Dim newHelpID As Long
+        newHelpID = ValidHelpContextId(dNZ(dProject, "Items\HelpContextId"))
+        .HelpContextId = newHelpID
         On Error GoTo 0
         ' If we failed to set the ID then it was a real error, throw it
-        If CStr(.HelpContextId) <> strValue Then CatchAny eelError, "Failed to set help context ID"
+        If CStr(.HelpContextId) <> newHelpID Then CatchAny eelError, "Failed to set help context ID"
         
         On Error Resume Next
-        strValue = ValidHelpFile(dNZ(dProject, "Items\HelpFile"))
-        .helpFile = strValue
+        Dim newHelpFile As String
+        newHelpFile = ValidHelpFile(dNZ(dProject, "Items\HelpFile"))
+        .helpFile = newHelpFile
         On Error GoTo 0
-        If .helpFile <> strValue Then CatchAny eelError, "Failed to set help file"
+        If .helpFile <> newHelpFile Then CatchAny eelError, "Failed to set help file"
         
         ' // Read-only properties
         '.FileName = dNZ(dProject, "Items\FileName")
