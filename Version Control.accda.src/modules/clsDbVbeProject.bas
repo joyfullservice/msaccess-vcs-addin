@@ -68,16 +68,41 @@ Private Sub IDbComponent_Import(strFile As String)
         .Name = dNZ(dProject, "Items\Name")
         .Description = dNZ(dProject, "Items\Description")
         
+        ' Don't attempt to set the help context id to anything other than a number.
+        strValue = dNZ(dProject, "Items\HelpContextId")
+        If strValue = vbNullString Then strValue = 0
+        If Not IsNumeric(strValue) Then
+            Log.Error eelWarning, "HelpContextID should be a number. " & _
+                "Found '" & strValue & "' instead.", ModuleName & ".Import"
+            strValue = 0
+        End If
+        If DebugMode Then On Error Resume Next Else On Error Resume Next
+        
         ' Setting the HelpContextId can throw random automation errors.
         ' The setting does change despite the error.
-        strValue = dNZ(dProject, "Items\HelpContextId")
-        If DebugMode Then On Error Resume Next Else On Error Resume Next
-        .HelpContextId = strValue
+        .HelpContextId = CLng(strValue)
+        
         ' If we failed to set the ID then it was a real error, throw it
-        If .HelpContextId <> strValue Then CatchAny eelError, "Failed to set help context"
-        strValue = dNZ(dProject, "Items\HelpFile")
+        If CStr(.HelpContextId) <> strValue Then CatchAny eelError, "Failed to set help context ID"
+        
+        ' Get help file path (possibly saved as a relative path)
+        strValue = GetPathFromRelative(dNZ(dProject, "Items\HelpFile"))
+        If strValue <> vbNullString Then
+            ' Make sure this is a valid help file
+            If strValue Like "*.hlp" Or strValue Like "*.chm" Then
+                If Not FSO.FileExists(strValue) Then
+                    Log.Error eelWarning, "Help file not found: " & strValue, ModuleName & ".Import"
+                End If
+            Else
+                ' Does not appear to be a help file extension
+                Log.Error eelWarning, "'" & strValue & "' is not a valid help file name. " & _
+                    "(Expecting *.hlp or *.chm)", ModuleName & ".Import"
+                strValue = vbNullString
+            End If
+        End If
         .HelpFile = strValue
         If .HelpFile <> strValue Then CatchAny eelError, "Failed to set help file"
+        
         ' // Read-only properties
         '.FileName = dNZ(dProject, "Items\FileName")
         '.Mode = dNZ(dProject, "Items\Mode")
@@ -111,7 +136,7 @@ Private Function GetDictionary() As Dictionary
         .Add "Name", m_Project.Name
         .Add "Description", m_Project.Description
         .Add "FileName", GetRelativePath(m_Project.FileName)
-        .Add "HelpFile", m_Project.HelpFile
+        .Add "HelpFile", GetRelativePath(m_Project.HelpFile)
         .Add "HelpContextId", m_Project.HelpContextId
         .Add "Mode", m_Project.Mode
         .Add "Protection", m_Project.Protection
