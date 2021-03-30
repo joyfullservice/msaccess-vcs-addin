@@ -80,8 +80,8 @@ Public Sub LoadDefaults()
         ' Set CompareMode to textual comparison
         .TablesToExportData.CompareMode = vbTextCompare
         ' Save specific tables by default
-        AddTableToExportData "USysRibbons", etdTabDelimited
         AddTableToExportData "USysRegInfo", etdTabDelimited
+        AddTableToExportData "USysRibbons", etdTabDelimited
 
         ' Print settings to export
         Set .ExportPrintSettings = New Dictionary
