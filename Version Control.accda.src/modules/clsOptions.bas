@@ -224,7 +224,7 @@ Public Sub LoadOptionsFromFile(strFile As String)
                         Case "ExportPrintSettings"
                             Set Me.ExportPrintSettings = dOptions(strKey)
                         Case "TablesToExportData"
-                            Set Me.TablesToExportData = dOptions(strKey)
+                            Set Me.TablesToExportData = CloneDictionary(dOptions(strKey), ecmTextCompare)
                         Case Else
                             ' Regular top-level properties
                             CallByName Me, strKey, VbLet, dOptions(strKey)

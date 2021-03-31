@@ -3974,6 +3974,7 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
     ElseIf eAction = emaFormToClass Then
         ' Save list of tables to export data
         Set dTables = New Dictionary
+        dTables.CompareMode = TextCompare
         For Each varItem In m_colTables
             If varItem(etcType) <> vbNullString Then
                 Set dTable = New Dictionary

@@ -79,3 +79,13 @@ Public Enum eErrorLevel
     eelError        ' Displayed and logged
     eelCritical     ' Cancel operation
 End Enum
+
+' Compare mode for cloning dictionary object
+' See CloneDictionary function
+Public Enum eCompareMethod2
+    ecmBinaryCompare = 0
+    ecmTextCompare = 1
+    ecmDatabaseCompare = 2
+    ' Added this to use original compare method
+    ecmSourceMethod = 3
+End Enum
