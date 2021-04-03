@@ -77,9 +77,11 @@ Public Sub LoadDefaults()
 
         ' Table data export
         Set .TablesToExportData = New Dictionary
+        ' Set CompareMode to textual comparison
+        .TablesToExportData.CompareMode = vbTextCompare
         ' Save specific tables by default
-        AddTableToExportData "USysRibbons", etdTabDelimited
         AddTableToExportData "USysRegInfo", etdTabDelimited
+        AddTableToExportData "USysRibbons", etdTabDelimited
 
         ' Print settings to export
         Set .ExportPrintSettings = New Dictionary
@@ -222,7 +224,7 @@ Public Sub LoadOptionsFromFile(strFile As String)
                         Case "ExportPrintSettings"
                             Set Me.ExportPrintSettings = dOptions(strKey)
                         Case "TablesToExportData"
-                            Set Me.TablesToExportData = dOptions(strKey)
+                            Set Me.TablesToExportData = CloneDictionary(dOptions(strKey), ecmTextCompare)
                         Case Else
                             ' Regular top-level properties
                             CallByName Me, strKey, VbLet, dOptions(strKey)

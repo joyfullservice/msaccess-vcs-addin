@@ -238,13 +238,21 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub IncrementAppVersion(ReleaseType As eReleaseType)
+    
     Dim varParts As Variant
+    Dim strFrom As String
+    
     If ReleaseType = Same_Version Then Exit Sub
+    strFrom = AppVersion
     varParts = Split(AppVersion, ".")
     varParts(ReleaseType) = varParts(ReleaseType) + 1
     If ReleaseType < Minor_xVx Then varParts(Minor_xVx) = 0
     If ReleaseType < Build_xxV Then varParts(Build_xxV) = 0
     AppVersion = Join(varParts, ".")
+
+    ' Display old and new versions
+    Debug.Print "Updated from " & strFrom & " to " & AppVersion
+
 End Sub
 
 
