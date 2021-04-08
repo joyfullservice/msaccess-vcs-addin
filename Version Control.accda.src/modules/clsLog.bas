@@ -163,6 +163,7 @@ End Sub
 Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSource As String)
 
     Dim strPrefix As String
+    Dim strDisplay As String
     
     Select Case eLevel
         Case eelWarning:    strPrefix = "WARNING: "
@@ -172,13 +173,26 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
     
     ' Build the error message string.
     With New clsConcat
-        .AppendOnAdd = vbNullString
-        .Add strPrefix, strDescription
-        If strSource <> vbNullString Then .Add " Source: ", strSource
-        If Err Then .Add " Error ", Err.Number, ": ", Err.Description
+    
+        ' Sometimes the error description is sufficient for the description
+        If strDescription = vbNullString And Err.Number <> 0 Then
+            strDisplay = strPrefix & Err.Description
+        Else
+            strDisplay = strPrefix & strDescription
+        End If
         
-        ' Log the error and display if higher than warning.
-        Me.Add .GetStr, eLevel > eelWarning
+        ' Display on the output screen anything higher than a warning
+        If eLevel > eelWarning Then
+            Me.Add vbNullString
+            Me.Spacer
+            Me.Add strDisplay, , , "red"
+            Me.Spacer
+        End If
+        
+        ' Log the full detail to the log file
+        If Err Then .Add "Error ", Err.Number, ": ", Err.Description, " "
+        If strSource <> vbNullString Then .Add "Source: ", strSource
+        Me.Add .GetStr, False
         
         ' See if we are actively logging an operation
         If Log.Active Then
@@ -191,9 +205,9 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
             ' Show message on any error level when we are not logging to a file.
             Select Case eLevel
                 Case eelNoError:    ' Do nothing
-                Case eelWarning:    MsgBox2 "Warning", .GetStr, , vbInformation
-                Case eelError:      MsgBox2 "Error", .GetStr, , vbExclamation
-                Case eelCritical:   MsgBox2 "Critical", .GetStr, , vbCritical
+                Case eelWarning:    MsgBox2 "Warning", strDisplay, .GetStr, vbInformation
+                Case eelError:      MsgBox2 "Error", strDisplay, .GetStr, vbExclamation
+                Case eelCritical:   MsgBox2 "Critical", strDisplay, .GetStr, vbCritical
             End Select
         End If
     End With
