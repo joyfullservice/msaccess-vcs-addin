@@ -139,7 +139,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     
     ' Show final output and save log
     Log.Spacer
-    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
+    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)", , False, "green", True
     
     ' Add performance data to log file and save file
     Perf.EndTiming
@@ -370,7 +370,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Show final output and save log
     Log.Spacer
-    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
+    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)", , False, "green", True
     
     ' Add performance data to log file and save file.
     Perf.EndTiming

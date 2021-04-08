@@ -55,7 +55,10 @@ End Sub
 ' Purpose   : Add a log file entry.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional blnNextOutputOnNewLine As Boolean = True)
+Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
+    Optional blnNextOutputOnNewLine As Boolean = True, _
+    Optional strColor As String = vbNullString, _
+    Optional blnBold As Boolean = False)
 
     Dim strHtml As String
     
@@ -70,14 +73,25 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, Optional 
             m_Prog.Hide
         End If
     
-        ' Use bold/green text for completion line.
-        strHtml = Replace(strText, " ", "&nbsp;")
-        If InStr(1, strText, "Done. ") = 1 Then
-            strHtml = "<font color=green><strong>" & strText & "</strong></font>"
-        End If
-        m_Console.Add strHtml
-        ' Add line break for HTML
-        If blnNextOutputOnNewLine Then m_Console.Add "<br>"
+        ' Build HTML output for console
+        With m_Console
+        
+            ' Opening tags
+            If blnBold Then .Add "<strong>"
+            If strColor <> vbNullString Then .Add "<font color=", strColor, ">"
+            
+            ' Content
+            .Add MultiReplace(strText, _
+                " ", "&nbsp;", _
+                vbCrLf, "<br>")
+            
+            ' Closing tags
+            If strColor <> vbNullString Then .Add "</font>"
+            If blnBold Then m_Console.Add "</strong>"
+            
+            ' Add line break for HTML
+            If blnNextOutputOnNewLine Then m_Console.Add "<br>"
+        End With
         
         ' Run debug output
         If m_RichText Is Nothing Then
