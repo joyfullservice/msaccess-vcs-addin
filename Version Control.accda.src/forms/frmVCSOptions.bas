@@ -533,8 +533,7 @@ Begin Form
                                     Top =4860
                                     TabIndex =2
                                     BorderColor =10921638
-                                    Name ="chkUseGitIntegration"
-                                    OnClick ="[Event Procedure]"
+                                    Name ="chkShowVCSLegacy"
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =1020
@@ -550,8 +549,8 @@ Begin Form
                                             Height =315
                                             BorderColor =8355711
                                             ForeColor =5324600
-                                            Name ="Label163"
-                                            Caption ="Use Git Integration"
+                                            Name ="Label215"
+                                            Caption ="Show Legacy Prompts"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =4800
@@ -563,12 +562,14 @@ Begin Form
                                     End
                                 End
                                 Begin CheckBox
+                                    Visible = NotDefault
                                     OverlapFlags =215
                                     Left =1020
                                     Top =5280
                                     TabIndex =3
                                     BorderColor =10921638
-                                    Name ="chkShowVCSLegacy"
+                                    Name ="chkUseGitIntegration"
+                                    OnClick ="[Event Procedure]"
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =1020
@@ -584,8 +585,8 @@ Begin Form
                                             Height =315
                                             BorderColor =8355711
                                             ForeColor =5324600
-                                            Name ="Label215"
-                                            Caption ="Show Legacy Prompts"
+                                            Name ="Label163"
+                                            Caption ="Use Git Integration"
                                             GridlineColor =10921638
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =5220
