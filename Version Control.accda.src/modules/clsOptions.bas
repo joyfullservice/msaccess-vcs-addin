@@ -36,6 +36,7 @@ Public ShowVCSLegacy As Boolean
 Public HashAlgorithm As String
 Public UseShortHash As Boolean
 Public BreakOnError As Boolean
+Public PreserveRubberDuckID As Boolean
 
 ' Constants for enum values
 ' (These values are not permanently stored and
@@ -501,6 +502,7 @@ Private Sub Class_Initialize()
         .Add "HashAlgorithm"
         .Add "UseShortHash"
         .Add "BreakOnError"
+        .Add "PreserveRubberDuckID"
     End With
 
     ' Load default values

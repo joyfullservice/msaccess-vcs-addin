@@ -1,6 +1,6 @@
 ﻿{
   "Info": {
-    "AddinVersion": "3.3.22",
+    "AddinVersion": "3.3.26",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
@@ -38,10 +38,10 @@
     "AggressiveSanitize": true,
     "ExtractThemeFiles": false,
     "TablesToExportData": {
-      "USysRibbons": {
+      "USysRegInfo": {
         "Format": "Tab Delimited"
       },
-      "USysRegInfo": {
+      "USysRibbons": {
         "Format": "Tab Delimited"
       }
     },
@@ -51,6 +51,7 @@
     "ShowVCSLegacy": true,
     "HashAlgorithm": "SHA256",
     "UseShortHash": true,
-    "BreakOnError": true
+    "BreakOnError": true,
+    "PreserveRubberDuckID": false
   }
 }
