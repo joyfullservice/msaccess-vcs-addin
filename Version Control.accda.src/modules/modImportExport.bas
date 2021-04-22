@@ -281,9 +281,11 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Rename original file as a backup
     strBackup = GetBackupFileName(strPath)
-    If FSO.FileExists(strPath) Then Name strPath As strBackup
-    Log.Add "Saving backup of original database..."
-    Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
+    If FSO.FileExists(strPath) Then
+        Log.Add "Saving backup of original database..."
+        Name strPath As strBackup
+        Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
+    End If
     
     ' Create a new database with the original name
     If blnFullBuild Then
