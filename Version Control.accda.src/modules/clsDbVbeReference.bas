@@ -56,6 +56,27 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    ' Import the references
+    ImportReferences strFile
+    
+    ' Update index
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
+    
+    CatchAny eelError, "Importing VBE references", ModuleName & ".Import"
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportReferences
+' Author    : Adam Waller
+' Date      : 4/21/2021
+' Purpose   : Wrapper to import references with the option of only loading the
+'           : GUID references. (This is used when preparing a bootstrap module.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub ImportReferences(strFile As String, Optional blnGuidOnly As Boolean = False)
+
     Dim dRef As Dictionary
     Dim dItems As Dictionary
     Dim varKey As Variant
@@ -91,23 +112,23 @@ Private Sub IDbComponent_Import(strFile As String)
                     varVersion = Split(dRef("Version"), ".")
                     AddFromGuid proj, CStr(varKey), dRef("GUID"), CLng(varVersion(0)), CLng(varVersion(1))
                 ElseIf dRef.Exists("FullPath") Then
-                    strPath = GetPathFromRelative(dRef("FullPath"))
-                    If Not FSO.FileExists(strPath) Then
-                        Log.Error eelError, "File not found. Unable to add reference to " & strPath, "clsVbeReference.Import"
-                    Else
-                        proj.References.AddFromFile strPath
-                        CatchAny eelError, "Adding VBE reference from " & strPath, ModuleName & ".Import"
+                    If Not blnGuidOnly Then
+                        strPath = GetPathFromRelative(dRef("FullPath"))
+                        If Not FSO.FileExists(strPath) Then
+                            Log.Error eelError, "File not found. Unable to add reference to " & strPath, _
+                                ModuleName & ".ImportReferences"
+                        Else
+                            Perf.OperationStart "Add Library References"
+                            proj.References.AddFromFile strPath
+                            Perf.OperationEnd
+                            CatchAny eelError, "Adding VBE reference from " & strPath, ModuleName & ".ImportReferences"
+                        End If
                     End If
                 End If
             End If
         Next varKey
     End If
-    
-    ' Update index
-    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
-    
-    CatchAny eelError, "Importing VBE references", ModuleName & ".Import"
-    
+
 End Sub
 
 

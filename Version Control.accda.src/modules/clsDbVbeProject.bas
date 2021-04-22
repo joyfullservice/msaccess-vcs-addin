@@ -218,7 +218,7 @@ Private Function GetDictionary() As Dictionary
         .Add "Name", m_Project.Name
         .Add "Description", m_Project.Description
         .Add "FileName", GetRelativePath(m_Project.FileName)
-        .Add "HelpFile", ValidHelpFile(m_Project.helpFile)
+        .Add "HelpFile", ValidHelpFile(m_Project.HelpFile)
         .Add "HelpContextId", ValidHelpContextId(m_Project.HelpContextId)
         .Add "ConditionalCompilationArguments", Application.GetOption("Conditional Compilation Arguments")
         .Add "Mode", m_Project.Mode

@@ -1,6 +1,6 @@
 ﻿{
   "Info": {
-    "AddinVersion": "3.3.26",
+    "AddinVersion": "3.3.27",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
@@ -47,6 +47,7 @@
     },
     "RunBeforeExport": "",
     "RunAfterExport": "",
+    "RunBeforeBuild": "",
     "RunAfterBuild": "",
     "ShowVCSLegacy": true,
     "HashAlgorithm": "SHA256",

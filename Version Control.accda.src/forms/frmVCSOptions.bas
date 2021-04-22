@@ -13,14 +13,14 @@ Begin Form
     DatasheetGridlinesBehavior =3
     GridX =24
     GridY =24
-    Width =10080
+    Width =10170
     DatasheetFontHeight =11
-    ItemSuffix =228
-    Left =3225
-    Top =2430
-    Right =22695
-    Bottom =15015
-    DatasheetGridlinesColor =14806254
+    ItemSuffix =232
+    Left =-25575
+    Top =1710
+    Right =-15405
+    Bottom =8895
+    DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -446,7 +446,7 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4190
+                            Height =4185
                             BorderColor =10921638
                             Name ="pgeGeneral"
                             Caption ="General"
@@ -454,7 +454,7 @@ Begin Form
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6170
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -608,7 +608,7 @@ Begin Form
                                     Height =315
                                     TabIndex =4
                                     BorderColor =10921638
-                                    ForeColor =4138256
+                                    ForeColor =3484194
                                     Name ="cboHashAlgorithm"
                                     RowSourceType ="Value List"
                                     RowSource ="\"SHA1\";\"SHA256\";\"SHA512\""
@@ -1110,7 +1110,7 @@ Begin Form
                                     Top =5640
                                     Width =2160
                                     TabIndex =10
-                                    ForeColor =16711680
+                                    ForeColor =12673797
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
                                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation#op"
@@ -1209,7 +1209,7 @@ Begin Form
                                     FontSize =10
                                     BackColor =14262935
                                     BorderColor =15321539
-                                    ForeColor =16711680
+                                    ForeColor =12673797
                                     Name ="lblPrintSettingsOptions"
                                     Caption ="Options..."
                                     HyperlinkAddress ="#"
@@ -2141,7 +2141,7 @@ Begin Form
                                     Height =315
                                     TabIndex =4
                                     BorderColor =10921638
-                                    ForeColor =4138256
+                                    ForeColor =3484194
                                     Name ="cboTableDataSaveType"
                                     RowSourceType ="Value List"
                                     GridlineColor =10921638
@@ -2320,7 +2320,7 @@ Begin Form
                                     FontSize =10
                                     BackColor =14262935
                                     BorderColor =15321539
-                                    ForeColor =16711680
+                                    ForeColor =12673797
                                     Name ="lblAddOtherTable"
                                     Caption ="Other..."
                                     OnClick ="[Event Procedure]"
@@ -2358,6 +2358,81 @@ Begin Form
                             WebImagePaddingRight =2
                             WebImagePaddingBottom =2
                             Begin
+                                Begin CheckBox
+                                    OverlapFlags =247
+                                    Left =1140
+                                    Top =4555
+                                    TabIndex =1
+                                    BorderColor =10921638
+                                    Name ="chkForceImportOriginalQuerySQL"
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =1140
+                                    LayoutCachedTop =4555
+                                    LayoutCachedWidth =1400
+                                    LayoutCachedHeight =4795
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =1447
+                                            Top =4500
+                                            Width =3705
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="lblForceImportOriginalQuerySQL"
+                                            Caption ="Force import of original SQL for queries"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1447
+                                            LayoutCachedTop =4500
+                                            LayoutCachedWidth =5152
+                                            LayoutCachedHeight =4815
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin TextBox
+                                    OverlapFlags =247
+                                    IMESentenceMode =3
+                                    Left =3420
+                                    Top =5040
+                                    Width =2640
+                                    Height =315
+                                    TabIndex =2
+                                    BorderColor =10921638
+                                    ForeColor =4210752
+                                    Name ="txtRunBeforeBuild"
+                                    ValidationRule ="Like \"*?.?*\" Or \"\" Or Is Null"
+                                    ValidationText ="This value must include both module and sub names joined with a period. For exam"
+                                        "ple, use MyModule.Bootstrap to run the Bootstrap sub in MyModule."
+                                    GridlineColor =10921638
+
+                                    LayoutCachedLeft =3420
+                                    LayoutCachedTop =5040
+                                    LayoutCachedWidth =6060
+                                    LayoutCachedHeight =5355
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =1140
+                                            Top =5040
+                                            Width =2085
+                                            Height =315
+                                            BorderColor =8355711
+                                            ForeColor =5324600
+                                            Name ="Label229"
+                                            Caption ="Run Sub Before Build:"
+                                            GridlineColor =10921638
+                                            LayoutCachedLeft =1140
+                                            LayoutCachedTop =5040
+                                            LayoutCachedWidth =3225
+                                            LayoutCachedHeight =5355
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
                                 Begin TextBox
                                     OverlapFlags =247
                                     IMESentenceMode =3
@@ -2400,63 +2475,28 @@ Begin Form
                                     Left =1140
                                     Top =2100
                                     Width =7860
-                                    Height =2445
+                                    Height =2220
                                     BorderColor =8355711
                                     ForeColor =5324600
                                     Name ="Label105"
-                                    Caption ="PLEASE NOTE:\015\012\015\012The build functionality in this tool is fairly new w"
-                                        "ith limited testing in real-world applications. It is very important that you te"
-                                        "st this carefully in your environment to make sure everything you need is being "
-                                        "created in your database during the build.\015\012\015\012Please see the online "
-                                        "documentation for additional details on the build process. If you encounter an i"
-                                        "ssue, please feel free to submit issues and/or pull requests on the GitHub proje"
-                                        "ct."
+                                    Caption ="PLEASE NOTE:\015\012The build functionality in this tool is fairly new with limi"
+                                        "ted testing in real-world applications. It is very important that you test this "
+                                        "carefully in your environment to make sure everything you need is being created "
+                                        "in your database during the build.\015\012\015\012Please see the online document"
+                                        "ation for additional details on the build process. If you encounter an issue, pl"
+                                        "ease feel free to submit issues and/or pull requests on the GitHub project."
                                     GridlineColor =10921638
                                     LayoutCachedLeft =1140
                                     LayoutCachedTop =2100
                                     LayoutCachedWidth =9000
-                                    LayoutCachedHeight =4545
+                                    LayoutCachedHeight =4320
                                     ForeThemeColorIndex =-1
                                     ForeTint =100.0
-                                End
-                                Begin CheckBox
-                                    OverlapFlags =247
-                                    Left =1140
-                                    Top =4885
-                                    TabIndex =1
-                                    BorderColor =10921638
-                                    Name ="chkForceImportOriginalQuerySQL"
-                                    GridlineColor =10921638
-
-                                    LayoutCachedLeft =1140
-                                    LayoutCachedTop =4885
-                                    LayoutCachedWidth =1400
-                                    LayoutCachedHeight =5125
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =247
-                                            Left =1447
-                                            Top =4830
-                                            Width =3705
-                                            Height =315
-                                            BorderColor =8355711
-                                            ForeColor =5324600
-                                            Name ="lblForceImportOriginalQuerySQL"
-                                            Caption ="Force import of original SQL for queries"
-                                            GridlineColor =10921638
-                                            LayoutCachedLeft =1447
-                                            LayoutCachedTop =4830
-                                            LayoutCachedWidth =5152
-                                            LayoutCachedHeight =5145
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
                                 End
                                 Begin Label
                                     OverlapFlags =247
                                     Left =5197
-                                    Top =4874
+                                    Top =4544
                                     Width =4170
                                     Height =240
                                     FontSize =10
@@ -2466,9 +2506,43 @@ Begin Form
                                     Caption ="(\"Save Query SQL\" option needed when exporting)"
                                     GridlineColor =10921638
                                     LayoutCachedLeft =5197
-                                    LayoutCachedTop =4874
+                                    LayoutCachedTop =4544
                                     LayoutCachedWidth =9367
-                                    LayoutCachedHeight =5114
+                                    LayoutCachedHeight =4784
+                                End
+                                Begin Label
+                                    OverlapFlags =247
+                                    Left =6240
+                                    Top =5100
+                                    Width =3120
+                                    Height =240
+                                    FontSize =10
+                                    BorderColor =8355711
+                                    ForeColor =8355711
+                                    Name ="Label230"
+                                    Caption ="Use \"module.sub\" to specify module"
+                                    GridlineColor =10921638
+                                    LayoutCachedLeft =6240
+                                    LayoutCachedTop =5100
+                                    LayoutCachedWidth =9360
+                                    LayoutCachedHeight =5340
+                                End
+                                Begin Label
+                                    OverlapFlags =247
+                                    Left =6240
+                                    Top =5520
+                                    Width =2760
+                                    Height =240
+                                    FontSize =10
+                                    BorderColor =8355711
+                                    ForeColor =8355711
+                                    Name ="Label231"
+                                    Caption ="(Module name optional)"
+                                    GridlineColor =10921638
+                                    LayoutCachedLeft =6240
+                                    LayoutCachedTop =5520
+                                    LayoutCachedWidth =9000
+                                    LayoutCachedHeight =5760
                                 End
                             End
                         End
@@ -2709,7 +2783,7 @@ Begin Form
                                     Height =315
                                     TabIndex =5
                                     BorderColor =10921638
-                                    ForeColor =4138256
+                                    ForeColor =3484194
                                     Name ="cboMergeConflicts"
                                     RowSourceType ="Value List"
                                     RowSource ="\"Cancel Merge\";\"Skip Object\";\"Overwrite\""
@@ -3334,7 +3408,7 @@ Begin Form
                     Top =1260
                     Width =1560
                     TabIndex =3
-                    ForeColor =16711680
+                    ForeColor =12673797
                     Name ="cmdSeeDocs"
                     Caption ="See Docs..."
                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation"

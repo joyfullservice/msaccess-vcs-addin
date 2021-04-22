@@ -31,6 +31,7 @@ Public ExtractThemeFiles As Boolean
 Public TablesToExportData As Dictionary
 Public RunBeforeExport As String
 Public RunAfterExport As String
+Public RunBeforeBuild As String
 Public RunAfterBuild As String
 Public ShowVCSLegacy As Boolean
 Public HashAlgorithm As String
@@ -497,6 +498,7 @@ Private Sub Class_Initialize()
         .Add "TablesToExportData"
         .Add "RunBeforeExport"
         .Add "RunAfterExport"
+        .Add "RunBeforeBuild"
         .Add "RunAfterBuild"
         .Add "ShowVCSLegacy"
         .Add "HashAlgorithm"
