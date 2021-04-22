@@ -284,6 +284,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Create a new database with the original name
     If blnFullBuild Then
+        Perf.OperationStart "Create new database"
         If LCase$(FSO.GetExtensionName(strPath)) = "adp" Then
             ' ADP project
             Application.NewAccessProject strPath
@@ -291,6 +292,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             ' Regular Access database
             Application.NewCurrentDatabase strPath
         End If
+        Perf.OperationEnd
         Log.Add "Created blank database for import."
     End If
     

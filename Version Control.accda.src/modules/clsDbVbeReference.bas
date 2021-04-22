@@ -161,8 +161,10 @@ Private Sub AddFromGuid(proj As VBIDE.VBProject, strName As String, strGuid As S
     ' Try to add the GUID with the specific version requested
     ' We might encounter a reference that is not available in this version
     On Error GoTo ErrHandlerWithVersion
+    Perf.OperationStart "Add GUID References"
     proj.References.AddFromGuid strGuid, lngMajor, lngMinor
-
+    Perf.OperationEnd
+    
     ' Normal exit
     On Error GoTo 0
     Exit Sub

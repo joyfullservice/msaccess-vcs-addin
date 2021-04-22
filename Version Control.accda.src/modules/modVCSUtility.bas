@@ -308,6 +308,7 @@ Public Sub RemoveNonBuiltInReferences()
     Dim strName As String
     Dim ref As Access.Reference
     
+    Perf.OperationStart "Clear References"
     For intCnt = Application.References.Count To 1 Step -1
         Set ref = Application.References(intCnt)
         If Not ref.BuiltIn Then
@@ -317,6 +318,7 @@ Public Sub RemoveNonBuiltInReferences()
         End If
         Set ref = Nothing
     Next intCnt
+    Perf.OperationEnd
     
 End Sub
 
