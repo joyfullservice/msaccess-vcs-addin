@@ -227,7 +227,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     End If
     
     Set Options = Nothing
-    Options.LoadOptionsFromFile strSourceFolder & "vcs-options.json"
+    Options.LoadOptionsFromFile StripSlash(strSourceFolder) & PathSep & "vcs-options.json"
     
     ' Build original file name for database
     If blnFullBuild Then

@@ -20,7 +20,7 @@ Begin Form
     Top =1710
     Right =-255
     Bottom =14295
-    DatasheetGridlinesColor =14806254
+    DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -1642,7 +1642,7 @@ Begin Form
                     Height =240
                     FontSize =10
                     BorderColor =10921638
-                    ForeColor =16711680
+                    ForeColor =12673797
                     Name ="lblOpenLogFile"
                     Caption ="Open Log File..."
                     OnClick ="[Event Procedure]"
@@ -1852,7 +1852,7 @@ Private Sub cmdBuild_Click()
                 ' Selected a folder
                 If FolderHasVcsOptionsFile(.SelectedItems(1)) Then
                     ' Has source files
-                    strFolder = .SelectedItems(1)
+                    strFolder = .SelectedItems(1) & PathSep
                     ' Relaunch build if building the add-in from source.
                     If FSO.GetFileName(strFolder) = "Version Control.accda.src" Then
                         DoCmd.Close acForm, Me.Name
