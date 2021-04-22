@@ -53,14 +53,6 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Log.Active = True
     Perf.StartTiming
 
-    ' Run any custom sub before export
-    If Options.RunBeforeExport <> vbNullString Then
-        Log.Add "Running " & Options.RunBeforeExport & "..."
-        Perf.OperationStart "RunBeforeExport"
-        RunSubInCurrentProject Options.RunBeforeExport
-        Perf.OperationEnd
-    End If
-
     ' If options (or VCS version) have changed, a full export will be required
     If (VCSIndex.OptionsHash <> Options.GetHash) Then blnFullExport = True
 
@@ -77,9 +69,20 @@ Public Sub ExportSource(blnFullExport As Boolean)
         Log.Add "VCS Version " & GetVCSVersion
         Log.Add IIf(blnFullExport, "Performing Full Export", "Using Fast Save")
         Log.Add Now
-        Log.Spacer
-        Log.Flush
     End With
+    
+    ' Run any custom sub before export
+    If Options.RunBeforeExport <> vbNullString Then
+        Log.Add "Running " & Options.RunBeforeExport & "..."
+        Log.Flush
+        Perf.OperationStart "RunBeforeExport"
+        RunSubInCurrentProject Options.RunBeforeExport
+        Perf.OperationEnd
+    End If
+
+    ' Finish header section
+    Log.Spacer
+    Log.Flush
     
     ' Loop through all categories
     For Each cCategory In GetAllContainers
