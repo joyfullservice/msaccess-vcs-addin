@@ -253,6 +253,18 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TotalTime
+' Author    : Adam Waller
+' Date      : 4/29/2021
+' Purpose   : Return total time from start to end, or to now if end not specified.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get TotalTime() As Currency
+    TotalTime = GetElapsed(m_Overall.Start)
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetReports
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
