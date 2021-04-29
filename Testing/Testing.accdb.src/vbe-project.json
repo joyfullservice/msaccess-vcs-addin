@@ -6,9 +6,10 @@
   "Items": {
     "Name": "VCS Testing",
     "Description": "For automated testing of Version Control",
-    "FileName": "rel:Testing.accdb",
+    "FileName": "Testing.accdb",
     "HelpFile": "",
     "HelpContextId": 123456,
+    "ConditionalCompilationArguments": "",
     "Mode": 0,
     "Protection": 0,
     "Type": 100
