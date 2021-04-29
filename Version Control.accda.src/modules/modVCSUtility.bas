@@ -187,6 +187,10 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
                 If FSO.FileExists(strFile) Then DeleteFile strFile
                 FSO.MoveFile strTempFile, strFile
             End If
+        
+        Case acTableDataMacro
+            ' Table data macros are stored in XML format
+            If FSO.FileExists(strFile) Then SanitizeXML strFile
             
         Case Else
             ' Handle UCS conversion if needed
