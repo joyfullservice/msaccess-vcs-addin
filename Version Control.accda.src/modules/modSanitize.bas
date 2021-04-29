@@ -239,13 +239,15 @@ Public Sub SanitizeXML(strPath As String)
             Case strTLine = vbNullString
             
             ' Remove generated timestamp in header
-            Case StartsWith(strTLine, "<dataroot xmlns:")
+            Case StartsWith(strTLine, "<dataroot ")
                 '<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" generated="2020-04-27T10:28:32">
+                '<dataroot generated="2021-04-29T17:27:33" xmlns:od="urn:schemas-microsoft-com:officedata">
                 With rxLine
-                    .Pattern = "^\s*(?:<dataroot xmlns:(.+))( generated="".+"")"
+                    .Pattern = "( generated="".+?"")"
                     If .Test(strLine) Then
                         ' Replace timestamp with empty string.
-                        strText = Replace(strText, objMatches(0).SubMatches(1), vbNullString, , 1)
+                        Set objMatches = .Execute(strLine)
+                        strText = Replace(strLine, objMatches(0).SubMatches(0), vbNullString, , 1)
                         cData.Add strText
                     Else
                         ' Did not contain a timestamp. Keep the whole line
