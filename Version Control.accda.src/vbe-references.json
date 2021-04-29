@@ -35,6 +35,10 @@
     "VBScript_RegExp_55": {
       "GUID": "{3F4DACA7-160D-11D2-A8E9-00104B365C9F}",
       "Version": "5.5"
+    },
+    "MSXML2": {
+      "GUID": "{F5078F18-C551-11D3-89B9-0000F81FE221}",
+      "Version": "6.0"
     }
   }
 }

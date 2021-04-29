@@ -48,14 +48,15 @@ Private Sub IDbComponent_Export()
     ' For internal tables, we can export them as XML.
     If tbl.Connect = vbNullString Then
     
-        ' Check for existing file
-        If FSO.FileExists(strFile) Then DeleteFile strFile, True
-
         ' Save structure in XML format
         VerifyPath strFile
         Perf.OperationStart "App.ExportXML()"
-        Application.ExportXML acExportTable, m_Table.Name, , strFile ', , , , acExportAllTableAndFieldProperties ' Add support for this later.
+        ' Note that the additional properties are important to accurately reconstruct the table.
+        Application.ExportXML acExportTable, m_Table.Name, , strFile, , , , acExportAllTableAndFieldProperties
         Perf.OperationEnd
+        
+        ' Rewrite sanitized XML as formatted UTF-8 content
+        SanitizeXML strFile
     
     Else
         ' Linked table - Save as JSON
