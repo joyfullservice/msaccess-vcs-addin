@@ -25,7 +25,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Dim lngCount As Long
     
     ' Use inline error handling functions to trap and log errors.
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Can't export without an open database
     If CurrentDb Is Nothing And CurrentProject.Connection Is Nothing Then Exit Sub
@@ -194,7 +194,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     Dim strText As String   ' Remove later
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' The type of build will be used in various messages and log entries.
     strType = IIf(blnFullBuild, "Build", "Merge")

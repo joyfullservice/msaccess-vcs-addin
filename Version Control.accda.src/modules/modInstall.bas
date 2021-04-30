@@ -88,7 +88,7 @@ Public Function InstallVCSAddin() As Boolean
     Dim strSource As String
     Dim strDest As String
 
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     strSource = CodeProject.FullName
     strDest = GetAddinFileName
@@ -113,7 +113,7 @@ Public Function InstallVCSAddin() As Boolean
     ' Copy the file, overwriting any existing file.
     ' Requires FSO to copy open database files. (VBA.FileCopy may give a permission denied error.)
     ' We also use FSO to force the deletion of the existing file, if found.
-    If DebugMode Then On Error Resume Next Else On Error Resume Next
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     If FSO.FileExists(strDest) Then DeleteFile strDest, True
     FSO.CopyFile strSource, strDest, True
     If Err Then
@@ -123,7 +123,7 @@ Public Function InstallVCSAddin() As Boolean
             "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
         Err.Clear
     Else
-        If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+        If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
         ' Register the Menu controls
         RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
@@ -153,7 +153,7 @@ Public Function UninstallVCSAddin() As Boolean
     
     ' Copy the file, overwriting any existing file.
     ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
-    If DebugMode Then On Error Resume Next Else On Error Resume Next
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     DeleteFile strDest, True
     On Error GoTo 0
     
@@ -175,7 +175,7 @@ Public Function UninstallVCSAddin() As Boolean
         RemoveMenuItem "&Export All Source"
         
         ' Remove registry entries
-        If DebugMode Then On Error Resume Next Else On Error Resume Next
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
         DeleteSetting GetCodeVBProject.Name, "Install"
         DeleteSetting GetCodeVBProject.Name, "Build"
         DeleteSetting GetCodeVBProject.Name, "Add-In"
@@ -232,7 +232,7 @@ Public Function IsAlreadyInstalled() As Boolean
             ' Check HKLM registry key
             With New IWshRuntimeLibrary.WshShell
                 ' We should have a value here if the install ran in the past.
-                If DebugMode Then On Error Resume Next Else On Error Resume Next
+                If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
                 strTest = .RegRead(strPath)
             End With
             
@@ -318,7 +318,7 @@ Private Sub RemoveMenuItem(ByVal strName As String, Optional Hive As eHive = ehH
     strPath = GetAddinRegPath(Hive) & strName & "\"
     With New IWshRuntimeLibrary.WshShell
         ' Just in case someone changed some of the keys...
-        If DebugMode Then On Error Resume Next Else On Error Resume Next
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
         .RegDelete strPath & "Expression"
         .RegDelete strPath & "Library"
         .RegDelete strPath & "Version"
@@ -425,14 +425,14 @@ Public Sub CheckForLegacyInstall()
     Dim strTest As String
     Dim objShell As IWshRuntimeLibrary.WshShell
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Legacy HKLM install
     If InstalledVersion < "3.2.0" Then
         ' Check for installation in HKLM hive.
         strOldPath = GetAddinRegPath(ehHKLM) & "&Version Control\Library"
         Set objShell = New IWshRuntimeLibrary.WshShell
-        If DebugMode Then On Error Resume Next Else On Error Resume Next
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
         strTest = objShell.RegRead(strOldPath)
         If Err Then Err.Clear
         On Error GoTo 0
@@ -500,7 +500,7 @@ End Sub
 Public Function HasLegacyRC4Keys()
     Dim strValue As String
     With New IWshRuntimeLibrary.WshShell
-        If DebugMode Then On Error Resume Next Else On Error Resume Next
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
         strValue = .RegRead("HKCU\SOFTWARE\VB and VBA Program Settings\MSAccessVCS\Private Keys\")
         HasLegacyRC4Keys = Not Catch(-2147024894)
         CatchAny eelError, "Checking for legacy RC4 keys", ModuleName & ".HasLegacyRC4Keys"
@@ -627,7 +627,7 @@ Public Sub RemoveTrustedLocation(Optional strName As String)
     strPath = GetTrustedLocationRegPath(strName)
     
     With New IWshRuntimeLibrary.WshShell
-        If DebugMode Then On Error Resume Next Else On Error Resume Next
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
         .RegDelete strPath & "Path"
         .RegDelete strPath & "Date"
         .RegDelete strPath & "Description"
@@ -676,7 +676,7 @@ End Function
 '
 Public Function HasTrustedLocationKey(Optional strName As String) As Boolean
     With New IWshRuntimeLibrary.WshShell
-        If DebugMode Then On Error Resume Next Else On Error Resume Next
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
         HasTrustedLocationKey = Nz(.RegRead(GetTrustedLocationRegPath(strName) & "Path")) <> vbNullString
     End With
 End Function

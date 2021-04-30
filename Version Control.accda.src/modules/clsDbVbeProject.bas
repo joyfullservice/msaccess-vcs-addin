@@ -57,7 +57,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim dProject As Dictionary
 
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
@@ -105,7 +105,7 @@ Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue 
     Dim varNew As String
     
     ' Switch to on error resume next after checking for current errors
-    If DebugMode Then On Error Resume Next Else On Error Resume Next
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     
     ' Attempt to set the property
     CallByName cProj, strProperty, VbLet, varValue

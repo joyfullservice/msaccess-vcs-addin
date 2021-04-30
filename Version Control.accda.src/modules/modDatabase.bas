@@ -437,7 +437,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
-    If DebugMode Then On Error Resume Next Else On Error Resume Next
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     DoCmd.DeleteObject intType, strName
     Catch 7874 ' Object not found
     CatchAny eelError, "Deleting object " & strName

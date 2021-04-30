@@ -33,7 +33,7 @@ Public Sub SanitizeFile(strPath As String)
     Dim curStart As Currency
     Dim strTempFile As String
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Read text from file, and split into lines
     If HasUcs2Bom(strPath) Then
@@ -210,7 +210,7 @@ Public Sub SanitizeXML(strPath As String)
     Dim objMatches As VBScript_RegExp_55.MatchCollection
     Dim varLines As Variant
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     Set cData = New clsConcat
     cData.AppendOnAdd = vbCrLf

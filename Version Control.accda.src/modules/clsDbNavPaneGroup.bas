@@ -144,7 +144,7 @@ Private Sub ClearExistingNavGroups()
     Dim rst As DAO.Recordset
     Dim strSql As String
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Get SQL for query of NavPaneGroup objects
     Set dbs = CodeDb
@@ -491,7 +491,7 @@ Private Sub IDbComponent_Upgrade()
     Dim colNew As Collection
     Dim dblVersion As Double
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Get version
     If Not m_dItems Is Nothing Then

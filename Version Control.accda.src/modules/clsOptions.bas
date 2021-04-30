@@ -206,7 +206,7 @@ Public Sub LoadOptionsFromFile(strFile As String)
     Dim varOption As Variant
     Dim strKey As String
 
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Save file path, in case we need to use it to determine
     ' the export folder location with no database open.
@@ -356,7 +356,7 @@ Private Function SerializeOptions() As Dictionary
     Dim strOption As String
     Dim strBit As String
 
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     Set dOptions = New Dictionary
     Set dInfo = New Dictionary

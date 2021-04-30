@@ -48,7 +48,7 @@ Private Sub IDbComponent_Import(strFile As String)
     
     Dim strLine As String
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Only import files with the correct extension.
     If Not strFile Like "*.frm" Then Exit Sub

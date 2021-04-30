@@ -92,7 +92,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get FSO() As Scripting.FileSystemObject
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     If m_FSO Is Nothing Then Set m_FSO = New Scripting.FileSystemObject
     Set FSO = m_FSO
     CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", ModuleName & ".FSO"
