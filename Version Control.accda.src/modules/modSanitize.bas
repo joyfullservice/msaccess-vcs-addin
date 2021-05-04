@@ -46,7 +46,14 @@ Public Sub SanitizeFile(strPath As String)
             strFile = ReadFile(strTempFile)
             DeleteFile strTempFile
         Else
-            strFile = ReadFile(strPath)
+            If CurrentDb.Version <= 4 Then
+                ' Access 2000 format exports using system codepage
+                ' See issue #217
+                strFile = ReadFile(strPath, GetSystemEncoding)
+            Else
+                ' Newer versions export as UTF-8
+                strFile = ReadFile(strPath)
+            End If
         End If
     End If
     Perf.OperationStart "Sanitize File"
