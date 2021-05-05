@@ -442,3 +442,16 @@ Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
     Catch 7874 ' Object not found
     CatchAny eelError, "Deleting object " & strName
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DbVersion
+' Author    : Adam Waller
+' Date      : 5/4/2021
+' Purpose   : Return the database version as an integer. Works in non-English locales
+'           : where CInt(CurrentDb.Version) doesn't work correctly.
+'---------------------------------------------------------------------------------------
+'
+Public Function DbVersion() As Integer
+    DbVersion = CInt(Split(CurrentDb.Version, ".")(0))
+End Function
