@@ -12,6 +12,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+Private Const ModuleName As String = "clsDbVbeForm"
+
 Private m_Form As VBIDE.VBComponent
 Private m_AllItems As Collection
 
@@ -38,17 +40,39 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : Import
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 4/30/2021
 ' Purpose   : Import the individual database component from a file.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
     
+    Dim strLine As String
+    
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
     ' Only import files with the correct extension.
     If Not strFile Like "*.frm" Then Exit Sub
 
-    GetVBProjectForCurrentDB.VBComponents.Import strFile
+    With GetVBProjectForCurrentDB.VBComponents
     
+        ' Import the source file
+        .Import strFile
+    
+        ' Check for extra blank line that may get added during import (VBE bug?)
+        With .Item(GetObjectNameFromFileName(strFile))
+            If Not .CodeModule Is Nothing Then
+                If .CodeModule.Lines(1, 1) = vbNullString Then
+                    ' Remove blank line added during import
+                    .CodeModule.DeleteLines 1
+                    DoCmd.Save acModule, .Name
+                    Log.Add "Removed blank line from the top of the code module for " & .Name, False
+                End If
+            End If
+        End With
+    End With
+    
+    CatchAny eelError, "Error importing " & strFile, ModuleName & ".Import"
+ 
 End Sub
 
 

@@ -663,3 +663,15 @@ Public Function Nz2(varValue, Optional varIfNull) As Variant
             End If
     End Select
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Repeat
+' Author    : Adam Waller
+' Date      : 4/29/2021
+' Purpose   : Repeat a string a specified number of times
+'---------------------------------------------------------------------------------------
+'
+Public Function Repeat(strText As String, lngTimes As Long) As String
+    Repeat = Replace$(Space$(lngTimes), " ", strText)
+End Function

@@ -52,7 +52,7 @@ Private Sub IDbComponent_Export()
     Dim rstAtc As Recordset2
     Dim strSql As String
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Query theme file details
     strSql = "SELECT [Data] FROM MSysResources WHERE [Name]='" & m_Name & "' AND Extension='" & m_Extension & "'"
@@ -124,7 +124,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strSql As String
     Dim blnIsFolder As Boolean
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Are we dealing with a folder, or a file?
     blnIsFolder = (Right$(strFile, 5) <> ".thmx")

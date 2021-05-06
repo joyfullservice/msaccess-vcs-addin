@@ -30,10 +30,10 @@ Public Sub SanitizeFile(strPath As String)
     Dim intIndent As Integer
     Dim blnIsReport As Boolean
     Dim blnIsPassThroughQuery As Boolean
-    Dim sngStartTime As Single
+    Dim curStart As Currency
     Dim strTempFile As String
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Read text from file, and split into lines
     If HasUcs2Bom(strPath) Then
@@ -46,19 +46,22 @@ Public Sub SanitizeFile(strPath As String)
             strFile = ReadFile(strTempFile)
             DeleteFile strTempFile
         Else
-            strFile = ReadFile(strPath)
+            If DbVersion <= 4 Then
+                ' Access 2000 format exports using system codepage
+                ' See issue #217
+                strFile = ReadFile(strPath, GetSystemEncoding)
+            Else
+                ' Newer versions export as UTF-8
+                strFile = ReadFile(strPath)
+            End If
         End If
     End If
     Perf.OperationStart "Sanitize File"
     varLines = Split(strFile, vbCrLf)
-    
-    ' Delete original file now so we can write it immediately
-    ' when the new data has been constructed.
-    DeleteFile strPath
 
     ' Initialize concatenation class to include line breaks
     ' after each line that we add when building new file text.
-    sngStartTime = Timer
+    curStart = Perf.MicroTimer
     Set cData = New clsConcat
     cData.AppendOnAdd = vbCrLf
 
@@ -183,7 +186,7 @@ Public Sub SanitizeFile(strPath As String)
 
     ' Log performance
     Perf.OperationEnd
-    Log.Add "    Sanitized in " & Format$(Timer - sngStartTime, "0.00") & " seconds.", Options.ShowDebug
+    Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
     
     ' Replace original file with sanitized version
     WriteFile cData.GetStr, strPath
@@ -197,80 +200,154 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : SanitizeXML
 ' Author    : Adam Waller
-' Date      : 4/27/2020
+' Date      : 4/29/2021
 ' Purpose   : Remove non-essential data that changes every time the file is exported.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SanitizeXML(strPath As String, Options As clsOptions)
+Public Sub SanitizeXML(strPath As String)
 
-    Dim sngOverall As Single
-    Dim sngTimer As Single
+    Dim curStart As Currency
     Dim cData As clsConcat
+    Dim strFile As String
     Dim strText As String
+    Dim strTLine As String
+    Dim strLine As String
+    Dim lngLine As Long
     Dim rxLine As VBScript_RegExp_55.RegExp
     Dim objMatches As VBScript_RegExp_55.MatchCollection
-    Dim stmInFile As ADODB.Stream
-    Dim blnFound As Boolean
+    Dim varLines As Variant
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     Set cData = New clsConcat
+    cData.AppendOnAdd = vbCrLf
     Set rxLine = New VBScript_RegExp_55.RegExp
+
+    ' Read text from file
+    strFile = ReadFile(strPath)
+    Perf.OperationStart "Sanitize XML"
+    curStart = Perf.MicroTimer
     
-    ' Timers to monitor performance
-    sngTimer = Timer
-    sngOverall = sngTimer
+    ' Split into array of lines
+    varLines = Split(FormatXML(strFile), vbCrLf)
+
+    ' Using a do loop since we may adjust the line counter
+    ' during a loop iteration.
+    Do While lngLine <= UBound(varLines)
     
-    ' Set line search pattern (To remove generated timestamp)
-    '<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" generated="2020-04-27T10:28:32">
-    rxLine.Pattern = "^\s*(?:<dataroot xmlns:(.+))( generated="".+"")"
-    
-    ' Open file to read contents line by line.
-    Set stmInFile = New ADODB.Stream
-    stmInFile.Charset = "utf-8"
-    stmInFile.Open
-    stmInFile.LoadFromFile strPath
-    strText = stmInFile.ReadText(adReadLine)
-    
-    
-    ' Loop through all the lines in the file
-    Do Until stmInFile.EOS
+        ' Get unmodified and trimmed line
+        strLine = varLines(lngLine)
+        strTLine = TrimTabs(Trim$(strLine))
         
-        ' Read line from file
-        strText = stmInFile.ReadText(adReadLine)
-        If Left$(strText, 3) = UTF8_BOM Then strText = Mid$(strText, 4)
-        ' Just looking for the first match.
-        If Not blnFound Then
-        
-            ' Check for matching pattern
-            If rxLine.Test(strText) Then
+        ' Look for specific lines
+        Select Case True
+            
+            ' Discard blank lines
+            Case strTLine = vbNullString
+            
+            ' Remove generated timestamp in header
+            Case StartsWith(strTLine, "<dataroot ")
+                '<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" generated="2020-04-27T10:28:32">
+                '<dataroot generated="2021-04-29T17:27:33" xmlns:od="urn:schemas-microsoft-com:officedata">
+                With rxLine
+                    .Pattern = "( generated="".+?"")"
+                    If .Test(strLine) Then
+                        ' Replace timestamp with empty string.
+                        Set objMatches = .Execute(strLine)
+                        strText = Replace(strLine, objMatches(0).SubMatches(0), vbNullString, , 1)
+                        cData.Add strText
+                    Else
+                        ' Did not contain a timestamp. Keep the whole line
+                        cData.Add strLine
+                    End If
+                End With
+            
+            ' Remove non-critical single lines that are not consistent between systems
+            'Case StartsWith(strTLine, "<od:tableProperty name=""NameMap""")
+            '    If Not Options.AggressiveSanitize Then cData.Add strLine
                 
-                ' Return actual matches
-                Set objMatches = rxLine.Execute(strText)
-                
-                ' Replace with empty string
-                strText = Replace(strText, objMatches(0).SubMatches(1), vbNullString, , 1)
-                blnFound = True
-            End If
-        End If
+            ' Remove multi-line sections
+            Case StartsWith(strTLine, "<od:tableProperty name=""NameMap"""), _
+                StartsWith(strTLine, "<od:tableProperty name=""GUID"""), _
+                StartsWith(strTLine, "<od:fieldProperty name=""GUID""")
+                If Options.AggressiveSanitize Then
+                    Do While Not EndsWith(strTLine, "/>")
+                        lngLine = lngLine + 1
+                        strTLine = TrimTabs(Trim$(varLines(lngLine)))
+                    Loop
+                Else
+                    ' Keep line and continue
+                    cData.Add strLine
+                End If
+            
+            ' Publish to web sections
+            Case StartsWith(strTLine, "<od:tableProperty name=""PublishToWeb""")
+                If Not Options.StripPublishOption Then cData.Add strLine
+            
+            ' Keep everything else
+            Case Else
+                cData.Add strLine
+            
+        End Select
         
-        ' Add to return string
-        cData.Add strText
-        cData.Add vbCrLf
+        ' Move to next line
+        lngLine = lngLine + 1
     Loop
     
-    ' Close and delete original file
-    stmInFile.Close
-    DeleteFile strPath
+    Perf.OperationEnd
     
-    ' Write file all at once, rather than line by line.
-    ' (Otherwise the code can bog down with tens of thousands of write operations)
+    ' Write out sanitized XML file
     WriteFile cData.GetStr, strPath
 
     ' Show stats if debug turned on.
-    Log.Add "    Sanitized in " & Format$(Timer - sngOverall, "0.00") & " seconds.", Options.ShowDebug
+    Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
+
+    ' Log any errors
+    CatchAny eelError, "Error sanitizing XML file " & FSO.GetFileName(strPath), ModuleName & ".SanitizeXML"
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TrimTabs
+' Author    : Adam Waller
+' Date      : 4/29/2021
+' Purpose   : Trim off tabs from beginning and end of string
+'---------------------------------------------------------------------------------------
+'
+Public Function TrimTabs(strText As String) As String
+
+    Dim dblStart As Double
+    Dim dblEnd As Double
+    Dim dblPos As Double
+    
+    ' Look for leading tabs
+    dblStart = 1
+    For dblPos = 1 To Len(strText)
+        If Mid$(strText, dblPos, 1) <> vbTab Then
+            dblStart = dblPos
+            Exit For
+        End If
+    Next dblPos
+    
+    ' Look for trailing tabs
+    dblEnd = 1
+    If Right$(strText, 1) = vbTab Then
+        For dblPos = Len(strText) To 1 Step -1
+            If Mid$(strText, dblPos, 1) <> vbTab Then
+                dblEnd = dblPos + 1
+                Exit For
+            End If
+        Next dblPos
+    Else
+        ' No trailing tabs
+        dblEnd = Len(strText) + 1
+    End If
+    
+    ' Return string
+    TrimTabs = Mid$(strText, dblStart, dblEnd - dblStart)
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -286,6 +363,19 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : EndsWith
+' Author    : Adam Waller
+' Date      : 4/29/2021
+' Purpose   : See if a string ends with a specified string.
+'---------------------------------------------------------------------------------------
+'
+Public Function EndsWith(strText As String, strEndsWith As String, Optional Compare As VbCompareMethod = vbBinaryCompare) As Boolean
+    EndsWith = (StrComp(Right$(strText, Len(strEndsWith)), strEndsWith, Compare) = 0)
+    'EndsWith = (InStr(1, strText, strEndsWith, Compare) = len(strtext len(strendswith) 1)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetIndent
 ' Author    : Adam Waller
 ' Date      : 11/5/2020
@@ -296,4 +386,41 @@ Public Function GetIndent(strLine As Variant) As Integer
     Dim strChar As String
     strChar = Left$(Trim(strLine), 1)
     If strLine <> vbNullString Then GetIndent = InStr(1, strLine, strChar) - 1
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormatXML
+' Author    : Adam Waller
+' Date      : 4/22/2021
+' Purpose   : Format XML content for consistent and readable output.
+'---------------------------------------------------------------------------------------
+'
+Private Function FormatXML(strSourceXML As String, _
+    Optional blnOmitDeclaration As Boolean) As String
+
+    Dim objReader As SAXXMLReader60
+    Dim objWriter As MXXMLWriter60
+    
+    Perf.OperationStart "Format XML"
+    Set objWriter = New MXHTMLWriter60
+    Set objReader = New SAXXMLReader60
+    
+    ' Set up writer
+    With objWriter
+        .indent = True
+        .omitXMLDeclaration = Not blnOmitDeclaration
+        Set objReader.contentHandler = objWriter
+    End With
+    
+    ' Prepare reader
+    With objReader
+        Set .contentHandler = objWriter
+        .parse strSourceXML
+    End With
+
+    ' Return formatted output
+    FormatXML = objWriter.output
+    Perf.OperationEnd
+    
 End Function

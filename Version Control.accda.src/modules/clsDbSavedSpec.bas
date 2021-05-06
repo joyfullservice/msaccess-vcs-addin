@@ -35,7 +35,7 @@ Private Sub IDbComponent_Export()
     
     Set dSpec = New Dictionary
     
-    If DebugMode Then On Error Resume Next Else On Error Resume Next
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     ' For some reason it throws an error if there is no
     ' description in the specification.
     With dSpec

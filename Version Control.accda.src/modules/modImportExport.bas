@@ -25,7 +25,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Dim lngCount As Long
     
     ' Use inline error handling functions to trap and log errors.
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Can't export without an open database
     If CurrentDb Is Nothing And CurrentProject.Connection Is Nothing Then Exit Sub
@@ -53,14 +53,6 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Log.Active = True
     Perf.StartTiming
 
-    ' Run any custom sub before export
-    If Options.RunBeforeExport <> vbNullString Then
-        Log.Add "Running " & Options.RunBeforeExport & "..."
-        Perf.OperationStart "RunBeforeExport"
-        RunSubInCurrentProject Options.RunBeforeExport
-        Perf.OperationEnd
-    End If
-
     ' If options (or VCS version) have changed, a full export will be required
     If (VCSIndex.OptionsHash <> Options.GetHash) Then blnFullExport = True
 
@@ -77,9 +69,20 @@ Public Sub ExportSource(blnFullExport As Boolean)
         Log.Add "VCS Version " & GetVCSVersion
         Log.Add IIf(blnFullExport, "Performing Full Export", "Using Fast Save")
         Log.Add Now
-        Log.Spacer
-        Log.Flush
     End With
+    
+    ' Run any custom sub before export
+    If Options.RunBeforeExport <> vbNullString Then
+        Log.Add "Running " & Options.RunBeforeExport & "..."
+        Log.Flush
+        Perf.OperationStart "RunBeforeExport"
+        RunSubInCurrentProject Options.RunBeforeExport
+        Perf.OperationEnd
+    End If
+
+    ' Finish header section
+    Log.Spacer
+    Log.Flush
     
     ' Loop through all categories
     For Each cCategory In GetAllContainers
@@ -139,7 +142,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     
     ' Show final output and save log
     Log.Spacer
-    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
+    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)", , False, "green", True
     
     ' Add performance data to log file and save file
     Perf.EndTiming
@@ -191,7 +194,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     Dim strText As String   ' Remove later
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' The type of build will be used in various messages and log entries.
     strType = IIf(blnFullBuild, "Build", "Merge")
@@ -227,7 +230,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     End If
     
     Set Options = Nothing
-    Options.LoadOptionsFromFile strSourceFolder & "vcs-options.json"
+    Options.LoadOptionsFromFile StripSlash(strSourceFolder) & PathSep & "vcs-options.json"
     
     ' Build original file name for database
     If blnFullBuild Then
@@ -278,12 +281,15 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Rename original file as a backup
     strBackup = GetBackupFileName(strPath)
-    If FSO.FileExists(strPath) Then Name strPath As strBackup
-    Log.Add "Saving backup of original database..."
-    Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
+    If FSO.FileExists(strPath) Then
+        Log.Add "Saving backup of original database..."
+        Name strPath As strBackup
+        Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
+    End If
     
     ' Create a new database with the original name
     If blnFullBuild Then
+        Perf.OperationStart "Create new database"
         If LCase$(FSO.GetExtensionName(strPath)) = "adp" Then
             ' ADP project
             Application.NewAccessProject strPath
@@ -291,20 +297,29 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             ' Regular Access database
             Application.NewCurrentDatabase strPath
         End If
+        Perf.OperationEnd
         Log.Add "Created blank database for import."
     End If
     
     ' Now that we have a new database file, we can load the index.
     Set VCSIndex = Nothing
     
-    ' Remove any non-built-in references before importing from source.
-    Log.Spacer
     If blnFullBuild Then
+    
+        ' Remove any non-built-in references before importing from source.
         Log.Add "Removing non built-in references...", False
         RemoveNonBuiltInReferences
+        
+        ' Check for any RunBeforeBuild
+        If Options.RunBeforeBuild <> vbNullString Then
+            ' Run any pre-build bootstrapping code
+            PrepareRunBootstrap
+        End If
+        
     End If
-
+    
     ' Loop through all categories
+    Log.Spacer
     For Each cCategory In GetAllContainers
         
         ' Get collection of source files
@@ -370,7 +385,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Show final output and save log
     Log.Spacer
-    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)"
+    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)", , False, "green", True
     
     ' Add performance data to log file and save file.
     Perf.EndTiming
@@ -519,5 +534,76 @@ Private Sub CheckForLegacyModules()
                 "NOTE: This message can be disabled in 'Options -> Show Legacy Prompt'.", vbInformation, "Just a Suggestion..."
         End If
     End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PrepareRunBootstrap
+' Author    : Adam Waller
+' Date      : 4/21/2021
+' Purpose   : Prepares the database to run the RunBeforeBuild code by loading all
+'           : GUID references and importing the module specified in RunBeforeBuild.
+'           : The bootstrap module (and any other objects) will get replaced from
+'           : source during the main build, but this allows any custom functions to
+'           : run before the main build, such as copying missing library files into
+'           : the same folder as the database.
+'---------------------------------------------------------------------------------------
+'
+Private Sub PrepareRunBootstrap()
+
+    Dim strModule As String
+    Dim strName As String
+    Dim varFile As Variant
+    Dim cMod As clsDbModule
+    
+    ' Update output since there may be some delays
+    Log.Add "Loading bootstrap..."
+    Log.Flush
+    Perf.OperationStart "Bootstrap"
+    
+    ' Load all GUID references to support early binding in bootstrap sub
+    With New clsDbVbeReference
+        .ImportReferences .Parent.SourceFile, True
+    End With
+    
+    ' Identify and load module for bootstrap code
+    strModule = Split(Options.RunBeforeBuild, ".")(0)
+    With New clsDbModule
+        With .Parent
+            For Each varFile In .GetFileList
+                ' Look for matching name
+                strName = GetObjectNameFromFileName(CStr(varFile))
+                If StrComp(strName, strModule, vbTextCompare) = 0 Then
+                    ' This is the module we need to import
+                    Log.Add "Importing bootstrap module '" & strName & "'", False
+                    .Import CStr(varFile)
+                    Exit For
+                End If
+            Next varFile
+        End With
+    End With
+    
+    ' Make sure we actually have a module before we attempt to run the code
+    If CurrentProject.AllModules.Count = 0 Then
+        ' Could not find source file
+        Log.Error eelError, "Could not find source file for " & strModule, ModuleName & ".PrepareRunBootstrap"
+    Else
+        ' Important: We need to Run Project.Sub not Project.Module.Sub
+        strName = Split(Options.RunBeforeBuild, ".")(1)
+        
+        ' Run any pre-build bootstrapping code
+        Log.Add "Running " & Options.RunBeforeBuild
+        Perf.OperationStart "RunBeforeBuild"
+        RunSubInCurrentProject strName
+        Perf.OperationEnd
+    End If
+    
+    ' Now go back and remove all the non built-in references so they come
+    ' back in the correct order, just in case a library was at a higher level.
+    Log.Add "Removing non built-in references after running bootstrap", False
+    RemoveNonBuiltInReferences
+    
+    Perf.OperationEnd   ' Bootstrap
     
 End Sub

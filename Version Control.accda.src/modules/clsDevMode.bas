@@ -229,7 +229,7 @@ Public Sub LoadFromExportFile(strFile As String)
     Dim udtDevModeBuffer As tDevModeBuffer
     Dim udtDevNamesBuffer As tDevNamesBuffer
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Blocks: 1=Mip, 2=DevMode, 3=DevNames
 
@@ -349,7 +349,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
     Dim udtBuffer As tDevModeBuffer
     Dim objPrinter As Access.Printer
 
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Clear our existing devmode structures
     ClearStructures
@@ -760,7 +760,7 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
     Dim strDevModeExtra As String
     Dim tBuffer As tDevModeBuffer
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Make sure we are using the correct object type
     If TypeOf objFormOrReport Is Access.Report Then
@@ -886,7 +886,7 @@ Public Sub ApplySettings(dSettings As Dictionary)
     Dim dItems As Dictionary
     Dim strPrinter As String
 
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Set the properties in the DevNames structure.
     ' Note that this simply sets the printer to one with a matching name. It doesn't try to reconstruct
@@ -1035,7 +1035,7 @@ Public Function AddToExportFile(strFile As String) As String
     Dim blnFound As Boolean
     Dim blnInBlock As Boolean
     
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Load data from export file
     strData = ReadFile(strFile)

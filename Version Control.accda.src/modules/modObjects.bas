@@ -92,7 +92,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get FSO() As Scripting.FileSystemObject
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     If m_FSO Is Nothing Then Set m_FSO = New Scripting.FileSystemObject
     Set FSO = m_FSO
     CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", ModuleName & ".FSO"
@@ -128,16 +128,18 @@ End Property
 ' Purpose   : Wrapper for use in error handling.
 '---------------------------------------------------------------------------------------
 '
-Public Function DebugMode() As Boolean
+Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
+    
+    Dim blnBreak As Boolean
     
     ' Don't reference the property this till we have loaded the options.
-    If Not m_Options Is Nothing Then DebugMode = m_Options.BreakOnError
+    If Not m_Options Is Nothing Then blnBreak = m_Options.BreakOnError
     
     ' Check for any unhandled errors
-    If Err.Number <> 0 Then
+    If (Err.Number <> 0) And blnTrapUnhandledErrors Then
     
-        ' Check current debug mode
-        If DebugMode Then
+        ' Check current BreakOnError mode
+        If blnBreak Then
             ' Stop the code here so we can investigate the source of the error.
             Debug.Print "Error " & Err.Number & ": " & Err.Description
             Stop
@@ -172,5 +174,8 @@ Public Function DebugMode() As Boolean
         End If
     
     End If
+    
+    ' Return debug mode
+    DebugMode = blnBreak
     
 End Function

@@ -13,7 +13,7 @@ Begin Report
     Width =11700
     DatasheetFontHeight =11
     ItemSuffix =7
-    DatasheetGridlinesColor =15132391
+    DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x2df649898e77e540
     End
@@ -74,7 +74,7 @@ Begin Report
         Begin FormHeader
             KeepTogether = NotDefault
             Height =960
-            BackColor =15064278
+            BackColor =15849926
             Name ="ReportHeader"
             AutoHeight =1
             AlternateBackThemeColorIndex =1

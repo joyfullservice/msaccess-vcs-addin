@@ -31,11 +31,13 @@ Public ExtractThemeFiles As Boolean
 Public TablesToExportData As Dictionary
 Public RunBeforeExport As String
 Public RunAfterExport As String
+Public RunBeforeBuild As String
 Public RunAfterBuild As String
 Public ShowVCSLegacy As Boolean
 Public HashAlgorithm As String
 Public UseShortHash As Boolean
 Public BreakOnError As Boolean
+Public PreserveRubberDuckID As Boolean
 
 ' Constants for enum values
 ' (These values are not permanently stored and
@@ -204,7 +206,7 @@ Public Sub LoadOptionsFromFile(strFile As String)
     Dim varOption As Variant
     Dim strKey As String
 
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Save file path, in case we need to use it to determine
     ' the export folder location with no database open.
@@ -354,7 +356,7 @@ Private Function SerializeOptions() As Dictionary
     Dim strOption As String
     Dim strBit As String
 
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     Set dOptions = New Dictionary
     Set dInfo = New Dictionary
@@ -496,15 +498,20 @@ Private Sub Class_Initialize()
         .Add "TablesToExportData"
         .Add "RunBeforeExport"
         .Add "RunAfterExport"
+        .Add "RunBeforeBuild"
         .Add "RunAfterBuild"
         .Add "ShowVCSLegacy"
         .Add "HashAlgorithm"
         .Add "UseShortHash"
         .Add "BreakOnError"
+        .Add "PreserveRubberDuckID"
     End With
 
     ' Load default values
     Me.LoadDefaults
+    
+    ' Load saved defaults
+    LoadDefaultOptions
 
     ' Other run-time options
     JsonOptions.AllowUnicodeChars = True

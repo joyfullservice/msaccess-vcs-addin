@@ -12,6 +12,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+Const ModuleName As String = "clsDbTableDef"
+
 Private m_Table As DAO.TableDef
 Private m_AllItems As Collection
 Private m_blnModifiedOnly As Boolean
@@ -46,14 +48,15 @@ Private Sub IDbComponent_Export()
     ' For internal tables, we can export them as XML.
     If tbl.Connect = vbNullString Then
     
-        ' Check for existing file
-        If FSO.FileExists(strFile) Then DeleteFile strFile, True
-
         ' Save structure in XML format
         VerifyPath strFile
         Perf.OperationStart "App.ExportXML()"
-        Application.ExportXML acExportTable, m_Table.Name, , strFile ', , , , acExportAllTableAndFieldProperties ' Add support for this later.
+        ' Note that the additional properties are important to accurately reconstruct the table.
+        Application.ExportXML acExportTable, m_Table.Name, , strFile, , , , acExportAllTableAndFieldProperties
         Perf.OperationEnd
+        
+        ' Rewrite sanitized XML as formatted UTF-8 content
+        SanitizeXML strFile
     
     Else
         ' Linked table - Save as JSON
@@ -300,7 +303,7 @@ Private Function IndexAvailable(tdf As TableDef) As Boolean
 
     Dim lngTest As Long
     
-    If DebugMode Then On Error Resume Next Else On Error Resume Next
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     lngTest = tdf.Indexes.Count
     If Err Then
         Err.Clear
@@ -329,7 +332,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Select Case LCase$(FSO.GetExtensionName(strFile))
     
         Case "json"
-            ImportLinkedTable strFile
+            If Not ImportLinkedTable(strFile) Then Exit Sub
         
         Case "xml"
             ' The ImportXML function does not properly handle UrlEncoded paths
@@ -377,9 +380,10 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 5/6/2020
 ' Purpose   : Recreate a linked table from the JSON source file.
+'           : Returns true if successful.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ImportLinkedTable(strFile As String)
+Private Function ImportLinkedTable(strFile As String) As Boolean
 
     Dim dTable As Dictionary
     Dim dItem As Dictionary
@@ -387,6 +391,8 @@ Private Sub ImportLinkedTable(strFile As String)
     Dim tdf As DAO.TableDef
     Dim strSql As String
     Dim strConnect As String
+    
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Read json file
     Set dTable = ReadJsonFile(strFile)
@@ -403,30 +409,41 @@ Private Sub ImportLinkedTable(strFile As String)
             .Attributes = SafeAttributes(dItem("Attributes"))
         End With
         dbs.TableDefs.Append tdf
-        
-        ' Verify that the connection matches the source file. (Issue #192)
-        If tdf.Connect <> strConnect Then
-            tdf.Connect = strConnect
-            tdf.RefreshLink
-        End If
-        dbs.TableDefs.Refresh
-        
-        ' Set index on linked table.
-        If InStr(1, tdf.Connect, ";DATABASE=", vbTextCompare) = 1 Then
-            ' Can't create a key on a linked Access database table.
-            ' Presumably this would use the Access index instead of needing the pseudo index
+        If Catch(3011) Then
+            Log.Error eelError, "Could not link table '" & dItem("SourceTableName") & "'", _
+            ModuleName & ".ImportLinkedTable"
+            Log.Add "Linked table object not found in " & strFile, False
+            Log.Add "Connection String: " & strConnect, False
+        ElseIf CatchAny(eelError, vbNullString, ModuleName & ".ImportLinkedTable") Then
+            ' May have encountered other issue like a missing link specification.
         Else
-            ' Check for a primary key index (Linked SQL tables may bring over the index, but linked views won't.)
-            If dItem.Exists("PrimaryKey") And Not HasUniqueIndex(tdf) Then
-                ' Create a pseudo index on the linked table
-                strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & tdf.Name & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
-                dbs.Execute strSql, dbFailOnError
-                dbs.TableDefs.Refresh
+            ' Verify that the connection matches the source file. (Issue #192)
+            If tdf.Connect <> strConnect Then
+                tdf.Connect = strConnect
+                tdf.RefreshLink
+            End If
+            dbs.TableDefs.Refresh
+            
+            ' Set index on linked table.
+            If InStr(1, tdf.Connect, ";DATABASE=", vbTextCompare) = 1 Then
+                ' Can't create a key on a linked Access database table.
+                ' Presumably this would use the Access index instead of needing the pseudo index
+            Else
+                ' Check for a primary key index (Linked SQL tables may bring over the index, but linked views won't.)
+                If dItem.Exists("PrimaryKey") And Not HasUniqueIndex(tdf) Then
+                    ' Create a pseudo index on the linked table
+                    strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & tdf.Name & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
+                    dbs.Execute strSql, dbFailOnError
+                    dbs.TableDefs.Refresh
+                End If
             End If
         End If
     End If
-     
-End Sub
+    
+    ' Report any unhandled errors
+    CatchAny eelError, "Error importing " & strFile, ".ImportLinkedTable"
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------

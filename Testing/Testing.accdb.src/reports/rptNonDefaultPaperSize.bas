@@ -13,7 +13,7 @@ Begin Report
     Width =8884
     DatasheetFontHeight =11
     ItemSuffix =1
-    DatasheetGridlinesColor =15132391
+    DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0xe05ff061b477e540
     End

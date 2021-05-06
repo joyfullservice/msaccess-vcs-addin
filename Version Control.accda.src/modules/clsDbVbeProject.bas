@@ -57,7 +57,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim dProject As Dictionary
 
-    If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
@@ -105,7 +105,7 @@ Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue 
     Dim varNew As String
     
     ' Switch to on error resume next after checking for current errors
-    If DebugMode Then On Error Resume Next Else On Error Resume Next
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     
     ' Attempt to set the property
     CallByName cProj, strProperty, VbLet, varValue
@@ -155,21 +155,48 @@ End Function
 ' Purpose   : Get help file path saved as a relative path.
 '---------------------------------------------------------------------------------------
 '
-Private Function ValidHelpFile(ByVal helpFile As String) As String
-    ValidHelpFile = GetPathFromRelative(helpFile)
-    If ValidHelpFile <> vbNullString Then
-        ' Make sure this is a valid help file
-        If ValidHelpFile Like "*.hlp" Or ValidHelpFile Like "*.chm" Then
-            If Not FSO.FileExists(ValidHelpFile) Then
-                Log.Error eelWarning, "Help file not found: " & ValidHelpFile, ModuleName & ".ValidHelpFile"
+Private Function ValidHelpFile(strHelpFile As String) As String
+
+    Dim strValid As String
+    
+    If strHelpFile <> vbNullString Then
+    
+        ' Check for a Rubber Duck Identifier value
+        If InStr(1, strHelpFile, ".") = 0 And IsNumeric(strHelpFile) Then
+            If Options.PreserveRubberDuckID Then
+                ' Allow user to save this identifier in the exported source, if they really want to.
+                ' See issue #197 for more details on this.
+                Log.Add "RubberDuck Identifier " & strHelpFile & " found in VBE Project HelpFile field. " & _
+                    "If you don't want to save this to source, " & _
+                    "set PreserveRubberDuckID = False in the options file.", False
+                    
+                strValid = strHelpFile
             End If
+            
         Else
-            ' Does not appear to be a help file extension
-            Log.Error eelWarning, "'" & ValidHelpFile & "' is not a valid help file name. " & _
-                "(Expecting *.hlp or *.chm)", ModuleName & ".ValidHelpFile"
-            ValidHelpFile = vbNullString
+            ' Might actually be a help file name/path
+        
+            ' Build out any relative path
+            strValid = GetPathFromRelative(strHelpFile)
+        
+            ' Make sure this is a valid help file
+            If strValid Like "*.hlp" Or strValid Like "*.chm" Then
+                If Not FSO.FileExists(strValid) Then
+                    Log.Error eelWarning, "Help file not found: " & strValid, ModuleName & ".ValidHelpFile"
+                End If
+            Else
+                ' Does not appear to be a help file extension
+                Log.Error eelWarning, "'" & strValid & "' is not a valid help file name. " & _
+                    "(Expecting *.hlp or *.chm)", ModuleName & ".ValidHelpFile"
+                strValid = vbNullString
+            End If
+        
         End If
     End If
+
+    ' Return validated help file string
+    ValidHelpFile = strValid
+    
 End Function
 
 
@@ -190,8 +217,8 @@ Private Function GetDictionary() As Dictionary
     With GetDictionary
         .Add "Name", m_Project.Name
         .Add "Description", m_Project.Description
-        .Add "FileName", GetRelativePath(m_Project.FileName)
-        .Add "HelpFile", ValidHelpFile(m_Project.helpFile)
+        .Add "FileName", FSO.GetFileName(m_Project.FileName)
+        .Add "HelpFile", ValidHelpFile(m_Project.HelpFile)
         .Add "HelpContextId", ValidHelpContextId(m_Project.HelpContextId)
         .Add "ConditionalCompilationArguments", Application.GetOption("Conditional Compilation Arguments")
         .Add "Mode", m_Project.Mode

@@ -1,2 +1,33 @@
-﻿<?xml version="1.0" encoding="UTF-16" standalone="no"?>
-<DataMacros xmlns="http://schemas.microsoft.com/office/accessservices/2009/11/application"><DataMacro Event="AfterUpdate"><Statements><Action Name="SetLocalVar"><Argument Name="Name">UpdatedID</Argument><Argument Name="Value">[ID]</Argument></Action><ForEachRecord><Data><Reference>tblSaveXML</Reference><WhereCondition>[ID]=[UpdatedID]</WhereCondition></Data><Statements><EditRecord><Data/><Statements><Action Name="SetField"><Argument Name="Field">UpdateDate</Argument><Argument Name="Value">Now()</Argument></Action></Statements></EditRecord></Statements></ForEachRecord></Statements></DataMacro></DataMacros>
+﻿<DataMacros xmlns="http://schemas.microsoft.com/office/accessservices/2009/11/application">
+	<DataMacro Event="AfterUpdate">
+		<Statements>
+			<Action Name="SetLocalVar">
+				<Argument Name="Name">UpdatedID
+				</Argument>
+				<Argument Name="Value">[ID]
+				</Argument>
+			</Action>
+			<ForEachRecord>
+				<Data>
+					<Reference>tblSaveXML
+					</Reference>
+					<WhereCondition>[ID]=[UpdatedID]
+					</WhereCondition>
+				</Data>
+				<Statements>
+					<EditRecord>
+						<Data/>
+						<Statements>
+							<Action Name="SetField">
+								<Argument Name="Field">UpdateDate
+								</Argument>
+								<Argument Name="Value">Now()
+								</Argument>
+							</Action>
+						</Statements>
+					</EditRecord>
+				</Statements>
+			</ForEachRecord>
+		</Statements>
+	</DataMacro>
+</DataMacros>

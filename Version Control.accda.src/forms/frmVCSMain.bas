@@ -16,16 +16,17 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =32
-    Left =-25575
-    Top =1710
-    Right =-255
-    Bottom =14295
-    DatasheetGridlinesColor =14806254
+    Left =3225
+    Top =2430
+    Right =18945
+    Bottom =14175
+    DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
     End
     Caption ="MSAccessVCS"
     DatasheetFontName ="Calibri"
+    OnTimer ="[Event Procedure]"
     OnLoad ="[Event Procedure]"
     AllowDatasheetView =0
     FilterOnLoad =0
@@ -1642,7 +1643,7 @@ Begin Form
                     Height =240
                     FontSize =10
                     BorderColor =10921638
-                    ForeColor =16711680
+                    ForeColor =12673797
                     Name ="lblOpenLogFile"
                     Caption ="Open Log File..."
                     OnClick ="[Event Procedure]"
@@ -1852,7 +1853,7 @@ Private Sub cmdBuild_Click()
                 ' Selected a folder
                 If FolderHasVcsOptionsFile(.SelectedItems(1)) Then
                     ' Has source files
-                    strFolder = .SelectedItems(1)
+                    strFolder = .SelectedItems(1) & PathSep
                     ' Relaunch build if building the add-in from source.
                     If FSO.GetFileName(strFolder) = "Version Control.accda.src" Then
                         DoCmd.Close acForm, Me.Name
@@ -1970,6 +1971,7 @@ Private Sub cmdExport_Click()
     
     SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
     lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+    DoEvents
     
 End Sub
 
@@ -2076,16 +2078,40 @@ Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = erlVCSOpen)
             'Start export, then close if no errors.
             Me.Visible = True
             cmdExport_Click
-            If Log.ErrorLevel = eelNoError Then
-                Pause 2
-                cmdClose_Click
-            End If
+            If Log.ErrorLevel = eelNoError Then AutoClose
         Case Else
             'default to export and close if no errors.
             Me.Visible = True
             cmdExport_Click
             If Log.ErrorLevel = eelNoError Then cmdClose_Click
     End Select
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AutoClose
+' Author    : Adam Waller
+' Date      : 5/6/2021
+' Purpose   : Use the timer to automatically close the form in 2 seconds.
+'           : (This keeps the application from "hanging" during the pause between
+'           :  completion and close.)
+'---------------------------------------------------------------------------------------
+'
+Private Sub AutoClose()
+    Me.TimerInterval = 2000
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Form_Timer
+' Author    : Adam Waller
+' Date      : 5/6/2021
+' Purpose   : Automatically close form.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Timer()
+    Me.TimerInterval = 0
+    cmdClose_Click
 End Sub
 
 
