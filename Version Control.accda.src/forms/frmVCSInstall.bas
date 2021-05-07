@@ -1594,7 +1594,7 @@ Private Sub cmdInstall_Click()
     DoCmd.Hourglass True
 
     ' Check for legacy installations (before updating version)
-    CheckForLegacyInstall
+    RunUpgrades
 
     ' Save the trusted location and open file settings.
     InstallSettingTrustedLocation = chkAddTrustedLocation.Value

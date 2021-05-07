@@ -173,7 +173,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub SaveOptionsAsDefault()
-    Me.SaveOptionsToFile FSO.BuildPath(CodeProject.Path, FSO.GetBaseName(CodeProject.Name)) & ".json"
+    Me.SaveOptionsToFile GetDefaultOptionsFilePath
 End Sub
 
 
@@ -274,8 +274,20 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadDefaultOptions()
-    LoadOptionsFromFile FSO.BuildPath(CodeProject.Path, FSO.GetBaseName(CodeProject.Name)) & ".json"
+    LoadOptionsFromFile GetDefaultOptionsFilePath
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDefaultOptionsFilePath
+' Author    : Adam Waller
+' Date      : 5/7/2021
+' Purpose   : Return the full path of the default options file
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDefaultOptionsFilePath() As String
+    GetDefaultOptionsFilePath = FSO.BuildPath(CodeProject.Path, cstrOptionsFilename)
+End Function
 
 
 '---------------------------------------------------------------------------------------

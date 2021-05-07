@@ -411,13 +411,13 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : HasLegacyInstall
+' Procedure : RunUpgrades
 ' Author    : Adam Waller
 ' Date      : 5/27/2020
-' Purpose   : Returns true if legacy registry entries are found.
+' Purpose   : Process upgrade transitions and remove legacy components
 '---------------------------------------------------------------------------------------
 '
-Public Sub CheckForLegacyInstall()
+Public Sub RunUpgrades()
     
     Dim strName As String
     Dim strOldPath As String
@@ -485,7 +485,21 @@ Public Sub CheckForLegacyInstall()
     ' Remove legacy RC4 encryption
     If HasLegacyRC4Keys Then DeleteSetting GetCodeVBProject.Name, "Private Keys"
     
-    CatchAny eelError, "Checking for legacy install", ModuleName & ".CheckForLegacyInstall"
+    ' Use standardized options folder (5/7/2021)
+    strOldPath = FSO.BuildPath(CodeProject.Path, FSO.GetBaseName(CodeProject.Name)) & ".json"
+    strNewPath = FSO.BuildPath(CodeProject.Path, "vcs-options.json")
+    If FSO.FileExists(strOldPath) Then
+        If FSO.FileExists(strNewPath) Then
+            ' Remove leftover legacy file
+            DeleteFile strOldPath
+        Else
+            ' Rename to new name
+            Name strOldPath As strNewPath
+        End If
+    End If
+    
+    ' Handle any uncaught errors
+    CatchAny eelError, "Running upgrades before install", ModuleName & ".RunUpgrades"
     
 End Sub
 
