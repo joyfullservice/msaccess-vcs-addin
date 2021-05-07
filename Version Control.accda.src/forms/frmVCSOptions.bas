@@ -18,8 +18,8 @@ Begin Form
     ItemSuffix =232
     Left =-25575
     Top =1710
-    Right =-15405
-    Bottom =8895
+    Right =-255
+    Bottom =14295
     DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -762,6 +762,7 @@ Begin Form
                                     BorderColor =10921638
                                     ForeColor =4210752
                                     Name ="txtExportFolder"
+                                    BeforeUpdate ="[Event Procedure]"
                                     GridlineColor =10921638
 
                                     LayoutCachedLeft =2460
@@ -3917,6 +3918,14 @@ End Sub
 '
 Private Sub cmdSaveAndClose_Click()
 
+    ' Make sure we actually have a file open
+    If Not DatabaseOpen Then
+        MsgBox2 "No Database File Open", _
+            "You must have a database file open to save VCS options to a source folder.", _
+            "Please open a database file before saving options for a project.", vbExclamation
+        Exit Sub
+    End If
+
     ' Save options and close.
     MapControlsToOptions emaFormToClass
     Options.SaveOptionsForProject
@@ -3936,8 +3945,26 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdSaveAsDefault_Click()
+
+    Dim strPath As String
+    
+    ' Note that we can't save an absolute path as default, or we will potentially
+    ' create some major issues with source files being overwritten and lost.
+    strPath = Nz(txtExportFolder)
+    If strPath <> vbNullString Then
+        If InStr(1, strPath, "%dbName%", vbTextCompare) < 1 Then
+            MsgBox2 "Invalid Export Path for Default", _
+                "If you specify an absolute or relative Export Path as a default option," & vbCrLf & _
+                "you must include the %dbName% placeholder to keep the paths unique.", _
+                "Please update the Export Path and try again.", vbExclamation
+            Exit Sub
+        End If
+    End If
+    
+    ' Load the options from the form and save as default
     MapControlsToOptions emaFormToClass
     Options.SaveOptionsAsDefault
+    
 End Sub
 
 
@@ -4143,4 +4170,31 @@ Private Sub cmdUninstall_Click()
             "We must now close Microsoft Access", vbInformation, "Version Control Add-in"
         DoCmd.Quit
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : txtExportFolder_BeforeUpdate
+' Author    : Adam Waller
+' Date      : 5/6/2021
+' Purpose   : Make sure we have a valid entry, blank, absolute path, or relative path.
+'---------------------------------------------------------------------------------------
+'
+Private Sub txtExportFolder_BeforeUpdate(Cancel As Integer)
+
+    Dim strPath As String
+    
+    strPath = Nz(txtExportFolder)
+    If strPath <> vbNullString Then
+        If (Left(strPath, 1) = PathSep) Or _
+            (InStr(2, strPath, ":" & PathSep) > 0) Then
+            ' Looks like a valid path
+        Else
+            MsgBox2 "Invalid Export Folder", _
+                "This does not appear to be a valid relative or absolute path.", _
+                "Please see the wiki documentation for more detail and examples.", vbExclamation
+            Cancel = True
+        End If
+    End If
+    
 End Sub
