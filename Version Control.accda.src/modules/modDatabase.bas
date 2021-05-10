@@ -26,7 +26,7 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : GetDBProperty
 ' Author    : Adam Waller
-' Date      : 9/1/2017
+' Date      : 5/6/2021
 ' Purpose   : Get a database property (Default to MDB version)
 '---------------------------------------------------------------------------------------
 '
@@ -35,12 +35,23 @@ Public Function GetDBProperty(strName As String, Optional dbs As DAO.Database) A
     Dim prp As Object ' DAO.Property
     Dim oParent As Object
     
-    ' Get parent container for properties
-    If CurrentProject.ProjectType = acADP Then
-        Set oParent = CurrentProject.Properties
-    Else
-        If dbs Is Nothing Then Set dbs = CurrentDb
+    ' Check for database reference
+    If Not dbs Is Nothing Then
         Set oParent = dbs.Properties
+    Else
+        If DatabaseOpen Then
+            ' Get parent container for properties
+            If CurrentProject.ProjectType = acADP Then
+                Set oParent = CurrentProject.Properties
+            Else
+                If dbs Is Nothing Then Set dbs = CurrentDb
+                Set oParent = dbs.Properties
+            End If
+        Else
+            ' No database open
+            GetDBProperty = vbNullString
+            Exit Function
+        End If
     End If
     
     ' Look for property by name
