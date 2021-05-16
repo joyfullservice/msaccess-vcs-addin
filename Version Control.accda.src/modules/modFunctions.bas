@@ -675,3 +675,21 @@ End Function
 Public Function Repeat(strText As String, lngTimes As Long) As String
     Repeat = Replace$(Space$(lngTimes), " ", strText)
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Coalesce
+' Author    : Adam Waller
+' Date      : 5/15/2021
+' Purpose   : Return the first non-empty string from an array of string values
+'---------------------------------------------------------------------------------------
+'
+Public Function Coalesce(ParamArray varStrings()) As String
+    Dim intString As Integer
+    For intString = 0 To UBound(varStrings)
+        If Nz(varStrings(intString)) <> vbNullString Then
+            Coalesce = varStrings(intString)
+            Exit For
+        End If
+    Next intString
+End Function
