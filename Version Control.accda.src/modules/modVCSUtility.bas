@@ -262,7 +262,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
         Case acModule
             ' Always convert from UTF-8 in case the file contains
             ' UTF-8 encoded characters but does not have a BOM.
-            blnConvert = True
+            If modEncoding.HasUtf8Bom(strFile) Then blnConvert = True
     End Select
     
     ' Only run conversion if needed.
