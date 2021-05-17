@@ -1,13 +1,11 @@
-{
+﻿{
   "Info": {
     "Class": "clsDbDocument",
-    "Description": "Database Documents Properties (DAO)",
-    "VCS Version": "3.1.34"
+    "Description": "Database Documents Properties (DAO)"
   },
   "Items": {
     "Databases": {
       "SummaryInfo": {
-        "Author": " ",
         "Comments": "Export source code and database objects for tracking in Version Control Systems like GitHub and GitLab. Also used for building a database from source files.",
         "Company": "https://github.com/joyfullservice/msaccess-vcs-integration",
         "Title": "Version Control"
