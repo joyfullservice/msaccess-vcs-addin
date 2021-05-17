@@ -16,10 +16,10 @@ Begin Form
     Width =10170
     DatasheetFontHeight =11
     ItemSuffix =232
-    Left =-25575
-    Top =1710
-    Right =-255
-    Bottom =14295
+    Left =3225
+    Top =2430
+    Right =22695
+    Bottom =15015
     DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -3993,6 +3993,8 @@ End Sub
 Private Sub Form_Load()
 
     Dim intFormat As eTableDataExportFormat
+    
+    ApplyTranslation Me
     
     MapControlsToOptions emaClassToForm
     RefreshTableDisplay

@@ -3,6 +3,5 @@
   [msgid] VARCHAR (255),
   [FullString] LONGTEXT ,
   [Context] VARCHAR (255),
-  [Comments] LONGTEXT ,
-  [AddDate] DATETIME 
+  [Comments] LONGTEXT 
 )

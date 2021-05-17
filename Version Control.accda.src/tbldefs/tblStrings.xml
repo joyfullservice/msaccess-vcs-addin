@@ -38,7 +38,7 @@
 					<xsd:annotation>
 						<xsd:appinfo>
 							<od:fieldProperty name="ColumnWidth" type="3" value="-1"/>
-							<od:fieldProperty name="ColumnOrder" type="3" value="0"/>
+							<od:fieldProperty name="ColumnOrder" type="3" value="1"/>
 							<od:fieldProperty name="ColumnHidden" type="1" value="0"/>
 							<od:fieldProperty name="TextAlign" type="2" value="0"/>
 							<od:fieldProperty name="AggregateType" type="4" value="-1"/>
@@ -50,7 +50,7 @@
 				<xsd:element name="msgid" minOccurs="0" od:jetType="text" od:sqlSType="nvarchar">
 					<xsd:annotation>
 						<xsd:appinfo>
-							<od:fieldProperty name="ColumnWidth" type="3" value="-1"/>
+							<od:fieldProperty name="ColumnWidth" type="3" value="3855"/>
 							<od:fieldProperty name="ColumnOrder" type="3" value="0"/>
 							<od:fieldProperty name="ColumnHidden" type="1" value="0"/>
 							<od:fieldProperty name="Required" type="1" value="0"/>
@@ -99,7 +99,7 @@
 				<xsd:element name="Context" minOccurs="0" od:jetType="text" od:sqlSType="nvarchar">
 					<xsd:annotation>
 						<xsd:appinfo>
-							<od:fieldProperty name="ColumnWidth" type="3" value="-1"/>
+							<od:fieldProperty name="ColumnWidth" type="3" value="5895"/>
 							<od:fieldProperty name="ColumnOrder" type="3" value="0"/>
 							<od:fieldProperty name="ColumnHidden" type="1" value="0"/>
 							<od:fieldProperty name="Required" type="1" value="0"/>
@@ -144,23 +144,6 @@
 							<xsd:maxLength value="536870910"/>
 						</xsd:restriction>
 					</xsd:simpleType>
-				</xsd:element>
-				<xsd:element name="AddDate" minOccurs="0" od:jetType="datetime" od:sqlSType="datetime" type="xsd:dateTime">
-					<xsd:annotation>
-						<xsd:appinfo>
-							<od:fieldProperty name="ColumnWidth" type="3" value="2535"/>
-							<od:fieldProperty name="ColumnOrder" type="3" value="0"/>
-							<od:fieldProperty name="ColumnHidden" type="1" value="0"/>
-							<od:fieldProperty name="Required" type="1" value="0"/>
-							<od:fieldProperty name="IMEMode" type="2" value="0"/>
-							<od:fieldProperty name="IMESentenceMode" type="2" value="3"/>
-							<od:fieldProperty name="TextAlign" type="2" value="0"/>
-							<od:fieldProperty name="AggregateType" type="4" value="-1"/>
-							<od:fieldProperty name="ShowDatePicker" type="3" value="1"/>
-							<od:fieldProperty name="ResultType" type="2" value="0"/>
-							<od:fieldProperty name="CurrencyLCID" type="4" value="0"/>
-						</xsd:appinfo>
-					</xsd:annotation>
 				</xsd:element>
 			</xsd:sequence>
 		</xsd:complexType>

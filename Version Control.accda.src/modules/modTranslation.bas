@@ -8,6 +8,7 @@
 Option Compare Database
 Option Explicit
 
+Private Const en_US As String = "en_US"
 
 ' Cache strings to dictionary objects so we don't have to do database lookups
 ' each time we need to return translated strings
@@ -55,6 +56,71 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ApplyTranslation
+' Author    : Adam Waller
+' Date      : 5/17/2021
+' Purpose   : Apply language translation to a form object (From English values)
+'---------------------------------------------------------------------------------------
+'
+Public Sub ApplyTranslation(frmObject As Form)
+   
+    Dim ctl As Control
+    Dim ctl2 As Control
+    Dim ctlAsc As Control
+    Dim strContext As String
+    Dim strName As String
+    
+    ' No translation needed for English
+    'If m_strCurrentLanguage = en_US Then Exit Sub
+    
+    ' Loop through all controls
+    For Each ctl In frmObject.Controls
+        
+        ' Only check certain types of controls
+        Select Case TypeName(ctl)
+            Case "Label"
+            
+                ' Build base context
+                strContext = frmObject.Name & "." & ctl.Name
+                
+                ' Check for associated control
+                ' (It is easier to go from the object to the label, but not
+                '  all labels may have objects, so we loop through other controls
+                On Error Resume Next
+                For Each ctl2 In frmObject.Controls
+                    strName = vbNullString
+                    strName = ctl2.Controls(0).Name
+                    If strName = ctl.Name Then
+                        ' Found associated label
+                        ' Add extended context
+                        strContext = strContext & "(" & ctl2.Name & ")"
+                        Exit For
+                    End If
+                Next ctl2
+                If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
+                
+                ' Translation caption
+                ctl.Caption = T(ctl.Caption, strContext)
+                
+            Case "TextBox"
+                ' Nothing to translate
+                
+            Case "Page"
+                ' Tab control page caption
+                strContext = frmObject.Name & "." & ctl.Parent.Name & "." & ctl.Name
+                ctl.Caption = T(ctl.Caption, strContext)
+        
+        End Select
+        
+    Next ctl
+    
+    ' Other properties
+    frmObject.Caption = T(frmObject.Caption, frmObject.Name & ".Caption")
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : BuildKey
 ' Author    : Adam Waller
 ' Date      : 5/15/2021
@@ -86,12 +152,13 @@ Private Sub SaveString(strText As String, strContext As String, ParamArray varPa
             !msgid = Left$(strText, 255)
             If Len(strText) > 255 Then !FullString = strText
             !Context = strContext
-            !AddDate = Now()
+            '!AddDate = Now()
         .Update
         .Close
     End With
     
 End Sub
+
 
 
 Private Sub LoadStrings()
@@ -167,7 +234,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function GetCurrentLanguage() As String
-    GetCurrentLanguage = Coalesce(m_strCurrentLanguage, GetSavedLanguage, GetOsLanguage, "en-US")
+    GetCurrentLanguage = Coalesce(m_strCurrentLanguage, GetSavedLanguage, GetOsLanguage, en_US)
 End Function
 
 
@@ -201,5 +268,17 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub ImportTranslation(strFile As String)
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveTemplate
+' Author    : Adam Waller
+' Date      : 5/17/2021
+' Purpose   : Save the translation template file (projectname.pot)
+'---------------------------------------------------------------------------------------
+'
+Private Sub SaveTemplate()
 
 End Sub
