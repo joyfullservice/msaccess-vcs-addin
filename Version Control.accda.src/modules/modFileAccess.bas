@@ -206,6 +206,8 @@ Public Sub VerifyPath(strPath As String)
     Dim intPart As Integer
     Dim strVerified As String
     
+    If strPath = vbNullString Then Exit Sub
+    
     Perf.OperationStart "Verify Path"
     
     ' Determine if the path is a file or folder

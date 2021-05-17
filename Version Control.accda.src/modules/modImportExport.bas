@@ -295,10 +295,16 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             Application.NewAccessProject strPath
         Else
             ' Regular Access database
-            Application.NewCurrentDatabase strPath
+            Application.NewCurrentDatabase strPath, GetFileFormat(strSourceFolder)
         End If
         Perf.OperationEnd
-        Log.Add "Created blank database for import."
+        If DatabaseOpen Then
+            Log.Add "Created blank database for import. (v" & CurrentProject.FileFormat & ")"
+        Else
+            CatchAny eelCritical, "Unable to create database file", ModuleName & ".Build"
+            Log.Add "This may occur when building an older database version if the 'New database sort order' (collation) option is not set to 'Legacy'"
+            GoTo CleanUp
+        End If
     End If
     
     ' Now that we have a new database file, we can load the index.
@@ -379,21 +385,28 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         '    Perf.OperationEnd
         'End If
     End If
-    
     ' Log any errors after build/merge
     CatchAny eelError, "Error running " & CallByName(Options, "RunAfter" & strType, VbGet), ModuleName & ".Build", True, True
     
     ' Show final output and save log
     Log.Spacer
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)", , False, "green", True
-    
+
+CleanUp:
+
     ' Add performance data to log file and save file.
     Perf.EndTiming
     With Log
         .Add vbCrLf & Perf.GetReports, False
-        .SaveFile FSO.BuildPath(Options.GetExportFolder, strType & ".log")
+        .SaveFile StripSlash(strSourceFolder) & PathSep & strType & ".log"
         .Active = False
     End With
+    
+    ' Show message if build failed
+    If Log.ErrorLevel = eelCritical Then
+        Log.Spacer
+        Log.Add "Build Failed.", , , "red", True
+    End If
     
     ' Wrap up build.
     DoCmd.Hourglass False
@@ -412,7 +425,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Else
         VCSIndex.MergeBuildDate = DateAdd("s", 2, Now)
     End If
-    VCSIndex.Save
+    VCSIndex.Save strSourceFolder
     Set VCSIndex = Nothing
         
     ' Show MessageBox if not using GUI for build.
@@ -463,6 +476,24 @@ Private Function GetBackupFileName(strPath As String) As String
         End If
     Next intCnt
     
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFileFormat
+' Author    : Adam Waller
+' Date      : 5/7/2021
+' Purpose   : Return the file format version from the source files, or 0 if not found.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetFileFormat(strSourcePath As String) As Long
+
+    Dim strPath As String
+    
+    ' Attempt to read the file format version from the CurrentProject export
+    strPath = StripSlash(strSourcePath) & PathSep & "project.json"
+    GetFileFormat = dNZ(ReadJsonFile(strPath), "Items\FileFormat")
+
 End Function
 
 

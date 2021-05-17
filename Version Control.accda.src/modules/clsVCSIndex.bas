@@ -3,13 +3,17 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
-' Module    : clsGitIndex
+' Module    : clsVCSIndex
 ' Author    : Adam Waller
 ' Date      : 11/25/2020
-' Purpose   :
+' Purpose   : Maintain index of source files and database objects so that changes
+'           : can be detected.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+
+' File name for index
+Private Const cstrFileName As String = "vcs-index.json"
 
 
 ' General properties
@@ -53,7 +57,7 @@ Public Sub LoadFromFile(Optional strFile As String)
         
     ' Load properties
     m_strFile = strFile
-    If m_strFile = vbNullString Then m_strFile = DefaultFileName
+    If m_strFile = vbNullString Then m_strFile = DefaultFilePath
     If FSO.FileExists(m_strFile) Then
         Set dFile = ReadJsonFile(m_strFile)
         If Not dFile Is Nothing Then
@@ -84,12 +88,13 @@ End Sub
 ' Purpose   : Save to a file
 '---------------------------------------------------------------------------------------
 '
-Public Sub Save()
+Public Sub Save(Optional strInFolder As String)
 
     Dim varCat As Variant
     Dim varKey As Variant
     Dim varValue As Variant
     Dim dComponents As Dictionary
+    Dim strFile As String
     
     ' Load dictionary from properties
     For Each varKey In m_dIndex.Keys
@@ -111,9 +116,16 @@ Public Sub Save()
     Next varCat
     Set m_dIndex("Components") = SortDictionaryByKeys(dComponents)
 
+    ' Build file path
+    If strInFolder = vbNullString Then
+        strFile = m_strFile
+    Else
+        strFile = StripSlash(strInFolder) & PathSep & cstrFileName
+    End If
+
     ' Save index to file
     If m_strFile <> vbNullString Then
-        WriteJsonFile TypeName(Me), m_dIndex, m_strFile, "Version Control System Index"
+        WriteJsonFile TypeName(Me), m_dIndex, strFile, "Version Control System Index"
     End If
     
 End Sub
@@ -392,8 +404,8 @@ End Function
 ' Purpose   : Return file name for git state json file.
 '---------------------------------------------------------------------------------------
 '
-Private Function DefaultFileName() As String
-    DefaultFileName = Options.GetExportFolder & "vcs-index.json"
+Private Function DefaultFilePath() As String
+    If DatabaseOpen Then DefaultFilePath = Options.GetExportFolder & cstrFileName
 End Function
 
 
