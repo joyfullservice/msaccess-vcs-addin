@@ -1,0 +1,5 @@
+﻿CREATE TABLE [tblLanguages] (
+  [ID] VARCHAR (255) CONSTRAINT [PrimaryKey] PRIMARY KEY UNIQUE NOT NULL,
+  [DisplayName] VARCHAR (255),
+  [Header] LONGTEXT 
+)

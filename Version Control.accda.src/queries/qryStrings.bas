@@ -1,7 +1,6 @@
 ﻿Operation =1
 Option =0
-Where ="(((tblTranslation.Language)=GetCurrentLanguage() Or (tblTranslation.Language) Is"
-    " Null))"
+Where ="(((tblTranslation.Language)=\"en_US\")) OR (((tblTranslation.Language) Is Null))"
 Begin InputTables
     Name ="tblStrings"
     Name ="tblTranslation"
@@ -10,8 +9,11 @@ Begin OutputColumns
     Expression ="tblStrings.ID"
     Alias ="Key"
     Expression ="[msgid] & \"|\" & [Context]"
+    Expression ="tblStrings.Context"
+    Expression ="tblStrings.msgid"
     Expression ="tblTranslation.Translation"
     Expression ="tblStrings.Comments"
+    Expression ="tblTranslation.Language"
 End
 Begin Joins
     LeftTable ="tblStrings"
@@ -53,6 +55,18 @@ Begin
         dbInteger "ColumnWidth" ="3510"
         dbBoolean "ColumnHidden" ="0"
     End
+    Begin
+        dbText "Name" ="tblTranslation.Language"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblStrings.msgid"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblStrings.Context"
+        dbLong "AggregateType" ="-1"
+    End
 End
 Begin
     State =0
@@ -63,7 +77,7 @@ Begin
     Left =-1
     Top =-1
     Right =1299
-    Bottom =577
+    Bottom =543
     Left =0
     Top =0
     ColumnsShown =539
