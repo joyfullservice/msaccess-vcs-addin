@@ -1,0 +1,1165 @@
+﻿# Version Control System (msaccess-vcs-integration)
+# https://github.com/joyfullservice/msaccess-vcs-integration
+# This file is distributed under the project's BSD-style license
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: 3.3.35\n"
+"POT-Creation-Date: 2021-05-19 19:50\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: ENCODING\n"
+
+#: frmVCSInstall.Label4
+msgid "Version Control System"
+msgstr ""
+
+#: frmVCSInstall.lblHeading
+msgid "Install Add-In"
+msgstr ""
+
+#: frmVCSInstall.lblSubheading
+msgid ""
+"Click the Install button to install or update the add-in.\n\nIn some "
+"more secure environments, you may need to use one or both of the "
+"additional options."
+msgstr ""
+
+#: frmVCSInstall.lblVersion
+msgid "Version 3.2.3"
+msgstr ""
+
+#: frmVCSInstall.Label32
+msgid "joyfullservice/msaccess-vcs-integration"
+msgstr ""
+
+#: frmVCSInstall.Label34(chkAddTrustedLocation)
+msgid "Trust Add-In Folder"
+msgstr ""
+
+#: frmVCSInstall.Label36(chkOpenAfterInstall)
+msgid "Open after install to \ntrust add-in file"
+msgstr ""
+
+#: frmVCSInstall.lblInstalled
+msgid "Version x.x is currently installed."
+msgstr ""
+
+#: frmVCSInstall.Caption
+msgid "MSAccessVCS"
+msgstr ""
+
+#: frmVCSOptions.lblOptions
+msgid "Options"
+msgstr ""
+
+#: frmVCSOptions.Label9
+msgid "Version Control System "
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeGeneral
+msgid "General"
+msgstr ""
+
+#: frmVCSOptions.Label23(chkShowDebug)
+msgid "Show Detailed Output"
+msgstr ""
+
+#: frmVCSOptions.Label219(chkBreakOnError)
+msgid "Debug VBA Errors"
+msgstr ""
+
+#: frmVCSOptions.Label215(chkShowVCSLegacy)
+msgid "Show Legacy Prompts"
+msgstr ""
+
+#: frmVCSOptions.Label163(chkUseGitIntegration)
+msgid "Use Git Integration"
+msgstr ""
+
+#: frmVCSOptions.Label221(cboHashAlgorithm)
+msgid "Hash Algorithm:"
+msgstr ""
+
+#: frmVCSOptions.Label223(chkUseShortHash)
+msgid "Use short hashes in index"
+msgstr ""
+
+#: frmVCSOptions.Label224
+msgid ""
+"Some environments may have specific requirements for hashing "
+"algorithms."
+msgstr ""
+
+#: frmVCSOptions.Label227
+msgid ""
+"Use this form to set your preferred options for exporting and building "
+"your database project to and from source files. Note that you can have "
+"different options for different projects, and can save a set of "
+"options as default for new projects."
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeExport
+msgid "Export"
+msgstr ""
+
+#: frmVCSOptions.Label31(txtExportFolder)
+msgid "Export Folder:"
+msgstr ""
+
+#: frmVCSOptions.Label25(chkUseFastSave)
+msgid "Use Fast Save"
+msgstr ""
+
+#: frmVCSOptions.Label34(chkStripPublishOption)
+msgid "Strip out Publish Option"
+msgstr ""
+
+#: frmVCSOptions.Label40(chkAggressiveSanitize)
+msgid "Aggressive Sanitize"
+msgstr ""
+
+#: frmVCSOptions.Label112(chkExtractThemeFiles)
+msgid "Extract Theme Files"
+msgstr ""
+
+#: frmVCSOptions.Label27(chkSavePrintVars)
+msgid "Save Report Print Settings"
+msgstr ""
+
+#: frmVCSOptions.Label29(chkSaveQuerySQL)
+msgid "Save Query SQL"
+msgstr ""
+
+#: frmVCSOptions.Label38(chkSaveTableSQL)
+msgid "Save Table SQL"
+msgstr ""
+
+#: frmVCSOptions.Label44(txtRunBeforeExport)
+msgid "Run Sub Before Export:"
+msgstr ""
+
+#: frmVCSOptions.Label48(txtRunAfterExport)
+msgid "Run Sub After Export:"
+msgstr ""
+
+#: frmVCSOptions.Label46
+msgid "(Blank for default)"
+msgstr ""
+
+#: frmVCSOptions.lblPrintSettingsOptions
+msgid "Options..."
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgePrinterSettings
+msgid "Printer Settings"
+msgstr ""
+
+#: frmVCSOptions.Label115(chkOrientation)
+msgid "Page Orientation"
+msgstr ""
+
+#: frmVCSOptions.Label117(chkPaperSize)
+msgid "Paper Size"
+msgstr ""
+
+#: frmVCSOptions.Label130(chkDuplex)
+msgid "Duplex"
+msgstr ""
+
+#: frmVCSOptions.Label128(chkPrintQuality)
+msgid "Print Quality"
+msgstr ""
+
+#: frmVCSOptions.Label148(chkDisplayFrequency)
+msgid "Display Freq."
+msgstr ""
+
+#: frmVCSOptions.Label134(chkCollate)
+msgid "Collate"
+msgstr ""
+
+#: frmVCSOptions.Label132(chkResolution)
+msgid "Resolution"
+msgstr ""
+
+#: frmVCSOptions.Label146(chkDisplayFlags)
+msgid "Display Flags"
+msgstr ""
+
+#: frmVCSOptions.Label144(chkColor)
+msgid "Color or B/W"
+msgstr ""
+
+#: frmVCSOptions.Label123(chkCopies)
+msgid "Number of Copies"
+msgstr ""
+
+#: frmVCSOptions.Label150(chkICMMethod)
+msgid "ICM Method"
+msgstr ""
+
+#: frmVCSOptions.Label125(chkDefaultSource)
+msgid "Paper Tray"
+msgstr ""
+
+#: frmVCSOptions.Label121(chkScale)
+msgid "Print Scale"
+msgstr ""
+
+#: frmVCSOptions.Label152(chkICMIntent)
+msgid "ICM Intent"
+msgstr ""
+
+#: frmVCSOptions.Label142(chkFormName)
+msgid "Form Name"
+msgstr ""
+
+#: frmVCSOptions.Label119(chkPaperLength)
+msgid "Custom Length"
+msgstr ""
+
+#: frmVCSOptions.Label156(chkDitherType)
+msgid "Dither Type"
+msgstr ""
+
+#: frmVCSOptions.Label154(chkMediaType)
+msgid "Media Type"
+msgstr ""
+
+#: frmVCSOptions.Label158(chkPaperWidth)
+msgid "Custom Width"
+msgstr ""
+
+#: frmVCSOptions.Label140(chkTTOption)
+msgid "TT Font Handling"
+msgstr ""
+
+#: frmVCSOptions.Label126
+msgid ""
+"Select any additional settings that you would like saved to version "
+"control and used when building a database from source files."
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeTable
+msgid "Table Data"
+msgstr ""
+
+#: frmVCSOptions.Label71(chkTableShowHidden)
+msgid "Show Hidden"
+msgstr ""
+
+#: frmVCSOptions.Label73(chkTableShowSystem)
+msgid "Show System"
+msgstr ""
+
+#: frmVCSOptions.Label79(txtTableName)
+msgid "Selected Table:"
+msgstr ""
+
+#: frmVCSOptions.Data to Export_Label(cboTableDataSaveType)
+msgid "Data to Export"
+msgstr ""
+
+#: frmVCSOptions.Label82
+msgid ""
+"You may optionally include data from specific tables as part of the "
+"export process."
+msgstr ""
+
+#: frmVCSOptions.Label85(chkTableShowOther)
+msgid "Show Other"
+msgstr ""
+
+#: frmVCSOptions.lblAddOtherTable
+msgid "Other..."
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeBuild
+msgid "Build"
+msgstr ""
+
+#: frmVCSOptions.lblForceImportOriginalQuerySQL(chkForceImportOriginalQuerySQL)
+msgid "Force import of original SQL for queries"
+msgstr ""
+
+#: frmVCSOptions.Label229(txtRunBeforeBuild)
+msgid "Run Sub Before Build:"
+msgstr ""
+
+#: frmVCSOptions.Label104(txtRunAfterBuild)
+msgid "Run Sub After Build:"
+msgstr ""
+
+#: frmVCSOptions.Label105
+msgid ""
+"PLEASE NOTE:\nThe build functionality in this tool is fairly new with "
+"limited testing in real-world applications. It is very important that "
+"you test this carefully in your environment to make sure everything "
+"you need is being created in your database duri"
+msgstr ""
+
+#: frmVCSOptions.lblForceImportSQLNote
+msgid "(\"Save Query SQL\" option needed when exporting)"
+msgstr ""
+
+#: frmVCSOptions.Label230
+msgid "Use \"module.sub\" to specify module"
+msgstr ""
+
+#: frmVCSOptions.Label231
+msgid "(Module name optional)"
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeGitIntegration
+msgid "Git Integration"
+msgstr ""
+
+#: frmVCSOptions.Label166(chkMergeUntrackedFiles)
+msgid "Merge Untracked (New) Files"
+msgstr ""
+
+#: frmVCSOptions.Label172(chkMergeQuerySQL)
+msgid "Merge .SQL for queries"
+msgstr ""
+
+#: frmVCSOptions.Label182(chkInspectSharedImages)
+msgid "Shared Images"
+msgstr ""
+
+#: frmVCSOptions.Label188(chkInspectThemeFiles)
+msgid "Access Theme Files"
+msgstr ""
+
+#: frmVCSOptions.Label194(chkImportTableData)
+msgid "Import Modified Table Data"
+msgstr ""
+
+#: frmVCSOptions.Label205
+msgid ""
+"Please see the online documentation for additional information on "
+"these settings and the git integration."
+msgstr ""
+
+#: frmVCSOptions.Label208(cboMergeConflicts)
+msgid "Merge Conflict Handling"
+msgstr ""
+
+#: frmVCSOptions.Label209
+msgid "Use slower deep inspection for the following items:"
+msgstr ""
+
+#: frmVCSOptions.Label211(txtRunBeforeMerge)
+msgid "Run Before Merge:"
+msgstr ""
+
+#: frmVCSOptions.Label213(txtRunAfterMerge)
+msgid "Run After Merge:"
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeSettings
+msgid "Settings"
+msgstr ""
+
+#: frmVCSOptions.Label53(cmdSaveAsDefault)
+msgid "Save these settings as default for new projects."
+msgstr ""
+
+#: frmVCSOptions.Label57(cmdRestoreDefaults)
+msgid "Apply system defaults to this project."
+msgstr ""
+
+#: frmVCSOptions.Label59(cmdClearDefaults)
+msgid "Reset all default settings to original values."
+msgstr ""
+
+#: frmVCSOptions.Label63(Frame62)
+msgid " System Defaults"
+msgstr ""
+
+#: frmVCSOptions.Label66(Frame65)
+msgid " Remove Add-In"
+msgstr ""
+
+#: frmVCSOptions.Label108(cmdUninstall)
+msgid "Uninstall this add-in"
+msgstr ""
+
+#: frmVCSOptions.Label32
+msgid "joyfullservice/msaccess-vcs-integration"
+msgstr ""
+
+#: frmVCSOptions.Caption
+msgid "Version Control System"
+msgstr ""
+
+#: frmVCSMain.Label4
+msgid "Version Control System"
+msgstr ""
+
+#: frmVCSMain.lblHeading
+msgid "Choose Action"
+msgstr ""
+
+#: frmVCSMain.lblSubheading
+msgid "What would you like to do?"
+msgstr ""
+
+#: frmVCSMain.Label9
+msgid "Designed for \nGitHub && GitLab"
+msgstr ""
+
+#: frmVCSMain.Label32
+msgid "joyfullservice/msaccess-vcs-integration"
+msgstr ""
+
+#: frmVCSMain.lblOpenLogFile
+msgid "Open Log File..."
+msgstr ""
+
+#: frmVCSMain.Label29(chkFullExport)
+msgid "Full Export"
+msgstr ""
+
+#: frmVCSMain.Label31(chkFullBuild)
+msgid "Full Build"
+msgstr ""
+
+#: frmVCSMain.Caption
+msgid "MSAccessVCS"
+msgstr ""
+
+#: frmVCSOptions.lblOptions
+msgid "Options"
+msgstr ""
+
+#: frmVCSOptions.Label9
+msgid "Version Control System "
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeGeneral
+msgid "General"
+msgstr ""
+
+#: frmVCSOptions.Label23(chkShowDebug)
+msgid "Show Detailed Output"
+msgstr ""
+
+#: frmVCSOptions.Label219(chkBreakOnError)
+msgid "Debug VBA Errors"
+msgstr ""
+
+#: frmVCSOptions.Label215(chkShowVCSLegacy)
+msgid "Show Legacy Prompts"
+msgstr ""
+
+#: frmVCSOptions.Label163(chkUseGitIntegration)
+msgid "Use Git Integration"
+msgstr ""
+
+#: frmVCSOptions.Label221(cboHashAlgorithm)
+msgid "Hash Algorithm:"
+msgstr ""
+
+#: frmVCSOptions.Label223(chkUseShortHash)
+msgid "Use short hashes in index"
+msgstr ""
+
+#: frmVCSOptions.Label224
+msgid ""
+"Some environments may have specific requirements for hashing "
+"algorithms."
+msgstr ""
+
+#: frmVCSOptions.Label227
+msgid ""
+"Use this form to set your preferred options for exporting and building "
+"your database project to and from source files."
+msgstr ""
+
+#: frmVCSOptions.Label233(cboLanguage)
+msgid "Language:"
+msgstr ""
+
+#: frmVCSOptions.Label237(chkContributeTranslations)
+msgid "Contribute to Translations"
+msgstr ""
+
+#: frmVCSOptions.Label239(txtTranslationsPath)
+msgid "Translations Path: "
+msgstr ""
+
+#: frmVCSOptions.Label243
+msgid "Export Files"
+msgstr ""
+
+#: frmVCSOptions.Label244
+msgid "Load Files"
+msgstr ""
+
+#: frmVCSOptions.Label245
+msgid "How to Use"
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeExport
+msgid "Export"
+msgstr ""
+
+#: frmVCSOptions.Label31(txtExportFolder)
+msgid "Export Folder:"
+msgstr ""
+
+#: frmVCSOptions.Label25(chkUseFastSave)
+msgid "Use Fast Save"
+msgstr ""
+
+#: frmVCSOptions.Label34(chkStripPublishOption)
+msgid "Strip out Publish Option"
+msgstr ""
+
+#: frmVCSOptions.Label40(chkAggressiveSanitize)
+msgid "Aggressive Sanitize"
+msgstr ""
+
+#: frmVCSOptions.Label112(chkExtractThemeFiles)
+msgid "Extract Theme Files"
+msgstr ""
+
+#: frmVCSOptions.Label27(chkSavePrintVars)
+msgid "Save Report Print Settings"
+msgstr ""
+
+#: frmVCSOptions.Label29(chkSaveQuerySQL)
+msgid "Save Query SQL"
+msgstr ""
+
+#: frmVCSOptions.Label38(chkSaveTableSQL)
+msgid "Save Table SQL"
+msgstr ""
+
+#: frmVCSOptions.Label44(txtRunBeforeExport)
+msgid "Run Sub Before Export:"
+msgstr ""
+
+#: frmVCSOptions.Label48(txtRunAfterExport)
+msgid "Run Sub After Export:"
+msgstr ""
+
+#: frmVCSOptions.Label46
+msgid "(Blank for default)"
+msgstr ""
+
+#: frmVCSOptions.lblPrintSettingsOptions
+msgid "Options..."
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgePrinterSettings
+msgid "Printer Settings"
+msgstr ""
+
+#: frmVCSOptions.Label115(chkOrientation)
+msgid "Page Orientation"
+msgstr ""
+
+#: frmVCSOptions.Label117(chkPaperSize)
+msgid "Paper Size"
+msgstr ""
+
+#: frmVCSOptions.Label130(chkDuplex)
+msgid "Duplex"
+msgstr ""
+
+#: frmVCSOptions.Label128(chkPrintQuality)
+msgid "Print Quality"
+msgstr ""
+
+#: frmVCSOptions.Label148(chkDisplayFrequency)
+msgid "Display Freq."
+msgstr ""
+
+#: frmVCSOptions.Label134(chkCollate)
+msgid "Collate"
+msgstr ""
+
+#: frmVCSOptions.Label132(chkResolution)
+msgid "Resolution"
+msgstr ""
+
+#: frmVCSOptions.Label146(chkDisplayFlags)
+msgid "Display Flags"
+msgstr ""
+
+#: frmVCSOptions.Label121(chkScale)
+msgid "Print Scale"
+msgstr ""
+
+#: frmVCSOptions.Label152(chkICMIntent)
+msgid "ICM Intent"
+msgstr ""
+
+#: frmVCSOptions.Label142(chkFormName)
+msgid "Form Name"
+msgstr ""
+
+#: frmVCSOptions.Label119(chkPaperLength)
+msgid "Custom Length"
+msgstr ""
+
+#: frmVCSOptions.Label156(chkDitherType)
+msgid "Dither Type"
+msgstr ""
+
+#: frmVCSOptions.Label154(chkMediaType)
+msgid "Media Type"
+msgstr ""
+
+#: frmVCSOptions.Label158(chkPaperWidth)
+msgid "Custom Width"
+msgstr ""
+
+#: frmVCSOptions.Label140(chkTTOption)
+msgid "TT Font Handling"
+msgstr ""
+
+#: frmVCSOptions.Label126
+msgid ""
+"Select any additional settings that you would like saved to version "
+"control and used when building a database from source files."
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeTable
+msgid "Table Data"
+msgstr ""
+
+#: frmVCSOptions.Label71(chkTableShowHidden)
+msgid "Show Hidden"
+msgstr ""
+
+#: frmVCSOptions.Label73(chkTableShowSystem)
+msgid "Show System"
+msgstr ""
+
+#: frmVCSOptions.Label79(txtTableName)
+msgid "Selected Table:"
+msgstr ""
+
+#: frmVCSOptions.Data to Export_Label(cboTableDataSaveType)
+msgid "Data to Export"
+msgstr ""
+
+#: frmVCSOptions.Label82
+msgid ""
+"You may optionally include data from specific tables as part of the "
+"export process."
+msgstr ""
+
+#: frmVCSOptions.Label85(chkTableShowOther)
+msgid "Show Other"
+msgstr ""
+
+#: frmVCSOptions.lblAddOtherTable
+msgid "Other..."
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeBuild
+msgid "Build"
+msgstr ""
+
+#: frmVCSOptions.lblForceImportOriginalQuerySQL(chkForceImportOriginalQuerySQL)
+msgid "Force import of original SQL for queries"
+msgstr ""
+
+#: frmVCSOptions.Label229(txtRunBeforeBuild)
+msgid "Run Sub Before Build:"
+msgstr ""
+
+#: frmVCSOptions.Label104(txtRunAfterBuild)
+msgid "Run Sub After Build:"
+msgstr ""
+
+#: frmVCSOptions.Label105
+msgid ""
+"PLEASE NOTE:\nThe build functionality in this tool is fairly new with "
+"limited testing in real-world applications. It is very important that "
+"you test this carefully in your environment to make sure everything "
+"you need is being created in your database duri"
+msgstr ""
+
+#: frmVCSOptions.lblForceImportSQLNote
+msgid "(\"Save Query SQL\" option needed when exporting)"
+msgstr ""
+
+#: frmVCSOptions.Label230
+msgid "Use \"module.sub\" to specify module"
+msgstr ""
+
+#: frmVCSOptions.Label231
+msgid "(Module name optional)"
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeGitIntegration
+msgid "Git Integration"
+msgstr ""
+
+#: frmVCSOptions.Label166(chkMergeUntrackedFiles)
+msgid "Merge Untracked (New) Files"
+msgstr ""
+
+#: frmVCSOptions.Label172(chkMergeQuerySQL)
+msgid "Merge .SQL for queries"
+msgstr ""
+
+#: frmVCSOptions.Label182(chkInspectSharedImages)
+msgid "Shared Images"
+msgstr ""
+
+#: frmVCSOptions.Label188(chkInspectThemeFiles)
+msgid "Access Theme Files"
+msgstr ""
+
+#: frmVCSOptions.Label194(chkImportTableData)
+msgid "Import Modified Table Data"
+msgstr ""
+
+#: frmVCSOptions.Label205
+msgid ""
+"Please see the online documentation for additional information on "
+"these settings and the git integration."
+msgstr ""
+
+#: frmVCSOptions.Label208(cboMergeConflicts)
+msgid "Merge Conflict Handling"
+msgstr ""
+
+#: frmVCSOptions.Label209
+msgid "Use slower deep inspection for the following items:"
+msgstr ""
+
+#: frmVCSOptions.Label211(txtRunBeforeMerge)
+msgid "Run Before Merge:"
+msgstr ""
+
+#: frmVCSOptions.Label213(txtRunAfterMerge)
+msgid "Run After Merge:"
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeSettings
+msgid "Settings"
+msgstr ""
+
+#: frmVCSOptions.Label53(cmdSaveAsDefault)
+msgid "Save these settings as default for new projects."
+msgstr ""
+
+#: frmVCSOptions.Label57(cmdRestoreDefaults)
+msgid "Apply system defaults to this project."
+msgstr ""
+
+#: frmVCSOptions.Label59(cmdClearDefaults)
+msgid "Reset all default settings to original values."
+msgstr ""
+
+#: frmVCSOptions.Label63(Frame62)
+msgid " System Defaults"
+msgstr ""
+
+#: frmVCSOptions.Label66(Frame65)
+msgid " Remove Add-In"
+msgstr ""
+
+#: frmVCSOptions.Label108(cmdUninstall)
+msgid "Uninstall this add-in"
+msgstr ""
+
+#: frmVCSOptions.Label32
+msgid "joyfullservice/msaccess-vcs-integration"
+msgstr ""
+
+#: frmVCSOptions.Caption
+msgid "Version Control System"
+msgstr ""
+
+#: frmVCSOptions.Label144(chkColor)
+msgid "Color or B/W"
+msgstr ""
+
+#: frmVCSOptions.Label123(chkCopies)
+msgid "Number of Copies"
+msgstr ""
+
+#: frmVCSOptions.Label150(chkICMMethod)
+msgid "ICM Method"
+msgstr ""
+
+#: frmVCSOptions.Label125(chkDefaultSource)
+msgid "Paper Tray"
+msgstr ""
+
+#: frmVCSOptions.Label121(chkScale)
+msgid "Print Scale"
+msgstr ""
+
+#: frmVCSOptions.Label152(chkICMIntent)
+msgid "ICM Intent"
+msgstr ""
+
+#: frmVCSOptions.Label142(chkFormName)
+msgid "Form Name"
+msgstr ""
+
+#: frmVCSOptions.Label119(chkPaperLength)
+msgid "Custom Length"
+msgstr ""
+
+#: frmVCSOptions.Label156(chkDitherType)
+msgid "Dither Type"
+msgstr ""
+
+#: frmVCSOptions.Label154(chkMediaType)
+msgid "Media Type"
+msgstr ""
+
+#: frmVCSOptions.Label158(chkPaperWidth)
+msgid "Custom Width"
+msgstr ""
+
+#: frmVCSOptions.Label140(chkTTOption)
+msgid "TT Font Handling"
+msgstr ""
+
+#: frmVCSOptions.Label126
+msgid ""
+"Select any additional settings that you would like saved to version "
+"control and used when building a database from source files."
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeTable
+msgid "Table Data"
+msgstr ""
+
+#: frmVCSOptions.Label71(chkTableShowHidden)
+msgid "Show Hidden"
+msgstr ""
+
+#: frmVCSOptions.Label73(chkTableShowSystem)
+msgid "Show System"
+msgstr ""
+
+#: frmVCSOptions.Label79(txtTableName)
+msgid "Selected Table:"
+msgstr ""
+
+#: frmVCSOptions.Data to Export_Label(cboTableDataSaveType)
+msgid "Data to Export"
+msgstr ""
+
+#: frmVCSOptions.Label82
+msgid ""
+"You may optionally include data from specific tables as part of the "
+"export process."
+msgstr ""
+
+#: frmVCSOptions.Label85(chkTableShowOther)
+msgid "Show Other"
+msgstr ""
+
+#: frmVCSOptions.lblAddOtherTable
+msgid "Other..."
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeBuild
+msgid "Build"
+msgstr ""
+
+#: frmVCSOptions.lblForceImportOriginalQuerySQL(chkForceImportOriginalQuerySQL)
+msgid "Force import of original SQL for queries"
+msgstr ""
+
+#: frmVCSOptions.Label229(txtRunBeforeBuild)
+msgid "Run Sub Before Build:"
+msgstr ""
+
+#: frmVCSOptions.Label104(txtRunAfterBuild)
+msgid "Run Sub After Build:"
+msgstr ""
+
+#: frmVCSOptions.Label105
+msgid ""
+"PLEASE NOTE:\nThe build functionality in this tool is fairly new with "
+"limited testing in real-world applications. It is very important that "
+"you test this carefully in your environment to make sure everything "
+"you need is being created in your database duri"
+msgstr ""
+
+#: frmVCSOptions.lblForceImportSQLNote
+msgid "(\"Save Query SQL\" option needed when exporting)"
+msgstr ""
+
+#: frmVCSOptions.Label230
+msgid "Use \"module.sub\" to specify module"
+msgstr ""
+
+#: frmVCSOptions.Label231
+msgid "(Module name optional)"
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeGitIntegration
+msgid "Git Integration"
+msgstr ""
+
+#: frmVCSOptions.Label166(chkMergeUntrackedFiles)
+msgid "Merge Untracked (New) Files"
+msgstr ""
+
+#: frmVCSOptions.Label172(chkMergeQuerySQL)
+msgid "Merge .SQL for queries"
+msgstr ""
+
+#: frmVCSOptions.Label182(chkInspectSharedImages)
+msgid "Shared Images"
+msgstr ""
+
+#: frmVCSOptions.Label188(chkInspectThemeFiles)
+msgid "Access Theme Files"
+msgstr ""
+
+#: frmVCSOptions.Label194(chkImportTableData)
+msgid "Import Modified Table Data"
+msgstr ""
+
+#: frmVCSOptions.Label205
+msgid ""
+"Please see the online documentation for additional information on "
+"these settings and the git integration."
+msgstr ""
+
+#: frmVCSOptions.Label208(cboMergeConflicts)
+msgid "Merge Conflict Handling"
+msgstr ""
+
+#: frmVCSOptions.Label209
+msgid "Use slower deep inspection for the following items:"
+msgstr ""
+
+#: frmVCSOptions.Label211(txtRunBeforeMerge)
+msgid "Run Before Merge:"
+msgstr ""
+
+#: frmVCSOptions.Label213(txtRunAfterMerge)
+msgid "Run After Merge:"
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeSettings
+msgid "Settings"
+msgstr ""
+
+#: frmVCSOptions.Label53(cmdSaveAsDefault)
+msgid "Save these settings as default for new projects."
+msgstr ""
+
+#: frmVCSOptions.Label57(cmdRestoreDefaults)
+msgid "Apply system defaults to this project."
+msgstr ""
+
+#: frmVCSOptions.Label59(cmdClearDefaults)
+msgid "Reset all default settings to original values."
+msgstr ""
+
+#: frmVCSOptions.Label63(Frame62)
+msgid " System Defaults"
+msgstr ""
+
+#: frmVCSOptions.Label66(Frame65)
+msgid " Remove Add-In"
+msgstr ""
+
+#: frmVCSOptions.Label108(cmdUninstall)
+msgid "Uninstall this add-in"
+msgstr ""
+
+#: frmVCSOptions.Label32
+msgid "joyfullservice/msaccess-vcs-integration"
+msgstr ""
+
+#: frmVCSOptions.Caption
+msgid "Version Control System"
+msgstr ""
+
+#: frmVCSOptions.lblOptions
+msgid "Options"
+msgstr ""
+
+#: frmVCSOptions.Label9
+msgid "Version Control System "
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeGeneral
+msgid "General"
+msgstr ""
+
+#: frmVCSOptions.Label23(chkShowDebug)
+msgid "Show Detailed Output"
+msgstr ""
+
+#: frmVCSOptions.Label219(chkBreakOnError)
+msgid "Debug VBA Errors"
+msgstr ""
+
+#: frmVCSOptions.Label215(chkShowVCSLegacy)
+msgid "Show Legacy Prompts"
+msgstr ""
+
+#: frmVCSOptions.Label163(chkUseGitIntegration)
+msgid "Use Git Integration"
+msgstr ""
+
+#: frmVCSOptions.Label221(cboHashAlgorithm)
+msgid "Hash Algorithm:"
+msgstr ""
+
+#: frmVCSOptions.Label223(chkUseShortHash)
+msgid "Use short hashes in index"
+msgstr ""
+
+#: frmVCSOptions.Label224
+msgid ""
+"Some environments may have specific requirements for hashing "
+"algorithms."
+msgstr ""
+
+#: frmVCSOptions.Label227
+msgid ""
+"Use this form to set your preferred options for exporting and building "
+"your database project to and from source files."
+msgstr ""
+
+#: frmVCSOptions.Label233(cboLanguage)
+msgid "Language:"
+msgstr ""
+
+#: frmVCSOptions.Label237(chkContributeTranslations)
+msgid "Contribute to Translations"
+msgstr ""
+
+#: frmVCSOptions.Label239(txtTranslationsPath)
+msgid "Translations Path: "
+msgstr ""
+
+#: frmVCSOptions.lblTranslationExport
+msgid "Export Files"
+msgstr ""
+
+#: frmVCSOptions.lblTranslationLoad
+msgid "Load Files"
+msgstr ""
+
+#: frmVCSOptions.lblTranslationHowTo
+msgid "How to Use"
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeExport
+msgid "Export"
+msgstr ""
+
+#: frmVCSOptions.Label31(txtExportFolder)
+msgid "Export Folder:"
+msgstr ""
+
+#: frmVCSOptions.Label25(chkUseFastSave)
+msgid "Use Fast Save"
+msgstr ""
+
+#: frmVCSOptions.Label34(chkStripPublishOption)
+msgid "Strip out Publish Option"
+msgstr ""
+
+#: frmVCSOptions.Label40(chkAggressiveSanitize)
+msgid "Aggressive Sanitize"
+msgstr ""
+
+#: frmVCSOptions.Label112(chkExtractThemeFiles)
+msgid "Extract Theme Files"
+msgstr ""
+
+#: frmVCSOptions.Label27(chkSavePrintVars)
+msgid "Save Report Print Settings"
+msgstr ""
+
+#: frmVCSOptions.Label29(chkSaveQuerySQL)
+msgid "Save Query SQL"
+msgstr ""
+
+#: frmVCSOptions.Label38(chkSaveTableSQL)
+msgid "Save Table SQL"
+msgstr ""
+
+#: frmVCSOptions.Label44(txtRunBeforeExport)
+msgid "Run Sub Before Export:"
+msgstr ""
+
+#: frmVCSOptions.Label48(txtRunAfterExport)
+msgid "Run Sub After Export:"
+msgstr ""
+
+#: frmVCSOptions.Label46
+msgid "(Blank for default)"
+msgstr ""
+
+#: frmVCSOptions.lblPrintSettingsOptions
+msgid "Options..."
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgePrinterSettings
+msgid "Printer Settings"
+msgstr ""
+
+#: frmVCSOptions.Label115(chkOrientation)
+msgid "Page Orientation"
+msgstr ""
+
+#: frmVCSOptions.Label117(chkPaperSize)
+msgid "Paper Size"
+msgstr ""
+
+#: frmVCSOptions.Label130(chkDuplex)
+msgid "Duplex"
+msgstr ""
+
+#: frmVCSOptions.Label128(chkPrintQuality)
+msgid "Print Quality"
+msgstr ""
+
+#: frmVCSOptions.Label148(chkDisplayFrequency)
+msgid "Display Freq."
+msgstr ""
+
+#: frmVCSOptions.Label134(chkCollate)
+msgid "Collate"
+msgstr ""
+
+#: frmVCSOptions.Label132(chkResolution)
+msgid "Resolution"
+msgstr ""
+
+#: frmVCSOptions.Label146(chkDisplayFlags)
+msgid "Display Flags"
+msgstr ""
+
+#: frmVCSOptions.Label144(chkColor)
+msgid "Color or B/W"
+msgstr ""
+
+#: frmVCSOptions.Label123(chkCopies)
+msgid "Number of Copies"
+msgstr ""
+
+#: frmVCSOptions.Label150(chkICMMethod)
+msgid "ICM Method"
+msgstr ""
+
+#: frmVCSOptions.Label125(chkDefaultSource)
+msgid "Paper Tray"
+msgstr ""
