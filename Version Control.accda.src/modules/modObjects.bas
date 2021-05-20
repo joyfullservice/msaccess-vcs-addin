@@ -16,6 +16,7 @@ Private m_Perf As clsPerformance
 Private m_Log As clsLog
 Private m_Options As clsOptions
 Private m_VCSIndex As clsVCSIndex
+Private m_Translation As clsTranslation
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -67,6 +68,31 @@ End Property
 Public Function Perf() As clsPerformance
     If m_Perf Is Nothing Then Set m_Perf = New clsPerformance
     Set Perf = m_Perf
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Translation
+' Author    : Adam Waller
+' Date      : 5/19/2021
+' Purpose   : Expose translation class
+'---------------------------------------------------------------------------------------
+'
+Public Function Translation() As clsTranslation
+    If m_Translation Is Nothing Then Set m_Translation = New clsTranslation
+    Set Translation = m_Translation
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : T
+' Author    : Adam Waller
+' Date      : 5/19/2021
+' Purpose   : Wrapper for commonly-used translation functions
+'---------------------------------------------------------------------------------------
+'
+Public Function T(strText As String, Optional strContext As String)
+    T = Translation.T(strText, strContext)
 End Function
 
 

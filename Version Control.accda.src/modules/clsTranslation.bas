@@ -1,5 +1,9 @@
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
-' Module    : modTranslation
+' Module    : clsTranslation
 ' Author    : Adam Waller
 ' Date      : 5/15/2021
 ' Purpose   : Used for the translation of strings to different languages, similar to
@@ -56,13 +60,13 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ApplyTranslation
+' Procedure : ApplyTo
 ' Author    : Adam Waller
 ' Date      : 5/17/2021
 ' Purpose   : Apply language translation to a form object (From English values)
 '---------------------------------------------------------------------------------------
 '
-Public Sub ApplyTranslation(frmObject As Form)
+Public Sub ApplyTo(frmObject As Form)
    
     Dim ctl As Control
     Dim ctl2 As Control
@@ -118,6 +122,7 @@ Public Sub ApplyTranslation(frmObject As Form)
     frmObject.Caption = T(frmObject.Caption, frmObject.Name & ".Caption")
 
 End Sub
+
 
 
 '---------------------------------------------------------------------------------------
@@ -282,3 +287,5 @@ End Sub
 Private Sub SaveTemplate()
 
 End Sub
+
+
