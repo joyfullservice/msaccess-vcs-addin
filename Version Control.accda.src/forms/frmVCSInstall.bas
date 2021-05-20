@@ -19,7 +19,7 @@ Begin Form
     ItemSuffix =39
     Left =3225
     Top =2430
-    Right =28545
+    Right =22695
     Bottom =15015
     DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
@@ -1633,7 +1633,7 @@ End Sub
 '
 Private Sub Form_Load()
 
-    ApplyTranslation Me
+    Translation.ApplyTo Me
     
     ' Display version (better performance than bound control)
     lblVersion.Caption = "Version " & GetVCSVersion()
