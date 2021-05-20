@@ -14,3 +14,7 @@
 # The local VCS index file is paired with the database and should not
 # be comitted to version control.
 vcs-index.json
+
+# Binary translation files (not needed in VCS)
+Translation/*.mo
+
