@@ -2,6 +2,8 @@ Found a Problem? Have an Idea?
 =============
 The easiest way to contribute is to create a detailed [Issue](https://github.com/joyfullservice/msaccess-vcs-integration/issues). Be sure to include details about the version of OS, Access, and VCS add-in. If you can, provide a [Minimal Reproducible Example](https://stackoverflow.com/help/minimal-reproducible-example) of the problem.
 
+Also be sure to check out the [Project Wiki](https://github.com/joyfullservice/msaccess-vcs-integration/wiki) which contains detailed documentation and other helpful tips for using this add-in.
+
 
 Development Version
 ---------
