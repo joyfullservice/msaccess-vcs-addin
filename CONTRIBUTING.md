@@ -1,7 +1,7 @@
-Found an Issue? Have an idea?
----------
-The easiest way to contribute is to create a detailed [Issue](https://github.com/joyfullservice/msaccess-vcs-integration/issues). Be sure to include details about the version of OS, Access, and VCS add-in. 
-If you can, provide a [Minimal Reproducible Example](https://stackoverflow.com/help/minimal-reproducible-example) of the problem.
+Found a Problem? Have an Idea?
+=============
+The easiest way to contribute is to create a detailed [Issue](https://github.com/joyfullservice/msaccess-vcs-integration/issues). Be sure to include details about the version of OS, Access, and VCS add-in. If you can, provide a [Minimal Reproducible Example](https://stackoverflow.com/help/minimal-reproducible-example) of the problem.
+
 
 Development Version
 ---------
@@ -34,7 +34,7 @@ A *Pull Request* is how you can propose that your code changes be included in th
   * _*When creating the commit, please select only the files that reflect the actual changes you are proposing. It is usually not necessary to include auto-generated files that don't include substantive or intended changes._
 * **Push** your branch up to your cloned repository.
 * Make a **pull request** to the upstream project! Be sure to clearly describe what you did and why in the pull request. This will allow reviewers to better understand why your PR should be merged.
-* Make PR on the `dev` branch: it's the most active. `Master` branch PRs should be limited to critical bug fixes (and should also be addressed in `dev`, too). 
+* Pull requests should target the `dev` branch, where most active development takes place. `Master` branch PRs should be mainly limited to Wiki changes. Critical bug fixes can be cherry-picked over to the `master` branch if needed.
 * *Tip: If you have many different types of changes to propose, please use different pull requests for each of them. That will be easier to review and implement them individually.*
 
 Thank you again for your support for the Microsoft Access development community!!
