@@ -1,3 +1,7 @@
+VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+End
 Attribute VB_Name = "clsConcat"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
