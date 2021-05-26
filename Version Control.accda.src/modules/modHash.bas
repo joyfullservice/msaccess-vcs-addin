@@ -20,17 +20,17 @@ Option Private Module
 Option Explicit
 
 
-Public Declare PtrSafe Function BCryptOpenAlgorithmProvider Lib "BCrypt.dll" ( _
+Private Declare PtrSafe Function BCryptOpenAlgorithmProvider Lib "BCrypt.dll" ( _
                             ByRef phAlgorithm As LongPtr, _
                             ByVal pszAlgId As LongPtr, _
                             ByVal pszImplementation As LongPtr, _
                             ByVal dwFlags As Long) As Long
 
-Public Declare PtrSafe Function BCryptCloseAlgorithmProvider Lib "BCrypt.dll" ( _
+Private Declare PtrSafe Function BCryptCloseAlgorithmProvider Lib "BCrypt.dll" ( _
                             ByVal hAlgorithm As LongPtr, _
                             ByVal dwFlags As Long) As Long
 
-Public Declare PtrSafe Function BCryptCreateHash Lib "BCrypt.dll" ( _
+Private Declare PtrSafe Function BCryptCreateHash Lib "BCrypt.dll" ( _
                             ByVal hAlgorithm As LongPtr, _
                             ByRef phHash As LongPtr, pbHashObject As Any, _
                             ByVal cbHashObject As Long, _
@@ -38,21 +38,21 @@ Public Declare PtrSafe Function BCryptCreateHash Lib "BCrypt.dll" ( _
                             ByVal cbSecret As Long, _
                             ByVal dwFlags As Long) As Long
 
-Public Declare PtrSafe Function BCryptHashData Lib "BCrypt.dll" ( _
+Private Declare PtrSafe Function BCryptHashData Lib "BCrypt.dll" ( _
                             ByVal hHash As LongPtr, _
                             pbInput As Any, _
                             ByVal cbInput As Long, _
                             Optional ByVal dwFlags As Long = 0) As Long
 
-Public Declare PtrSafe Function BCryptFinishHash Lib "BCrypt.dll" ( _
+Private Declare PtrSafe Function BCryptFinishHash Lib "BCrypt.dll" ( _
                             ByVal hHash As LongPtr, _
                             pbOutput As Any, _
                             ByVal cbOutput As Long, _
                             ByVal dwFlags As Long) As Long
 
-Public Declare PtrSafe Function BCryptDestroyHash Lib "BCrypt.dll" (ByVal hHash As LongPtr) As Long
+Private Declare PtrSafe Function BCryptDestroyHash Lib "BCrypt.dll" (ByVal hHash As LongPtr) As Long
 
-Public Declare PtrSafe Function BCryptGetProperty Lib "BCrypt.dll" ( _
+Private Declare PtrSafe Function BCryptGetProperty Lib "BCrypt.dll" ( _
                             ByVal hObject As LongPtr, _
                             ByVal pszProperty As LongPtr, _
                             ByRef pbOutput As Any, _
