@@ -1,4 +1,3 @@
-# Project Scope
 I personally believe that one of the keys to the long-term success of this project is establishing a clearly defined scope of what it is intended to do, and sticking to that scope.
 
 ## Guiding Principles

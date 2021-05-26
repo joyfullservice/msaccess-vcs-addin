@@ -1,4 +1,7 @@
-# Frequently Asked Questions
+- [Is there a way to use a ribbon with this add-in?](#is-there-a-way-to-use-a-ribbon-with-this-add-in)
+- [Why are some issues/ideas considered out of scope for this project?](#why-are-some-issuesideas-considered-out-of-scope-for-this-project)
+- [Why am I seeing a large number of "changed" files after building my project from source?](#why-am-i-seeing-a-large-number-of-changed-files-after-building-my-project-from-source)
+- [Will this fork eventually be merged back into the upstream repository?](#will-this-fork-eventually-be-merged-back-into-the-upstream-repository)
 
 On this page you will find answers and guidance relating to common questions that come up when using this add-in.
 

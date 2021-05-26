@@ -1,5 +1,3 @@
-# Options
-
 The options dialog can be opened from the main screen by click the `Options` button. Internally the options are stored in a `vcs-options.json` file in the path of the exported source code. These options are loaded and used when exporting to source files, or when building a project from source.
 
 ## General
