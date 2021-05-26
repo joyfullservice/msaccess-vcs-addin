@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modObjects"
 '---------------------------------------------------------------------------------------
 ' Module    : modObjects
 ' Author    : Adam Waller

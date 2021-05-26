@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modFunctions"
 '---------------------------------------------------------------------------------------
 ' Module    : modFunctions
 ' Author    : Adam Waller
@@ -693,3 +694,4 @@ Public Function Coalesce(ParamArray varStrings()) As String
         End If
     Next intString
 End Function
+

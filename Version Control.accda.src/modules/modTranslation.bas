@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modTranslation"
 '---------------------------------------------------------------------------------------
 ' Module    : modTranslation
 ' Author    : Adam Waller

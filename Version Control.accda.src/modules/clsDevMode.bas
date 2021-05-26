@@ -1,3 +1,8 @@
+﻿VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "clsDevMode"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -1654,3 +1659,4 @@ Private Function RTrimNulls(strData As String, lngLeaveCount As Long) As String
     End If
     
 End Function
+

@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modHash"
 '---------------------------------------------------------------------------------------
 ' Module    : modHash
 ' Author    : Adam Waller, Erik A, 2019; hecon5, 2021
@@ -278,3 +279,4 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
     Perf.OperationEnd
     
 End Function
+

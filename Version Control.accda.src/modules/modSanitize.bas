@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modSanitize"
 '---------------------------------------------------------------------------------------
 ' Module    : modSanitize
 ' Author    : Adam Waller
@@ -424,3 +425,4 @@ Private Function FormatXML(strSourceXML As String, _
     Perf.OperationEnd
     
 End Function
+

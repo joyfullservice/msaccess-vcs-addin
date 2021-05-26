@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modZip"
 '---------------------------------------------------------------------------------------
 ' Module    : modZip
 ' Author    : Adam Waller
@@ -144,3 +145,4 @@ Public Sub ExtractFromZip(strZip As String, strDestFolder As String, _
     End If
 
 End Sub
+

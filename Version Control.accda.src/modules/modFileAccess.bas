@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modFileAccess"
 '---------------------------------------------------------------------------------------
 ' Module    : modFileAccess
 ' Author    : Adam Waller
@@ -466,3 +467,4 @@ Public Function StripSlash(strText As String) As String
         StripSlash = strText
     End If
 End Function
+

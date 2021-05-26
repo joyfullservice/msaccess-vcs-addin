@@ -1,4 +1,5 @@
-﻿Option Compare Database
+﻿Attribute VB_Name = "modUnitTesting"
+Option Compare Database
 Option Explicit
 Option Private Module
 
