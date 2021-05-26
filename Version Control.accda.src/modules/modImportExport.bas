@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modImportExport"
 '---------------------------------------------------------------------------------------
 ' Module    : modImportExport
 ' Author    : Adam Waller
@@ -367,6 +368,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             Perf.ComponentEnd colFiles.Count
         End If
     Next cCategory
+    
+    ' Compile and save the modules after importing as VBE Components
+    CompileAndSaveAllModules
 
     ' Run any post-build/merge instructions
     If blnFullBuild Then
@@ -638,3 +642,4 @@ Private Sub PrepareRunBootstrap()
     Perf.OperationEnd   ' Bootstrap
     
 End Sub
+

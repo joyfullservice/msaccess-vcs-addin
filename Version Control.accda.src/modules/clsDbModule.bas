@@ -1,3 +1,8 @@
+﻿VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "clsDbModule"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -12,7 +17,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private m_Module As AccessObject
+Private m_Module As VBComponent
+Private m_Component As VBComponent
 Private m_AllItems As Collection
 Private m_blnModifiedOnly As Boolean
 
@@ -31,8 +37,18 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    SaveComponentAsText acModule, m_Module.Name, IDbComponent_SourceFile
-    VCSIndex.Update Me, eatExport, GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
+    
+    Dim strTempFile As String
+
+    ' Export to temp file and convert to UTF-8 encoding
+    strTempFile = GetTempFile
+    ExportVbComponent strTempFile
+    ConvertAnsiUtf8 strTempFile, IDbComponent_SourceFile
+    
+    ' Update the index with the current VBA hash. (Note, this will not show
+    ' changes to the hidden VBE properties that might have been added.)
+    VCSIndex.Update Me, eatExport, GetCodeModuleHash(edbModule, m_Module.Name)
+        
 End Sub
 
 
@@ -45,15 +61,25 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim strName As String
+    Dim proj As VBProject
+    Dim strTempFile As String
     
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
-
-    strName = GetObjectNameFromFileName(strFile)
-    LoadComponentFromText acModule, strName, strFile
-    Set m_Module = CurrentProject.AllModules(strName)
-    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
+    
+    ' Convert back to ANSI from UTF-8
+    strTempFile = GetTempFile
+    ConvertUtf8Ansi strFile, strTempFile, False
+    
+    ' Import the source file
+    Set proj = GetVBProjectForCurrentDB
+    Perf.OperationStart "Import VBE Module"
+    Set m_Module = proj.VBComponents.Import(strTempFile)
+    Perf.OperationEnd
+    
+    ' Save hash, update the index, and remove the temp file
+    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
+    DeleteFile strTempFile
     
 End Sub
 
@@ -77,6 +103,20 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ExportVbComponent
+' Author    : Adam Waller
+' Date      : 5/26/2021
+' Purpose   : Export the code module VB component
+'---------------------------------------------------------------------------------------
+'
+Private Sub ExportVbComponent(strFile As String)
+    Perf.OperationStart "Export VBE Module"
+    m_Module.Export strFile
+    Perf.OperationEnd
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -84,17 +124,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
-    
+        
     Dim oMod As AccessObject
     Dim cModule As IDbComponent
+    Dim proj As VBProject
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Or blnModifiedOnly <> m_blnModifiedOnly Then
         m_blnModifiedOnly = blnModifiedOnly
         Set m_AllItems = New Collection
+        Set proj = GetVBProjectForCurrentDB
         For Each oMod In CurrentProject.AllModules
             Set cModule = New clsDbModule
-            Set cModule.DbObject = oMod
+            Set cModule.DbObject = proj.VBComponents(oMod.Name)
             If blnModifiedOnly Then
                 If cModule.IsModified Then m_AllItems.Add cModule, oMod.Name
             Else
@@ -142,9 +184,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    
+
     ' The modified date for the object changes frequently with compile/save operations,
     ' so use the hash instead to detect changes.
+    
+    ' NOTE: This will not detect changes to hidden VBE attributes
     IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
 
 End Function
@@ -160,7 +204,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = m_Module.DateModified
+    IDbComponent_DateModified = CurrentProject.AllModules(m_Module.Name).DateModified
 End Function
 
 
