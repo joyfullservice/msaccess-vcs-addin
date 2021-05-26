@@ -1,3 +1,4 @@
+Attribute VB_Name = "clsConcat"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -150,7 +151,14 @@ End Sub
 
 
 ' Returns the accumulated string
+' Is default member, so you can do this in your routine:
+'   dim strBuild as New clsConcat
+'   dim strSomeUse as String
+'   strBuild.Add "stuff string" ' (repeated as needed)
+'   strSomeUse = BuildStrConcat
 Public Function GetStr() As String
+Attribute GetStr.VB_Description = "Returns the concatenated string."
+Attribute GetStr.VB_UserMemId = 0
 
     Dim lngCnt As Long
     
