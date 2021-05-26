@@ -9,7 +9,7 @@ On this page you will find answers and guidance relating to common questions tha
 We would love to use a custom ribbon to make the controls and features of this add-in more intuitive, but thus far I have been unable to create a working com add-in for Microsoft Access. See [issue #34](https://github.com/joyfullservice/msaccess-vcs-integration/issues/34) for more details.
 
 ## Why are some issues/ideas considered out of scope for this project?
-This is described in more detail on [[Project-Scope]].
+This is described in more detail on [Project-Scope](./Project-Scope.md).
 
 ## Why am I seeing a large number of "changed" files after building my project from source?
 Before going into some technical details, let me clarify that in normal operation, this add-in is designed to be able to build a project with minimal, if any, changes showing between builds.
@@ -22,6 +22,14 @@ There are several possible reasons for files showing as changed even when you di
 This issue usually comes up in relation to a project being built on different computers, due to how Access internally stores the color values. 
 
 The number you see in the exported source file is affected by the current color profile and settings used by your monitor to represent the colors you see on your screen.
+  
+  Example:
+  
+  ```diff
+  -     BackColor =11830108
+  +     BackColor =12874308
+  ```
+  
 </details>
 
 <details>
@@ -46,8 +54,15 @@ If you see a lot of changes happening with the capitalization of variables, keyw
 * Use Hungarian notation (or similar) for variable names (i.e `lngTotal`, `strCaption`)
 
 While many modern languages and IDE editors tend towards `camelCase` names, this just doesn't work as nicely in VBA. I personally find better success sticking with the original naming conventions the IDE was designed to work with.
+  
+Example ("**c**" > "**C**"):
+  
+  ```diff
+  -    cancel = True
+  +    Cancel = True
+  ```
+ 
 </details>
-
 
 ## Will this fork eventually be merged back into the upstream repository? 
 The **joyfullservice** branch is a near complete rewrite of the original project. It is unlikely that it will ever be merged back into the upstream project of `msaccess-vcs-integration/msaccess-vcs-integration`. This upstream link is primarily maintained to give visibility to this branch for those that may be searching for an add-in based version control solution for Microsoft Access.
