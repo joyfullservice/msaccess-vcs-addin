@@ -1,3 +1,8 @@
+﻿VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "clsTranslation"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -522,3 +527,5 @@ Private Function Q(strText As String) As String
     End If
     
 End Function
+
+
