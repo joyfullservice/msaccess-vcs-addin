@@ -9,7 +9,7 @@ On this page you will find answers and guidance relating to common questions tha
 We would love to use a custom ribbon to make the controls and features of this add-in more intuitive, but thus far I have been unable to create a working com add-in for Microsoft Access. See [issue #34](https://github.com/joyfullservice/msaccess-vcs-integration/issues/34) for more details.
 
 ## Why are some issues/ideas considered out of scope for this project?
-This is described in more detail on [[#Project-Scope]].
+This is described in more detail on [Project-Scope](./Project-Scope.md).
 
 ## Why am I seeing a large number of "changed" files after building my project from source?
 Before going into some technical details, let me clarify that in normal operation, this add-in is designed to be able to build a project with minimal, if any, changes showing between builds.
