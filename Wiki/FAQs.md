@@ -18,18 +18,18 @@ There are several possible reasons for files showing as changed even when you di
 
 <details>
 <summary><b>Form source files are showing changes in color values</b></summary>
-Examples:
-  
-  ```VBA
-  -     BackColor =11830108
-  +     BackColor =12874308
-  ```
-  
-  ![image](https://user-images.githubusercontent.com/54177882/119650051-5f62a380-bdf1-11eb-9825-7ba327e1a14b.png)
 
 This issue usually comes up in relation to a project being built on different computers, due to how Access internally stores the color values. 
 
 The number you see in the exported source file is affected by the current color profile and settings used by your monitor to represent the colors you see on your screen.
+  
+  Example:
+  
+  ```diff
+  -     BackColor =11830108
+  +     BackColor =12874308
+  ```
+  
 </details>
 
 <details>
@@ -54,8 +54,15 @@ If you see a lot of changes happening with the capitalization of variables, keyw
 * Use Hungarian notation (or similar) for variable names (i.e `lngTotal`, `strCaption`)
 
 While many modern languages and IDE editors tend towards `camelCase` names, this just doesn't work as nicely in VBA. I personally find better success sticking with the original naming conventions the IDE was designed to work with.
+  
+Example ("**c**" > "**C**"):
+  
+  ```diff
+  -    cancel = True
+  +    Cancel = True
+  ```
+ 
 </details>
-
 
 ## Will this fork eventually be merged back into the upstream repository? 
 The **joyfullservice** branch is a near complete rewrite of the original project. It is unlikely that it will ever be merged back into the upstream project of `msaccess-vcs-integration/msaccess-vcs-integration`. This upstream link is primarily maintained to give visibility to this branch for those that may be searching for an add-in based version control solution for Microsoft Access.
