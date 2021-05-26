@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modEncoding"
 '---------------------------------------------------------------------------------------
 ' Module    : modEncoding
 ' Author    : Adam Waller
@@ -358,3 +359,4 @@ Public Function GetSystemEncoding() As String
     End Select
     
 End Function
+

@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modVCSUtility"
 '---------------------------------------------------------------------------------------
 ' Module    : modVCSUtility
 ' Author    : Adam Waller
@@ -31,6 +32,7 @@ Public Function GetAllContainers() As Collection
     With GetAllContainers
         ' Shared objects in both MDB and ADP formats
         If blnMDB Then .Add New clsDbTheme
+        .Add New clsDbProject
         .Add New clsDbVbeProject
         .Add New clsDbVbeReference
         .Add New clsDbVbeForm
@@ -557,4 +559,26 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     If oFolder.Files.Count = 0 Then oFolder.Delete True
     Perf.OperationEnd
     
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CompileAndSaveAllModules
+' Author    : Adam Waller
+' Date      : 5/26/2021
+' Purpose   : Run the command to compile and save all modules in the currentproject.
+'           : NOTE: It is very important that you do not run this in the codeproject
+'           : or you may crash Access.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CompileAndSaveAllModules()
+    If GetVBProjectForCurrentDB.FileName <> VBE.ActiveVBProject.FileName Then
+        ' Make sure the active project is set to the current project so we compile
+        ' and save the current project, not the add-in.
+        Set VBE.ActiveVBProject = GetVBProjectForCurrentDB
+    End If
+    Perf.OperationStart "Compile/Save Modules"
+    DoCmd.RunCommand acCmdCompileAndSaveAllModules
+    DoEvents
+    Perf.OperationEnd
 End Sub

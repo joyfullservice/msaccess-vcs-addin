@@ -1,4 +1,5 @@
-﻿'---------------------------------------------------------------------------------------
+﻿Attribute VB_Name = "modConstants"
+'---------------------------------------------------------------------------------------
 ' Module    : modConstants
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
@@ -69,6 +70,7 @@ Public Enum eDatabaseComponentType
     edbVbeForm
     edbVbeProject
     edbVbeReference
+    edbProject
 End Enum
 
 ' Error levels used for logging and monitoring the status

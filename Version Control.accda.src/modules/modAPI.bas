@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modAPI"
 '---------------------------------------------------------------------------------------
 ' Module    : modAPI
 ' Author    : Adam Waller

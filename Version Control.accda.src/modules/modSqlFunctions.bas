@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modSqlFunctions"
 '---------------------------------------------------------------------------------------
 ' Module    : modAdpFunctions
 ' Author    : Adam Waller

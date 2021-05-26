@@ -1,3 +1,8 @@
+﻿VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "clsConcat"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -151,6 +156,8 @@ End Sub
 
 ' Returns the accumulated string
 Public Function GetStr() As String
+Attribute GetStr.VB_Description = "Returns the concatenated string."
+Attribute GetStr.VB_UserMemId = 0
 
     Dim lngCnt As Long
     
@@ -316,3 +323,4 @@ Public Sub SelfTest()
         Debug.Assert .GetStr = "1234567890A"
     End With
 End Sub
+

@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modDatabase"
 '---------------------------------------------------------------------------------------
 ' Module    : modDatabase
 ' Author    : Adam Waller
@@ -466,3 +467,4 @@ End Sub
 Public Function DbVersion() As Integer
     DbVersion = CInt(Split(CurrentDb.Version, ".")(0))
 End Function
+

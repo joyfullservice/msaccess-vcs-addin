@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modFileAccess"
 '---------------------------------------------------------------------------------------
 ' Module    : modFileAccess
 ' Author    : Adam Waller
@@ -205,6 +206,8 @@ Public Sub VerifyPath(strPath As String)
     Dim varParts As Variant
     Dim intPart As Integer
     Dim strVerified As String
+    
+    If strPath = vbNullString Then Exit Sub
     
     Perf.OperationStart "Verify Path"
     
@@ -464,3 +467,4 @@ Public Function StripSlash(strText As String) As String
         StripSlash = strText
     End If
 End Function
+

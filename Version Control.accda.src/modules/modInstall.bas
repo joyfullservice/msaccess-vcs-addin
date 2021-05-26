@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modInstall"
 '---------------------------------------------------------------------------------------
 ' Module    : modInstall
 ' Author    : Adam Waller
@@ -785,3 +786,4 @@ Public Sub OpenAddinFile(strAddinFileName As String, _
     Shell strScriptFile, vbNormalFocus
 
 End Sub
+

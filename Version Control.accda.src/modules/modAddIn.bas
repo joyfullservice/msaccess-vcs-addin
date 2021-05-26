@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modAddIn"
 '---------------------------------------------------------------------------------------
 ' Module    : modAddIn
 ' Author    : Adam Waller
@@ -314,3 +315,4 @@ Public Sub PreloadVBE()
     strName = VBE.ActiveVBProject.Name
     DoCmd.Hourglass False
 End Sub
+
