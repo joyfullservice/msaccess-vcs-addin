@@ -18,6 +18,12 @@ There are several possible reasons for files showing as changed even when you di
 
 <details>
 <summary><b>Form source files are showing changes in color values</b></summary>
+Example:
+```vba
+-     BackColor =11830108
++     BackColor =12874308
+```
+  ![image](https://user-images.githubusercontent.com/54177882/119650051-5f62a380-bdf1-11eb-9825-7ba327e1a14b.png)
 
 This issue usually comes up in relation to a project being built on different computers, due to how Access internally stores the color values. 
 
