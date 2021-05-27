@@ -19,7 +19,7 @@ Option Explicit
 
 Private m_Module As VBComponent
 Private m_Component As VBComponent
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -132,7 +132,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_AllItems Is Nothing Or blnModifiedOnly <> m_blnModifiedOnly Then
         m_blnModifiedOnly = blnModifiedOnly
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         Set proj = GetVBProjectForCurrentDB
         For Each oMod In CurrentProject.AllModules
             Set cModule = New clsDbModule

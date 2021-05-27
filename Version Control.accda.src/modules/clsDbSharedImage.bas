@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_Dbs As DAO.Database
 
 ' This is used to pass a reference to the record back
@@ -217,7 +217,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
@@ -229,7 +229,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 Do While Not .EOF
                     Set cImg = New clsDbSharedImage
                     Set cImg.DbObject = rst    ' Reference to OLE object recordset2
-                    m_AllItems.Add cImg
+                    m_AllItems.Add cImg, vbNullString
                     .MoveNext
                 Loop
                 .Close

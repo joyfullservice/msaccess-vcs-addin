@@ -20,7 +20,7 @@ Option Explicit
 Const ModuleName As String = "clsDbTableDef"
 
 Private m_Table As DAO.TableDef
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_blnModifiedOnly As Boolean
 Private m_Dbs As Database
 
@@ -526,7 +526,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         m_blnModifiedOnly = blnModifiedOnly
         Set m_Dbs = CurrentDb
         For Each tdf In m_Dbs.TableDefs

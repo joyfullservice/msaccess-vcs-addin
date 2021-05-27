@@ -20,7 +20,7 @@ Option Explicit
 Private Const ModuleName As String = "clsDbVbeProject"
 
 Private m_Project As VBIDE.VBProject
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -262,7 +262,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     If m_AllItems Is Nothing Then
         ' Load class details
         Set m_Project = GetVBProjectForCurrentDB
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         Set cProj = New clsDbVbeProject
         Set cProj.DbObject = m_Project
         m_AllItems.Add cProj, m_Project.Name

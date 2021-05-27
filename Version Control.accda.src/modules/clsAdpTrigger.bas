@@ -23,7 +23,7 @@ Public TableName As String
 Public SchemaName As String
 Public SqlModifyDate As Date
 
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -90,7 +90,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     If m_AllItems Is Nothing Then
     
         ' Use parameter options if provided.
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
 
         ' Build list of triggers in database (from sysobjects)
         strSql = "SELECT [name],object_name(parent_object_id) AS parent_name, schema_name([schema_id]) AS [schema_name], modify_date FROM sys.objects WHERE type='TR'"

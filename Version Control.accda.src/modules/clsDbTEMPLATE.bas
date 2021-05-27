@@ -18,7 +18,7 @@ Attribute VB_Exposed = False
 'Option Explicit
 '
 ''Private m_Form As AccessObject
-'Private m_AllItems As Collection
+'Private m_AllItems As dictionary
 '
 '' This requires us to use all the public methods and properties of the implemented class
 '' which keeps all the component classes consistent in how they are used in the export
@@ -98,7 +98,7 @@ Attribute VB_Exposed = False
 ''    ' Build collection if not already cached
 ''    If m_AllItems Is Nothing Then
 ''
-''        Set m_AllItems = New Collection
+''        Set m_AllItems = New dictionary
 ''        For Each frm In CurrentProject.AllForms
 ''            Set cForm = New
 ''            Set cForm.DbObject = frm

@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Private m_Form As AccessObject
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -91,7 +91,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         m_blnModifiedOnly = blnModifiedOnly
         For Each frm In CurrentProject.AllForms
             Set cForm = New clsDbForm

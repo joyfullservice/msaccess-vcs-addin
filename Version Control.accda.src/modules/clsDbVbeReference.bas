@@ -20,7 +20,7 @@ Option Explicit
 Const ModuleName = "clsDbVbeReference"
 
 Private m_Ref As VBIDE.Reference
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -266,14 +266,14 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         Set dNames = New Dictionary
         For Each ref In GetVBProjectForCurrentDB.References
             If Not ref.BuiltIn Then
                 If Not dNames.Exists(ref.Name) Then
                     Set cRef = New clsDbVbeReference
                     Set cRef.DbObject = ref
-                    m_AllItems.Add cRef
+                    m_AllItems.Add cRef, vbNullString
                     ' Don't attempt add two references with the same name, such as
                     ' circular references to nested library database files.
                     dNames.Add ref.Name, vbNullString

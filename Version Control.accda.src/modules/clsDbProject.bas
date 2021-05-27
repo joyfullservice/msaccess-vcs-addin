@@ -20,7 +20,7 @@ Option Explicit
 Private Const ModuleName As String = "clsDbProject"
 
 Private m_Project As CurrentProject
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -138,7 +138,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     If m_AllItems Is Nothing Then
         ' Load class details
         Set m_Project = CurrentProject
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         Set cProj = New clsDbProject
         Set cProj.DbObject = m_Project
         m_AllItems.Add cProj, m_Project.Name

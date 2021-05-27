@@ -20,7 +20,7 @@ Option Explicit
 Private Const ModuleName As String = "clsDbNavPaneGroup"
 Private Const FormatVersion As Double = 1.1
 
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_dItems As Dictionary
 Private m_Count As Long
 
@@ -246,7 +246,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
 
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         Set m_dItems = New Dictionary
         Set colCategories = New Collection
         Set colGroups = New Collection
@@ -331,7 +331,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         End With
             
         ' Add reference to this class.
-        m_AllItems.Add Me
+        m_AllItems.Add Me, vbNullString
 
     End If
 

@@ -21,7 +21,7 @@ Option Explicit
 Public Name As String
 Public ID As String
 
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -191,7 +191,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     If m_AllItems Is Nothing Then
         
         ' Set up new collection
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         
         ' This table may not (yet) exist.
         If TableExists("MSysIMEXSpecs") Then

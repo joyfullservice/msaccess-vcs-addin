@@ -17,7 +17,7 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Public m_dItems As Dictionary
 Private m_Count As Long
 
@@ -110,7 +110,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
 
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         Set m_dItems = New Dictionary
         Set dbs = CurrentDb
         m_Count = 0
@@ -131,7 +131,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         colItems.Add doc.Name
                         ' Add to collection of all items
                         Set cDoc = Me
-                        m_AllItems.Add cDoc
+                        m_AllItems.Add cDoc, vbNullString
                     End If
                 End If
             Next doc

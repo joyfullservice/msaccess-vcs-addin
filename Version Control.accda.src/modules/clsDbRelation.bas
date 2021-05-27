@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Private m_Relation As DAO.Relation
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_Dbs As DAO.Database
 
 
@@ -169,7 +169,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' goes out of scope. (Make sure we release this on termination)
         Set m_Dbs = CurrentDb
         
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         For Each rel In m_Dbs.Relations
             ' Navigation pane groups are handled separately
             If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
