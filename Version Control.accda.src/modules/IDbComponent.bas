@@ -157,7 +157,7 @@ End Property
 '           : Based on the export folder defined in options.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Public Function GetFileList() As Collection
 End Function
 
 

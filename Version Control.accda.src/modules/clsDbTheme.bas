@@ -312,7 +312,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetFileList() As Collection
     ' Get list of folders (extracted files) as well as zip files.
     Set IDbComponent_GetFileList = GetSubfolderPaths(IDbComponent_BaseFolder)
     MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
