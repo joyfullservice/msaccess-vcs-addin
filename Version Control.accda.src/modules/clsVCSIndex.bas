@@ -339,6 +339,29 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetFilePropertyHash
+' Author    : Adam Waller
+' Date      : 5/27/2021
+' Purpose   : Returns a hash of some file properties used to quickly scan for changes.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFilePropertyHash(strFile As String) As String
+
+    Dim oFile As Scripting.File
+    
+    Perf.OperationStart "Get File Property Hash"
+    Set oFile = FSO.GetFile(strFile)
+    
+    With New clsConcat
+        .Add oFile.DateLastModified, oFile.Size
+        GetFilePropertyHash = GetStringHash(.GetStr)
+    End With
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetModifiedSourceFiles
 ' Author    : Adam Waller
 ' Date      : 12/2/2020
