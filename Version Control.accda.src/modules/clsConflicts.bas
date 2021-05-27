@@ -16,6 +16,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+' Status to approve and continue.
+Public ApproveResolutions As Boolean
 
 Private m_Items As Collection
 
@@ -29,8 +31,31 @@ Private m_Items As Collection
 '
 Public Sub ShowDialog()
     SaveToTable
-    DoCmd.OpenForm "frmVCSConflict", , , , , acDialog
+    With DoCmd
+        ' The following gives a smoother load when using the datasheet subform.
+        .Hourglass True
+        .OpenForm "frmVCSConflict", , , , , acHidden
+        DoEvents
+        .Hourglass False
+        ' Open the form in dialog mode so that we return a status when it closes.
+        .OpenForm "frmVCSConflict", , , , , acDialog
+    End With
     ClearTable
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Resolve
+' Author    : Adam Waller
+' Date      : 5/27/2021
+' Purpose   : Resolve the conflicts
+'---------------------------------------------------------------------------------------
+'
+Public Sub Resolve()
+    Dim cItem As clsConflictItem
+    For Each cItem In m_Items
+        cItem.Resolve
+    Next cItem
 End Sub
 
 
@@ -121,6 +146,18 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Reset
+' Author    : Adam Waller
+' Date      : 5/27/2021
+' Purpose   : Reset the class, clearing any existing conflicts
+'---------------------------------------------------------------------------------------
+'
+Public Sub Reset()
+    Class_Initialize
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Class_Initialize
 ' Author    : Adam Waller
 ' Date      : 5/27/2021
@@ -129,4 +166,5 @@ End Function
 '
 Private Sub Class_Initialize()
     Set m_Items = New Collection
+    Me.ApproveResolutions = False
 End Sub

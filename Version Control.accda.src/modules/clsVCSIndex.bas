@@ -42,6 +42,7 @@ Private m_dIndex As Dictionary
 Private m_dGitIndex As Dictionary
 Private m_strFile As String
 Private m_Git As clsGitIntegration
+Private m_Conflicts As clsConflicts
 
 
 '---------------------------------------------------------------------------------------
@@ -413,6 +414,36 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
     End With
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Conflicts
+' Author    : Adam Waller
+' Date      : 5/27/2021
+' Purpose   : Expose conflicts as an extension of the index
+'---------------------------------------------------------------------------------------
+'
+Public Function Conflicts() As clsConflicts
+    If m_Conflicts Is Nothing Then Set m_Conflicts = New clsConflicts
+    Set Conflicts = m_Conflicts
+End Function
+
+
+Public Sub CheckExportConflicts(cComponents As Collection)
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckImportConflicts
+' Author    : Adam Waller
+' Date      : 5/27/2021
+' Purpose   : Check for potential conflicts when merging this object.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CheckImportConflicts(cComponent As IDbComponent, dFiles As Dictionary)
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
