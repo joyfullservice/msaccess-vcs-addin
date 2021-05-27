@@ -189,7 +189,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Dim strBackup As String
     Dim cCategory As IDbComponent
     Dim sngStart As Single
+    Dim dCategories As Dictionary
+    Dim dCategory As Dictionary
     Dim colFiles As Collection
+    Dim varKey As Variant
     Dim varFile As Variant
     Dim strType As String
     
@@ -325,19 +328,50 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         
     End If
     
+    ' Build collections of files to import/merge
+    Log.Add "Scanning source files..."
+    Log.Flush
+    VCSIndex.Conflicts.Reset
+    Perf.OperationStart "Scan Source Files"
+    Set dCategories = New Dictionary
+    For Each cCategory In GetAllContainers
+        Set dCategory = New Dictionary
+        dCategory.Add "Class", cCategory
+        ' Get collection of source files
+        If blnFullBuild Then
+            ' Return all the source files
+            dCategory.Add "Files", cCategory.GetFileList
+        Else
+            ' Return just the modified source files for merge
+            ' (Optionally uses the git integration to determine changes.)
+            dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory)
+            ' Record any conflicts for later review
+            VCSIndex.CheckImportConflicts cCategory, dCategory("Files")
+        End If
+        dCategories.Add cCategory.ComponentType, dCategory
+    Next cCategory
+    Perf.OperationEnd
+    
+    ' Check for any conflicts
+    With VCSIndex.Conflicts
+        If .Count > 0 Then
+            ' Show the conflicts resolution dialog
+            .ShowDialog
+            If .ApproveResolutions Then
+                Log.Add "Resolving source conflicts", False
+                .Resolve
+            Else
+                ' Cancel build/merge
+            End If
+        End If
+    End With
+ 
+
+    
     ' Loop through all categories
     Log.Spacer
     For Each cCategory In GetAllContainers
         
-        ' Get collection of source files
-        If blnFullBuild Then
-            ' Return all the source files
-            Set colFiles = cCategory.GetFileList
-        Else
-            ' Return just the modified source files for merge
-            ' (Optionally uses the git integration to determine changes.)
-            Set colFiles = VCSIndex.GetModifiedSourceFiles(cCategory)
-        End If
         
         ' Only show category details when source files are found
         If colFiles.Count = 0 Then
