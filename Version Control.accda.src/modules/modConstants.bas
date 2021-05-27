@@ -91,3 +91,9 @@ Public Enum eCompareMethod2
     ' Added this to use original compare method
     ecmSourceMethod = 3
 End Enum
+
+' Options for resolving file conflicts
+Public Enum eResolveConflict
+    ercSkip
+    ercOverwrite
+End Enum
