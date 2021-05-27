@@ -20,9 +20,9 @@ Begin Form
     Bottom =12840
     DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
-        0x9767ae7aeda6e540
+        0x9bf1b7f2f3a6e540
     End
-    RecordSource ="tblConflict"
+    RecordSource ="tblConflicts"
     DatasheetFontName ="Calibri"
     OnLoad ="[Event Procedure]"
     AllowFormView =0
