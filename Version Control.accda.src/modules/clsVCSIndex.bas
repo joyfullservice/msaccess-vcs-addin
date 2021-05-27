@@ -172,6 +172,9 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexActionType, _
         ' Save timestamp of exported source file.
         dteDateTime = GetLastModifiedDate(cItem.SourceFile)
         .Item("SourceModified") = ZNDate(CStr(dteDateTime))
+        
+        ' Save hash of file properties
+        .Item("FilePropertiesHash") = GetFilePropertyHash(cItem.SourceFile)
     
     End With
     
