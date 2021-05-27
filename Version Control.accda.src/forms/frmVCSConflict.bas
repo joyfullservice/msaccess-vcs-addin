@@ -19,8 +19,8 @@ Begin Form
     ItemSuffix =46
     Left =3225
     Top =2430
-    Right =14745
-    Bottom =10335
+    Right =22695
+    Bottom =15015
     DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -207,7 +207,7 @@ Begin Form
                     TabStop = NotDefault
                     OverlapFlags =85
                     Left =9180
-                    Top =7140
+                    Top =7080
                     Width =2100
                     Height =540
                     TabIndex =1
@@ -255,9 +255,9 @@ Begin Form
                     End
 
                     LayoutCachedLeft =9180
-                    LayoutCachedTop =7140
+                    LayoutCachedTop =7080
                     LayoutCachedWidth =11280
-                    LayoutCachedHeight =7680
+                    LayoutCachedHeight =7620
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -724,7 +724,7 @@ Begin Form
                     TabStop = NotDefault
                     OverlapFlags =85
                     Left =6780
-                    Top =7140
+                    Top =7080
                     Width =2100
                     Height =540
                     TabIndex =2
@@ -772,9 +772,9 @@ Begin Form
                     End
 
                     LayoutCachedLeft =6780
-                    LayoutCachedTop =7140
+                    LayoutCachedTop =7080
                     LayoutCachedWidth =8880
-                    LayoutCachedHeight =7680
+                    LayoutCachedHeight =7620
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -799,9 +799,9 @@ Begin Form
                 Begin Subform
                     OverlapFlags =85
                     Left =540
-                    Top =1920
+                    Top =2400
                     Width =10440
-                    Height =4860
+                    Height =4380
                     TabIndex =3
                     BorderColor =10921638
                     Name ="tblConflict"
@@ -811,15 +811,38 @@ Begin Form
                     VerticalAnchor =2
 
                     LayoutCachedLeft =540
-                    LayoutCachedTop =1920
+                    LayoutCachedTop =2400
                     LayoutCachedWidth =10980
                     LayoutCachedHeight =6780
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =960
+                            Top =1800
+                            Width =9240
+                            Height =360
+                            FontSize =14
+                            FontWeight =700
+                            BorderColor =8355711
+                            ForeColor =5324600
+                            Name ="lblHeading"
+                            Caption ="These source files have changed since the last export"
+                            GridlineColor =10921638
+                            LayoutCachedLeft =960
+                            LayoutCachedTop =1800
+                            LayoutCachedWidth =10200
+                            LayoutCachedHeight =2160
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
                 End
                 Begin Label
                     FontUnderline = NotDefault
                     OverlapFlags =85
-                    Left =780
-                    Top =7020
+                    TextAlign =2
+                    Left =960
+                    Top =6960
                     Width =1080
                     Height =300
                     BorderColor =8355711
@@ -828,18 +851,20 @@ Begin Form
                     Caption ="Skip All"
                     HyperlinkAddress ="#"
                     GridlineColor =10921638
-                    LayoutCachedLeft =780
-                    LayoutCachedTop =7020
-                    LayoutCachedWidth =1860
-                    LayoutCachedHeight =7320
+                    VerticalAnchor =1
+                    LayoutCachedLeft =960
+                    LayoutCachedTop =6960
+                    LayoutCachedWidth =2040
+                    LayoutCachedHeight =7260
                     ForeThemeColorIndex =10
                     ForeTint =100.0
                 End
                 Begin Label
                     FontUnderline = NotDefault
                     OverlapFlags =85
-                    Left =2100
-                    Top =7020
+                    TextAlign =2
+                    Left =2280
+                    Top =6960
                     Width =1620
                     Height =300
                     BorderColor =8355711
@@ -848,10 +873,11 @@ Begin Form
                     Caption ="Overwrite All"
                     HyperlinkAddress ="#"
                     GridlineColor =10921638
-                    LayoutCachedLeft =2100
-                    LayoutCachedTop =7020
-                    LayoutCachedWidth =3720
-                    LayoutCachedHeight =7320
+                    VerticalAnchor =1
+                    LayoutCachedLeft =2280
+                    LayoutCachedTop =6960
+                    LayoutCachedWidth =3900
+                    LayoutCachedHeight =7260
                     ForeThemeColorIndex =10
                     ForeTint =100.0
                 End
