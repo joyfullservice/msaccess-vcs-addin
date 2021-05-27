@@ -519,7 +519,7 @@ End Function
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim tdf As TableDef
     Dim cTable As IDbComponent
@@ -557,9 +557,9 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList() As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml")
-    MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
 End Function
 
 

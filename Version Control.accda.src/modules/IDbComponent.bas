@@ -85,7 +85,7 @@ End Sub
 '           : modified will be returned.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Public Function GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
 End Function
 
 
@@ -157,7 +157,7 @@ End Property
 '           : Based on the export folder defined in options.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFileList() As Collection
+Public Function GetFileList() As Dictionary
 End Function
 
 

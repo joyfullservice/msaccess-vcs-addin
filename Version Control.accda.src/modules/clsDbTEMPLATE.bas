@@ -90,7 +90,7 @@ Attribute VB_Exposed = False
 '' Purpose   : Return a collection of class objects represented by this component type.
 ''---------------------------------------------------------------------------------------
 ''
-'Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+'Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As dictionary
 '
 ''    Dim frm As AccessObject
 ''    Dim cForm As IDbComponent
@@ -120,7 +120,7 @@ Attribute VB_Exposed = False
 '' Purpose   : Return a list of file names to import for this component type.
 ''---------------------------------------------------------------------------------------
 ''
-'Private Function IDbComponent_GetFileList() As Collection
+'Private Function IDbComponent_GetFileList() As dictionary
 '    'Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder , "*.bas")
 'End Function
 '

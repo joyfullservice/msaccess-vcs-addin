@@ -317,7 +317,7 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim tbl As AccessObject
     Dim cTable As clsDbTableData
@@ -360,11 +360,9 @@ End Function
 '           : a couple different file extensions involved.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList() As Collection
-    Dim colFiles As Collection
-    Set colFiles = GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdTabDelimited))
-    MergeCollection colFiles, GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdXML))
-    Set IDbComponent_GetFileList = colFiles
+Private Function IDbComponent_GetFileList() As Dictionary
+    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdTabDelimited))
+    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdXML))
 End Function
 
 

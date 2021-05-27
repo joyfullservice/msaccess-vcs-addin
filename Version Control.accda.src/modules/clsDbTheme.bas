@@ -231,7 +231,7 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim cTheme As IDbComponent
     Dim rst As DAO.Recordset
@@ -312,10 +312,10 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList() As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     ' Get list of folders (extracted files) as well as zip files.
     Set IDbComponent_GetFileList = GetSubfolderPaths(IDbComponent_BaseFolder)
-    MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
+    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
 End Function
 
 
