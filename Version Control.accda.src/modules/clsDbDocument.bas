@@ -186,10 +186,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         End Select
                     End If
                     If blnSave Then
-                        dDoc.Add prp.Name, prp.Value
-                        Set cDoc = Me
-                        'Set cDoc.DbObject = prp
-                        m_AllItems.Add Join(Array(cont.Name, doc.Name, prp.Name), "-"), vbNullString
+                        Set cDoc = New clsDbDocument
+                        Set cDoc.DbObject = prp
+                        m_AllItems.Add cDoc, prp.Name
                     End If
                 Next prp
                 If dDoc.Count > 0 Then dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
