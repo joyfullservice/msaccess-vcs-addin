@@ -1,3 +1,2 @@
-﻿SELECT tblStrings.ID, [msgid] & "|" & [Context] AS [Key], tblStrings.Context, tblStrings.msgid, tblTranslation.Translation, tblStrings.Comments, tblTranslation.Language
-FROM tblStrings LEFT JOIN tblTranslation ON tblStrings.ID = tblTranslation.StringID
-WHERE (((tblTranslation.Language)="en_US")) OR (((tblTranslation.Language) Is Null));
+﻿SELECT tblStrings.ID, [Context] & "|" & [msgid] AS [Key], tblStrings.msgid, tblStrings.Context, tblStrings.Comments, tblTranslation.Translation, tblTranslation.Language
+FROM tblStrings LEFT JOIN tblTranslation ON tblStrings.ID = tblTranslation.StringID;

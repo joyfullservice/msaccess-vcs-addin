@@ -22,8 +22,34 @@ Private Const en_US As String = "en_US"
 ' Cache strings to dictionary objects so we don't have to do database lookups
 ' each time we need to return translated strings
 Private dStrings As Dictionary
+Private dEnglish As Dictionary
 Private dTranslation As Dictionary
 Private m_strCurrentLanguage As String
+
+' A private type to work with file entries
+Private Type tEntry
+    strHeader As String
+    strContext As String
+    strMsgID As String
+    strTrans As String
+End Type
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetLanguageName
+' Author    : Adam Waller
+' Date      : 5/26/2021
+' Purpose   : Return the display name for the language. (Add new languages here)
+'---------------------------------------------------------------------------------------
+'
+Private Function GetLanguageName(strIdentifier As String) As String
+    Select Case strIdentifier
+        Case en_US:     GetLanguageName = "English"
+        Case "pt_BR":   GetLanguageName = "Brazilian Portuguese"
+        ' For undefined languages, use the identifier for now.
+        Case Else:      GetLanguageName = strIdentifier
+    End Select
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -33,7 +59,7 @@ Private m_strCurrentLanguage As String
 ' Purpose   : Return the translated version of the string.
 '---------------------------------------------------------------------------------------
 '
-Public Function T(strText As String, Optional strContext As String) As String
+Public Function T(strText As String, Optional strContext As String, Optional strComments As String) As String
 
     Dim strNew As String
     Dim strKey As String
@@ -55,7 +81,7 @@ Public Function T(strText As String, Optional strContext As String) As String
         ' Add to master list of strings (no translation exists)
         dStrings.Add strKey, strKey
         ' Add to strings table
-        SaveString strText, strContext
+        SaveString strText, strContext, strComments
     End If
     
     ' Return translated string
@@ -179,6 +205,9 @@ End Sub
 '
 Public Sub LoadTranslations()
 
+    ' Load English translation
+    
+
 End Sub
 
 
@@ -246,7 +275,7 @@ End Function
 ' Purpose   : Save the string to the database table
 '---------------------------------------------------------------------------------------
 '
-Private Sub SaveString(strText As String, strContext As String, ParamArray varParams() As Variant)
+Private Sub SaveString(strText As String, strContext As String, strComments As String, ParamArray varParams() As Variant)
     
     Dim dbs As Database
     Dim rst As Recordset
@@ -256,10 +285,9 @@ Private Sub SaveString(strText As String, strContext As String, ParamArray varPa
     
     With rst
         .AddNew
-            !msgid = Left$(strText, 255)
-            If Len(strText) > 255 Then !FullString = strText
-            !Context = strContext
-            '!AddDate = Now()
+            !msgid = strText
+            !Context = ZN(strContext)
+            !Comments = ZN(strComments)
         .Update
         .Close
     End With
@@ -312,6 +340,7 @@ Private Sub LoadLanguage(strLanguage As String)
     
     Dim dbs As Database
     Dim rst As Recordset
+    Dim strSql As String
         
     m_strCurrentLanguage = strLanguage
     Set dStrings = New Dictionary
@@ -319,10 +348,12 @@ Private Sub LoadLanguage(strLanguage As String)
     
     ' Load strings and translations
     Set dbs = CodeDb
+    strSql = "select * from qryStrings where (Language = '" & strLanguage & "' or Language Is Null)"
     Set rst = dbs.OpenRecordset("qryStrings", dbOpenDynaset)
     With rst
         Do While Not .EOF
             If Not dStrings.Exists(!Key) Then dStrings.Add !Key, !ID
+            If Not dEnglish.Exists(!ID) Then dEnglish.Add !ID, !msgid
             If Nz(!Translation) <> vbNullString Then dTranslation.Add !ID, !Translation
             .MoveNext
         Loop
@@ -371,11 +402,117 @@ End Sub
 ' Procedure : ImportTranslation
 ' Author    : Adam Waller
 ' Date      : 5/15/2021
-' Purpose   : Import a translation file. (*.po)
+' Purpose   : Import a translation file. (*.po/*.pot)
 '---------------------------------------------------------------------------------------
 '
 Private Sub ImportTranslation(strFile As String)
 
+    Dim strName As String
+    Dim strLanguage As String
+    Dim strContent As String
+    Dim varLines As Variant
+    Dim lngLine As Long
+    Dim strLine As String
+    Dim tStr As tEntry
+    Dim tBlank As tEntry
+    Dim cHeader As clsConcat
+    Dim blnInHeader As Boolean
+    Dim dbs As Database
+    
+    ' Read file contents
+    strContent = ReadFile(strFile)
+    If strContent = vbNullString Then Exit Sub
+    
+    ' Get language from file name, and remove existing entries
+    Set dbs = CodeDb
+    strName = FSO.GetFileName(strFile)
+    If strName = GetVBProjectForCurrentDB.Name & ".pot" Then
+        ' Template file (English strings)
+        strLanguage = en_US
+        dbs.Execute "delete from tblStrings", dbFailOnError
+        ' Remove all translations, since we are resetting IDs
+        dbs.Execute "delete from tblTranslation", dbFailOnError
+    Else
+        ' Other language
+        strLanguage = FSO.GetBaseName(strName)
+        dbs.Execute "delete from tblTranslation where LanguageID='" & strLanguage & "'", dbFailOnError
+    End If
+    
+    ' Split into lines
+    varLines = Split(strContent, vbCrLf)
+    
+    ' Prepare header class
+    cHeader.AppendOnAdd = vbCrLf
+    blnInHeader = True
+    
+    ' Loop through lines
+    For lngLine = 0 To UBound(varLines)
+        strLine = Trim(varLines(lngLine))
+        
+        ' Add header till we reach first entry
+        If blnInHeader And strLine = vbNullString Then
+            blnInHeader = False
+            AddLanguage strLanguage, cHeader.GetStr
+        End If
+        If blnInHeader Then cHeader.Add strLine
+        
+        ' Watch for new section
+        If strLine = vbNullString Then
+            cHeader.Clear
+            tStr = tBlank
+        End If
+        
+        ' Look for headings
+        If StartsWith(strLine, "msgctxt ") Then
+            'tstr.strContext=
+        
+        End If
+        
+    Next lngLine
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyString
+' Author    : Adam Waller
+' Date      : 5/26/2021
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Private Sub VerifyString(strLanguage As String, tString As tEntry)
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddLanguage
+' Author    : Adam Waller
+' Date      : 5/26/2021
+' Purpose   : Add a language entry with a header section.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddLanguage(strLanguage As String, strHeader As String)
+    
+    Dim dbs As Database
+    Dim rst As Recordset
+    
+    Set dbs = CodeDb
+    
+    ' Clear any existing record
+    dbs.Execute "delete from tblLanguages where ID='" & strLanguage & "'", dbFailOnError
+    
+    ' Add new/replacement record
+    Set rst = dbs.OpenRecordset("tblLanguages")
+    With rst
+        .AddNew
+            !ID = strLanguage
+            !DisplayName = GetLanguageName(strLanguage)
+            !Header = strHeader
+        .Update
+        .Close
+    End With
+    
 End Sub
 
 
@@ -407,33 +544,9 @@ Private Function BuildFileContent(strLanguage As String) As String
     With New clsConcat
         .AppendOnAdd = vbCrLf
     
-        
-        ' File header section
-        If strLanguage <> en_US Then
-            ' Look up saved header
-            strHeader = Nz(DLookup("Header", "tblLanguages", "ID='" & strLanguage & "'"))
-        End If
-        
-        If strLanguage = en_US Or strHeader = vbNullString Then
-            ' Build default file header.
-            .Add "# Version Control System (msaccess-vcs-integration)"
-            .Add "# https://github.com/joyfullservice/msaccess-vcs-integration"
-            .Add "# This file is distributed under the project's BSD-style license"
-            .Add "#"
-            .Add "msgid """""
-            .Add "msgstr """""
-            .Add Q("Project-Id-Version: " & AppVersion & "\n")
-            .Add Q("POT-Creation-Date: " & Format(Now, "yyyy-mm-dd hh:nn") & "\n")
-            .Add Q("PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n")
-            .Add Q("Last-Translator: FULL NAME <EMAIL@ADDRESS>\n")
-            .Add Q("Language-Team: LANGUAGE <LL@li.org>\n")
-            .Add Q("MIME-Version: 1.0\n")
-            .Add Q("Content-Type: text/plain; charset=UTF-8\n")
-            .Add Q("Content-Transfer-Encoding: ENCODING\n")
-        Else
-            ' Use saved header
-            .Add strHeader
-        End If
+        ' Add header section
+        strHeader = Nz(DLookup("Header", "tblLanguages", "ID='" & strLanguage & "'"))
+        .Add strHeader
         
         ' Load strings from database
         Set dbs = CodeDb
@@ -444,7 +557,11 @@ Private Function BuildFileContent(strLanguage As String) As String
         ' Loop through strings
         Do While Not rst.EOF
             .Add vbNullString ' (blank line)
-            .Add "#: ", Nz(rst!Context)
+            If Nz(rst!Comments) <> vbNullString Then
+                ' Include additional comments for translators
+                .Add "# TRANSLATORS: ", rst!Comments
+            End If
+            .Add "msgctxt ", Q(Nz(rst!Context))
             .Add "msgid ", Q(Nz(rst!msgid))
             .Add "msgstr ", Q(Nz(rst!Translation))
             rst.MoveNext
@@ -526,6 +643,11 @@ Private Function Q(strText As String) As String
         Q = """" & strNew & """"
     End If
     
+End Function
+
+
+Private Function UnQ(strLine As String, strHeading As String)
+
 End Function
 
 
