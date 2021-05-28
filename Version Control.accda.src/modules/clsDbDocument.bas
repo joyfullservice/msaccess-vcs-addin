@@ -94,6 +94,17 @@ End Sub
 '
 Private Sub IDbComponent_Merge(strFile As String)
 
+    Dim dFile As Dictionary
+    
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+    
+    ' Remove any document properties that don't exist in the incoming file,
+    ' then import the file.
+    Set dFile = ReadJsonFile(strFile)
+    RemoveMissing dFile("Items"), GetDictionary
+    IDbComponent_Import strFile
+    
 End Sub
 
 
@@ -204,6 +215,43 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
     Set GetDictionary = dItems
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveMissing
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Removes current document properties missing from the master dictionary.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
+
+    Dim dCont As Dictionary
+    Dim dDoc As Dictionary
+    Dim dbs As Database
+    Dim varCont As Variant
+    Dim varDoc As Variant
+    Dim varProp As Variant
+    
+    ' Go through target dictionary, removing properties that don't exist
+    ' in the master dictionary. (Note that this is only checking the
+    ' properties we are actually interested in tracking.)
+    Set dbs = CurrentDb
+    For Each varCont In dTarget.Keys
+        Set dCont = dTarget(varCont)
+        For Each varDoc In dCont.Keys
+            Set dDoc = dCont(varDoc)
+            For Each varProp In dDoc.Keys
+                ' Check to see if this key exists in the master
+                If Not KeyExists(dMaster, varCont, varDoc, varProp) Then
+                    ' Remove the property from the current database
+                    dbs.Containers(varCont).Documents(varDoc).Properties.Delete CStr(varProp)
+                End If
+            Next varProp
+        Next varDoc
+    Next varCont
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
