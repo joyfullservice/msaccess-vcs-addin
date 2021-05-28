@@ -35,8 +35,8 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    If m_dItems Is Nothing Then Set m_dItems = GetDictionary
-    WriteJsonFile TypeName(Me), m_dItems, IDbComponent_SourceFile, "Database Documents Properties (DAO)"
+    WriteJsonFile TypeName(Me), GetDictionary, IDbComponent_SourceFile, "Database Documents Properties (DAO)"
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
 End Sub
 
 
@@ -78,6 +78,9 @@ Private Sub IDbComponent_Import(strFile As String)
         Next varCont
     End If
 
+    ' Update index
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
+    
 End Sub
 
 
@@ -141,7 +144,7 @@ End Sub
 '           : use for the export content.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetDictionary() As Dictionary
+Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictionary
 
     Dim prp As DAO.Property
     Dim dItems As Dictionary    ' All Items
@@ -151,6 +154,13 @@ Private Function GetDictionary() As Dictionary
     Dim dbs As Database
     Dim doc As DAO.Document
     Dim blnSave As Boolean
+    
+    ' Check cache parameter
+    If blnUseCache And Not m_dItems Is Nothing Then
+        ' Return cached dictionary
+        Set GetDictionary = m_dItems
+        Exit Function
+    End If
     
     ' Create dictionary object to hold all the items
     Set dItems = New Dictionary
@@ -274,7 +284,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetDictionaryHash(GetDictionary)
 End Function
 
 
