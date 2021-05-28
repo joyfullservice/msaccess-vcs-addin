@@ -19,7 +19,6 @@ Option Explicit
 
 Private m_AllItems As Dictionary
 Public m_dItems As Dictionary
-Private m_Count As Long
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -36,6 +35,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
+    If m_dItems Is Nothing Then Set m_dItems = GetDictionary
     WriteJsonFile TypeName(Me), m_dItems, IDbComponent_SourceFile, "Database Documents Properties (DAO)"
 End Sub
 
@@ -134,67 +134,105 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetAllFromDB
+' Procedure : GetDictionary
 ' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return a collection of class objects represented by this component type.
+' Date      : 5/28/2021
+' Purpose   : Build a dictionary object of the document properties, just as you would
+'           : use for the export content.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+Private Function GetDictionary() As Dictionary
+
     Dim prp As DAO.Property
-    Dim cDoc As IDbComponent
-    Dim dCont As Dictionary
-    Dim dDoc As Dictionary
+    Dim dItems As Dictionary    ' All Items
+    Dim dCont As Dictionary     ' Container
+    Dim dDoc As Dictionary      ' Document
     Dim cont As DAO.Container
     Dim dbs As Database
     Dim doc As DAO.Document
     Dim blnSave As Boolean
     
+    ' Create dictionary object to hold all the items
+    Set dItems = New Dictionary
+    Set dbs = CurrentDb
+            
+    ' Loop through all the containers, documents, and properties.
+    ' Note, we don't want to collect everything here. We are taking
+    ' a whitelist approach to specify the ones we want to save and
+    ' write back to the database when importing.
+    For Each cont In dbs.Containers
+        Set dCont = New Dictionary
+        For Each doc In cont.Documents
+            Set dDoc = New Dictionary
+            For Each prp In doc.Properties
+                blnSave = False
+                If cont.Name = "Databases" And doc.Name = "SummaryInfo" Then
+                    ' Keep most of this information (Blacklist approach)
+                    Select Case prp.Name
+                        Case "AllPermissions", "Container", "DateCreated", "LastUpdated", _
+                            "Name", "Owner", "GUID", "Permissions", "UserName" ' Ignore these
+                        Case Else
+                            blnSave = True
+                    End Select
+                Else
+                    ' For other documents, use the whitelist approach, primarily
+                    ' gathering navigation pane item descriptions and hidden status.
+                    Select Case prp.Name
+                        Case "Description"
+                            blnSave = True
+                    End Select
+                End If
+                ' If save flag set, save the property
+                If blnSave Then dDoc.Add prp.Name, prp.Value
+            Next prp
+            If dDoc.Count > 0 Then dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
+        Next doc
+        If dCont.Count > 0 Then dItems.Add cont.Name, SortDictionaryByKeys(dCont)
+    Next cont
+
+    ' Return assembled dictionary
+    Set GetDictionary = dItems
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAllFromDB
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Return a collection of class objects represented by this component type.
+'---------------------------------------------------------------------------------------
+'
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
+    
+    Dim cDoc As IDbComponent
+    Dim dCont As Dictionary
+    Dim dDoc As Dictionary
+    Dim dbs As Database
+    Dim varCont As Variant
+    Dim varDoc As Variant
+    Dim varProp As Variant
+    
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
 
         Set m_AllItems = New Dictionary
-        Set m_dItems = New Dictionary
+        Set m_dItems = GetDictionary
         Set dbs = CurrentDb
-        m_Count = 0
         
         ' Loop through all the containers, documents, and properties.
-        ' Note, we don't want to collect everything here. We are taking
-        ' a whitelist approach to specify the ones we want to save and
-        ' write back to the database when importing.
-        For Each cont In dbs.Containers
-            Set dCont = New Dictionary
-            For Each doc In cont.Documents
-                Set dDoc = New Dictionary
-                For Each prp In doc.Properties
-                    blnSave = False
-                    If cont.Name = "Databases" And doc.Name = "SummaryInfo" Then
-                        ' Keep most of this information (Blacklist approach)
-                        Select Case prp.Name
-                            Case "AllPermissions", "Container", "DateCreated", "LastUpdated", _
-                                "Name", "Owner", "GUID", "Permissions", "UserName" ' Ignore these
-                            Case Else
-                                blnSave = True
-                        End Select
-                    Else
-                        ' For other documents, use the whitelist approach, primarily
-                        ' gathering navigation pane item descriptions and hidden status.
-                        Select Case prp.Name
-                            Case "Description"
-                                blnSave = True
-                        End Select
-                    End If
-                    If blnSave Then
-                        Set cDoc = New clsDbDocument
-                        Set cDoc.DbObject = prp
-                        m_AllItems.Add cDoc, prp.Name
-                    End If
-                Next prp
-                If dDoc.Count > 0 Then dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
-            Next doc
-            If dCont.Count > 0 Then m_dItems.Add cont.Name, SortDictionaryByKeys(dCont)
-        Next cont
+        For Each varCont In m_dItems.Keys
+            Set dCont = m_dItems(varCont)
+            For Each varDoc In dCont.Keys
+                Set dDoc = dCont(varDoc)
+                For Each varProp In dDoc.Keys
+                    ' Add as class instance
+                    Set cDoc = New clsDbDocument
+                    Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc).Properties(varProp)
+                    m_AllItems.Add cDoc, vbNullString
+                Next varProp
+            Next varDoc
+        Next varCont
     End If
 
     ' Return cached collection
