@@ -102,6 +102,7 @@ Private Sub IDbComponent_Merge(strFile As String)
     ' Remove any document properties that don't exist in the incoming file,
     ' then import the file.
     Set dFile = ReadJsonFile(strFile)
+    If dFile Is Nothing Then Set dFile = New Dictionary
     RemoveMissing dFile("Items"), GetDictionary
     IDbComponent_Import strFile
     

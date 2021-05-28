@@ -18,8 +18,8 @@ Option Compare Database
 Option Explicit
 
 Private m_AllItems As Dictionary
-Public m_dItems As Dictionary
-Private m_Count As Long
+Private m_dItems As Dictionary
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -36,7 +36,8 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    WriteJsonFile TypeName(Me), m_dItems, IDbComponent_SourceFile, "Database objects hidden attribute"
+    WriteJsonFile TypeName(Me), GetDictionary, IDbComponent_SourceFile, "Database objects hidden attribute"
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
 End Sub
 
 
@@ -74,19 +75,34 @@ Private Sub IDbComponent_Import(strFile As String)
         Next varCont
     End If
 
+    ' Update index
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
+
 End Sub
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Merge
 ' Author    : Adam Waller
-' Date      : 11/21/2020
+' Date      : 5/28/2021
 ' Purpose   : Merge the source file into the existing database, updating or replacing
 '           : any existing object.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
 
+    Dim dFile As Dictionary
+    
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+    
+    ' Remove any document properties that don't exist in the incoming file,
+    ' then import the file.
+    Set dFile = ReadJsonFile(strFile)
+    If dFile Is Nothing Then Set dFile = New Dictionary
+    RemoveMissing dFile("Items"), GetDictionary
+    IDbComponent_Import strFile
+    
 End Sub
 
 
@@ -100,50 +116,129 @@ End Sub
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim cDoc As IDbComponent
-    Dim dCont As Dictionary
-    Dim cont As DAO.Container
-    Dim doc As DAO.Document
+    Dim colCont As Collection
     Dim dbs As Database
-    Dim contType As AcObjectType
-    Dim colItems As Collection
+    Dim varCont As Variant
+    Dim varDoc As Variant
+    Dim blnNoChanges As Boolean
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
 
         Set m_AllItems = New Dictionary
-        Set m_dItems = New Dictionary
-        Set dbs = CurrentDb
-        m_Count = 0
+        Set m_dItems = GetDictionary
         
-        ' Loop through all the containers, documents, and check hidden property
-        For Each cont In dbs.Containers
-            Set dCont = New Dictionary
-            Set dCont = New Dictionary
-            Set colItems = New Collection
-            contType = GetObjectTypeFromContainer(cont)
-            For Each doc In cont.Documents
-                If contType <> acDefault _
-                    And Not (contType = acTable _
-                    And (doc.Name Like "MSys*" Or doc.Name Like "~*")) Then
-                    ' Check Hidden Attribute property (only exposed here)
-                    If Application.GetHiddenAttribute(contType, doc.Name) Then
-                        ' Add to collection of hidden item item names of this type.
-                        colItems.Add doc.Name
-                        ' Add to collection of all items
-                        Set cDoc = Me
-                        m_AllItems.Add cDoc, vbNullString
-                    End If
-                End If
-            Next doc
-            If colItems.Count > 0 Then m_dItems.Add cont.Name, SortCollectionByValue(colItems)
-        Next cont
-        
+        ' Return no objects if we match the hash from the cache
+        If (Not blnModifiedOnly) Or IDbComponent_IsModified Then
+            
+            ' Loop through all the containers, documents, and check hidden property
+            Set dbs = CurrentDb
+            For Each varCont In m_dItems.Keys
+                Set colCont = m_dItems(varCont)
+                For Each varDoc In colCont
+                    Set cDoc = New clsDbHiddenAttribute
+                    Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc)
+                    m_AllItems.Add cDoc, vbNullString
+                Next varDoc
+            Next varCont
+        End If
     End If
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_AllItems
         
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Return a dictionary object with the items
+'---------------------------------------------------------------------------------------
+'
+Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictionary
+
+    Dim dItems As Dictionary
+    Dim dCont As Dictionary
+    Dim cont As DAO.Container
+    Dim doc As DAO.Document
+    Dim dbs As Database
+    Dim contType As AcObjectType
+    Dim colItems As Collection
+        
+    ' Check cache parameter
+    If blnUseCache And Not m_dItems Is Nothing Then
+        ' Return cached dictionary
+        Set GetDictionary = m_dItems
+        Exit Function
+    End If
+
+    ' Create dictionary object to hold all the items
+    Set dItems = New Dictionary
+    Set dbs = CurrentDb
+
+    ' Loop through all the containers, documents, and check hidden property
+    For Each cont In dbs.Containers
+        Set dCont = New Dictionary
+        Set dCont = New Dictionary
+        Set colItems = New Collection
+        contType = GetObjectTypeFromContainer(cont)
+        For Each doc In cont.Documents
+            If contType <> acDefault _
+                And Not (contType = acTable _
+                And (doc.Name Like "MSys*" Or doc.Name Like "~*")) Then
+                ' Check Hidden Attribute property (only exposed here)
+                If Application.GetHiddenAttribute(contType, doc.Name) Then
+                    ' Add to collection of hidden item item names of this type.
+                    colItems.Add doc.Name
+                End If
+            End If
+        Next doc
+        If colItems.Count > 0 Then dItems.Add cont.Name, SortCollectionByValue(colItems)
+    Next cont
+    
+    ' Return assembled dictionary
+    Set GetDictionary = dItems
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveMissing
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Unsets the hidden flag for documents that should not have it.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
+
+    Dim dCont As Dictionary
+    Dim dDoc As Dictionary
+    Dim dbs As Database
+    Dim contType As AcObjectType
+    Dim varCont As Variant
+    Dim varDoc As Variant
+    Dim strDoc As String
+    
+    ' Go through target dictionary, removing the flag that doesn't exist
+    ' in the master dictionary.
+    Set dbs = CurrentDb
+    For Each varCont In dTarget.Keys
+        Set dCont = dTarget(varCont)
+        contType = GetObjectTypeFromContainer(dbs.Containers(varCont))
+        For Each varDoc In dCont.Keys
+            strDoc = CStr(varDoc)
+            If contType <> acDefault _
+                And Not (contType = acTable _
+                And (strDoc Like "MSys*" Or strDoc Like "~*")) Then
+                ' Unset the Hidden Attribute property (only exposed here)
+                Application.SetHiddenAttribute contType, strDoc, False
+            End If
+        Next varDoc
+    Next varCont
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -213,7 +308,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetDictionaryHash(GetDictionary)
 End Function
 
 
