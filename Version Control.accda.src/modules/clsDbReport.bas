@@ -72,7 +72,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-
+    DeleteObjectIfExists acReport, GetObjectNameFromFileName(strFile)
+    IDbComponent_Import strFile
 End Sub
 
 
