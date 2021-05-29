@@ -19,6 +19,8 @@ Option Explicit
 
 Private m_Property As DAO.Property
 Private m_AllItems As Dictionary
+Private m_dItems As Dictionary
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -35,39 +37,8 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-    
-    Dim prp As DAO.Property
-    Dim dCollection As Dictionary
-    Dim dItem As Dictionary
-    Dim varValue As Variant
-    
-    Set dCollection = New Dictionary
-    
-    ' Loop through all properties
-    For Each prp In CurrentDb.Properties
-        Select Case prp.Name
-            Case "Connection"
-                ' Connection object for ODBCDirect workspaces. Not needed.
-            Case "Last VCS Export", "Last VCS Version"
-                ' Legacy properties no longer needed.
-            Case Else
-                varValue = prp.Value
-                If prp.Name = "AppIcon" Or prp.Name = "Name" Then
-                    If Len(varValue) > 0 Then
-                        ' Try to use a relative path
-                        varValue = GetRelativePath(CStr(varValue))
-                    End If
-                End If
-                Set dItem = New Dictionary
-                dItem.Add "Value", varValue
-                dItem.Add "Type", prp.Type
-                dCollection.Add prp.Name, dItem
-        End Select
-    Next prp
-    
-    ' Write to file. The order of properties may change, so sort them to keep the order consistent.
-    WriteJsonFile TypeName(Me), SortDictionaryByKeys(dCollection), IDbComponent_SourceFile, "Database Properties (DAO)"
-    
+    WriteJsonFile TypeName(Me), GetDictionary, IDbComponent_SourceFile, "Database Properties (DAO)"
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
 End Sub
 
 
@@ -194,6 +165,9 @@ Private Sub IDbComponent_Import(strFile As String)
         Next varKey
     End If
     
+    ' Update index
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary(False))
+    
 End Sub
 
 
@@ -206,6 +180,96 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
+
+    Dim dFile As Dictionary
+    
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+    
+    ' Remove any document properties that don't exist in the incoming file,
+    ' then import the file.
+    Set dFile = ReadJsonFile(strFile)
+    If dFile Is Nothing Then Set dFile = New Dictionary
+    RemoveMissing dFile("Items"), GetDictionary
+    IDbComponent_Import strFile
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Return a dictionary of the ordered, unique VBE references
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
+
+    Dim prp As DAO.Property
+    Dim dCollection As Dictionary
+    Dim dItem As Dictionary
+    Dim varValue As Variant
+    
+    ' Check cache parameter
+    If blnUseCache And Not m_dItems Is Nothing Then
+        ' Return cached dictionary
+        Set GetDictionary = m_dItems
+        Exit Function
+    End If
+    
+    Set dCollection = New Dictionary
+    
+    ' Loop through all properties
+    For Each prp In CurrentDb.Properties
+        Select Case prp.Name
+            Case "Connection"
+                ' Connection object for ODBCDirect workspaces. Not needed.
+            Case "Last VCS Export", "Last VCS Version"
+                ' Legacy properties no longer needed.
+            Case Else
+                varValue = prp.Value
+                If prp.Name = "AppIcon" Or prp.Name = "Name" Then
+                    If Len(varValue) > 0 Then
+                        ' Try to use a relative path
+                        varValue = GetRelativePath(CStr(varValue))
+                    End If
+                End If
+                Set dItem = New Dictionary
+                dItem.Add "Value", varValue
+                dItem.Add "Type", prp.Type
+                dCollection.Add prp.Name, dItem
+        End Select
+    Next prp
+    
+    ' Return sorted dictionary
+    Set GetDictionary = SortDictionaryByKeys(dCollection)
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveMissing
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Removes current document properties missing from the master dictionary.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
+
+    Dim dbs As Database
+    Dim varProp As Variant
+    
+    ' Go through target dictionary, removing properties that don't exist
+    ' in the master dictionary. (Note that this is only checking the
+    ' properties we are actually interested in tracking.)
+    Set dbs = CurrentDb
+    For Each varProp In dTarget.Keys
+        ' Check to see if this key exists in the master
+        If Not KeyExists(dMaster, varProp) Then
+            ' Remove the property from the current database
+            dbs.Properties.Delete CStr(varProp)
+        End If
+    Next varProp
 
 End Sub
 
@@ -225,11 +289,15 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
         Set m_AllItems = New Dictionary
-        For Each prp In CurrentDb.Properties
-            Set cProp = New clsDbProperty
-            Set cProp.DbObject = prp
-            m_AllItems.Add cProp, prp.Name
-        Next prp
+        If Not blnModifiedOnly Or IDbComponent_IsModified Then
+            ' Return all the properties, since we don't know which ones
+            ' were modified.
+            For Each prp In CurrentDb.Properties
+                Set cProp = New clsDbProperty
+                Set cProp.DbObject = prp
+                m_AllItems.Add cProp, prp.Name
+            Next prp
+        End If
     End If
 
     ' Return cached collection
@@ -274,7 +342,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetDictionaryHash(GetDictionary)
 End Function
 
 
@@ -443,3 +511,4 @@ End Sub
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
