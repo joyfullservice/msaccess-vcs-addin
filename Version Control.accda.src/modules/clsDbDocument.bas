@@ -276,22 +276,26 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     If m_AllItems Is Nothing Then
 
         Set m_AllItems = New Dictionary
-        Set m_dItems = GetDictionary
-        Set dbs = CurrentDb
         
-        ' Loop through all the containers, documents, and properties.
-        For Each varCont In m_dItems.Keys
-            Set dCont = m_dItems(varCont)
-            For Each varDoc In dCont.Keys
-                Set dDoc = dCont(varDoc)
-                For Each varProp In dDoc.Keys
-                    ' Add as class instance
-                    Set cDoc = New clsDbDocument
-                    Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc).Properties(varProp)
-                    m_AllItems.Add cDoc, vbNullString
-                Next varProp
-            Next varDoc
-        Next varCont
+        ' Check index hash of properties to determine if they have been changed.
+        If Not blnModifiedOnly Or IDbComponent_IsModified Then
+            Set m_dItems = GetDictionary
+            Set dbs = CurrentDb
+            
+            ' Loop through all the containers, documents, and properties.
+            For Each varCont In m_dItems.Keys
+                Set dCont = m_dItems(varCont)
+                For Each varDoc In dCont.Keys
+                    Set dDoc = dCont(varDoc)
+                    For Each varProp In dDoc.Keys
+                        ' Add as class instance
+                        Set cDoc = New clsDbDocument
+                        Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc).Properties(varProp)
+                        m_AllItems.Add cDoc, vbNullString
+                    Next varProp
+                Next varDoc
+            Next varCont
+        End If
     End If
 
     ' Return cached collection
