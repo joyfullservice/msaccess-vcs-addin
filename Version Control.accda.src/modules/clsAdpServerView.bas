@@ -34,8 +34,8 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-    WriteFile GetSQLObjectDefinitionForADP(m_View.Name), IDbComponent_SourceFile
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    WriteFile GetSQLObjectDefinitionForADP(m_View.Name), Nz2(strAlternatePath, IDbComponent_SourceFile)
 End Sub
 
 

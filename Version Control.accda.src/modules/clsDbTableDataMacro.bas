@@ -34,13 +34,13 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     ' We THINK that this table probably contains a table macro, but just in case it
     ' doesn't, we have some error handling built into the export function below.
     
     ' Save structure in XML format
-    SaveComponentAsText acTableDataMacro, m_Table.Name, IDbComponent_SourceFile
+    SaveComponentAsText acTableDataMacro, m_Table.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
     
 End Sub
 

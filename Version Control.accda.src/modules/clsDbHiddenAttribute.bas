@@ -35,8 +35,8 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-    WriteJsonFile TypeName(Me), GetDictionary, IDbComponent_SourceFile, "Database objects hidden attribute"
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    WriteJsonFile TypeName(Me), GetDictionary, Nz2(strAlternatePath, IDbComponent_SourceFile), "Database objects hidden attribute"
     VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
 End Sub
 

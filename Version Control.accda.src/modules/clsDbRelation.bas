@@ -48,7 +48,7 @@ End Sub
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim dItem As Dictionary
     Dim dField As Dictionary
@@ -77,7 +77,7 @@ Private Sub IDbComponent_Export()
     dItem.Add "Fields", colItems
     
     ' Write to json file
-    WriteJsonFile TypeName(Me), dItem, IDbComponent_SourceFile, "Database relationship"
+    WriteJsonFile TypeName(Me), dItem, Nz2(strAlternatePath, IDbComponent_SourceFile), "Database relationship"
     
 End Sub
 

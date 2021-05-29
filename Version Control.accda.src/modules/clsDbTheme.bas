@@ -49,7 +49,7 @@ Implements IDbComponent
 '           : folder with the theme source files. (Depending on the specified options.)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strFile As String
     Dim strZip As String

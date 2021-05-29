@@ -38,7 +38,7 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim strFile As String
     Dim dbs As Database
@@ -48,7 +48,7 @@ Private Sub IDbComponent_Export()
     
     Set dbs = CurrentDb
     Set tbl = dbs.TableDefs(m_Table.Name)
-    strFile = IDbComponent_SourceFile
+    strFile = Nz2(strAlternatePath, IDbComponent_SourceFile)
     
     ' For internal tables, we can export them as XML.
     If tbl.Connect = vbNullString Then

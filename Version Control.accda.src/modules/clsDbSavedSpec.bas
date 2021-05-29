@@ -34,7 +34,7 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim dSpec As Dictionary
     
@@ -51,7 +51,7 @@ Private Sub IDbComponent_Export()
     CatchAny eelNoError, vbNullString, , False
     
     ' Write as Json format.
-    WriteJsonFile TypeName(Me), dSpec, IDbComponent_SourceFile, "Saved Import/Export Specification"
+    WriteJsonFile TypeName(Me), dSpec, Nz2(strAlternatePath, IDbComponent_SourceFile), "Saved Import/Export Specification"
     
 End Sub
 

@@ -35,8 +35,8 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-    SaveComponentAsText acMacro, m_Macro.Name, IDbComponent_SourceFile
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    SaveComponentAsText acMacro, m_Macro.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
     VCSIndex.Update Me, eatExport
 End Sub
 

@@ -34,7 +34,7 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim prp As AccessObjectProperty
     Dim dCollection As Dictionary
@@ -64,7 +64,7 @@ Private Sub IDbComponent_Export()
     Next prp
     
     ' Write to file. The order of properties may change, so sort them to keep the order consistent.
-    WriteJsonFile TypeName(Me), SortDictionaryByKeys(dCollection), IDbComponent_SourceFile, "Project Properties (Access)"
+    WriteJsonFile TypeName(Me), SortDictionaryByKeys(dCollection), Nz2(strAlternatePath, IDbComponent_SourceFile), "Project Properties (Access)"
     
 End Sub
 

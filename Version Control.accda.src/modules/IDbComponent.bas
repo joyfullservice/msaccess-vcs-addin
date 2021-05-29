@@ -49,7 +49,7 @@ End Sub
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Public Sub Export()
+Public Sub Export(Optional strAlternatePath As String)
 End Sub
 
 

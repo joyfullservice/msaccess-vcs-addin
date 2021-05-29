@@ -34,7 +34,7 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strSql As String
     Dim rst As ADODB.Recordset
@@ -81,7 +81,7 @@ Private Sub IDbComponent_Export()
     Set rst = Nothing
     
     ' Write SQL text to file
-    WriteFile colText.GetStr, IDbComponent_SourceFile
+    WriteFile colText.GetStr, Nz2(strAlternatePath, IDbComponent_SourceFile)
     
 End Sub
 

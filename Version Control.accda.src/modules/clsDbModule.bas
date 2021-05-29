@@ -36,14 +36,14 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim strTempFile As String
 
     ' Export to temp file and convert to UTF-8 encoding
     strTempFile = GetTempFile
     ExportVbComponent strTempFile
-    ConvertAnsiUtf8 strTempFile, IDbComponent_SourceFile
+    ConvertAnsiUtf8 strTempFile, Nz2(strAlternatePath, IDbComponent_SourceFile)
     
     ' Update the index with the current VBA hash. (Note, this will not show
     ' changes to the hidden VBE properties that might have been added.)

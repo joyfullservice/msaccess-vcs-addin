@@ -47,7 +47,7 @@ Implements IDbComponent
 '           : of the binary image file saved as an image.
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strFile As String
     Dim dItem As Dictionary
@@ -59,7 +59,7 @@ Private Sub IDbComponent_Export()
     dItem.Add "Extension", m_Extension
     
     ' Save json file with header details
-    WriteJsonFile TypeName(Me), dItem, IDbComponent_SourceFile, "Shared Image Gallery Item"
+    WriteJsonFile TypeName(Me), dItem, Nz2(strAlternatePath, IDbComponent_SourceFile), "Shared Image Gallery Item"
     
     ' Save image file using extension from embedded file.
     strFile = IDbComponent_BaseFolder & FSO.GetBaseName(IDbComponent_SourceFile) & "." & FSO.GetExtensionName(m_FileName)

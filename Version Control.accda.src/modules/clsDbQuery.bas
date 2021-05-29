@@ -35,13 +35,13 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim strFile As String
     Dim dbs As DAO.Database
 
     ' Save and sanitize file
-    SaveComponentAsText acQuery, m_Query.Name, IDbComponent_SourceFile
+    SaveComponentAsText acQuery, m_Query.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
     VCSIndex.Update Me, eatExport
     
     ' Export as SQL (if using that option)

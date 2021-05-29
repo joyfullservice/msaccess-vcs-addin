@@ -36,7 +36,7 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     VerifyPath IDbComponent_SourceFile
     m_Form.Export IDbComponent_SourceFile
 End Sub
