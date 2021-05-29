@@ -489,8 +489,12 @@ Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
         
     Next oSubFolder
     
-    ' Remove base folder if we don't have any subfolders in it
-    If oFolder.SubFolders.Count = 0 Then oFolder.Delete
+    ' Remove base folder if we don't have any subfolders or files in it
+    With oFolder
+        If .SubFolders.Count = 0 Then
+            If .Files.Count = 0 Then .Delete
+        End If
+    End With
     Perf.OperationEnd
     
 End Sub
