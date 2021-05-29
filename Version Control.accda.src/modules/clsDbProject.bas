@@ -272,7 +272,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
-    IDbComponent_Count = 1
+    IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
 End Property
 
 
@@ -352,3 +352,4 @@ End Sub
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
