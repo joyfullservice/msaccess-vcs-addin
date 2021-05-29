@@ -21,6 +21,7 @@ Private Const ModuleName As String = "clsDbVbeProject"
 
 Private m_Project As VBIDE.VBProject
 Private m_AllItems As Dictionary
+Private m_dItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -37,17 +38,8 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export()
-
-    Dim dProject As Dictionary
-    
-    Set dProject = GetDictionary
-    
-    ' Save in JSON format.
-    WriteJsonFile TypeName(Me), dProject, IDbComponent_SourceFile, "VBE Project"
-    
-    ' Save to index
-    VCSIndex.Update Me, eatExport, GetDictionaryHash(dProject)
-    
+    WriteJsonFile TypeName(Me), GetDictionary, IDbComponent_SourceFile, "VBE Project"
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
 End Sub
 
 
@@ -91,7 +83,7 @@ Private Sub IDbComponent_Import(strFile As String)
     CatchAny eelError, "Importing VBE Project", ModuleName & ".Import"
     
     ' Save to index
-    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
 
 End Sub
 
@@ -212,7 +204,14 @@ End Function
 ' Purpose   : Return a dictionary object of project properties.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetDictionary() As Dictionary
+Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictionary
+
+    ' Check cache parameter
+    If blnUseCache And Not m_dItems Is Nothing Then
+        ' Return cached dictionary
+        Set GetDictionary = m_dItems
+        Exit Function
+    End If
 
     ' Make sure we have a reference to the VB project
     If m_Project Is Nothing Then Set m_Project = GetVBProjectForCurrentDB
@@ -265,7 +264,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         Set m_AllItems = New Dictionary
         Set cProj = New clsDbVbeProject
         Set cProj.DbObject = m_Project
-        m_AllItems.Add cProj, m_Project.Name
+        If (Not blnModifiedOnly) Or IDbComponent_IsModified Then
+            m_AllItems.Add cProj, vbNullString
+        End If
     End If
 
     ' Return cached collection
@@ -307,7 +308,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetDictionaryHash(GetDictionary)
 End Function
 
 
@@ -395,7 +396,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
-    IDbComponent_Count = 1
+    IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
 End Property
 
 
@@ -475,4 +476,6 @@ End Sub
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
+
 
