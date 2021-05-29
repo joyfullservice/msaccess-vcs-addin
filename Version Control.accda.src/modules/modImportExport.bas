@@ -83,6 +83,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
 
     ' Finish header section
     Log.Spacer
+    If Not blnFullExport Then Log.Add "Scanning for changes..."
     Log.Flush
     
     ' Loop through all categories
