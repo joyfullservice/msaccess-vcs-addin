@@ -191,8 +191,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Dim cCategory As IDbComponent
     Dim sngStart As Single
     Dim dCategories As Dictionary
+    Dim colCategories As Collection
+    Dim varCategory As Variant
     Dim dCategory As Dictionary
-    Dim colFiles As Collection
+    Dim dFiles As Dictionary
     Dim varKey As Variant
     Dim varFile As Variant
     Dim strType As String
@@ -335,6 +337,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     VCSIndex.Conflicts.Reset
     Perf.OperationStart "Scan Source Files"
     Set dCategories = New Dictionary
+    'Set colCategories = GetAllContainers
     For Each cCategory In GetAllContainers
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
@@ -349,7 +352,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             ' Record any conflicts for later review
             VCSIndex.CheckImportConflicts cCategory, dCategory("Files")
         End If
-        dCategories.Add cCategory.ComponentType, dCategory
+        dCategories.Add cCategory, dCategory
     Next cCategory
     Perf.OperationEnd
     
@@ -371,22 +374,25 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Loop through all categories
     Log.Spacer
-    For Each cCategory In GetAllContainers
+    For Each varCategory In dCategories.Keys
         
+        ' Set reference to object category class
+        Set cCategory = varCategory
+        Set dFiles = dCategories(varCategory)("Files")
         
         ' Only show category details when source files are found
-        If colFiles.Count = 0 Then
+        If dFiles.Count = 0 Then
             Log.Spacer Options.ShowDebug
             Log.Add "No " & LCase(cCategory.Category) & " source files found.", Options.ShowDebug
         Else
             ' Show category header
             Log.Spacer Options.ShowDebug
             Log.PadRight IIf(blnFullBuild, "Importing ", "Merging ") & LCase(cCategory.Category) & "...", , Options.ShowDebug
-            Log.ProgMax = colFiles.Count
+            Log.ProgMax = dFiles.Count
             Perf.ComponentStart cCategory.Category
 
             ' Loop through each file in this category.
-            For Each varFile In colFiles
+            For Each varFile In dFiles.Keys
                 ' Import/merge the file
                 Log.Increment
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
@@ -399,10 +405,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             Next varFile
             
             ' Show category wrap-up.
-            Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
-            Perf.ComponentEnd colFiles.Count
+            Log.Add "[" & dFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
+            Perf.ComponentEnd dFiles.Count
         End If
-    Next cCategory
+    Next varCategory
     
     ' Compile and save the modules after importing as VBE Components
     CompileAndSaveAllModules
@@ -677,4 +683,6 @@ Private Sub PrepareRunBootstrap()
     Perf.OperationEnd   ' Bootstrap
     
 End Sub
+
+
 
