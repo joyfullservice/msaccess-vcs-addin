@@ -192,9 +192,15 @@ Private Sub IDbComponent_Import(strFile As String)
                 .AddNew
                 Set fldFile = .Fields("FileData")
                 fldFile.LoadFromFile strThemeFile
+                m_FileData = fldFile
                 .Update
                 .Close
             End With
+            
+            ' Update class variables so we can recalculate the index hash
+            m_Name = strThemeName
+            m_FileName = strThemeName & ".thmx"
+            m_Extension = "thmx"
             
             ' Save and close record
             .Update
@@ -206,7 +212,6 @@ Private Sub IDbComponent_Import(strFile As String)
     If blnIsFolder Then DeleteFile strThemeFile, True
     
     ' Update index
-    Set m_AllItems = Nothing
     VCSIndex.Update Me, eatImport, GetSignatureHash
     
     ' Log any errors
@@ -247,7 +252,7 @@ Private Function GetSignatureHash() As String
     Dim lngLen As Long
         
     ' Get length (bytes) of file data
-    If IsArray(m_FileData) Then lngLen = UBound(m_FileData)
+    If StrPtr(m_FileData) <> 0 Then lngLen = UBound(m_FileData)
     
     With New clsConcat
         ' Compile string with file information
@@ -588,8 +593,3 @@ End Property
 Private Sub Class_Terminate()
     Set m_Dbs = Nothing
 End Sub
-
-
-
-
-
