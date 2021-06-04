@@ -18,7 +18,6 @@ Option Compare Database
 Option Explicit
 
 Private m_Module As VBComponent
-Private m_Component As VBComponent
 Private m_AllItems As Collection
 Private m_blnModifiedOnly As Boolean
 
@@ -39,11 +38,18 @@ Implements IDbComponent
 Private Sub IDbComponent_Export()
     
     Dim strTempFile As String
+    Dim strExt As String
+    Dim strAlternateFile As String
 
     ' Export to temp file and convert to UTF-8 encoding
     strTempFile = GetTempFile
     ExportVbComponent strTempFile
     ConvertAnsiUtf8 strTempFile, IDbComponent_SourceFile
+    
+    ' Remove any file with the same name but alternate extension
+    strExt = IIf(GetExtension = ".bas", ".cls", ".bas")
+    strAlternateFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & strExt
+    If FSO.FileExists(strAlternateFile) Then DeleteFile strAlternateFile
     
     ' Update the index with the current VBA hash. (Note, this will not show
     ' changes to the hidden VBE properties that might have been added.)
@@ -160,6 +166,7 @@ End Function
 '
 Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+    MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.cls")
 End Function
 
 
@@ -171,7 +178,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFiles Me, "bas"
+    ClearOrphanedSourceFiles Me, "bas", "cls"
 End Sub
 
 
@@ -266,8 +273,24 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & ".bas"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & GetExtension
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetExtension
+' Author    : Adam Waller
+' Date      : 6/4/2021
+' Purpose   : Return the extension (".cls" or ".bas") based on the component type.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetExtension() As String
+    If m_Module.Type = vbext_ct_StdModule Then
+        GetExtension = ".bas"
+    Else
+        GetExtension = ".cls"
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
