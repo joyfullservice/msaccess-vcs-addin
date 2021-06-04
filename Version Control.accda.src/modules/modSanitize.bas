@@ -11,6 +11,10 @@ Option Explicit
 
 Private Const ModuleName = "modSanitize"
 
+' Array of lines to skip
+Private m_SkipLines() As Long
+Private m_lngSkipIndex As Long
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SanitizeFile
@@ -33,6 +37,7 @@ Public Sub SanitizeFile(strPath As String)
     Dim blnIsPassThroughQuery As Boolean
     Dim curStart As Currency
     Dim strTempFile As String
+
     
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -59,12 +64,14 @@ Public Sub SanitizeFile(strPath As String)
     End If
     Perf.OperationStart "Sanitize File"
     varLines = Split(strFile, vbCrLf)
+    
+    ' Set up index of lines to skip
+    ReDim m_SkipLines(0 To UBound(varLines)) As Long
+    m_lngSkipIndex = 0
 
     ' Initialize concatenation class to include line breaks
     ' after each line that we add when building new file text.
     curStart = Perf.MicroTimer
-    Set cData = New clsConcat
-    cData.AppendOnAdd = vbCrLf
 
     ' Using a do loop since we may adjust the line counter
     ' during a loop iteration.
@@ -76,10 +83,9 @@ Public Sub SanitizeFile(strPath As String)
         
         ' Improve performance by reducing comparisons
         If Len(strTLine) > 3 And blnInsideIgnoredBlock Then
-            ' Ignore this line
+            SkipLine lngLine
         ElseIf Len(strTLine) > 60 And StartsWith(strTLine, "0x") Then
             ' Add binary data line. No need to test this line further.
-            cData.Add strLine
         Else
             ' Run the rest of the tests
             Select Case strTLine
@@ -88,7 +94,7 @@ Public Sub SanitizeFile(strPath As String)
                 Case "Version =21"
                     ' Change version down to 20 to allow import into Access 2010.
                     ' (Haven't seen any significant issues with this.)
-                    cData.Add "Version =20"
+                    varLines(lngLine) = "Version =20"
                 
                 ' Print settings blocks to ignore
                 Case "PrtMip = Begin", _
@@ -98,6 +104,7 @@ Public Sub SanitizeFile(strPath As String)
                     "PrtDevNamesW = Begin"
                     ' Set flag to ignore lines inside this block.
                     blnInsideIgnoredBlock = True
+                    SkipLine lngLine
         
                 ' Aggressive sanitize blocks
                 Case "GUID = Begin", _
@@ -106,49 +113,49 @@ Public Sub SanitizeFile(strPath As String)
                     "dbBinary ""GUID"" = Begin"
                     If Options.AggressiveSanitize Then
                         blnInsideIgnoredBlock = True
-                    Else
-                        ' Include these sections
-                        cData.Add strLine
+                        SkipLine lngLine
                     End If
                     
                 ' Single lines to ignore
                 Case "NoSaveCTIWhenDisabled =1"
+                    SkipLine lngLine
         
                 ' Publish option (used in Queries)
                 Case "dbByte ""PublishToWeb"" =""1""", _
                     "PublishOption =1"
-                    If Not Options.StripPublishOption Then cData.Add strLine
+                    If Options.StripPublishOption Then SkipLine lngLine
                 
                 ' End of block section
                 Case "End"
                     If blnInsideIgnoredBlock Then
                         ' Reached the end of the ignored block.
                         blnInsideIgnoredBlock = False
-                    Else
-                        ' End of included block
-                        cData.Add strLine
+                        SkipLine lngLine
                     End If
                 
                 ' See if this file is from a report object
                 Case "Begin Report"
                     ' Turn flag on to ignore Right and Bottom lines
                     blnIsReport = True
-                    cData.Add strLine
                 
                 ' Beginning of main section
                 Case "Begin"
                     If blnIsPassThroughQuery And Options.AggressiveSanitize Then
                         ' Ignore remaining content. (See Issue #182)
+                        Do While lngLine < UBound(varLines)
+                            SkipLine lngLine
+                            lngLine = lngLine + 1
+                        Loop
                         Exit Do
-                    Else
-                        cData.Add strLine
                     End If
                 
                 Case Else
                     If blnInsideIgnoredBlock Then
-                        ' Skip if we are in an ignored block
+                        ' Skip content inside ignored blocks.
+                        SkipLine lngLine
                     ElseIf StartsWith(strTLine, "Checksum =") Then
                         ' Ignore Checksum lines, since they will change.
+                        SkipLine lngLine
                     ElseIf StartsWith(strTLine, "BaseInfo =") Then
                         ' BaseInfo is used with combo boxes, similar to RowSource.
                         ' Since the value could span multiple lines, we need to
@@ -157,17 +164,19 @@ Public Sub SanitizeFile(strPath As String)
                         intIndent = GetIndent(strLine)
                         ' Preview the next line, and check the indent level
                         Do While GetIndent(varLines(lngLine + 1)) > intIndent
-                            ' Move
+                            ' Skip and move to next line
+                            SkipLine lngLine
                             lngLine = lngLine + 1
                         Loop
                     ElseIf blnIsReport And StartsWith(strLine, "    Right =") Then
                         ' Ignore this line. (Not important, and frequently changes.)
+                        SkipLine lngLine
                     ElseIf blnIsReport And StartsWith(strLine, "    Bottom =") Then
                         ' Turn flag back off now that we have ignored these two lines.
+                        SkipLine lngLine
                         blnIsReport = False
                     Else
                         ' All other lines will be added.
-                        cData.Add strLine
                         
                         ' Check for pass-through query connection string
                         If StartsWith(strLine, "dbMemo ""Connect"" =""") Then
@@ -182,20 +191,78 @@ Public Sub SanitizeFile(strPath As String)
         lngLine = lngLine + 1
     Loop
     
-    ' Remove last vbcrlf
-    cData.Remove Len(vbCrLf)
+    ' Build the final output
+    BuildOutput varLines, strPath
 
     ' Log performance
     Perf.OperationEnd
     Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
     
-    ' Replace original file with sanitized version
-    WriteFile cData.GetStr, strPath
-    
     ' Log any errors
     CatchAny eelError, "Error sanitizing file " & FSO.GetFileName(strPath), ModuleName & ".SanitizeFile"
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildOutput
+' Author    : Adam Waller
+' Date      : 6/4/2021
+' Purpose   : Splitting this out into its own sub to reduce complexity.
+'---------------------------------------------------------------------------------------
+'
+Private Sub BuildOutput(varLines As Variant, strFile As String)
+
+    Dim cData As clsConcat
+    Dim lngSkip As Long
+    Dim lngLine As Long
+    
+    
+    ' Trim and sort index array
+    ReDim Preserve m_SkipLines(0 To m_lngSkipIndex - 1)
+    QuickSort m_SkipLines
+    
+    ' Use concatenation class to maximize performance
+    Set cData = New clsConcat
+    With cData
+        .AppendOnAdd = vbCrLf
+        
+        ' Loop through array of lines in source file
+        For lngLine = 0 To UBound(varLines)
+            
+            ' Iterate the sorted skipped lines index to keep up with main loop
+            ' (Using parallel loops to optimize performance)
+            If m_SkipLines(lngSkip) < lngLine Then
+                If lngSkip < UBound(m_SkipLines) Then lngSkip = lngSkip + 1
+            End If
+            
+            ' Add content, unless the line is flagged to skip
+            If m_SkipLines(lngSkip) <> lngLine Then .Add CStr(varLines(lngLine))
+        
+        Next lngLine
+        
+        ' Remove last vbcrlf
+        cData.Remove Len(vbCrLf)
+    
+        ' Replace original file with sanitized version
+        WriteFile cData.GetStr, strFile
+        
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SkipLine
+' Author    : Adam Waller
+' Date      : 6/4/2021
+' Purpose   : Skip this line in the final output file
+'---------------------------------------------------------------------------------------
+'
+Private Function SkipLine(lngLine As Long)
+    m_SkipLines(m_lngSkipIndex) = lngLine
+    m_lngSkipIndex = m_lngSkipIndex + 1
+End Function
 
 
 '---------------------------------------------------------------------------------------
