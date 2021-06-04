@@ -328,7 +328,7 @@ Private Sub CloseBlock()
     varBase = Array("Back", "AlternateBack", "Border", _
             "Fore", "Gridline", "HoverFore", _
             "Hover", "PressedFore", "Pressed", _
-            "DatasheetGridlines")
+            "DatasheetFore", "DatasheetBack", "DatasheetGridlines")
     
     ' Loop through properties, checking for index
     For intCnt = 0 To UBound(varBase)
@@ -376,21 +376,19 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
         ' Theme color index properties
         Case "BackThemeColorIndex", "AlternateBackThemeColorIndex", "BorderThemeColorIndex", _
             "ForeThemeColorIndex", "GridlineThemeColorIndex", "HoverForeThemeColorIndex", _
-            "HoverThemeColorIndex", "PressedForeThemeColorIndex", "PressedThemeColorIndex"
+            "HoverThemeColorIndex", "PressedForeThemeColorIndex", "PressedThemeColorIndex", _
+            "DatasheetBackThemeColorIndex", "DatasheetForeThemeColorIndex", "DatasheetGridlinesThemeColorIndex"
             ' Save to dictionary if using a theme index color
             If varParts(1) <> -1 Then strID = varParts(0)
     
         ' Matching color properties
         Case "BackColor", "AlternateBackColor", "BorderColor", _
             "ForeColor", "GridlineColor", "HoverForeColor", _
-            "HoverColor", "PressedForeColor", "PressedColor"
+            "HoverColor", "PressedForeColor", "PressedColor", _
+            "DatasheetBackColor", "DatasheetForeColor", "DatasheetGridlinesColor"
             ' Save line of color property
             strID = varParts(0)
-        
-        ' Other color properties
-        Case "DatasheetGridlinesColor"
-            strID = varParts(0)
-            
+                    
         Case Else
             ' Check for other related dynamic color properties/indexes
             If StartsWith(strTLine, "DatasheetGridlinesColor") Then
