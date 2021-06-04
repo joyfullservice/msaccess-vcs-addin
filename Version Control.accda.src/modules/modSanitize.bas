@@ -324,9 +324,11 @@ Private Sub CloseBlock()
     Dim intCnt As Integer
     Dim dBlock As Dictionary
     Dim strKey As String
+        
+    ' Skip if we are not using aggressive sanitize
+    If Not Options.AggressiveSanitize Then Exit Sub
     
     ' Bail out if we don't have a block to review
-    If m_colBlocks Is Nothing Then Exit Sub
     If m_colBlocks.Count = 0 Then Exit Sub
     Set dBlock = m_colBlocks(m_colBlocks.Count)
     
