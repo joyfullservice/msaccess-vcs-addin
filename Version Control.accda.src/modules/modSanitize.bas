@@ -187,7 +187,10 @@ Public Sub SanitizeFile(strPath As String)
                         ' Turn flag back off now that we have ignored these two lines.
                         SkipLine lngLine
                         blnIsReport = False
-                    ElseIf StartsWith(strTLine, "Begin ") Or EndsWith(strTLine, " = Begin") Then
+                    ElseIf StartsWith(strTLine, "Begin ") Then
+                        ' Include block type name for controls
+                        BeginBlock Mid$(strTLine, 7)
+                    ElseIf EndsWith(strTLine, " = Begin") Then
                         BeginBlock
                     Else
                         ' All other lines will be added.
@@ -288,7 +291,6 @@ Private Function SkipLine(lngLine As Long)
 End Function
 
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : BeginBlock
 ' Author    : Adam Waller
@@ -296,10 +298,11 @@ End Function
 ' Purpose   : Add a dictionary object to represent the block
 '---------------------------------------------------------------------------------------
 '
-Private Sub BeginBlock()
+Private Sub BeginBlock(Optional strType As String)
     Dim dBlock As Dictionary
     If m_colBlocks Is Nothing Then Set m_colBlocks = New Collection
     Set dBlock = New Dictionary
+    If strType <> vbNullString Then dBlock.Add "Type", strType
     m_colBlocks.Add dBlock
 End Sub
 
@@ -314,6 +317,9 @@ End Sub
 '
 Private Sub CloseBlock()
     
+    ' This value seems to indicate that the theme was not used.
+    Const NO_THEME_INDEX As Integer = -1
+    
     Dim varBase As Variant
     Dim intCnt As Integer
     Dim dBlock As Dictionary
@@ -323,6 +329,9 @@ Private Sub CloseBlock()
     If m_colBlocks Is Nothing Then Exit Sub
     If m_colBlocks.Count = 0 Then Exit Sub
     Set dBlock = m_colBlocks(m_colBlocks.Count)
+    
+    ' Skip if we are not using themes for this control (UseTheme=0)
+    If dBlock.Exists("UseTheme") Then Exit Sub
     
     ' Build array of base properties
     varBase = Array("Back", "AlternateBack", "Border", _
@@ -334,12 +343,25 @@ Private Sub CloseBlock()
     For intCnt = 0 To UBound(varBase)
         strKey = varBase(intCnt) & "ThemeColorIndex"
         If dBlock.Exists(strKey) Then
-            ' Check for corresponding color property
-            strKey = varBase(intCnt) & "Color"
-            If dBlock.Exists(strKey) Then
-                ' Skip the dynamic color line
-                SkipLine dBlock(strKey)
+            If dBlock(strKey) <> NO_THEME_INDEX Then
+                ' Check for corresponding color property
+                strKey = varBase(intCnt) & "Color"
+                If dBlock.Exists(strKey) Then
+                    ' Skip the dynamic color line
+                    SkipLine dBlock(strKey)
+                End If
             End If
+        Else
+            ' Certain controls may automatically use theme indexes
+            ' unless otherwise specified.
+            Select Case dNZ(dBlock, "Type")
+                Case "CommandButton", "Tab", "ToggleButton"
+                    strKey = varBase(intCnt) & "Color"
+                    If dBlock.Exists(strKey) Then
+                        ' Skip the dynamic color line
+                        SkipLine dBlock(strKey)
+                    End If
+            End Select
         End If
     Next intCnt
     
@@ -364,10 +386,12 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     Dim lngCnt As Long
     Dim lngID As Long
     Dim strID As String
+    Dim lngValue As Long
     
     ' Exit if we are not inside a block
     If Not m_colBlocks Is Nothing Then lngCnt = m_colBlocks.Count
     If lngCnt = 0 Then Exit Sub
+    Set dBlock = m_colBlocks(m_colBlocks.Count)
     
     ' Split on property/value
     varParts = Split(strTLine, " =")
@@ -379,7 +403,7 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
             "HoverThemeColorIndex", "PressedForeThemeColorIndex", "PressedThemeColorIndex", _
             "DatasheetBackThemeColorIndex", "DatasheetForeThemeColorIndex", "DatasheetGridlinesThemeColorIndex"
             ' Save to dictionary if using a theme index color
-            If varParts(1) <> -1 Then strID = varParts(0)
+            dBlock.Add varParts(0), varParts(1)
     
         ' Matching color properties
         Case "BackColor", "AlternateBackColor", "BorderColor", _
@@ -387,27 +411,22 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
             "HoverColor", "PressedForeColor", "PressedColor", _
             "DatasheetBackColor", "DatasheetForeColor", "DatasheetGridlinesColor"
             ' Save line of color property
-            strID = varParts(0)
-                    
+            dBlock.Add varParts(0), lngLine
+        
+        Case "UseTheme"
+            ' You can certain controls to not use the theme. (Buttons, Tabs, Toggles)
+            If varParts(1) = 0 Then dBlock.Add varParts(0), 0
+        
         Case Else
             ' Check for other related dynamic color properties/indexes
             If StartsWith(strTLine, "DatasheetGridlinesColor") Then
                 ' May include the index number in the property name. (I.e. DatasheetGridlinesColor12 =0)
-                strID = "DatasheetGridlinesThemeColorIndex"
+                ' Convert to a more consistent identifier, using the index suffix as the value.
+                dBlock.Add "DatasheetGridlinesThemeColorIndex", Mid$(varParts(0), 24)
             End If
     
     End Select
     
-    ' If we have an ID, then add/update the current block dictionary
-    If strID <> vbNullString Then
-        
-        ' Get reference to last block in the stack
-        Set dBlock = m_colBlocks(lngCnt)
-        
-        ' Save the property name and line number for future reference.
-        dBlock(strID) = lngLine
-    End If
-
 End Sub
 
 
