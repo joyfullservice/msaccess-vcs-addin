@@ -14,6 +14,7 @@ Private Const ModuleName = "modSanitize"
 ' Array of lines to skip
 Private m_SkipLines() As Long
 Private m_lngSkipIndex As Long
+Private m_colBlocks As Collection
 
 
 '---------------------------------------------------------------------------------------
@@ -68,6 +69,7 @@ Public Sub SanitizeFile(strPath As String)
     ' Set up index of lines to skip
     ReDim m_SkipLines(0 To UBound(varLines)) As Long
     m_lngSkipIndex = 0
+    Set m_colBlocks = New Collection
 
     ' Initialize concatenation class to include line breaks
     ' after each line that we add when building new file text.
@@ -131,15 +133,20 @@ Public Sub SanitizeFile(strPath As String)
                         ' Reached the end of the ignored block.
                         blnInsideIgnoredBlock = False
                         SkipLine lngLine
+                    Else
+                        ' Check for theme color index
+                        CloseBlock
                     End If
                 
                 ' See if this file is from a report object
                 Case "Begin Report"
                     ' Turn flag on to ignore Right and Bottom lines
                     blnIsReport = True
+                    BeginBlock
                 
                 ' Beginning of main section
                 Case "Begin"
+                    BeginBlock
                     If blnIsPassThroughQuery And Options.AggressiveSanitize Then
                         ' Ignore remaining content. (See Issue #182)
                         Do While lngLine < UBound(varLines)
@@ -148,6 +155,11 @@ Public Sub SanitizeFile(strPath As String)
                         Loop
                         Exit Do
                     End If
+                
+                ' Code section behind form or report object
+                Case "CodeBehindForm"
+                    ' Keep everything from this point on
+                    Exit Do
                 
                 Case Else
                     If blnInsideIgnoredBlock Then
@@ -175,8 +187,13 @@ Public Sub SanitizeFile(strPath As String)
                         ' Turn flag back off now that we have ignored these two lines.
                         SkipLine lngLine
                         blnIsReport = False
+                    ElseIf StartsWith(strTLine, "Begin ") Or EndsWith(strTLine, " = Begin") Then
+                        BeginBlock
                     Else
                         ' All other lines will be added.
+                        
+                        ' Check for color properties
+                        If InStr(1, strTLine, " =") > 1 Then CheckColorProperties strTLine, lngLine
                         
                         ' Check for pass-through query connection string
                         If StartsWith(strLine, "dbMemo ""Connect"" =""") Then
@@ -190,6 +207,12 @@ Public Sub SanitizeFile(strPath As String)
         ' Increment counter to next line
         lngLine = lngLine + 1
     Loop
+    
+    ' Ensure that we correctly processed the nested block sequence.
+    If m_colBlocks.Count > 0 Then Log.Error eelWarning, Replace(Replace( _
+        "Found ${BlockCount} unclosed blocks after sanitizing ${File}.", _
+        "${BlockCount}", m_colBlocks.Count), _
+        "${File}", strPath), ModuleName & ".SanitizeFile"
     
     ' Build the final output
     BuildOutput varLines, strPath
@@ -263,6 +286,131 @@ Private Function SkipLine(lngLine As Long)
     m_SkipLines(m_lngSkipIndex) = lngLine
     m_lngSkipIndex = m_lngSkipIndex + 1
 End Function
+
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BeginBlock
+' Author    : Adam Waller
+' Date      : 6/4/2021
+' Purpose   : Add a dictionary object to represent the block
+'---------------------------------------------------------------------------------------
+'
+Private Sub BeginBlock()
+    Dim dBlock As Dictionary
+    If m_colBlocks Is Nothing Then Set m_colBlocks = New Collection
+    Set dBlock = New Dictionary
+    m_colBlocks.Add dBlock
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CloseBlock
+' Author    : Adam Waller
+' Date      : 6/4/2021
+' Purpose   : Determine if the block used any theme-based dynamic colors that should
+'           : be skipped in the output file. (See issue #183)
+'---------------------------------------------------------------------------------------
+'
+Private Sub CloseBlock()
+    
+    Dim varBase As Variant
+    Dim intCnt As Integer
+    Dim dBlock As Dictionary
+    Dim strKey As String
+    
+    ' Bail out if we don't have a block to review
+    If m_colBlocks Is Nothing Then Exit Sub
+    If m_colBlocks.Count = 0 Then Exit Sub
+    Set dBlock = m_colBlocks(m_colBlocks.Count)
+    
+    ' Build array of base properties
+    varBase = Array("Back", "AlternateBack", "Border", _
+            "Fore", "Gridline", "HoverFore", _
+            "Hover", "PressedFore", "Pressed", _
+            "DatasheetGridlines")
+    
+    ' Loop through properties, checking for index
+    For intCnt = 0 To UBound(varBase)
+        strKey = varBase(intCnt) & "ThemeColorIndex"
+        If dBlock.Exists(strKey) Then
+            ' Check for corresponding color property
+            strKey = varBase(intCnt) & "Color"
+            If dBlock.Exists(strKey) Then
+                ' Skip the dynamic color line
+                SkipLine dBlock(strKey)
+            End If
+        End If
+    Next intCnt
+    
+    ' Remove this block
+    m_colBlocks.Remove m_colBlocks.Count
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckColorProperties
+' Author    : Adam Waller
+' Date      : 6/4/2021
+' Purpose   : Use an index to reference color properties so we can determine any lines
+'           : that we need to discard after finishing the block.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
+
+    Dim dBlock As Dictionary
+    Dim varParts As Variant
+    Dim lngCnt As Long
+    Dim lngID As Long
+    Dim strID As String
+    
+    ' Exit if we are not inside a block
+    If Not m_colBlocks Is Nothing Then lngCnt = m_colBlocks.Count
+    If lngCnt = 0 Then Exit Sub
+    
+    ' Split on property/value
+    varParts = Split(strTLine, " =")
+    Select Case varParts(0)
+        
+        ' Theme color index properties
+        Case "BackThemeColorIndex", "AlternateBackThemeColorIndex", "BorderThemeColorIndex", _
+            "ForeThemeColorIndex", "GridlineThemeColorIndex", "HoverForeThemeColorIndex", _
+            "HoverThemeColorIndex", "PressedForeThemeColorIndex", "PressedThemeColorIndex"
+            ' Save to dictionary if using a theme index color
+            If varParts(1) <> -1 Then strID = varParts(0)
+    
+        ' Matching color properties
+        Case "BackColor", "AlternateBackColor", "BorderColor", _
+            "ForeColor", "GridlineColor", "HoverForeColor", _
+            "HoverColor", "PressedForeColor", "PressedColor"
+            ' Save line of color property
+            strID = varParts(0)
+        
+        ' Other color properties
+        Case "DatasheetGridlinesColor"
+            strID = varParts(0)
+            
+        Case Else
+            ' Check for other related dynamic color properties/indexes
+            If StartsWith(strTLine, "DatasheetGridlinesColor") Then
+                ' May include the index number in the property name. (I.e. DatasheetGridlinesColor12 =0)
+                strID = "DatasheetGridlinesThemeColorIndex"
+            End If
+    
+    End Select
+    
+    ' If we have an ID, then add/update the current block dictionary
+    If strID <> vbNullString Then
+        
+        ' Get reference to last block in the stack
+        Set dBlock = m_colBlocks(lngCnt)
+        
+        ' Save the property name and line number for future reference.
+        dBlock(strID) = lngLine
+    End If
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
