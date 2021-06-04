@@ -333,6 +333,7 @@ Private Sub CloseBlock()
     Set dBlock = m_colBlocks(m_colBlocks.Count)
     
     ' Skip if we are not using themes for this control (UseTheme=0)
+    ' (Applies to "CommandButton", "Tab", "ToggleButton")
     If dBlock.Exists("UseTheme") Then Exit Sub
     
     ' Build array of base properties
@@ -354,16 +355,13 @@ Private Sub CloseBlock()
                 End If
             End If
         Else
-            ' Certain controls may automatically use theme indexes
+            ' Controls may automatically use theme indexes
             ' unless otherwise specified.
-            Select Case dNZ(dBlock, "Type")
-                Case "CommandButton", "Tab", "ToggleButton"
-                    strKey = varBase(intCnt) & "Color"
-                    If dBlock.Exists(strKey) Then
-                        ' Skip the dynamic color line
-                        SkipLine dBlock(strKey)
-                    End If
-            End Select
+            strKey = varBase(intCnt) & "Color"
+            If dBlock.Exists(strKey) Then
+                ' Skip the dynamic color line
+                SkipLine dBlock(strKey)
+            End If
         End If
     Next intCnt
     
@@ -659,4 +657,5 @@ Private Function FormatXML(strSourceXML As String, _
     Perf.OperationEnd
     
 End Function
+
 
