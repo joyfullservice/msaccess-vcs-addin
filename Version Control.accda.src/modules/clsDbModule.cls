@@ -69,13 +69,74 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim proj As VBProject
     Dim strTempFile As String
+    Dim strLines() As String
+    Dim lngLine As Long
+    Dim cData As clsConcat
+    Dim blnIsClass As Boolean
+    Dim blnHasHeader As Boolean
     
     ' Only import files with the correct extension.
-    If Not strFile Like "*.bas" Then Exit Sub
+    If Not (strFile Like "*.bas" Or strFile Like "*.cls") Then Exit Sub
     
-    ' Convert back to ANSI from UTF-8
+    ' Log performance of file conversion
+    Perf.OperationStart "Enc. Module as " & GetSystemEncoding
+    
+    ' Read file contents into array of lines
+    strLines = Split(ReadFile(strFile), vbCrLf)
+    
+    ' Loop through first 10 lines to determine type and header
+    For lngLine = 0 To 9
+        If strLines(lngLine) = "VERSION 1.0 CLASS" Then
+            ' Class with VBE header
+            blnIsClass = True
+            blnHasHeader = True
+            Exit For
+        ElseIf StartsWith(strLines(lngLine), "Attribute VB_Name = """) Then
+            ' Module with VBE header
+            blnHasHeader = True
+            Exit For
+        ElseIf StartsWith(strLines(lngLine), "Attribute VB_GlobalNameSpace = ") Then
+            ' Class with no header
+            blnIsClass = True
+            Exit For
+        End If
+    Next lngLine
+    
+    ' Use concatenation class to build file contents
+    Set cData = New clsConcat
+    With cData
+        .AppendOnAdd = vbCrLf
+        
+        ' Build header, if needed
+        If Not blnHasHeader Then
+            If blnIsClass Then
+                .Add "VERSION 1.0 CLASS"
+                .Add "BEGIN"
+                .Add "  MultiUse = -1  'True"
+                .Add "END"
+            End If
+            .Add "Attribute VB_Name = """, GetObjectNameFromFileName(strFile), """"
+        End If
+    
+        ' Add in file contents
+        For lngLine = 0 To UBound(strLines)
+            .Add strLines(lngLine)
+        Next lngLine
+    End With
+    
+    ' Write to a new file using system encoding (converting from UTF-8)
     strTempFile = GetTempFile
-    ConvertUtf8Ansi strFile, strTempFile, False
+    With New ADODB.Stream
+        .Type = adTypeText
+        .Open
+        .Charset = GetSystemEncoding
+        .WriteText cData.GetStr
+        ' Write to disk
+        .SaveToFile strTempFile, adSaveCreateOverWrite
+        .Close
+    End With
+    
+    Perf.OperationEnd
     
     ' Import the source file
     Set proj = GetVBProjectForCurrentDB
@@ -369,3 +430,4 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
