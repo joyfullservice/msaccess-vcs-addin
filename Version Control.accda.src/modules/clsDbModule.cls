@@ -123,6 +123,9 @@ Private Sub IDbComponent_Import(strFile As String)
         For lngLine = 0 To UBound(strLines)
             .Add strLines(lngLine)
         Next lngLine
+        
+        ' Remove trailing vbCrLf
+        .Remove 2
     End With
     
     ' Write to a new file using system encoding (converting from UTF-8)
