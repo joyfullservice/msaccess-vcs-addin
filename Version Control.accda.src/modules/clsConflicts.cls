@@ -168,3 +168,4 @@ Private Sub Class_Initialize()
     Set m_Items = New Collection
     Me.ApproveResolutions = False
 End Sub
+

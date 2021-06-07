@@ -56,3 +56,4 @@ Private Function RemoveFromItemList()
             If ItemList.Exists(Me.FileName) Then ItemList.Remove (Me.FileName)
     End Select
 End Function
+
