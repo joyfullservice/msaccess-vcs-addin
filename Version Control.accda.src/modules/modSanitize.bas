@@ -420,9 +420,10 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
             
             ' Check for system color constants
             If IsNumeric(varParts(1)) Then lngColor = varParts(1)
-            If lngColor <= vbInfoBackground And lngColor >= vbScrollBars Then
-                ' Using a system color constant (see VBA.SystemColorConstants)
-                ' Leave this value intact
+            If lngColor < 0 Then
+                ' Using a system color constant or other Access constant value.
+                ' https://stackoverflow.com/a/30396550/4121863
+                ' Leave this color value intact.
             Else
                 ' Save line of color property
                 dBlock.Add varParts(0), lngLine
