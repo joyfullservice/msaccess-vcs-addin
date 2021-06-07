@@ -18,8 +18,8 @@ Begin Form
     ItemSuffix =32
     Left =3225
     Top =2430
-    Right =18945
-    Bottom =14175
+    Right =22695
+    Bottom =15015
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -136,7 +136,9 @@ Begin Form
         End
         Begin Section
             Height =6480
+            BackColor =15130848
             Name ="Detail"
+            AlternateBackColor =15130848
             Begin
                 Begin Line
                     BorderWidth =5

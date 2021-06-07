@@ -16,10 +16,10 @@ Begin Form
     Width =10170
     DatasheetFontHeight =11
     ItemSuffix =232
-    Left =-25575
-    Top =1710
-    Right =-255
-    Bottom =14295
+    Left =3225
+    Top =2430
+    Right =22695
+    Bottom =15015
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -205,7 +205,9 @@ Begin Form
         End
         Begin Section
             Height =7200
+            BackColor =15130848
             Name ="Detail"
+            AlternateBackColor =15130848
             Begin
                 Begin Line
                     BorderWidth =5
