@@ -173,6 +173,7 @@ Public Sub SanitizeFile(strPath As String)
                         ' Since the value could span multiple lines, we need to
                         ' check the indent level of the following lines to see how
                         ' many lines to skip.
+                        SkipLine lngLine
                         intIndent = GetIndent(strLine)
                         ' Preview the next line, and check the indent level
                         Do While GetIndent(varLines(lngLine + 1)) > intIndent
