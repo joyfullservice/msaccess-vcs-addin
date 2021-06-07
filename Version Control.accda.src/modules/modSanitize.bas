@@ -176,8 +176,8 @@ Public Sub SanitizeFile(strPath As String)
                         intIndent = GetIndent(strLine)
                         ' Preview the next line, and check the indent level
                         Do While GetIndent(varLines(lngLine + 1)) > intIndent
-                            ' Skip and move to next line
-                            SkipLine lngLine
+                            ' Skip previewed line and move to next line
+                            SkipLine lngLine + 1
                             lngLine = lngLine + 1
                         Loop
                     ElseIf blnIsReport And StartsWith(strLine, "    Right =") Then
