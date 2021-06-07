@@ -1,0 +1,11 @@
+﻿{
+  "Info": {
+    "Class": "clsDbSharedImage",
+    "Description": "Shared Image Gallery Item"
+  },
+  "Items": {
+    "Name": "Colors",
+    "FileName": "Colors.jpg",
+    "Extension": "jpg"
+  }
+}
