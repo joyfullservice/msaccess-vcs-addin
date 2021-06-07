@@ -313,6 +313,7 @@ Public Sub ReEncodeFile(strInputFile As String, strInputCharset As String, _
     End With
     
     ' Save file and log performance
+    VerifyPath strOutputFile
     objOutputStream.SaveToFile strOutputFile, intOverwriteMode
     objOutputStream.Close
     Perf.OperationEnd
