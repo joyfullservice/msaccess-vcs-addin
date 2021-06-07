@@ -410,8 +410,17 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
             "ForeColor", "GridlineColor", "HoverForeColor", _
             "HoverColor", "PressedForeColor", "PressedColor", _
             "DatasheetBackColor", "DatasheetForeColor", "DatasheetGridlinesColor"
-            ' Save line of color property
-            dBlock.Add varParts(0), lngLine
+            
+            ' Check for system color constants
+            If IsNumeric(varParts(1)) Then lngColor = varParts(1)
+            If lngColor < 0 Then
+                ' Using a system color constant or other Access constant value.
+                ' https://stackoverflow.com/a/30396550/4121863
+                ' Leave this color value intact.
+            Else
+                ' Save line of color property
+                dBlock.Add varParts(0), lngLine
+            End If
         
         Case "UseTheme"
             ' You can certain controls to not use the theme. (Buttons, Tabs, Toggles)
