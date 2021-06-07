@@ -394,6 +394,7 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     Dim lngID As Long
     Dim strID As String
     Dim lngValue As Long
+    Dim lngColor As Long
     
     ' Exit if we are not inside a block
     If Not m_colBlocks Is Nothing Then lngCnt = m_colBlocks.Count
