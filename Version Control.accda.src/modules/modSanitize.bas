@@ -355,19 +355,20 @@ Private Sub CloseBlock()
                 End If
             End If
         Else
-            If dBlock("Type") = "Section" Then
-                ' Some controls like form sections don't use color values
-                ' if a theme index is specified. If a color value exists,
-                ' we should preserve it.
-            Else
-                ' Most controls automatically use theme indexes
-                ' unless otherwise specified.
-                strKey = varBase(intCnt) & "Color"
-                If dBlock.Exists(strKey) Then
-                    ' Skip the dynamic color line
-                    SkipLine dBlock(strKey)
-                End If
-            End If
+            Select Case dBlock("Type")
+                Case "Section", "FormHeader", "FormFooter"
+                    ' Some controls like form sections don't use color values
+                    ' if a theme index is specified. If a color value exists,
+                    ' we should preserve it.
+                Case Else
+                    ' Most controls automatically use theme indexes
+                    ' unless otherwise specified.
+                    strKey = varBase(intCnt) & "Color"
+                    If dBlock.Exists(strKey) Then
+                        ' Skip the dynamic color line
+                        SkipLine dBlock(strKey)
+                    End If
+            End Select
         End If
     Next intCnt
     
