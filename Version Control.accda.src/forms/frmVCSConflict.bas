@@ -21,7 +21,6 @@ Begin Form
     Top =2430
     Right =-6105
     Bottom =10335
-    DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -77,8 +76,6 @@ Begin Form
             BorderLineStyle =0
             SizeMode =3
             PictureAlignment =2
-            BorderColor =16777215
-            GridlineColor =16777215
             BackThemeColorIndex =1
             BorderThemeColorIndex =1
             BorderShade =65.0
@@ -99,7 +96,6 @@ Begin Form
             BackThemeColorIndex =4
             BackTint =60.0
             BorderLineStyle =0
-            BorderColor =16777215
             BorderThemeColorIndex =4
             BorderTint =60.0
             ThemeFontIndex =1
@@ -149,9 +145,7 @@ Begin Form
         Begin Section
             CanGrow = NotDefault
             Height =7920
-            BackColor =15130848
             Name ="Detail"
-            AlternateBackColor =15130848
             Begin
                 Begin Line
                     BorderWidth =5
@@ -160,7 +154,6 @@ Begin Form
                     Width =11520
                     BorderColor =15321539
                     Name ="Line10"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     LayoutCachedTop =1440
                     LayoutCachedWidth =11520
@@ -175,9 +168,7 @@ Begin Form
                     Width =11520
                     Height =1380
                     BackColor =5324600
-                    BorderColor =10921638
                     Name ="Box1"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     LayoutCachedWidth =11520
                     LayoutCachedHeight =1380
@@ -191,11 +182,8 @@ Begin Form
                     Height =540
                     FontSize =18
                     FontWeight =700
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="Label4"
                     Caption ="Resolve Conflicts to Continue..."
-                    GridlineColor =10921638
                     LayoutCachedLeft =420
                     LayoutCachedTop =300
                     LayoutCachedWidth =5145
@@ -210,11 +198,9 @@ Begin Form
                     Top =7080
                     Width =2100
                     Height =540
-                    ForeColor =4210752
                     Name ="cmdContinue"
                     Caption ="  Continue"
                     OnClick ="[Event Procedure]"
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     VerticalAnchor =1
                     ImageData = Begin
@@ -271,8 +257,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -286,11 +270,8 @@ Begin Form
                     Width =2940
                     Height =360
                     FontSize =10
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="lblVersion"
                     Caption ="Version Control System 3.3.37"
-                    GridlineColor =10921638
                     LayoutCachedLeft =600
                     LayoutCachedTop =840
                     LayoutCachedWidth =3540
@@ -303,10 +284,8 @@ Begin Form
                     Top =240
                     Width =840
                     Height =900
-                    BorderColor =10921638
                     Name ="Image32"
                     Picture ="iconfinder_error_6299.png"
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     ImageData = Begin
                         0x89504e470d0a1a0a0000000d4948445200000080000000800806000000c33e61 ,
@@ -675,12 +654,9 @@ Begin Form
                     Width =3960
                     Height =720
                     FontSize =10
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="lblHeaderExplain"
                     Caption ="WARNING: The following changes may be overwritten. Please select how you would l"
                         "ike to proceed."
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     LayoutCachedLeft =5700
                     LayoutCachedTop =360
@@ -698,11 +674,9 @@ Begin Form
                     Width =2100
                     Height =540
                     TabIndex =1
-                    ForeColor =4210752
                     Name ="cmdCancel"
                     Caption ="  Cancel"
                     OnClick ="[Event Procedure]"
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     VerticalAnchor =1
                     ImageData = Begin
@@ -759,8 +733,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -774,10 +746,8 @@ Begin Form
                     Width =10440
                     Height =4380
                     TabIndex =2
-                    BorderColor =10921638
                     Name ="tblConflict"
                     SourceObject ="Form.frmVCSConflictList"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     VerticalAnchor =2
 
@@ -794,11 +764,9 @@ Begin Form
                             Height =360
                             FontSize =14
                             FontWeight =700
-                            BorderColor =8355711
                             ForeColor =5324600
                             Name ="lblHeading"
                             Caption ="These source files have changed since the last export"
-                            GridlineColor =10921638
                             LayoutCachedLeft =960
                             LayoutCachedTop =1800
                             LayoutCachedWidth =10200
@@ -816,12 +784,9 @@ Begin Form
                     Top =6960
                     Width =1080
                     Height =300
-                    BorderColor =8355711
-                    ForeColor =12673797
                     Name ="lblSkipAll"
                     Caption ="Skip All"
                     HyperlinkAddress ="#"
-                    GridlineColor =10921638
                     VerticalAnchor =1
                     LayoutCachedLeft =960
                     LayoutCachedTop =6960
@@ -838,12 +803,9 @@ Begin Form
                     Top =6960
                     Width =1620
                     Height =300
-                    BorderColor =8355711
-                    ForeColor =12673797
                     Name ="Label45"
                     Caption ="Overwrite All"
                     HyperlinkAddress ="#"
-                    GridlineColor =10921638
                     VerticalAnchor =1
                     LayoutCachedLeft =2280
                     LayoutCachedTop =6960

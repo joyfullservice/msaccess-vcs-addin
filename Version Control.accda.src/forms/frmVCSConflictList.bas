@@ -16,9 +16,8 @@ Begin Form
     Width =5040
     DatasheetFontHeight =11
     ItemSuffix =31
-    Right =19725
-    Bottom =12840
-    DatasheetGridlinesColor =15132391
+    Right =25320
+    Bottom =12585
     RecSrcDt = Begin
         0x9bf1b7f2f3a6e540
     End
@@ -91,7 +90,6 @@ Begin Form
         End
         Begin EmptyCell
             Height =240
-            GridlineColor =12632256
             GridlineThemeColorIndex =1
             GridlineShade =65.0
         End
@@ -99,7 +97,6 @@ Begin Form
             Height =4117
             Name ="Detail"
             AutoHeight =1
-            AlternateBackColor =15921906
             AlternateBackThemeColorIndex =1
             AlternateBackShade =95.0
             BackThemeColorIndex =1
@@ -118,13 +115,10 @@ Begin Form
                     TopMargin =22
                     RightMargin =44
                     BottomMargin =22
-                    BorderColor =10921638
-                    ForeColor =4210752
                     Name ="txtComponent"
                     ControlSource ="Component"
                     GroupTable =1
                     BottomPadding =150
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =1695
                     LayoutCachedTop =360
@@ -146,13 +140,10 @@ Begin Form
                             TopMargin =22
                             RightMargin =44
                             BottomMargin =22
-                            BorderColor =8355711
-                            ForeColor =8355711
                             Name ="Label3"
                             Caption ="Component"
                             GroupTable =1
                             BottomPadding =150
-                            GridlineColor =10921638
                             LayoutCachedLeft =360
                             LayoutCachedTop =360
                             LayoutCachedWidth =1635
@@ -177,13 +168,10 @@ Begin Form
                     TopMargin =22
                     RightMargin =44
                     BottomMargin =22
-                    BorderColor =10921638
-                    ForeColor =4210752
                     Name ="txtFileName"
                     ControlSource ="FileName"
                     GroupTable =1
                     BottomPadding =150
-                    GridlineColor =10921638
                     AggregateType =2
 
                     LayoutCachedLeft =1695
@@ -208,13 +196,10 @@ Begin Form
                             TopMargin =22
                             RightMargin =44
                             BottomMargin =22
-                            BorderColor =8355711
-                            ForeColor =8355711
                             Name ="Label6"
                             Caption ="FileName"
                             GroupTable =1
                             BottomPadding =150
-                            GridlineColor =10921638
                             LayoutCachedLeft =360
                             LayoutCachedTop =900
                             LayoutCachedWidth =1635
@@ -240,13 +225,10 @@ Begin Form
                     TopMargin =22
                     RightMargin =44
                     BottomMargin =22
-                    BorderColor =10921638
-                    ForeColor =4210752
                     Name ="txtObjectDate"
                     ControlSource ="ObjectDate"
                     GroupTable =1
                     BottomPadding =150
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =1695
                     LayoutCachedTop =1440
@@ -270,13 +252,10 @@ Begin Form
                             TopMargin =22
                             RightMargin =44
                             BottomMargin =22
-                            BorderColor =8355711
-                            ForeColor =8355711
                             Name ="Label9"
                             Caption ="ObjectDate"
                             GroupTable =1
                             BottomPadding =150
-                            GridlineColor =10921638
                             LayoutCachedLeft =360
                             LayoutCachedTop =1440
                             LayoutCachedWidth =1635
@@ -302,13 +281,10 @@ Begin Form
                     TopMargin =22
                     RightMargin =44
                     BottomMargin =22
-                    BorderColor =10921638
-                    ForeColor =4210752
                     Name ="txtFileDate"
                     ControlSource ="FileDate"
                     GroupTable =1
                     BottomPadding =150
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =1695
                     LayoutCachedTop =1980
@@ -332,13 +308,10 @@ Begin Form
                             TopMargin =22
                             RightMargin =44
                             BottomMargin =22
-                            BorderColor =8355711
-                            ForeColor =8355711
                             Name ="Label12"
                             Caption ="FileDate"
                             GroupTable =1
                             BottomPadding =150
-                            GridlineColor =10921638
                             LayoutCachedLeft =360
                             LayoutCachedTop =1980
                             LayoutCachedWidth =1635
@@ -367,14 +340,11 @@ Begin Form
                     TopMargin =22
                     RightMargin =44
                     BottomMargin =22
-                    BorderColor =10921638
-                    ForeColor =12673797
                     Name ="txtDiff"
                     ControlSource ="Diff"
                     OnClick ="[Event Procedure]"
                     GroupTable =1
                     BottomPadding =150
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =1695
                     LayoutCachedTop =3060
@@ -400,13 +370,10 @@ Begin Form
                             TopMargin =22
                             RightMargin =44
                             BottomMargin =22
-                            BorderColor =8355711
-                            ForeColor =8355711
                             Name ="Label18"
                             Caption ="Diff"
                             GroupTable =1
                             BottomPadding =150
-                            GridlineColor =10921638
                             LayoutCachedLeft =360
                             LayoutCachedTop =3060
                             LayoutCachedWidth =1635
@@ -430,15 +397,12 @@ Begin Form
                     Width =2625
                     Height =360
                     TabIndex =4
-                    BorderColor =10921638
-                    ForeColor =4210752
                     Name ="cboResolution"
                     ControlSource ="Resolution"
                     RowSourceType ="Value List"
                     ColumnWidths ="0"
                     GroupTable =1
                     BottomPadding =150
-                    GridlineColor =10921638
                     LeftMargin =44
                     TopMargin =22
                     RightMargin =44
@@ -469,13 +433,10 @@ Begin Form
                             TopMargin =22
                             RightMargin =44
                             BottomMargin =22
-                            BorderColor =8355711
-                            ForeColor =8355711
                             Name ="Label15"
                             Caption ="Resolution"
                             GroupTable =1
                             BottomPadding =150
-                            GridlineColor =10921638
                             LayoutCachedLeft =360
                             LayoutCachedTop =2520
                             LayoutCachedWidth =1635
@@ -509,8 +470,8 @@ Option Explicit
 '
 Private Sub Form_Load()
     With cboResolution
-        .AddItem eResolveConflict.ercSkip & ";" & T("Skip")
-        .AddItem eResolveConflict.ercOverwrite & ";" & T("Overwrite")
+        .AddItem eResolveConflict.ercSkip & ";" & "Skip"
+        .AddItem eResolveConflict.ercOverwrite & ";" & "Overwrite"
     End With
 End Sub
 
