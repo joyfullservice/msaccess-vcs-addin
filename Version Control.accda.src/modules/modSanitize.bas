@@ -387,6 +387,7 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     Dim lngID As Long
     Dim strID As String
     Dim lngValue As Long
+    Dim lngColor As Long
     
     ' Exit if we are not inside a block
     If Not m_colBlocks Is Nothing Then lngCnt = m_colBlocks.Count
@@ -410,8 +411,16 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
             "ForeColor", "GridlineColor", "HoverForeColor", _
             "HoverColor", "PressedForeColor", "PressedColor", _
             "DatasheetBackColor", "DatasheetForeColor", "DatasheetGridlinesColor"
-            ' Save line of color property
-            dBlock.Add varParts(0), lngLine
+            
+            ' Check for system color constants
+            If IsNumeric(varParts(1)) Then lngColor = varParts(1)
+            If lngColor <= vbInfoBackground And lngColor >= vbScrollBars Then
+                ' Using a system color constant (see VBA.SystemColorConstants)
+                ' Leave this value intact
+            Else
+                ' Save line of color property
+                dBlock.Add varParts(0), lngLine
+            End If
         
         Case "UseTheme"
             ' You can certain controls to not use the theme. (Buttons, Tabs, Toggles)
@@ -657,5 +666,6 @@ Private Function FormatXML(strSourceXML As String, _
     Perf.OperationEnd
     
 End Function
+
 
 
