@@ -39,11 +39,18 @@ Implements IDbComponent
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim strTempFile As String
+    Dim strExt As String
+    Dim strAlternateFile As String
 
     ' Export to temp file and convert to UTF-8 encoding
     strTempFile = GetTempFile
     ExportVbComponent strTempFile
     ConvertAnsiUtf8 strTempFile, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    
+    ' Remove any file with the same name but alternate extension
+    strExt = IIf(GetExtension = ".bas", ".cls", ".bas")
+    strAlternateFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & strExt
+    If FSO.FileExists(strAlternateFile) Then DeleteFile strAlternateFile
     
     ' Update the index with the current VBA hash. (Note, this will not show
     ' changes to the hidden VBE properties that might have been added.)
@@ -63,13 +70,74 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim proj As VBProject
     Dim strTempFile As String
+    Dim strLines() As String
+    Dim lngLine As Long
+    Dim cData As clsConcat
+    Dim blnIsClass As Boolean
+    Dim blnHasHeader As Boolean
     
     ' Only import files with the correct extension.
-    If Not strFile Like "*.bas" Then Exit Sub
+    If Not (strFile Like "*.bas" Or strFile Like "*.cls") Then Exit Sub
     
-    ' Convert back to ANSI from UTF-8
+    ' Log performance of file conversion
+    Perf.OperationStart "Enc. Module as " & GetSystemEncoding
+    
+    ' Read file contents into array of lines
+    strLines = Split(ReadFile(strFile), vbCrLf)
+    
+    ' Loop through first 10 lines to determine type and header
+    For lngLine = 0 To 9
+        If strLines(lngLine) = "VERSION 1.0 CLASS" Then
+            ' Class with VBE header
+            blnIsClass = True
+            blnHasHeader = True
+            Exit For
+        ElseIf StartsWith(strLines(lngLine), "Attribute VB_Name = """) Then
+            ' Module with VBE header
+            blnHasHeader = True
+            Exit For
+        ElseIf StartsWith(strLines(lngLine), "Attribute VB_GlobalNameSpace = ") Then
+            ' Class with no header
+            blnIsClass = True
+            Exit For
+        End If
+    Next lngLine
+    
+    ' Use concatenation class to build file contents
+    Set cData = New clsConcat
+    With cData
+        .AppendOnAdd = vbCrLf
+        
+        ' Build header, if needed
+        If Not blnHasHeader Then
+            If blnIsClass Then
+                .Add "VERSION 1.0 CLASS"
+                .Add "BEGIN"
+                .Add "  MultiUse = -1  'True"
+                .Add "END"
+            End If
+            .Add "Attribute VB_Name = """, GetObjectNameFromFileName(strFile), """"
+        End If
+    
+        ' Add in file contents
+        For lngLine = 0 To UBound(strLines)
+            .Add strLines(lngLine)
+        Next lngLine
+    End With
+    
+    ' Write to a new file using system encoding (converting from UTF-8)
     strTempFile = GetTempFile
-    ConvertUtf8Ansi strFile, strTempFile, False
+    With New ADODB.Stream
+        .Type = adTypeText
+        .Open
+        .Charset = GetSystemEncoding
+        .WriteText cData.GetStr
+        ' Write to disk
+        .SaveToFile strTempFile, adSaveCreateOverWrite
+        .Close
+    End With
+    
+    Perf.OperationEnd
     
     ' Import the source file
     Set proj = GetVBProjectForCurrentDB
@@ -160,6 +228,7 @@ End Function
 '
 Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+    MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.cls")
 End Function
 
 
@@ -171,7 +240,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFiles Me, "bas"
+    ClearOrphanedSourceFiles Me, "bas", "cls"
 End Sub
 
 
@@ -266,8 +335,24 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & ".bas"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & GetExtension
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetExtension
+' Author    : Adam Waller
+' Date      : 6/4/2021
+' Purpose   : Return the extension (".cls" or ".bas") based on the component type.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetExtension() As String
+    If m_Module.Type = vbext_ct_StdModule Then
+        GetExtension = ".bas"
+    Else
+        GetExtension = ".cls"
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -346,3 +431,4 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
