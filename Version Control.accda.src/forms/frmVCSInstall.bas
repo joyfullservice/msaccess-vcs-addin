@@ -17,11 +17,10 @@ Begin Form
     GridY =24
     DatasheetFontHeight =11
     ItemSuffix =39
-    Left =-25575
-    Top =1710
-    Right =-255
-    Bottom =14295
-    DatasheetGridlinesColor =15132391
+    Left =3225
+    Top =2430
+    Right =22695
+    Bottom =15015
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -77,8 +76,6 @@ Begin Form
             BorderLineStyle =0
             SizeMode =3
             PictureAlignment =2
-            BorderColor =16777215
-            GridlineColor =16777215
             BackThemeColorIndex =1
             BorderThemeColorIndex =1
             BorderShade =65.0
@@ -99,7 +96,6 @@ Begin Form
             BackThemeColorIndex =4
             BackTint =60.0
             BorderLineStyle =0
-            BorderColor =16777215
             BorderThemeColorIndex =4
             BorderTint =60.0
             ThemeFontIndex =1
@@ -151,7 +147,6 @@ Begin Form
                     Width =7200
                     BorderColor =15321539
                     Name ="Line10"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     LayoutCachedTop =1230
                     LayoutCachedWidth =7200
@@ -166,9 +161,7 @@ Begin Form
                     Width =7200
                     Height =1200
                     BackColor =5324600
-                    BorderColor =10921638
                     Name ="Box1"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     LayoutCachedWidth =7200
                     LayoutCachedHeight =1200
@@ -182,11 +175,8 @@ Begin Form
                     Height =540
                     FontSize =18
                     FontWeight =700
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="Label4"
                     Caption ="Version Control System"
-                    GridlineColor =10921638
                     LayoutCachedLeft =420
                     LayoutCachedTop =180
                     LayoutCachedWidth =4995
@@ -202,12 +192,10 @@ Begin Form
                     Width =2400
                     Height =780
                     TabIndex =1
-                    ForeColor =4210752
                     Name ="cmdInstall"
                     Caption ="   Install Add-In"
                     OnClick ="[Event Procedure]"
                     Picture ="Export.png"
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x89504e470d0a1a0a0000000d494844520000001e0000001e08060000003b30ae ,
                         0xa2000031697a5458745261772070726f66696c65207479706520657869660000 ,
@@ -703,8 +691,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -719,11 +705,9 @@ Begin Form
                     Height =360
                     FontSize =14
                     FontWeight =700
-                    BorderColor =8355711
                     ForeColor =5324600
                     Name ="lblHeading"
                     Caption ="Install Add-In"
-                    GridlineColor =10921638
                     LayoutCachedLeft =540
                     LayoutCachedTop =1680
                     LayoutCachedWidth =2640
@@ -738,13 +722,11 @@ Begin Form
                     Width =3060
                     Height =1440
                     FontSize =10
-                    BorderColor =8355711
                     ForeColor =5324600
                     Name ="lblSubheading"
                     Caption ="Click the Install button to install or update the add-in.\015\012\015\012In some"
                         " more secure environments, you may need to use one or both of the additional opt"
                         "ions."
-                    GridlineColor =10921638
                     LayoutCachedLeft =540
                     LayoutCachedTop =2160
                     LayoutCachedWidth =3600
@@ -759,11 +741,8 @@ Begin Form
                     Width =2940
                     Height =360
                     FontSize =10
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="lblVersion"
                     Caption ="Version 3.2.3"
-                    GridlineColor =10921638
                     LayoutCachedLeft =600
                     LayoutCachedTop =720
                     LayoutCachedWidth =3540
@@ -778,11 +757,8 @@ Begin Form
                     Width =3375
                     Height =240
                     FontSize =10
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="Label32"
                     Caption ="joyfullservice/msaccess-vcs-integration"
-                    GridlineColor =10921638
                     VerticalAnchor =1
                     LayoutCachedLeft =300
                     LayoutCachedTop =4260
@@ -800,10 +776,8 @@ Begin Form
                     Top =120
                     Width =840
                     Height =900
-                    BorderColor =10921638
                     Name ="Image32"
                     Picture ="adept_installer_7039.png"
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x89504e470d0a1a0a0000000d4948445200000080000000800806000000c33e61 ,
                         0xcb00000006624b474400ff00ff00ffa0bda793000000097048597300002e2300 ,
@@ -1342,10 +1316,8 @@ Begin Form
                     Left =4440
                     Top =2970
                     TabIndex =2
-                    BorderColor =10921638
                     Name ="chkAddTrustedLocation"
                     DefaultValue ="True"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =4440
                     LayoutCachedTop =2970
@@ -1359,11 +1331,9 @@ Begin Form
                             Width =1935
                             Height =315
                             FontSize =10
-                            BorderColor =8355711
                             ForeColor =5324600
                             Name ="Label34"
                             Caption ="Trust Add-In Folder"
-                            GridlineColor =10921638
                             LayoutCachedLeft =4725
                             LayoutCachedTop =2940
                             LayoutCachedWidth =6660
@@ -1379,10 +1349,8 @@ Begin Form
                     Left =4440
                     Top =3390
                     TabIndex =3
-                    BorderColor =10921638
                     Name ="chkOpenAfterInstall"
                     DefaultValue ="False"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =4440
                     LayoutCachedTop =3390
@@ -1396,11 +1364,9 @@ Begin Form
                             Width =1935
                             Height =465
                             FontSize =10
-                            BorderColor =8355711
                             ForeColor =5324600
                             Name ="Label36"
                             Caption ="Open after install to \015\012trust add-in file"
-                            GridlineColor =10921638
                             LayoutCachedLeft =4725
                             LayoutCachedTop =3360
                             LayoutCachedWidth =6660
@@ -1419,11 +1385,9 @@ Begin Form
                     Width =2160
                     FontSize =9
                     TabIndex =4
-                    ForeColor =12673797
                     Name ="cmdExplainOptions"
                     Caption ="Explain options..."
                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Installation"
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x000000000000000000000000000000000000000000000000e0e8e000e0c8b000 ,
@@ -1483,8 +1447,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =2
@@ -1497,11 +1459,9 @@ Begin Form
                     Width =3060
                     Height =300
                     FontSize =10
-                    BorderColor =8355711
                     ForeColor =5324600
                     Name ="lblInstalled"
                     Caption ="Version x.x is currently installed."
-                    GridlineColor =10921638
                     LayoutCachedLeft =540
                     LayoutCachedTop =3720
                     LayoutCachedWidth =3600
@@ -1518,21 +1478,13 @@ Begin Form
                     Top =120
                     Width =240
                     Height =180
-                    ForeColor =4210752
                     Name ="cmdCancel"
                     OnClick ="[Event Procedure]"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =6840
                     LayoutCachedTop =120
                     LayoutCachedWidth =7080
                     LayoutCachedHeight =300
-                    BackColor =14461583
-                    BorderColor =14461583
-                    HoverColor =15189940
-                    PressedColor =9917743
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
