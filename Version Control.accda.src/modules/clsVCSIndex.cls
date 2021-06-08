@@ -352,15 +352,16 @@ Public Function GetFilePropertyHash(strFile As String) As String
 
     Dim oFile As Scripting.File
     
-    If Not FSO.FileExists(strFile) Then Exit Function
-    Perf.OperationStart "Get File Property Hash"
-    Set oFile = FSO.GetFile(strFile)
-    
-    With New clsConcat
-        .Add oFile.DateLastModified, oFile.Size
-        GetFilePropertyHash = GetStringHash(.GetStr)
-    End With
-    Perf.OperationEnd
+    If FSO.FileExists(strFile) Then
+        Perf.OperationStart "Get File Property Hash"
+        Set oFile = FSO.GetFile(strFile)
+        
+        With New clsConcat
+            .Add oFile.DateLastModified, oFile.Size
+            GetFilePropertyHash = GetStringHash(.GetStr)
+        End With
+        Perf.OperationEnd
+    End If
 
 End Function
 
