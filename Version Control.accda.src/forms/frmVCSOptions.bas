@@ -20,7 +20,6 @@ Begin Form
     Top =1710
     Right =-255
     Bottom =14295
-    DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -76,8 +75,6 @@ Begin Form
             BorderLineStyle =0
             SizeMode =3
             PictureAlignment =2
-            BorderColor =16777215
-            GridlineColor =16777215
             BackThemeColorIndex =1
             BorderThemeColorIndex =1
             BorderShade =65.0
@@ -98,7 +95,6 @@ Begin Form
             BackThemeColorIndex =4
             BackTint =60.0
             BorderLineStyle =0
-            BorderColor =16777215
             BorderThemeColorIndex =4
             BorderTint =60.0
             ThemeFontIndex =1
@@ -190,7 +186,6 @@ Begin Form
             BackThemeColorIndex =1
             BackShade =85.0
             BorderLineStyle =0
-            BorderColor =16777215
             BorderThemeColorIndex =2
             BorderTint =60.0
             HoverThemeColorIndex =1
@@ -221,7 +216,6 @@ Begin Form
                     Width =10080
                     BorderColor =15321539
                     Name ="Line10"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     LayoutCachedTop =1080
                     LayoutCachedWidth =10080
@@ -236,9 +230,7 @@ Begin Form
                     Width =10080
                     Height =1020
                     BackColor =5324600
-                    BorderColor =10921638
                     Name ="Box1"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     LayoutCachedWidth =10080
                     LayoutCachedHeight =1020
@@ -252,11 +244,8 @@ Begin Form
                     Height =540
                     FontSize =18
                     FontWeight =700
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="lblOptions"
                     Caption ="Options"
-                    GridlineColor =10921638
                     LayoutCachedLeft =540
                     LayoutCachedTop =240
                     LayoutCachedWidth =4560
@@ -272,11 +261,8 @@ Begin Form
                     Width =2040
                     Height =240
                     FontSize =10
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="Label9"
                     Caption ="Version Control System "
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     LayoutCachedLeft =7140
                     LayoutCachedTop =300
@@ -292,7 +278,6 @@ Begin Form
                     Top =6540
                     Width =1500
                     Height =420
-                    ForeColor =4210752
                     Name ="cmdCancel"
                     Caption ="Cancel"
                     OnClick ="[Event Procedure]"
@@ -300,7 +285,6 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     VerticalAnchor =1
 
@@ -320,8 +304,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =9
                     WebImagePaddingTop =9
                     WebImagePaddingRight =9
@@ -335,7 +317,6 @@ Begin Form
                     Width =1860
                     Height =420
                     TabIndex =1
-                    ForeColor =4210752
                     Name ="cmdSaveAndClose"
                     Caption =" Save && Close"
                     OnClick ="[Event Procedure]"
@@ -343,7 +324,6 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     VerticalAnchor =1
                     ImageData = Begin
@@ -400,8 +380,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =9
                     WebImagePaddingTop =9
                     WebImagePaddingRight =9
@@ -416,7 +394,6 @@ Begin Form
                     Height =4740
                     TabIndex =2
                     Name ="tabOptions"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     VerticalAnchor =2
 
@@ -437,9 +414,6 @@ Begin Form
                     HoverThemeColorIndex =-1
                     PressedColor =15130848
                     PressedThemeColorIndex =-1
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
-                    ForeColor =4210752
                     Begin
                         Begin Page
                             OverlapFlags =87
@@ -447,10 +421,8 @@ Begin Form
                             Top =1980
                             Width =8850
                             Height =4185
-                            BorderColor =10921638
                             Name ="pgeGeneral"
                             Caption ="General"
-                            GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
@@ -464,9 +436,7 @@ Begin Form
                                     OverlapFlags =215
                                     Left =1020
                                     Top =4020
-                                    BorderColor =10921638
                                     Name ="chkShowDebug"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =4020
@@ -479,11 +449,9 @@ Begin Form
                                             Top =3960
                                             Width =2640
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label23"
                                             Caption ="Show Detailed Output"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =3960
                                             LayoutCachedWidth =3960
@@ -498,9 +466,7 @@ Begin Form
                                     Left =1020
                                     Top =4440
                                     TabIndex =1
-                                    BorderColor =10921638
                                     Name ="chkBreakOnError"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =4440
@@ -513,11 +479,9 @@ Begin Form
                                             Top =4380
                                             Width =2640
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label219"
                                             Caption ="Debug VBA Errors"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =4380
                                             LayoutCachedWidth =3960
@@ -532,9 +496,7 @@ Begin Form
                                     Left =1020
                                     Top =4860
                                     TabIndex =2
-                                    BorderColor =10921638
                                     Name ="chkShowVCSLegacy"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =4860
@@ -547,11 +509,9 @@ Begin Form
                                             Top =4800
                                             Width =2640
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label215"
                                             Caption ="Show Legacy Prompts"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =4800
                                             LayoutCachedWidth =3960
@@ -567,10 +527,8 @@ Begin Form
                                     Left =1020
                                     Top =5280
                                     TabIndex =3
-                                    BorderColor =10921638
                                     Name ="chkUseGitIntegration"
                                     OnClick ="[Event Procedure]"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =5280
@@ -583,11 +541,9 @@ Begin Form
                                             Top =5220
                                             Width =2640
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label163"
                                             Caption ="Use Git Integration"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =5220
                                             LayoutCachedWidth =3960
@@ -607,12 +563,9 @@ Begin Form
                                     Width =1920
                                     Height =315
                                     TabIndex =4
-                                    BorderColor =10921638
-                                    ForeColor =3484194
                                     Name ="cboHashAlgorithm"
                                     RowSourceType ="Value List"
                                     RowSource ="\"SHA1\";\"SHA256\";\"SHA512\""
-                                    GridlineColor =10921638
                                     AllowValueListEdits =0
 
                                     LayoutCachedLeft =6720
@@ -626,11 +579,9 @@ Begin Form
                                             Top =4800
                                             Width =1560
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label221"
                                             Caption ="Hash Algorithm:"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =5040
                                             LayoutCachedTop =4800
                                             LayoutCachedWidth =6600
@@ -645,9 +596,7 @@ Begin Form
                                     Left =5040
                                     Top =5280
                                     TabIndex =5
-                                    BorderColor =10921638
                                     Name ="chkUseShortHash"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =5040
                                     LayoutCachedTop =5280
@@ -660,11 +609,9 @@ Begin Form
                                             Top =5220
                                             Width =2640
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label223"
                                             Caption ="Use short hashes in index"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =5340
                                             LayoutCachedTop =5220
                                             LayoutCachedWidth =7980
@@ -680,11 +627,9 @@ Begin Form
                                     Top =3960
                                     Width =3780
                                     Height =600
-                                    BorderColor =8355711
                                     ForeColor =5324600
                                     Name ="Label224"
                                     Caption ="Some environments may have specific requirements for hashing algorithms."
-                                    GridlineColor =10921638
                                     LayoutCachedLeft =5040
                                     LayoutCachedTop =3960
                                     LayoutCachedWidth =8820
@@ -699,9 +644,7 @@ Begin Form
                                     Left =960
                                     Top =3600
                                     Width =8160
-                                    BorderColor =10921638
                                     Name ="Line226"
-                                    GridlineColor =10921638
                                     HorizontalAnchor =2
                                     LayoutCachedLeft =960
                                     LayoutCachedTop =3600
@@ -716,14 +659,12 @@ Begin Form
                                     Top =2340
                                     Width =8160
                                     Height =1095
-                                    BorderColor =8355711
                                     ForeColor =5324600
                                     Name ="Label227"
                                     Caption ="Use this form to set your preferred options for exporting and building your data"
                                         "base project to and from source files. Note that you can have different options "
                                         "for different projects, and can save a set of options as default for new project"
                                         "s."
-                                    GridlineColor =10921638
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =2340
                                     LayoutCachedWidth =9180
@@ -739,10 +680,8 @@ Begin Form
                             Top =1980
                             Width =8850
                             Height =4185
-                            BorderColor =10921638
                             Name ="pgeExport"
                             Caption ="Export"
-                            GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
@@ -759,11 +698,8 @@ Begin Form
                                     Top =2340
                                     Width =3420
                                     Height =315
-                                    BorderColor =10921638
-                                    ForeColor =4210752
                                     Name ="txtExportFolder"
                                     BeforeUpdate ="[Event Procedure]"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =2460
                                     LayoutCachedTop =2340
@@ -776,11 +712,9 @@ Begin Form
                                             Top =2340
                                             Width =1380
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label31"
                                             Caption ="Export Folder:"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =960
                                             LayoutCachedTop =2340
                                             LayoutCachedWidth =2340
@@ -795,9 +729,7 @@ Begin Form
                                     Left =1020
                                     Top =2940
                                     TabIndex =1
-                                    BorderColor =10921638
                                     Name ="chkUseFastSave"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =2940
@@ -810,11 +742,9 @@ Begin Form
                                             Top =2880
                                             Width =2640
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label25"
                                             Caption ="Use Fast Save"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =2880
                                             LayoutCachedWidth =3960
@@ -829,9 +759,7 @@ Begin Form
                                     Left =1020
                                     Top =3360
                                     TabIndex =2
-                                    BorderColor =10921638
                                     Name ="chkStripPublishOption"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =3360
@@ -844,11 +772,9 @@ Begin Form
                                             Top =3300
                                             Width =2640
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label34"
                                             Caption ="Strip out Publish Option"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =3300
                                             LayoutCachedWidth =3960
@@ -863,9 +789,7 @@ Begin Form
                                     Left =1020
                                     Top =3780
                                     TabIndex =3
-                                    BorderColor =10921638
                                     Name ="chkAggressiveSanitize"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =3780
@@ -878,11 +802,9 @@ Begin Form
                                             Top =3720
                                             Width =2640
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label40"
                                             Caption ="Aggressive Sanitize"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =3720
                                             LayoutCachedWidth =3960
@@ -897,9 +819,7 @@ Begin Form
                                     Left =1020
                                     Top =4200
                                     TabIndex =4
-                                    BorderColor =10921638
                                     Name ="chkExtractThemeFiles"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =4200
@@ -912,11 +832,9 @@ Begin Form
                                             Top =4140
                                             Width =2640
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label112"
                                             Caption ="Extract Theme Files"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =4140
                                             LayoutCachedWidth =3960
@@ -931,9 +849,7 @@ Begin Form
                                     Left =4500
                                     Top =2935
                                     TabIndex =5
-                                    BorderColor =10921638
                                     Name ="chkSavePrintVars"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =4500
                                     LayoutCachedTop =2935
@@ -946,11 +862,9 @@ Begin Form
                                             Top =2880
                                             Width =2640
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label27"
                                             Caption ="Save Report Print Settings"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =4800
                                             LayoutCachedTop =2880
                                             LayoutCachedWidth =7440
@@ -965,9 +879,7 @@ Begin Form
                                     Left =4500
                                     Top =3360
                                     TabIndex =6
-                                    BorderColor =10921638
                                     Name ="chkSaveQuerySQL"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =4500
                                     LayoutCachedTop =3360
@@ -980,11 +892,9 @@ Begin Form
                                             Top =3300
                                             Width =2640
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label29"
                                             Caption ="Save Query SQL"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =4800
                                             LayoutCachedTop =3300
                                             LayoutCachedWidth =7440
@@ -999,9 +909,7 @@ Begin Form
                                     Left =4500
                                     Top =3780
                                     TabIndex =7
-                                    BorderColor =10921638
                                     Name ="chkSaveTableSQL"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =4500
                                     LayoutCachedTop =3780
@@ -1014,11 +922,9 @@ Begin Form
                                             Top =3720
                                             Width =2640
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label38"
                                             Caption ="Save Table SQL"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =4800
                                             LayoutCachedTop =3720
                                             LayoutCachedWidth =7440
@@ -1036,10 +942,7 @@ Begin Form
                                     Width =1980
                                     Height =315
                                     TabIndex =8
-                                    BorderColor =10921638
-                                    ForeColor =4210752
                                     Name ="txtRunBeforeExport"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =3300
                                     LayoutCachedTop =5100
@@ -1052,11 +955,9 @@ Begin Form
                                             Top =5100
                                             Width =2205
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label44"
                                             Caption ="Run Sub Before Export:"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1020
                                             LayoutCachedTop =5100
                                             LayoutCachedWidth =3225
@@ -1074,10 +975,7 @@ Begin Form
                                     Width =1980
                                     Height =315
                                     TabIndex =9
-                                    BorderColor =10921638
-                                    ForeColor =4210752
                                     Name ="txtRunAfterExport"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =3300
                                     LayoutCachedTop =5520
@@ -1090,11 +988,9 @@ Begin Form
                                             Top =5520
                                             Width =2055
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label48"
                                             Caption ="Run Sub After Export:"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1020
                                             LayoutCachedTop =5520
                                             LayoutCachedWidth =3075
@@ -1111,12 +1007,10 @@ Begin Form
                                     Top =5640
                                     Width =2160
                                     TabIndex =10
-                                    ForeColor =12673797
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
                                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation#op"
                                         "tions"
-                                    GridlineColor =10921638
                                     ImageData = Begin
                                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                                         0x000000000000000000000000000000000000000000000000e0e8e000e0c8b000 ,
@@ -1176,8 +1070,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    HoverForeColor =4210752
-                                    PressedForeColor =4210752
                                     WebImagePaddingLeft =2
                                     WebImagePaddingTop =2
                                     WebImagePaddingRight =2
@@ -1190,11 +1082,8 @@ Begin Form
                                     Width =2160
                                     Height =240
                                     FontSize =10
-                                    BorderColor =8355711
-                                    ForeColor =8355711
                                     Name ="Label46"
                                     Caption ="(Blank for default)"
-                                    GridlineColor =10921638
                                     LayoutCachedLeft =6120
                                     LayoutCachedTop =2400
                                     LayoutCachedWidth =8280
@@ -1210,11 +1099,9 @@ Begin Form
                                     FontSize =10
                                     BackColor =14262935
                                     BorderColor =15321539
-                                    ForeColor =12673797
                                     Name ="lblPrintSettingsOptions"
                                     Caption ="Options..."
                                     HyperlinkAddress ="#"
-                                    GridlineColor =10921638
                                     LayoutCachedLeft =7500
                                     LayoutCachedTop =2880
                                     LayoutCachedWidth =8400
@@ -1234,10 +1121,8 @@ Begin Form
                             Top =1980
                             Width =8850
                             Height =4185
-                            BorderColor =10921638
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
-                            GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
@@ -1251,9 +1136,7 @@ Begin Form
                                     OverlapFlags =247
                                     Left =1200
                                     Top =2395
-                                    BorderColor =10921638
                                     Name ="chkOrientation"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1200
                                     LayoutCachedTop =2395
@@ -1266,11 +1149,9 @@ Begin Form
                                             Top =2340
                                             Width =1920
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label115"
                                             Caption ="Page Orientation"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1500
                                             LayoutCachedTop =2340
                                             LayoutCachedWidth =3420
@@ -1285,9 +1166,7 @@ Begin Form
                                     Left =1200
                                     Top =2755
                                     TabIndex =1
-                                    BorderColor =10921638
                                     Name ="chkPaperSize"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1200
                                     LayoutCachedTop =2755
@@ -1300,11 +1179,9 @@ Begin Form
                                             Top =2700
                                             Width =1920
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label117"
                                             Caption ="Paper Size"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1500
                                             LayoutCachedTop =2700
                                             LayoutCachedWidth =3420
@@ -1319,9 +1196,7 @@ Begin Form
                                     Left =1200
                                     Top =3775
                                     TabIndex =2
-                                    BorderColor =10921638
                                     Name ="chkDuplex"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1200
                                     LayoutCachedTop =3775
@@ -1334,11 +1209,9 @@ Begin Form
                                             Top =3720
                                             Width =1440
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label130"
                                             Caption ="Duplex"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1500
                                             LayoutCachedTop =3720
                                             LayoutCachedWidth =2940
@@ -1353,9 +1226,7 @@ Begin Form
                                     Left =3780
                                     Top =3775
                                     TabIndex =3
-                                    BorderColor =10921638
                                     Name ="chkPrintQuality"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =3780
                                     LayoutCachedTop =3775
@@ -1368,11 +1239,9 @@ Begin Form
                                             Top =3720
                                             Width =1620
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label128"
                                             Caption ="Print Quality"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =4080
                                             LayoutCachedTop =3720
                                             LayoutCachedWidth =5700
@@ -1387,9 +1256,7 @@ Begin Form
                                     Left =7020
                                     Top =3775
                                     TabIndex =4
-                                    BorderColor =10921638
                                     Name ="chkDisplayFrequency"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =7020
                                     LayoutCachedTop =3775
@@ -1402,11 +1269,9 @@ Begin Form
                                             Top =3720
                                             Width =1440
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label148"
                                             Caption ="Display Freq."
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =7320
                                             LayoutCachedTop =3720
                                             LayoutCachedWidth =8760
@@ -1421,9 +1286,7 @@ Begin Form
                                     Left =1200
                                     Top =4135
                                     TabIndex =5
-                                    BorderColor =10921638
                                     Name ="chkCollate"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1200
                                     LayoutCachedTop =4135
@@ -1436,11 +1299,9 @@ Begin Form
                                             Top =4080
                                             Width =1440
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label134"
                                             Caption ="Collate"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1500
                                             LayoutCachedTop =4080
                                             LayoutCachedWidth =2940
@@ -1455,9 +1316,7 @@ Begin Form
                                     Left =3780
                                     Top =4135
                                     TabIndex =6
-                                    BorderColor =10921638
                                     Name ="chkResolution"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =3780
                                     LayoutCachedTop =4135
@@ -1470,11 +1329,9 @@ Begin Form
                                             Top =4080
                                             Width =1440
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label132"
                                             Caption ="Resolution"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =4080
                                             LayoutCachedTop =4080
                                             LayoutCachedWidth =5520
@@ -1489,9 +1346,7 @@ Begin Form
                                     Left =7020
                                     Top =4135
                                     TabIndex =7
-                                    BorderColor =10921638
                                     Name ="chkDisplayFlags"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =7020
                                     LayoutCachedTop =4135
@@ -1504,11 +1359,9 @@ Begin Form
                                             Top =4080
                                             Width =1440
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label146"
                                             Caption ="Display Flags"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =7320
                                             LayoutCachedTop =4080
                                             LayoutCachedWidth =8760
@@ -1523,9 +1376,7 @@ Begin Form
                                     Left =1200
                                     Top =4495
                                     TabIndex =8
-                                    BorderColor =10921638
                                     Name ="chkColor"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1200
                                     LayoutCachedTop =4495
@@ -1538,11 +1389,9 @@ Begin Form
                                             Top =4440
                                             Width =1440
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label144"
                                             Caption ="Color or B/W"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1500
                                             LayoutCachedTop =4440
                                             LayoutCachedWidth =2940
@@ -1557,9 +1406,7 @@ Begin Form
                                     Left =3780
                                     Top =4495
                                     TabIndex =9
-                                    BorderColor =10921638
                                     Name ="chkCopies"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =3780
                                     LayoutCachedTop =4495
@@ -1572,11 +1419,9 @@ Begin Form
                                             Top =4440
                                             Width =1800
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label123"
                                             Caption ="Number of Copies"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =4080
                                             LayoutCachedTop =4440
                                             LayoutCachedWidth =5880
@@ -1591,9 +1436,7 @@ Begin Form
                                     Left =7020
                                     Top =4495
                                     TabIndex =10
-                                    BorderColor =10921638
                                     Name ="chkICMMethod"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =7020
                                     LayoutCachedTop =4495
@@ -1606,11 +1449,9 @@ Begin Form
                                             Top =4440
                                             Width =1440
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label150"
                                             Caption ="ICM Method"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =7320
                                             LayoutCachedTop =4440
                                             LayoutCachedWidth =8760
@@ -1625,9 +1466,7 @@ Begin Form
                                     Left =1200
                                     Top =4855
                                     TabIndex =11
-                                    BorderColor =10921638
                                     Name ="chkDefaultSource"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1200
                                     LayoutCachedTop =4855
@@ -1640,11 +1479,9 @@ Begin Form
                                             Top =4800
                                             Width =1440
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label125"
                                             Caption ="Paper Tray"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1500
                                             LayoutCachedTop =4800
                                             LayoutCachedWidth =2940
@@ -1659,9 +1496,7 @@ Begin Form
                                     Left =3780
                                     Top =4855
                                     TabIndex =12
-                                    BorderColor =10921638
                                     Name ="chkScale"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =3780
                                     LayoutCachedTop =4855
@@ -1674,11 +1509,9 @@ Begin Form
                                             Top =4800
                                             Width =2220
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label121"
                                             Caption ="Print Scale"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =4080
                                             LayoutCachedTop =4800
                                             LayoutCachedWidth =6300
@@ -1693,9 +1526,7 @@ Begin Form
                                     Left =7020
                                     Top =4855
                                     TabIndex =13
-                                    BorderColor =10921638
                                     Name ="chkICMIntent"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =7020
                                     LayoutCachedTop =4855
@@ -1708,11 +1539,9 @@ Begin Form
                                             Top =4800
                                             Width =1440
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label152"
                                             Caption ="ICM Intent"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =7320
                                             LayoutCachedTop =4800
                                             LayoutCachedWidth =8760
@@ -1727,9 +1556,7 @@ Begin Form
                                     Left =1200
                                     Top =5215
                                     TabIndex =14
-                                    BorderColor =10921638
                                     Name ="chkFormName"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1200
                                     LayoutCachedTop =5215
@@ -1742,11 +1569,9 @@ Begin Form
                                             Top =5160
                                             Width =1440
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label142"
                                             Caption ="Form Name"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1500
                                             LayoutCachedTop =5160
                                             LayoutCachedWidth =2940
@@ -1761,9 +1586,7 @@ Begin Form
                                     Left =3780
                                     Top =5215
                                     TabIndex =15
-                                    BorderColor =10921638
                                     Name ="chkPaperLength"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =3780
                                     LayoutCachedTop =5215
@@ -1776,11 +1599,9 @@ Begin Form
                                             Top =5160
                                             Width =2220
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label119"
                                             Caption ="Custom Length"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =4080
                                             LayoutCachedTop =5160
                                             LayoutCachedWidth =6300
@@ -1795,9 +1616,7 @@ Begin Form
                                     Left =7020
                                     Top =5215
                                     TabIndex =16
-                                    BorderColor =10921638
                                     Name ="chkDitherType"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =7020
                                     LayoutCachedTop =5215
@@ -1810,11 +1629,9 @@ Begin Form
                                             Top =5160
                                             Width =1440
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label156"
                                             Caption ="Dither Type"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =7320
                                             LayoutCachedTop =5160
                                             LayoutCachedWidth =8760
@@ -1829,9 +1646,7 @@ Begin Form
                                     Left =1200
                                     Top =5575
                                     TabIndex =17
-                                    BorderColor =10921638
                                     Name ="chkMediaType"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1200
                                     LayoutCachedTop =5575
@@ -1844,11 +1659,9 @@ Begin Form
                                             Top =5520
                                             Width =1440
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label154"
                                             Caption ="Media Type"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1500
                                             LayoutCachedTop =5520
                                             LayoutCachedWidth =2940
@@ -1863,9 +1676,7 @@ Begin Form
                                     Left =3780
                                     Top =5575
                                     TabIndex =18
-                                    BorderColor =10921638
                                     Name ="chkPaperWidth"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =3780
                                     LayoutCachedTop =5575
@@ -1878,11 +1689,9 @@ Begin Form
                                             Top =5520
                                             Width =2220
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label158"
                                             Caption ="Custom Width"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =4080
                                             LayoutCachedTop =5520
                                             LayoutCachedWidth =6300
@@ -1897,9 +1706,7 @@ Begin Form
                                     Left =7020
                                     Top =5575
                                     TabIndex =19
-                                    BorderColor =10921638
                                     Name ="chkTTOption"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =7020
                                     LayoutCachedTop =5575
@@ -1912,11 +1719,9 @@ Begin Form
                                             Top =5520
                                             Width =1725
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label140"
                                             Caption ="TT Font Handling"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =7320
                                             LayoutCachedTop =5520
                                             LayoutCachedWidth =9045
@@ -1932,12 +1737,10 @@ Begin Form
                                     Top =2340
                                     Width =5040
                                     Height =825
-                                    BorderColor =8355711
                                     ForeColor =5324600
                                     Name ="Label126"
                                     Caption ="Select any additional settings that you would like saved to version control and "
                                         "used when building a database from source files."
-                                    GridlineColor =10921638
                                     HorizontalAnchor =2
                                     LayoutCachedLeft =3720
                                     LayoutCachedTop =2340
@@ -1953,9 +1756,7 @@ Begin Form
                                     Left =960
                                     Top =3360
                                     Width =8160
-                                    BorderColor =10921638
                                     Name ="Line161"
-                                    GridlineColor =10921638
                                     HorizontalAnchor =2
                                     LayoutCachedLeft =960
                                     LayoutCachedTop =3360
@@ -1972,10 +1773,8 @@ Begin Form
                             Top =1980
                             Width =8850
                             Height =4185
-                            BorderColor =10921638
                             Name ="pgeTable"
                             Caption ="Table Data"
-                            GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
@@ -1995,14 +1794,11 @@ Begin Form
                                     Top =2280
                                     Width =6045
                                     Height =3240
-                                    ForeColor =4210752
-                                    BorderColor =10921638
                                     Name ="lstTables"
                                     RowSourceType ="Value List"
                                     RowSource =";Table Name;Save Data"
                                     ColumnWidths ="340;4320"
                                     OnClick ="[Event Procedure]"
-                                    GridlineColor =10921638
                                     HorizontalAnchor =2
                                     VerticalAnchor =2
                                     AllowValueListEdits =0
@@ -2017,11 +1813,9 @@ Begin Form
                                     Left =1020
                                     Top =5760
                                     TabIndex =1
-                                    BorderColor =10921638
                                     Name ="chkTableShowHidden"
                                     DefaultValue ="False"
                                     OnClick ="[Event Procedure]"
-                                    GridlineColor =10921638
                                     VerticalAnchor =1
 
                                     LayoutCachedLeft =1020
@@ -2035,11 +1829,9 @@ Begin Form
                                             Top =5700
                                             Width =1380
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label71"
                                             Caption ="Show Hidden"
-                                            GridlineColor =10921638
                                             VerticalAnchor =1
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =5700
@@ -2055,11 +1847,9 @@ Begin Form
                                     Left =2940
                                     Top =5760
                                     TabIndex =2
-                                    BorderColor =10921638
                                     Name ="chkTableShowSystem"
                                     DefaultValue ="False"
                                     OnClick ="[Event Procedure]"
-                                    GridlineColor =10921638
                                     VerticalAnchor =1
 
                                     LayoutCachedLeft =2940
@@ -2073,11 +1863,9 @@ Begin Form
                                             Top =5700
                                             Width =1380
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label73"
                                             Caption ="Show System"
-                                            GridlineColor =10921638
                                             VerticalAnchor =1
                                             LayoutCachedLeft =3240
                                             LayoutCachedTop =5700
@@ -2097,11 +1885,7 @@ Begin Form
                                     Width =2400
                                     Height =855
                                     TabIndex =3
-                                    BackColor =15921906
-                                    BorderColor =10921638
-                                    ForeColor =4210752
                                     Name ="txtTableName"
-                                    GridlineColor =10921638
                                     HorizontalAnchor =1
 
                                     LayoutCachedLeft =6960
@@ -2116,11 +1900,9 @@ Begin Form
                                             Top =3240
                                             Width =1500
                                             Height =300
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label79"
                                             Caption ="Selected Table:"
-                                            GridlineColor =10921638
                                             HorizontalAnchor =1
                                             LayoutCachedLeft =6960
                                             LayoutCachedTop =3240
@@ -2141,11 +1923,8 @@ Begin Form
                                     Width =2400
                                     Height =315
                                     TabIndex =4
-                                    BorderColor =10921638
-                                    ForeColor =3484194
                                     Name ="cboTableDataSaveType"
                                     RowSourceType ="Value List"
-                                    GridlineColor =10921638
                                     HorizontalAnchor =1
                                     AllowValueListEdits =0
 
@@ -2160,12 +1939,10 @@ Begin Form
                                             Top =4620
                                             Width =1455
                                             Height =305
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Data to Export_Label"
                                             Caption ="Data to Export"
                                             EventProcPrefix ="Data_to_Export_Label"
-                                            GridlineColor =10921638
                                             HorizontalAnchor =1
                                             LayoutCachedLeft =6960
                                             LayoutCachedTop =4620
@@ -2183,12 +1960,10 @@ Begin Form
                                     Width =2400
                                     Height =840
                                     FontSize =10
-                                    BorderColor =8355711
                                     ForeColor =5324600
                                     Name ="Label82"
                                     Caption ="You may optionally include data from specific tables as part of the export proce"
                                         "ss."
-                                    GridlineColor =10921638
                                     HorizontalAnchor =1
                                     LayoutCachedLeft =6960
                                     LayoutCachedTop =2280
@@ -2202,7 +1977,6 @@ Begin Form
                                     Left =6960
                                     Top =5340
                                     TabIndex =5
-                                    ForeColor =4210752
                                     Name ="cmdUpdateTableData"
                                     Caption =" Update"
                                     OnClick ="[Event Procedure]"
@@ -2210,7 +1984,6 @@ Begin Form
                                     TopPadding =135
                                     RightPadding =150
                                     BottomPadding =150
-                                    GridlineColor =10921638
                                     HorizontalAnchor =1
                                     ImageData = Begin
                                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
@@ -2266,8 +2039,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    HoverForeColor =4210752
-                                    PressedForeColor =4210752
                                     WebImagePaddingLeft =9
                                     WebImagePaddingTop =9
                                     WebImagePaddingRight =9
@@ -2278,11 +2049,9 @@ Begin Form
                                     Left =4860
                                     Top =5760
                                     TabIndex =6
-                                    BorderColor =10921638
                                     Name ="chkTableShowOther"
                                     DefaultValue ="False"
                                     OnClick ="[Event Procedure]"
-                                    GridlineColor =10921638
                                     VerticalAnchor =1
 
                                     LayoutCachedLeft =4860
@@ -2296,11 +2065,9 @@ Begin Form
                                             Top =5700
                                             Width =1200
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label85"
                                             Caption ="Show Other"
-                                            GridlineColor =10921638
                                             VerticalAnchor =1
                                             LayoutCachedLeft =5160
                                             LayoutCachedTop =5700
@@ -2321,12 +2088,10 @@ Begin Form
                                     FontSize =10
                                     BackColor =14262935
                                     BorderColor =15321539
-                                    ForeColor =12673797
                                     Name ="lblAddOtherTable"
                                     Caption ="Other..."
                                     OnClick ="[Event Procedure]"
                                     HyperlinkAddress ="#"
-                                    GridlineColor =10921638
                                     HorizontalAnchor =1
                                     LayoutCachedLeft =8640
                                     LayoutCachedTop =3255
@@ -2346,10 +2111,8 @@ Begin Form
                             Top =1980
                             Width =8850
                             Height =4185
-                            BorderColor =10921638
                             Name ="pgeBuild"
                             Caption ="Build"
-                            GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
@@ -2364,9 +2127,7 @@ Begin Form
                                     Left =1140
                                     Top =4555
                                     TabIndex =1
-                                    BorderColor =10921638
                                     Name ="chkForceImportOriginalQuerySQL"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1140
                                     LayoutCachedTop =4555
@@ -2379,11 +2140,9 @@ Begin Form
                                             Top =4500
                                             Width =3705
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="lblForceImportOriginalQuerySQL"
                                             Caption ="Force import of original SQL for queries"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1447
                                             LayoutCachedTop =4500
                                             LayoutCachedWidth =5152
@@ -2401,13 +2160,10 @@ Begin Form
                                     Width =2640
                                     Height =315
                                     TabIndex =2
-                                    BorderColor =10921638
-                                    ForeColor =4210752
                                     Name ="txtRunBeforeBuild"
                                     ValidationRule ="Like \"*?.?*\" Or \"\" Or Is Null"
                                     ValidationText ="This value must include both module and sub names joined with a period. For exam"
                                         "ple, use MyModule.Bootstrap to run the Bootstrap sub in MyModule."
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =3420
                                     LayoutCachedTop =5040
@@ -2420,11 +2176,9 @@ Begin Form
                                             Top =5040
                                             Width =2085
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label229"
                                             Caption ="Run Sub Before Build:"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1140
                                             LayoutCachedTop =5040
                                             LayoutCachedWidth =3225
@@ -2441,10 +2195,7 @@ Begin Form
                                     Top =5460
                                     Width =2640
                                     Height =315
-                                    BorderColor =10921638
-                                    ForeColor =4210752
                                     Name ="txtRunAfterBuild"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =3420
                                     LayoutCachedTop =5460
@@ -2457,11 +2208,9 @@ Begin Form
                                             Top =5460
                                             Width =2055
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label104"
                                             Caption ="Run Sub After Build:"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1140
                                             LayoutCachedTop =5460
                                             LayoutCachedWidth =3195
@@ -2477,7 +2226,6 @@ Begin Form
                                     Top =2100
                                     Width =7860
                                     Height =2220
-                                    BorderColor =8355711
                                     ForeColor =5324600
                                     Name ="Label105"
                                     Caption ="PLEASE NOTE:\015\012The build functionality in this tool is fairly new with limi"
@@ -2486,7 +2234,6 @@ Begin Form
                                         "in your database during the build.\015\012\015\012Please see the online document"
                                         "ation for additional details on the build process. If you encounter an issue, pl"
                                         "ease feel free to submit issues and/or pull requests on the GitHub project."
-                                    GridlineColor =10921638
                                     LayoutCachedLeft =1140
                                     LayoutCachedTop =2100
                                     LayoutCachedWidth =9000
@@ -2501,11 +2248,8 @@ Begin Form
                                     Width =4170
                                     Height =240
                                     FontSize =10
-                                    BorderColor =8355711
-                                    ForeColor =8355711
                                     Name ="lblForceImportSQLNote"
                                     Caption ="(\"Save Query SQL\" option needed when exporting)"
-                                    GridlineColor =10921638
                                     LayoutCachedLeft =5197
                                     LayoutCachedTop =4544
                                     LayoutCachedWidth =9367
@@ -2518,11 +2262,8 @@ Begin Form
                                     Width =3120
                                     Height =240
                                     FontSize =10
-                                    BorderColor =8355711
-                                    ForeColor =8355711
                                     Name ="Label230"
                                     Caption ="Use \"module.sub\" to specify module"
-                                    GridlineColor =10921638
                                     LayoutCachedLeft =6240
                                     LayoutCachedTop =5100
                                     LayoutCachedWidth =9360
@@ -2535,11 +2276,8 @@ Begin Form
                                     Width =2760
                                     Height =240
                                     FontSize =10
-                                    BorderColor =8355711
-                                    ForeColor =8355711
                                     Name ="Label231"
                                     Caption ="(Module name optional)"
-                                    GridlineColor =10921638
                                     LayoutCachedLeft =6240
                                     LayoutCachedTop =5520
                                     LayoutCachedWidth =9000
@@ -2554,10 +2292,8 @@ Begin Form
                             Top =1980
                             Width =8850
                             Height =4185
-                            BorderColor =10921638
                             Name ="pgeGitIntegration"
                             Caption ="Git Integration"
-                            GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
@@ -2571,9 +2307,7 @@ Begin Form
                                     OverlapFlags =247
                                     Left =1200
                                     Top =2395
-                                    BorderColor =10921638
                                     Name ="chkMergeUntrackedFiles"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1200
                                     LayoutCachedTop =2395
@@ -2586,11 +2320,9 @@ Begin Form
                                             Top =2340
                                             Width =3240
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label166"
                                             Caption ="Merge Untracked (New) Files"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1500
                                             LayoutCachedTop =2340
                                             LayoutCachedWidth =4740
@@ -2605,9 +2337,7 @@ Begin Form
                                     Left =1200
                                     Top =3235
                                     TabIndex =1
-                                    BorderColor =10921638
                                     Name ="chkMergeQuerySQL"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1200
                                     LayoutCachedTop =3235
@@ -2620,11 +2350,9 @@ Begin Form
                                             Top =3180
                                             Width =2190
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label172"
                                             Caption ="Merge .SQL for queries"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1500
                                             LayoutCachedTop =3180
                                             LayoutCachedWidth =3690
@@ -2639,9 +2367,7 @@ Begin Form
                                     Left =6120
                                     Top =4615
                                     TabIndex =2
-                                    BorderColor =10921638
                                     Name ="chkInspectSharedImages"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =6120
                                     LayoutCachedTop =4615
@@ -2654,11 +2380,9 @@ Begin Form
                                             Top =4560
                                             Width =2040
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label182"
                                             Caption ="Shared Images"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =6420
                                             LayoutCachedTop =4560
                                             LayoutCachedWidth =8460
@@ -2673,9 +2397,7 @@ Begin Form
                                     Left =6120
                                     Top =5035
                                     TabIndex =3
-                                    BorderColor =10921638
                                     Name ="chkInspectThemeFiles"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =6120
                                     LayoutCachedTop =5035
@@ -2688,11 +2410,9 @@ Begin Form
                                             Top =4980
                                             Width =2040
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label188"
                                             Caption ="Access Theme Files"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =6420
                                             LayoutCachedTop =4980
                                             LayoutCachedWidth =8460
@@ -2707,9 +2427,7 @@ Begin Form
                                     Left =1200
                                     Top =2815
                                     TabIndex =4
-                                    BorderColor =10921638
                                     Name ="chkImportTableData"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =1200
                                     LayoutCachedTop =2815
@@ -2722,11 +2440,9 @@ Begin Form
                                             Top =2760
                                             Width =2760
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label194"
                                             Caption ="Import Modified Table Data"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1500
                                             LayoutCachedTop =2760
                                             LayoutCachedWidth =4260
@@ -2742,12 +2458,10 @@ Begin Form
                                     Top =2340
                                     Width =3900
                                     Height =825
-                                    BorderColor =8355711
                                     ForeColor =5324600
                                     Name ="Label205"
                                     Caption ="Please see the online documentation for additional information on these settings"
                                         " and the git integration."
-                                    GridlineColor =10921638
                                     LayoutCachedLeft =4860
                                     LayoutCachedTop =2340
                                     LayoutCachedWidth =8760
@@ -2762,9 +2476,7 @@ Begin Form
                                     Left =5880
                                     Top =4380
                                     Width =3120
-                                    BorderColor =10921638
                                     Name ="Line206"
-                                    GridlineColor =10921638
                                     LayoutCachedLeft =5880
                                     LayoutCachedTop =4380
                                     LayoutCachedWidth =9000
@@ -2783,12 +2495,9 @@ Begin Form
                                     Width =2820
                                     Height =315
                                     TabIndex =5
-                                    BorderColor =10921638
-                                    ForeColor =3484194
                                     Name ="cboMergeConflicts"
                                     RowSourceType ="Value List"
                                     RowSource ="\"Cancel Merge\";\"Skip Object\";\"Overwrite\""
-                                    GridlineColor =10921638
                                     AllowValueListEdits =0
 
                                     LayoutCachedLeft =1200
@@ -2802,11 +2511,9 @@ Begin Form
                                             Top =4020
                                             Width =2310
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label208"
                                             Caption ="Merge Conflict Handling"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1200
                                             LayoutCachedTop =4020
                                             LayoutCachedWidth =3510
@@ -2822,11 +2529,9 @@ Begin Form
                                     Top =3660
                                     Width =2760
                                     Height =600
-                                    BorderColor =8355711
                                     ForeColor =5324600
                                     Name ="Label209"
                                     Caption ="Use slower deep inspection for the following items:"
-                                    GridlineColor =10921638
                                     LayoutCachedLeft =6120
                                     LayoutCachedTop =3660
                                     LayoutCachedWidth =8880
@@ -2842,10 +2547,7 @@ Begin Form
                                     Width =2040
                                     Height =315
                                     TabIndex =6
-                                    BorderColor =10921638
-                                    ForeColor =4210752
                                     Name ="txtRunBeforeMerge"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =3120
                                     LayoutCachedTop =5040
@@ -2858,11 +2560,9 @@ Begin Form
                                             Top =5040
                                             Width =1800
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label211"
                                             Caption ="Run Before Merge:"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1200
                                             LayoutCachedTop =5040
                                             LayoutCachedWidth =3000
@@ -2880,10 +2580,7 @@ Begin Form
                                     Width =2040
                                     Height =315
                                     TabIndex =7
-                                    BorderColor =10921638
-                                    ForeColor =4210752
                                     Name ="txtRunAfterMerge"
-                                    GridlineColor =10921638
 
                                     LayoutCachedLeft =3120
                                     LayoutCachedTop =5460
@@ -2896,11 +2593,9 @@ Begin Form
                                             Top =5460
                                             Width =1815
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label213"
                                             Caption ="Run After Merge:"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1200
                                             LayoutCachedTop =5460
                                             LayoutCachedWidth =3015
@@ -2918,10 +2613,8 @@ Begin Form
                             Top =1980
                             Width =8850
                             Height =4185
-                            BorderColor =10921638
                             Name ="pgeSettings"
                             Caption ="Settings"
-                            GridlineColor =10921638
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
@@ -2937,7 +2630,6 @@ Begin Form
                                     Top =2640
                                     Width =2160
                                     Height =420
-                                    ForeColor =4210752
                                     Name ="cmdSaveAsDefault"
                                     Caption =" Save as Default"
                                     OnClick ="[Event Procedure]"
@@ -2945,7 +2637,6 @@ Begin Form
                                     TopPadding =135
                                     RightPadding =150
                                     BottomPadding =150
-                                    GridlineColor =10921638
                                     ImageData = Begin
                                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -3000,8 +2691,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    HoverForeColor =4210752
-                                    PressedForeColor =4210752
                                     WebImagePaddingLeft =9
                                     WebImagePaddingTop =9
                                     WebImagePaddingRight =9
@@ -3013,11 +2702,9 @@ Begin Form
                                             Top =2700
                                             Width =4500
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label53"
                                             Caption ="Save these settings as default for new projects."
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =3900
                                             LayoutCachedTop =2700
                                             LayoutCachedWidth =8400
@@ -3034,7 +2721,6 @@ Begin Form
                                     Width =2160
                                     Height =420
                                     TabIndex =1
-                                    ForeColor =4210752
                                     Name ="cmdRestoreDefaults"
                                     Caption =" Restore Defaults"
                                     OnClick ="[Event Procedure]"
@@ -3042,7 +2728,6 @@ Begin Form
                                     TopPadding =135
                                     RightPadding =150
                                     BottomPadding =150
-                                    GridlineColor =10921638
                                     ImageData = Begin
                                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -3097,8 +2782,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    HoverForeColor =4210752
-                                    PressedForeColor =4210752
                                     WebImagePaddingLeft =9
                                     WebImagePaddingTop =9
                                     WebImagePaddingRight =9
@@ -3110,11 +2793,9 @@ Begin Form
                                             Top =3300
                                             Width =4500
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label57"
                                             Caption ="Apply system defaults to this project."
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =3900
                                             LayoutCachedTop =3300
                                             LayoutCachedWidth =8400
@@ -3131,7 +2812,6 @@ Begin Form
                                     Width =2160
                                     Height =420
                                     TabIndex =2
-                                    ForeColor =4210752
                                     Name ="cmdClearDefaults"
                                     Caption =" Clear Defaults"
                                     OnClick ="[Event Procedure]"
@@ -3139,7 +2819,6 @@ Begin Form
                                     TopPadding =135
                                     RightPadding =150
                                     BottomPadding =150
-                                    GridlineColor =10921638
                                     ImageData = Begin
                                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -3194,8 +2873,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    HoverForeColor =4210752
-                                    PressedForeColor =4210752
                                     WebImagePaddingLeft =9
                                     WebImagePaddingTop =9
                                     WebImagePaddingRight =9
@@ -3207,11 +2884,9 @@ Begin Form
                                             Top =3840
                                             Width =4500
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label59"
                                             Caption ="Reset all default settings to original values."
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =3900
                                             LayoutCachedTop =3840
                                             LayoutCachedWidth =8400
@@ -3228,9 +2903,7 @@ Begin Form
                                     Width =8160
                                     Height =2220
                                     TabIndex =3
-                                    BorderColor =10921638
                                     Name ="Frame62"
-                                    GridlineColor =10921638
                                     HorizontalAnchor =2
 
                                     LayoutCachedLeft =960
@@ -3246,11 +2919,9 @@ Begin Form
                                             Width =1620
                                             Height =315
                                             BackColor =15130848
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label63"
                                             Caption =" System Defaults"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1080
                                             LayoutCachedTop =2100
                                             LayoutCachedWidth =2700
@@ -3268,9 +2939,7 @@ Begin Form
                                     Width =8160
                                     Height =1200
                                     TabIndex =4
-                                    BorderColor =10921638
                                     Name ="Frame65"
-                                    GridlineColor =10921638
                                     HorizontalAnchor =2
 
                                     LayoutCachedLeft =960
@@ -3286,11 +2955,9 @@ Begin Form
                                             Width =1620
                                             Height =315
                                             BackColor =15130848
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label66"
                                             Caption =" Remove Add-In"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =1080
                                             LayoutCachedTop =4680
                                             LayoutCachedWidth =2700
@@ -3308,7 +2975,6 @@ Begin Form
                                     Width =2160
                                     Height =420
                                     TabIndex =5
-                                    ForeColor =4210752
                                     Name ="cmdUninstall"
                                     Caption =" Uninstall"
                                     OnClick ="[Event Procedure]"
@@ -3316,7 +2982,6 @@ Begin Form
                                     TopPadding =135
                                     RightPadding =150
                                     BottomPadding =150
-                                    GridlineColor =10921638
                                     ImageData = Begin
                                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                                         0x0000000000000000000000000000000000000000000000003255d6273255d68d ,
@@ -3371,8 +3036,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    HoverForeColor =4210752
-                                    PressedForeColor =4210752
                                     WebImagePaddingLeft =9
                                     WebImagePaddingTop =9
                                     WebImagePaddingRight =9
@@ -3384,11 +3047,9 @@ Begin Form
                                             Top =5340
                                             Width =4500
                                             Height =315
-                                            BorderColor =8355711
                                             ForeColor =5324600
                                             Name ="Label108"
                                             Caption ="Uninstall this add-in"
-                                            GridlineColor =10921638
                                             LayoutCachedLeft =3900
                                             LayoutCachedTop =5340
                                             LayoutCachedWidth =8400
@@ -3409,11 +3070,9 @@ Begin Form
                     Top =1260
                     Width =1560
                     TabIndex =3
-                    ForeColor =12673797
                     Name ="cmdSeeDocs"
                     Caption ="See Docs..."
                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation"
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
@@ -3474,8 +3133,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =2
@@ -3489,11 +3146,8 @@ Begin Form
                     Width =3375
                     Height =240
                     FontSize =10
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="Label32"
                     Caption ="joyfullservice/msaccess-vcs-integration"
-                    GridlineColor =10921638
                     VerticalAnchor =1
                     LayoutCachedLeft =240
                     LayoutCachedTop =6660
@@ -3515,11 +3169,8 @@ Begin Form
                     Width =2040
                     FontSize =10
                     TabIndex =4
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="Label45"
                     ControlSource ="=GetVCSVersion()"
-                    GridlineColor =10921638
                     HorizontalAnchor =1
 
                     LayoutCachedLeft =7140
@@ -3540,7 +3191,6 @@ Begin Form
                     Top =6240
                     Width =300
                     Name ="Line76"
-                    GridlineColor =10921638
                     LayoutCachedLeft =9540
                     LayoutCachedTop =6240
                     LayoutCachedWidth =9840
@@ -3555,7 +3205,6 @@ Begin Form
                     Width =0
                     Height =240
                     Name ="Line77"
-                    GridlineColor =10921638
                     LayoutCachedLeft =540
                     LayoutCachedTop =6240
                     LayoutCachedWidth =540

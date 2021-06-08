@@ -13,7 +13,6 @@ Begin Report
     Width =8884
     DatasheetFontHeight =11
     ItemSuffix =1
-    DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0xe05ff061b477e540
     End
@@ -57,7 +56,6 @@ Begin Report
             Height =7560
             Name ="Detail"
             AutoHeight =1
-            AlternateBackColor =15921906
             AlternateBackThemeColorIndex =1
             AlternateBackShade =95.0
             BackThemeColorIndex =1
@@ -67,11 +65,8 @@ Begin Report
                     Top =240
                     Width =4800
                     Height =420
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="Label0"
                     Caption ="This report uses A4 landscape paper size"
-                    GridlineColor =10921638
                     LayoutCachedLeft =1260
                     LayoutCachedTop =240
                     LayoutCachedWidth =6060

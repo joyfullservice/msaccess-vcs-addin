@@ -15,7 +15,6 @@ Begin Form
     ItemSuffix =13
     Right =15975
     Bottom =11745
-    DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0x18691eff0b76e540
     End
@@ -54,8 +53,6 @@ Begin Form
             BorderLineStyle =0
             SizeMode =3
             PictureAlignment =2
-            BorderColor =16777215
-            GridlineColor =16777215
             BackThemeColorIndex =1
             BorderThemeColorIndex =1
             BorderShade =65.0
@@ -76,7 +73,6 @@ Begin Form
             BackThemeColorIndex =4
             BackTint =60.0
             BorderLineStyle =0
-            BorderColor =16777215
             BorderThemeColorIndex =4
             BorderTint =60.0
             ThemeFontIndex =1
@@ -128,7 +124,6 @@ Begin Form
         Begin Section
             Height =7620
             Name ="Detail"
-            AlternateBackColor =15921906
             AlternateBackThemeColorIndex =1
             AlternateBackShade =95.0
             BackThemeColorIndex =1
@@ -139,11 +134,9 @@ Begin Form
                     Top =2940
                     Width =3120
                     Height =720
-                    ForeColor =4210752
                     Name ="cmdRunTests"
                     Caption ="  Verify Database Objects"
                     OnClick ="[Event Procedure]"
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x0000000000000000b0a090ff604830ff604830ff604830ff604830ff604830ff ,
@@ -186,12 +179,6 @@ Begin Form
                     LayoutCachedWidth =8520
                     LayoutCachedHeight =3660
                     PictureCaptionArrangement =5
-                    BackColor =14136213
-                    BorderColor =14136213
-                    HoverColor =15060409
-                    PressedColor =9592887
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -208,8 +195,6 @@ Begin Form
                     Width =4455
                     Height =5745
                     TabIndex =1
-                    ForeColor =4210752
-                    BorderColor =10921638
                     Name ="lstResults"
                     RowSourceType ="Value List"
                     RowSource ="✔;Access Table exists;✔;tblInternal has data;✔;Linked Table exists;✔;tblLinkedCS"
@@ -218,7 +203,6 @@ Begin Form
                         "ists;✔;Query exists;✔;Form exists;✔;Report exists;✔;Application Icon is set;✔;Cu"
                         "stom Database (DAO) property;✔;Custom Project Property"
                     ColumnWidths ="479;3975"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =600
                     LayoutCachedTop =1140
@@ -231,11 +215,8 @@ Begin Form
                             Top =720
                             Width =2880
                             Height =320
-                            BorderColor =8355711
-                            ForeColor =8355711
                             Name ="Col1_Label"
                             Caption ="Test Results"
-                            GridlineColor =10921638
                             LayoutCachedLeft =780
                             LayoutCachedTop =720
                             LayoutCachedWidth =3660
@@ -249,12 +230,9 @@ Begin Form
                     Top =1140
                     Width =3060
                     Height =1635
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="Label4"
                     Caption ="Click the button below to verify the objects in the current database. This helps"
                         " confirm that everything was correctly reconstructed from source."
-                    GridlineColor =10921638
                     LayoutCachedLeft =5400
                     LayoutCachedTop =1140
                     LayoutCachedWidth =8460
@@ -267,11 +245,9 @@ Begin Form
                     Width =3120
                     Height =720
                     TabIndex =2
-                    ForeColor =4210752
                     Name ="cmdEditTests"
                     Caption ="  Edit Tests..."
                     OnClick ="[Event Procedure]"
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -314,12 +290,6 @@ Begin Form
                     LayoutCachedWidth =8520
                     LayoutCachedHeight =4620
                     PictureCaptionArrangement =5
-                    BackColor =14136213
-                    BorderColor =14136213
-                    HoverColor =15060409
-                    PressedColor =9592887
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -332,11 +302,8 @@ Begin Form
                     Top =4860
                     Width =3060
                     Height =1635
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="lblResults"
                     Caption ="17 tests passed\015\0120 tests failed"
-                    GridlineColor =10921638
                     LayoutCachedLeft =5400
                     LayoutCachedTop =4860
                     LayoutCachedWidth =8460
@@ -348,9 +315,7 @@ Begin Form
                     Top =4860
                     Width =600
                     Height =720
-                    BorderColor =10921638
                     Name ="imgResult"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =7860
                     LayoutCachedTop =4860
