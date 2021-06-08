@@ -31,3 +31,15 @@ Public Function VCS() As clsVersionControl
     If m_VCS Is Nothing Then Set m_VCS = New clsVersionControl
     Set VCS = m_VCS
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RepairColors
+' Author    : Adam Waller
+' Date      : 6/8/2021
+' Purpose   : Reapply the color properties in the current database
+'---------------------------------------------------------------------------------------
+'
+Public Sub RepairColors()
+    RepairColorDefinitionBlocks
+End Sub
