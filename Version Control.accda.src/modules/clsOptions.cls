@@ -31,6 +31,7 @@ Public SaveQuerySQL As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
 Public SaveTableSQL As Boolean
 Public StripPublishOption As Boolean
+Public RemoveDynamicColors As Boolean
 Public AggressiveSanitize As Boolean
 Public ExtractThemeFiles As Boolean
 Public TablesToExportData As Dictionary
@@ -510,6 +511,7 @@ Private Sub Class_Initialize()
         .Add "ForceImportOriginalQuerySQL"
         .Add "SaveTableSQL"
         .Add "StripPublishOption"
+        .Add "RemoveDynamicColors"
         .Add "AggressiveSanitize"
         .Add "ExtractThemeFiles"
         .Add "TablesToExportData"
