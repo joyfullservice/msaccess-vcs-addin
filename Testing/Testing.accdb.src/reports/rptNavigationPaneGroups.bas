@@ -13,7 +13,6 @@ Begin Report
     Width =11700
     DatasheetFontHeight =11
     ItemSuffix =7
-    DatasheetGridlinesColor =15132391
     RecSrcDt = Begin
         0x2df649898e77e540
     End
@@ -74,7 +73,6 @@ Begin Report
         Begin FormHeader
             KeepTogether = NotDefault
             Height =960
-            BackColor =15064278
             Name ="ReportHeader"
             AutoHeight =1
             AlternateBackThemeColorIndex =1
@@ -88,11 +86,8 @@ Begin Report
                     Width =4350
                     Height =540
                     FontSize =20
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="Label4"
                     Caption ="qryNavigationPaneGroups"
-                    GridlineColor =10921638
                     LayoutCachedLeft =60
                     LayoutCachedTop =60
                     LayoutCachedWidth =4410
@@ -114,13 +109,10 @@ Begin Report
                     Top =60
                     Width =3660
                     Height =315
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="ObjectName_Label"
                     Caption ="ObjectName"
                     Tag ="DetachedLabel"
                     GridlineStyleBottom =1
-                    GridlineColor =10921638
                     LayoutCachedLeft =360
                     LayoutCachedTop =60
                     LayoutCachedWidth =4020
@@ -132,13 +124,10 @@ Begin Report
                     Top =60
                     Width =7260
                     Height =315
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="GroupName_Label"
                     Caption ="GroupName"
                     Tag ="DetachedLabel"
                     GridlineStyleBottom =1
-                    GridlineColor =10921638
                     LayoutCachedLeft =4380
                     LayoutCachedTop =60
                     LayoutCachedWidth =11640
@@ -151,7 +140,6 @@ Begin Report
             Height =390
             Name ="GroupHeader0"
             AutoHeight =1
-            AlternateBackColor =15921906
             AlternateBackThemeColorIndex =1
             AlternateBackShade =95.0
             BackThemeColorIndex =1
@@ -164,11 +152,8 @@ Begin Report
                     Width =3660
                     Height =330
                     ColumnWidth =1665
-                    BorderColor =10921638
-                    ForeColor =4210752
                     Name ="ObjectName"
                     ControlSource ="ObjectName"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =360
                     LayoutCachedWidth =4020
@@ -181,7 +166,6 @@ Begin Report
             Height =390
             Name ="Detail"
             AutoHeight =1
-            AlternateBackColor =15921906
             AlternateBackThemeColorIndex =1
             AlternateBackShade =95.0
             BackThemeColorIndex =1
@@ -193,11 +177,8 @@ Begin Report
                     Width =7260
                     Height =330
                     ColumnWidth =1545
-                    BorderColor =10921638
-                    ForeColor =4210752
                     Name ="GroupName"
                     ControlSource ="GroupName"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =4380
                     LayoutCachedWidth =11640
@@ -221,12 +202,9 @@ Begin Report
                     Top =240
                     Width =5040
                     Height =330
-                    BorderColor =10921638
-                    ForeColor =4210752
                     Name ="Text5"
                     ControlSource ="=Now()"
                     Format ="Long Date"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =60
                     LayoutCachedTop =240
@@ -242,11 +220,8 @@ Begin Report
                     Width =5040
                     Height =330
                     TabIndex =1
-                    BorderColor =10921638
-                    ForeColor =4210752
                     Name ="Text6"
                     ControlSource ="=\"Page \" & [Page] & \" of \" & [Pages]"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =6600
                     LayoutCachedTop =240

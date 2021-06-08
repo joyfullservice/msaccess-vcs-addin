@@ -1,6 +1,6 @@
 ﻿{
   "Info": {
-    "AddinVersion": "3.3.12",
+    "AddinVersion": "3.4.1",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
@@ -53,12 +53,12 @@
     },
     "RunBeforeExport": "",
     "RunAfterExport": "",
+    "RunBeforeBuild": "",
     "RunAfterBuild": "RunAfterBuild",
-    "Security": "None",
-    "KeyName": "VCS",
     "ShowVCSLegacy": true,
     "HashAlgorithm": "SHA256",
     "UseShortHash": true,
-    "BreakOnError": true
+    "BreakOnError": true,
+    "PreserveRubberDuckID": false
   }
 }

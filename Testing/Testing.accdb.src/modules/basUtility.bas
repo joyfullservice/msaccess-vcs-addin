@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "basUtility"
 Option Compare Database
 Option Explicit
 
