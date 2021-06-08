@@ -366,12 +366,18 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             ' Show category wrap-up.
             Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
             Perf.ComponentEnd colFiles.Count
+            
+            ' After importing modules, we need to save them before adding
+            ' other properties like descriptions or hidden attributes
+            If cCategory.ComponentType = edbModule Then
+                Perf.OperationStart "Compile/Save Modules"
+                DoCmd.RunCommand acCmdCompileAndSaveAllModules
+                DoEvents
+                Perf.OperationEnd
+            End If
         End If
     Next cCategory
     
-    ' Compile and save the modules after importing as VBE Components
-    CompileAndSaveAllModules
-
     ' Run any post-build/merge instructions
     If blnFullBuild Then
         If Options.RunAfterBuild <> vbNullString Then

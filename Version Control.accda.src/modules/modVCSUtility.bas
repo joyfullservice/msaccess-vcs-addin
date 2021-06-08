@@ -56,9 +56,9 @@ Public Function GetAllContainers() As Collection
         ' Additional objects to import after ADP/MDB specific items
         .Add New clsDbForm
         .Add New clsDbMacro
-        .Add New clsDbModule
         .Add New clsDbReport
         .Add New clsDbTableData
+        .Add New clsDbModule
         If blnMDB Then
             .Add New clsDbTableDataMacro
             .Add New clsDbRelation
@@ -561,24 +561,3 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     
 End Sub
 
-
-'---------------------------------------------------------------------------------------
-' Procedure : CompileAndSaveAllModules
-' Author    : Adam Waller
-' Date      : 5/26/2021
-' Purpose   : Run the command to compile and save all modules in the currentproject.
-'           : NOTE: It is very important that you do not run this in the codeproject
-'           : or you may crash Access.
-'---------------------------------------------------------------------------------------
-'
-Public Sub CompileAndSaveAllModules()
-    If GetVBProjectForCurrentDB.FileName <> VBE.ActiveVBProject.FileName Then
-        ' Make sure the active project is set to the current project so we compile
-        ' and save the current project, not the add-in.
-        Set VBE.ActiveVBProject = GetVBProjectForCurrentDB
-    End If
-    Perf.OperationStart "Compile/Save Modules"
-    DoCmd.RunCommand acCmdCompileAndSaveAllModules
-    DoEvents
-    Perf.OperationEnd
-End Sub
