@@ -417,6 +417,43 @@ Public Function GetHash() As String
     GetHash = GetDictionaryHash(SerializeOptions)
 End Function
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetSanitizeLevelName
+' Author    : hecon5
+' Date      : 6/09/2021
+' Purpose   : Return the name used to read and write to the JSON options files.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSanitizeLevelName(intSanitizeLevel As eSanitizeLevel) As String
+    Select Case intSanitizeLevel
+        Case eslNone:           GetSanitizeLevelName = "No Sanitization (OFF)"
+        Case eslMinimal:        GetSanitizeLevelName = "Minimal"
+        Case eslRobust:         GetSanitizeLevelName = "Robust"
+        Case eslAgressive:      GetSanitizeLevelName = "Agressive"
+        Case eslToTheBoneBeta:  GetSanitizeLevelName = "To The Bone (BETA!)"
+        Case Else:              GetSanitizeLevelName = vbNullString
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSanitizeLevel
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : Translate the table export format key to the corresponding enum value.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSanitizeLevel(strKey As String) As eSanitizeLevel
+    Dim intSanitizeLevel As eSanitizeLevel
+    Dim strName As String
+    For intSanitizeLevel = etdNoData To eSanitizeLevel.[_Last]
+        strName = Me.GetSanitizeLevelName(intSanitizeLevel)
+        If strName = strKey Then
+            GetSanitizeLevel = intSanitizeLevel
+            Exit For
+        End If
+    Next intSanitizeLevel
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTableExportFormatName
