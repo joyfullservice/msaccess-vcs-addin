@@ -1116,7 +1116,8 @@ Begin Form
                                     RowSourceTypeInt =1
                                     OverlapFlags =247
                                     IMESentenceMode =3
-                                    ListWidth =1695
+                                    ColumnCount =2
+                                    ListWidth =2880
                                     Left =4800
                                     Top =4440
                                     Width =2640
@@ -1124,6 +1125,7 @@ Begin Form
                                     TabIndex =11
                                     Name ="cboRemoveDynamicColors"
                                     RowSourceType ="Value List"
+                                    ColumnWidths ="0;2880"
                                     HorizontalAnchor =1
                                     AllowValueListEdits =0
 
@@ -3698,10 +3700,10 @@ Private Sub Form_Load()
     With Me.cboRemoveDynamicColors
         .RowSource = vbNullString
         For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
-            .AddItem Options.GetSanitizeLevelName(intSanitizeLevel)
+            .AddItem intSanitizeLevel & "," & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
     End With
-    
+
 End Sub
 
 
