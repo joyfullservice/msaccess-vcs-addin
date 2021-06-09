@@ -35,6 +35,7 @@
     "ForceImportOriginalQuerySQL": false,
     "SaveTableSQL": true,
     "StripPublishOption": true,
+    "RemoveDynamicColors": 4,
     "AggressiveSanitize": true,
     "ExtractThemeFiles": false,
     "TablesToExportData": {
