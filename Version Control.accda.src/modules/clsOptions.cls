@@ -31,7 +31,7 @@ Public SaveQuerySQL As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
 Public SaveTableSQL As Boolean
 Public StripPublishOption As Boolean
-Public RemoveDynamicColors As Boolean
+Public RemoveDynamicColors As eSanitizeLevel
 Public AggressiveSanitize As Boolean
 Public ExtractThemeFiles As Boolean
 Public TablesToExportData As Dictionary
@@ -79,6 +79,7 @@ Public Sub LoadDefaults()
         .SaveTableSQL = True
         .StripPublishOption = True
         .AggressiveSanitize = True
+        .RemoveDynamicColors = eslRobust
         .ShowVCSLegacy = True
         .HashAlgorithm = DefaultHashAlgorithm
         .UseShortHash = True
