@@ -1119,17 +1119,17 @@ Begin Form
                                     ListWidth =1695
                                     Left =4800
                                     Top =4440
-                                    Width =2400
+                                    Width =2640
                                     Height =315
                                     TabIndex =11
-                                    Name ="cboColorSanitizeLevel"
+                                    Name ="cboRemoveDynamicColors"
                                     RowSourceType ="Value List"
                                     HorizontalAnchor =1
                                     AllowValueListEdits =0
 
                                     LayoutCachedLeft =4800
                                     LayoutCachedTop =4440
-                                    LayoutCachedWidth =7200
+                                    LayoutCachedWidth =7440
                                     LayoutCachedHeight =4755
                                     Begin
                                         Begin Label
@@ -3695,7 +3695,7 @@ Private Sub Form_Load()
         Next intFormat
     End With
     
-    With Me.cboColorSanitizeLevel
+    With Me.cboRemoveDynamicColors
         .RowSource = vbNullString
         For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
             .AddItem Options.GetSanitizeLevelName(intSanitizeLevel)
@@ -3747,7 +3747,7 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                     Else
                         Select Case ctl.Name
                             Case "chkTableShowHidden", "chkTableShowSystem", "chkTableShowOther", _
-                                "cboTableDataSaveType", "txtTableName", "cboColorSanitizeLevel"
+                                "cboTableDataSaveType", "txtTableName"
                                 ' Skip these exceptions.
                             Case Else
                                 ' Get option name from control name following prefix.
