@@ -420,7 +420,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetSanitizeLevelName
-' Author    : hecon5
+' Author    : Hecon5 (as adapted from Adam Waller's below)
 ' Date      : 6/09/2021
 ' Purpose   : Return the name used to read and write to the JSON options files.
 '---------------------------------------------------------------------------------------
@@ -439,7 +439,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetSanitizeLevel
-' Author    : Adam Waller
+' Author    : Hecon5 (as adapted from Adam Waller's below)
 ' Date      : 4/17/2020
 ' Purpose   : Translate the table export format key to the corresponding enum value.
 '---------------------------------------------------------------------------------------
