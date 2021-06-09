@@ -135,7 +135,7 @@ Public Sub SanitizeFile(strPath As String)
                         SkipLine lngLine
                     Else
                         ' Check for theme color index
-                        CloseBlock
+                        CloseThemeBlock
                     End If
                 
                 ' See if this file is from a report object
@@ -316,7 +316,7 @@ End Sub
 '           : be skipped in the output file. (See issue #183)
 '---------------------------------------------------------------------------------------
 '
-Private Sub CloseBlock()
+Private Sub CloseThemeBlock()
     
     ' This value seems to indicate that the theme was not used.
     Const NO_THEME_INDEX As Integer = -1
@@ -326,7 +326,7 @@ Private Sub CloseBlock()
     Dim dBlock As Dictionary
     Dim strKey As String
         
-    ' Skip if we are not using aggressive sanitize
+    ' Skip if we are not using aggressive color sanitize
     If Not Options.RemoveDynamicColors Then Exit Sub
     
     ' Bail out if we don't have a block to review
@@ -364,10 +364,13 @@ Private Sub CloseBlock()
                 Case Else
                     ' Most controls automatically use theme indexes
                     ' unless otherwise specified.
-                    strKey = varBase(intCnt) & "Color"
-                    If dBlock.Exists(strKey) Then
-                        ' Skip the dynamic color line
-                        SkipLine dBlock(strKey)
+                    ' As discussed in #183, this is tempermental on some controls.
+                    If Options.RemoveDynamicColors = eslToTheBoneBeta Then
+                        strKey = varBase(intCnt) & "Color"
+                        If dBlock.Exists(strKey) Then
+                            ' Skip the dynamic color line
+                            SkipLine dBlock(strKey)
+                        End If
                     End If
             End Select
         End If
@@ -435,7 +438,7 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
             End If
         
         Case "UseTheme"
-            ' You can certain controls to not use the theme. (Buttons, Tabs, Toggles)
+            ' You can tell certain controls to not use the theme. (Buttons, Tabs, Toggles)
             If varParts(1) = 0 Then dBlock.Add varParts(0), 0
         
         Case Else
@@ -678,6 +681,5 @@ Private Function FormatXML(strSourceXML As String, _
     Perf.OperationEnd
     
 End Function
-
 
 
