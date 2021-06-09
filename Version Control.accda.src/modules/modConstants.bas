@@ -97,3 +97,15 @@ Public Enum eResolveConflict
     ercSkip
     ercOverwrite
 End Enum
+
+Public Enum eSanitizeLevel
+    eslNone ' Sanitize nothing except for critical items (items that if not sanitized, won't build correctly).
+    eslMinimal ' Strip out excess items (like GUIDs) that don't let you see what's up.
+    eslRobust ' Strip out anything that can be easily (and reliably) rebuilt by access on the other end (themed control colors).
+    eslAgressive ' Strip out most code-change noise. This may introduce small variations on your re-built database in SOME cases.
+    
+    ' Warning: below introduces sanitzation that may or may not work in all environments, and has known (or highly suspected) edge
+    ' cases. Do not use this level on production databases.
+    eslToTheBoneBeta ' Cut to the bone, remove all excess stuff. Try out new sanitize features that still have ragged edges.
+    
+End Enum
