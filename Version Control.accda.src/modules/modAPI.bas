@@ -18,7 +18,7 @@ Public Enum eTableDataExportFormat
 End Enum
 
 Public Enum eSanitizeLevel
-    eslNone ' Sanitize nothing except for critical items (items that if not sanitized, won't build correctly).
+    eslNone = 0 ' Sanitize nothing except for critical items (items that if not sanitized, won't build correctly).
     eslMinimal ' Strip out excess items (like GUIDs) that don't let you see what's up.
     eslRobust ' Strip out anything that can be easily (and reliably) rebuilt by access on the other end (themed control colors).
     eslAgressive ' Strip out most code-change noise. This may introduce small variations on your re-built database in SOME cases.

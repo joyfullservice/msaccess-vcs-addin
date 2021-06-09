@@ -273,7 +273,7 @@ Begin Form
                 End
                 Begin CommandButton
                     Cancel = NotDefault
-                    OverlapFlags =93
+                    OverlapFlags =85
                     Left =5880
                     Top =6540
                     Width =1500
@@ -311,7 +311,7 @@ Begin Form
                     Overlaps =1
                 End
                 Begin CommandButton
-                    OverlapFlags =93
+                    OverlapFlags =85
                     Left =7680
                     Top =6540
                     Width =1860
@@ -387,11 +387,11 @@ Begin Form
                     Overlaps =1
                 End
                 Begin Tab
-                    OverlapFlags =215
+                    OverlapFlags =85
                     Left =540
                     Top =1500
                     Width =9000
-                    Height =5265
+                    Height =4920
                     TabIndex =2
                     Name ="tabOptions"
                     HorizontalAnchor =2
@@ -400,7 +400,7 @@ Begin Form
                     LayoutCachedLeft =540
                     LayoutCachedTop =1500
                     LayoutCachedWidth =9540
-                    LayoutCachedHeight =6765
+                    LayoutCachedHeight =6420
                     ThemeFontIndex =1
                     Shape =1
                     Gradient =12
@@ -420,13 +420,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4710
+                            Height =4365
                             Name ="pgeGeneral"
                             Caption ="General"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6690
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -679,13 +679,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4715
+                            Height =4365
                             Name ="pgeExport"
                             Caption ="Export"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6695
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1159,13 +1159,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4710
+                            Height =4365
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6690
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1811,13 +1811,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4710
+                            Height =4365
                             Name ="pgeTable"
                             Caption ="Table Data"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6690
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2149,13 +2149,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4710
+                            Height =4365
                             Name ="pgeBuild"
                             Caption ="Build"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6690
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2330,13 +2330,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4710
+                            Height =4365
                             Name ="pgeGitIntegration"
                             Caption ="Git Integration"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6690
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2651,13 +2651,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4710
+                            Height =4365
                             Name ="pgeSettings"
                             Caption ="Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6690
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -3179,7 +3179,7 @@ Begin Form
                     Overlaps =1
                 End
                 Begin Label
-                    OverlapFlags =247
+                    OverlapFlags =85
                     Left =240
                     Top =6660
                     Width =3375
@@ -3697,8 +3697,8 @@ Private Sub Form_Load()
     
     With Me.cboColorSanitizeLevel
         .RowSource = vbNullString
-        For intSanitizeLevel = 1 To eSanitizeLevel.[_Last]
-            .AddItem Options.GetSanitizeLevelName(intFormat)
+        For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
+            .AddItem Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
     End With
     
@@ -3747,7 +3747,7 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                     Else
                         Select Case ctl.Name
                             Case "chkTableShowHidden", "chkTableShowSystem", "chkTableShowOther", _
-                                "cboTableDataSaveType", "txtTableName"
+                                "cboTableDataSaveType", "txtTableName", "cboColorSanitizeLevel"
                                 ' Skip these exceptions.
                             Case Else
                                 ' Get option name from control name following prefix.
