@@ -27,22 +27,17 @@ Public Function RepairColorDefinitionBlocks()
     Dim ctl As Control
     Dim sec As Section
     Dim intSec As Integer
-    
     ' Loop through all forms
     For Each obj In CurrentProject.AllForms
-    
         ' Open in design view so we can make changes.
         DoCmd.OpenForm obj.Name, acDesign, , , , acHidden
         Set frm = Forms(obj.Name)
-        
         ' Form properties
         SetColorProperties frm.Properties
-        
         ' Control properties
         For Each ctl In frm.Controls
             SetColorProperties ctl.Properties
         Next ctl
-        
         ' Section properties (header, detail, footer, etc...)
         For intSec = acDetail To 20 ' Max sections?
             On Error Resume Next
@@ -54,7 +49,6 @@ Public Function RepairColorDefinitionBlocks()
                 SetColorProperties sec.Properties
             End If
         Next intSec
-        
         ' Save and close form
         DoCmd.Close acForm, obj.Name, acSaveYes
     Next obj
@@ -78,9 +72,11 @@ Private Sub SetColorProperties(prpCollection As Properties)
     Dim strBase As String
     Dim varKey As Variant
     Dim strProp As String
-    
+    Dim lngGradient As Long
+
     Set dItems = New Dictionary
-    
+    lngGradient = -1
+
     ' Loop through properties, collecting the color-related properties
     For Each prp In prpCollection
         With prp
@@ -88,31 +84,30 @@ Private Sub SetColorProperties(prpCollection As Properties)
                 Or EndsWith(.Name, "Shade") _
                 Or EndsWith(.Name, "Tint") Then
                 ' Save this property value
-                
                 ' Build base name of property
                 strBase = MultiReplace(.Name, _
                     "ThemeColorIndex", vbNullString, _
                     "Color", vbNullString, _
                     "Shade", vbNullString, _
                     "Tint", vbNullString)
-                    
                 ' Save in dictionary using base name as the key
-                
                 '     Fore
                 '       |---- ForeColor = 12345
                 '       |---- ForeThemeColorIndex = 3
                 '       |---- ForeShade = 4
                 '       |---- ForeTint = 100
-                
                 If Not dItems.Exists(strBase) Then
                     Set dProp = New Dictionary
                     dItems.Add strBase, dProp
                 End If
                 dItems(strBase)(.Name) = .Value
+
+            ElseIf .Name = "Gradient" Then
+                ' Save gradient value
+                lngGradient = .Value
             End If
         End With
     Next prp
-    
     ' Now, with all the properties collected, we can check
     ' for the presence of the required items to represent the color
     For Each varKey In dItems.Keys
@@ -134,7 +129,10 @@ Private Sub SetColorProperties(prpCollection As Properties)
             ReApplyValue prpCollection, dProp, varKey & "Color"
         End If
     Next varKey
-    
+
+    ' Restore any gradient property
+    If lngGradient >= 0 Then prpCollection("Gradient") = lngGradient
+
 End Sub
 
 
