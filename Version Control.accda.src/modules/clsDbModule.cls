@@ -84,8 +84,8 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Read file contents into array of lines
     strLines = Split(ReadFile(strFile), vbCrLf)
     
-    ' Loop through first 10 lines to determine type and header
-    For lngLine = 0 To 9
+    ' Loop through first several lines to determine type and header
+    For lngLine = 0 To UBound(strLines)
         If strLines(lngLine) = "VERSION 1.0 CLASS" Then
             ' Class with VBE header
             blnIsClass = True
@@ -100,6 +100,8 @@ Private Sub IDbComponent_Import(strFile As String)
             blnIsClass = True
             Exit For
         End If
+        ' Exit after 10 lines
+        If lngLine > 8 Then Exit For
     Next lngLine
     
     ' Use concatenation class to build file contents
