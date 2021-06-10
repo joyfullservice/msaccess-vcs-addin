@@ -244,10 +244,16 @@ Private Sub BuildOutput(varLines As Variant, strFile As String)
     Dim lngSkip As Long
     Dim lngLine As Long
     
-    
-    ' Trim and sort index array
-    ReDim Preserve m_SkipLines(0 To m_lngSkipIndex - 1)
-    QuickSort m_SkipLines
+    ' Check index of skipped lines
+    If m_lngSkipIndex = 0 Then
+        ' No lines to skip
+        ReDim m_SkipLines(0 To 0)
+        m_SkipLines(0) = UBound(varLines) + 1
+    Else
+        ' Trim and sort index array
+        ReDim Preserve m_SkipLines(0 To m_lngSkipIndex - 1)
+        QuickSort m_SkipLines
+    End If
     
     ' Use concatenation class to maximize performance
     Set cData = New clsConcat
