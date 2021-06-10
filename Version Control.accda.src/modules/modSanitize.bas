@@ -364,11 +364,15 @@ Private Sub CloseBlock()
                 Case Else
                     ' Most controls automatically use theme indexes
                     ' unless otherwise specified.
-                    strKey = varBase(intCnt) & "Color"
-                    If dBlock.Exists(strKey) Then
-                        ' Skip the dynamic color line
-                        SkipLine dBlock(strKey)
-                    End If
+'******************************************************************************
+'                    ' NOTE: This may be more aggressive than we need.
+'                    ' Do more testing to see if this is required.
+'                    strKey = varBase(intCnt) & "Color"
+'                    If dBlock.Exists(strKey) Then
+'                        ' Skip the dynamic color line
+'                        SkipLine dBlock(strKey)
+'                    End If
+'******************************************************************************
             End Select
         End If
     Next intCnt
