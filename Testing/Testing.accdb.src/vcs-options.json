@@ -1,6 +1,6 @@
 ﻿{
   "Info": {
-    "AddinVersion": "3.4.0",
+    "AddinVersion": "3.4.1",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
@@ -35,6 +35,7 @@
     "ForceImportOriginalQuerySQL": false,
     "SaveTableSQL": true,
     "StripPublishOption": true,
+    "RemoveDynamicColors": true,
     "AggressiveSanitize": true,
     "ExtractThemeFiles": false,
     "TablesToExportData": {

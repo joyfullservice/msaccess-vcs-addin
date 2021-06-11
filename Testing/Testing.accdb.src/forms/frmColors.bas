@@ -13,7 +13,7 @@ Begin Form
     Width =14400
     DatasheetFontHeight =11
     ItemSuffix =50
-    Right =25320
+    Right =19650
     Bottom =12585
     RecSrcDt = Begin
         0x8b5c5de351a8e540
@@ -153,8 +153,10 @@ Begin Form
                     Top =1620
                     Width =840
                     Height =360
+                    BorderColor =8355711
                     Name ="Label0"
                     Caption ="Type"
+                    GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =1620
                     LayoutCachedWidth =3720
@@ -168,6 +170,7 @@ Begin Form
                     Top =2100
                     Width =12540
                     Name ="Line1"
+                    GridlineColor =10921638
                     LayoutCachedLeft =480
                     LayoutCachedTop =2100
                     LayoutCachedWidth =13020
@@ -179,8 +182,10 @@ Begin Form
                     Top =1620
                     Width =1260
                     Height =360
+                    BorderColor =8355711
                     Name ="Label3"
                     Caption ="Theme Color"
+                    GridlineColor =10921638
                     LayoutCachedLeft =4320
                     LayoutCachedTop =1620
                     LayoutCachedWidth =5580
@@ -194,8 +199,10 @@ Begin Form
                     Top =1620
                     Width =1440
                     Height =360
+                    BorderColor =8355711
                     Name ="Label4"
                     Caption ="Pallet Color"
+                    GridlineColor =10921638
                     LayoutCachedLeft =7200
                     LayoutCachedTop =1620
                     LayoutCachedWidth =8640
@@ -209,8 +216,10 @@ Begin Form
                     Top =1620
                     Width =1305
                     Height =360
+                    BorderColor =8355711
                     Name ="Label5"
                     Caption ="Default Color"
+                    GridlineColor =10921638
                     LayoutCachedLeft =10080
                     LayoutCachedTop =1620
                     LayoutCachedWidth =11385
@@ -224,8 +233,10 @@ Begin Form
                     Top =2280
                     Width =870
                     Height =360
+                    BorderColor =8355711
                     Name ="Label6"
                     Caption ="Text Box"
+                    GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =2280
                     LayoutCachedWidth =3750
@@ -239,8 +250,10 @@ Begin Form
                     Top =2820
                     Width =870
                     Height =360
+                    BorderColor =8355711
                     Name ="Label7"
                     Caption ="Label"
+                    GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =2820
                     LayoutCachedWidth =3750
@@ -254,8 +267,10 @@ Begin Form
                     Top =3300
                     Width =870
                     Height =360
+                    BorderColor =8355711
                     Name ="Label8"
                     Caption ="Button"
+                    GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =3300
                     LayoutCachedWidth =3750
@@ -269,8 +284,10 @@ Begin Form
                     Top =3780
                     Width =870
                     Height =360
+                    BorderColor =8355711
                     Name ="Label9"
                     Caption ="Box"
+                    GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =3780
                     LayoutCachedWidth =3750
@@ -284,8 +301,10 @@ Begin Form
                     Top =2280
                     Width =1635
                     Height =360
+                    BorderColor =8355711
                     Name ="Label12"
                     Caption ="Orange, Accent 2"
+                    GridlineColor =10921638
                     LayoutCachedLeft =600
                     LayoutCachedTop =2280
                     LayoutCachedWidth =2235
@@ -300,7 +319,10 @@ Begin Form
                     Top =2280
                     Width =1200
                     Height =315
+                    BorderColor =10921638
+                    ForeColor =4210752
                     Name ="Text13"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =4320
                     LayoutCachedTop =2280
@@ -317,7 +339,10 @@ Begin Form
                     Height =315
                     TabIndex =1
                     BackColor =5676533
+                    BorderColor =10921638
+                    ForeColor =4210752
                     Name ="Text15"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =7200
                     LayoutCachedTop =2280
@@ -334,7 +359,10 @@ Begin Form
                     Height =315
                     TabIndex =2
                     BackColor =3439082
+                    BorderColor =10921638
+                    ForeColor =4210752
                     Name ="Text16"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =8640
                     LayoutCachedTop =2280
@@ -351,7 +379,10 @@ Begin Form
                     Height =315
                     TabIndex =3
                     BackColor =-2147483598
+                    BorderColor =10921638
+                    ForeColor =4210752
                     Name ="Text18"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =11520
                     LayoutCachedTop =2280
@@ -365,8 +396,10 @@ Begin Form
                     Top =1620
                     Width =1305
                     Height =360
+                    BorderColor =8355711
                     Name ="Label19"
                     Caption ="System Color"
+                    GridlineColor =10921638
                     LayoutCachedLeft =11520
                     LayoutCachedTop =1620
                     LayoutCachedWidth =12825
@@ -380,8 +413,10 @@ Begin Form
                     Top =1620
                     Width =1440
                     Height =360
+                    BorderColor =8355711
                     Name ="Label20"
                     Caption ="Custom Color"
+                    GridlineColor =10921638
                     LayoutCachedLeft =8640
                     LayoutCachedTop =1620
                     LayoutCachedWidth =10080
@@ -396,8 +431,11 @@ Begin Form
                     Top =2760
                     Width =1200
                     Height =300
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label21"
                     Caption =" "
+                    GridlineColor =10921638
                     LayoutCachedLeft =4320
                     LayoutCachedTop =2760
                     LayoutCachedWidth =5520
@@ -410,8 +448,11 @@ Begin Form
                     Top =2760
                     Width =1200
                     Height =300
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label22"
                     Caption =" "
+                    GridlineColor =10921638
                     LayoutCachedLeft =10080
                     LayoutCachedTop =2760
                     LayoutCachedWidth =11280
@@ -425,8 +466,11 @@ Begin Form
                     Width =1200
                     Height =300
                     BackColor =5676533
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label23"
                     Caption =" "
+                    GridlineColor =10921638
                     LayoutCachedLeft =7200
                     LayoutCachedTop =2760
                     LayoutCachedWidth =8400
@@ -441,8 +485,11 @@ Begin Form
                     Width =1200
                     Height =300
                     BackColor =3439082
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label24"
                     Caption =" "
+                    GridlineColor =10921638
                     LayoutCachedLeft =8640
                     LayoutCachedTop =2760
                     LayoutCachedWidth =9840
@@ -457,8 +504,11 @@ Begin Form
                     Width =1200
                     Height =300
                     BackColor =-2147483598
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label25"
                     Caption =" "
+                    GridlineColor =10921638
                     LayoutCachedLeft =11520
                     LayoutCachedTop =2760
                     LayoutCachedWidth =12720
@@ -473,7 +523,10 @@ Begin Form
                     Width =1260
                     Height =315
                     TabIndex =4
+                    BorderColor =10921638
+                    ForeColor =4210752
                     Name ="Text28"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =10080
                     LayoutCachedTop =2280
@@ -488,7 +541,10 @@ Begin Form
                     Width =1200
                     Height =315
                     TabIndex =5
+                    BorderColor =10921638
+                    ForeColor =4210752
                     Name ="Text30"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =5760
                     LayoutCachedTop =2280
@@ -503,8 +559,10 @@ Begin Form
                     Top =1620
                     Width =1260
                     Height =360
+                    BorderColor =8355711
                     Name ="Label31"
                     Caption ="Shade"
+                    GridlineColor =10921638
                     LayoutCachedLeft =5760
                     LayoutCachedTop =1620
                     LayoutCachedWidth =7020
@@ -519,8 +577,11 @@ Begin Form
                     Top =2760
                     Width =1200
                     Height =300
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label32"
                     Caption =" "
+                    GridlineColor =10921638
                     LayoutCachedLeft =5760
                     LayoutCachedTop =2760
                     LayoutCachedWidth =6960
@@ -534,8 +595,10 @@ Begin Form
                     Top =3240
                     Width =1200
                     TabIndex =6
+                    ForeColor =4210752
                     Name ="Command33"
                     Caption ="Command33"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =4320
                     LayoutCachedTop =3240
@@ -544,6 +607,11 @@ Begin Form
                     Gradient =0
                     BackThemeColorIndex =5
                     BackTint =100.0
+                    BorderColor =14136213
+                    HoverColor =15060409
+                    PressedColor =9592887
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -555,8 +623,10 @@ Begin Form
                     Top =3240
                     Width =1200
                     TabIndex =7
+                    ForeColor =4210752
                     Name ="Command34"
                     Caption ="Command33"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =5760
                     LayoutCachedTop =3240
@@ -564,6 +634,11 @@ Begin Form
                     LayoutCachedHeight =3600
                     Gradient =0
                     BackThemeColorIndex =5
+                    BorderColor =14136213
+                    HoverColor =15060409
+                    PressedColor =9592887
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -575,8 +650,10 @@ Begin Form
                     Top =3240
                     Width =1200
                     TabIndex =8
+                    ForeColor =4210752
                     Name ="Command35"
                     Caption ="Command33"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =7200
                     LayoutCachedTop =3240
@@ -586,6 +663,11 @@ Begin Form
                     BackColor =5676533
                     BackThemeColorIndex =-1
                     BackTint =100.0
+                    BorderColor =14136213
+                    HoverColor =15060409
+                    PressedColor =9592887
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -597,8 +679,10 @@ Begin Form
                     Top =3240
                     Width =1200
                     TabIndex =9
+                    ForeColor =4210752
                     Name ="Command36"
                     Caption ="Command33"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =8640
                     LayoutCachedTop =3240
@@ -608,6 +692,11 @@ Begin Form
                     BackColor =3439082
                     BackThemeColorIndex =-1
                     BackTint =100.0
+                    BorderColor =14136213
+                    HoverColor =15060409
+                    PressedColor =9592887
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -619,13 +708,21 @@ Begin Form
                     Top =3240
                     Width =1200
                     TabIndex =10
+                    ForeColor =4210752
                     Name ="Command37"
                     Caption ="Command33"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =10080
                     LayoutCachedTop =3240
                     LayoutCachedWidth =11280
                     LayoutCachedHeight =3600
+                    BackColor =14136213
+                    BorderColor =14136213
+                    HoverColor =15060409
+                    PressedColor =9592887
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -637,8 +734,10 @@ Begin Form
                     Top =3240
                     Width =1200
                     TabIndex =11
+                    ForeColor =4210752
                     Name ="Command38"
                     Caption ="Command33"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =11520
                     LayoutCachedTop =3240
@@ -648,6 +747,11 @@ Begin Form
                     BackColor =-2147483598
                     BackThemeColorIndex =-1
                     BackTint =100.0
+                    BorderColor =14136213
+                    HoverColor =15060409
+                    PressedColor =9592887
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -660,7 +764,9 @@ Begin Form
                     Top =3780
                     Width =1200
                     Height =360
+                    BorderColor =10921638
                     Name ="Box41"
+                    GridlineColor =10921638
                     LayoutCachedLeft =4320
                     LayoutCachedTop =3780
                     LayoutCachedWidth =5520
@@ -674,7 +780,9 @@ Begin Form
                     Top =3780
                     Width =1200
                     Height =360
+                    BorderColor =10921638
                     Name ="Box42"
+                    GridlineColor =10921638
                     LayoutCachedLeft =5760
                     LayoutCachedTop =3780
                     LayoutCachedWidth =6960
@@ -690,7 +798,9 @@ Begin Form
                     Width =1200
                     Height =360
                     BackColor =5676533
+                    BorderColor =10921638
                     Name ="Box43"
+                    GridlineColor =10921638
                     LayoutCachedLeft =7200
                     LayoutCachedTop =3780
                     LayoutCachedWidth =8400
@@ -705,7 +815,9 @@ Begin Form
                     Width =1200
                     Height =360
                     BackColor =3439082
+                    BorderColor =10921638
                     Name ="Box44"
+                    GridlineColor =10921638
                     LayoutCachedLeft =8640
                     LayoutCachedTop =3780
                     LayoutCachedWidth =9840
@@ -718,7 +830,9 @@ Begin Form
                     Top =3780
                     Width =1200
                     Height =360
+                    BorderColor =10921638
                     Name ="Box45"
+                    GridlineColor =10921638
                     LayoutCachedLeft =10080
                     LayoutCachedTop =3780
                     LayoutCachedWidth =11280
@@ -732,7 +846,9 @@ Begin Form
                     Width =1200
                     Height =360
                     BackColor =-2147483598
+                    BorderColor =10921638
                     Name ="Box46"
+                    GridlineColor =10921638
                     LayoutCachedLeft =11520
                     LayoutCachedTop =3780
                     LayoutCachedWidth =12720
@@ -745,8 +861,10 @@ Begin Form
                     Top =4860
                     Width =1860
                     Height =360
+                    BorderColor =8355711
                     Name ="Label48"
                     Caption ="Screenshot Image"
+                    GridlineColor =10921638
                     LayoutCachedLeft =600
                     LayoutCachedTop =4860
                     LayoutCachedWidth =2460
@@ -760,8 +878,10 @@ Begin Form
                     Top =4620
                     Width =10245
                     Height =2190
+                    BorderColor =10921638
                     Name ="Image49"
                     Picture ="Colors"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =2760
                     LayoutCachedTop =4620

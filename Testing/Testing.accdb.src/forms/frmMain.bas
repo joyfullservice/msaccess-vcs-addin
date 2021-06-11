@@ -13,13 +13,13 @@ Begin Form
     Width =8520
     DatasheetFontHeight =11
     ItemSuffix =13
-    Right =15975
-    Bottom =11745
+    Right =25575
+    Bottom =12840
     RecSrcDt = Begin
         0x18691eff0b76e540
     End
     Caption ="Main Form"
-    DatasheetFontName ="Calibri"
+    DatasheetFontName ="Franklin Gothic Book"
     OnLoad ="[Event Procedure]"
     FilterOnLoad =0
     ShowPageMargins =0
@@ -134,9 +134,12 @@ Begin Form
                     Top =2940
                     Width =3120
                     Height =720
+                    ForeColor =4210752
                     Name ="cmdRunTests"
                     Caption ="  Verify Database Objects"
                     OnClick ="[Event Procedure]"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x0000000000000000b0a090ff604830ff604830ff604830ff604830ff604830ff ,
@@ -179,6 +182,12 @@ Begin Form
                     LayoutCachedWidth =8520
                     LayoutCachedHeight =3660
                     PictureCaptionArrangement =5
+                    BackColor =11710639
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -195,6 +204,8 @@ Begin Form
                     Width =4455
                     Height =5745
                     TabIndex =1
+                    ForeColor =4210752
+                    BorderColor =10921638
                     Name ="lstResults"
                     RowSourceType ="Value List"
                     RowSource ="✔;Access Table exists;✔;tblInternal has data;✔;Linked Table exists;✔;tblLinkedCS"
@@ -203,6 +214,8 @@ Begin Form
                         "ists;✔;Query exists;✔;Form exists;✔;Report exists;✔;Application Icon is set;✔;Cu"
                         "stom Database (DAO) property;✔;Custom Project Property"
                     ColumnWidths ="479;3975"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =600
                     LayoutCachedTop =1140
@@ -215,8 +228,12 @@ Begin Form
                             Top =720
                             Width =2880
                             Height =320
+                            BorderColor =8355711
+                            ForeColor =8355711
                             Name ="Col1_Label"
                             Caption ="Test Results"
+                            FontName ="Franklin Gothic Book"
+                            GridlineColor =10921638
                             LayoutCachedLeft =780
                             LayoutCachedTop =720
                             LayoutCachedWidth =3660
@@ -230,9 +247,13 @@ Begin Form
                     Top =1140
                     Width =3060
                     Height =1635
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label4"
                     Caption ="Click the button below to verify the objects in the current database. This helps"
                         " confirm that everything was correctly reconstructed from source."
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =5400
                     LayoutCachedTop =1140
                     LayoutCachedWidth =8460
@@ -245,9 +266,12 @@ Begin Form
                     Width =3120
                     Height =720
                     TabIndex =2
+                    ForeColor =4210752
                     Name ="cmdEditTests"
                     Caption ="  Edit Tests..."
                     OnClick ="[Event Procedure]"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -290,6 +314,12 @@ Begin Form
                     LayoutCachedWidth =8520
                     LayoutCachedHeight =4620
                     PictureCaptionArrangement =5
+                    BackColor =11710639
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -302,8 +332,12 @@ Begin Form
                     Top =4860
                     Width =3060
                     Height =1635
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="lblResults"
                     Caption ="17 tests passed\015\0120 tests failed"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =5400
                     LayoutCachedTop =4860
                     LayoutCachedWidth =8460
@@ -315,7 +349,9 @@ Begin Form
                     Top =4860
                     Width =600
                     Height =720
+                    BorderColor =10921638
                     Name ="imgResult"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =7860
                     LayoutCachedTop =4860
@@ -353,6 +389,7 @@ Public Sub cmdRunTests_Click()
     Dim strTest As String
     Dim intTest As Integer
     Dim dbs As DAO.Database
+    Dim rsc As SharedResource
     
     Set dbs = CurrentDb
     
@@ -489,6 +526,17 @@ Public Sub cmdRunTests_Click()
         
     End With
     
+    ' Theme
+    strTest = CurrentDb.Properties("Theme Resource Name")
+    ShowResult "Active theme = Angles", (strTest = "Angles")
+    
+    For Each rsc In CurrentProject.Resources
+        If rsc.Type = acResourceTheme Then
+            strTest = rsc.Name
+            Exit For
+        End If
+    Next rsc
+    ShowResult "Theme resource exists", (strTest = "Angles")
     
     ' Other
     ShowResult "VCS Options file exists", FSO.FileExists(ExportFolder & "vcs-options.json")
