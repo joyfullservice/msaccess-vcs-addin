@@ -332,8 +332,8 @@ Private Sub CloseBlock()
     Dim dBlock As Dictionary
     Dim strKey As String
         
-    ' Skip if we are not using aggressive sanitize
-    If Not Options.RemoveDynamicColors Then Exit Sub
+    ' Skip if we are not using aggressive color sanitize
+    If Options.SanitizeColors <= escNone Then Exit Sub
     
     ' Bail out if we don't have a block to review
     If m_colBlocks.Count = 0 Then Exit Sub
@@ -370,15 +370,15 @@ Private Sub CloseBlock()
                 Case Else
                     ' Most controls automatically use theme indexes
                     ' unless otherwise specified.
-'******************************************************************************
-'                    ' NOTE: This may be more aggressive than we need.
-'                    ' Do more testing to see if this is required.
-'                    strKey = varBase(intCnt) & "Color"
-'                    If dBlock.Exists(strKey) Then
-'                        ' Skip the dynamic color line
-'                        SkipLine dBlock(strKey)
-'                    End If
-'******************************************************************************
+                    ' As discussed in #183, this can be affected by incomplete
+                    ' component definition blocks.
+                    If Options.SanitizeColors = escAdvanced Then
+                        strKey = varBase(intCnt) & "Color"
+                        If dBlock.Exists(strKey) Then
+                            ' Skip the dynamic color line
+                            SkipLine dBlock(strKey)
+                        End If
+                    End If
             End Select
         End If
     Next intCnt
@@ -408,7 +408,7 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     Dim lngColor As Long
     
     ' Skip if not using this option
-    If Not Options.RemoveDynamicColors Then Exit Sub
+    If Options.SanitizeColors <= escNone Then Exit Sub
     
     ' Exit if we are not inside a block
     If Not m_colBlocks Is Nothing Then lngCnt = m_colBlocks.Count
@@ -445,7 +445,7 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
             End If
         
         Case "UseTheme"
-            ' You can certain controls to not use the theme. (Buttons, Tabs, Toggles)
+            ' You can tell certain controls to not use the theme. (Buttons, Tabs, Toggles)
             If varParts(1) = 0 Then dBlock.Add varParts(0), 0
         
         Case Else
@@ -688,6 +688,5 @@ Private Function FormatXML(strSourceXML As String, _
     Perf.OperationEnd
     
 End Function
-
 
 

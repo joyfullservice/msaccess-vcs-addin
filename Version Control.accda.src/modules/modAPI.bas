@@ -8,6 +8,8 @@
 Option Compare Database
 Option Explicit
 
+' Note, some enums are listed here when they are directly exposed
+' through the Options class. (Allowing them to be used externally)
 
 ' Formats used when exporting table data.
 Public Enum eTableDataExportFormat
@@ -15,6 +17,15 @@ Public Enum eTableDataExportFormat
     etdTabDelimited = 1
     etdXML = 2
     [_Last] = 2
+End Enum
+
+Public Enum eSanitizeColors
+    escNone = 0     ' Do not remove any color information
+    escBasic        ' Remove dynamic theme colors when clearly safe to do so
+    escAdvanced     ' Remove additional color values that are likely to be dynamic theme colors
+                    ' (May remove some static colors if object definition blocks are incomplete,
+                    '  which may occur in databases upgraded from prior versions of Access.)
+    [_Last]
 End Enum
 
 Private m_VCS As clsVersionControl
