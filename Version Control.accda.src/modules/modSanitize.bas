@@ -327,7 +327,7 @@ Private Sub CloseThemeBlock()
     Dim strKey As String
         
     ' Skip if we are not using aggressive color sanitize
-    If Options.RemoveDynamicColors <= eslNone Then Exit Sub
+    If Options.SanitizeColors <= escNone Then Exit Sub
     
     ' Bail out if we don't have a block to review
     If m_colBlocks.Count = 0 Then Exit Sub
@@ -365,7 +365,7 @@ Private Sub CloseThemeBlock()
                     ' Most controls automatically use theme indexes
                     ' unless otherwise specified.
                     ' As discussed in #183, this is tempermental on some controls.
-                    If Options.RemoveDynamicColors = eslToTheBoneBeta Then
+                    If Options.SanitizeColors = escAdvanced Then
                         strKey = varBase(intCnt) & "Color"
                         If dBlock.Exists(strKey) Then
                             ' Skip the dynamic color line
@@ -401,7 +401,7 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     Dim lngColor As Long
     
     ' Skip if not using this option
-    If Options.RemoveDynamicColors <= eslNone Then Exit Sub
+    If Options.SanitizeColors <= escNone Then Exit Sub
     
     ' Exit if we are not inside a block
     If Not m_colBlocks Is Nothing Then lngCnt = m_colBlocks.Count

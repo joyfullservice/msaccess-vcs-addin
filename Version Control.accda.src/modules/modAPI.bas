@@ -8,6 +8,8 @@
 Option Compare Database
 Option Explicit
 
+' Note, some enums are listed here when they are directly exposed
+' through the Options class. (Allowing them to be used externally)
 
 ' Formats used when exporting table data.
 Public Enum eTableDataExportFormat
@@ -17,15 +19,12 @@ Public Enum eTableDataExportFormat
     [_Last] = 2
 End Enum
 
-Public Enum eSanitizeLevel
-    eslNone = 0 ' Sanitize nothing except for critical items (items that if not sanitized, won't build correctly).
-    eslMinimal ' Strip out excess items (like GUIDs) that don't let you see what's up.
-    eslRobust ' Strip out anything that can be easily (and reliably) rebuilt by access on the other end (themed control colors).
-    eslAgressive ' Strip out most code-change noise. This may introduce small variations on your re-built database in SOME cases.
-    
-    ' Warning: below introduces sanitzation that may or may not work in all environments, and has known (or highly suspected) edge
-    ' cases. Do not use this level on production databases.
-    eslToTheBoneBeta ' Cut to the bone, remove all excess stuff. Try out new sanitize features that still have ragged edges.
+Public Enum eSanitizeColors
+    escNone = 0     ' Do not remove any color information
+    escBasic        ' Remove dynamic theme colors when clearly safe to do so
+    escAdvanced     ' Remove additional color values that are likely to be dynamic theme colors
+                    ' (May remove some static colors if object definition blocks are incomplete,
+                    '  which may occur in databases upgraded from prior versions of Access.)
     [_Last]
 End Enum
 

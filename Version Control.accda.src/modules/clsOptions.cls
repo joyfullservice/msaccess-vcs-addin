@@ -31,7 +31,7 @@ Public SaveQuerySQL As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
 Public SaveTableSQL As Boolean
 Public StripPublishOption As Boolean
-Public RemoveDynamicColors As eSanitizeLevel
+Public SanitizeColors As eSanitizeColors
 Public AggressiveSanitize As Boolean
 Public ExtractThemeFiles As Boolean
 Public TablesToExportData As Dictionary
@@ -79,7 +79,7 @@ Public Sub LoadDefaults()
         .SaveTableSQL = True
         .StripPublishOption = True
         .AggressiveSanitize = True
-        .RemoveDynamicColors = eslRobust
+        .SanitizeColors = escBasic
         .ShowVCSLegacy = True
         .HashAlgorithm = DefaultHashAlgorithm
         .UseShortHash = True
@@ -418,43 +418,43 @@ Public Function GetHash() As String
     GetHash = GetDictionaryHash(SerializeOptions)
 End Function
 
+
 '---------------------------------------------------------------------------------------
-' Procedure : GetSanitizeLevelName
+' Procedure : GetColorSanitizeLevelName
 ' Author    : Hecon5 (as adapted from Adam Waller's below)
 ' Date      : 6/09/2021
 ' Purpose   : Return the name used to read and write to the JSON options files.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSanitizeLevelName(intSanitizeLevel As eSanitizeLevel) As String
+Public Function GetColorSanitizeLevelName(intSanitizeLevel As eSanitizeColors) As String
     Select Case intSanitizeLevel
-        Case eslNone:           GetSanitizeLevelName = "No Sanitization (OFF)"
-        Case eslMinimal:        GetSanitizeLevelName = "Minimal"
-        Case eslRobust:         GetSanitizeLevelName = "Robust"
-        Case eslAgressive:      GetSanitizeLevelName = "Agressive"
-        Case eslToTheBoneBeta:  GetSanitizeLevelName = "To The Bone (BETA!)"
-        Case Else:              GetSanitizeLevelName = vbNullString
+        Case escNone:           GetColorSanitizeLevelName = "None"
+        Case escBasic:          GetColorSanitizeLevelName = "Basic"
+        Case escAdvanced:       GetColorSanitizeLevelName = "Advanced"
+        Case Else:              GetColorSanitizeLevelName = vbNullString
     End Select
 End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetSanitizeLevel
+' Procedure : GetColorSanitizeLevel
 ' Author    : Hecon5 (as adapted from Adam Waller's below)
-' Date      : 4/17/2020
+' Date      : 6/09/2021
 ' Purpose   : Translate the table export format key to the corresponding enum value.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSanitizeLevel(strKey As String) As eSanitizeLevel
-    Dim intSanitizeLevel As eSanitizeLevel
+Public Function GetColorSanitizeLevel(strKey As String) As eSanitizeColors
+    Dim intSanitizeLevel As eSanitizeColors
     Dim strName As String
-    For intSanitizeLevel = etdNoData To eSanitizeLevel.[_Last]
-        strName = Me.GetSanitizeLevelName(intSanitizeLevel)
+    For intSanitizeLevel = escNone To eSanitizeColors.[_Last] - 1
+        strName = Me.GetColorSanitizeLevelName(intSanitizeLevel)
         If strName = strKey Then
-            GetSanitizeLevel = intSanitizeLevel
+            GetColorSanitizeLevel = intSanitizeLevel
             Exit For
         End If
     Next intSanitizeLevel
 End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTableExportFormatName
@@ -549,7 +549,7 @@ Private Sub Class_Initialize()
         .Add "ForceImportOriginalQuerySQL"
         .Add "SaveTableSQL"
         .Add "StripPublishOption"
-        .Add "RemoveDynamicColors"
+        .Add "SanitizeColors"
         .Add "AggressiveSanitize"
         .Add "ExtractThemeFiles"
         .Add "TablesToExportData"
