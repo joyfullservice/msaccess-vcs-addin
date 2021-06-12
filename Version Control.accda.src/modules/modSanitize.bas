@@ -135,7 +135,7 @@ Public Sub SanitizeFile(strPath As String)
                         SkipLine lngLine
                     Else
                         ' Check for theme color index
-                        CloseThemeBlock
+                        CloseBlock
                     End If
                 
                 ' See if this file is from a report object
@@ -316,7 +316,7 @@ End Sub
 '           : be skipped in the output file. (See issue #183)
 '---------------------------------------------------------------------------------------
 '
-Private Sub CloseThemeBlock()
+Private Sub CloseBlock()
     
     ' This value seems to indicate that the theme was not used.
     Const NO_THEME_INDEX As Integer = -1
