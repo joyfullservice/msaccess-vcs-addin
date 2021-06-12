@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =32
     Left =3225
     Top =2430
-    Right =22695
+    Right =28545
     Bottom =15015
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1851,6 +1851,10 @@ Private Sub cmdBuild_Click()
                     DoCmd.Hourglass False
                     Exit Sub
                 End If
+            Else
+                ' Canceled dialog
+                DoCmd.Hourglass False
+                Exit Sub
             End If
         End With
     End If
