@@ -298,8 +298,11 @@ Public Function VerifyResourcesTable(blnClearThemes As Boolean) As Boolean
             If blnClearThemes Then CurrentDb.Execute "DELETE * FROM MSysResources WHERE [Type]='thmx'", dbFailOnError
             VerifyResourcesTable = True
         Else
-            Log.Add "WARNING: Unable to create MSysResources table."
+            Log.Error eelError, "Unable to create MSysResources table.", ModuleName & ".VerifyResourcesTable"
         End If
+    Else
+        ' Found table
+        VerifyResourcesTable = True
     End If
     
 End Function
