@@ -4,6 +4,10 @@ The options dialog can be opened from the main screen by click the `Options` but
 
 ![](img/options-general.jpg)
 
+ * **Show Detailed Output** - **Default OFF** Enable verbose output of each step; useful when you're real curious. This may slow down Export and Build operations.
+
+ * **Debug VBA Errors** - **Default OFF** (Advanced Users) If an unexpected error occurs, stop and show some debugging options. This may provide a lot more information than may be needed, and may stop when the error is non-build/export affecting.
+
  * **Export Folder** - I like to keep this relative to the project, but it can be customized here.
     * *[Blank]* - Use default name of `/[database.accdb].src`, i.e. `/Test.accdb.src`
     * *Relative Path* - Prefix folder name with a backslash. For example, to export source into a subfolder called `Source`, you would enter `\Source` in this box.
