@@ -324,9 +324,6 @@ End Sub
 '
 Private Sub CloseBlock()
     
-    ' This value seems to indicate that the theme was not used.
-    Const NO_THEME_INDEX As Integer = -1
-    
     Dim varBase As Variant
     Dim intCnt As Integer
     Dim dBlock As Dictionary
@@ -371,8 +368,7 @@ Private Sub CloseBlock()
                     ' Most controls automatically use theme indexes
                     ' unless otherwise specified.
                     ' As discussed in #183, this can be affected by incomplete
-                    ' component definition blocks.
-                    If Options.SanitizeColors = escAdvanced Then
+                    If Options.SanitizeColors = eslAdvancedBeta Then
                         strKey = varBase(intCnt) & "Color"
                         If dBlock.Exists(strKey) Then
                             ' Skip the dynamic color line
@@ -408,7 +404,7 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     Dim lngColor As Long
     
     ' Skip if not using this option
-    If Options.SanitizeColors <= escNone Then Exit Sub
+    If Options.RemoveDynamicColors <= eslNone Then Exit Sub
     
     ' Exit if we are not inside a block
     If Not m_colBlocks Is Nothing Then lngCnt = m_colBlocks.Count
