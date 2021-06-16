@@ -13,7 +13,7 @@ Begin Form
     DatasheetGridlinesBehavior =3
     GridX =24
     GridY =24
-    Width =10170
+    Width =10080
     DatasheetFontHeight =11
     ItemSuffix =236
     Left =-25575
@@ -1928,6 +1928,40 @@ Begin Form
                                         End
                                     End
                                 End
+                                Begin CheckBox
+                                    OverlapFlags =247
+                                    Left =4860
+                                    Top =5760
+                                    TabIndex =6
+                                    Name ="chkTableShowOther"
+                                    DefaultValue ="False"
+                                    OnClick ="[Event Procedure]"
+                                    VerticalAnchor =1
+
+                                    LayoutCachedLeft =4860
+                                    LayoutCachedTop =5760
+                                    LayoutCachedWidth =5120
+                                    LayoutCachedHeight =6000
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =5160
+                                            Top =5700
+                                            Width =1200
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label85"
+                                            Caption ="Show Other"
+                                            VerticalAnchor =1
+                                            LayoutCachedLeft =5160
+                                            LayoutCachedTop =5700
+                                            LayoutCachedWidth =6360
+                                            LayoutCachedHeight =6015
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
                                 Begin TextBox
                                     Locked = NotDefault
                                     OverlapFlags =247
@@ -2005,25 +2039,6 @@ Begin Form
                                         End
                                     End
                                 End
-                                Begin Label
-                                    OverlapFlags =247
-                                    Left =6960
-                                    Top =2280
-                                    Width =2400
-                                    Height =840
-                                    FontSize =10
-                                    ForeColor =5324600
-                                    Name ="Label82"
-                                    Caption ="You may optionally include data from specific tables as part of the export proce"
-                                        "ss."
-                                    HorizontalAnchor =1
-                                    LayoutCachedLeft =6960
-                                    LayoutCachedTop =2280
-                                    LayoutCachedWidth =9360
-                                    LayoutCachedHeight =3120
-                                    ForeThemeColorIndex =-1
-                                    ForeTint =100.0
-                                End
                                 Begin CommandButton
                                     OverlapFlags =247
                                     Left =6960
@@ -2096,39 +2111,24 @@ Begin Form
                                     WebImagePaddingRight =9
                                     WebImagePaddingBottom =9
                                 End
-                                Begin CheckBox
+                                Begin Label
                                     OverlapFlags =247
-                                    Left =4860
-                                    Top =5760
-                                    TabIndex =6
-                                    Name ="chkTableShowOther"
-                                    DefaultValue ="False"
-                                    OnClick ="[Event Procedure]"
-                                    VerticalAnchor =1
-
-                                    LayoutCachedLeft =4860
-                                    LayoutCachedTop =5760
-                                    LayoutCachedWidth =5120
-                                    LayoutCachedHeight =6000
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =247
-                                            Left =5160
-                                            Top =5700
-                                            Width =1200
-                                            Height =315
-                                            ForeColor =5324600
-                                            Name ="Label85"
-                                            Caption ="Show Other"
-                                            VerticalAnchor =1
-                                            LayoutCachedLeft =5160
-                                            LayoutCachedTop =5700
-                                            LayoutCachedWidth =6360
-                                            LayoutCachedHeight =6015
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
+                                    Left =6960
+                                    Top =2280
+                                    Width =2400
+                                    Height =840
+                                    FontSize =10
+                                    ForeColor =5324600
+                                    Name ="Label82"
+                                    Caption ="You may optionally include data from specific tables as part of the export proce"
+                                        "ss."
+                                    HorizontalAnchor =1
+                                    LayoutCachedLeft =6960
+                                    LayoutCachedTop =2280
+                                    LayoutCachedWidth =9360
+                                    LayoutCachedHeight =3120
+                                    ForeThemeColorIndex =-1
+                                    ForeTint =100.0
                                 End
                                 Begin Label
                                     FontUnderline = NotDefault
@@ -3723,9 +3723,6 @@ Private Sub Form_Load()
             .AddItem intSanitizeLevel & "," & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
     End With
-
-    ' Set focus to the cancel button; this avoids weird highlighting of options boxes.
-    Me.cmdCancel.SetFocus
     
 End Sub
 
