@@ -32,7 +32,7 @@ Public ForceImportOriginalQuerySQL As Boolean
 Public SaveTableSQL As Boolean
 Public StripPublishOption As Boolean
 Public SanitizeColors As eSanitizeLevel
-Public SanitizeLevel As eSanitizeLevel      ' New sanitize level; used to allow turning on/off sanitize entirely to see raw files.
+Public SanitizeLevel As eSanitizeLevel
 Public ExtractThemeFiles As Boolean
 Public TablesToExportData As Dictionary
 Public RunBeforeExport As String
@@ -224,6 +224,8 @@ Public Sub LoadOptionsFromFile(strFile As String)
     If Not dFile Is Nothing Then
         If dFile.Exists("Options") Then
             Set dOptions = dFile("Options")
+            ' Perform any relevant option upgrades
+            Upgrade dOptions
             ' Attempt to set any matching options in this class.
             For Each varOption In m_colOptions
                 strKey = CStr(varOption)
@@ -234,17 +236,6 @@ Public Sub LoadOptionsFromFile(strFile As String)
                             Set Me.ExportPrintSettings = dOptions(strKey)
                         Case "TablesToExportData"
                             Set Me.TablesToExportData = CloneDictionary(dOptions(strKey), ecmTextCompare)
-                        Case "AggressiveSanitize"
-                                '.AggressiveSanitize = True
-                                '.SanitizeLevel = eslAgressive
-                            If Not dOptions.Exists("SanitizeLevel") Then
-                                If dOptions("AggressiveSanitize") Then
-                                    SanitizeLevel = eslAgressive
-                                Else
-                                    SanitizeLevel = eslBasic
-                                End If
-                            End If
-
                         Case Else
                             ' Regular top-level properties
                             CallByName Me, strKey, VbLet, dOptions(strKey)
@@ -256,6 +247,31 @@ Public Sub LoadOptionsFromFile(strFile As String)
 
     CatchAny eelError, "Loading options from " & strFile, ModuleName & ".LoadOptionsFromFile"
     
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Upgrade
+' Author    : Adam Waller
+' Date      : 6/16/2021
+' Purpose   : Perform any upgrades to option names or settings.
+'           : Expects a dictionary of options, as when loaded from a file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Upgrade(ByRef dOptions As Dictionary)
+
+    ' 6/16/2021
+    ' Aggressive sanitize to sanitize levels
+    If dOptions.Exists("AggressiveSanitize") Then
+        If Not dOptions.Exists("SanitizeLevel") Then
+            ' Check for non-default level
+            If Not dOptions("AggressiveSanitize") Then
+                ' Set to basic level
+                dOptions.Add "SanitizeLevel", eslBasic
+            End If
+        End If
+    End If
+
 End Sub
 
 
