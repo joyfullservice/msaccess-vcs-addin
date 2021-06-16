@@ -18,7 +18,7 @@ Begin Form
     RecSrcDt = Begin
         0x8b5c5de351a8e540
     End
-    DatasheetFontName ="Calibri"
+    DatasheetFontName ="Franklin Gothic Book"
     AllowDatasheetView =0
     AllowPivotTableView =0
     AllowPivotChartView =0
@@ -156,6 +156,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label0"
                     Caption ="Type"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =1620
@@ -185,6 +186,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label3"
                     Caption ="Theme Color"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =4320
                     LayoutCachedTop =1620
@@ -202,6 +204,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label4"
                     Caption ="Pallet Color"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =7200
                     LayoutCachedTop =1620
@@ -219,6 +222,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label5"
                     Caption ="Default Color"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =10080
                     LayoutCachedTop =1620
@@ -236,6 +240,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label6"
                     Caption ="Text Box"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =2280
@@ -253,6 +258,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label7"
                     Caption ="Label"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =2820
@@ -270,6 +276,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label8"
                     Caption ="Button"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =3300
@@ -287,6 +294,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label9"
                     Caption ="Box"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =3780
@@ -304,6 +312,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label12"
                     Caption ="Orange, Accent 2"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =600
                     LayoutCachedTop =2280
@@ -322,6 +331,7 @@ Begin Form
                     BorderColor =10921638
                     ForeColor =4210752
                     Name ="Text13"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =4320
@@ -342,6 +352,7 @@ Begin Form
                     BorderColor =10921638
                     ForeColor =4210752
                     Name ="Text15"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =7200
@@ -362,6 +373,7 @@ Begin Form
                     BorderColor =10921638
                     ForeColor =4210752
                     Name ="Text16"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =8640
@@ -382,6 +394,7 @@ Begin Form
                     BorderColor =10921638
                     ForeColor =4210752
                     Name ="Text18"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =11520
@@ -399,6 +412,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label19"
                     Caption ="System Color"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =11520
                     LayoutCachedTop =1620
@@ -416,6 +430,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label20"
                     Caption ="Custom Color"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =8640
                     LayoutCachedTop =1620
@@ -435,6 +450,7 @@ Begin Form
                     ForeColor =8355711
                     Name ="Label21"
                     Caption =" "
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =4320
                     LayoutCachedTop =2760
@@ -452,6 +468,7 @@ Begin Form
                     ForeColor =8355711
                     Name ="Label22"
                     Caption =" "
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =10080
                     LayoutCachedTop =2760
@@ -470,6 +487,7 @@ Begin Form
                     ForeColor =8355711
                     Name ="Label23"
                     Caption =" "
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =7200
                     LayoutCachedTop =2760
@@ -489,6 +507,7 @@ Begin Form
                     ForeColor =8355711
                     Name ="Label24"
                     Caption =" "
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =8640
                     LayoutCachedTop =2760
@@ -508,6 +527,7 @@ Begin Form
                     ForeColor =8355711
                     Name ="Label25"
                     Caption =" "
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =11520
                     LayoutCachedTop =2760
@@ -526,6 +546,7 @@ Begin Form
                     BorderColor =10921638
                     ForeColor =4210752
                     Name ="Text28"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =10080
@@ -544,6 +565,7 @@ Begin Form
                     BorderColor =10921638
                     ForeColor =4210752
                     Name ="Text30"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =5760
@@ -562,6 +584,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label31"
                     Caption ="Shade"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =5760
                     LayoutCachedTop =1620
@@ -581,6 +604,7 @@ Begin Form
                     ForeColor =8355711
                     Name ="Label32"
                     Caption =" "
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =5760
                     LayoutCachedTop =2760
@@ -598,6 +622,7 @@ Begin Form
                     ForeColor =4210752
                     Name ="Command33"
                     Caption ="Command33"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =4320
@@ -607,9 +632,9 @@ Begin Form
                     Gradient =0
                     BackThemeColorIndex =5
                     BackTint =100.0
-                    BorderColor =14136213
-                    HoverColor =15060409
-                    PressedColor =9592887
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
                     HoverForeColor =4210752
                     PressedForeColor =4210752
                     WebImagePaddingLeft =2
@@ -626,6 +651,7 @@ Begin Form
                     ForeColor =4210752
                     Name ="Command34"
                     Caption ="Command33"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =5760
@@ -634,9 +660,9 @@ Begin Form
                     LayoutCachedHeight =3600
                     Gradient =0
                     BackThemeColorIndex =5
-                    BorderColor =14136213
-                    HoverColor =15060409
-                    PressedColor =9592887
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
                     HoverForeColor =4210752
                     PressedForeColor =4210752
                     WebImagePaddingLeft =2
@@ -653,6 +679,7 @@ Begin Form
                     ForeColor =4210752
                     Name ="Command35"
                     Caption ="Command33"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =7200
@@ -663,9 +690,9 @@ Begin Form
                     BackColor =5676533
                     BackThemeColorIndex =-1
                     BackTint =100.0
-                    BorderColor =14136213
-                    HoverColor =15060409
-                    PressedColor =9592887
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
                     HoverForeColor =4210752
                     PressedForeColor =4210752
                     WebImagePaddingLeft =2
@@ -682,6 +709,7 @@ Begin Form
                     ForeColor =4210752
                     Name ="Command36"
                     Caption ="Command33"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =8640
@@ -692,9 +720,9 @@ Begin Form
                     BackColor =3439082
                     BackThemeColorIndex =-1
                     BackTint =100.0
-                    BorderColor =14136213
-                    HoverColor =15060409
-                    PressedColor =9592887
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
                     HoverForeColor =4210752
                     PressedForeColor =4210752
                     WebImagePaddingLeft =2
@@ -711,16 +739,17 @@ Begin Form
                     ForeColor =4210752
                     Name ="Command37"
                     Caption ="Command33"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =10080
                     LayoutCachedTop =3240
                     LayoutCachedWidth =11280
                     LayoutCachedHeight =3600
-                    BackColor =14136213
-                    BorderColor =14136213
-                    HoverColor =15060409
-                    PressedColor =9592887
+                    BackColor =11710639
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
                     HoverForeColor =4210752
                     PressedForeColor =4210752
                     WebImagePaddingLeft =2
@@ -737,6 +766,7 @@ Begin Form
                     ForeColor =4210752
                     Name ="Command38"
                     Caption ="Command33"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =11520
@@ -747,9 +777,9 @@ Begin Form
                     BackColor =-2147483598
                     BackThemeColorIndex =-1
                     BackTint =100.0
-                    BorderColor =14136213
-                    HoverColor =15060409
-                    PressedColor =9592887
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
                     HoverForeColor =4210752
                     PressedForeColor =4210752
                     WebImagePaddingLeft =2
@@ -864,6 +894,7 @@ Begin Form
                     BorderColor =8355711
                     Name ="Label48"
                     Caption ="Screenshot Image"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =600
                     LayoutCachedTop =4860

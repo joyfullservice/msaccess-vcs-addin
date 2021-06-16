@@ -6,20 +6,21 @@ Begin Form
     DividingLines = NotDefault
     AllowDesignChanges = NotDefault
     DefaultView =0
+    TabularFamily =18
     PictureAlignment =2
     DatasheetGridlinesBehavior =3
     GridX =24
     GridY =24
-    Width =8520
+    Width =9360
     DatasheetFontHeight =11
     ItemSuffix =13
-    Right =25575
-    Bottom =12840
+    Right =19650
+    Bottom =12585
     RecSrcDt = Begin
         0x18691eff0b76e540
     End
     Caption ="Main Form"
-    DatasheetFontName ="Franklin Gothic Book"
+    DatasheetFontName ="Palatino Linotype"
     OnLoad ="[Event Procedure]"
     FilterOnLoad =0
     ShowPageMargins =0
@@ -33,6 +34,7 @@ Begin Form
     ForeThemeColorIndex =0
     AlternateBackThemeColorIndex =1
     AlternateBackShade =95.0
+    ThemeName ="Executive"
     Begin
         Begin Label
             BackStyle =0
@@ -130,6 +132,7 @@ Begin Form
             Begin
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =18
                     Left =5400
                     Top =2940
                     Width =3120
@@ -138,7 +141,7 @@ Begin Form
                     Name ="cmdRunTests"
                     Caption ="  Verify Database Objects"
                     OnClick ="[Event Procedure]"
-                    FontName ="Franklin Gothic Book"
+                    FontName ="Palatino Linotype"
                     GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
@@ -182,10 +185,10 @@ Begin Form
                     LayoutCachedWidth =8520
                     LayoutCachedHeight =3660
                     PictureCaptionArrangement =5
-                    BackColor =11710639
-                    BorderColor =11710639
-                    HoverColor =13355721
-                    PressedColor =6249563
+                    BackColor =13807008
+                    BorderColor =13807008
+                    HoverColor =14796991
+                    PressedColor =9262658
                     HoverForeColor =4210752
                     PressedForeColor =4210752
                     WebImagePaddingLeft =2
@@ -197,6 +200,7 @@ Begin Form
                 Begin ListBox
                     RowSourceTypeInt =1
                     OverlapFlags =85
+                    TextFontFamily =18
                     IMESentenceMode =3
                     ColumnCount =2
                     Left =600
@@ -214,7 +218,7 @@ Begin Form
                         "ists;✔;Query exists;✔;Form exists;✔;Report exists;✔;Application Icon is set;✔;Cu"
                         "stom Database (DAO) property;✔;Custom Project Property"
                     ColumnWidths ="479;3975"
-                    FontName ="Franklin Gothic Book"
+                    FontName ="Palatino Linotype"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =600
@@ -224,6 +228,7 @@ Begin Form
                     Begin
                         Begin Label
                             OverlapFlags =85
+                            TextFontFamily =18
                             Left =780
                             Top =720
                             Width =2880
@@ -232,7 +237,7 @@ Begin Form
                             ForeColor =8355711
                             Name ="Col1_Label"
                             Caption ="Test Results"
-                            FontName ="Franklin Gothic Book"
+                            FontName ="Palatino Linotype"
                             GridlineColor =10921638
                             LayoutCachedLeft =780
                             LayoutCachedTop =720
@@ -243,24 +248,26 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =18
                     Left =5400
                     Top =1140
-                    Width =3060
+                    Width =3720
                     Height =1635
                     BorderColor =8355711
                     ForeColor =8355711
                     Name ="Label4"
                     Caption ="Click the button below to verify the objects in the current database. This helps"
                         " confirm that everything was correctly reconstructed from source."
-                    FontName ="Franklin Gothic Book"
+                    FontName ="Palatino Linotype"
                     GridlineColor =10921638
                     LayoutCachedLeft =5400
                     LayoutCachedTop =1140
-                    LayoutCachedWidth =8460
+                    LayoutCachedWidth =9120
                     LayoutCachedHeight =2775
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =18
                     Left =5400
                     Top =3900
                     Width =3120
@@ -270,7 +277,7 @@ Begin Form
                     Name ="cmdEditTests"
                     Caption ="  Edit Tests..."
                     OnClick ="[Event Procedure]"
-                    FontName ="Franklin Gothic Book"
+                    FontName ="Palatino Linotype"
                     GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
@@ -314,10 +321,10 @@ Begin Form
                     LayoutCachedWidth =8520
                     LayoutCachedHeight =4620
                     PictureCaptionArrangement =5
-                    BackColor =11710639
-                    BorderColor =11710639
-                    HoverColor =13355721
-                    PressedColor =6249563
+                    BackColor =13807008
+                    BorderColor =13807008
+                    HoverColor =14796991
+                    PressedColor =9262658
                     HoverForeColor =4210752
                     PressedForeColor =4210752
                     WebImagePaddingLeft =2
@@ -328,6 +335,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =93
+                    TextFontFamily =18
                     Left =5400
                     Top =4860
                     Width =3060
@@ -336,7 +344,7 @@ Begin Form
                     ForeColor =8355711
                     Name ="lblResults"
                     Caption ="17 tests passed\015\0120 tests failed"
-                    FontName ="Franklin Gothic Book"
+                    FontName ="Palatino Linotype"
                     GridlineColor =10921638
                     LayoutCachedLeft =5400
                     LayoutCachedTop =4860
@@ -530,10 +538,11 @@ Public Sub cmdRunTests_Click()
     strTest = CurrentDb.Properties("Theme Resource Name")
     ShowResult "Active theme = Angles", (strTest = "Angles")
     
+    strTest = vbNullString
     For Each rsc In CurrentProject.Resources
         If rsc.Type = acResourceTheme Then
             strTest = rsc.Name
-            Exit For
+            If strTest = "Angles" Then Exit For
         End If
     Next rsc
     ShowResult "Theme resource exists", (strTest = "Angles")

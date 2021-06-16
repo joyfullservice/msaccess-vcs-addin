@@ -65,8 +65,11 @@ Begin Report
                     Top =240
                     Width =4800
                     Height =420
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label0"
                     Caption ="This report does not have any saved print settings."
+                    GridlineColor =10921638
                     LayoutCachedLeft =1260
                     LayoutCachedTop =240
                     LayoutCachedWidth =6060
