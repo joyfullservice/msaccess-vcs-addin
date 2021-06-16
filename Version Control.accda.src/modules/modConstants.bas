@@ -26,7 +26,7 @@ Public Const UCS2_BOM As String = "ÿþ"
 Public Const DefaultHashAlgorithm As String = "SHA256"
 
 ' This value seems to indicate that the theme was not used.
-Const NO_THEME_INDEX As Integer = -1
+Public Const NO_THEME_INDEX As Integer = -1
 
 ' Object types used when determining SQL modification date.
 Public Enum eSqlObjectType

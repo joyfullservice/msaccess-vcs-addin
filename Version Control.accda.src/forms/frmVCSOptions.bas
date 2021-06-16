@@ -3682,7 +3682,7 @@ End Sub
 Private Sub Form_Load()
 
     Dim intFormat As eTableDataExportFormat
-    Dim intColorSanitizeLevel As eSanitizeColors
+    Dim intSanitizeLevel As eSanitizeLevel
     
     MapControlsToOptions emaClassToForm
     RefreshTableDisplay
@@ -3699,9 +3699,9 @@ Private Sub Form_Load()
     ' Load color sanitize options
     With Me.cboSanitizeColors
         .RowSource = vbNullString
-        For intColorSanitizeLevel = 0 To (eSanitizeColors.[_Last] - 1)
-            .AddItem intColorSanitizeLevel & "," & Options.GetColorSanitizeLevelName(intColorSanitizeLevel)
-        Next intColorSanitizeLevel
+        For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
+            .AddItem intSanitizeLevel & "," & Options.GetSanitizeLevelName(intSanitizeLevel)
+        Next intSanitizeLevel
     End With
 
 End Sub

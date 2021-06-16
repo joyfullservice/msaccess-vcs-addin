@@ -330,7 +330,7 @@ Private Sub CloseBlock()
     Dim strKey As String
         
     ' Skip if we are not using aggressive color sanitize
-    If Options.SanitizeColors <= escNone Then Exit Sub
+    If Options.SanitizeColors <= eslNone Then Exit Sub
     
     ' Bail out if we don't have a block to review
     If m_colBlocks.Count = 0 Then Exit Sub
@@ -404,7 +404,7 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     Dim lngColor As Long
     
     ' Skip if not using this option
-    If Options.RemoveDynamicColors <= eslNone Then Exit Sub
+    If Options.SanitizeColors <= eslNone Then Exit Sub
     
     ' Exit if we are not inside a block
     If Not m_colBlocks Is Nothing Then lngCnt = m_colBlocks.Count
