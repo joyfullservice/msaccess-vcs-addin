@@ -64,11 +64,11 @@ Public Sub SanitizeFile(strPath As String)
         End If
     End If
     
-    If Options.SanitizeLevel = eslNone Then GoTo Build_Output
-
     Perf.OperationStart "Sanitize File"
     varLines = Split(strFile, vbCrLf)
     
+    If Options.SanitizeLevel = eslNone Then GoTo Build_Output
+
     ' Set up index of lines to skip
     ReDim m_SkipLines(0 To UBound(varLines)) As Long
     m_lngSkipIndex = 0
