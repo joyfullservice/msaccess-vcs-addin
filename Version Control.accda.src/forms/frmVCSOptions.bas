@@ -792,7 +792,7 @@ Begin Form
                                     ColumnCount =2
                                     Left =2760
                                     Top =3720
-                                    Width =1620
+                                    Width =1980
                                     Height =315
                                     TabIndex =3
                                     Name ="cboSanitizeLevel"
@@ -803,7 +803,7 @@ Begin Form
 
                                     LayoutCachedLeft =2760
                                     LayoutCachedTop =3720
-                                    LayoutCachedWidth =4380
+                                    LayoutCachedWidth =4740
                                     LayoutCachedHeight =4035
                                     Begin
                                         Begin Label
@@ -832,7 +832,7 @@ Begin Form
                                     ColumnCount =2
                                     Left =2760
                                     Top =4140
-                                    Width =1620
+                                    Width =1980
                                     Height =315
                                     TabIndex =4
                                     Name ="cboSanitizeColors"
@@ -843,7 +843,7 @@ Begin Form
 
                                     LayoutCachedLeft =2760
                                     LayoutCachedTop =4140
-                                    LayoutCachedWidth =4380
+                                    LayoutCachedWidth =4740
                                     LayoutCachedHeight =4455
                                     Begin
                                         Begin Label
