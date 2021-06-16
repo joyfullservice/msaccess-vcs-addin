@@ -32,7 +32,7 @@ Public ForceImportOriginalQuerySQL As Boolean
 Public SaveTableSQL As Boolean
 Public StripPublishOption As Boolean
 Public SanitizeColors As eSanitizeLevel
-Public AggressiveSanitize As Boolean
+Public SanitizeLevel As eSanitizeLevel      ' New sanitize level; used to allow turning on/off sanitize entirely to see raw files.
 Public ExtractThemeFiles As Boolean
 Public TablesToExportData As Dictionary
 Public RunBeforeExport As String
@@ -78,7 +78,7 @@ Public Sub LoadDefaults()
         .ForceImportOriginalQuerySQL = False
         .SaveTableSQL = True
         .StripPublishOption = True
-        .AggressiveSanitize = True
+        .SanitizeLevel = eslAgressive
         .SanitizeColors = eslBasic
         .ShowVCSLegacy = True
         .HashAlgorithm = DefaultHashAlgorithm
@@ -234,6 +234,17 @@ Public Sub LoadOptionsFromFile(strFile As String)
                             Set Me.ExportPrintSettings = dOptions(strKey)
                         Case "TablesToExportData"
                             Set Me.TablesToExportData = CloneDictionary(dOptions(strKey), ecmTextCompare)
+                        Case "AggressiveSanitize"
+                                '.AggressiveSanitize = True
+                                '.SanitizeLevel = eslAgressive
+                            If Not dOptions.Exists("SanitizeLevel") Then
+                                If dOptions("AggressiveSanitize") Then
+                                    SanitizeLevel = eslAgressive
+                                Else
+                                    SanitizeLevel = eslBasic
+                                End If
+                            End If
+
                         Case Else
                             ' Regular top-level properties
                             CallByName Me, strKey, VbLet, dOptions(strKey)
@@ -393,7 +404,14 @@ Private Function SerializeOptions() As Dictionary
     ' Loop through options
     For Each varOption In m_colOptions
         ' Simulate reflection to serialize properties.
-        dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
+        Select Case varOption
+            Case "AggressiveSanitize"
+                'Ignored Properties/Options that should not be exported.
+            Case Else
+                dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
+        End Select
+            
+        
     Next varOption
 
     'Set SerializeOptions = new Dictionary
@@ -456,6 +474,18 @@ Public Function GetSanitizeLevel(strKey As String) As eSanitizeLevel
     Next intSanitizeLevel
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Property  : AggressiveSanitize
+' Author    : hecon5
+' Date      : 6/16/2021
+' Purpose   : Return the AggressiveSanitize value based on new property; used to ensure
+'           : we can still use AggressiveSanitize in legacy code.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get AggressiveSanitize() As Boolean
+    If SanitizeLevel >= eslAgressive Then AggressiveSanitize = True
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTableExportFormatName
@@ -551,7 +581,8 @@ Private Sub Class_Initialize()
         .Add "SaveTableSQL"
         .Add "StripPublishOption"
         .Add "SanitizeColors"
-        .Add "AggressiveSanitize"
+        .Add "AggressiveSanitize"           ' Legacy Option; kept here to allow import from old projects
+        .Add "SanitizeLevel"
         .Add "ExtractThemeFiles"
         .Add "TablesToExportData"
         .Add "RunBeforeExport"

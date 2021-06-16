@@ -63,6 +63,9 @@ Public Sub SanitizeFile(strPath As String)
             End If
         End If
     End If
+    
+    If Options.SanitizeLevel = eslNone Then GoTo Build_Output
+
     Perf.OperationStart "Sanitize File"
     varLines = Split(strFile, vbCrLf)
     
@@ -218,6 +221,7 @@ Public Sub SanitizeFile(strPath As String)
         "${BlockCount}", m_colBlocks.Count), _
         "${File}", strPath), ModuleName & ".SanitizeFile"
     
+Build_Output:
     ' Build the final output
     BuildOutput varLines, strPath
 
@@ -368,6 +372,7 @@ Private Sub CloseBlock()
                     ' Most controls automatically use theme indexes
                     ' unless otherwise specified.
                     ' As discussed in #183, this can be affected by incomplete
+                    ' component definition blocks.
                     If Options.SanitizeColors = eslAdvancedBeta Then
                         strKey = varBase(intCnt) & "Color"
                         If dBlock.Exists(strKey) Then
