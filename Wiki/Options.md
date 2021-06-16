@@ -2,20 +2,19 @@ The options dialog can be opened from the main screen by click the `Options` but
 
 ## General
 
-![](img/VCS-options-general.jpg)
+![](img/options-general.jpg)
 
  * **Show Detailed Output** - **Default OFF** Enable verbose output of each step; useful when you're real curious. This may slow down Export and Build operations.
 
- * **Debug VBA Errors** - **Default OFF** (Advanced Users) If an unexpected error occurs, stop and show some debugging options. This may provide a lot more information than may be needed, and may stop when the error is non-build/export affecting. *You should generally keep this off unless you're trying to find the source of a bug.*
+ * **Debug VBA Errors** - **Default OFF** (Advanced Users/Add-in Developers) If an unexpected error occurs in the add-in code, stop and open the VBA IDE to do further debugging. This may be helpful when debugging a problem with the add-in, or reviewing an existing issue. *You should generally keep this off unless you're trying to find the source of a bug, or doing development work on the add-in.*
 
- * **Show Legacy Prompts** - **Default OFF** If you're upgrading from an "old" version of this VCS, there may be legacy addin information or settings laying around your system. This will nag you if that's the case; if you follow the guided prompts and remove the legacy settings, this will turn off.
+ * **Show Legacy Prompts** - **Default OFF** If you're upgrading from an "old" version of this project, there may be legacy VCS modules left in your database project that are no longer needed. This will notify you if these legacy modules are found. If you would like to keep them in your project, you can uncheck this option to turn off the notification.
 
- * **Hash Algorithm** - **Default SHA256** You may choose the hashing algorythm here. This may affect build time if you choose a more complex option.
+ * **Hash Algorithm** - **Default SHA256** You may choose the hashing algorithm here. This may affect build time if you choose a more complex option. (Hashes are used to help determine whether source files have changed between import/export operations.)
 
- * **Use short hashes in index** - **Default ON** If checked, `git` style hashes will be used in the file index. *NOTE: there is an extremely small chance your file may have a hash collision with the index even if it has been changed.*
+ * **Use short hashes in index** - **Default ON** If checked, `git` style hashes (first 7 characters) will be used in the file index. *NOTE: This was done to improve readability and reduce file size, but you can always uncheck this box if you want to store the full hash.*
 
-
-![](img/VCS-options-Export.jpg) 
+![](img/options-Export.jpg) 
 Export Settings can be found here.
  * **Export Folder** - I like to keep this relative to the project, but it can be customized here.
     * *[Blank]* - Use default name of `/[database.accdb].src`, i.e. `/Test.accdb.src`
@@ -49,7 +48,7 @@ Export Settings can be found here.
 <details>
    <summary>Show Advanced Printer Options...</summary>
 
-![](img/VCS-options-printer-settings.jpg)
+![](img/options-printer-settings.jpg)
 
 Note that these options only determine what is *Exported* and saved to the JSON file. Any settings defined in the JSON source file will be applied when the report object is Imported, regardless of the currently specified options.
 
@@ -66,7 +65,7 @@ Note that these options only determine what is *Exported* and saved to the JSON 
 
 ## Table Data
 
-![](img/VCS-options-table-data.jpg)
+![](img/options-table-data.jpg)
 
 The Table Data tab allows you to selectively include certain tables from which to include table ***data*** in version control. The *structure* of the tables is already being saved, but this gives you the additional option of saving the *data* itself.
 
@@ -90,7 +89,7 @@ The concept here is that you are selecting the table from which you want to save
 
 ## Build
 
-![](img/VCS-options-build.jpg)
+![](img/options-build.jpg)
 
 One of the unique features of this add-in is the ability to build a fully functioning database completely from source files. This allows multi-user development in a more typical development workflow where source files are exported and combined to build the end product.
 
@@ -103,7 +102,7 @@ One of the unique features of this add-in is the ability to build a fully functi
 ## Settings (Global)
 These affect your system at large; not just the currently open Access Project.
 
-![](img/VCS-options-settings.jpg)
+![](img/options-settings.jpg)
 
  * **Save as Default** - Save the current options as default for new projects. Anytime you export source and a `vcs-options.json` file does not already exist, it will use the default options that you have specified.
 
