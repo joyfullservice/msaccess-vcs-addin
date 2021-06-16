@@ -19,13 +19,16 @@ Public Enum eTableDataExportFormat
     [_Last] = 2
 End Enum
 
-Public Enum eSanitizeColors
-    escNone = 0     ' Do not remove any color information
-    escBasic        ' Remove dynamic theme colors when clearly safe to do so
-    escAdvanced     ' Remove additional color values that are likely to be dynamic theme colors
-                    ' (May remove some static colors if object definition blocks are incomplete,
-                    '  which may occur in databases upgraded from prior versions of Access.)
-    [_Last]
+Public Enum eSanitizeLevel
+    eslNone = 0     ' Sanitize only items which won't build correctly unless you sanitize them.
+    eslBasic        ' Strip out excess items (like GUIDs) that are just noise and no effect can be found.
+    eslAggressive    ' Strip out anything that can be reliably rebuilt by Access during Build (themed control colors).
+
+    ' WARNING: AdvancedBeta introduces sanitzation that may or may not work in all environments, and has known
+    '          (or highly suspected) edge cases where it does not always operate correctly. Do not use this level in
+    '          production databases.
+    eslAdvancedBeta ' Remove all excess noise. Try out new sanitize features that still have ragged edges.
+    [_Last]         ' DO NOT REMOVE: This is a "Fake" level, and must be at the end.
 End Enum
 
 Private m_VCS As clsVersionControl

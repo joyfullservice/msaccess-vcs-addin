@@ -13,13 +13,13 @@ Begin Form
     DatasheetGridlinesBehavior =3
     GridX =24
     GridY =24
-    Width =10170
+    Width =10080
     DatasheetFontHeight =11
-    ItemSuffix =234
-    Left =3225
-    Top =2430
-    Right =22695
-    Bottom =15015
+    ItemSuffix =236
+    Left =-25575
+    Top =1710
+    Right =-5925
+    Bottom =14295
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -391,7 +391,7 @@ Begin Form
                     Left =540
                     Top =1500
                     Width =9000
-                    Height =4740
+                    Height =4755
                     TabIndex =2
                     Name ="tabOptions"
                     HorizontalAnchor =2
@@ -400,7 +400,7 @@ Begin Form
                     LayoutCachedLeft =540
                     LayoutCachedTop =1500
                     LayoutCachedWidth =9540
-                    LayoutCachedHeight =6240
+                    LayoutCachedHeight =6255
                     ThemeFontIndex =1
                     Shape =1
                     Gradient =12
@@ -420,13 +420,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeGeneral"
                             Caption ="General"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -679,13 +679,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeExport"
                             Caption ="Export"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -784,31 +784,42 @@ Begin Form
                                         End
                                     End
                                 End
-                                Begin CheckBox
+                                Begin ComboBox
+                                    LimitToList = NotDefault
+                                    RowSourceTypeInt =1
                                     OverlapFlags =247
-                                    Left =1020
-                                    Top =3780
+                                    IMESentenceMode =3
+                                    ColumnCount =2
+                                    Left =2760
+                                    Top =3720
+                                    Width =1980
+                                    Height =315
                                     TabIndex =3
-                                    Name ="chkAggressiveSanitize"
+                                    Name ="cboSanitizeLevel"
+                                    RowSourceType ="Value List"
+                                    ColumnWidths ="0"
+                                    HorizontalAnchor =1
+                                    AllowValueListEdits =0
 
-                                    LayoutCachedLeft =1020
-                                    LayoutCachedTop =3780
-                                    LayoutCachedWidth =1280
-                                    LayoutCachedHeight =4020
+                                    LayoutCachedLeft =2760
+                                    LayoutCachedTop =3720
+                                    LayoutCachedWidth =4740
+                                    LayoutCachedHeight =4035
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
-                                            Left =1320
+                                            Left =1020
                                             Top =3720
-                                            Width =2640
-                                            Height =315
+                                            Width =1560
+                                            Height =305
                                             ForeColor =5324600
-                                            Name ="Label40"
-                                            Caption ="Aggressive Sanitize"
-                                            LayoutCachedLeft =1320
+                                            Name ="Label235"
+                                            Caption ="Sanitize Level"
+                                            HorizontalAnchor =1
+                                            LayoutCachedLeft =1020
                                             LayoutCachedTop =3720
-                                            LayoutCachedWidth =3960
-                                            LayoutCachedHeight =4035
+                                            LayoutCachedWidth =2580
+                                            LayoutCachedHeight =4025
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -821,9 +832,9 @@ Begin Form
                                     ColumnCount =2
                                     Left =2760
                                     Top =4140
-                                    Width =1620
+                                    Width =1980
                                     Height =315
-                                    TabIndex =11
+                                    TabIndex =4
                                     Name ="cboSanitizeColors"
                                     RowSourceType ="Value List"
                                     ColumnWidths ="0"
@@ -832,7 +843,7 @@ Begin Form
 
                                     LayoutCachedLeft =2760
                                     LayoutCachedTop =4140
-                                    LayoutCachedWidth =4380
+                                    LayoutCachedWidth =4740
                                     LayoutCachedHeight =4455
                                     Begin
                                         Begin Label
@@ -856,26 +867,26 @@ Begin Form
                                 End
                                 Begin CheckBox
                                     OverlapFlags =247
-                                    Left =5040
+                                    Left =5340
                                     Top =2935
                                     TabIndex =5
                                     Name ="chkSavePrintVars"
 
-                                    LayoutCachedLeft =5040
+                                    LayoutCachedLeft =5340
                                     LayoutCachedTop =2935
-                                    LayoutCachedWidth =5300
+                                    LayoutCachedWidth =5600
                                     LayoutCachedHeight =3175
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
-                                            Left =5340
+                                            Left =5640
                                             Top =2880
-                                            Width =2640
+                                            Width =2340
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label27"
-                                            Caption ="Save Report Print Settings"
-                                            LayoutCachedLeft =5340
+                                            Caption ="Save Printer Settings"
+                                            LayoutCachedLeft =5640
                                             LayoutCachedTop =2880
                                             LayoutCachedWidth =7980
                                             LayoutCachedHeight =3195
@@ -886,26 +897,26 @@ Begin Form
                                 End
                                 Begin CheckBox
                                     OverlapFlags =247
-                                    Left =5040
+                                    Left =5340
                                     Top =3360
                                     TabIndex =6
                                     Name ="chkSaveQuerySQL"
 
-                                    LayoutCachedLeft =5040
+                                    LayoutCachedLeft =5340
                                     LayoutCachedTop =3360
-                                    LayoutCachedWidth =5300
+                                    LayoutCachedWidth =5600
                                     LayoutCachedHeight =3600
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
-                                            Left =5340
+                                            Left =5640
                                             Top =3300
-                                            Width =2640
+                                            Width =2340
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label29"
                                             Caption ="Save Query SQL"
-                                            LayoutCachedLeft =5340
+                                            LayoutCachedLeft =5640
                                             LayoutCachedTop =3300
                                             LayoutCachedWidth =7980
                                             LayoutCachedHeight =3615
@@ -916,26 +927,26 @@ Begin Form
                                 End
                                 Begin CheckBox
                                     OverlapFlags =247
-                                    Left =5040
+                                    Left =5340
                                     Top =3780
                                     TabIndex =7
                                     Name ="chkSaveTableSQL"
 
-                                    LayoutCachedLeft =5040
+                                    LayoutCachedLeft =5340
                                     LayoutCachedTop =3780
-                                    LayoutCachedWidth =5300
+                                    LayoutCachedWidth =5600
                                     LayoutCachedHeight =4020
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
-                                            Left =5340
+                                            Left =5640
                                             Top =3720
-                                            Width =2640
+                                            Width =2340
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label38"
                                             Caption ="Save Table SQL"
-                                            LayoutCachedLeft =5340
+                                            LayoutCachedLeft =5640
                                             LayoutCachedTop =3720
                                             LayoutCachedWidth =7980
                                             LayoutCachedHeight =4035
@@ -946,26 +957,26 @@ Begin Form
                                 End
                                 Begin CheckBox
                                     OverlapFlags =247
-                                    Left =5040
+                                    Left =5340
                                     Top =4200
-                                    TabIndex =4
+                                    TabIndex =8
                                     Name ="chkExtractThemeFiles"
 
-                                    LayoutCachedLeft =5040
+                                    LayoutCachedLeft =5340
                                     LayoutCachedTop =4200
-                                    LayoutCachedWidth =5300
+                                    LayoutCachedWidth =5600
                                     LayoutCachedHeight =4440
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
-                                            Left =5340
+                                            Left =5640
                                             Top =4140
-                                            Width =2640
+                                            Width =2340
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label112"
                                             Caption ="Extract Theme Files"
-                                            LayoutCachedLeft =5340
+                                            LayoutCachedLeft =5640
                                             LayoutCachedTop =4140
                                             LayoutCachedWidth =7980
                                             LayoutCachedHeight =4455
@@ -981,7 +992,7 @@ Begin Form
                                     Top =5100
                                     Width =2700
                                     Height =315
-                                    TabIndex =8
+                                    TabIndex =9
                                     Name ="txtRunBeforeExport"
 
                                     LayoutCachedLeft =3540
@@ -1014,7 +1025,7 @@ Begin Form
                                     Top =5520
                                     Width =2700
                                     Height =315
-                                    TabIndex =9
+                                    TabIndex =10
                                     Name ="txtRunAfterExport"
 
                                     LayoutCachedLeft =3540
@@ -1046,7 +1057,7 @@ Begin Form
                                     Left =7140
                                     Top =5640
                                     Width =2160
-                                    TabIndex =10
+                                    TabIndex =11
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
                                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation#op"
@@ -1132,7 +1143,7 @@ Begin Form
                                 Begin Label
                                     FontUnderline = NotDefault
                                     OverlapFlags =247
-                                    Left =8040
+                                    Left =8100
                                     Top =2880
                                     Width =900
                                     Height =240
@@ -1141,10 +1152,11 @@ Begin Form
                                     BorderColor =15321539
                                     Name ="lblPrintSettingsOptions"
                                     Caption ="Options..."
+                                    OnClick ="[Event Procedure]"
                                     HyperlinkAddress ="#"
-                                    LayoutCachedLeft =8040
+                                    LayoutCachedLeft =8100
                                     LayoutCachedTop =2880
-                                    LayoutCachedWidth =8940
+                                    LayoutCachedWidth =9000
                                     LayoutCachedHeight =3120
                                     BackThemeColorIndex =-1
                                     BorderThemeColorIndex =-1
@@ -1160,13 +1172,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1812,13 +1824,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeTable"
                             Caption ="Table Data"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1916,6 +1928,40 @@ Begin Form
                                         End
                                     End
                                 End
+                                Begin CheckBox
+                                    OverlapFlags =247
+                                    Left =4860
+                                    Top =5760
+                                    TabIndex =6
+                                    Name ="chkTableShowOther"
+                                    DefaultValue ="False"
+                                    OnClick ="[Event Procedure]"
+                                    VerticalAnchor =1
+
+                                    LayoutCachedLeft =4860
+                                    LayoutCachedTop =5760
+                                    LayoutCachedWidth =5120
+                                    LayoutCachedHeight =6000
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =5160
+                                            Top =5700
+                                            Width =1200
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label85"
+                                            Caption ="Show Other"
+                                            VerticalAnchor =1
+                                            LayoutCachedLeft =5160
+                                            LayoutCachedTop =5700
+                                            LayoutCachedWidth =6360
+                                            LayoutCachedHeight =6015
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
                                 Begin TextBox
                                     Locked = NotDefault
                                     OverlapFlags =247
@@ -1993,25 +2039,6 @@ Begin Form
                                         End
                                     End
                                 End
-                                Begin Label
-                                    OverlapFlags =247
-                                    Left =6960
-                                    Top =2280
-                                    Width =2400
-                                    Height =840
-                                    FontSize =10
-                                    ForeColor =5324600
-                                    Name ="Label82"
-                                    Caption ="You may optionally include data from specific tables as part of the export proce"
-                                        "ss."
-                                    HorizontalAnchor =1
-                                    LayoutCachedLeft =6960
-                                    LayoutCachedTop =2280
-                                    LayoutCachedWidth =9360
-                                    LayoutCachedHeight =3120
-                                    ForeThemeColorIndex =-1
-                                    ForeTint =100.0
-                                End
                                 Begin CommandButton
                                     OverlapFlags =247
                                     Left =6960
@@ -2084,39 +2111,24 @@ Begin Form
                                     WebImagePaddingRight =9
                                     WebImagePaddingBottom =9
                                 End
-                                Begin CheckBox
+                                Begin Label
                                     OverlapFlags =247
-                                    Left =4860
-                                    Top =5760
-                                    TabIndex =6
-                                    Name ="chkTableShowOther"
-                                    DefaultValue ="False"
-                                    OnClick ="[Event Procedure]"
-                                    VerticalAnchor =1
-
-                                    LayoutCachedLeft =4860
-                                    LayoutCachedTop =5760
-                                    LayoutCachedWidth =5120
-                                    LayoutCachedHeight =6000
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =247
-                                            Left =5160
-                                            Top =5700
-                                            Width =1200
-                                            Height =315
-                                            ForeColor =5324600
-                                            Name ="Label85"
-                                            Caption ="Show Other"
-                                            VerticalAnchor =1
-                                            LayoutCachedLeft =5160
-                                            LayoutCachedTop =5700
-                                            LayoutCachedWidth =6360
-                                            LayoutCachedHeight =6015
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
+                                    Left =6960
+                                    Top =2280
+                                    Width =2400
+                                    Height =840
+                                    FontSize =10
+                                    ForeColor =5324600
+                                    Name ="Label82"
+                                    Caption ="You may optionally include data from specific tables as part of the export proce"
+                                        "ss."
+                                    HorizontalAnchor =1
+                                    LayoutCachedLeft =6960
+                                    LayoutCachedTop =2280
+                                    LayoutCachedWidth =9360
+                                    LayoutCachedHeight =3120
+                                    ForeThemeColorIndex =-1
+                                    ForeTint =100.0
                                 End
                                 Begin Label
                                     FontUnderline = NotDefault
@@ -2150,13 +2162,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeBuild"
                             Caption ="Build"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2331,13 +2343,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeGitIntegration"
                             Caption ="Git Integration"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2652,13 +2664,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeSettings"
                             Caption ="Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -3682,7 +3694,7 @@ End Sub
 Private Sub Form_Load()
 
     Dim intFormat As eTableDataExportFormat
-    Dim intColorSanitizeLevel As eSanitizeColors
+    Dim intSanitizeLevel As eSanitizeLevel
     
     MapControlsToOptions emaClassToForm
     RefreshTableDisplay
@@ -3696,14 +3708,22 @@ Private Sub Form_Load()
         Next intFormat
     End With
     
+    ' Load general sanitize options
+    With Me.cboSanitizeLevel
+        .RowSource = vbNullString
+        For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
+            .AddItem intSanitizeLevel & "," & Options.GetSanitizeLevelName(intSanitizeLevel)
+        Next intSanitizeLevel
+    End With
+    
     ' Load color sanitize options
     With Me.cboSanitizeColors
         .RowSource = vbNullString
-        For intColorSanitizeLevel = 0 To (eSanitizeColors.[_Last] - 1)
-            .AddItem intColorSanitizeLevel & "," & Options.GetColorSanitizeLevelName(intColorSanitizeLevel)
-        Next intColorSanitizeLevel
+        For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
+            .AddItem intSanitizeLevel & "," & Options.GetSanitizeLevelName(intSanitizeLevel)
+        Next intSanitizeLevel
     End With
-
+    
 End Sub
 
 

@@ -63,9 +63,12 @@ Public Sub SanitizeFile(strPath As String)
             End If
         End If
     End If
+    
     Perf.OperationStart "Sanitize File"
     varLines = Split(strFile, vbCrLf)
     
+    If Options.SanitizeLevel = eslNone Then GoTo Build_Output
+
     ' Set up index of lines to skip
     ReDim m_SkipLines(0 To UBound(varLines)) As Long
     m_lngSkipIndex = 0
@@ -218,6 +221,7 @@ Public Sub SanitizeFile(strPath As String)
         "${BlockCount}", m_colBlocks.Count), _
         "${File}", strPath), ModuleName & ".SanitizeFile"
     
+Build_Output:
     ' Build the final output
     BuildOutput varLines, strPath
 
@@ -324,16 +328,13 @@ End Sub
 '
 Private Sub CloseBlock()
     
-    ' This value seems to indicate that the theme was not used.
-    Const NO_THEME_INDEX As Integer = -1
-    
     Dim varBase As Variant
     Dim intCnt As Integer
     Dim dBlock As Dictionary
     Dim strKey As String
         
     ' Skip if we are not using aggressive color sanitize
-    If Options.SanitizeColors <= escNone Then Exit Sub
+    If Options.SanitizeColors <= eslNone Then Exit Sub
     
     ' Bail out if we don't have a block to review
     If m_colBlocks.Count = 0 Then Exit Sub
@@ -372,7 +373,7 @@ Private Sub CloseBlock()
                     ' unless otherwise specified.
                     ' As discussed in #183, this can be affected by incomplete
                     ' component definition blocks.
-                    If Options.SanitizeColors = escAdvanced Then
+                    If Options.SanitizeColors = eslAdvancedBeta Then
                         strKey = varBase(intCnt) & "Color"
                         If dBlock.Exists(strKey) Then
                             ' Skip the dynamic color line
@@ -408,7 +409,7 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     Dim lngColor As Long
     
     ' Skip if not using this option
-    If Options.SanitizeColors <= escNone Then Exit Sub
+    If Options.SanitizeColors <= eslNone Then Exit Sub
     
     ' Exit if we are not inside a block
     If Not m_colBlocks Is Nothing Then lngCnt = m_colBlocks.Count

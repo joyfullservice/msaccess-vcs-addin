@@ -31,8 +31,8 @@ Public SaveQuerySQL As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
 Public SaveTableSQL As Boolean
 Public StripPublishOption As Boolean
-Public SanitizeColors As eSanitizeColors
-Public AggressiveSanitize As Boolean
+Public SanitizeColors As eSanitizeLevel
+Public SanitizeLevel As eSanitizeLevel
 Public ExtractThemeFiles As Boolean
 Public TablesToExportData As Dictionary
 Public RunBeforeExport As String
@@ -78,8 +78,8 @@ Public Sub LoadDefaults()
         .ForceImportOriginalQuerySQL = False
         .SaveTableSQL = True
         .StripPublishOption = True
-        .AggressiveSanitize = True
-        .SanitizeColors = escBasic
+        .SanitizeLevel = eslAggressive
+        .SanitizeColors = eslBasic
         .ShowVCSLegacy = True
         .HashAlgorithm = DefaultHashAlgorithm
         .UseShortHash = True
@@ -224,6 +224,8 @@ Public Sub LoadOptionsFromFile(strFile As String)
     If Not dFile Is Nothing Then
         If dFile.Exists("Options") Then
             Set dOptions = dFile("Options")
+            ' Perform any relevant option upgrades
+            Upgrade dOptions
             ' Attempt to set any matching options in this class.
             For Each varOption In m_colOptions
                 strKey = CStr(varOption)
@@ -245,6 +247,31 @@ Public Sub LoadOptionsFromFile(strFile As String)
 
     CatchAny eelError, "Loading options from " & strFile, ModuleName & ".LoadOptionsFromFile"
     
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Upgrade
+' Author    : Adam Waller
+' Date      : 6/16/2021
+' Purpose   : Perform any upgrades to option names or settings.
+'           : Expects a dictionary of options, as when loaded from a file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Upgrade(ByRef dOptions As Dictionary)
+
+    ' 6/16/2021
+    ' Aggressive sanitize to sanitize levels
+    If dOptions.Exists("AggressiveSanitize") Then
+        If Not dOptions.Exists("SanitizeLevel") Then
+            ' Check for non-default level
+            If Not dOptions("AggressiveSanitize") Then
+                ' Set to basic level
+                dOptions.Add "SanitizeLevel", eslBasic
+            End If
+        End If
+    End If
+
 End Sub
 
 
@@ -393,7 +420,14 @@ Private Function SerializeOptions() As Dictionary
     ' Loop through options
     For Each varOption In m_colOptions
         ' Simulate reflection to serialize properties.
-        dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
+        Select Case varOption
+            Case "AggressiveSanitize"
+                'Ignored Properties/Options that should not be exported.
+            Case Else
+                dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
+        End Select
+            
+        
     Next varOption
 
     'Set SerializeOptions = new Dictionary
@@ -420,41 +454,54 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetColorSanitizeLevelName
+' Procedure : GetSanitizeLevelName
 ' Author    : Hecon5 (as adapted from Adam Waller's below)
 ' Date      : 6/09/2021
 ' Purpose   : Return the name used to read and write to the JSON options files.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetColorSanitizeLevelName(intSanitizeLevel As eSanitizeColors) As String
+Public Function GetSanitizeLevelName(intSanitizeLevel As eSanitizeLevel) As String
     Select Case intSanitizeLevel
-        Case escNone:           GetColorSanitizeLevelName = "None"
-        Case escBasic:          GetColorSanitizeLevelName = "Basic"
-        Case escAdvanced:       GetColorSanitizeLevelName = "Advanced"
-        Case Else:              GetColorSanitizeLevelName = vbNullString
+        Case eslNone:           GetSanitizeLevelName = "None (Off)"
+        Case eslBasic:          GetSanitizeLevelName = "Basic"
+        Case eslAggressive:     GetSanitizeLevelName = "Aggressive"
+        Case eslAdvancedBeta:   GetSanitizeLevelName = "Advanced (BETA)"
+        Case Else:              GetSanitizeLevelName = vbNullString
     End Select
 End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetColorSanitizeLevel
+' Procedure : GetSanitizeLevel
 ' Author    : Hecon5 (as adapted from Adam Waller's below)
-' Date      : 6/09/2021
+' Date      : 4/17/2020
 ' Purpose   : Translate the table export format key to the corresponding enum value.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetColorSanitizeLevel(strKey As String) As eSanitizeColors
-    Dim intSanitizeLevel As eSanitizeColors
+Public Function GetSanitizeLevel(strKey As String) As eSanitizeLevel
+    Dim intSanitizeLevel As eSanitizeLevel
     Dim strName As String
-    For intSanitizeLevel = escNone To eSanitizeColors.[_Last] - 1
-        strName = Me.GetColorSanitizeLevelName(intSanitizeLevel)
+    For intSanitizeLevel = eslNone To eSanitizeLevel.[_Last]
+        strName = Me.GetSanitizeLevelName(intSanitizeLevel)
         If strName = strKey Then
-            GetColorSanitizeLevel = intSanitizeLevel
+            GetSanitizeLevel = intSanitizeLevel
             Exit For
         End If
     Next intSanitizeLevel
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Property  : AggressiveSanitize
+' Author    : hecon5
+' Date      : 6/16/2021
+' Purpose   : Return the AggressiveSanitize value based on new property; used to ensure
+'           : we can still use AggressiveSanitize in legacy code.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get AggressiveSanitize() As Boolean
+    If SanitizeLevel >= eslAggressive Then AggressiveSanitize = True
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTableExportFormatName
@@ -550,7 +597,8 @@ Private Sub Class_Initialize()
         .Add "SaveTableSQL"
         .Add "StripPublishOption"
         .Add "SanitizeColors"
-        .Add "AggressiveSanitize"
+        .Add "AggressiveSanitize"           ' Legacy Option; kept here to allow import from old projects
+        .Add "SanitizeLevel"
         .Add "ExtractThemeFiles"
         .Add "TablesToExportData"
         .Add "RunBeforeExport"
