@@ -887,6 +887,7 @@ Begin Form
                                             Name ="Label27"
                                             Caption ="Save Report Print Settings"
                                             LayoutCachedLeft =5340
+                                            Caption ="Save Printer Settings"
                                             LayoutCachedTop =2880
                                             LayoutCachedWidth =7980
                                             LayoutCachedHeight =3195
@@ -1152,6 +1153,7 @@ Begin Form
                                     BorderColor =15321539
                                     Name ="lblPrintSettingsOptions"
                                     Caption ="Options..."
+                                    OnClick ="[Event Procedure]"
                                     HyperlinkAddress ="#"
                                     LayoutCachedLeft =8040
                                     LayoutCachedTop =2880
