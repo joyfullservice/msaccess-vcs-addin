@@ -22,7 +22,7 @@ End Enum
 Public Enum eSanitizeLevel
     eslNone = 0     ' Sanitize only items which won't build correctly unless you sanitize them.
     eslBasic        ' Strip out excess items (like GUIDs) that are just noise and no effect can be found.
-    eslAgressive    ' Strip out anything that can be reliably rebuilt by Access during Build (themed control colors).
+    eslAggressive    ' Strip out anything that can be reliably rebuilt by Access during Build (themed control colors).
 
     ' WARNING: AdvancedBeta introduces sanitzation that may or may not work in all environments, and has known
     '          (or highly suspected) edge cases where it does not always operate correctly. Do not use this level in
