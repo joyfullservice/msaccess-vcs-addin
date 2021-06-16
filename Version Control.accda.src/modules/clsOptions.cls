@@ -465,7 +465,7 @@ End Function
 Public Function GetSanitizeLevel(strKey As String) As eSanitizeLevel
     Dim intSanitizeLevel As eSanitizeLevel
     Dim strName As String
-    For intSanitizeLevel = etdNoData To eSanitizeLevel.[_Last]
+    For intSanitizeLevel = 0 To eSanitizeLevel.[_Last]
         strName = Me.GetSanitizeLevelName(intSanitizeLevel)
         If strName = strKey Then
             GetSanitizeLevel = intSanitizeLevel
