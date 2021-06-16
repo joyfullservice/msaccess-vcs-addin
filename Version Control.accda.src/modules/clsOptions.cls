@@ -78,7 +78,7 @@ Public Sub LoadDefaults()
         .ForceImportOriginalQuerySQL = False
         .SaveTableSQL = True
         .StripPublishOption = True
-        .SanitizeLevel = eslAgressive
+        .SanitizeLevel = eslAggressive
         .SanitizeColors = eslBasic
         .ShowVCSLegacy = True
         .HashAlgorithm = DefaultHashAlgorithm
@@ -464,7 +464,7 @@ Public Function GetSanitizeLevelName(intSanitizeLevel As eSanitizeLevel) As Stri
     Select Case intSanitizeLevel
         Case eslNone:           GetSanitizeLevelName = "None (Off)"
         Case eslBasic:          GetSanitizeLevelName = "Basic"
-        Case eslAgressive:      GetSanitizeLevelName = "Agressive"
+        Case eslAggressive:     GetSanitizeLevelName = "Aggressive"
         Case eslAdvancedBeta:   GetSanitizeLevelName = "Advanced (BETA)"
         Case Else:              GetSanitizeLevelName = vbNullString
     End Select
@@ -481,7 +481,7 @@ End Function
 Public Function GetSanitizeLevel(strKey As String) As eSanitizeLevel
     Dim intSanitizeLevel As eSanitizeLevel
     Dim strName As String
-    For intSanitizeLevel = 0 To eSanitizeLevel.[_Last]
+    For intSanitizeLevel = eslNone To eSanitizeLevel.[_Last]
         strName = Me.GetSanitizeLevelName(intSanitizeLevel)
         If strName = strKey Then
             GetSanitizeLevel = intSanitizeLevel
@@ -500,7 +500,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get AggressiveSanitize() As Boolean
-    If SanitizeLevel >= eslAgressive Then AggressiveSanitize = True
+    If SanitizeLevel >= eslAggressive Then AggressiveSanitize = True
 End Property
 
 '---------------------------------------------------------------------------------------
