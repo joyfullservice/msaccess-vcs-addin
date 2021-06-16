@@ -448,7 +448,7 @@ Public Function GetSanitizeLevelName(intSanitizeLevel As eSanitizeLevel) As Stri
     Select Case intSanitizeLevel
         Case eslNone:           GetSanitizeLevelName = "None (Off)"
         Case eslBasic:          GetSanitizeLevelName = "Basic"
-        Case eslAggressive:      GetSanitizeLevelName = "Aggressive"
+        Case eslAggressive:     GetSanitizeLevelName = "Aggressive"
         Case eslAdvancedBeta:   GetSanitizeLevelName = "Advanced (BETA)"
         Case Else:              GetSanitizeLevelName = vbNullString
     End Select
