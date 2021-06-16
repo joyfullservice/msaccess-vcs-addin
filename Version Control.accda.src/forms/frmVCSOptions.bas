@@ -815,6 +815,7 @@ Begin Form
                                             ForeColor =5324600
                                             Name ="Label235"
                                             Caption ="Sanitize Setting"
+                                            Caption ="Sanitize Level"
                                             HorizontalAnchor =1
                                             LayoutCachedLeft =1020
                                             LayoutCachedTop =3720
