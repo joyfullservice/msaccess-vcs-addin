@@ -15,11 +15,11 @@ Begin Form
     GridY =24
     Width =10170
     DatasheetFontHeight =11
-    ItemSuffix =234
+    ItemSuffix =236
     Left =3225
-    Top =2430
-    Right =22695
-    Bottom =15015
+    Top =2775
+    Right =23055
+    Bottom =16815
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -391,7 +391,7 @@ Begin Form
                     Left =540
                     Top =1500
                     Width =9000
-                    Height =4740
+                    Height =4755
                     TabIndex =2
                     Name ="tabOptions"
                     HorizontalAnchor =2
@@ -400,7 +400,7 @@ Begin Form
                     LayoutCachedLeft =540
                     LayoutCachedTop =1500
                     LayoutCachedWidth =9540
-                    LayoutCachedHeight =6240
+                    LayoutCachedHeight =6255
                     ThemeFontIndex =1
                     Shape =1
                     Gradient =12
@@ -420,13 +420,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeGeneral"
                             Caption ="General"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -679,13 +679,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeExport"
                             Caption ="Export"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -784,31 +784,42 @@ Begin Form
                                         End
                                     End
                                 End
-                                Begin CheckBox
+                                Begin ComboBox
+                                    LimitToList = NotDefault
+                                    RowSourceTypeInt =1
                                     OverlapFlags =247
-                                    Left =1020
-                                    Top =3780
+                                    IMESentenceMode =3
+                                    ColumnCount =2
+                                    Left =2760
+                                    Top =3720
+                                    Width =1620
+                                    Height =315
                                     TabIndex =3
-                                    Name ="chkAggressiveSanitize"
+                                    Name ="cboSanitizeLevel"
+                                    RowSourceType ="Value List"
+                                    ColumnWidths ="0"
+                                    HorizontalAnchor =1
+                                    AllowValueListEdits =0
 
-                                    LayoutCachedLeft =1020
-                                    LayoutCachedTop =3780
-                                    LayoutCachedWidth =1280
-                                    LayoutCachedHeight =4020
+                                    LayoutCachedLeft =2760
+                                    LayoutCachedTop =3720
+                                    LayoutCachedWidth =4380
+                                    LayoutCachedHeight =4035
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
-                                            Left =1320
+                                            Left =1020
                                             Top =3720
-                                            Width =2640
-                                            Height =315
+                                            Width =1560
+                                            Height =305
                                             ForeColor =5324600
-                                            Name ="Label40"
-                                            Caption ="Aggressive Sanitize"
-                                            LayoutCachedLeft =1320
+                                            Name ="Label235"
+                                            Caption ="Sanitize Setting"
+                                            HorizontalAnchor =1
+                                            LayoutCachedLeft =1020
                                             LayoutCachedTop =3720
-                                            LayoutCachedWidth =3960
-                                            LayoutCachedHeight =4035
+                                            LayoutCachedWidth =2580
+                                            LayoutCachedHeight =4025
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -823,7 +834,7 @@ Begin Form
                                     Top =4140
                                     Width =1620
                                     Height =315
-                                    TabIndex =11
+                                    TabIndex =4
                                     Name ="cboSanitizeColors"
                                     RowSourceType ="Value List"
                                     ColumnWidths ="0"
@@ -948,7 +959,7 @@ Begin Form
                                     OverlapFlags =247
                                     Left =5040
                                     Top =4200
-                                    TabIndex =4
+                                    TabIndex =8
                                     Name ="chkExtractThemeFiles"
 
                                     LayoutCachedLeft =5040
@@ -981,7 +992,7 @@ Begin Form
                                     Top =5100
                                     Width =2700
                                     Height =315
-                                    TabIndex =8
+                                    TabIndex =9
                                     Name ="txtRunBeforeExport"
 
                                     LayoutCachedLeft =3540
@@ -1014,7 +1025,7 @@ Begin Form
                                     Top =5520
                                     Width =2700
                                     Height =315
-                                    TabIndex =9
+                                    TabIndex =10
                                     Name ="txtRunAfterExport"
 
                                     LayoutCachedLeft =3540
@@ -1046,7 +1057,7 @@ Begin Form
                                     Left =7140
                                     Top =5640
                                     Width =2160
-                                    TabIndex =10
+                                    TabIndex =11
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
                                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation#op"
@@ -1160,13 +1171,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1812,13 +1823,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeTable"
                             Caption ="Table Data"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2150,13 +2161,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeBuild"
                             Caption ="Build"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2331,13 +2342,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeGitIntegration"
                             Caption ="Git Integration"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2652,13 +2663,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeSettings"
                             Caption ="Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -3696,6 +3707,14 @@ Private Sub Form_Load()
         Next intFormat
     End With
     
+    ' Load general sanitize options
+    With Me.cboSanitizeLevel
+        .RowSource = vbNullString
+        For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
+            .AddItem intSanitizeLevel & "," & Options.GetSanitizeLevelName(intSanitizeLevel)
+        Next intSanitizeLevel
+    End With
+    
     ' Load color sanitize options
     With Me.cboSanitizeColors
         .RowSource = vbNullString
@@ -3704,6 +3723,9 @@ Private Sub Form_Load()
         Next intSanitizeLevel
     End With
 
+    ' Set focus to the cancel button; this avoids weird highlighting of options boxes.
+    Me.cmdCancel.SetFocus
+    
 End Sub
 
 
