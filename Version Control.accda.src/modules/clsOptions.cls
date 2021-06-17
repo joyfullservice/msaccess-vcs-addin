@@ -270,7 +270,6 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
                 dOptions.Add "SanitizeLevel", eslBasic
             End If
         End If
-        dOptions.Remove "AggressiveSanitize" ' Remove the option so it is not processed (will throw Err:451 otherwise)
     End If
 
 End Sub
@@ -598,7 +597,6 @@ Private Sub Class_Initialize()
         .Add "SaveTableSQL"
         .Add "StripPublishOption"
         .Add "SanitizeColors"
-        .Add "AggressiveSanitize"           ' Legacy Option; kept here to allow import from old projects
         .Add "SanitizeLevel"
         .Add "ExtractThemeFiles"
         .Add "TablesToExportData"
