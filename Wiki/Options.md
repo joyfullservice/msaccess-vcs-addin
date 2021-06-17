@@ -23,8 +23,9 @@ The options dialog can be opened from the main screen by click the `Options` but
 ## Export Tab
 ![Export Options Tab](img/options-export.jpg) 
 
- * **Export Folder** *Default: [Blank]* - I like to keep this relative to the project, but it can be customized here. <details><summary>Click to expand folder options</summary>
-
+ * **Export Folder** *Default: [Blank]* - I like to keep this relative to the project, but it can be customized here.
+ <details><summary>Click to expand folder options</summary>
+ 
     * *[Blank]* - Use default name of `/[database.accdb].src`, i.e. `/Test.accdb.src`
     * *Relative Path* - Prefix folder name with a backslash. For example, to export source into a subfolder called `Source`, you would enter `\Source` in this box.
     * *Absolute Path* - You may also use a full path name to a folder. I.e. `W:\Git\Projects\Vehicles Database`
