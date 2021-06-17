@@ -63,7 +63,7 @@ The *Testing* column indicates whether a test item and testing code has been cre
 |Summary Properties     |✔️|✔️|clsDbDocument
 |Relationships          |✔️|✔️|clsDbRelation
 |Nav. Pane Groups       |✔️|✔️|clsNavPaneGroup
-|Embedded Office Theme  |✔️|✔️|clsDbTheme
+|Embedded Office Theme(s)  |✔️|✔️|clsDbTheme
 |💼 **VBE PROJECT**
 |Project Properties     |✔️|✔️|clsDbVbeProject
 |Compilation Arguments  |✔️|✔️|clsDbVbeProject
