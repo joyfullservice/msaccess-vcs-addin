@@ -75,8 +75,8 @@ Private Sub IDbComponent_Import(strFile As String)
         .Description = dNZ(dProject, "Items\Description")
         
         ' Setting the HelpContextId can throw random automation errors.
-        SafeSetProperty m_Project, "HelpContextId", ValidHelpContextId(dNZ(dProject, "Items\HelpContextId"))
-        SafeSetProperty m_Project, "HelpFile", ValidHelpFile(dNZ(dProject, "Items\HelpFile"))
+        If ValidHelpContextId(dNZ(dProject, "Items\HelpContextId")) Then SafeSetProperty m_Project, "HelpContextId", ValidHelpContextId(dNZ(dProject, "Items\HelpContextId"))
+        If ValidHelpFile(dNZ(dProject, "Items\HelpFile")) <> vbNullString Then SafeSetProperty m_Project, "HelpFile", ValidHelpFile(dNZ(dProject, "Items\HelpFile"))
         
         ' This property is not exposed through the VBProject object model
         Application.SetOption "Conditional Compilation Arguments", dNZ(dProject, "Items\ConditionalCompilationArguments")
@@ -129,7 +129,7 @@ Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue 
                 ModuleName & ".SafeSetProperty"
         End If
     End If
-    
+    CatchAny eelError, "Setting Property:" & strProperty & ", Value:" & CStr(varValue), ModuleName & ".SafeSetProperty"
 End Sub
 
 
