@@ -23,9 +23,8 @@ The options dialog can be opened from the main screen by click the `Options` but
 ## Export Tab
 ![Export Options Tab](img/options-export.jpg) 
 
- * **Export Folder** *Default: [Blank]* - I like to keep this relative to the project, but it can be customized here.
- <details><summary>Click to expand folder options</summary>
- 
+ * **Export Folder** *Default: [Blank]* - I like to keep this relative to the project, but it can be customized here. <details><summary>Click to expand folder options</summary>
+  
     * *[Blank]* - Use default name of `/[database.accdb].src`, i.e. `/Test.accdb.src`
     * *Relative Path* - Prefix folder name with a backslash. For example, to export source into a subfolder called `Source`, you would enter `\Source` in this box.
     * *Absolute Path* - You may also use a full path name to a folder. I.e. `W:\Git\Projects\Vehicles Database`
@@ -35,6 +34,7 @@ The options dialog can be opened from the main screen by click the `Options` but
  * **Use Fast Save** *Default: ON* - Major performance gain with small changes to large projects. This attempts to only export the objects that have changed since the last export. This especially helps to not have to export forms and reports if they have not changed. 
 
  * **Sanitize Level** *Default: Aggressive* - Set level for sanitize routines to remove noise. Sanitizing allows you to remove noise from your exported files. Turn it off to export raw file outputs. Santization routines are checked to ensure most do not affect building of exported files.<details><summary>Click to expand levels...</summary>
+ 
     **_NOTE:_ If you set Sanitize level to "*None (Off)*", none of the Sanitize Options (Sanitize Color, Strip out publish, etc.) will be used.**
    * *None (Off)* Turn off sanitization, export raw files. These may not import properly, but they may be useful when trying to troubleshoot. _**Note:** Files will still be converted to UTF-8 or System Codepage encoding depending on Access Version in this mode._
    * *Basic* Only basic sanitization to ensure reliable rebuilding of files.
