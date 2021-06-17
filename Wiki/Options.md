@@ -21,7 +21,7 @@ The options dialog can be opened from the main screen by click the `Options` but
 <p>
 
 ## Export Tab
-![Export Options Tab](img/options-Export.jpg) 
+![Export Options Tab](img/options-export.jpg) 
 
  * **Export Folder** *Default: [Blank]* - I like to keep this relative to the project, but it can be customized here. <details><summary>Click to expand folder options</summary>
 
