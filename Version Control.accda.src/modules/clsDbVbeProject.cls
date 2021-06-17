@@ -75,8 +75,8 @@ Private Sub IDbComponent_Import(strFile As String)
         .Description = dNZ(dProject, "Items\Description")
         
         ' Setting the HelpContextId can throw random automation errors.
-        If ValidHelpContextId(dNZ(dProject, "Items\HelpContextId")) Then SafeSetProperty m_Project, "HelpContextId", ValidHelpContextId(dNZ(dProject, "Items\HelpContextId"))
-        If ValidHelpFile(dNZ(dProject, "Items\HelpFile")) <> vbNullString Then SafeSetProperty m_Project, "HelpFile", ValidHelpFile(dNZ(dProject, "Items\HelpFile"))
+        SafeSetProperty m_Project, "HelpContextId", ValidHelpContextId(dNZ(dProject, "Items\HelpContextId"))
+        SafeSetProperty m_Project, "HelpFile", ValidHelpFile(dNZ(dProject, "Items\HelpFile"))
         
         ' This property is not exposed through the VBProject object model
         Application.SetOption "Conditional Compilation Arguments", dNZ(dProject, "Items\ConditionalCompilationArguments")
@@ -107,7 +107,13 @@ End Sub
 '
 Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue As Variant)
 
-    Dim varNew As String
+    Dim varCurrent As Variant
+    
+    ' Get current property value
+    varCurrent = CallByName(cProj, strProperty, VbGet)
+    
+    ' No need to set if the current value already matches
+    If varValue = varCurrent Then Exit Sub
     
     ' Switch to on error resume next after checking for current errors
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
@@ -116,20 +122,23 @@ Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue 
     CallByName cProj, strProperty, VbLet, varValue
     
     ' Read the value after setting it
-    varNew = CallByName(cProj, strProperty, VbGet)
+    varCurrent = CallByName(cProj, strProperty, VbGet)
     
     ' Verify that the property was set correctly
-    If varNew <> varValue Then
+    If varCurrent <> varValue Then
         ' We might have thrown an actual error.
         If Not CatchAny(eelError, "Failed to set " & strProperty & " to '" & _
             CStr(varValue) & "'", ModuleName & ".SafeSetProperty") Then
             ' No error, but property not set correctly.
             Log.Error eelError, "Failed to set " & strProperty & ". Set value to '" & _
-                varValue & "' but afterwards it returned '" & varNew & "'.", _
+                varValue & "' but afterwards it returned '" & varCurrent & "'.", _
                 ModuleName & ".SafeSetProperty"
         End If
     End If
-    CatchAny eelError, "Setting Property:" & strProperty & ", Value:" & CStr(varValue), ModuleName & ".SafeSetProperty"
+    
+    ' Log any uncaught errors
+    CatchAny eelError, "Setting Property '" & strProperty & "' to value '" & CStr(varValue) & "'", ModuleName & ".SafeSetProperty"
+    
 End Sub
 
 
