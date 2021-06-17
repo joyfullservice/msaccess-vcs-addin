@@ -597,7 +597,6 @@ Private Sub Class_Initialize()
         .Add "SaveTableSQL"
         .Add "StripPublishOption"
         .Add "SanitizeColors"
-        .Add "AggressiveSanitize"           ' Legacy Option; kept here to allow import from old projects
         .Add "SanitizeLevel"
         .Add "ExtractThemeFiles"
         .Add "TablesToExportData"
