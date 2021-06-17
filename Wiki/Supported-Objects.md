@@ -52,17 +52,20 @@ The *Testing* column indicates whether a test item and testing code has been cre
 |Standard Modules         |✔️|✔️|clsDbModule
 |Class Modules            |✔️|✔️|clsDbModule
 |Object Modules           |✔️|✔️|clsDbModule
+|Hidden VBE Attributes    |✔️|✔️|clsDbModule
 |💼 **DATABASE**
 |DAO Properties           |✔️|✔️|clsDbProperty
 |Project Properties       |✔️|✔️|clsDbProjProperty
 |Object Descriptions      |✔️|✔️|clsDbDocument
+|Hidden Attribute         |✔️|✔️|clsDbHiddenAttribute
+|Remove Personal Info     |✔️|✔️|clsDbProject
 |Application Icon         |✔️|✔️|clsDbProperty
 |Embedded Images          |✔️|✔️|clsDbSharedImage
 |Saved Imp/Exp Specs      |✔️|✔️|clsDbSavedSpec
 |System Imp/Exp Specs     |✔️|✔️|clsDbImexSpec
 |Summary Properties       |✔️|✔️|clsDbDocument
 |Relationships            |✔️|✔️|clsDbRelation
-|Nav. Pane Groups         |✔️|✔️|clsNavPaneGroup
+|Nav. Pane Groups         |✔️|✔️|clsDbNavPaneGroup
 |Embedded Office Theme(s) |✔️|✔️|clsDbTheme
 |💼 **VBE PROJECT**
 |Project Properties       |✔️|✔️|clsDbVbeProject
