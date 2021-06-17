@@ -23,62 +23,62 @@ If you are looking for a specific type of object or property that you want to ex
 
 The *Testing* column indicates whether a test item and testing code has been created in the *Testing.accdb* database to verify that particular item after import from source code. *Test location* indicates where to find the object in the database.
 
-|Type                   |Export|Import|VBA Class|
-|-----------------------|:----:|:----:|---------|
+|Type                     |Export|Import|VBA Class|
+|-------------------------|:----:|:----:|---------|
 |💼 **TABLES**
-|Access Table           |✔️|✔️|clsDbTableDef
-|Extended Properties    |✔️|✔️|clsDbTableDef
-|Table SQL              |✔️|✔️|clsDbTableDef
-|Linked Table           |✔️|✔️|clsDbTableDef
-|Linked PrimaryKey      |✔️|✔️|clsDbTableDef
-|ODBC Table             |✔️|✔️|clsDbTableDef
-|Linked Structure       |✔️|✔️|clsDbTableDef
-|Table Data (TDF)       |✔️|✔️|clsDbTableData
-|Table Data (XML)       |✔️|✔️|clsDbTableData
-|Table Data Macros      |✔️|✔️|clsDbTableDataMacro
+|Access Table             |✔️|✔️|clsDbTableDef
+|Extended Properties      |✔️|✔️|clsDbTableDef
+|Table SQL                |✔️|✔️|clsDbTableDef
+|Linked Table             |✔️|✔️|clsDbTableDef
+|Linked PrimaryKey        |✔️|✔️|clsDbTableDef
+|ODBC Table               |✔️|✔️|clsDbTableDef
+|Linked Structure         |✔️|✔️|clsDbTableDef
+|Table Data (TDF)         |✔️|✔️|clsDbTableData
+|Table Data (XML)         |✔️|✔️|clsDbTableData
+|Table Data Macros        |✔️|✔️|clsDbTableDataMacro
 |💼 **QUERIES**
-|Designer Layout        |✔️|✔️|clsDbQuery
-|SQL Output             |✔️|✔️|clsDbQuery
-|Pass Through Queries   |✔️|✔️|clsDbQuery
+|Designer Layout          |✔️|✔️|clsDbQuery
+|SQL Output               |✔️|✔️|clsDbQuery
+|Pass Through Queries     |✔️|✔️|clsDbQuery
 |💼 **FORMS**
-|Form objects           |✔️|✔️|clsDbForm
-|Saved print settings   |✔️|✔️|clsDbReport|Optional
+|Form objects             |✔️|✔️|clsDbForm
+|Saved print settings     |✔️|✔️|clsDbReport|Optional
 |💼 **REPORTS**
-|Report objects         |✔️|✔️|clsDbReport
-|Saved print settings   |✔️|✔️|clsDbReport|Optional
+|Report objects           |✔️|✔️|clsDbReport
+|Saved print settings     |✔️|✔️|clsDbReport|Optional
 |💼 **MACROS**
-|Macro objects          |✔️|✔️|clsDbMacro
+|Macro objects            |✔️|✔️|clsDbMacro
 |💼 **MODULES**
-|Standard Modules       |✔️|✔️|clsDbModule
-|Class Modules          |✔️|✔️|clsDbModule
-|Object Modules         |✔️|✔️|clsDbModule
+|Standard Modules         |✔️|✔️|clsDbModule
+|Class Modules            |✔️|✔️|clsDbModule
+|Object Modules           |✔️|✔️|clsDbModule
 |💼 **DATABASE**
-|DAO Properties         |✔️|✔️|clsDbProperty
-|Project Properties     |✔️|✔️|clsDbProjProperty
-|Object Descriptions    |✔️|✔️|clsDbDocument
-|Application Icon       |✔️|✔️|clsDbProperty
-|Embedded Images        |✔️|✔️|clsDbSharedImage
-|Saved Imp/Exp Specs    |✔️|✔️|clsDbSavedSpec
-|System Imp/Exp Specs   |✔️|✔️|clsDbImexSpec
-|Summary Properties     |✔️|✔️|clsDbDocument
-|Relationships          |✔️|✔️|clsDbRelation
-|Nav. Pane Groups       |✔️|✔️|clsNavPaneGroup
-|Embedded Office Theme(s)  |✔️|✔️|clsDbTheme
+|DAO Properties           |✔️|✔️|clsDbProperty
+|Project Properties       |✔️|✔️|clsDbProjProperty
+|Object Descriptions      |✔️|✔️|clsDbDocument
+|Application Icon         |✔️|✔️|clsDbProperty
+|Embedded Images          |✔️|✔️|clsDbSharedImage
+|Saved Imp/Exp Specs      |✔️|✔️|clsDbSavedSpec
+|System Imp/Exp Specs     |✔️|✔️|clsDbImexSpec
+|Summary Properties       |✔️|✔️|clsDbDocument
+|Relationships            |✔️|✔️|clsDbRelation
+|Nav. Pane Groups         |✔️|✔️|clsNavPaneGroup
+|Embedded Office Theme(s) |✔️|✔️|clsDbTheme
 |💼 **VBE PROJECT**
-|Project Properties     |✔️|✔️|clsDbVbeProject
-|Compilation Arguments  |✔️|✔️|clsDbVbeProject
-|GUID References        |✔️|✔️|clsDbVbeReference
-|File/Lib References    |✔️|✔️|clsDbVbeReference
-|Forms 2.0 documents    |✔️|✔️|clsDbVbeForm
+|Project Properties       |✔️|✔️|clsDbVbeProject
+|Compilation Arguments    |✔️|✔️|clsDbVbeProject
+|GUID References          |✔️|✔️|clsDbVbeReference
+|File/Lib References      |✔️|✔️|clsDbVbeReference
+|Forms 2.0 documents      |✔️|✔️|clsDbVbeForm
 |💼 **ADP PROJECTS**
-|Connection Settings    |||clsDbProjProperty
-|SQL Functions          |✔️|n/a|clsAdpFunction
-|SQL Views              |✔️|n/a|clsAdpServerView
-|SQL Stored Procedures  |✔️|n/a|clsAdpProcedure
-|SQL Tables             |✔️|n/a|clsAdpTable
-|SQL Triggers           |✔️|n/a|clsAdpTrigger
+|Connection Settings      |||clsDbProjProperty
+|SQL Functions            |✔️|n/a|clsAdpFunction
+|SQL Views                |✔️|n/a|clsAdpServerView
+|SQL Stored Procedures    |✔️|n/a|clsAdpProcedure
+|SQL Tables               |✔️|n/a|clsAdpTable
+|SQL Triggers             |✔️|n/a|clsAdpTrigger
 |💼 **OTHER**
-|Saved VCS Options      |✔️|✔️|clsOptions
+|Saved VCS Options        |✔️|✔️|clsOptions
 
 
 ## ADP Projects
