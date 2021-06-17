@@ -270,6 +270,7 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
                 dOptions.Add "SanitizeLevel", eslBasic
             End If
         End If
+        dOptions.Remove "AggressiveSanitize" ' Remove the option so it is not processed (will throw Err:451 otherwise)
     End If
 
 End Sub
