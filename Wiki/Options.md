@@ -64,7 +64,6 @@ Note that these options only determine what is *Exported* and saved to the JSON 
  * **Run Sub Before Export** - Run a VBA subroutine before exporting the source code. This can be used to clean up temporary data, mask sensitive information, or anything else you want to do. This will be called using  `Application.Run`.
 
  * **Run Sub After Export** - Similar to the option above, this allows you to specify a VBA subroutine to run *after* exporting the source code.
-< /details>
 
 ## Table Data
 ![Table Data Options Tab Image](img/options-table-data.jpg)
