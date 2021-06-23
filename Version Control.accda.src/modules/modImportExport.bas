@@ -370,10 +370,17 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             ' After importing modules, we need to save them before adding
             ' other properties like descriptions or hidden attributes
             If cCategory.ComponentType = edbModule Then
+                Perf.OperationStart "Save Modules"
+                DoCmd.RunCommand acCmdSaveAllModules
+                DoEvents
+                Perf.OperationEnd
+                CatchAny eelError, strType & " error saving '" & varFile & "'.", ModuleName & ".Build"
+
                 Perf.OperationStart "Compile/Save Modules"
                 DoCmd.RunCommand acCmdCompileAndSaveAllModules
                 DoEvents
                 Perf.OperationEnd
+                CatchAny eelError, strType & " error compiling or saving '" & varFile & "'.", ModuleName & ".Build"
             End If
         End If
     Next cCategory
