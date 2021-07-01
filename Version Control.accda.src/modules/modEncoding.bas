@@ -324,7 +324,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : GetSystemEncoding
 ' Author    : Adam Waller
-' Date      : 3/8/2021
+' Date      : 7/1/2021
 ' Purpose   : Return the current encoding type used for non-UTF-8 text files.
 '           : (Such as VBA code modules.)
 '           : https://docs.microsoft.com/en-us/windows/win32/intl/code-page-identifiers
@@ -332,7 +332,7 @@ End Sub
 '           : * Note that using utf-8 as a default system encoding may not work
 '           : correctly with some extended characters in VBA code modules. The VBA IDE
 '           : does not support Unicode characters, and requires code pages to display
-'           : extended/non-English characters. See Issues #60, #186, #180
+'           : extended/non-English characters. See Issues #60, #186, #180, #246
 '---------------------------------------------------------------------------------------
 '
 Public Function GetSystemEncoding() As String
@@ -343,15 +343,134 @@ Public Function GetSystemEncoding() As String
     If lngEncoding = 0 Then lngEncoding = GetACP
     Select Case lngEncoding
     
-        ' Language encoding mappings can be defined here
-        Case msoEncodingISO88591Latin1:     GetSystemEncoding = "iso-8859-1"
-        Case msoEncodingWestern:            GetSystemEncoding = "windows-1252"
+        ' Language encoding mappings are defined here, based on the following sources:
+        ' https://docs.microsoft.com/en-us/office/vba/api/office.msoencoding
+        ' https://docs.microsoft.com/en-us/dotnet/api/system.text.encoding?view=net-5.0
+        Case msoEncodingEBCDICUSCanada:                 GetSystemEncoding = "IBM037"
+        Case msoEncodingOEMUnitedStates:                GetSystemEncoding = "IBM437"
+        Case msoEncodingEBCDICInternational:            GetSystemEncoding = "IBM500"
+        Case msoEncodingArabicASMO:                     GetSystemEncoding = "ASMO-708"
+        Case msoEncodingArabicTransparentASMO:          GetSystemEncoding = "DOS-720"
+        Case msoEncodingOEMGreek437G:                   GetSystemEncoding = "ibm737"
+        Case msoEncodingOEMBaltic:                      GetSystemEncoding = "ibm775"
+        Case msoEncodingOEMMultilingualLatinI:          GetSystemEncoding = "ibm850"
+        Case msoEncodingOEMMultilingualLatinII:         GetSystemEncoding = "ibm852"
+        Case msoEncodingOEMCyrillic:                    GetSystemEncoding = "IBM855"
+        Case msoEncodingOEMTurkish:                     GetSystemEncoding = "ibm857"
+        Case msoEncodingOEMPortuguese:                  GetSystemEncoding = "IBM860"
+        Case msoEncodingOEMIcelandic:                   GetSystemEncoding = "ibm861"
+        Case msoEncodingOEMHebrew:                      GetSystemEncoding = "DOS-862"
+        Case msoEncodingOEMCanadianFrench:              GetSystemEncoding = "IBM863"
+        Case msoEncodingOEMArabic:                      GetSystemEncoding = "IBM864"
+        Case msoEncodingOEMNordic:                      GetSystemEncoding = "IBM865"
+        Case msoEncodingOEMCyrillicII:                  GetSystemEncoding = "cp866"
+        Case msoEncodingOEMModernGreek:                 GetSystemEncoding = "ibm869"
+        Case msoEncodingEBCDICMultilingualROECELatin2:  GetSystemEncoding = "IBM870"
+        Case msoEncodingThai:                           GetSystemEncoding = "windows-874"
+        Case msoEncodingEBCDICGreekModern:              GetSystemEncoding = "cp875"
+        Case msoEncodingJapaneseShiftJIS:               GetSystemEncoding = "shift_jis"
+        Case msoEncodingSimplifiedChineseGBK:           GetSystemEncoding = "gb2312"
+        Case msoEncodingKorean:                         GetSystemEncoding = "ks_c_5601-1987"
+        Case msoEncodingTraditionalChineseBig5:         GetSystemEncoding = "big5"
+        Case msoEncodingEBCDICTurkishLatin5:            GetSystemEncoding = "IBM1026"
+        Case msoEncodingUnicodeLittleEndian:            GetSystemEncoding = "utf-16"
+        Case msoEncodingUnicodeBigEndian:               GetSystemEncoding = "unicodeFFFE"
+        Case msoEncodingCentralEuropean:                GetSystemEncoding = "windows-1250"
+        Case msoEncodingCyrillic:                       GetSystemEncoding = "windows-1251"
+        Case msoEncodingWestern:                        GetSystemEncoding = "Windows-1252"
+        Case msoEncodingGreek:                          GetSystemEncoding = "windows-1253"
+        Case msoEncodingTurkish:                        GetSystemEncoding = "windows-1254"
+        Case msoEncodingHebrew:                         GetSystemEncoding = "windows-1255"
+        Case msoEncodingArabic:                         GetSystemEncoding = "windows-1256"
+        Case msoEncodingBaltic:                         GetSystemEncoding = "windows-1257"
+        Case msoEncodingVietnamese:                     GetSystemEncoding = "windows-1258"
+        Case msoEncodingKoreanJohab:                    GetSystemEncoding = "Johab"
+        Case msoEncodingMacRoman:                       GetSystemEncoding = "macintosh"
+        Case msoEncodingMacJapanese:                    GetSystemEncoding = "x-mac-japanese"
+        Case msoEncodingMacTraditionalChineseBig5:      GetSystemEncoding = "x-mac-chinesetrad"
+        Case msoEncodingMacKorean:                      GetSystemEncoding = "x-mac-korean"
+        Case msoEncodingMacArabic:                      GetSystemEncoding = "x-mac-arabic"
+        Case msoEncodingMacHebrew:                      GetSystemEncoding = "x-mac-hebrew"
+        Case msoEncodingMacGreek1:                      GetSystemEncoding = "x-mac-greek"
+        Case msoEncodingMacCyrillic:                    GetSystemEncoding = "x-mac-cyrillic"
+        Case msoEncodingMacSimplifiedChineseGB2312:     GetSystemEncoding = "x-mac-chinesesimp"
+        Case msoEncodingMacRomania:                     GetSystemEncoding = "x-mac-romanian"
+        Case msoEncodingMacUkraine:                     GetSystemEncoding = "x-mac-ukrainian"
+        Case msoEncodingMacLatin2:                      GetSystemEncoding = "x-mac-ce"
+        Case msoEncodingMacIcelandic:                   GetSystemEncoding = "x-mac-icelandic"
+        Case msoEncodingMacTurkish:                     GetSystemEncoding = "x-mac-turkish"
+        Case msoEncodingMacCroatia:                     GetSystemEncoding = "x-mac-croatian"
+        Case msoEncodingTaiwanCNS:                      GetSystemEncoding = "x-Chinese-CNS"
+        Case msoEncodingTaiwanTCA:                      GetSystemEncoding = "x-cp20001"
+        Case msoEncodingTaiwanEten:                     GetSystemEncoding = "x-Chinese-Eten"
+        Case msoEncodingTaiwanIBM5550:                  GetSystemEncoding = "x-cp20003"
+        Case msoEncodingTaiwanTeleText:                 GetSystemEncoding = "x-cp20004"
+        Case msoEncodingTaiwanWang:                     GetSystemEncoding = "x-cp20005"
+        Case msoEncodingIA5IRV:                         GetSystemEncoding = "x-IA5"
+        Case msoEncodingIA5German:                      GetSystemEncoding = "x-IA5-German"
+        Case msoEncodingIA5Swedish:                     GetSystemEncoding = "x-IA5-Swedish"
+        Case msoEncodingIA5Norwegian:                   GetSystemEncoding = "x-IA5-Norwegian"
+        Case msoEncodingUSASCII:                        GetSystemEncoding = "us-ascii"
+        Case msoEncodingT61:                            GetSystemEncoding = "x-cp20261"
+        Case msoEncodingISO6937NonSpacingAccent:        GetSystemEncoding = "x-cp20269"
+        Case msoEncodingEBCDICGermany:                  GetSystemEncoding = "IBM273"
+        Case msoEncodingEBCDICDenmarkNorway:            GetSystemEncoding = "IBM277"
+        Case msoEncodingEBCDICFinlandSweden:            GetSystemEncoding = "IBM278"
+        Case msoEncodingEBCDICItaly:                    GetSystemEncoding = "IBM280"
+        Case msoEncodingEBCDICLatinAmericaSpain:        GetSystemEncoding = "IBM284"
+        Case msoEncodingEBCDICUnitedKingdom:            GetSystemEncoding = "IBM285"
+        Case msoEncodingEBCDICJapaneseKatakanaExtended: GetSystemEncoding = "IBM290"
+        Case msoEncodingEBCDICFrance:                   GetSystemEncoding = "IBM297"
+        Case msoEncodingEBCDICArabic:                   GetSystemEncoding = "IBM420"
+        Case msoEncodingEBCDICGreek:                    GetSystemEncoding = "IBM423"
+        Case msoEncodingEBCDICHebrew:                   GetSystemEncoding = "IBM424"
+        Case msoEncodingEBCDICKoreanExtended:           GetSystemEncoding = "x-EBCDIC-KoreanExtended"
+        Case msoEncodingEBCDICThai:                     GetSystemEncoding = "IBM-Thai"
+        Case msoEncodingKOI8R:                          GetSystemEncoding = "koi8-r"
+        Case msoEncodingEBCDICIcelandic:                GetSystemEncoding = "IBM871"
+        Case msoEncodingEBCDICRussian:                  GetSystemEncoding = "IBM880"
+        Case msoEncodingEBCDICTurkish:                  GetSystemEncoding = "IBM905"
+        Case msoEncodingEBCDICSerbianBulgarian:         GetSystemEncoding = "cp1025"
+        Case msoEncodingKOI8U:                          GetSystemEncoding = "koi8-u"
+        Case msoEncodingISO88591Latin1:                 GetSystemEncoding = "iso-8859-1"
+        Case msoEncodingISO88592CentralEurope:          GetSystemEncoding = "iso-8859-2"
+        Case msoEncodingISO88593Latin3:                 GetSystemEncoding = "iso-8859-3"
+        Case msoEncodingISO88594Baltic:                 GetSystemEncoding = "iso-8859-4"
+        Case msoEncodingISO88595Cyrillic:               GetSystemEncoding = "iso-8859-5"
+        Case msoEncodingISO88596Arabic:                 GetSystemEncoding = "iso-8859-6"
+        Case msoEncodingISO88597Greek:                  GetSystemEncoding = "iso-8859-7"
+        Case msoEncodingISO88598Hebrew:                 GetSystemEncoding = "iso-8859-8"
+        Case msoEncodingISO88599Turkish:                GetSystemEncoding = "iso-8859-9"
+        Case msoEncodingISO885915Latin9:                GetSystemEncoding = "iso-8859-15"
+        Case msoEncodingEuropa3:                        GetSystemEncoding = "x-Europa"
+        Case msoEncodingISO88598HebrewLogical:          GetSystemEncoding = "iso-8859-8-i"
+        Case msoEncodingISO2022JPNoHalfwidthKatakana:   GetSystemEncoding = "iso-2022-jp"
+        Case msoEncodingISO2022JPJISX02021984:          GetSystemEncoding = "csISO2022JP"
+        Case msoEncodingISO2022JPJISX02011989:          GetSystemEncoding = "iso-2022-jp"
+        Case msoEncodingISO2022KR:                      GetSystemEncoding = "iso-2022-kr"
+        Case msoEncodingISO2022CNTraditionalChinese:    GetSystemEncoding = "x-cp50227"
+        Case msoEncodingEUCJapanese:                    GetSystemEncoding = "euc-jp"
+        Case msoEncodingEUCChineseSimplifiedChinese:    GetSystemEncoding = "EUC-CN"
+        Case msoEncodingEUCKorean:                      GetSystemEncoding = "euc-kr"
+        Case msoEncodingHZGBSimplifiedChinese:          GetSystemEncoding = "hz-gb-2312"
+        Case msoEncodingSimplifiedChineseGB18030:       GetSystemEncoding = "GB18030"
+        Case msoEncodingISCIIDevanagari:                GetSystemEncoding = "x-iscii-de"
+        Case msoEncodingISCIIBengali:                   GetSystemEncoding = "x-iscii-be"
+        Case msoEncodingISCIITamil:                     GetSystemEncoding = "x-iscii-ta"
+        Case msoEncodingISCIITelugu:                    GetSystemEncoding = "x-iscii-te"
+        Case msoEncodingISCIIAssamese:                  GetSystemEncoding = "x-iscii-as"
+        Case msoEncodingISCIIOriya:                     GetSystemEncoding = "x-iscii-or"
+        Case msoEncodingISCIIKannada:                   GetSystemEncoding = "x-iscii-ka"
+        Case msoEncodingISCIIMalayalam:                 GetSystemEncoding = "x-iscii-ma"
+        Case msoEncodingISCIIGujarati:                  GetSystemEncoding = "x-iscii-gu"
+        Case msoEncodingISCIIPunjabi:                   GetSystemEncoding = "x-iscii-pa"
+        Case msoEncodingUTF7:                           GetSystemEncoding = "utf-7"
+        Case msoEncodingUTF8:                           GetSystemEncoding = "utf-8" '* See note
         
         ' *In Windows 10, this is a checkbox in Region settings for
         ' "Beta: Use Unicode UTF-8 for worldwide language support"
-        Case msoEncodingUTF8:               GetSystemEncoding = "utf-8"
         
-        ' Any other language encoding not defined above
+        ' Any other language encoding not defined above (should be very rare)
         Case Else
             ' Attempt to autodetect the language based on the content.
             ' (Note that this does not work as well on code as it does
