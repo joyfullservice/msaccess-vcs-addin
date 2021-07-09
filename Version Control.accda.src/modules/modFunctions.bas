@@ -212,7 +212,9 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     
     If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
     strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
+    Perf.OperationStart "Wait for MsgBox Response"
     MsgBox2 = Eval(strMsg)
+    Perf.OperationEnd
     
     ' Restore MousePointer (if needed)
     If intCursor > 0 Then Screen.MousePointer = intCursor
@@ -695,3 +697,16 @@ Public Function Coalesce(ParamArray varStrings()) As String
     Next intString
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyFocus
+' Author    : Adam Waller
+' Date      : 7/8/2021
+' Purpose   : Verify that a control currently has the focus. (Is the active control)
+'---------------------------------------------------------------------------------------
+'
+Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    If Not Screen.ActiveControl Is ctlWithFocus Then ctlWithFocus.SetFocus
+    VerifyFocus = Screen.ActiveControl Is ctlWithFocus
+End Function

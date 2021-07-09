@@ -468,3 +468,25 @@ Public Function DbVersion() As Integer
     DbVersion = CInt(Split(CurrentDb.Version, ".")(0))
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormLoaded
+' Author    : Adam Waller
+' Date      : 7/8/2021
+' Purpose   : Helps identify if a form has been closed, but is still running code
+'           : after the close event.
+'---------------------------------------------------------------------------------------
+'
+Public Function FormLoaded(frmMe As Form) As Boolean
+    Dim strName As String
+    ' If no forms are open, we already have our answer.  :-)
+    If Forms.Count > 0 Then
+        ' We will throw an error accessing the name property if the form is closed
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        strName = frmMe.Name
+        ' Return true if we were able to read the name property
+        FormLoaded = strName <> vbNullString
+    End If
+End Function
+
+

@@ -144,7 +144,7 @@ Public Sub Flush()
             ' we don't hit the Integer limit
             ' on the SelStart property.
             .Value = m_Console.RightStr(20000)
-            .SelStart = 20000
+            If VerifyFocus(m_RichText) Then .SelStart = 20000
             Echo True
             'Form_frmVCSMain.Repaint
         End With
@@ -355,7 +355,7 @@ Public Sub Increment()
             ' we don't hit the Integer limit
             ' on the SelStart property.
             .Value = m_Console.RightStr(20000)
-            .SelStart = 20000
+            If VerifyFocus(m_RichText) Then .SelStart = 20000
             Echo True
         End With
     End If

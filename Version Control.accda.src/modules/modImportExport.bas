@@ -144,7 +144,9 @@ Public Sub ExportSource(blnFullExport As Boolean)
     ' Show final output and save log
     Log.Spacer
     Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)", , False, "green", True
-    
+        
+CleanUp:
+
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
@@ -166,8 +168,6 @@ Public Sub ExportSource(blnFullExport As Boolean)
         .OptionsHash = Options.GetHash
         .Save
     End With
-    
-CleanUp:
 
     ' Clear references to FileSystemObject and other objects
     Set FSO = Nothing
