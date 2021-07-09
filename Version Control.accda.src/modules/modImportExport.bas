@@ -378,6 +378,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         End If
     Next cCategory
     
+    ' Initialize forms to ensure that the colors/themes are rendered properly
+    ' (This must be done after all objects are imported, since subforms/subreports
+    '  may be involved, and must already exist in the database.)
+    Log.Add "Initializing forms..."
+    InitializeForms
+    
     ' Run any post-build/merge instructions
     If blnFullBuild Then
         If Options.RunAfterBuild <> vbNullString Then
@@ -649,3 +655,52 @@ Private Sub PrepareRunBootstrap()
     
 End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : InitializeForms
+' Author    : Adam Waller
+' Date      : 7/2/2021
+' Purpose   : Opens and closes each form in design view to complete the process of
+'           : fully rendering the colors and applying the theme. (This is needed to
+'           : provide a consistent output after importing from source.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub InitializeForms()
+
+    Dim cont As IDbComponent
+    Dim frm As IDbComponent
+    Dim strHash As String
+    
+    ' Trap any errors that may occur when opening forms
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+
+    ' Use form class so we can update the index later.
+    Set cont = New clsDbForm
+    
+    ' Set up progress bar
+    Log.ProgMax = cont.GetAllFromDB.Count
+    
+    ' Loop through all forms
+    For Each frm In cont.GetAllFromDB
+    
+        ' Open each form in design view
+        Perf.OperationStart "Initialize Forms"
+        DoCmd.OpenForm frm.Name, acDesign, , , , acHidden
+        DoCmd.Close acForm, frm.Name, acSaveNo
+        Perf.OperationEnd
+        Log.Increment
+        
+        ' Log any errors
+        CatchAny eelError, "Error while initializing form " & frm.Name, ModuleName & ".InitializeForms"
+        
+        ' Update the index, since the save date has changed, but reuse the code hash
+        ' since we just calculated it after importing the form.
+        strHash = dNZ(VCSIndex.Item(frm), "hash")
+        VCSIndex.Update frm, eatImport, strHash
+        
+    Next frm
+    
+    ' Check for any unhandled errors
+    CatchAny eelError, "Unhandled error while initializing forms", ModuleName & ".InitializeForms"
+    
+End Sub
