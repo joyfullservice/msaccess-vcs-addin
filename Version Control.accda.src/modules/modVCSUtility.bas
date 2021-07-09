@@ -31,7 +31,6 @@ Public Function GetAllContainers() As Collection
     Set GetAllContainers = New Collection
     With GetAllContainers
         ' Shared objects in both MDB and ADP formats
-        If blnMDB Then .Add New clsDbTheme
         .Add New clsDbProject
         .Add New clsDbVbeProject
         .Add New clsDbVbeReference
@@ -47,9 +46,10 @@ Public Function GetAllContainers() As Collection
             .Add New clsAdpTrigger
         ElseIf blnMDB Then
             ' These objects only exist in DAO databases
-            .Add New clsDbSharedImage
-            .Add New clsDbImexSpec
             .Add New clsDbProperty
+            .Add New clsDbSharedImage
+            .Add New clsDbTheme
+            .Add New clsDbImexSpec
             .Add New clsDbTableDef
             .Add New clsDbQuery
         End If
