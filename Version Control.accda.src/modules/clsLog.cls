@@ -319,7 +319,7 @@ End Sub
 ' Procedure : Increment
 ' Author    : Adam Waller
 ' Date      : 4/28/2020
-' Purpose   : Increment the clock icon
+' Purpose   : Increment the progress bar
 '---------------------------------------------------------------------------------------
 '
 Public Sub Increment()
