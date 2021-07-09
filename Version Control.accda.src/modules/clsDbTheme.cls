@@ -332,8 +332,9 @@ Private Sub CreateResourcesTable()
     strName = FSO.GetBaseName(strTempFile)
     CurrentProject.AddSharedImage strName, strTempFile
 
-    ' Now that we have the table, remove temporary shared image record.
+    ' Now that we have the table, remove temporary shared image record and temp file.
     CurrentDb.Execute "DELETE * FROM MSysResources WHERE Name='" & strName & "'", dbFailOnError
+    DeleteFile strTempFile
     
     ' Log any errors
     CatchAny eelError, "Error creating MSysResources table", ModuleName & ".CreateResourcesTable"
