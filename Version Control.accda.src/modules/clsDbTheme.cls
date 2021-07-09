@@ -284,28 +284,95 @@ End Function
 '
 Public Function VerifyResourcesTable(blnClearThemes As Boolean) As Boolean
 
+    Dim blnExists As Boolean
     Dim strName As String
     
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
     ' Make sure we actually have a resources table.
-    If Not TableExists("MSysResources") Then
-        ' It would be nice to find a magical system command for this, but for now
-        ' we can create it by creating a temporary form object.
-        strName = CreateForm().Name
-        ' Close without saving
-        DoCmd.Close acForm, strName, acSaveNo
-        ' Remove any potential default theme
-        If TableExists("MSysResources") Then
-            If blnClearThemes Then CurrentDb.Execute "DELETE * FROM MSysResources WHERE [Type]='thmx'", dbFailOnError
-            VerifyResourcesTable = True
-        Else
-            Log.Error eelError, "Unable to create MSysResources table.", ModuleName & ".VerifyResourcesTable"
-        End If
-    Else
-        ' Found table
-        VerifyResourcesTable = True
+    blnExists = TableExists("MSysResources")
+    If Not blnExists Then
+        CreateResourcesTable
+        blnExists = TableExists("MSysResources")
     End If
     
+    ' Remove any potential default theme if needed
+    If blnExists And blnClearThemes Then CurrentDb.Execute "DELETE * FROM MSysResources WHERE [Type]='thmx'", dbFailOnError
+    
+    ' Return true if the table exists
+    VerifyResourcesTable = blnExists
+
+    ' Log any errors
+    CatchAny eelError, "Error verifying MSysResources table", ModuleName & ".VerifyResourcesTable"
+    
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CreateResourcesTable
+' Author    : Adam Waller
+' Date      : 7/9/2021
+' Purpose   : The resources table is also used for shared images. We can add and remove
+'           : a temporary shared image to cause this table to be generated.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CreateResourcesTable()
+
+    Dim strTempFile As String
+    Dim strName As String
+    
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    Perf.OperationStart "Create MSysResources Table"
+    
+    ' Create a temporary image file
+    strTempFile = GetTempFile("IMG")
+    Create1x1pxImage strTempFile
+    
+    ' Add to database as shared image
+    strName = FSO.GetBaseName(strTempFile)
+    CurrentProject.AddSharedImage strName, strTempFile
+
+    ' Now that we have the table, remove temporary shared image record.
+    CurrentDb.Execute "DELETE * FROM MSysResources WHERE Name='" & strName & "'", dbFailOnError
+    
+    ' Log any errors
+    CatchAny eelError, "Error creating MSysResources table", ModuleName & ".CreateResourcesTable"
+    Perf.OperationEnd
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Create1x1pxImage
+' Author    : Adam Waller
+' Date      : 7/9/2021
+' Purpose   : Creates a 1 pixel by 1 pixel png image.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Create1x1pxImage(strPath As String)
+
+    Dim intCnt As Integer
+    Dim varBytes As Variant
+    Dim bteImg() As Byte
+    
+    ' Byte array for binary 1x1 pixel png file.
+    varBytes = Array((137), (80), (78), (71), (13), (10), (26), (10), (0), (0), (0), (13), (73), (72), (68), _
+        (82), (0), (0), (0), (1), (0), (0), (0), (1), (1), (3), (0), (0), (0), (37), (219), (86), (202), (0), _
+        (0), (0), (3), (80), (76), (84), (69), (0), (0), (0), (167), (122), (61), (218), (0), (0), (0), (1), _
+        (116), (82), (78), (83), (0), (64), (230), (216), (102), (0), (0), (0), (10), (73), (68), (65), (84), _
+        (8), (215), (99), (96), (0), (0), (0), (2), (0), (1), (226), (33), (188), (51), (0), (0), (0), (0), _
+        (73), (69), (78), (68), (174), (66), (96), (130))
+    
+    ' Convert to byte array
+    ReDim bteImg(0 To UBound(varBytes)) As Byte
+    For intCnt = 0 To UBound(varBytes)
+        bteImg(intCnt) = varBytes(intCnt)
+    Next intCnt
+    
+    ' Write to file
+    WriteBinaryFile strPath, bteImg
+    
+End Sub
 
 
 '---------------------------------------------------------------------------------------

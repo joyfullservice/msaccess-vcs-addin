@@ -136,6 +136,27 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : WriteBinaryFile
+' Author    : Adam Waller
+' Date      : 7/9/2021
+' Purpose   : Writes the file bytes to a file (with Unicode path support)
+'---------------------------------------------------------------------------------------
+'
+Public Function WriteBinaryFile(strPath As String, bteArray() As Byte)
+    Perf.OperationStart "Write Binary File"
+    With New ADODB.Stream
+        .Type = adTypeBinary
+        .Open
+        .Write bteArray
+        VerifyPath strPath
+        .SaveToFile strPath, adSaveCreateOverWrite
+        .Close
+    End With
+    Perf.OperationEnd
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DeleteFile
 ' Author    : Adam Waller
 ' Date      : 11/5/2020
