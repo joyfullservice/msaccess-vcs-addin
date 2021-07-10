@@ -163,7 +163,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Create/edit record in resources table.
     strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strFile))
     ' Make sure we have a resources table before we try to query the records.
-    If VerifyResourcesTable(True) Then
+    If VerifyResourcesTable Then
         strSql = "SELECT * FROM MSysResources WHERE [Type] = 'thmx' AND [Name]=""" & strThemeName & """"
         Set rstResources = CurrentDb.OpenRecordset(strSql, dbOpenDynaset)
         With rstResources
@@ -282,7 +282,7 @@ End Function
 ' Purpose   : Make sure the resources table exists, creating it if needed.
 '---------------------------------------------------------------------------------------
 '
-Public Function VerifyResourcesTable(blnClearThemes As Boolean) As Boolean
+Public Function VerifyResourcesTable() As Boolean
 
     Dim blnExists As Boolean
     Dim strName As String
@@ -295,10 +295,7 @@ Public Function VerifyResourcesTable(blnClearThemes As Boolean) As Boolean
         CreateResourcesTable
         blnExists = TableExists("MSysResources")
     End If
-    
-    ' Remove any potential default theme if needed
-    If blnExists And blnClearThemes Then CurrentDb.Execute "DELETE * FROM MSysResources WHERE [Type]='thmx'", dbFailOnError
-    
+     
     ' Return true if the table exists
     VerifyResourcesTable = blnExists
 
