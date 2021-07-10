@@ -490,3 +490,45 @@ Public Function FormLoaded(frmMe As Form) As Boolean
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyFocus
+' Author    : Adam Waller
+' Date      : 7/8/2021
+' Purpose   : Verify that a control currently has the focus. (Is the active control)
+'---------------------------------------------------------------------------------------
+'
+Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
+
+    Dim frmParent As Form
+    Dim objParent As Object
+    Dim ctlCurrentFocus As Control
+    
+    ' Determine parent form for control
+    Set objParent = ctlWithFocus
+    Do While Not TypeOf objParent Is Form
+        Set objParent = objParent.Parent
+    Loop
+    Set frmParent = objParent
+    
+    ' Ignore any errors with Screen.* functions
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    
+    ' Verify focus of parent form
+    Set frmParent = Screen.ActiveForm
+    If Not frmParent Is objParent Then
+        Set frmParent = objParent
+        frmParent.SetFocus
+    End If
+    
+    ' Verify focus of control on form
+    Set ctlCurrentFocus = frmParent.ActiveControl
+    If Not ctlCurrentFocus Is ctlWithFocus Then ctlWithFocus.SetFocus
+    
+    ' Return true if the control currently has the focus
+    VerifyFocus = Screen.ActiveControl Is ctlWithFocus
+    
+    ' Discard any errors
+    CatchAny eelNoError, vbNullString, , False
+    
+End Function
+

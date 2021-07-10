@@ -697,16 +697,3 @@ Public Function Coalesce(ParamArray varStrings()) As String
     Next intString
 End Function
 
-
-'---------------------------------------------------------------------------------------
-' Procedure : VerifyFocus
-' Author    : Adam Waller
-' Date      : 7/8/2021
-' Purpose   : Verify that a control currently has the focus. (Is the active control)
-'---------------------------------------------------------------------------------------
-'
-Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    If Not Screen.ActiveControl Is ctlWithFocus Then ctlWithFocus.SetFocus
-    VerifyFocus = Screen.ActiveControl Is ctlWithFocus
-End Function
