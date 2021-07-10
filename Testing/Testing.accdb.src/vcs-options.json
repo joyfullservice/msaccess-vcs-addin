@@ -1,6 +1,6 @@
 ﻿{
   "Info": {
-    "AddinVersion": "3.4.3",
+    "AddinVersion": "3.4.10",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
@@ -36,7 +36,7 @@
     "SaveTableSQL": true,
     "StripPublishOption": true,
     "SanitizeColors": 1,
-    "AggressiveSanitize": true,
+    "SanitizeLevel": 2,
     "ExtractThemeFiles": false,
     "TablesToExportData": {
       "tblInternal": {

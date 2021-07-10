@@ -149,6 +149,7 @@ Begin Form
             Begin
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =2880
                     Top =1620
                     Width =840
@@ -179,6 +180,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =4320
                     Top =1620
                     Width =1260
@@ -197,6 +199,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =93
+                    TextFontFamily =0
                     Left =7200
                     Top =1620
                     Width =1440
@@ -215,6 +218,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =93
+                    TextFontFamily =0
                     Left =10080
                     Top =1620
                     Width =1305
@@ -233,6 +237,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =2880
                     Top =2280
                     Width =870
@@ -251,6 +256,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =2880
                     Top =2820
                     Width =870
@@ -269,6 +275,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =2880
                     Top =3300
                     Width =870
@@ -287,6 +294,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =2880
                     Top =3780
                     Width =870
@@ -305,6 +313,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =600
                     Top =2280
                     Width =1635
@@ -323,6 +332,7 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =4320
                     Top =2280
@@ -342,6 +352,7 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =7200
                     Top =2280
@@ -363,6 +374,7 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =8640
                     Top =2280
@@ -384,6 +396,7 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =11520
                     Top =2280
@@ -405,6 +418,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =11520
                     Top =1620
                     Width =1305
@@ -423,6 +437,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =87
+                    TextFontFamily =0
                     Left =8640
                     Top =1620
                     Width =1440
@@ -442,6 +457,7 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =4320
                     Top =2760
                     Width =1200
@@ -460,6 +476,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =10080
                     Top =2760
                     Width =1200
@@ -478,6 +495,7 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =7200
                     Top =2760
                     Width =1200
@@ -498,6 +516,7 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =8640
                     Top =2760
                     Width =1200
@@ -518,6 +537,7 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =11520
                     Top =2760
                     Width =1200
@@ -537,6 +557,7 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =10080
                     Top =2280
@@ -556,6 +577,7 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =5760
                     Top =2280
@@ -577,6 +599,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =5760
                     Top =1620
                     Width =1260
@@ -596,6 +619,7 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =5760
                     Top =2760
                     Width =1200
@@ -615,6 +639,7 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =4320
                     Top =3240
                     Width =1200
@@ -644,6 +669,7 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =5760
                     Top =3240
                     Width =1200
@@ -672,6 +698,7 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =7200
                     Top =3240
                     Width =1200
@@ -702,6 +729,7 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =8640
                     Top =3240
                     Width =1200
@@ -732,6 +760,7 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =10080
                     Top =3240
                     Width =1200
@@ -759,6 +788,7 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =11520
                     Top =3240
                     Width =1200
@@ -887,6 +917,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =600
                     Top =4860
                     Width =1860
