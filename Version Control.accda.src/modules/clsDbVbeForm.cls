@@ -69,7 +69,8 @@ Private Sub IDbComponent_Import(strFile As String)
                 If .CodeModule.Lines(1, 1) = vbNullString Then
                     ' Remove blank line added during import
                     .CodeModule.DeleteLines 1
-                    DoCmd.Save acModule, .Name
+                    ' Note, this change is not saved at this time. It will be saved during
+                    ' the next compile/save operation.
                     Log.Add "Removed blank line from the top of the code module for " & .Name, False
                 End If
             End If
