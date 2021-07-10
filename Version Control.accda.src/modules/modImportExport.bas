@@ -192,6 +192,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Dim colFiles As Collection
     Dim varFile As Variant
     Dim strType As String
+    Dim blnCompiled As Boolean
     
     Dim strText As String   ' Remove later
     
@@ -370,13 +371,14 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             ' After importing modules, we need to save them before adding
             ' other properties like descriptions or hidden attributes
             If cCategory.ComponentType = edbModule Then
-                Perf.OperationStart "Compile/Save Modules"
-                DoCmd.RunCommand acCmdCompileAndSaveAllModules
-                DoEvents
-                Perf.OperationEnd
+                CompileAndSaveAllModules
+                blnCompiled = True
             End If
         End If
     Next cCategory
+    
+    ' Ensure that we have compiled and saved all VBE modules
+    If Not blnCompiled Then CompileAndSaveAllModules
     
     ' Initialize forms to ensure that the colors/themes are rendered properly
     ' (This must be done after all objects are imported, since subforms/subreports

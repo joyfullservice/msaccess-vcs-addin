@@ -561,3 +561,20 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     
 End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : CompileAndSaveAllModules
+' Author    : Adam Waller
+' Date      : 7/10/2021
+' Purpose   : Compile and save the modules in the current database
+'---------------------------------------------------------------------------------------
+'
+Public Sub CompileAndSaveAllModules()
+    Perf.OperationStart "Compile/Save Modules"
+    ' Make sure we are running this in the CurrentDB, not the CodeDB
+    Set VBE.ActiveVBProject = GetVBProjectForCurrentDB
+    DoCmd.RunCommand acCmdCompileAndSaveAllModules
+    DoEvents
+    Perf.OperationEnd
+End Sub
+
