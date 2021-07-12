@@ -518,14 +518,18 @@ Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
     If Not frmParent Is objParent Then
         Set frmParent = objParent
         frmParent.SetFocus
+        DoEvents
     End If
     
     ' Verify focus of control on form
     Set ctlCurrentFocus = frmParent.ActiveControl
-    If Not ctlCurrentFocus Is ctlWithFocus Then ctlWithFocus.SetFocus
+    If Not ctlCurrentFocus Is ctlWithFocus Then
+        ctlWithFocus.SetFocus
+        DoEvents
+    End If
     
     ' Return true if the control currently has the focus
-    VerifyFocus = Screen.ActiveControl Is ctlWithFocus
+    VerifyFocus = frmParent.ActiveControl Is ctlWithFocus
     
     ' Discard any errors
     CatchAny eelNoError, vbNullString, , False
