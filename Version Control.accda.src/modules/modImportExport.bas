@@ -112,6 +112,9 @@ Public Sub ExportSource(blnFullExport As Boolean)
                 cDbObject.Export
                 CatchAny eelError, "Error exporting " & cDbObject.Name, ModuleName & ".ExportSource", True, True
                     
+                ' Bail out if we hit a critical error.
+                If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+                
                 ' Some kinds of objects are combined into a single export file, such
                 ' as database properties. For these, we just need to run the export once.
                 If cCategory.SingleFile Then Exit For
@@ -123,9 +126,6 @@ Public Sub ExportSource(blnFullExport As Boolean)
             'Log.Flush  ' Gives smoother output, but slows down export.
             Perf.ComponentEnd lngCount
         End If
-        
-        ' Bail out if we hit a critical error.
-        If Log.ErrorLevel = eelCritical Then GoTo CleanUp
         
     Next cCategory
     
@@ -362,6 +362,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
                     cCategory.Merge CStr(varFile)
                 End If
                 CatchAny eelError, strType & " error in: " & varFile, ModuleName & ".Build", True, True
+                                                    
+                ' Bail out if we hit a critical error.
+                If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+
             Next varFile
             
             ' Show category wrap-up.
