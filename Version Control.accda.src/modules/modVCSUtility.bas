@@ -577,4 +577,3 @@ Public Sub CompileAndSaveAllModules()
     DoEvents
     Perf.OperationEnd
 End Sub
-

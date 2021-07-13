@@ -17,9 +17,16 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+Private Const ModuleName As String = "clsDbModule"
+
 Private m_Module As VBComponent
 Private m_AllItems As Collection
 Private m_blnModifiedOnly As Boolean
+
+Private Type udtVbaFileContent
+    strContent As String
+    blnIsClass As Boolean
+End Type
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -67,19 +74,51 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim proj As VBProject
+    Dim strName As String
     Dim strTempFile As String
-    Dim strLines() As String
-    Dim lngLine As Long
-    Dim cData As clsConcat
-    Dim blnIsClass As Boolean
-    Dim blnHasHeader As Boolean
+    Dim udtFile As udtVbaFileContent
     
     ' Only import files with the correct extension.
     If Not (strFile Like "*.bas" Or strFile Like "*.cls") Then Exit Sub
     
-    ' Log performance of file conversion
-    Perf.OperationStart "Enc. Module as " & GetSystemEncoding
+    ' Parse source file
+    strName = GetObjectNameFromFileName(strFile)
+    udtFile = ParseSourceFile(strFile, strName)
+    
+    ' Check to see if we have an Access object with this name
+    If Not ModuleExists(strName) Then ImportModuleStub strName, udtFile.blnIsClass
+    
+    ' Write to a new file using system encoding (converting from UTF-8)
+    strTempFile = GetTempFile
+    WriteFile udtFile.strContent, strTempFile, GetSystemEncoding
+    
+    ' Import the source file to the code module
+    LoadVbeModuleFromFile strTempFile, strName
+    
+    ' Save hash, update the index, and remove the temp file
+    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
+    DeleteFile strTempFile
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ParseSourceFile
+' Author    : Adam Waller
+' Date      : 7/13/2021
+' Purpose   : Parse the source file to build VBE content
+'---------------------------------------------------------------------------------------
+'
+Private Function ParseSourceFile(strFile As String, strName As String) As udtVbaFileContent
+
+    Dim strLines() As String
+    Dim strTLine As String
+    Dim lngLine As Long
+    Dim cData As clsConcat
+    Dim blnIsClass As Boolean
+    Dim blnHasHeader As Boolean
+        
+    Perf.OperationStart "Parse VBA Module"
     
     ' Read file contents into array of lines
     strLines = Split(ReadFile(strFile), vbCrLf)
@@ -117,7 +156,7 @@ Private Sub IDbComponent_Import(strFile As String)
                 .Add "  MultiUse = -1  'True"
                 .Add "END"
             End If
-            .Add "Attribute VB_Name = """, GetObjectNameFromFileName(strFile), """"
+            .Add "Attribute VB_Name = """, strName, """"
         End If
     
         ' Add in file contents
@@ -129,31 +168,104 @@ Private Sub IDbComponent_Import(strFile As String)
         .Remove 2
     End With
     
-    ' Write to a new file using system encoding (converting from UTF-8)
-    strTempFile = GetTempFile
-    With New ADODB.Stream
-        .Type = adTypeText
-        .Open
-        .Charset = GetSystemEncoding
-        .WriteText cData.GetStr
-        ' Write to disk
-        .SaveToFile strTempFile, adSaveCreateOverWrite
-        .Close
+    ' Return values
+    With ParseSourceFile
+        .blnIsClass = blnIsClass
+        .strContent = cData.GetStr
     End With
     
     Perf.OperationEnd
     
-    ' Import the source file
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadVbeModuleFromFile
+' Author    : Adam Waller
+' Date      : 7/12/2021
+' Purpose   : Load the VBA standard/class module from a file through VBE. (This allows
+'           : us to preserve hidden attributes not recognized in then LoadFromText
+'           : import of code modules and classes.)
+'---------------------------------------------------------------------------------------
+'
+Private Sub LoadVbeModuleFromFile(strFile As String, strName As String)
+
+    Dim proj As VBProject
+    
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
     Set proj = GetVBProjectForCurrentDB
     Perf.OperationStart "Import VBE Module"
-    Set m_Module = proj.VBComponents.Import(strTempFile)
+    With proj.VBComponents
+        
+        ' Remove any existing component (In most cases the module will exist)
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        .Remove .Item(strName)
+        If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
+        
+        ' Load from the file
+        Set m_Module = .Import(strFile)
+    End With
     Perf.OperationEnd
+
+    CatchAny eelError, "Error importing VBA code for " & strName, ModuleName & ".LoadVbeModuleFromFile"
     
-    ' Save hash, update the index, and remove the temp file
-    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportModuleStub
+' Author    : Adam Waller
+' Date      : 7/12/2021
+' Purpose   : Import a blank code module as text so it can be loaded into Access before
+'           : overlaying the content through VBE. (This allows us to use DoCmd.Save to
+'           : save the code changes, which is not available when a new module is created
+'           : through a VBE import.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ImportModuleStub(strName As String, blnAsClass As Boolean)
+
+    Dim cContent As clsConcat
+    Dim strTempFile As String
+
+    Set cContent = New clsConcat
+
+    ' Save the template content as a file
+    strTempFile = GetTempFile
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        If blnAsClass Then
+            .Add "Attribute VB_GlobalNameSpace = False"
+            .Add "Attribute VB_Creatable = False"
+            .Add "Attribute VB_PredeclaredId = False"
+            .Add "Attribute VB_Exposed = False"
+        End If
+        .Add "' Stub module for import by MSAccessVCS"
+        .Add "noncompilingcode 'issue here"
+        ' Load as text without BOM
+        WriteFile .GetStr, strTempFile, "Windows-1252"
+    End With
+
+    LoadFromText acModule, strName, strTempFile
     DeleteFile strTempFile
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ModuleExists
+' Author    : Adam Waller
+' Date      : 7/13/2021
+' Purpose   : Returns true if the module or class exists in the current database
+'---------------------------------------------------------------------------------------
+'
+Private Function ModuleExists(strName As String) As Boolean
+    Dim objTest As AccessObject
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    Set objTest = CurrentProject.AllModules(strName)
+    CatchAny eelNoError, vbNullString, , False
+    ModuleExists = Not objTest Is Nothing
+End Function
 
 
 '---------------------------------------------------------------------------------------

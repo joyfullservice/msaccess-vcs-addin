@@ -88,7 +88,7 @@ End Function
 '           : is found in the file. https://stackoverflow.com/a/53036838/4121863
 '---------------------------------------------------------------------------------------
 '
-Public Sub WriteFile(strText As String, strPath As String)
+Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding As String = "utf-8")
 
     Dim strContent As String
     Dim dblPos As Double
@@ -99,7 +99,7 @@ Public Sub WriteFile(strText As String, strPath As String)
     With New ADODB.Stream
         .Type = adTypeText
         .Open
-        .Charset = "utf-8"
+        .Charset = strEncoding
         .WriteText strText
         ' Ensure that we are ending the content with a vbcrlf
         If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
