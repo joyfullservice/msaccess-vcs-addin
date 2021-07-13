@@ -14,3 +14,8 @@
 # The local VCS index file is paired with the database and should not
 # be comitted to version control.
 vcs-index.json
+
+# The Forms 2.0 resource file in the testing database is changed on
+# every export. Ignore these changes using the following line unless
+# we actually make design changes to this example form.
+Testing/Testing.accdb.src/vbeforms/frmForm20.frx
