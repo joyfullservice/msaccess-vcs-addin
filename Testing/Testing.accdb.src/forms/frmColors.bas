@@ -20,9 +20,6 @@ Begin Form
     End
     DatasheetFontName ="Franklin Gothic Book"
     AllowDatasheetView =0
-    AllowPivotTableView =0
-    AllowPivotChartView =0
-    AllowPivotChartView =0
     FilterOnLoad =0
     ShowPageMargins =0
     DisplayOnSharePointSite =1

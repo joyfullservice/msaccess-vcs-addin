@@ -121,8 +121,10 @@ Public Sub SanitizeFile(strPath As String)
                         SkipLine lngLine
                     End If
                     
-                ' Single lines to ignore
-                Case "NoSaveCTIWhenDisabled =1"
+                ' Single lines to ignore (#249)
+                Case "NoSaveCTIWhenDisabled =1", _
+                    "AllowPivotTableView =0", _
+                    "AllowPivotChartView =0"
                     SkipLine lngLine
         
                 ' Publish option (used in Queries)
