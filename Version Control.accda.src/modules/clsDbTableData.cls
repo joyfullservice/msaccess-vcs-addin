@@ -97,7 +97,12 @@ Public Sub ExportTableDataAsTDF(strTable As String)
         intCnt = 0
         For Each fld In rst.Fields
             ' Format for TDF format without line breaks
-            strText = MultiReplace(Nz(fld.Value), "\", "\\", vbCrLf, "\r\n", vbCr, "\r", vbLf, "\n", vbTab, "\t")
+            strText = MultiReplace(Nz(fld.Value), _
+                "\", "\\", _
+                vbCrLf, "{\r\n}", _
+                vbCr, "{\r}", _
+                vbLf, "{\n}", _
+                vbTab, "{\t}")
             cData.Add strText
             intCnt = intCnt + 1
             If intCnt < intFields Then cData.Add vbTab
@@ -187,7 +192,11 @@ Private Sub ImportTableDataTDF(strFile As String)
                         Else
                             ' Perform any needed replacements
                             strValue = MultiReplace(CStr(varLine(intCol)), _
-                                "\\", "\", "\r\n", vbCrLf, "\r", vbCr, "\n", vbLf, "\t", vbTab)
+                                "\\", "\", _
+                                "{\r\n}", vbCrLf, _
+                                "{\r}", vbCr, _
+                                "{\n}", vbLf, _
+                                "{\t}", vbTab)
                             If strValue <> CStr(varLine(intCol)) Then
                                 ' Use replaced string value
                                 rst.Fields(varHeader(intCol)).Value = strValue
