@@ -370,10 +370,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             ' Show category wrap-up.
             Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
             Perf.ComponentEnd colFiles.Count
-            
-            ' After importing modules, we need to save them before adding
-            ' other properties like descriptions or hidden attributes
-            If cCategory.ComponentType = edbModule Then SaveAllModules
         End If
     Next cCategory
     

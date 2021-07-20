@@ -19,7 +19,7 @@ Option Explicit
 
 Private Const ModuleName As String = "clsDbModule"
 
-Private m_Module As VBComponent
+Private m_Module As AccessObject
 Private m_AllItems As Collection
 Private m_blnModifiedOnly As Boolean
 
@@ -85,18 +85,22 @@ Private Sub IDbComponent_Import(strFile As String)
     strName = GetObjectNameFromFileName(strFile)
     udtFile = ParseSourceFile(strFile, strName)
     
-    ' Check to see if we have an Access object with this name
-    If Not ModuleExists(strName) Then ImportModuleStub strName, udtFile.blnIsClass
-    
     ' Write to a new file using system encoding (converting from UTF-8)
     strTempFile = GetTempFile
     WriteFile udtFile.strContent, strTempFile, GetSystemEncoding
     
-    ' Import the source file to the code module
+    ' Import the source code
     LoadVbeModuleFromFile strTempFile, strName
     
+    ' Make sure the correct project is active before saving.
+    Set VBE.ActiveVBProject = GetVBProjectForCurrentDB
+    DoCmd.Save acModule, strName
+    
+    ' Set reference to object
+    Set m_Module = CurrentProject.AllModules(strName)
+        
     ' Save hash, update the index, and remove the temp file
-    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
+    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
     DeleteFile strTempFile
     
 End Sub
@@ -204,68 +208,13 @@ Private Sub LoadVbeModuleFromFile(strFile As String, strName As String)
         If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
         
         ' Load from the file
-        Set m_Module = .Import(strFile)
+        .Import strFile
     End With
     Perf.OperationEnd
-
+   
     CatchAny eelError, "Error importing VBA code for " & strName, ModuleName & ".LoadVbeModuleFromFile"
     
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ImportModuleStub
-' Author    : Adam Waller
-' Date      : 7/12/2021
-' Purpose   : Import a blank code module as text so it can be loaded into Access before
-'           : overlaying the content through VBE. (This allows us to use DoCmd.Save to
-'           : save the code changes, which is not available when a new module is created
-'           : through a VBE import.
-'---------------------------------------------------------------------------------------
-'
-Private Sub ImportModuleStub(strName As String, blnAsClass As Boolean)
-
-    Dim cContent As clsConcat
-    Dim strTempFile As String
-
-    Set cContent = New clsConcat
-
-    ' Save the template content as a file
-    strTempFile = GetTempFile
-    With New clsConcat
-        .AppendOnAdd = vbCrLf
-        If blnAsClass Then
-            .Add "Attribute VB_GlobalNameSpace = False"
-            .Add "Attribute VB_Creatable = False"
-            .Add "Attribute VB_PredeclaredId = False"
-            .Add "Attribute VB_Exposed = False"
-        End If
-        .Add "' Stub module for import by MSAccessVCS"
-        .Add "noncompilingcode 'issue here"
-        ' Load as text without BOM
-        WriteFile .GetStr, strTempFile, "Windows-1252"
-    End With
-
-    LoadFromText acModule, strName, strTempFile
-    DeleteFile strTempFile
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ModuleExists
-' Author    : Adam Waller
-' Date      : 7/13/2021
-' Purpose   : Returns true if the module or class exists in the current database
-'---------------------------------------------------------------------------------------
-'
-Private Function ModuleExists(strName As String) As Boolean
-    Dim objTest As AccessObject
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    Set objTest = CurrentProject.AllModules(strName)
-    CatchAny eelNoError, vbNullString, , False
-    ModuleExists = Not objTest Is Nothing
-End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -295,7 +244,7 @@ End Sub
 '
 Private Sub ExportVbComponent(strFile As String)
     Perf.OperationStart "Export VBE Module"
-    m_Module.Export strFile
+    GetVBProjectForCurrentDB.VBComponents(m_Module.Name).Export strFile
     Perf.OperationEnd
 End Sub
 
@@ -320,7 +269,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         Set proj = GetVBProjectForCurrentDB
         For Each oMod In CurrentProject.AllModules
             Set cModule = New clsDbModule
-            Set cModule.DbObject = proj.VBComponents(oMod.Name)
+            Set cModule.DbObject = oMod
             If blnModifiedOnly Then
                 If cModule.IsModified Then m_AllItems.Add cModule, oMod.Name
             Else
@@ -463,7 +412,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Function GetExtension() As String
-    If m_Module.Type = vbext_ct_StdModule Then
+    If GetVBProjectForCurrentDB.VBComponents(m_Module.Name).Type = vbext_ct_StdModule Then
         GetExtension = ".bas"
     Else
         GetExtension = ".cls"
@@ -547,4 +496,3 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-
