@@ -134,6 +134,9 @@ Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue 
                 varValue & "' but afterwards it returned '" & varCurrent & "'.", _
                 ModuleName & ".SafeSetProperty"
         End If
+    Else
+        ' Clear any errors that may have been thrown, even if the change was successful.
+        If Err Then Err.Clear
     End If
     
     ' Log any uncaught errors
