@@ -5,10 +5,11 @@
   },
   "Items": {
     "Name": "MSAccessVCS",
-    "Description": "Version 3.3.17 deployed on 3/19/2021",
-    "FileName": "rel:Version Control.accda",
-    "HelpFile": "100746350",
+    "Description": "Version 3.4.5 deployed on 6/17/2021",
+    "FileName": "Version Control.accda",
+    "HelpFile": "",
     "HelpContextId": 0,
+    "ConditionalCompilationArguments": "",
     "Mode": 0,
     "Protection": 0,
     "Type": 100

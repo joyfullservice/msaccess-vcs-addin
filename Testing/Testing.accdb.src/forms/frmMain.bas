@@ -6,20 +6,21 @@ Begin Form
     DividingLines = NotDefault
     AllowDesignChanges = NotDefault
     DefaultView =0
+    TabularFamily =18
     PictureAlignment =2
     DatasheetGridlinesBehavior =3
     GridX =24
     GridY =24
-    Width =8520
+    Width =9360
     DatasheetFontHeight =11
     ItemSuffix =13
-    Right =15975
-    Bottom =11745
+    Right =19650
+    Bottom =12585
     RecSrcDt = Begin
         0x18691eff0b76e540
     End
     Caption ="Main Form"
-    DatasheetFontName ="Calibri"
+    DatasheetFontName ="Palatino Linotype"
     OnLoad ="[Event Procedure]"
     FilterOnLoad =0
     ShowPageMargins =0
@@ -33,6 +34,7 @@ Begin Form
     ForeThemeColorIndex =0
     AlternateBackThemeColorIndex =1
     AlternateBackShade =95.0
+    ThemeName ="Executive"
     Begin
         Begin Label
             BackStyle =0
@@ -130,13 +132,17 @@ Begin Form
             Begin
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =18
                     Left =5400
                     Top =2940
                     Width =3120
                     Height =720
+                    ForeColor =4210752
                     Name ="cmdRunTests"
                     Caption ="  Verify Database Objects"
                     OnClick ="[Event Procedure]"
+                    FontName ="Palatino Linotype"
+                    GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x0000000000000000b0a090ff604830ff604830ff604830ff604830ff604830ff ,
@@ -179,6 +185,12 @@ Begin Form
                     LayoutCachedWidth =8520
                     LayoutCachedHeight =3660
                     PictureCaptionArrangement =5
+                    BackColor =13807008
+                    BorderColor =13807008
+                    HoverColor =14796991
+                    PressedColor =9262658
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -188,6 +200,7 @@ Begin Form
                 Begin ListBox
                     RowSourceTypeInt =1
                     OverlapFlags =85
+                    TextFontFamily =18
                     IMESentenceMode =3
                     ColumnCount =2
                     Left =600
@@ -195,6 +208,8 @@ Begin Form
                     Width =4455
                     Height =5745
                     TabIndex =1
+                    ForeColor =4210752
+                    BorderColor =10921638
                     Name ="lstResults"
                     RowSourceType ="Value List"
                     RowSource ="✔;Access Table exists;✔;tblInternal has data;✔;Linked Table exists;✔;tblLinkedCS"
@@ -203,6 +218,8 @@ Begin Form
                         "ists;✔;Query exists;✔;Form exists;✔;Report exists;✔;Application Icon is set;✔;Cu"
                         "stom Database (DAO) property;✔;Custom Project Property"
                     ColumnWidths ="479;3975"
+                    FontName ="Palatino Linotype"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =600
                     LayoutCachedTop =1140
@@ -211,12 +228,17 @@ Begin Form
                     Begin
                         Begin Label
                             OverlapFlags =85
+                            TextFontFamily =18
                             Left =780
                             Top =720
                             Width =2880
                             Height =320
+                            BorderColor =8355711
+                            ForeColor =8355711
                             Name ="Col1_Label"
                             Caption ="Test Results"
+                            FontName ="Palatino Linotype"
+                            GridlineColor =10921638
                             LayoutCachedLeft =780
                             LayoutCachedTop =720
                             LayoutCachedWidth =3660
@@ -226,28 +248,37 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =18
                     Left =5400
                     Top =1140
-                    Width =3060
+                    Width =3720
                     Height =1635
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label4"
                     Caption ="Click the button below to verify the objects in the current database. This helps"
                         " confirm that everything was correctly reconstructed from source."
+                    FontName ="Palatino Linotype"
+                    GridlineColor =10921638
                     LayoutCachedLeft =5400
                     LayoutCachedTop =1140
-                    LayoutCachedWidth =8460
+                    LayoutCachedWidth =9120
                     LayoutCachedHeight =2775
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =18
                     Left =5400
                     Top =3900
                     Width =3120
                     Height =720
                     TabIndex =2
+                    ForeColor =4210752
                     Name ="cmdEditTests"
                     Caption ="  Edit Tests..."
                     OnClick ="[Event Procedure]"
+                    FontName ="Palatino Linotype"
+                    GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -290,6 +321,12 @@ Begin Form
                     LayoutCachedWidth =8520
                     LayoutCachedHeight =4620
                     PictureCaptionArrangement =5
+                    BackColor =13807008
+                    BorderColor =13807008
+                    HoverColor =14796991
+                    PressedColor =9262658
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -298,12 +335,17 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =93
+                    TextFontFamily =18
                     Left =5400
                     Top =4860
                     Width =3060
                     Height =1635
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="lblResults"
                     Caption ="17 tests passed\015\0120 tests failed"
+                    FontName ="Palatino Linotype"
+                    GridlineColor =10921638
                     LayoutCachedLeft =5400
                     LayoutCachedTop =4860
                     LayoutCachedWidth =8460
@@ -315,7 +357,9 @@ Begin Form
                     Top =4860
                     Width =600
                     Height =720
+                    BorderColor =10921638
                     Name ="imgResult"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =7860
                     LayoutCachedTop =4860
@@ -353,6 +397,7 @@ Public Sub cmdRunTests_Click()
     Dim strTest As String
     Dim intTest As Integer
     Dim dbs As DAO.Database
+    Dim rsc As SharedResource
     
     Set dbs = CurrentDb
     
@@ -489,6 +534,18 @@ Public Sub cmdRunTests_Click()
         
     End With
     
+    ' Theme
+    strTest = CurrentDb.Properties("Theme Resource Name")
+    ShowResult "Active theme = Angles", (strTest = "Angles")
+    
+    strTest = vbNullString
+    For Each rsc In CurrentProject.Resources
+        If rsc.Type = acResourceTheme Then
+            strTest = rsc.Name
+            If strTest = "Angles" Then Exit For
+        End If
+    Next rsc
+    ShowResult "Theme resource exists", (strTest = "Angles")
     
     ' Other
     ShowResult "VCS Options file exists", FSO.FileExists(ExportFolder & "vcs-options.json")

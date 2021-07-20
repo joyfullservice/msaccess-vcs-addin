@@ -1,4 +1,5 @@
-﻿Option Compare Database
+﻿Attribute VB_Name = "modUnitTesting"
+Option Compare Database
 Option Explicit
 Option Private Module
 
@@ -195,4 +196,45 @@ Private Sub TestSanitizeConnectionString()
     Debug.Assert SanitizeConnectionString("test") = "test"
     Debug.Assert SanitizeConnectionString(vbNullString) = vbNullString
 
+End Sub
+
+
+'@TestMethod("CloneDictionary")
+Private Sub TestCloneDictionary()
+
+    Dim dFruit As Dictionary
+    Dim dApple As Dictionary
+    Dim dClone As Dictionary
+    
+    Set dFruit = New Dictionary
+    Set dApple = New Dictionary
+    
+    ' Create text compare dictionary
+    With dApple
+        .CompareMode = TextCompare
+        .Add "SEED1", "Apple Seed"
+        .Add "seed2", "Apple Seed"
+    End With
+    
+    ' Create binary compare dictionary with nested dictionary
+    With dFruit
+        .CompareMode = BinaryCompare
+        .Add "Apple", dApple
+        .Add "Orange", "Orange"
+        .Add "Pear", "Pear"
+    End With
+    
+    ' Clone the dictionary
+    Set dClone = CloneDictionary(dFruit, ecmSourceMethod)
+    
+    ' Test the results to make sure it cloned correctly.
+    Debug.Assert dClone.Exists("APPLE") = False
+    Debug.Assert dClone.Exists("Apple") = True
+    Debug.Assert dClone.Exists("ORANGE") = False
+    Debug.Assert dClone.Exists("Orange") = True
+    Debug.Assert dClone("Apple").CompareMode = Scripting.CompareMethod.TextCompare
+    Debug.Assert dClone("Apple").Exists("seed1") = True
+    Debug.Assert dClone("Apple").Exists("SEED1") = True
+    Debug.Assert dClone("Apple").Exists("Seed3") = False
+    
 End Sub

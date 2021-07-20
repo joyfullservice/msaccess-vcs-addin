@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modHash"
 '---------------------------------------------------------------------------------------
 ' Module    : modHash
 ' Author    : Adam Waller, Erik A, 2019; hecon5, 2021
@@ -20,17 +21,17 @@ Option Private Module
 Option Explicit
 
 
-Public Declare PtrSafe Function BCryptOpenAlgorithmProvider Lib "BCrypt.dll" ( _
+Private Declare PtrSafe Function BCryptOpenAlgorithmProvider Lib "BCrypt.dll" ( _
                             ByRef phAlgorithm As LongPtr, _
                             ByVal pszAlgId As LongPtr, _
                             ByVal pszImplementation As LongPtr, _
                             ByVal dwFlags As Long) As Long
 
-Public Declare PtrSafe Function BCryptCloseAlgorithmProvider Lib "BCrypt.dll" ( _
+Private Declare PtrSafe Function BCryptCloseAlgorithmProvider Lib "BCrypt.dll" ( _
                             ByVal hAlgorithm As LongPtr, _
                             ByVal dwFlags As Long) As Long
 
-Public Declare PtrSafe Function BCryptCreateHash Lib "BCrypt.dll" ( _
+Private Declare PtrSafe Function BCryptCreateHash Lib "BCrypt.dll" ( _
                             ByVal hAlgorithm As LongPtr, _
                             ByRef phHash As LongPtr, pbHashObject As Any, _
                             ByVal cbHashObject As Long, _
@@ -38,21 +39,21 @@ Public Declare PtrSafe Function BCryptCreateHash Lib "BCrypt.dll" ( _
                             ByVal cbSecret As Long, _
                             ByVal dwFlags As Long) As Long
 
-Public Declare PtrSafe Function BCryptHashData Lib "BCrypt.dll" ( _
+Private Declare PtrSafe Function BCryptHashData Lib "BCrypt.dll" ( _
                             ByVal hHash As LongPtr, _
                             pbInput As Any, _
                             ByVal cbInput As Long, _
                             Optional ByVal dwFlags As Long = 0) As Long
 
-Public Declare PtrSafe Function BCryptFinishHash Lib "BCrypt.dll" ( _
+Private Declare PtrSafe Function BCryptFinishHash Lib "BCrypt.dll" ( _
                             ByVal hHash As LongPtr, _
                             pbOutput As Any, _
                             ByVal cbOutput As Long, _
                             ByVal dwFlags As Long) As Long
 
-Public Declare PtrSafe Function BCryptDestroyHash Lib "BCrypt.dll" (ByVal hHash As LongPtr) As Long
+Private Declare PtrSafe Function BCryptDestroyHash Lib "BCrypt.dll" (ByVal hHash As LongPtr) As Long
 
-Public Declare PtrSafe Function BCryptGetProperty Lib "BCrypt.dll" ( _
+Private Declare PtrSafe Function BCryptGetProperty Lib "BCrypt.dll" ( _
                             ByVal hObject As LongPtr, _
                             ByVal pszProperty As LongPtr, _
                             ByRef pbOutput As Any, _
@@ -131,14 +132,14 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function HashBytes(Data() As Byte, Optional HashingAlgorithm As String = DefaultHashAlgorithm) As Byte()
-    If DebugMode Then On Error Resume Next Else On Error Resume Next
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     HashBytes = NGHash(VarPtr(Data(LBound(Data))), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
     If Catch(9) Then HashBytes = NGHash(VarPtr(Null), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
     CatchAny eelCritical, "Error hashing data!", ModuleName & ".HashBytes", True, True
 End Function
 
 Private Function HashString(str As String, Optional HashingAlgorithm As String = DefaultHashAlgorithm) As Byte()
-    If DebugMode Then On Error Resume Next Else On Error Resume Next
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     HashString = NGHash(StrPtr(str), Len(str) * 2, HashingAlgorithm)
     If Catch(9) Then HashString = NGHash(StrPtr(vbNullString), Len(str) * 2, HashingAlgorithm)
     CatchAny eelCritical, "Error hashing string!", ModuleName & ".HashString", True, True
@@ -258,11 +259,11 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
         Set proj = GetVBProjectForCurrentDB
         
         ' Attempt to locate the object in the VBComponents collection
-        If DebugMode Then On Error Resume Next Else On Error Resume Next
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
         Set cmpItem = proj.VBComponents(strPrefix & strName)
         Catch 9 ' Component not found. (Could be an object with no code module)
         CatchAny eelError, "Error accessing VBComponent for '" & strPrefix & strName & "'", ModuleName & ".GetCodeModuleHash"
-        If DebugMode Then On Error GoTo 0 Else On Error Resume Next
+        If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
                 
         ' Output the hash
         If Not cmpItem Is Nothing Then
@@ -278,3 +279,4 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
     Perf.OperationEnd
     
 End Function
+

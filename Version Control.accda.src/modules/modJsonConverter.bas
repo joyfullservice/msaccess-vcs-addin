@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modJsonConverter"
 ''
 ' VBA-JSON v2.3.1
 ' (c) Tim Hall - https://github.com/VBA-tools/VBA-JSON
@@ -177,6 +178,8 @@ Public Function ParseJson(ByVal JsonString As String) As Object
     Dim json_Index As Long
     json_Index = 1
 
+    Perf.OperationStart "Parse JSON"
+    
     ' Remove vbCr, vbLf, and vbTab from json_String
     JsonString = VBA.Replace(VBA.Replace(VBA.Replace(JsonString, VBA.vbCr, vbNullString), VBA.vbLf, vbNullString), VBA.vbTab, vbNullString)
 
@@ -190,6 +193,9 @@ Public Function ParseJson(ByVal JsonString As String) As Object
         ' Error: Invalid JSON string
         Err.Raise 10001, "JSONConverter", json_ParseErrorMessage(JsonString, json_Index, "Expecting '{' or '['")
     End Select
+    
+    Perf.OperationEnd
+    
 End Function
 
 ''
@@ -221,6 +227,8 @@ Public Function ConvertToJson(ByVal JsonValue As Variant, Optional ByVal Whitesp
     Dim json_Indentation As String
     Dim json_InnerIndentation As String
 
+    Perf.OperationStart "Convert to JSON"
+    
     json_LBound = -1
     json_UBound = -1
     json_IsFirstItem = True
@@ -456,6 +464,9 @@ Public Function ConvertToJson(ByVal JsonValue As Variant, Optional ByVal Whitesp
         ConvertToJson = JsonValue
         On Error GoTo 0
     End Select
+    
+    Perf.OperationEnd
+    
 End Function
 
 ' ============================================= '
@@ -1130,3 +1141,4 @@ Private Function utc_SystemTimeToDate(utc_Value As utc_SYSTEMTIME) As Date
 End Function
 
 #End If
+

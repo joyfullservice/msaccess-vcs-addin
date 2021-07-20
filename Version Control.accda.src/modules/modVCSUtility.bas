@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modVCSUtility"
 '---------------------------------------------------------------------------------------
 ' Module    : modVCSUtility
 ' Author    : Adam Waller
@@ -8,6 +9,8 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+
+Private Const ModuleName = "modVCSUtility"
 
 
 '---------------------------------------------------------------------------------------
@@ -30,7 +33,7 @@ Public Function GetAllContainers() As Collection
     Set GetAllContainers = New Collection
     With GetAllContainers
         ' Shared objects in both MDB and ADP formats
-        If blnMDB Then .Add New clsDbTheme
+        .Add New clsDbProject
         .Add New clsDbVbeProject
         .Add New clsDbVbeReference
         .Add New clsDbVbeForm
@@ -45,18 +48,19 @@ Public Function GetAllContainers() As Collection
             .Add New clsAdpTrigger
         ElseIf blnMDB Then
             ' These objects only exist in DAO databases
-            .Add New clsDbSharedImage
-            .Add New clsDbImexSpec
             .Add New clsDbProperty
+            .Add New clsDbSharedImage
+            .Add New clsDbTheme
+            .Add New clsDbImexSpec
             .Add New clsDbTableDef
             .Add New clsDbQuery
         End If
         ' Additional objects to import after ADP/MDB specific items
         .Add New clsDbForm
         .Add New clsDbMacro
-        .Add New clsDbModule
         .Add New clsDbReport
         .Add New clsDbTableData
+        .Add New clsDbModule
         If blnMDB Then
             .Add New clsDbTableDataMacro
             .Add New clsDbRelation
@@ -187,6 +191,10 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
                 If FSO.FileExists(strFile) Then DeleteFile strFile
                 FSO.MoveFile strTempFile, strFile
             End If
+        
+        Case acTableDataMacro
+            ' Table data macros are stored in XML format
+            If FSO.FileExists(strFile) Then SanitizeXML strFile
             
         Case Else
             ' Handle UCS conversion if needed
@@ -308,6 +316,7 @@ Public Sub RemoveNonBuiltInReferences()
     Dim strName As String
     Dim ref As Access.Reference
     
+    Perf.OperationStart "Clear References"
     For intCnt = Application.References.Count To 1 Step -1
         Set ref = Application.References(intCnt)
         If Not ref.BuiltIn Then
@@ -317,6 +326,7 @@ Public Sub RemoveNonBuiltInReferences()
         End If
         Set ref = Nothing
     Next intCnt
+    Perf.OperationEnd
     
 End Sub
 
@@ -326,7 +336,7 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 5/5/2020
 ' Purpose   : Determine the original full path of the database, based on the files
-'           : in the source folder.
+'           : in the source folder. (Assumes that options have been loaded)
 '---------------------------------------------------------------------------------------
 '
 Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
@@ -334,32 +344,42 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
     Dim strPath As String
     Dim dContents As Dictionary
     Dim strFile As String
+    Dim strExportFolder As String
+    Dim lngLevel As Long
     
     strPath = FSO.BuildPath(strFolder, "vbe-project.json")
-    If FSO.FileExists(strPath) Then
+    If Not FSO.FileExists(strPath) Then
+        Log.Error eelCritical, "Unable to find source file: " & strPath, "GetOriginalDbFullPathFromSource"
+        GetOriginalDbFullPathFromSource = vbNullString
+    Else
+        ' Look up file name from VBE project file name
         Set dContents = ReadJsonFile(strPath)
         strFile = dNZ(dContents, "Items\FileName")
-        If Left$(strFile, 4) = "rel:" Then
-            ' Use parent folder of source folder
-            GetOriginalDbFullPathFromSource = BuildPath2(StripSlash(strFolder), "..", FSO.GetFileName(Mid$(strFile, 5)))
-        ElseIf InStr(1, strFile, "@{") > 0 Then
-            ' Decryption failed.
-            ' We might be able to figure out a relative path from the export path.
-            strPath = FSO.BuildPath(strFolder, "vcs-options.json")
-            If FSO.FileExists(strPath) Then
-                Set dContents = ReadJsonFile(strPath)
-                ' Make sure we can read something, but that the export folder is blank.
-                ' (Default, which indicates that it would be in the parent folder of the
-                '  source directory.)
-                If dNZ(dContents, "Info\AddinVersion") <> vbNullString _
-                    And dNZ(dContents, "Options\ExportFolder") = vbNullString Then
-                    ' Use parent folder of source directory
-                    GetOriginalDbFullPathFromSource = BuildPath2(StripSlash(strFolder), "..", FSO.GetFileName(strFile))
-                End If
-            End If
+        
+        ' Convert legacy relative path
+        If Left$(strFile, 4) = "rel:" Then strFile = Mid$(strFile, 5)
+            
+        ' Trim off any tailing slash
+        strExportFolder = StripSlash(strFolder)
+        
+        ' Check export folder settings
+        If Options.ExportFolder = vbNullString Then
+            ' Default setting, using parent folder of source directory
+            GetOriginalDbFullPathFromSource = strFolder & PathSep & ".." & PathSep & strFile
         Else
-            ' Return full path to file.
-            GetOriginalDbFullPathFromSource = strFile
+            ' Check to see if we are using an absolute export path  (\\* or *:*)
+            If StartsWith(Options.ExportFolder, PathSep & PathSep) _
+                Or (InStr(2, Options.ExportFolder, ":") > 0) Then
+                ' We don't save the absolute path in source code, so the user
+                ' needs to determine the file location.
+                Exit Function
+            Else
+                ' Calculate how many levels deep to create original path
+                lngLevel = UBound(Split(StripSlash(Options.ExportFolder), PathSep))
+                If lngLevel < 0 Then lngLevel = 0   ' Handle "\" to export in current folder.
+                GetOriginalDbFullPathFromSource = strExportFolder & PathSep & _
+                    Repeat(".." & PathSep, lngLevel) & strFile
+            End If
         End If
     End If
     
@@ -540,5 +560,65 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     ' Remove base folder if we don't have any files in it
     If oFolder.Files.Count = 0 Then oFolder.Delete True
     Perf.OperationEnd
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CompileAndSaveAllModules
+' Author    : Adam Waller
+' Date      : 7/10/2021
+' Purpose   : Compile and save the modules in the current database
+'---------------------------------------------------------------------------------------
+'
+Public Sub CompileAndSaveAllModules()
+    Perf.OperationStart "Compile/Save Modules"
+    ' Make sure we are running this in the CurrentDB, not the CodeDB
+    Set VBE.ActiveVBProject = GetVBProjectForCurrentDB
+    DoCmd.RunCommand acCmdCompileAndSaveAllModules
+    DoEvents
+    Perf.OperationEnd
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveAllModules
+' Author    : Adam Waller
+' Date      : 7/14/2021
+' Purpose   : Loop through the VBE modules and classes, saving each one in Access.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveAllModules()
+    
+    Dim proj As VBProject
+    Dim cmp As VBComponent
+    Dim colNames As Collection
+    Dim varMod As Variant
+    
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
+    Set proj = GetVBProjectForCurrentDB
+    Set colNames = New Collection
+    
+    ' Loop through and collect list of names.
+    ' (We can't save here, or we will get an error)
+    For Each cmp In proj.VBComponents
+        Select Case cmp.Type
+            Case vbext_ct_ClassModule, vbext_ct_StdModule
+                If (cmp.Saved = False) Then colNames.Add cmp.Name
+        End Select
+    Next cmp
+    
+    ' Set the active project to the CODE (add-in) project BEFORE
+    ' attempting to save the modules. Otherwise we will hit errors.
+    Set VBE.ActiveVBProject = GetCodeVBProject
+
+    ' Save each item in the list
+    For Each varMod In colNames
+        On Error GoTo 0
+        DoCmd.Save acModule, varMod
+    Next varMod
+
+    CatchAny eelError, "Error saving VBA modules", ModuleName & ".SaveAllModules"
     
 End Sub

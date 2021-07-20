@@ -20,12 +20,13 @@ Begin Form
     Top =1710
     Right =-255
     Bottom =14295
-    DatasheetGridlinesColor =14806254
+    OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
     End
     Caption ="MSAccessVCS"
     DatasheetFontName ="Calibri"
+    OnTimer ="[Event Procedure]"
     OnLoad ="[Event Procedure]"
     AllowDatasheetView =0
     FilterOnLoad =0
@@ -76,8 +77,6 @@ Begin Form
             BorderLineStyle =0
             SizeMode =3
             PictureAlignment =2
-            BorderColor =16777215
-            GridlineColor =16777215
             BackThemeColorIndex =1
             BorderThemeColorIndex =1
             BorderShade =65.0
@@ -98,7 +97,6 @@ Begin Form
             BackThemeColorIndex =4
             BackTint =60.0
             BorderLineStyle =0
-            BorderColor =16777215
             BorderThemeColorIndex =4
             BorderTint =60.0
             ThemeFontIndex =1
@@ -150,7 +148,6 @@ Begin Form
                     Width =9360
                     BorderColor =15321539
                     Name ="Line10"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     LayoutCachedTop =1725
                     LayoutCachedWidth =9360
@@ -165,9 +162,7 @@ Begin Form
                     Width =9360
                     Height =1680
                     BackColor =5324600
-                    BorderColor =10921638
                     Name ="Box1"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     LayoutCachedWidth =9360
                     LayoutCachedHeight =1680
@@ -181,11 +176,8 @@ Begin Form
                     Height =540
                     FontSize =18
                     FontWeight =700
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="Label4"
                     Caption ="Version Control System"
-                    GridlineColor =10921638
                     LayoutCachedLeft =360
                     LayoutCachedTop =300
                     LayoutCachedWidth =4620
@@ -200,12 +192,10 @@ Begin Form
                     Width =2880
                     Height =900
                     TabIndex =1
-                    ForeColor =4210752
                     Name ="cmdExport"
                     Caption ="   Export All Source"
                     OnClick ="[Event Procedure]"
                     Picture ="Export.png"
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x89504e470d0a1a0a0000000d494844520000001e0000001e08060000003b30ae ,
                         0xa2000031697a5458745261772070726f66696c65207479706520657869660000 ,
@@ -701,8 +691,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -717,11 +705,9 @@ Begin Form
                     Height =360
                     FontSize =14
                     FontWeight =700
-                    BorderColor =8355711
                     ForeColor =5324600
                     Name ="lblHeading"
                     Caption ="Choose Action"
-                    GridlineColor =10921638
                     LayoutCachedLeft =540
                     LayoutCachedTop =2100
                     LayoutCachedWidth =2640
@@ -736,7 +722,6 @@ Begin Form
                     Width =2880
                     Height =900
                     TabIndex =2
-                    ForeColor =4210752
                     Name ="cmdBuild"
                     Caption ="  Build From Source"
                     OnClick ="[Event Procedure]"
@@ -745,7 +730,6 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x89504e470d0a1a0a0000000d494844520000001e0000001e08060000003b30ae ,
                         0xa2000035447a5458745261772070726f66696c65207479706520657869660000 ,
@@ -1255,8 +1239,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =9
                     WebImagePaddingTop =9
                     WebImagePaddingRight =9
@@ -1270,11 +1252,9 @@ Begin Form
                     Width =2400
                     Height =540
                     FontSize =10
-                    BorderColor =8355711
                     ForeColor =5324600
                     Name ="lblSubheading"
                     Caption ="What would you like to do?"
-                    GridlineColor =10921638
                     LayoutCachedLeft =540
                     LayoutCachedTop =2580
                     LayoutCachedWidth =2940
@@ -1289,11 +1269,8 @@ Begin Form
                     Width =1800
                     Height =465
                     FontSize =10
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="Label9"
                     Caption ="Designed for \015\012GitHub && GitLab"
-                    GridlineColor =10921638
                     LayoutCachedLeft =540
                     LayoutCachedTop =840
                     LayoutCachedWidth =2340
@@ -1302,6 +1279,7 @@ Begin Form
                     ForeTint =100.0
                 End
                 Begin TextBox
+                    Locked = NotDefault
                     TabStop = NotDefault
                     OldBorderStyle =0
                     OverlapFlags =85
@@ -1313,10 +1291,8 @@ Begin Form
                     Height =2400
                     FontSize =10
                     TabIndex =3
-                    BorderColor =8355711
                     ForeColor =5324600
                     Name ="txtDescription"
-                    GridlineColor =10921638
                     TextFormat =1
                     VerticalAnchor =2
 
@@ -1338,7 +1314,6 @@ Begin Form
                     Width =1500
                     Height =420
                     TabIndex =4
-                    ForeColor =4210752
                     Name ="cmdClose"
                     Caption ="Close"
                     OnClick ="[Event Procedure]"
@@ -1346,7 +1321,6 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     VerticalAnchor =1
 
@@ -1366,8 +1340,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =9
                     WebImagePaddingTop =9
                     WebImagePaddingRight =9
@@ -1380,7 +1352,6 @@ Begin Form
                     Top =1200
                     Width =1560
                     TabIndex =5
-                    ForeColor =16777215
                     Name ="cmdOptions"
                     Caption =" Options..."
                     OnClick ="[Event Procedure]"
@@ -1388,7 +1359,6 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -1447,8 +1417,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =9
                     WebImagePaddingTop =9
                     WebImagePaddingRight =10
@@ -1462,11 +1430,8 @@ Begin Form
                     Width =3375
                     Height =240
                     FontSize =10
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="Label32"
                     Caption ="joyfullservice/msaccess-vcs-integration"
-                    GridlineColor =10921638
                     VerticalAnchor =1
                     LayoutCachedLeft =300
                     LayoutCachedTop =5940
@@ -1485,7 +1450,6 @@ Begin Form
                     Top =1200
                     Width =1080
                     TabIndex =6
-                    ForeColor =16777215
                     Name ="cmdHelp"
                     Caption =" Help"
                     OnClick ="[Event Procedure]"
@@ -1493,7 +1457,6 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
@@ -1553,8 +1516,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                     WebImagePaddingLeft =9
                     WebImagePaddingTop =9
                     WebImagePaddingRight =10
@@ -1569,10 +1530,7 @@ Begin Form
                     Width =3180
                     Height =240
                     FontSize =10
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="lblVersion"
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     LayoutCachedLeft =5820
                     LayoutCachedTop =480
@@ -1588,10 +1546,7 @@ Begin Form
                     Top =5640
                     Width =5160
                     Height =180
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="lblProgBack"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     VerticalAnchor =1
                     LayoutCachedLeft =3120
@@ -1606,10 +1561,7 @@ Begin Form
                     Top =6000
                     Width =2220
                     Height =180
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="lblProgFront"
-                    GridlineColor =10921638
                     LayoutCachedLeft =4500
                     LayoutCachedTop =6000
                     LayoutCachedWidth =6720
@@ -1623,10 +1575,7 @@ Begin Form
                     Width =1260
                     Height =180
                     FontSize =8
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="lblProgCaption"
-                    GridlineColor =10921638
                     LayoutCachedLeft =4980
                     LayoutCachedTop =6120
                     LayoutCachedWidth =6240
@@ -1641,13 +1590,10 @@ Begin Form
                     Width =1320
                     Height =240
                     FontSize =10
-                    BorderColor =10921638
-                    ForeColor =16711680
                     Name ="lblOpenLogFile"
                     Caption ="Open Log File..."
                     OnClick ="[Event Procedure]"
                     HyperlinkAddress ="#"
-                    GridlineColor =10921638
                     LayoutCachedLeft =3120
                     LayoutCachedTop =5640
                     LayoutCachedWidth =4440
@@ -1664,9 +1610,7 @@ Begin Form
                     Left =2460
                     Top =1080
                     Width =660
-                    BorderColor =16777215
                     Name ="Line27"
-                    GridlineColor =10921638
                     LayoutCachedLeft =2460
                     LayoutCachedTop =1080
                     LayoutCachedWidth =3120
@@ -1678,9 +1622,7 @@ Begin Form
                     Left =5700
                     Top =3390
                     TabIndex =7
-                    BorderColor =10921638
                     Name ="chkFullExport"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =5700
                     LayoutCachedTop =3390
@@ -1694,11 +1636,9 @@ Begin Form
                             Width =1335
                             Height =270
                             FontSize =10
-                            BorderColor =8355711
                             ForeColor =5324600
                             Name ="Label29"
                             Caption ="Full Export"
-                            GridlineColor =10921638
                             LayoutCachedLeft =5925
                             LayoutCachedTop =3360
                             LayoutCachedWidth =7260
@@ -1714,10 +1654,8 @@ Begin Form
                     Left =5700
                     Top =4950
                     TabIndex =8
-                    BorderColor =10921638
                     Name ="chkFullBuild"
                     DefaultValue ="True"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =5700
                     LayoutCachedTop =4950
@@ -1731,11 +1669,9 @@ Begin Form
                             Width =1335
                             Height =270
                             FontSize =10
-                            BorderColor =8355711
                             ForeColor =5324600
                             Name ="Label31"
                             Caption ="Full Build"
-                            GridlineColor =10921638
                             LayoutCachedLeft =5925
                             LayoutCachedTop =4920
                             LayoutCachedWidth =7260
@@ -1762,10 +1698,8 @@ Begin Form
                     TopMargin =144
                     RightMargin =144
                     BottomMargin =144
-                    BorderColor =10921638
                     Name ="txtLog"
                     FontName ="Lucida Console"
-                    GridlineColor =10921638
                     TextFormat =1
                     HorizontalAnchor =2
                     VerticalAnchor =2
@@ -1852,7 +1786,7 @@ Private Sub cmdBuild_Click()
                 ' Selected a folder
                 If FolderHasVcsOptionsFile(.SelectedItems(1)) Then
                     ' Has source files
-                    strFolder = .SelectedItems(1)
+                    strFolder = .SelectedItems(1) & PathSep
                     ' Relaunch build if building the add-in from source.
                     If FSO.GetFileName(strFolder) = "Version Control.accda.src" Then
                         DoCmd.Close acForm, Me.Name
@@ -1865,6 +1799,10 @@ Private Sub cmdBuild_Click()
                     DoCmd.Hourglass False
                     Exit Sub
                 End If
+            Else
+                ' Canceled dialog
+                DoCmd.Hourglass False
+                Exit Sub
             End If
         End With
     End If
@@ -1933,10 +1871,38 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdClose_Click()
+    
+    ' Check to see if we are actively logging a process.
+    If Log.Active Then
+        If ConfirmCancel Then
+            ' Throw a critical error, which will terminate the current export/build
+            Log.Error eelCritical, "Canceled Operation", Me.Name & ".cmdClose_Click"
+        End If
+        ' Either way, we should not attempt to close the form while the log is active.
+        Exit Sub
+    End If
+    
+    ' Close the form
     Log.SetConsole Nothing
     Set Log.ProgressBar = Nothing
     DoCmd.Close acForm, Me.Name
+    
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ConfirmCancel
+' Author    : Adam Waller
+' Date      : 7/8/2021
+' Purpose   : Confirm that the user really wants to cancel the current operation.
+'---------------------------------------------------------------------------------------
+'
+Private Function ConfirmCancel() As Boolean
+    ConfirmCancel = MsgBox2("Cancel Current Operation?", _
+        "You are in the midst of a running process. Are you sure you want to cancel?", _
+        "Click [Yes] to cancel the process, or [No] to resume.", _
+        vbYesNo + vbDefaultButton2 + vbExclamation) = vbYes
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -1968,8 +1934,12 @@ Private Sub cmdExport_Click()
     txtLog.ScrollBars = 2
     Log.Flush
     
-    SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
-    lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+    ' Don't attempt to access controls if we are in the process of closing the form.
+    If FormLoaded(Me) Then
+        SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
+        lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+        DoEvents
+    End If
     
 End Sub
 
@@ -2076,16 +2046,40 @@ Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = erlVCSOpen)
             'Start export, then close if no errors.
             Me.Visible = True
             cmdExport_Click
-            If Log.ErrorLevel = eelNoError Then
-                Pause 2
-                cmdClose_Click
-            End If
+            If Log.ErrorLevel = eelNoError Then AutoClose
         Case Else
             'default to export and close if no errors.
             Me.Visible = True
             cmdExport_Click
             If Log.ErrorLevel = eelNoError Then cmdClose_Click
     End Select
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AutoClose
+' Author    : Adam Waller
+' Date      : 5/6/2021
+' Purpose   : Use the timer to automatically close the form in 2 seconds.
+'           : (This keeps the application from "hanging" during the pause between
+'           :  completion and close.)
+'---------------------------------------------------------------------------------------
+'
+Private Sub AutoClose()
+    Me.TimerInterval = 2000
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Form_Timer
+' Author    : Adam Waller
+' Date      : 5/6/2021
+' Purpose   : Automatically close form.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Timer()
+    Me.TimerInterval = 0
+    cmdClose_Click
 End Sub
 
 
@@ -2098,6 +2092,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub SetStatusText(strHeading As String, strSubHeading As String, strDescriptionHtml As String)
+    If Not FormLoaded(Me) Then Exit Sub
     lblHeading.Caption = strHeading
     lblSubheading.Caption = strSubHeading
     txtDescription.Value = strDescriptionHtml
@@ -2115,6 +2110,32 @@ Private Function GetProgressBar() As clsLblProg
     Set GetProgressBar = New clsLblProg
     GetProgressBar.Initialize lblProgBack, lblProgFront, lblProgCaption
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Form_Unload
+' Author    : Adam Waller
+' Date      : 7/8/2021
+' Purpose   : Verify that the user wants to cancel the current operation
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Unload(Cancel As Integer)
+
+    Static intAttempt As Integer
+    
+    ' Allow the form to close on the third attempt, just in case the log
+    ' is stuck in active status for some reason.
+    If intAttempt > 2 Then Exit Sub
+    
+    ' Check to see if we have an active job running.
+    If Log.Active Then
+        If ConfirmCancel Then Log.Error eelCritical, "Canceled Operation", Me.Name & ".Form_Unload"
+        ' Either way, we want the log to complete first.
+        Cancel = True
+        intAttempt = intAttempt + 1
+    End If
+    
+End Sub
 
 
 '---------------------------------------------------------------------------------------

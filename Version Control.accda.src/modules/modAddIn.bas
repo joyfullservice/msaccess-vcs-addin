@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modAddIn"
 '---------------------------------------------------------------------------------------
 ' Module    : modAddIn
 ' Author    : Adam Waller
@@ -225,7 +226,7 @@ End Function
 Private Sub LoadVCSAddIn()
     ' The following lines will load the add-in at the application level,
     ' but will not actually call the function. Ignore the error of function not found.
-    If DebugMode Then On Error Resume Next Else On Error Resume Next
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     Application.Run GetAddinFileName & "!DummyFunction"
 End Sub
 
@@ -237,14 +238,22 @@ End Sub
 ' Purpose   : Increments the build version (1.0.12)
 '---------------------------------------------------------------------------------------
 '
-Public Sub IncrementAppVersion(ReleaseType As eReleaseType)
+Public Sub IncrementAppVersion(Optional ReleaseType As eReleaseType = Build_xxV)
+    
     Dim varParts As Variant
+    Dim strFrom As String
+    
     If ReleaseType = Same_Version Then Exit Sub
+    strFrom = AppVersion
     varParts = Split(AppVersion, ".")
     varParts(ReleaseType) = varParts(ReleaseType) + 1
     If ReleaseType < Minor_xVx Then varParts(Minor_xVx) = 0
     If ReleaseType < Build_xxV Then varParts(Build_xxV) = 0
     AppVersion = Join(varParts, ".")
+
+    ' Display old and new versions
+    Debug.Print "Updated from " & strFrom & " to " & AppVersion
+
 End Sub
 
 
@@ -306,3 +315,4 @@ Public Sub PreloadVBE()
     strName = VBE.ActiveVBProject.Name
     DoCmd.Hourglass False
 End Sub
+

@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modTimer"
 '---------------------------------------------------------------------------------------
 ' Module    : modTimer
 ' Author    : Adam Waller

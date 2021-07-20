@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modConnect"
 '---------------------------------------------------------------------------------------
 ' Module    : modConnect
 ' Author    : hecon5
@@ -157,3 +158,4 @@ Private Function GetConnectPath(strConnect As String) As String
     GetConnectPath = strPath
     
 End Function
+

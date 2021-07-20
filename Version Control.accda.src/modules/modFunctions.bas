@@ -1,3 +1,4 @@
+﻿Attribute VB_Name = "modFunctions"
 '---------------------------------------------------------------------------------------
 ' Module    : modFunctions
 ' Author    : Adam Waller
@@ -211,7 +212,9 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     
     If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
     strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
+    Perf.OperationStart "Wait for MsgBox Response"
     MsgBox2 = Eval(strMsg)
+    Perf.OperationEnd
     
     ' Restore MousePointer (if needed)
     If intCursor > 0 Then Screen.MousePointer = intCursor
@@ -360,6 +363,7 @@ Public Function SortDictionaryByKeys(dSource As Dictionary) As Dictionary
     
     ' Build and return new dictionary using sorted keys
     Set dSorted = New Dictionary
+    dSorted.CompareMode = dSource.CompareMode
     For lngCnt = 0 To dSource.Count - 1
         dSorted.Add varKeys(lngCnt), dSource(varKeys(lngCnt))
     Next lngCnt
@@ -451,6 +455,53 @@ Public Function DictionaryEqual(dOne As Dictionary, dTwo As Dictionary) As Boole
     
     ' Return comparison result
     DictionaryEqual = blnEqual
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CloneDictionary
+' Author    : Adam Waller
+' Date      : 3/30/2021
+' Purpose   : Recursive function to deep-clone a dictionary object, including nested
+'           : dictionaries.
+'           : NOTE: All other object types are cloned as a reference to the same object
+'           : referenced by the original dictionary, not a new object.
+'---------------------------------------------------------------------------------------
+'
+Public Function CloneDictionary(dSource As Dictionary, _
+    Optional Compare As eCompareMethod2 = ecmSourceMethod) As Dictionary
+
+    Dim dNew As Dictionary
+    Dim dChild As Dictionary
+    Dim varKey As Variant
+
+    ' No object returned if source is nothing
+    If dSource Is Nothing Then Exit Function
+
+    ' Create new dictionary object and set compare mode
+    Set dNew = New Dictionary
+    If Compare = ecmSourceMethod Then
+        ' Use the same compare mode as the original dictionary.
+        dNew.CompareMode = dSource.CompareMode
+    Else
+        dNew.CompareMode = Compare
+    End If
+    
+    ' Loop through keys
+    For Each varKey In dSource.Keys
+        If TypeOf varKey Is Dictionary Then
+            ' Call this function recursively to add nested dictionary
+            Set dChild = varKey
+            dNew.Add varKey, CloneDictionary(dChild, Compare)
+        Else
+            ' Add key to dictionary
+            dNew.Add varKey, dSource(varKey)
+        End If
+    Next varKey
+    
+    ' Return new dictionary
+    Set CloneDictionary = dNew
     
 End Function
 
@@ -615,3 +666,34 @@ Public Function Nz2(varValue, Optional varIfNull) As Variant
             End If
     End Select
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Repeat
+' Author    : Adam Waller
+' Date      : 4/29/2021
+' Purpose   : Repeat a string a specified number of times
+'---------------------------------------------------------------------------------------
+'
+Public Function Repeat(strText As String, lngTimes As Long) As String
+    Repeat = Replace$(Space$(lngTimes), " ", strText)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Coalesce
+' Author    : Adam Waller
+' Date      : 5/15/2021
+' Purpose   : Return the first non-empty string from an array of string values
+'---------------------------------------------------------------------------------------
+'
+Public Function Coalesce(ParamArray varStrings()) As String
+    Dim intString As Integer
+    For intString = 0 To UBound(varStrings)
+        If Nz(varStrings(intString)) <> vbNullString Then
+            Coalesce = varStrings(intString)
+            Exit For
+        End If
+    Next intString
+End Function
+

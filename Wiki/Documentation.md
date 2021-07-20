@@ -14,4 +14,4 @@ _Note: This aspect of building the database from source files is still under dev
 
 The options dialog can be opened from the main screen by click the `Options` button. Internally the options are stored in a `vcs-options.json` file in the path of the exported source code. These options are loaded and used when exporting to source files, or when building a project from source.
 
-[Click here for detailed Options Information](https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Options).
+[Click here for detailed Options Information](Options).

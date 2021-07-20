@@ -1,4 +1,5 @@
-﻿'---------------------------------------------------------------------------------------
+﻿Attribute VB_Name = "modConstants"
+'---------------------------------------------------------------------------------------
 ' Module    : modConstants
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
@@ -23,6 +24,9 @@ Public Const UCS2_BOM As String = "ÿþ"
 
 ' Default hashing algorithm
 Public Const DefaultHashAlgorithm As String = "SHA256"
+
+' This value seems to indicate that the theme was not used.
+Public Const NO_THEME_INDEX As Integer = -1
 
 ' Object types used when determining SQL modification date.
 Public Enum eSqlObjectType
@@ -69,6 +73,7 @@ Public Enum eDatabaseComponentType
     edbVbeForm
     edbVbeProject
     edbVbeReference
+    edbProject
 End Enum
 
 ' Error levels used for logging and monitoring the status
@@ -78,4 +83,20 @@ Public Enum eErrorLevel
     eelWarning      ' Logged to file
     eelError        ' Displayed and logged
     eelCritical     ' Cancel operation
+End Enum
+
+' Compare mode for cloning dictionary object
+' See CloneDictionary function
+Public Enum eCompareMethod2
+    ecmBinaryCompare = 0
+    ecmTextCompare = 1
+    ecmDatabaseCompare = 2
+    ' Added this to use original compare method
+    ecmSourceMethod = 3
+End Enum
+
+' Options for resolving file conflicts
+Public Enum eResolveConflict
+    ercSkip
+    ercOverwrite
 End Enum

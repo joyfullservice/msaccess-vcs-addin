@@ -13,16 +13,13 @@ Begin Form
     Width =14400
     DatasheetFontHeight =11
     ItemSuffix =50
-    Right =19470
+    Right =19650
     Bottom =12585
     RecSrcDt = Begin
         0x8b5c5de351a8e540
     End
-    DatasheetFontName ="Calibri"
+    DatasheetFontName ="Franklin Gothic Book"
     AllowDatasheetView =0
-    AllowPivotTableView =0
-    AllowPivotChartView =0
-    AllowPivotChartView =0
     FilterOnLoad =0
     ShowPageMargins =0
     DisplayOnSharePointSite =1
@@ -149,12 +146,16 @@ Begin Form
             Begin
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =2880
                     Top =1620
                     Width =840
                     Height =360
+                    BorderColor =8355711
                     Name ="Label0"
                     Caption ="Type"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =1620
                     LayoutCachedWidth =3720
@@ -168,6 +169,7 @@ Begin Form
                     Top =2100
                     Width =12540
                     Name ="Line1"
+                    GridlineColor =10921638
                     LayoutCachedLeft =480
                     LayoutCachedTop =2100
                     LayoutCachedWidth =13020
@@ -175,12 +177,16 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =4320
                     Top =1620
                     Width =1260
                     Height =360
+                    BorderColor =8355711
                     Name ="Label3"
                     Caption ="Theme Color"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =4320
                     LayoutCachedTop =1620
                     LayoutCachedWidth =5580
@@ -190,12 +196,16 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =93
+                    TextFontFamily =0
                     Left =7200
                     Top =1620
                     Width =1440
                     Height =360
+                    BorderColor =8355711
                     Name ="Label4"
                     Caption ="Pallet Color"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =7200
                     LayoutCachedTop =1620
                     LayoutCachedWidth =8640
@@ -205,12 +215,16 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =93
+                    TextFontFamily =0
                     Left =10080
                     Top =1620
                     Width =1305
                     Height =360
+                    BorderColor =8355711
                     Name ="Label5"
                     Caption ="Default Color"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =10080
                     LayoutCachedTop =1620
                     LayoutCachedWidth =11385
@@ -220,12 +234,16 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =2880
                     Top =2280
                     Width =870
                     Height =360
+                    BorderColor =8355711
                     Name ="Label6"
                     Caption ="Text Box"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =2280
                     LayoutCachedWidth =3750
@@ -235,12 +253,16 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =2880
                     Top =2820
                     Width =870
                     Height =360
+                    BorderColor =8355711
                     Name ="Label7"
                     Caption ="Label"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =2820
                     LayoutCachedWidth =3750
@@ -250,12 +272,16 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =2880
                     Top =3300
                     Width =870
                     Height =360
+                    BorderColor =8355711
                     Name ="Label8"
                     Caption ="Button"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =3300
                     LayoutCachedWidth =3750
@@ -265,12 +291,16 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =2880
                     Top =3780
                     Width =870
                     Height =360
+                    BorderColor =8355711
                     Name ="Label9"
                     Caption ="Box"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =2880
                     LayoutCachedTop =3780
                     LayoutCachedWidth =3750
@@ -280,12 +310,16 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =600
                     Top =2280
                     Width =1635
                     Height =360
+                    BorderColor =8355711
                     Name ="Label12"
                     Caption ="Orange, Accent 2"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =600
                     LayoutCachedTop =2280
                     LayoutCachedWidth =2235
@@ -295,13 +329,17 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =4320
                     Top =2280
                     Width =1200
                     Height =315
+                    BorderColor =10921638
+                    ForeColor =4210752
                     Name ="Text13"
-                    OnClick ="[Event Procedure]"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =4320
                     LayoutCachedTop =2280
@@ -311,6 +349,7 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =7200
                     Top =2280
@@ -318,7 +357,11 @@ Begin Form
                     Height =315
                     TabIndex =1
                     BackColor =5676533
+                    BorderColor =10921638
+                    ForeColor =4210752
                     Name ="Text15"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =7200
                     LayoutCachedTop =2280
@@ -328,6 +371,7 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =8640
                     Top =2280
@@ -335,7 +379,11 @@ Begin Form
                     Height =315
                     TabIndex =2
                     BackColor =3439082
+                    BorderColor =10921638
+                    ForeColor =4210752
                     Name ="Text16"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =8640
                     LayoutCachedTop =2280
@@ -345,6 +393,7 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =11520
                     Top =2280
@@ -352,7 +401,11 @@ Begin Form
                     Height =315
                     TabIndex =3
                     BackColor =-2147483598
+                    BorderColor =10921638
+                    ForeColor =4210752
                     Name ="Text18"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =11520
                     LayoutCachedTop =2280
@@ -362,12 +415,16 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =11520
                     Top =1620
                     Width =1305
                     Height =360
+                    BorderColor =8355711
                     Name ="Label19"
                     Caption ="System Color"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =11520
                     LayoutCachedTop =1620
                     LayoutCachedWidth =12825
@@ -377,12 +434,16 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =87
+                    TextFontFamily =0
                     Left =8640
                     Top =1620
                     Width =1440
                     Height =360
+                    BorderColor =8355711
                     Name ="Label20"
                     Caption ="Custom Color"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =8640
                     LayoutCachedTop =1620
                     LayoutCachedWidth =10080
@@ -393,12 +454,17 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =4320
                     Top =2760
                     Width =1200
                     Height =300
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label21"
                     Caption =" "
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =4320
                     LayoutCachedTop =2760
                     LayoutCachedWidth =5520
@@ -407,12 +473,17 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =10080
                     Top =2760
                     Width =1200
                     Height =300
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label22"
                     Caption =" "
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =10080
                     LayoutCachedTop =2760
                     LayoutCachedWidth =11280
@@ -421,13 +492,18 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =7200
                     Top =2760
                     Width =1200
                     Height =300
                     BackColor =5676533
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label23"
                     Caption =" "
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =7200
                     LayoutCachedTop =2760
                     LayoutCachedWidth =8400
@@ -437,13 +513,18 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =8640
                     Top =2760
                     Width =1200
                     Height =300
                     BackColor =3439082
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label24"
                     Caption =" "
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =8640
                     LayoutCachedTop =2760
                     LayoutCachedWidth =9840
@@ -453,13 +534,18 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =11520
                     Top =2760
                     Width =1200
                     Height =300
                     BackColor =-2147483598
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label25"
                     Caption =" "
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =11520
                     LayoutCachedTop =2760
                     LayoutCachedWidth =12720
@@ -468,13 +554,18 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =10080
                     Top =2280
                     Width =1260
                     Height =315
                     TabIndex =4
+                    BorderColor =10921638
+                    ForeColor =4210752
                     Name ="Text28"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =10080
                     LayoutCachedTop =2280
@@ -483,13 +574,18 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =5760
                     Top =2280
                     Width =1200
                     Height =315
                     TabIndex =5
+                    BorderColor =10921638
+                    ForeColor =4210752
                     Name ="Text30"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =5760
                     LayoutCachedTop =2280
@@ -500,12 +596,16 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =5760
                     Top =1620
                     Width =1260
                     Height =360
+                    BorderColor =8355711
                     Name ="Label31"
                     Caption ="Shade"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =5760
                     LayoutCachedTop =1620
                     LayoutCachedWidth =7020
@@ -516,12 +616,17 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =5760
                     Top =2760
                     Width =1200
                     Height =300
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label32"
                     Caption =" "
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =5760
                     LayoutCachedTop =2760
                     LayoutCachedWidth =6960
@@ -531,12 +636,16 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =4320
                     Top =3240
                     Width =1200
                     TabIndex =6
+                    ForeColor =4210752
                     Name ="Command33"
                     Caption ="Command33"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =4320
                     LayoutCachedTop =3240
@@ -545,6 +654,11 @@ Begin Form
                     Gradient =0
                     BackThemeColorIndex =5
                     BackTint =100.0
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -552,12 +666,16 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =5760
                     Top =3240
                     Width =1200
                     TabIndex =7
+                    ForeColor =4210752
                     Name ="Command34"
                     Caption ="Command33"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =5760
                     LayoutCachedTop =3240
@@ -565,6 +683,11 @@ Begin Form
                     LayoutCachedHeight =3600
                     Gradient =0
                     BackThemeColorIndex =5
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -572,12 +695,16 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =7200
                     Top =3240
                     Width =1200
                     TabIndex =8
+                    ForeColor =4210752
                     Name ="Command35"
                     Caption ="Command33"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =7200
                     LayoutCachedTop =3240
@@ -587,6 +714,11 @@ Begin Form
                     BackColor =5676533
                     BackThemeColorIndex =-1
                     BackTint =100.0
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -594,12 +726,16 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =8640
                     Top =3240
                     Width =1200
                     TabIndex =9
+                    ForeColor =4210752
                     Name ="Command36"
                     Caption ="Command33"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =8640
                     LayoutCachedTop =3240
@@ -609,6 +745,11 @@ Begin Form
                     BackColor =3439082
                     BackThemeColorIndex =-1
                     BackTint =100.0
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -616,17 +757,27 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =10080
                     Top =3240
                     Width =1200
                     TabIndex =10
+                    ForeColor =4210752
                     Name ="Command37"
                     Caption ="Command33"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =10080
                     LayoutCachedTop =3240
                     LayoutCachedWidth =11280
                     LayoutCachedHeight =3600
+                    BackColor =11710639
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -634,12 +785,16 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =11520
                     Top =3240
                     Width =1200
                     TabIndex =11
+                    ForeColor =4210752
                     Name ="Command38"
                     Caption ="Command33"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =11520
                     LayoutCachedTop =3240
@@ -649,6 +804,11 @@ Begin Form
                     BackColor =-2147483598
                     BackThemeColorIndex =-1
                     BackTint =100.0
+                    BorderColor =11710639
+                    HoverColor =13355721
+                    PressedColor =6249563
+                    HoverForeColor =4210752
+                    PressedForeColor =4210752
                     WebImagePaddingLeft =2
                     WebImagePaddingTop =2
                     WebImagePaddingRight =1
@@ -661,7 +821,9 @@ Begin Form
                     Top =3780
                     Width =1200
                     Height =360
+                    BorderColor =10921638
                     Name ="Box41"
+                    GridlineColor =10921638
                     LayoutCachedLeft =4320
                     LayoutCachedTop =3780
                     LayoutCachedWidth =5520
@@ -675,7 +837,9 @@ Begin Form
                     Top =3780
                     Width =1200
                     Height =360
+                    BorderColor =10921638
                     Name ="Box42"
+                    GridlineColor =10921638
                     LayoutCachedLeft =5760
                     LayoutCachedTop =3780
                     LayoutCachedWidth =6960
@@ -691,7 +855,9 @@ Begin Form
                     Width =1200
                     Height =360
                     BackColor =5676533
+                    BorderColor =10921638
                     Name ="Box43"
+                    GridlineColor =10921638
                     LayoutCachedLeft =7200
                     LayoutCachedTop =3780
                     LayoutCachedWidth =8400
@@ -706,7 +872,9 @@ Begin Form
                     Width =1200
                     Height =360
                     BackColor =3439082
+                    BorderColor =10921638
                     Name ="Box44"
+                    GridlineColor =10921638
                     LayoutCachedLeft =8640
                     LayoutCachedTop =3780
                     LayoutCachedWidth =9840
@@ -719,7 +887,9 @@ Begin Form
                     Top =3780
                     Width =1200
                     Height =360
+                    BorderColor =10921638
                     Name ="Box45"
+                    GridlineColor =10921638
                     LayoutCachedLeft =10080
                     LayoutCachedTop =3780
                     LayoutCachedWidth =11280
@@ -733,7 +903,9 @@ Begin Form
                     Width =1200
                     Height =360
                     BackColor =-2147483598
+                    BorderColor =10921638
                     Name ="Box46"
+                    GridlineColor =10921638
                     LayoutCachedLeft =11520
                     LayoutCachedTop =3780
                     LayoutCachedWidth =12720
@@ -742,12 +914,16 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =600
                     Top =4860
                     Width =1860
                     Height =360
+                    BorderColor =8355711
                     Name ="Label48"
                     Caption ="Screenshot Image"
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =600
                     LayoutCachedTop =4860
                     LayoutCachedWidth =2460
@@ -761,8 +937,10 @@ Begin Form
                     Top =4620
                     Width =10245
                     Height =2190
+                    BorderColor =10921638
                     Name ="Image49"
                     Picture ="Colors"
+                    GridlineColor =10921638
 
                     LayoutCachedLeft =2760
                     LayoutCachedTop =4620
@@ -788,7 +966,3 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
-
-Private Sub Text13_Click()
-
-End Sub

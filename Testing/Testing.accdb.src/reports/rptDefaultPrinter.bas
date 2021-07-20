@@ -4,6 +4,7 @@ Begin Report
     LayoutForPrint = NotDefault
     DividingLines = NotDefault
     AllowDesignChanges = NotDefault
+    TabularFamily =0
     DateGrouping =1
     GrpKeepTogether =1
     PictureAlignment =2
@@ -16,7 +17,7 @@ Begin Report
     RecSrcDt = Begin
         0xe05ff061b477e540
     End
-    DatasheetFontName ="Calibri"
+    DatasheetFontName ="Franklin Gothic Book"
     FilterOnLoad =0
     FitToPage =1
     DisplayOnSharePointSite =1
@@ -61,12 +62,17 @@ Begin Report
             BackThemeColorIndex =1
             Begin
                 Begin Label
+                    TextFontFamily =0
                     Left =1260
                     Top =240
                     Width =4800
                     Height =420
+                    BorderColor =8355711
+                    ForeColor =8355711
                     Name ="Label0"
                     Caption ="This report does not have any saved print settings."
+                    FontName ="Franklin Gothic Book"
+                    GridlineColor =10921638
                     LayoutCachedLeft =1260
                     LayoutCachedTop =240
                     LayoutCachedWidth =6060
