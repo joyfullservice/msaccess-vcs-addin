@@ -9,3 +9,10 @@
 # not be imported correctly. See issue #150 for more details.)
 ###############################################################################
 *.bas text eol=crlf
+
+###############################################################################
+# Clarify that the source language is VBA (Auto-detection not always accurate)
+# https://github.com/github/linguist/blob/master/docs/overrides.md
+###############################################################################
+*.bas linguist-language=VBA
+*.cls linguist-language=VBA
