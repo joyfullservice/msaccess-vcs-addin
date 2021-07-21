@@ -16,10 +16,11 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =32
-    Left =3225
-    Top =2430
-    Right =22695
-    Bottom =15015
+    Left =-25575
+    Top =1710
+    Right =-255
+    Bottom =14295
+    OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -1278,6 +1279,7 @@ Begin Form
                     ForeTint =100.0
                 End
                 Begin TextBox
+                    Locked = NotDefault
                     TabStop = NotDefault
                     OldBorderStyle =0
                     OverlapFlags =85
@@ -1797,6 +1799,10 @@ Private Sub cmdBuild_Click()
                     DoCmd.Hourglass False
                     Exit Sub
                 End If
+            Else
+                ' Canceled dialog
+                DoCmd.Hourglass False
+                Exit Sub
             End If
         End With
     End If
@@ -1865,10 +1871,38 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdClose_Click()
+    
+    ' Check to see if we are actively logging a process.
+    If Log.Active Then
+        If ConfirmCancel Then
+            ' Throw a critical error, which will terminate the current export/build
+            Log.Error eelCritical, "Canceled Operation", Me.Name & ".cmdClose_Click"
+        End If
+        ' Either way, we should not attempt to close the form while the log is active.
+        Exit Sub
+    End If
+    
+    ' Close the form
     Log.SetConsole Nothing
     Set Log.ProgressBar = Nothing
     DoCmd.Close acForm, Me.Name
+    
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ConfirmCancel
+' Author    : Adam Waller
+' Date      : 7/8/2021
+' Purpose   : Confirm that the user really wants to cancel the current operation.
+'---------------------------------------------------------------------------------------
+'
+Private Function ConfirmCancel() As Boolean
+    ConfirmCancel = MsgBox2("Cancel Current Operation?", _
+        "You are in the midst of a running process. Are you sure you want to cancel?", _
+        "Click [Yes] to cancel the process, or [No] to resume.", _
+        vbYesNo + vbDefaultButton2 + vbExclamation) = vbYes
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -1900,9 +1934,12 @@ Private Sub cmdExport_Click()
     txtLog.ScrollBars = 2
     Log.Flush
     
-    SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
-    lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
-    DoEvents
+    ' Don't attempt to access controls if we are in the process of closing the form.
+    If FormLoaded(Me) Then
+        SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
+        lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+        DoEvents
+    End If
     
 End Sub
 
@@ -2055,6 +2092,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub SetStatusText(strHeading As String, strSubHeading As String, strDescriptionHtml As String)
+    If Not FormLoaded(Me) Then Exit Sub
     lblHeading.Caption = strHeading
     lblSubheading.Caption = strSubHeading
     txtDescription.Value = strDescriptionHtml
@@ -2072,6 +2110,32 @@ Private Function GetProgressBar() As clsLblProg
     Set GetProgressBar = New clsLblProg
     GetProgressBar.Initialize lblProgBack, lblProgFront, lblProgCaption
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Form_Unload
+' Author    : Adam Waller
+' Date      : 7/8/2021
+' Purpose   : Verify that the user wants to cancel the current operation
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Unload(Cancel As Integer)
+
+    Static intAttempt As Integer
+    
+    ' Allow the form to close on the third attempt, just in case the log
+    ' is stuck in active status for some reason.
+    If intAttempt > 2 Then Exit Sub
+    
+    ' Check to see if we have an active job running.
+    If Log.Active Then
+        If ConfirmCancel Then Log.Error eelCritical, "Canceled Operation", Me.Name & ".Form_Unload"
+        ' Either way, we want the log to complete first.
+        Cancel = True
+        intAttempt = intAttempt + 1
+    End If
+    
+End Sub
 
 
 '---------------------------------------------------------------------------------------

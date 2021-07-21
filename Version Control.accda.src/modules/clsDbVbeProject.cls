@@ -99,7 +99,13 @@ End Sub
 '
 Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue As Variant)
 
-    Dim varNew As String
+    Dim varCurrent As Variant
+    
+    ' Get current property value
+    varCurrent = CallByName(cProj, strProperty, VbGet)
+    
+    ' No need to set if the current value already matches
+    If varValue = varCurrent Then Exit Sub
     
     ' Switch to on error resume next after checking for current errors
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
@@ -108,19 +114,25 @@ Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue 
     CallByName cProj, strProperty, VbLet, varValue
     
     ' Read the value after setting it
-    varNew = CallByName(cProj, strProperty, VbGet)
+    varCurrent = CallByName(cProj, strProperty, VbGet)
     
     ' Verify that the property was set correctly
-    If varNew <> varValue Then
+    If varCurrent <> varValue Then
         ' We might have thrown an actual error.
         If Not CatchAny(eelError, "Failed to set " & strProperty & " to '" & _
             CStr(varValue) & "'", ModuleName & ".SafeSetProperty") Then
             ' No error, but property not set correctly.
             Log.Error eelError, "Failed to set " & strProperty & ". Set value to '" & _
-                varValue & "' but afterwards it returned '" & varNew & "'.", _
+                varValue & "' but afterwards it returned '" & varCurrent & "'.", _
                 ModuleName & ".SafeSetProperty"
         End If
+    Else
+        ' Clear any errors that may have been thrown, even if the change was successful.
+        If Err Then Err.Clear
     End If
+    
+    ' Log any uncaught errors
+    CatchAny eelError, "Setting Property '" & strProperty & "' to value '" & CStr(varValue) & "'", ModuleName & ".SafeSetProperty"
     
 End Sub
 

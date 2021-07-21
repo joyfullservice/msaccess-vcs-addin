@@ -17,6 +17,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+Private Const ModuleName As String = "clsDbHiddenAttribute"
+
 Private m_AllItems As Dictionary
 Private m_dItems As Dictionary
 Private m_blnModifiedOnly As Boolean
@@ -60,6 +62,8 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
         Set dbs = CurrentDb
@@ -70,6 +74,7 @@ Private Sub IDbComponent_Import(strFile As String)
                 For Each varDoc In dItems(varCont)
                     ' Set object to hidden
                     Application.SetHiddenAttribute objType, varDoc, True
+                    CatchAny eelError, "Error setting hidden attribute for " & varDoc, ModuleName
                 Next varDoc
             End If
         Next varCont

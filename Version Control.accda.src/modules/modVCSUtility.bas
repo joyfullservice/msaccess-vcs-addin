@@ -10,6 +10,8 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+Private Const ModuleName = "modVCSUtility"
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetAllContainers
@@ -31,7 +33,6 @@ Public Function GetAllContainers() As Collection
     Set GetAllContainers = New Collection
     With GetAllContainers
         ' Shared objects in both MDB and ADP formats
-        If blnMDB Then .Add New clsDbTheme
         .Add New clsDbProject
         .Add New clsDbVbeProject
         .Add New clsDbVbeReference
@@ -47,18 +48,19 @@ Public Function GetAllContainers() As Collection
             .Add New clsAdpTrigger
         ElseIf blnMDB Then
             ' These objects only exist in DAO databases
-            .Add New clsDbSharedImage
-            .Add New clsDbImexSpec
             .Add New clsDbProperty
+            .Add New clsDbSharedImage
+            .Add New clsDbTheme
+            .Add New clsDbImexSpec
             .Add New clsDbTableDef
             .Add New clsDbQuery
         End If
         ' Additional objects to import after ADP/MDB specific items
         .Add New clsDbForm
         .Add New clsDbMacro
-        .Add New clsDbModule
         .Add New clsDbReport
         .Add New clsDbTableData
+        .Add New clsDbModule
         If blnMDB Then
             .Add New clsDbTableDataMacro
             .Add New clsDbRelation
@@ -571,20 +573,16 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : CompileAndSaveAllModules
 ' Author    : Adam Waller
-' Date      : 5/26/2021
-' Purpose   : Run the command to compile and save all modules in the currentproject.
-'           : NOTE: It is very important that you do not run this in the codeproject
-'           : or you may crash Access.
+' Date      : 7/10/2021
+' Purpose   : Compile and save the modules in the current database
 '---------------------------------------------------------------------------------------
 '
 Public Sub CompileAndSaveAllModules()
-    If GetVBProjectForCurrentDB.FileName <> VBE.ActiveVBProject.FileName Then
-        ' Make sure the active project is set to the current project so we compile
-        ' and save the current project, not the add-in.
-        Set VBE.ActiveVBProject = GetVBProjectForCurrentDB
-    End If
     Perf.OperationStart "Compile/Save Modules"
+    ' Make sure we are running this in the CurrentDB, not the CodeDB
+    Set VBE.ActiveVBProject = GetVBProjectForCurrentDB
     DoCmd.RunCommand acCmdCompileAndSaveAllModules
     DoEvents
     Perf.OperationEnd
 End Sub
+

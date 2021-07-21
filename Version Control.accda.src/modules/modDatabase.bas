@@ -468,3 +468,71 @@ Public Function DbVersion() As Integer
     DbVersion = CInt(Split(CurrentDb.Version, ".")(0))
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormLoaded
+' Author    : Adam Waller
+' Date      : 7/8/2021
+' Purpose   : Helps identify if a form has been closed, but is still running code
+'           : after the close event.
+'---------------------------------------------------------------------------------------
+'
+Public Function FormLoaded(frmMe As Form) As Boolean
+    Dim strName As String
+    ' If no forms are open, we already have our answer.  :-)
+    If Forms.Count > 0 Then
+        ' We will throw an error accessing the name property if the form is closed
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        strName = frmMe.Name
+        ' Return true if we were able to read the name property
+        FormLoaded = strName <> vbNullString
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyFocus
+' Author    : Adam Waller
+' Date      : 7/8/2021
+' Purpose   : Verify that a control currently has the focus. (Is the active control)
+'---------------------------------------------------------------------------------------
+'
+Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
+
+    Dim frmParent As Form
+    Dim objParent As Object
+    Dim ctlCurrentFocus As Control
+    
+    ' Determine parent form for control
+    Set objParent = ctlWithFocus
+    Do While Not TypeOf objParent Is Form
+        Set objParent = objParent.Parent
+    Loop
+    Set frmParent = objParent
+    
+    ' Ignore any errors with Screen.* functions
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    
+    ' Verify focus of parent form
+    Set frmParent = Screen.ActiveForm
+    If Not frmParent Is objParent Then
+        Set frmParent = objParent
+        frmParent.SetFocus
+        DoEvents
+    End If
+    
+    ' Verify focus of control on form
+    Set ctlCurrentFocus = frmParent.ActiveControl
+    If Not ctlCurrentFocus Is ctlWithFocus Then
+        ctlWithFocus.SetFocus
+        DoEvents
+    End If
+    
+    ' Return true if the control currently has the focus
+    VerifyFocus = frmParent.ActiveControl Is ctlWithFocus
+    
+    ' Discard any errors
+    CatchAny eelNoError, vbNullString, , False
+    
+End Function
+

@@ -97,8 +97,7 @@ Public Sub ExportTableDataAsTDF(strTable As String)
         intCnt = 0
         For Each fld In rst.Fields
             ' Format for TDF format without line breaks
-            strText = MultiReplace(Nz(fld.Value), "\", "\\", vbCrLf, "\r\n", vbCr, "\r", vbLf, "\n", vbTab, "\t")
-            cData.Add strText
+            cData.Add FormatStringForTDF(Nz(fld.Value))
             intCnt = intCnt + 1
             If intCnt < intFields Then cData.Add vbTab
         Next fld
@@ -186,8 +185,7 @@ Private Sub ImportTableDataTDF(strFile As String)
                             End If
                         Else
                             ' Perform any needed replacements
-                            strValue = MultiReplace(CStr(varLine(intCol)), _
-                                "\\", "\", "\r\n", vbCrLf, "\r", vbCr, "\n", vbLf, "\t", vbTab)
+                            strValue = FormatStringFromTDF(CStr(varLine(intCol)))
                             If strValue <> CStr(varLine(intCol)) Then
                                 ' Use replaced string value
                                 rst.Fields(varHeader(intCol)).Value = strValue
@@ -209,6 +207,44 @@ Private Sub ImportTableDataTDF(strFile As String)
     Set rst = Nothing
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormatStringForTDF
+' Author    : Adam Waller
+' Date      : 7/16/2021
+' Purpose   : Replace line feeds and similar characters with escaped codes for
+'           : representation in tab-delimited format.
+'           : (Using Chr(26) as interim placeholder) See #251
+'---------------------------------------------------------------------------------------
+'
+Private Function FormatStringForTDF(strValue As String) As String
+    FormatStringForTDF = MultiReplace(strValue, _
+        "\", Chr$(26), _
+        vbCrLf, "\r\n", _
+        vbCr, "\r", _
+        vbLf, "\n", _
+        vbTab, "\t", _
+        Chr$(26), "\\")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormatStringFromTDF
+' Author    : Adam Waller
+' Date      : 7/16/2021
+' Purpose   : Restore original characters from escaped codes.
+'---------------------------------------------------------------------------------------
+'
+Private Function FormatStringFromTDF(strTDFValue) As String
+    FormatStringFromTDF = MultiReplace(strTDFValue, _
+        "\\", Chr$(26), _
+        "\r\n", vbCrLf, _
+        "\r", vbCr, _
+        "\n", vbLf, _
+        "\t", vbTab, _
+        Chr$(26), "\")
+End Function
 
 
 '---------------------------------------------------------------------------------------

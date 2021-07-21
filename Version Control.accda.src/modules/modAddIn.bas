@@ -238,7 +238,7 @@ End Sub
 ' Purpose   : Increments the build version (1.0.12)
 '---------------------------------------------------------------------------------------
 '
-Public Sub IncrementAppVersion(ReleaseType As eReleaseType)
+Public Sub IncrementAppVersion(Optional ReleaseType As eReleaseType = Build_xxV)
     
     Dim varParts As Variant
     Dim strFrom As String

@@ -88,7 +88,7 @@ End Function
 '           : is found in the file. https://stackoverflow.com/a/53036838/4121863
 '---------------------------------------------------------------------------------------
 '
-Public Sub WriteFile(strText As String, strPath As String)
+Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding As String = "utf-8")
 
     Dim strContent As String
     Dim dblPos As Double
@@ -99,7 +99,7 @@ Public Sub WriteFile(strText As String, strPath As String)
     With New ADODB.Stream
         .Type = adTypeText
         .Open
-        .Charset = "utf-8"
+        .Charset = strEncoding
         .WriteText strText
         ' Ensure that we are ending the content with a vbcrlf
         If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
@@ -129,6 +129,27 @@ Public Function GetFileBytes(strPath As String, Optional lngBytes As Long = adRe
         .Open
         .LoadFromFile strPath
         GetFileBytes = .Read(lngBytes)
+        .Close
+    End With
+    Perf.OperationEnd
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteBinaryFile
+' Author    : Adam Waller
+' Date      : 7/9/2021
+' Purpose   : Writes the file bytes to a file (with Unicode path support)
+'---------------------------------------------------------------------------------------
+'
+Public Function WriteBinaryFile(strPath As String, bteArray() As Byte)
+    Perf.OperationStart "Write Binary File"
+    With New ADODB.Stream
+        .Type = adTypeBinary
+        .Open
+        .Write bteArray
+        VerifyPath strPath
+        .SaveToFile strPath, adSaveCreateOverWrite
         .Close
     End With
     Perf.OperationEnd

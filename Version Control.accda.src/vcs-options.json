@@ -35,7 +35,8 @@
     "ForceImportOriginalQuerySQL": false,
     "SaveTableSQL": true,
     "StripPublishOption": true,
-    "AggressiveSanitize": true,
+    "SanitizeColors": 3,
+    "SanitizeLevel": 2,
     "ExtractThemeFiles": false,
     "TablesToExportData": {
       "USysRegInfo": {
