@@ -35,7 +35,8 @@
     "ForceImportOriginalQuerySQL": false,
     "SaveTableSQL": true,
     "StripPublishOption": true,
-    "AggressiveSanitize": true,
+    "SanitizeColors": 1,
+    "SanitizeLevel": 2,
     "ExtractThemeFiles": false,
     "TablesToExportData": {
       "tblInternal": {

@@ -38,7 +38,7 @@ Private Type DEVNAMES
   extra(1 To 255) As Byte
 End Type
 
-'noncompilingcodeissue ' Showing that we can build even with VBA errors
+
 
 Public Sub PrtMipCols(ByVal strName As String)
 
