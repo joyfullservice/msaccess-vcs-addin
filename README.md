@@ -44,6 +44,6 @@ This project was originally forked from [timabell/msaccess-vcs-integration](http
 
 The following forks and projects may also be of interest:
 * [pmidhdev/msaccess-vcs-integration](https://github.com/pmidhdev/msaccess-vcs-integration/)
-* [hecon5/msaccess-vcs-integration](https://github.com/hecon5/msaccess-vcs-integration)
 * [SaltyCybernaut/msaccess-vcs-integration](https://github.com/SaltyCybernaut/msaccess-vcs-integration)
+* [hangie/msaccess-vcs-addin](https://github.com/hangie/msaccess-vcs-addin) (Re-written in C#, but is an addin like this)
 
