@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Private m_Function As AccessObject
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -34,8 +34,8 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-    WriteFile GetSQLObjectDefinitionForADP(m_Function.Name), IDbComponent_SourceFile
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    WriteFile GetSQLObjectDefinitionForADP(m_Function.Name), Nz2(strAlternatePath, IDbComponent_SourceFile)
 End Sub
 
 
@@ -69,14 +69,14 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim fn As AccessObject
     Dim cFn As IDbComponent
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         For Each fn In CurrentData.AllFunctions
             Set cFn = New clsAdpFunction
             Set cFn.DbObject = fn
@@ -97,7 +97,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.sql")
 End Function
 

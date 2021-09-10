@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Private m_Form As AccessObject
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -35,8 +35,8 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-    SaveComponentAsText acForm, m_Form.Name, IDbComponent_SourceFile, Me
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    SaveComponentAsText acForm, m_Form.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me
     VCSIndex.Update Me, eatExport, GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
 End Sub
 
@@ -84,14 +84,14 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim frm As AccessObject
     Dim cForm As IDbComponent
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         m_blnModifiedOnly = blnModifiedOnly
         For Each frm In CurrentProject.AllForms
             Set cForm = New clsDbForm
@@ -117,7 +117,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
 End Function
 

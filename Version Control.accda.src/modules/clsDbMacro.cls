@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Private m_Macro As AccessObject
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -35,8 +35,8 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-    SaveComponentAsText acMacro, m_Macro.Name, IDbComponent_SourceFile
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    SaveComponentAsText acMacro, m_Macro.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
     VCSIndex.Update Me, eatExport
 End Sub
 
@@ -72,7 +72,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-
+    DeleteObjectIfExists acMacro, GetObjectNameFromFileName(strFile)
+    IDbComponent_Import strFile
 End Sub
 
 
@@ -83,14 +84,14 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim oMac As AccessObject
     Dim cMac As IDbComponent
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         For Each oMac In CurrentProject.AllMacros
             Set cMac = New clsDbMacro
             Set cMac.DbObject = oMac
@@ -115,7 +116,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
 End Function
 

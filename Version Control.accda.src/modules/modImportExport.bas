@@ -83,6 +83,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
 
     ' Finish header section
     Log.Spacer
+    If Not blnFullExport Then Log.Add "Scanning for changes..."
     Log.Flush
     
     ' Loop through all categories
@@ -189,7 +190,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Dim strBackup As String
     Dim cCategory As IDbComponent
     Dim sngStart As Single
-    Dim colFiles As Collection
+    Dim dCategories As Dictionary
+    Dim colCategories As Collection
+    Dim varCategory As Variant
+    Dim dCategory As Dictionary
+    Dim dFiles As Dictionary
+    Dim varKey As Variant
     Dim varFile As Variant
     Dim strType As String
     
@@ -325,33 +331,68 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         
     End If
     
-    ' Loop through all categories
-    Log.Spacer
+    ' Build collections of files to import/merge
+    Log.Add "Scanning source files..."
+    Log.Flush
+    VCSIndex.Conflicts.Reset
+    Perf.OperationStart "Scan Source Files"
+    Set dCategories = New Dictionary
+    'Set colCategories = GetAllContainers
     For Each cCategory In GetAllContainers
-        
+        Set dCategory = New Dictionary
+        dCategory.Add "Class", cCategory
         ' Get collection of source files
         If blnFullBuild Then
             ' Return all the source files
-            Set colFiles = cCategory.GetFileList
+            dCategory.Add "Files", cCategory.GetFileList
         Else
             ' Return just the modified source files for merge
             ' (Optionally uses the git integration to determine changes.)
-            Set colFiles = VCSIndex.GetModifiedSourceFiles(cCategory)
+            dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory)
+            ' Record any conflicts for later review
+            VCSIndex.CheckImportConflicts cCategory, dCategory("Files")
         End If
+        dCategories.Add cCategory, dCategory
+    Next cCategory
+    Perf.OperationEnd
+    
+    ' Check for any conflicts
+    With VCSIndex.Conflicts
+        If .Count > 0 Then
+            ' Show the conflicts resolution dialog
+            .ShowDialog
+            If .ApproveResolutions Then
+                Log.Add "Resolving source conflicts", False
+                .Resolve
+            Else
+                ' Cancel build/merge
+            End If
+        End If
+    End With
+ 
+
+    
+    ' Loop through all categories
+    Log.Spacer
+    For Each varCategory In dCategories.Keys
+        
+        ' Set reference to object category class
+        Set cCategory = varCategory
+        Set dFiles = dCategories(varCategory)("Files")
         
         ' Only show category details when source files are found
-        If colFiles.Count = 0 Then
+        If dFiles.Count = 0 Then
             Log.Spacer Options.ShowDebug
             Log.Add "No " & LCase(cCategory.Category) & " source files found.", Options.ShowDebug
         Else
             ' Show category header
             Log.Spacer Options.ShowDebug
             Log.PadRight IIf(blnFullBuild, "Importing ", "Merging ") & LCase(cCategory.Category) & "...", , Options.ShowDebug
-            Log.ProgMax = colFiles.Count
+            Log.ProgMax = dFiles.Count
             Perf.ComponentStart cCategory.Category
 
             ' Loop through each file in this category.
-            For Each varFile In colFiles
+            For Each varFile In dFiles.Keys
                 ' Import/merge the file
                 Log.Increment
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
@@ -368,10 +409,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             Next varFile
             
             ' Show category wrap-up.
-            Log.Add "[" & colFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
-            Perf.ComponentEnd colFiles.Count
+            Log.Add "[" & dFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
+            Perf.ComponentEnd dFiles.Count
         End If
-    Next cCategory
+    Next varCategory
     
     ' Initialize forms to ensure that the colors/themes are rendered properly
     ' (This must be done after all objects are imported, since subforms/subreports

@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_Dbs As DAO.Database
 
 ' This is used to pass a reference to the record back
@@ -47,7 +47,7 @@ Implements IDbComponent
 '           : of the binary image file saved as an image.
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strFile As String
     Dim dItem As Dictionary
@@ -59,7 +59,7 @@ Private Sub IDbComponent_Export()
     dItem.Add "Extension", m_Extension
     
     ' Save json file with header details
-    WriteJsonFile TypeName(Me), dItem, IDbComponent_SourceFile, "Shared Image Gallery Item"
+    WriteJsonFile TypeName(Me), dItem, Nz2(strAlternatePath, IDbComponent_SourceFile), "Shared Image Gallery Item"
     
     ' Save image file using extension from embedded file.
     strFile = IDbComponent_BaseFolder & FSO.GetBaseName(IDbComponent_SourceFile) & "." & FSO.GetExtensionName(m_FileName)
@@ -209,7 +209,7 @@ End Function
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
 
     Dim cImg As IDbComponent
     Dim rst As DAO.Recordset
@@ -217,7 +217,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
@@ -229,7 +229,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 Do While Not .EOF
                     Set cImg = New clsDbSharedImage
                     Set cImg.DbObject = rst    ' Reference to OLE object recordset2
-                    m_AllItems.Add cImg
+                    m_AllItems.Add cImg, vbNullString
                     .MoveNext
                 Loop
                 .Close
@@ -250,7 +250,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
 End Function
 

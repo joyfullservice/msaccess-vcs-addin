@@ -472,6 +472,7 @@ Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
     If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
     
     ' Cache a list of source file names for actual database objects
+    Perf.OperationStart "Clear Orphaned Folders"
     Set colNames = New Collection
     For Each cItem In cType.GetAllFromDB(False)
         colNames.Add FSO.GetFileName(cItem.SourceFile)
@@ -490,8 +491,13 @@ Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
         
     Next oSubFolder
     
-    ' Remove base folder if we don't have any subfolders in it
-    If oFolder.SubFolders.Count = 0 Then oFolder.Delete
+    ' Remove base folder if we don't have any subfolders or files in it
+    With oFolder
+        If .SubFolders.Count = 0 Then
+            If .Files.Count = 0 Then .Delete
+        End If
+    End With
+    Perf.OperationEnd
     
 End Sub
 
@@ -526,7 +532,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     dExtensions.CompareMode = TextCompare
     
     ' Cache a list of base source file names for actual database objects
-    Perf.OperationStart "Clear Orphaned"
+    Perf.OperationStart "Clear Orphaned Files"
     For Each cItem In cType.GetAllFromDB(False)
         dBaseNames.Add FSO.GetBaseName(cItem.SourceFile), vbNullString
     Next cItem

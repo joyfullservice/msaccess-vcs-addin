@@ -21,7 +21,7 @@ Option Explicit
 Public Name As String
 Public ID As String
 
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -37,7 +37,7 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim dSpec As Dictionary
     Dim dCol As Dictionary
@@ -88,7 +88,7 @@ Private Sub IDbComponent_Export()
     dSpec.Add "Columns", dCols
     
     ' Write as Json format.
-    WriteJsonFile TypeName(Me), dSpec, IDbComponent_SourceFile, "Import/Export Specification from MSysIMEXSpecs"
+    WriteJsonFile TypeName(Me), dSpec, Nz2(strAlternatePath, IDbComponent_SourceFile), "Import/Export Specification from MSysIMEXSpecs"
     
 End Sub
 
@@ -180,7 +180,7 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim cSpec As clsDbImexSpec
     Dim dbs As DAO.Database
@@ -191,7 +191,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     If m_AllItems Is Nothing Then
         
         ' Set up new collection
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         
         ' This table may not (yet) exist.
         If TableExists("MSysIMEXSpecs") Then
@@ -248,7 +248,7 @@ End Sub
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
 End Function
 

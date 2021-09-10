@@ -20,7 +20,8 @@ Option Explicit
 Private Const ModuleName As String = "clsDbModule"
 
 Private m_Module As AccessObject
-Private m_AllItems As Collection
+Private m_Component As VBComponent
+Private m_AllItems As Dictionary
 Private m_blnModifiedOnly As Boolean
 
 Private Type udtVbaFileContent
@@ -42,7 +43,7 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim strTempFile As String
     Dim strExt As String
@@ -51,7 +52,7 @@ Private Sub IDbComponent_Export()
     ' Export to temp file and convert to UTF-8 encoding
     strTempFile = GetTempFile
     ExportVbComponent strTempFile
-    ConvertAnsiUtf8 strTempFile, IDbComponent_SourceFile
+    ConvertAnsiUtf8 strTempFile, Nz2(strAlternatePath, IDbComponent_SourceFile)
     
     ' Remove any file with the same name but alternate extension
     strExt = IIf(GetExtension = ".bas", ".cls", ".bas")
@@ -256,7 +257,7 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
         
     Dim oMod As AccessObject
     Dim cModule As IDbComponent
@@ -265,7 +266,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_AllItems Is Nothing Or blnModifiedOnly <> m_blnModifiedOnly Then
         m_blnModifiedOnly = blnModifiedOnly
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         Set proj = GetVBProjectForCurrentDB
         For Each oMod In CurrentProject.AllModules
             Set cModule = New clsDbModule
@@ -291,9 +292,9 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
-    MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.cls")
+    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.cls")
 End Function
 
 

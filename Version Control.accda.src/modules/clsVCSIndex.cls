@@ -20,13 +20,13 @@ Option Explicit
 ' File name for index
 Private Const cstrFileName As String = "vcs-index.json"
 
-
 ' General properties
 Public MergeBuildDate As Date
 Public FullBuildDate As Date
 Public ExportDate As Date
 Public FullExportDate As Date
 Public OptionsHash As String
+Public Disabled As Boolean
 
 ' Git integration
 Public LastMergedCommit As String
@@ -42,6 +42,7 @@ Private m_dIndex As Dictionary
 Private m_dGitIndex As Dictionary
 Private m_strFile As String
 Private m_Git As clsGitIntegration
+Private m_Conflicts As clsConflicts
 
 
 '---------------------------------------------------------------------------------------
@@ -56,7 +57,10 @@ Public Sub LoadFromFile(Optional strFile As String)
     Dim dFile As Dictionary
     Dim dItem As Dictionary
     Dim varKey As Variant
-    
+
+    ' Exit if we have disabled the index functionality
+    If Me.Disabled Then Exit Sub
+
     ' Reset class to blank values
     Call Class_Initialize
         
@@ -100,7 +104,10 @@ Public Sub Save(Optional strInFolder As String)
     Dim varValue As Variant
     Dim dComponents As Dictionary
     Dim strFile As String
-    
+
+    ' Exit if we have disabled the index functionality
+    If Me.Disabled Then Exit Sub
+
     ' Load dictionary from properties
     For Each varKey In m_dIndex.Keys
         If varKey <> "Components" Then
@@ -147,6 +154,9 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexActionType, _
     Optional strHash As String, Optional dteDateTime As Date) As Dictionary
     
     Dim dItem As Dictionary
+    
+    ' Exit if we have disabled the index functionality
+    If Me.Disabled Then Exit Function
     
     ' Look up dictionary item, creating if needed.
     Set dItem = Me.Item(cItem)
@@ -195,7 +205,10 @@ End Function
 Public Sub Remove(cItem As IDbComponent)
     
     Dim strFile As String
-    
+
+    ' Exit if we have disabled the index functionality
+    If Me.Disabled Then Exit Sub
+
     ' Get just the file name from the path.
     strFile = FSO.GetFileName(cItem.SourceFile)
     
@@ -225,7 +238,10 @@ End Sub
 Public Function Item(cItem As IDbComponent) As Dictionary
     
     Dim strFile As String
-    
+
+    ' Exit if we have disabled the index functionality
+    If Me.Disabled Then Exit Function
+
     ' Get just the file name from the path.
     strFile = FSO.GetFileName(cItem.SourceFile)
     
@@ -418,6 +434,36 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Conflicts
+' Author    : Adam Waller
+' Date      : 5/27/2021
+' Purpose   : Expose conflicts as an extension of the index
+'---------------------------------------------------------------------------------------
+'
+Public Function Conflicts() As clsConflicts
+    If m_Conflicts Is Nothing Then Set m_Conflicts = New clsConflicts
+    Set Conflicts = m_Conflicts
+End Function
+
+
+Public Sub CheckExportConflicts(cComponents As Collection)
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckImportConflicts
+' Author    : Adam Waller
+' Date      : 5/27/2021
+' Purpose   : Check for potential conflicts when merging this object.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CheckImportConflicts(cComponent As IDbComponent, dFiles As Dictionary)
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Git
 ' Author    : Adam Waller
 ' Date      : 1/19/2021
@@ -466,4 +512,6 @@ Private Sub Class_Initialize()
     Set m_dGitIndex = Nothing
     
 End Sub
+
+
 
