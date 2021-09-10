@@ -19,8 +19,9 @@ Option Explicit
 
 Private Const ModuleName As String = "clsDbTheme"
 
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_Dbs As DAO.Database
+Private m_blnModifiedOnly As Boolean
 
 ' This is used to pass a reference to the record back
 ' into the class for loading the private variables
@@ -48,7 +49,7 @@ Implements IDbComponent
 '           : folder with the theme source files. (Depending on the specified options.)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strFile As String
     Dim strZip As String
@@ -107,6 +108,9 @@ Private Sub IDbComponent_Export()
         Perf.OperationEnd
         CatchAny eelError, "Error extracting theme. Folder: " & strFolder, ModuleName & ".Export", True, True
     End If
+    
+    ' Update index
+    VCSIndex.Update Me, eatExport, GetSignatureHash
 
 End Sub
 
@@ -188,9 +192,15 @@ Private Sub IDbComponent_Import(strFile As String)
                 .AddNew
                 Set fldFile = .Fields("FileData")
                 fldFile.LoadFromFile strThemeFile
+                m_FileData = fldFile
                 .Update
                 .Close
             End With
+            
+            ' Update class variables so we can recalculate the index hash
+            m_Name = strThemeName
+            m_FileName = strThemeName & ".thmx"
+            m_Extension = "thmx"
             
             ' Save and close record
             .Update
@@ -200,6 +210,9 @@ Private Sub IDbComponent_Import(strFile As String)
     
     ' Remove compressed theme file if we are using a folder.
     If blnIsFolder Then DeleteFile strThemeFile, True
+    
+    ' Update index
+    VCSIndex.Update Me, eatImport, GetSignatureHash
     
     ' Log any errors
     CatchAny eelError, "Error importing theme. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName & ".Import", True, True
@@ -220,8 +233,43 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-
+    ' The import will replace the existing theme with the same name.
+    IDbComponent_Import strFile
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSignatureHash
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Return a simple hash that should give us a pretty good idea if the theme
+'           : has changed since it was last exported.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSignatureHash() As String
+    
+    Dim intCnt As Integer
+    Dim lngLen As Long
+        
+    ' Get length (bytes) of file data
+    If StrPtr(m_FileData) <> 0 Then lngLen = UBound(m_FileData)
+    
+    With New clsConcat
+        ' Compile string with file information
+        .Add m_Name, m_FileName, m_Extension, CStr(lngLen)
+        ' Add in last 100 characters of file content (byte numbers)
+        ' Since this is a compressed (zip) file, we will probably
+        ' see a change here if the contents were modified.
+        If lngLen > 100 Then
+            For intCnt = lngLen To lngLen - 100 Step -1
+                .Add CStr(m_FileData(intCnt))
+            Next intCnt
+        End If
+        ' Return hash of this string
+        GetSignatureHash = GetStringHash(.GetStr)
+    End With
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -231,7 +279,7 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim cTheme As IDbComponent
     Dim rst As DAO.Recordset
@@ -240,9 +288,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim dItems As Dictionary
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Collection
-            
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
+    
+        Set m_AllItems = New Dictionary
+        
         ' Use dictionary to make sure we don't add duplicate records if we have
         ' both a folder and a theme file for the same theme.
         Set dItems = New Dictionary
@@ -255,12 +304,15 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
             With rst
                 Do While Not .EOF
-                    Set cTheme = New clsDbTheme
-                    Set cTheme.DbObject = rst    ' Reference to OLE object recordset2
                     strKey = Nz(!Name)
                     If Not dItems.Exists(strKey) Then
-                        m_AllItems.Add cTheme, strKey
-                        dItems.Add strKey, strKey
+                        ' Load theme details so we can check modified status
+                        Set cTheme = New clsDbTheme
+                        Set cTheme.DbObject = rst    ' Reference to OLE object recordset2
+                        If Not blnModifiedOnly Or cTheme.IsModified Then
+                            m_AllItems.Add cTheme, strKey
+                            dItems.Add strKey, strKey
+                        End If
                     End If
                     .MoveNext
                 Loop
@@ -380,10 +432,10 @@ End Sub
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     ' Get list of folders (extracted files) as well as zip files.
     Set IDbComponent_GetFileList = GetSubfolderPaths(IDbComponent_BaseFolder)
-    MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
+    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
 End Function
 
 
@@ -409,7 +461,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    ' Load the database object first so we can calculate the hash
+    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetSignatureHash
 End Function
 
 
@@ -608,4 +661,3 @@ End Property
 Private Sub Class_Terminate()
     Set m_Dbs = Nothing
 End Sub
-

@@ -20,7 +20,7 @@ Option Explicit
 Public Format As eTableDataExportFormat
 
 Private m_Table As AccessObject
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -36,7 +36,7 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim strFile As String
     Dim intFormat As eTableDataExportFormat
@@ -353,7 +353,7 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim tbl As AccessObject
     Dim cTable As clsDbTableData
@@ -361,7 +361,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         
         ' No need to go any further if we don't have any saved tables defined
         If Options.TablesToExportData.Count > 0 Then
@@ -396,11 +396,9 @@ End Function
 '           : a couple different file extensions involved.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
-    Dim colFiles As Collection
-    Set colFiles = GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdTabDelimited))
-    MergeCollection colFiles, GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdXML))
-    Set IDbComponent_GetFileList = colFiles
+Private Function IDbComponent_GetFileList() As Dictionary
+    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdTabDelimited))
+    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdXML))
 End Function
 
 

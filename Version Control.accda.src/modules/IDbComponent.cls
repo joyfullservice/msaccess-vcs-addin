@@ -49,7 +49,7 @@ End Sub
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Public Sub Export()
+Public Sub Export(Optional strAlternatePath As String)
 End Sub
 
 
@@ -85,7 +85,7 @@ End Sub
 '           : modified will be returned.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Public Function GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
 End Function
 
 
@@ -157,7 +157,7 @@ End Property
 '           : Based on the export folder defined in options.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Public Function GetFileList() As Dictionary
 End Function
 
 

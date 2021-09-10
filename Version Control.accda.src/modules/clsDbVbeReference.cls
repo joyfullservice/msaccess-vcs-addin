@@ -20,8 +20,9 @@ Option Explicit
 Const ModuleName = "clsDbVbeReference"
 
 Private m_Ref As VBIDE.Reference
-Private m_AllItems As Collection
-
+Private m_AllItems As Dictionary
+Private m_dItems As Dictionary
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -37,18 +38,9 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-
-    Dim dItems As Dictionary
-    
-    Set dItems = GetDictionary
-
-    ' Write to a json file.
-    WriteJsonFile TypeName(Me), dItems, IDbComponent_SourceFile, "VBE References"
-    
-    ' Update index
-    VCSIndex.Update Me, eatExport, GetDictionaryHash(dItems)
-    
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    WriteJsonFile TypeName(Me), GetDictionary, Nz2(strAlternatePath, IDbComponent_SourceFile), "VBE References"
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
 End Sub
 
 
@@ -140,36 +132,52 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : GetDictionary
 ' Author    : Adam Waller
-' Date      : 12/1/2020
-' Purpose   : Return a dictionary of the VBE references
+' Date      : 5/28/2021
+' Purpose   : Return a dictionary of the ordered, unique VBE references
 '---------------------------------------------------------------------------------------
 '
-Private Function GetDictionary() As Dictionary
+Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
 
+    Dim proj As VBProject
     Dim dRef As Dictionary
     Dim cItem As IDbComponent
     Dim cRef As clsDbVbeReference
     Dim ref As VBIDE.Reference
     Dim strPath As String
+    Dim dNames As Dictionary
     
+    ' Check cache parameter
+    If blnUseCache And Not m_dItems Is Nothing Then
+        ' Return cached dictionary
+        Set GetDictionary = m_dItems
+        Exit Function
+    End If
+
+    Set proj = GetVBProjectForCurrentDB
+    Set dNames = New Dictionary
     Set GetDictionary = New Dictionary
     With GetDictionary
         ' Loop through cached references (Duplicates have already been removed)
-        For Each cItem In IDbComponent_GetAllFromDB
-            Set cRef = cItem
-            Set dRef = New Dictionary
-            Set ref = cRef.Parent.DbObject
-            With dRef
-                If ref.Type = vbext_rk_Project Then
-                    ' references of types mdb,accdb,mde etc don't have a GUID
-                    .Add "FullPath", GetRelativePath(ref.FullPath)
-                Else
-                    If ref.Guid <> vbNullString Then .Add "GUID", ref.Guid
-                    .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
+        For Each ref In proj.References
+            If Not ref.BuiltIn Then
+                If Not dNames.Exists(ref.Name) Then
+                    Set dRef = New Dictionary
+                    With dRef
+                        If ref.Type = vbext_rk_Project Then
+                            ' references of types mdb,accdb,mde etc don't have a GUID
+                            .Add "FullPath", GetRelativePath(ref.FullPath)
+                        Else
+                            If ref.Guid <> vbNullString Then .Add "GUID", ref.Guid
+                            .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
+                        End If
+                    End With
+                    .Add ref.Name, dRef
+                    ' Don't attempt add two references with the same name, such as
+                    ' circular references to nested library database files.
+                    dNames.Add ref.Name, vbNullString
                 End If
-            End With
-            .Add ref.Name, dRef
-        Next cItem
+            End If
+        Next ref
     End With
     
 End Function
@@ -258,28 +266,37 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim ref As VBIDE.Reference
     Dim cRef As IDbComponent
     Dim dNames As Dictionary
+    Dim dItems As Dictionary
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Collection
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
+        Set m_AllItems = New Dictionary
         Set dNames = New Dictionary
-        For Each ref In GetVBProjectForCurrentDB.References
-            If Not ref.BuiltIn Then
-                If Not dNames.Exists(ref.Name) Then
-                    Set cRef = New clsDbVbeReference
-                    Set cRef.DbObject = ref
-                    m_AllItems.Add cRef
-                    ' Don't attempt add two references with the same name, such as
-                    ' circular references to nested library database files.
-                    dNames.Add ref.Name, vbNullString
+        Set dItems = GetDictionary
+        
+        ' This is where references work a little differently than most other objects.
+        ' If ANY changes are detected in ANY of the references, the whole list of
+        ' references will be returned as changed.
+        If Not blnModifiedOnly Or IDbComponent_IsModified Then
+            For Each ref In GetVBProjectForCurrentDB.References
+                If Not ref.BuiltIn Then
+                    If Not dNames.Exists(ref.Name) Then
+                        Set cRef = New clsDbVbeReference
+                        Set cRef.DbObject = ref
+                        m_AllItems.Add cRef, vbNullString
+                        ' Don't attempt add two references with the same name, such as
+                        ' circular references to nested library database files.
+                        dNames.Add ref.Name, vbNullString
+                    End If
                 End If
-            End If
-        Next ref
+            Next ref
+            
+        End If
     End If
 
     ' Return cached collection
@@ -295,9 +312,9 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
-    Set IDbComponent_GetFileList = New Collection
-    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile
+Private Function IDbComponent_GetFileList() As Dictionary
+    Set IDbComponent_GetFileList = New Dictionary
+    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile, vbNullString
 End Function
 
 
@@ -324,7 +341,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetDictionaryHash(GetDictionary)
 End Function
 
 
@@ -481,4 +498,6 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
+
 

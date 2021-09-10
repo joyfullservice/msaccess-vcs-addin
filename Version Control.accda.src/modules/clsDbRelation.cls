@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Private m_Relation As DAO.Relation
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_Dbs As DAO.Database
 
 
@@ -48,7 +48,7 @@ End Sub
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim dItem As Dictionary
     Dim dField As Dictionary
@@ -77,7 +77,7 @@ Private Sub IDbComponent_Export()
     dItem.Add "Fields", colItems
     
     ' Write to json file
-    WriteJsonFile TypeName(Me), dItem, IDbComponent_SourceFile, "Database relationship"
+    WriteJsonFile TypeName(Me), dItem, Nz2(strAlternatePath, IDbComponent_SourceFile), "Database relationship"
     
 End Sub
 
@@ -156,7 +156,7 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim rel As Relation
     Dim cRelation As IDbComponent
@@ -169,7 +169,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' goes out of scope. (Make sure we release this on termination)
         Set m_Dbs = CurrentDb
         
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         For Each rel In m_Dbs.Relations
             ' Navigation pane groups are handled separately
             If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
@@ -233,7 +233,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
 End Function
 

@@ -299,18 +299,18 @@ End Function
 '           : Wildcards are supported.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFilePathsInFolder(strFolder As String, Optional strFilePattern As String = "*.*") As Collection
+Public Function GetFilePathsInFolder(strFolder As String, Optional strFilePattern As String = "*.*") As Dictionary
     
     Dim oFile As Scripting.File
     Dim strBaseFolder As String
     
     strBaseFolder = StripSlash(strFolder)
-    Set GetFilePathsInFolder = New Collection
+    Set GetFilePathsInFolder = New Dictionary
     
     If FSO.FolderExists(strBaseFolder) Then
         For Each oFile In FSO.GetFolder(strBaseFolder).Files
             ' Add files that match the pattern.
-            If oFile.Name Like strFilePattern Then GetFilePathsInFolder.Add oFile.Path
+            If oFile.Name Like strFilePattern Then GetFilePathsInFolder.Add oFile.Path, vbNullString
         Next oFile
     End If
     
@@ -324,17 +324,17 @@ End Function
 ' Purpose   : Return a collection of subfolders inside a folder.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSubfolderPaths(strPath As String) As Collection
+Public Function GetSubfolderPaths(strPath As String) As Dictionary
 
     Dim strBase As String
     Dim oFolder As Scripting.Folder
     
-    Set GetSubfolderPaths = New Collection
+    Set GetSubfolderPaths = New Dictionary
     
     strBase = StripSlash(strPath)
     If FSO.FolderExists(strBase) Then
         For Each oFolder In FSO.GetFolder(strBase).SubFolders
-            GetSubfolderPaths.Add oFolder.Path
+            GetSubfolderPaths.Add oFolder.Path, vbNullString
         Next oFolder
     End If
     

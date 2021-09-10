@@ -18,7 +18,9 @@ Option Compare Database
 Option Explicit
 
 Private m_Property As AccessObjectProperty
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
+Private m_dItems As Dictionary
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -34,38 +36,9 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-    
-    Dim prp As AccessObjectProperty
-    Dim dCollection As Dictionary
-    Dim strPath As String
-    Dim varValue As Variant
-    
-    Set dCollection = New Dictionary
-    
-    ' Loop through all properties
-    For Each prp In CurrentProject.Properties
-        Select Case prp.Name
-            Case "Last VCS Export", "Last VCS Version"
-                ' Legacy properties no longer needed.
-            Case "AppIcon"
-                ' Try to use a relative path
-                strPath = GetRelativePath(CStr(prp.Value))
-                If Left(strPath, 4) = "rel:" Then
-                    varValue = strPath
-                Else
-                    varValue = CStr(varValue)
-                End If
-                ' ADP projects may have this property
-                dCollection.Add prp.Name, CStr(varValue)
-            Case Else
-                dCollection.Add prp.Name, prp.Value
-        End Select
-    Next prp
-    
-    ' Write to file. The order of properties may change, so sort them to keep the order consistent.
-    WriteJsonFile TypeName(Me), SortDictionaryByKeys(dCollection), IDbComponent_SourceFile, "Project Properties (Access)"
-    
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    WriteJsonFile TypeName(Me), GetDictionary, Nz2(strAlternatePath, IDbComponent_SourceFile), "Project Properties (Access)"
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
 End Sub
 
 
@@ -89,10 +62,9 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
-    Set projCurrent = CurrentProject
-    
     ' Pull a list of the existing properties so we know whether
     ' to add or update the existing property.
+    Set projCurrent = CurrentProject
     Set dExisting = New Dictionary
     For Each prp In projCurrent.Properties
         Select Case prp.Name
@@ -126,18 +98,104 @@ Private Sub IDbComponent_Import(strFile As String)
         Next varKey
     End If
     
+    ' Update index
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary(False))
+    
 End Sub
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Merge
 ' Author    : Adam Waller
-' Date      : 11/21/2020
+' Date      : 5/29/2021
 ' Purpose   : Merge the source file into the existing database, updating or replacing
 '           : any existing object.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
+
+    Dim dFile As Dictionary
+    
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+    
+    ' Remove any document properties that don't exist in the incoming file,
+    ' then import the file.
+    Set dFile = ReadJsonFile(strFile)
+    If dFile Is Nothing Then Set dFile = New Dictionary
+    RemoveMissing dFile("Items"), GetDictionary
+    IDbComponent_Import strFile
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 5/29/2021
+' Purpose   : Return a dictionary of the ordered database properties
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
+
+    Dim prp As AccessObjectProperty
+    Dim dCollection As Dictionary
+    Dim dItem As Dictionary
+    Dim varValue As Variant
+    
+    ' Check cache parameter
+    If blnUseCache And Not m_dItems Is Nothing Then
+        ' Return cached dictionary
+        Set GetDictionary = m_dItems
+        Exit Function
+    End If
+    
+    Set dCollection = New Dictionary
+    
+    ' Loop through all properties
+    For Each prp In CurrentProject.Properties
+        Select Case prp.Name
+            Case "Connection"
+                ' Connection object for ODBCDirect workspaces. Not needed.
+            Case "Last VCS Export", "Last VCS Version"
+                ' Legacy properties no longer needed.
+            Case "AppIcon"
+                ' ADP projects may have this property
+                dCollection.Add prp.Name, GetRelativePath(CStr(prp.Value))
+            Case Else
+                dCollection.Add prp.Name, prp.Value
+        End Select
+    Next prp
+    
+    ' Return sorted dictionary
+    Set GetDictionary = SortDictionaryByKeys(dCollection)
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveMissing
+' Author    : Adam Waller
+' Date      : 5/29/2021
+' Purpose   : Removes current document properties missing from the master dictionary.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
+
+    Dim proj As CurrentProject
+    Dim varProp As Variant
+    
+    ' Go through target dictionary, removing properties that don't exist
+    ' in the master dictionary. (Note that this is only checking the
+    ' properties we are actually interested in tracking.)
+    Set proj = CurrentProject
+    For Each varProp In dTarget.Keys
+        ' Check to see if this key exists in the master
+        If Not KeyExists(dMaster, varProp) Then
+            ' Remove the property from the current project
+            proj.Properties.Remove CStr(varProp)
+        End If
+    Next varProp
 
 End Sub
 
@@ -149,19 +207,23 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim prp As AccessObjectProperty
     Dim cProp As IDbComponent
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
-        Set m_AllItems = New Collection
-        For Each prp In CurrentProject.Properties
-            Set cProp = New clsDbProjProperty
-            Set cProp.DbObject = prp
-            m_AllItems.Add cProp, prp.Name
-        Next prp
+        Set m_AllItems = New Dictionary
+        If Not blnModifiedOnly Or IDbComponent_IsModified Then
+            ' Return all the properties, since we don't know which ones
+            ' were modified.
+            For Each prp In CurrentProject.Properties
+                Set cProp = New clsDbProjProperty
+                Set cProp.DbObject = prp
+                m_AllItems.Add cProp, prp.Name
+            Next prp
+        End If
     End If
 
     ' Return cached collection
@@ -177,9 +239,9 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
-    Set IDbComponent_GetFileList = New Collection
-    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile
+Private Function IDbComponent_GetFileList() As Dictionary
+    Set IDbComponent_GetFileList = New Dictionary
+    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile, vbNullString
 End Function
 
 
@@ -203,7 +265,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetDictionaryHash(GetDictionary)
 End Function
 
 
@@ -360,3 +422,4 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+

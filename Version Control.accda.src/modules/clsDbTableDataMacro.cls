@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Private m_Table As AccessObject
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -34,13 +34,13 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     ' We THINK that this table probably contains a table macro, but just in case it
     ' doesn't, we have some error handling built into the export function below.
     
     ' Save structure in XML format
-    SaveComponentAsText acTableDataMacro, m_Table.Name, IDbComponent_SourceFile
+    SaveComponentAsText acTableDataMacro, m_Table.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
     
 End Sub
 
@@ -84,7 +84,7 @@ End Sub
 '           : a data macro. https://stackoverflow.com/questions/31755802/
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim dbs As Database
     Dim tdf As TableDef
@@ -94,7 +94,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         Set dbs = CurrentDb
         For Each tdf In dbs.TableDefs
             ' Skip system, temp, and linked tables
@@ -131,7 +131,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml")
 End Function
 

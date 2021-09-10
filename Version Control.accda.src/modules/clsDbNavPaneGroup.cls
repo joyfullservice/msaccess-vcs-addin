@@ -20,9 +20,9 @@ Option Explicit
 Private Const ModuleName As String = "clsDbNavPaneGroup"
 Private Const FormatVersion As Double = 1.1
 
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_dItems As Dictionary
-Private m_Count As Long
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -38,9 +38,9 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-    IDbComponent_GetAllFromDB
-    WriteJsonFile TypeName(Me), m_dItems, IDbComponent_SourceFile, "Navigation Pane Custom Groups", FormatVersion
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    WriteJsonFile TypeName(Me), GetDictionary, Nz2(strAlternatePath, IDbComponent_SourceFile), "Navigation Pane Custom Groups", FormatVersion
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
 End Sub
 
 
@@ -132,6 +132,9 @@ Private Sub IDbComponent_Import(strFile As String)
             Next intCategory
         End If
     End If
+    
+    ' Update index
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
 
 End Sub
 
@@ -189,6 +192,119 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Return a dictionary of the navigation pane groups
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
+
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+    Dim strSql As String
+    Dim strCategory As String
+    Dim strGroup As String
+    Dim colCategories As Collection
+    Dim colGroups As Collection
+    Dim dCategory As Dictionary
+    Dim dGroup As Dictionary
+    Dim colObjects As Collection
+    Dim dObject As Dictionary
+    Dim dItems As Dictionary
+    
+    ' Check cache parameter
+    If blnUseCache And Not m_dItems Is Nothing Then
+        ' Return cached dictionary
+        Set GetDictionary = m_dItems
+        Exit Function
+    End If
+    
+    ' Load query SQL from saved query in add-in database
+    Set dbs = CodeDb
+    strSql = dbs.QueryDefs("qryNavPaneGroups").SQL
+    
+    ' Open query in the current db
+    Set dbs = CurrentDb
+    Set rst = dbs.OpenRecordset(strSql)
+    Set dItems = New Dictionary
+    Set colCategories = New Collection
+    
+    ' Loop through records
+    With rst
+        Do While Not .EOF
+        
+            ' Check for change in category name
+            If Nz(!CategoryName) <> strCategory Then
+                ' Finish recording any previous category
+                If strCategory <> vbNullString Then
+                    dCategory.Add "Groups", colGroups
+                    colCategories.Add dCategory
+                End If
+                ' Set up new category
+                'Set colCategories = New Collection
+                Set colGroups = New Collection
+                strCategory = Nz(!CategoryName)
+                Set dCategory = New Dictionary
+                dCategory.Add "Name", strCategory
+                dCategory.Add "Flags", Nz(!CategoryFlags, 0)
+                dCategory.Add "Position", Nz(!CategoryPosition, 0)
+            End If
+                               
+            ' Check for change in group name.
+            If Nz(!GroupName) <> strGroup Then
+                ' Finish recording any previous group
+                If strGroup <> vbNullString Then
+                    dGroup.Add "Objects", colObjects
+                    colGroups.Add dGroup
+                End If
+                ' Set up new group
+                Set colObjects = New Collection
+                Set dGroup = New Dictionary
+                strGroup = Nz(!GroupName)
+                dGroup.Add "Name", strGroup
+                dGroup.Add "Flags", Nz(!GroupFlags, 0)
+                dGroup.Add "Position", Nz(!GroupPosition, 0)
+            End If
+
+            ' Add any item listed in this group
+            If Nz(!ObjectName) = vbNullString Then
+                ' Saved group with no items.
+            Else
+                Set dObject = New Dictionary
+                dObject.Add "Name", Nz(!ObjectName)
+                dObject.Add "Type", Nz(!ObjectType, 0)
+                dObject.Add "Flags", Nz(!ObjectFlags, 0)
+                dObject.Add "Icon", Nz(!ObjectIcon, 0)
+                dObject.Add "Position", Nz(!ObjectPosition, 0)
+                dObject.Add "NameInGroup", Nz(!NameInGroup)
+                colObjects.Add dObject
+            End If
+            
+            ' Move to next record.
+            .MoveNext
+        Loop
+        .Close
+        ' Close out last group and category, and add items
+        ' to output dictionary
+        If strGroup <> vbNullString Then
+            dGroup.Add "Objects", colObjects
+            colGroups.Add dGroup
+        End If
+        If strCategory <> vbNullString Then
+            dCategory.Add "Groups", colGroups
+            colCategories.Add dCategory
+            dItems.Add "Categories", colCategories
+        End If
+    End With
+        
+    ' Return dictionary
+    Set GetDictionary = dItems
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : LoadRecord
 ' Author    : Adam Waller
 ' Date      : 5/12/2020
@@ -229,110 +345,40 @@ End Function
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
 
-    Dim dbs As DAO.Database
-    Dim rst As DAO.Recordset
-    Dim strSql As String
-    Dim strCategory As String
-    Dim strGroup As String
-    Dim colCategories As Collection
-    Dim colGroups As Collection
+    Dim cGroup As IDbComponent
+    Dim varCategory As Variant
     Dim dCategory As Dictionary
-    Dim dGroup As Dictionary
+    Dim colGroups As Collection
+    Dim varGroup As Variant
     Dim colObjects As Collection
-    Dim dObject As Dictionary
+    Dim varObject As Variant
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-
-        Set m_AllItems = New Collection
-        Set m_dItems = New Dictionary
-        Set colCategories = New Collection
-        Set colGroups = New Collection
-        m_Count = 0
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
+    
+        Set m_AllItems = New Dictionary
+        Set m_dItems = GetDictionary
+        m_blnModifiedOnly = blnModifiedOnly
         
-        ' Load query SQL from saved query in add-in database
-        Set dbs = CodeDb
-        strSql = dbs.QueryDefs("qryNavPaneGroups").SQL
-        
-        ' Open query in the current db
-        Set dbs = CurrentDb
-        Set rst = dbs.OpenRecordset(strSql)
-        
-        ' Loop through records
-        With rst
-            Do While Not .EOF
+        ' Only need to iterate through the groups if we need to get a count.
+        If Not blnModifiedOnly Or IDbComponent_IsModified Then
             
-                ' Check for change in category name
-                If Nz(!CategoryName) <> strCategory Then
-                    ' Finish recording any previous category
-                    If strCategory <> vbNullString Then
-                        dCategory.Add "Groups", colGroups
-                        colCategories.Add dCategory
+            ' Loop through items to build count of custom groups
+            ' (Not counting individual objects within groups)
+            If m_dItems.Exists("Categories") Then
+                For Each varCategory In m_dItems("Categories")
+                    Set dCategory = varCategory
+                    If dCategory.Exists("Groups") Then
+                        For Each varGroup In dCategory("Groups")
+                            Set cGroup = New clsDbNavPaneGroup
+                            m_AllItems.Add cGroup, vbNullString
+                        Next varGroup
                     End If
-                    ' Set up new category
-                    'Set colCategories = New Collection
-                    Set colGroups = New Collection
-                    strCategory = Nz(!CategoryName)
-                    Set dCategory = New Dictionary
-                    dCategory.Add "Name", strCategory
-                    dCategory.Add "Flags", Nz(!CategoryFlags, 0)
-                    dCategory.Add "Position", Nz(!CategoryPosition, 0)
-                End If
-                                   
-                ' Check for change in group name.
-                If Nz(!GroupName) <> strGroup Then
-                    ' Finish recording any previous group
-                    If strGroup <> vbNullString Then
-                        dGroup.Add "Objects", colObjects
-                        colGroups.Add dGroup
-                    End If
-                    ' Set up new group
-                    Set colObjects = New Collection
-                    Set dGroup = New Dictionary
-                    strGroup = Nz(!GroupName)
-                    dGroup.Add "Name", strGroup
-                    dGroup.Add "Flags", Nz(!GroupFlags, 0)
-                    dGroup.Add "Position", Nz(!GroupPosition, 0)
-                End If
-
-                ' Add any item listed in this group
-                If Nz(!ObjectName) = vbNullString Then
-                    ' Saved group with no items.
-                    m_Count = m_Count + 1
-                Else
-                    Set dObject = New Dictionary
-                    dObject.Add "Name", Nz(!ObjectName)
-                    dObject.Add "Type", Nz(!ObjectType, 0)
-                    dObject.Add "Flags", Nz(!ObjectFlags, 0)
-                    dObject.Add "Icon", Nz(!ObjectIcon, 0)
-                    dObject.Add "Position", Nz(!ObjectPosition, 0)
-                    dObject.Add "NameInGroup", Nz(!NameInGroup)
-                    colObjects.Add dObject
-                    m_Count = m_Count + 1
-                End If
-                
-                ' Move to next record.
-                .MoveNext
-            Loop
-            .Close
-            ' Close out last group and category, and add items
-            ' to output dictionary
-            If strGroup <> vbNullString Then
-                dGroup.Add "Objects", colObjects
-                colGroups.Add dGroup
+                Next varCategory
             End If
-            If strCategory <> vbNullString Then
-                dCategory.Add "Groups", colGroups
-                colCategories.Add dCategory
-                m_dItems.Add "Categories", colCategories
-            End If
-        End With
-            
-        ' Add reference to this class.
-        m_AllItems.Add Me
-
+        End If
     End If
 
     ' Return cached collection
@@ -348,9 +394,9 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
-    Set IDbComponent_GetFileList = New Collection
-    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile
+Private Function IDbComponent_GetFileList() As Dictionary
+    Set IDbComponent_GetFileList = New Dictionary
+    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile, vbNullString
 End Function
 
 
@@ -465,8 +511,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
-    IDbComponent_GetAllFromDB
-    IDbComponent_Count = m_Count
+    IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
 End Property
 
 
@@ -573,4 +618,6 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
+
 

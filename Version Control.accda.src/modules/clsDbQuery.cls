@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Private m_Query As AccessObject
-Private m_AllItems As Collection
+Private m_AllItems As Dictionary
 Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -35,13 +35,13 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim strFile As String
     Dim dbs As DAO.Database
 
     ' Save and sanitize file
-    SaveComponentAsText acQuery, m_Query.Name, IDbComponent_SourceFile
+    SaveComponentAsText acQuery, m_Query.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
     VCSIndex.Update Me, eatExport
     
     ' Export as SQL (if using that option)
@@ -129,14 +129,14 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim qry As AccessObject
     Dim cQuery As IDbComponent
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Collection
+        Set m_AllItems = New Dictionary
         m_blnModifiedOnly = blnModifiedOnly
         For Each qry In CurrentData.AllQueries
             Set cQuery = New clsDbQuery
@@ -162,7 +162,7 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
 End Function
 
