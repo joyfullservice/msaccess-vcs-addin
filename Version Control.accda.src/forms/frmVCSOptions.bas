@@ -16,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =236
-    Left =-25575
-    Top =1710
-    Right =-5925
-    Bottom =14295
+    Left =3225
+    Top =2430
+    Right =22695
+    Bottom =15015
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -3712,7 +3712,7 @@ Private Sub Form_Load()
     With Me.cboSanitizeLevel
         .RowSource = vbNullString
         For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
-            .AddItem intSanitizeLevel & "," & Options.GetSanitizeLevelName(intSanitizeLevel)
+            .AddItem intSanitizeLevel & ";" & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
     End With
     
@@ -3720,7 +3720,7 @@ Private Sub Form_Load()
     With Me.cboSanitizeColors
         .RowSource = vbNullString
         For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
-            .AddItem intSanitizeLevel & "," & Options.GetSanitizeLevelName(intSanitizeLevel)
+            .AddItem intSanitizeLevel & ";" & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
     End With
     
