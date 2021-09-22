@@ -21,7 +21,6 @@
 # Git files
 *.gitattributes text 
 *.gitattributes linguist-language=gitattributes
-*.gitattributes 
 
 # Ignore files (like .npmignore or .gitignore)
 *.*ignore       text
