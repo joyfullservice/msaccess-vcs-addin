@@ -16,3 +16,12 @@
 ###############################################################################
 *.bas linguist-language=VBA
 *.cls linguist-language=VBA
+
+
+# Git files
+*.gitattributes text 
+*.gitattributes linguist-language=gitattributes
+
+# Ignore files (like .npmignore or .gitignore)
+*.*ignore       text
+*.*ignore       export-ignore
