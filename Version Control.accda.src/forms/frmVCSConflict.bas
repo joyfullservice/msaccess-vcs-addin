@@ -17,10 +17,10 @@ Begin Form
     Width =11520
     DatasheetFontHeight =11
     ItemSuffix =46
-    Left =3225
-    Top =2430
-    Right =22695
-    Bottom =15015
+    Left =-25575
+    Top =1710
+    Right =-255
+    Bottom =14295
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -866,5 +866,5 @@ Private Sub Form_Load()
     
     ' Display version (better performance than bound control)
     lblVersion.Caption = Replace(lblVersion.Caption, "${version}", GetVCSVersion())
-        
+    
 End Sub

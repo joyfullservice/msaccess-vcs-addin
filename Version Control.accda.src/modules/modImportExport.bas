@@ -20,6 +20,13 @@ Private Const ModuleName As String = "modImportExport"
 '
 Public Sub ExportSource(blnFullExport As Boolean)
 
+    Dim dCategories As Dictionary
+    Dim colCategories As Collection
+    Dim varCategory As Variant
+    Dim dCategory As Dictionary
+    Dim dObjects As Dictionary
+    Dim varCatKey As Variant
+    Dim varKey As Variant
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
     Dim sngStart As Single
@@ -86,18 +93,57 @@ Public Sub ExportSource(blnFullExport As Boolean)
     If Not blnFullExport Then Log.Add "Scanning for changes..."
     Log.Flush
     
-    ' Loop through all categories
+    ' Scan database objects for changes
+    VCSIndex.Conflicts.Reset
+    Perf.OperationStart "Scan DB Objects"
+    Set dCategories = New Dictionary
     For Each cCategory In GetAllContainers
-        
-        ' Clear any source files for nonexistant objects
+        Set dCategory = New Dictionary
+        dCategory.Add "Class", cCategory
+        ' Get collection of database objects (IDbComponent classes)
+        Set dObjects = cCategory.GetAllFromDB(Not blnFullExport)
+        If dObjects.Count = 0 Then
+            Log.Spacer Options.ShowDebug
+            Log.Add IIf(blnFullExport, "No ", "No modified ") & _
+                LCase(cCategory.Category) & " found in this database.", Options.ShowDebug
+        End If
+        dCategory.Add "Objects", dObjects
+        VCSIndex.CheckExportConflicts dObjects
+        dCategories.Add cCategory, dCategory
+        ' Clear any orphaned files in this category
         cCategory.ClearOrphanedSourceFiles
+    Next cCategory
+    Perf.OperationEnd
+    
+    ' Check for any conflicts
+    With VCSIndex.Conflicts
+        If .Count > 0 Then
+            ' Show the conflicts resolution dialog
+            .ShowDialog
+            If .ApproveResolutions Then
+                Log.Add "Resolving source conflicts", False
+                .Resolve dCategories
+            Else
+                ' Cancel export
+                Log.Add "Export Canceled"
+                Log.ErrorLevel = eelCritical
+                GoTo CleanUp
+            End If
+        End If
+    End With
+    
+    ' Loop through all categories
+    For Each varCatKey In dCategories.Keys
+        
+        ' Get category class and collection of items
+        Set dCategory = dCategories(varCatKey)
+        Set cCategory = dCategory("Class")
+        Set dObjects = dCategory("Objects")
             
         ' Only show category details when it contains objects
-        lngCount = cCategory.Count(Not blnFullExport)
-        If lngCount = 0 Then
-            Log.Spacer Options.ShowDebug
-            Log.Add IIf(blnFullExport, "No ", "No modified ") & LCase(cCategory.Category) & " found in this database.", Options.ShowDebug
-        Else
+        lngCount = dObjects.Count
+        If lngCount > 0 Then
+        
             ' Show category header and clear out any orphaned files.
             Log.Spacer Options.ShowDebug
             Log.PadRight "Exporting " & LCase(cCategory.Category) & "...", , Options.ShowDebug
@@ -105,13 +151,14 @@ Public Sub ExportSource(blnFullExport As Boolean)
             Perf.ComponentStart cCategory.Category
 
             ' Loop through each object in this category.
-            For Each cDbObject In cCategory.GetAllFromDB(Not blnFullExport)
-                
+            For Each varKey In dObjects.Keys
+            
                 ' Export object
-                Log.Increment
+                Set cDbObject = dObjects(varKey)
                 Log.Add "  " & cDbObject.Name, Options.ShowDebug
                 cDbObject.Export
                 CatchAny eelError, "Error exporting " & cDbObject.Name, ModuleName & ".ExportSource", True, True
+                Log.Increment
                     
                 ' Bail out if we hit a critical error.
                 If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
@@ -120,7 +167,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
                 ' as database properties. For these, we just need to run the export once.
                 If cCategory.SingleFile Then Exit For
                 
-            Next cDbObject
+            Next varKey
             
             ' Show category wrap-up.
             Log.Add "[" & lngCount & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
@@ -128,7 +175,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
             Perf.ComponentEnd lngCount
         End If
         
-    Next cCategory
+    Next varCatKey
     
     ' Run any cleanup routines
     RemoveThemeZipFiles
@@ -363,9 +410,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             .ShowDialog
             If .ApproveResolutions Then
                 Log.Add "Resolving source conflicts", False
-                .Resolve
+                .Resolve dCategories
             Else
                 ' Cancel build/merge
+                Log.Add "Build Canceled"
+                Log.ErrorLevel = eelCritical
+                GoTo CleanUp
             End If
         End If
     End With

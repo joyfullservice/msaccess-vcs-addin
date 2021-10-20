@@ -99,4 +99,5 @@ End Enum
 Public Enum eResolveConflict
     ercSkip
     ercOverwrite
+    ercDelete
 End Enum

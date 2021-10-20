@@ -32,7 +32,7 @@ Public Disabled As Boolean
 Public LastMergedCommit As String
 
 ' Action types for update function
-Public Enum eIndexActionType
+Public Enum eIndexOperationType
     eatExport
     eatImport
 End Enum
@@ -150,7 +150,7 @@ End Sub
 ' Purpose   : Updates an item in the index.
 '---------------------------------------------------------------------------------------
 '
-Public Function Update(cItem As IDbComponent, intAction As eIndexActionType, _
+Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, _
     Optional strHash As String, Optional dteDateTime As Date) As Dictionary
     
     Dim dItem As Dictionary
@@ -202,7 +202,7 @@ End Function
 ' Purpose   : Remove an item from the index when the object and file no longer exist.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Remove(cItem As IDbComponent)
+Public Sub Remove(cItem As IDbComponent, Optional strSourceFile As String)
     
     Dim strFile As String
 
@@ -210,7 +210,7 @@ Public Sub Remove(cItem As IDbComponent)
     If Me.Disabled Then Exit Sub
 
     ' Get just the file name from the path.
-    strFile = FSO.GetFileName(cItem.SourceFile)
+    strFile = FSO.GetFileName(Nz2(strSourceFile, cItem.SourceFile))
     
     ' Remove dictionary objects.
     With m_dIndex("Components")
@@ -424,9 +424,111 @@ Public Function Conflicts() As clsConflicts
 End Function
 
 
-Public Sub CheckExportConflicts(cComponents As Collection)
-
+'---------------------------------------------------------------------------------------
+' Procedure : CheckExportConflicts
+' Author    : Adam Waller
+' Date      : 9/15/2021
+' Purpose   : Check for potential conflicts when exporting these items
+'---------------------------------------------------------------------------------------
+'
+Public Sub CheckExportConflicts(dDbComponents As Dictionary)
+    
+    Dim varKey As Variant
+    Dim cItem As IDbComponent
+    
+    ' Loop through all components
+    For Each varKey In dDbComponents.Keys
+        Set cItem = dDbComponents(varKey)
+        If IsExportConflict(cItem) Then
+            ' Add to list of conflicts
+            Me.Conflicts.Add cItem, _
+                Me.Item(cItem).ExportDate, _
+                GetLastModifiedDate(cItem.SourceFile), _
+                ercOverwrite
+        End If
+        ' Exit loop if single source file
+        If cItem.SingleFile Then Exit For
+    Next varKey
+    
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsExportConflict
+' Author    : Adam Waller
+' Date      : 9/15/2021
+' Purpose   : Returns true if exporting the item would conflict with an existing file
+'           : that is different AND newer than the last export of this object.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsExportConflict(cItem As IDbComponent) As Boolean
+
+    Dim blnConflict As Boolean
+    Dim strHash As String
+    Dim strFile As String
+    Dim strTempFile As String
+    
+    strFile = cItem.SourceFile
+    
+    ' See if the export file even exists before we worry about conflicts.
+    If FSO.FileExists(strFile) Then
+    
+        ' Get a hash of the file properties
+        strHash = Me.GetFilePropertyHash(strFile)
+    
+        ' Check to see if this object is in the index
+        ' (Has been exported/imported before.)
+        If Me.Exists(cItem, strFile) Then
+        
+            ' Item found in index.
+            ' Check to see if it matches the property hash in the index.
+            If Me.Item(cItem).FilePropertiesHash = strHash Then
+                ' Source file has not changed since last export/import.
+                ' We should be good to overwrite it.
+            Else
+                ' Doesn't match. This could be a conflict, depending on the dates.
+                ' If the modified date of the source file is NEWER than the
+                ' last export date...
+                If Me.Item(cItem).ExportDate < GetLastModifiedDate(strFile) Then
+                    ' ...and the content is different, then we have a conflict.
+                    blnConflict = Not FileContentsMatch(strFile, strTempFile)
+                End If
+            End If
+        Else
+            ' Without an existing index entry, we will need to compare a fresh
+            ' export of the item to the source file and check for differing content.
+            strTempFile = GetTempFile
+            cItem.Export strTempFile
+            blnConflict = Not FileContentsMatch(strFile, strTempFile)
+            DeleteFile strTempFile
+        End If
+    End If
+    
+    ' Return result
+    IsExportConflict = blnConflict
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FileContentsMatch
+' Author    : Adam Waller
+' Date      : 9/15/2021
+' Purpose   : Returns true if the contents of the files match. Starts with the least
+'           : expensive comparison of size, then goes on to compare a hash of the
+'           : full contents.
+'---------------------------------------------------------------------------------------
+'
+Private Function FileContentsMatch(strFile1 As String, strFile2 As String) As Boolean
+    If FSO.FileExists(strFile1) And FSO.FileExists(strFile2) Then
+        If FSO.GetFile(strFile1).Size = FSO.GetFile(strFile2).Size Then
+            If GetFileHash(strFile1) = GetFileHash(strFile2) Then
+                ' The contents of the two files is identical
+                FileContentsMatch = True
+            End If
+        End If
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------

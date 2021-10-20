@@ -34,7 +34,7 @@ Public Sub ShowDialog()
     With DoCmd
         ' The following gives a smoother load when using the datasheet subform.
         .Hourglass True
-        .OpenForm "frmVCSConflict", , , , , acHidden
+        '.OpenForm "frmVCSConflict", , , , , acHidden
         DoEvents
         .Hourglass False
         ' Open the form in dialog mode so that we return a status when it closes.
@@ -48,13 +48,14 @@ End Sub
 ' Procedure : Resolve
 ' Author    : Adam Waller
 ' Date      : 5/27/2021
-' Purpose   : Resolve the conflicts
+' Purpose   : Resolve the conflicts, removing any objects that should be skipped in the
+'           : import/export process.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Resolve()
+Public Sub Resolve(dObjects As Dictionary)
     Dim cItem As clsConflictItem
     For Each cItem In m_Items
-        cItem.Resolve
+        cItem.Resolve dObjects
     Next cItem
 End Sub
 
@@ -66,17 +67,22 @@ End Sub
 ' Purpose   : Add an item to the conflict list.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Add(cComponent As IDbComponent, dteIndexDate As Date, dteFileDate As Date)
+Public Sub Add(cComponent As IDbComponent, dteIndexDate As Date, dteFileDate As Date, intActionType As eResolveConflict, _
+    Optional strSourceFile As String, Optional intSuggestedResolution As eResolveConflict)
+    
     Dim cItem As clsConflictItem
+    
     Set cItem = New clsConflictItem
     With cItem
         .Category = cComponent.Category
-        .FileName = cComponent.SourceFile
+        .FileName = Nz2(strSourceFile, cComponent.SourceFile)
         .ObjectDate = cComponent.DateModified
         .IndexDate = dteIndexDate
         .FileDate = dteFileDate
+        .Suggestion = intSuggestedResolution
     End With
     m_Items.Add cItem
+    
 End Sub
 
 
@@ -106,7 +112,7 @@ Private Sub SaveToTable()
         For Each cItem In m_Items
             .AddNew
                 !Component = cItem.Category
-                !FileName = Mid$(cItem.FileName, Len(Options.GetExportFolder))
+                !FileName = Mid$(cItem.FileName, Len(Options.GetExportFolder) + 1)
                 !ObjectDate = cItem.ObjectDate
                 !IndexDate = cItem.IndexDate
                 !FileDate = cItem.FileDate

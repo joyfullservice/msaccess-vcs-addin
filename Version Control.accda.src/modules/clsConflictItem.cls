@@ -16,8 +16,10 @@ Public FileName As String
 Public ObjectDate As Date
 Public IndexDate As Date
 Public FileDate As Date
-Public Operation As eIndexActionType
+Public Operation As eIndexOperationType
+Public ActionType As eResolveConflict
 Public Resolution As eResolveConflict
+Public Suggestion As eResolveConflict
 
 
 '---------------------------------------------------------------------------------------
@@ -27,14 +29,18 @@ Public Resolution As eResolveConflict
 ' Purpose   : Resolve the conflict
 '---------------------------------------------------------------------------------------
 '
-Public Function Resolve()
+Public Function Resolve(dObjects As Dictionary)
 
-    If Resolution = ercOverwrite Then
-        Log.Add "  " & FSO.GetFileName(FileName) & " (Overwrite)", False
-    ElseIf Resolution = ercSkip Then
-        RemoveFromItemList
-        Log.Add "  " & FSO.GetFileName(FileName) & " (Skip)", False
-    End If
+    Select Case Me.Resolution
+        Case ercDelete
+            Log.Add "  " & FSO.GetFileName(FileName) & " (Delete)", False
+            DeleteFile Me.FileName
+        Case ercOverwrite
+            Log.Add "  " & FSO.GetFileName(FileName) & " (Overwrite)", False
+        Case ercSkip
+            ''' TODO: RemoveFromItemList
+            Log.Add "  " & FSO.GetFileName(FileName) & " (Skip)", False
+    End Select
     
 End Function
 
@@ -50,10 +56,10 @@ Private Function RemoveFromItemList()
     Select Case Operation
         Case eatImport
             ' Remove from list of files to import
-            If ItemList.Exists(Me.FileName) Then ItemList.Remove (Me.FileName)
+            If ItemList.Exists(Me.FileName) Then ItemList.Remove Me.FileName
         Case eatExport
             ' Remove from object list
-            If ItemList.Exists(Me.FileName) Then ItemList.Remove (Me.FileName)
+            If ItemList.Exists(Me.FileName) Then ItemList.Remove Me.FileName
     End Select
 End Function
 
