@@ -29,7 +29,6 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Dim varKey As Variant
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
-    Dim sngStart As Single
     Dim lngCount As Long
     
     ' Use inline error handling functions to trap and log errors.
@@ -63,9 +62,6 @@ Public Sub ExportSource(blnFullExport As Boolean)
 
     ' If options (or VCS version) have changed, a full export will be required
     If (VCSIndex.OptionsHash <> Options.GetHash) Then blnFullExport = True
-
-    ' Begin timer at start of export.
-    sngStart = Timer
 
     ' Display heading
     With Options
@@ -191,7 +187,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     
     ' Show final output and save log
     Log.Spacer
-    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)", , False, "green", True
+    Log.Add "Done. (" & Round(Perf.TotalTime, 2) & " seconds)", , False, "green", True
         
 CleanUp:
 
@@ -236,7 +232,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Dim strPath As String
     Dim strBackup As String
     Dim cCategory As IDbComponent
-    Dim sngStart As Single
     Dim dCategories As Dictionary
     Dim colCategories As Collection
     Dim varCategory As Variant
@@ -307,7 +302,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     ' Start log and performance timers
     Log.Clear
     Log.Active = True
-    sngStart = Timer
     Perf.StartTiming
     
     ' Check if we are building the add-in file
@@ -492,7 +486,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' Show final output and save log
     Log.Spacer
-    Log.Add "Done. (" & Round(Timer - sngStart, 2) & " seconds)", , False, "green", True
+    Log.Add "Done. (" & Round(Perf.TotalTime, 2) & " seconds)", , False, "green", True
 
 CleanUp:
 

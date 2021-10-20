@@ -233,6 +233,42 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : PauseTiming
+' Author    : Adam Waller
+' Date      : 10/20/2021
+' Purpose   : Lap all timers to capture elapsed time.
+'---------------------------------------------------------------------------------------
+'
+Public Sub PauseTiming()
+
+    ' Lap overall time
+    LapTimer m_Overall, 0
+    
+    ' Lap any active timing operation
+    If m_strOperation <> vbNullString Then LapTimer m_dOperations(m_strOperation), 0
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResumeTiming
+' Author    : Adam Waller
+' Date      : 10/20/2021
+' Purpose   : Resume the timing of all timers by resetting the start time.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ResumeTiming()
+
+    ' Resume overall time
+    m_Overall.Start = MicroTimer
+    
+    ' Resume current operation
+    If m_strOperation <> vbNullString Then StartTimer m_dOperations, m_strOperation
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetElapsed
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
@@ -265,7 +301,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get TotalTime() As Currency
-    TotalTime = GetElapsed(m_Overall.Start)
+    LapTimer m_Overall, 0
+    m_Overall.Start = MicroTimer
+    TotalTime = m_Overall.Total
 End Property
 
 

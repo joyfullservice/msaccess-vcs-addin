@@ -228,9 +228,9 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     
     If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
     strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
-    Perf.OperationStart "Wait for MsgBox Response"
+    Perf.PauseTiming
     MsgBox2 = Eval(strMsg)
-    Perf.OperationEnd
+    Perf.ResumeTiming
     
     ' Restore MousePointer (if needed)
     If intCursor > 0 Then Screen.MousePointer = intCursor

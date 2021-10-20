@@ -38,7 +38,9 @@ Public Sub ShowDialog()
         DoEvents
         .Hourglass False
         ' Open the form in dialog mode so that we return a status when it closes.
+        Perf.PauseTiming
         .OpenForm "frmVCSConflict", , , , , acDialog
+        Perf.ResumeTiming
     End With
     ClearTable
 End Sub
