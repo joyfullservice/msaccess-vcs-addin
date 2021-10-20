@@ -462,6 +462,8 @@ End Sub
 '
 Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
     
+    Dim dItems As Dictionary
+    Dim varKey As Variant
     Dim colNames As Collection
     Dim cItem As IDbComponent
     Dim oFolder As Folder
@@ -474,9 +476,11 @@ Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
     ' Cache a list of source file names for actual database objects
     Perf.OperationStart "Clear Orphaned Folders"
     Set colNames = New Collection
-    For Each cItem In cType.GetAllFromDB(False)
+    Set dItems = cType.GetAllFromDB(False)
+    For Each varKey In dItems.Keys
+        Set cItem = dItems(varKey)
         colNames.Add FSO.GetFileName(cItem.SourceFile)
-    Next cItem
+    Next varKey
     
     Set oFolder = FSO.GetFolder(cType.BaseFolder)
     For Each oSubFolder In oFolder.SubFolders
@@ -508,6 +512,8 @@ End Sub
 ' Date      : 2/23/2021
 ' Purpose   : Clears existing source files that don't have a matching object in the
 '           : database.
+'           : Note that this function is integrated with the index, so deleted files
+'           : are removed from the index, and potential conflicts are logged as well.
 '---------------------------------------------------------------------------------------
 '
 Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensions())
@@ -518,9 +524,13 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     Dim dExtensions As Dictionary
     Dim strBaseName As String
     Dim strFile As String
+    Dim dItems As Dictionary
+    Dim varKey As Variant
     Dim varExt As Variant
     Dim strExt As String
     Dim cItem As IDbComponent
+    Dim strHash As String
+    Dim cXItem As clsVCSIndexItem
     
     ' No orphaned files if the folder doesn't exist.
     If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
@@ -533,9 +543,11 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     
     ' Cache a list of base source file names for actual database objects
     Perf.OperationStart "Clear Orphaned Files"
-    For Each cItem In cType.GetAllFromDB(False)
+    Set dItems = cType.GetAllFromDB(False)
+    For Each varKey In dItems.Keys
+        Set cItem = dItems(varKey)
         dBaseNames.Add FSO.GetBaseName(cItem.SourceFile), vbNullString
-    Next cItem
+    Next varKey
     
     ' Build dictionary of allowed extensions
     For Each varExt In StrExtensions
@@ -554,11 +566,31 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
         
         ' See if extension exists in cached list
         If dExtensions.Exists(strExt) Then
+            
             ' See if base file name exists in list of database objects
             If Not dBaseNames.Exists(strBaseName) Then
-                ' Object not found in database. Remove file.
-                DeleteFile FSO.BuildPath(oFile.ParentFolder.Path, oFile.Name), True
-                Log.Add "  Removing orphaned file: " & strFile, Options.ShowDebug
+                
+                ' Object not found in database. Check the index
+                If VCSIndex.Exists(cType, strFile) Then
+                    
+                    ' If file is unchanged from the index, we can go ahead and delete it.
+                    ' (The source file matches the last version imported or exported)
+                    strHash = VCSIndex.GetFilePropertyHash(strFile)
+                    If VCSIndex.Item(cType, strFile).FilePropertiesHash = strHash Then
+                    
+                        ' Remove file and index entry
+                        Log.Add "  Removing orphaned file: " & strFile, Options.ShowDebug
+                        DeleteFile strFile, True
+                        VCSIndex.Remove cType, strFile
+                    End If
+                
+                Else
+                    ' Object does not exist in the index. It might be a new file added
+                    ' by another developer. Don't delete it, as it may need to be merged
+                    ' into the database. (Defaults to skip deleting the file)
+                    Log.Add "  Found new source file: " & strFile, Options.ShowDebug
+                    VCSIndex.Conflicts.Add cType, 0, GetLastModifiedDate(strFile), ercDelete, strFile, ercSkip
+                End If
             End If
         End If
     Next oFile
