@@ -73,15 +73,19 @@ End Sub
 '
 Public Sub ExportTableDataAsTDF(strTable As String)
 
+    Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     Dim fld As DAO.Field
     Dim cData As New clsConcat
     Dim intFields As Integer
     Dim intCnt As Integer
     Dim strText As String
-
+    Dim lngProgMax As Long
+    Dim lngProgValue As Long
+    
     ' Open table in fast read-only view
-    Set rst = CurrentDb.OpenRecordset(GetTableExportSql(strTable), dbOpenSnapshot, dbOpenForwardOnly)
+    Set dbs = CurrentDb
+    Set rst = dbs.OpenRecordset(GetTableExportSql(strTable), dbOpenSnapshot, dbReadOnly)
     intFields = rst.Fields.Count
 
     ' Add header row
@@ -91,7 +95,19 @@ Public Sub ExportTableDataAsTDF(strTable As String)
         If intCnt < intFields Then cData.Add vbTab
     Next fld
     cData.Add vbCrLf
-
+    
+    ' Stash current progress bar values so we can reuse the
+    ' progress bar to show the progress through the rows.
+    With Log.ProgressBar
+        lngProgMax = .Max
+        lngProgValue = .Value
+        ' Set to recordset after accessing all records
+        rst.MoveLast
+        .Max = rst.RecordCount
+        .Value = 1
+        rst.MoveFirst
+    End With
+    
     ' Add data rows
     Do While Not rst.EOF
         intCnt = 0
@@ -105,7 +121,13 @@ Public Sub ExportTableDataAsTDF(strTable As String)
         rst.MoveNext
         Log.Increment ' Increment log, in case this takes a while
     Loop
-
+    
+    ' Restore progress bar values for object iteration
+    With Log.ProgressBar
+         .Max = lngProgMax
+         .Value = lngProgValue
+    End With
+    
     ' Save output file
     WriteFile cData.GetStr, IDbComponent_BaseFolder & GetSafeFileName(StripDboPrefix(strTable)) & ".txt"
 
