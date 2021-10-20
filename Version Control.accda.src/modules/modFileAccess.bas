@@ -26,7 +26,7 @@ Private Declare PtrSafe Function getTempFileName Lib "kernel32" Alias "GetTempFi
 ' Procedure : GetTempFile
 ' Author    : Adapted by Adam Waller
 ' Date      : 1/23/2019
-' Purpose   : Generate Random / Unique temporary file name.
+' Purpose   : Generate Random / Unique temporary file name. (Also creates the file)
 '---------------------------------------------------------------------------------------
 '
 Public Function GetTempFile(Optional strPrefix As String = "VBA") As String
@@ -38,6 +38,40 @@ Public Function GetTempFile(Optional strPrefix As String = "VBA") As String
     lngReturn = getTempPath(512, strPath)
     lngReturn = getTempFileName(strPath, strPrefix, 0, strName)
     If lngReturn <> 0 Then GetTempFile = Left$(strName, InStr(strName, vbNullChar) - 1)
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTempFolder
+' Author    : Adam Waller
+' Date      : 9/24/2021
+' Purpose   : Get a random unique folder name and create the folder.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTempFolder(Optional strPrefix As String = "VBA") As String
+
+    Dim strPath As String
+    Dim strFile As String
+    Dim strFolder As String
+    
+    ' Generate a random temporary file name, and delete the temp file
+    strPath = GetTempFile(strPrefix)
+    DeleteFile strPath
+    
+    ' Change path to use underscore instead of period.
+    strFile = PathSep & FSO.GetFileName(strPath)
+    strFolder = Replace(strFile, ".", "_")
+    strPath = Replace(strPath, strFile, strFolder)
+
+    If FSO.FolderExists(strPath) Then
+        ' Oops, this folder already exists. Try again.
+        GetTempFolder = GetTempFolder(strPrefix)
+    Else
+        ' Create folder and return path
+        FSO.CreateFolder strPath
+        GetTempFolder = strPath
+    End If
     
 End Function
 
