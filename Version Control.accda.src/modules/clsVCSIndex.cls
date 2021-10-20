@@ -159,7 +159,7 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexActionType, _
     If Me.Disabled Then Exit Function
     
     ' Look up dictionary item, creating if needed.
-    Set dItem = Me.Item(cItem)
+    Set dItem = Me.Item(cItem).dParent
     
     ' Update dictionary values
     With dItem
@@ -235,70 +235,48 @@ End Sub
 ' Purpose   : Returns a dictionary object with the saved values, creating if needed.
 '---------------------------------------------------------------------------------------
 '
-Public Function Item(cItem As IDbComponent) As Dictionary
-    
-    Dim strFile As String
+Public Function Item(cItem As IDbComponent, Optional strSourceFile As String) As clsVCSIndexItem
 
+    Dim strFile As String
+    
     ' Exit if we have disabled the index functionality
     If Me.Disabled Then Exit Function
 
     ' Get just the file name from the path.
-    strFile = FSO.GetFileName(cItem.SourceFile)
+    strFile = FSO.GetFileName(Nz2(strSourceFile, cItem.SourceFile))
+    Set Item = LoadItem(cItem, strFile)
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadItem
+' Author    : Adam Waller
+' Date      : 9/23/2021
+' Purpose   : Loads the item from the index, creating if it does not exist.
+'---------------------------------------------------------------------------------------
+'
+Private Function LoadItem(cItem As IDbComponent, strSourceFile As String) As clsVCSIndexItem
+
+    Dim dItem As Dictionary
     
     ' Get or create dictionary objects.
     With m_dIndex("Components")
         If Not .Exists(cItem.Category) Then Set .Item(cItem.Category) = New Dictionary
-        If Not .Item(cItem.Category).Exists(strFile) Then Set .Item(cItem.Category)(strFile) = New Dictionary
-        Set Item = .Item(cItem.Category)(strFile)
+        If Not .Item(cItem.Category).Exists(strSourceFile) Then Set .Item(cItem.Category)(strSourceFile) = New Dictionary
+        Set dItem = .Item(cItem.Category)(strSourceFile)
+        Set LoadItem = New clsVCSIndexItem
+        With LoadItem
+            ' Load properties to class
+            Set .dParent = dItem
+            .ExportDate = Nz2(dNZ(dItem, "ExportDate"), 0)
+            .ImportDate = Nz2(dNZ(dItem, "ImportDate"), 0)
+            .SourceModified = Nz2(dNZ(dItem, "SourceModified"), 0)
+            .FilePropertiesHash = dNZ(dItem, "FilePropertiesHash")
+            .Hash = dNZ(dItem, "Hash")
+        End With
     End With
-    
-End Function
 
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetExportDate
-' Author    : Adam Waller
-' Date      : 2/26/2021
-' Purpose   : Return the date/time the index records this item as exported.
-'---------------------------------------------------------------------------------------
-'
-Public Function GetExportDate(cItem As IDbComponent) As Date
-    GetExportDate = GetDateValue(cItem, "ExportDate")
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetImportDate
-' Author    : Adam Waller
-' Date      : 2/26/2021
-' Purpose   : Return the date/time the index records this item as imported.
-'---------------------------------------------------------------------------------------
-'
-Public Function GetImportDate(cItem As IDbComponent) As Date
-    GetImportDate = GetDateValue(cItem, "ImportDate")
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetDateValue
-' Author    : Adam Waller
-' Date      : 2/26/2021
-' Purpose   : Return a date value from an index key (or 0 if missing)
-'---------------------------------------------------------------------------------------
-'
-Private Function GetDateValue(cItem As IDbComponent, strKey As String) As Date
-
-    Dim varDate As Variant
-    
-    ' Look for Export Date in dictionary
-    varDate = Item(cItem)(strKey)
-    If IsDate(varDate) Then
-        GetDateValue = CDate(varDate)
-    Else
-        ' Return blank date
-        GetDateValue = 0
-    End If
-    
 End Function
 
 

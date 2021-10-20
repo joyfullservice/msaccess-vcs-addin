@@ -151,10 +151,10 @@ Public Function IDbComponent_IsModified() As Boolean
     
     ' Check the modified date first.
     ' (This may not reflect some code changes)
-    If m_Report.DateModified <= VCSIndex.GetExportDate(Me) Then
+    If m_Report.DateModified <= VCSIndex.Item(Me).ExportDate Then
             
         ' Date is okay, check hash
-        IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
+        IDbComponent_IsModified = VCSIndex.Item(Me).Hash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
     End If
     
 End Function

@@ -320,7 +320,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetDictionaryHash(GetDictionary)
+    IDbComponent_IsModified = VCSIndex.Item(Me).Hash <> GetDictionaryHash(GetDictionary)
 End Function
 
 

@@ -324,7 +324,7 @@ Public Function IDbComponent_IsModified() As Boolean
     ' so use the hash instead to detect changes.
     
     ' NOTE: This will not detect changes to hidden VBE attributes
-    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
+    IDbComponent_IsModified = VCSIndex.Item(Me).Hash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
 
 End Function
 

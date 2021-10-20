@@ -462,7 +462,7 @@ End Sub
 '
 Public Function IDbComponent_IsModified() As Boolean
     ' Load the database object first so we can calculate the hash
-    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetSignatureHash
+    IDbComponent_IsModified = VCSIndex.Item(Me).Hash <> GetSignatureHash
 End Function
 
 

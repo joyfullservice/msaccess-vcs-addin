@@ -188,7 +188,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = (m_Query.DateModified > VCSIndex.GetExportDate(Me))
+    IDbComponent_IsModified = (m_Query.DateModified > VCSIndex.Item(Me).ExportDate)
 End Function
 
 
