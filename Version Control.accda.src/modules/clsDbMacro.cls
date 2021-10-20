@@ -91,6 +91,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Build collection if not already cached
     If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
+        m_blnModifiedOnly = blnModifiedOnly
         Set m_AllItems = New Dictionary
         For Each oMac In CurrentProject.AllMacros
             Set cMac = New clsDbMacro
