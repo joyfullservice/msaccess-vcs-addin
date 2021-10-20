@@ -171,15 +171,20 @@ Public Property Let Value(ByVal dblVal As Double)
         If Not mblnHideCap And Not mlblCaption.Visible Then mlblCaption.Visible = True
     End If
     
+    ' Don't allow value to exceed maximum value
+    If dblVal > Me.Max Then dblVal = Me.Max
+    
     ' Measure change
     dblChange = Abs(dblVal - mdblVal)
     
     ' Set value and update display if needed.
     If dblChange > 0 And Me.Max > 0 Then
-        mdblVal = dblVal
         ' See if we need to update the display
         ' (Normally updated every 1% or each increment if Smooth = True
-        If Me.Smooth Or ((dblChange / Me.Max) > 0.01) Then Update
+        If Me.Smooth Or ((dblChange / Me.Max) > 0.01) Then
+            mdblVal = dblVal
+            Update
+        End If
     End If
 
 End Property
