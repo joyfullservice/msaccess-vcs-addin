@@ -19,7 +19,7 @@ Option Explicit
 
 Const ModuleName As String = "clsDbTableDef"
 
-Private m_Table As DAO.TableDef
+Private m_Table As AccessObject
 Private m_AllItems As Dictionary
 Private m_blnModifiedOnly As Boolean
 Private m_Dbs As Database
@@ -360,8 +360,7 @@ Private Sub IDbComponent_Import(strFile As String)
     
     ' Update index
     strName = GetObjectNameFromFileName(strFile)
-    Set m_Dbs = CurrentDb
-    Set m_Table = m_Dbs.TableDefs(strName)
+    Set m_Table = CurrentData.AllTables(strName)
     VCSIndex.Update Me, eatImport
     
 End Sub
@@ -534,7 +533,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 ' Skip system and temporary tables
             Else
                 Set cTable = New clsDbTableDef
-                Set cTable.DbObject = tdf
+                Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
                 If blnModifiedOnly Then
                     If cTable.IsModified Then m_AllItems.Add cTable, tdf.Name
                 Else
@@ -661,12 +660,22 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    If m_Table.Connect = vbNullString Then
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    
+    Set dbs = CurrentDb
+    Set tdf = dbs.TableDefs(m_Table.Name)
+    
+    ' Check connection string for linked table
+    If tdf.Connect = vbNullString Then
+        ' Internal table
         IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".xml"
     Else
         ' Linked table
         IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".json"
     End If
+    
 End Property
 
 
