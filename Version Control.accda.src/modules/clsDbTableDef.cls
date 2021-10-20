@@ -535,9 +535,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 Set cTable = New clsDbTableDef
                 Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
                 If blnModifiedOnly Then
-                    If cTable.IsModified Then m_AllItems.Add cTable, tdf.Name
+                    If cTable.IsModified Then m_AllItems.Add tdf.Name, cTable
                 Else
-                    m_AllItems.Add cTable, tdf.Name
+                    m_AllItems.Add tdf.Name, cTable
                 End If
             End If
         Next tdf

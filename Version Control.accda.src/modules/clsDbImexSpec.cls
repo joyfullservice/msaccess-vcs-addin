@@ -207,7 +207,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     Set cSpec = New clsDbImexSpec
                     cSpec.Name = strName
                     cSpec.ID = Nz(!SpecID, 0)
-                    m_AllItems.Add cSpec, cSpec.Name
+                    m_AllItems.Add cSpec.Name, cSpec
                     .MoveNext
                 Loop
                 .Close

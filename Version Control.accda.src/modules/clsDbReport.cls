@@ -97,9 +97,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             Set cReport = New clsDbReport
             Set cReport.DbObject = rpt
             If blnModifiedOnly Then
-                If cReport.IsModified Then m_AllItems.Add cReport, rpt.Name
+                If cReport.IsModified Then m_AllItems.Add rpt.Name, cReport
             Else
-                m_AllItems.Add cReport, rpt.Name
+                m_AllItems.Add rpt.Name, cReport
             End If
         Next rpt
     End If

@@ -373,7 +373,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     If dCategory.Exists("Groups") Then
                         For Each varGroup In dCategory("Groups")
                             Set cGroup = New clsDbNavPaneGroup
-                            m_AllItems.Add cGroup, vbNullString
+                            m_AllItems.Add cGroup, cGroup
                         Next varGroup
                     End If
                 Next varCategory

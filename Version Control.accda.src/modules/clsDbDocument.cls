@@ -296,7 +296,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         ' Add as class instance
                         Set cDoc = New clsDbDocument
                         Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc).Properties(varProp)
-                        m_AllItems.Add cDoc, vbNullString
+                        m_AllItems.Add cDoc, cDoc
                     Next varProp
                 Next varDoc
             Next varCont

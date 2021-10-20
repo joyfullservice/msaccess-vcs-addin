@@ -177,7 +177,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 Or IsInherited(rel)) Then
                 Set cRelation = New clsDbRelation
                 Set cRelation.DbObject = rel
-                m_AllItems.Add cRelation, rel.Name
+                m_AllItems.Add rel.Name, cRelation
             End If
         Next rel
     End If

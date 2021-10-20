@@ -82,7 +82,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         For Each sproc In CurrentData.AllStoredProcedures
             Set cSproc = New clsAdpProcedure
             Set cSproc.DbObject = sproc
-            m_AllItems.Add cSproc, sproc.Name
+            m_AllItems.Add sproc.Name, cSproc
         Next sproc
     End If
 

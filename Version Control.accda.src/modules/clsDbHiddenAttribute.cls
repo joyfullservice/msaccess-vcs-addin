@@ -143,7 +143,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 For Each varDoc In colCont
                     Set cDoc = New clsDbHiddenAttribute
                     Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc)
-                    m_AllItems.Add cDoc, vbNullString
+                    m_AllItems.Add cDoc, cDoc
                 Next varDoc
             Next varCont
         End If

@@ -295,7 +295,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             For Each prp In CurrentDb.Properties
                 Set cProp = New clsDbProperty
                 Set cProp.DbObject = prp
-                m_AllItems.Add cProp, prp.Name
+                m_AllItems.Add prp.Name, cProp
             Next prp
         End If
     End If

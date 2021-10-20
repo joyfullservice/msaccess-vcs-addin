@@ -310,7 +310,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         Set cTheme = New clsDbTheme
                         Set cTheme.DbObject = rst    ' Reference to OLE object recordset2
                         If Not blnModifiedOnly Or cTheme.IsModified Then
-                            m_AllItems.Add cTheme, strKey
+                            m_AllItems.Add strKey, cTheme
                             dItems.Add strKey, strKey
                         End If
                     End If

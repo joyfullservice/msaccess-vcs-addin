@@ -229,7 +229,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 Do While Not .EOF
                     Set cImg = New clsDbSharedImage
                     Set cImg.DbObject = rst    ' Reference to OLE object recordset2
-                    m_AllItems.Add cImg, vbNullString
+                    m_AllItems.Add cImg, cImg
                     .MoveNext
                 Loop
                 .Close

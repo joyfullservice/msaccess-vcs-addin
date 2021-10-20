@@ -288,10 +288,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     If Not dNames.Exists(ref.Name) Then
                         Set cRef = New clsDbVbeReference
                         Set cRef.DbObject = ref
-                        m_AllItems.Add cRef, vbNullString
+                        m_AllItems.Add cRef, cRef
                         ' Don't attempt add two references with the same name, such as
                         ' circular references to nested library database files.
-                        dNames.Add ref.Name, vbNullString
+                        dNames.Add ref.Name, ref.Name
                     End If
                 End If
             Next ref

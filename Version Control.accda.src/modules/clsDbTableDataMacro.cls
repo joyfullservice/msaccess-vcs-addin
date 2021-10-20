@@ -106,7 +106,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         If DCount("[Name]", "MSysObjects", strSql) > 0 Then
                             Set cTable = New clsDbTableDataMacro
                             Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
-                            m_AllItems.Add cTable, tdf.Name
+                            m_AllItems.Add tdf.Name, cTable
                         End If
                     End If
                 End If

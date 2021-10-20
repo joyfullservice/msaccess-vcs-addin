@@ -96,9 +96,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             Set cMac = New clsDbMacro
             Set cMac.DbObject = oMac
             If blnModifiedOnly Then
-                If cMac.IsModified Then m_AllItems.Add cMac, oMac.Name
+                If cMac.IsModified Then m_AllItems.Add oMac.Name, cMac
             Else
-                m_AllItems.Add cMac, oMac.Name
+                m_AllItems.Add oMac.Name, cMac
             End If
         Next oMac
     End If

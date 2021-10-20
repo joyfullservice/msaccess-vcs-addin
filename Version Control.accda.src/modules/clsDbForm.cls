@@ -97,9 +97,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             Set cForm = New clsDbForm
             Set cForm.DbObject = frm
             If blnModifiedOnly Then
-                If cForm.IsModified Then m_AllItems.Add cForm, frm.Name
+                If cForm.IsModified Then m_AllItems.Add frm.Name, cForm
             Else
-                 m_AllItems.Add cForm, frm.Name
+                 m_AllItems.Add frm.Name, cForm
             End If
         Next frm
     End If
