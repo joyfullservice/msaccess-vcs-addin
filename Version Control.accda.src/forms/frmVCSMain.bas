@@ -1417,10 +1417,10 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =10
-                    WebImagePaddingBottom =10
+                    WebImagePaddingLeft =8
+                    WebImagePaddingTop =8
+                    WebImagePaddingRight =9
+                    WebImagePaddingBottom =9
                     Overlaps =1
                 End
                 Begin Label
@@ -1516,10 +1516,10 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =10
-                    WebImagePaddingBottom =10
+                    WebImagePaddingLeft =8
+                    WebImagePaddingTop =8
+                    WebImagePaddingRight =9
+                    WebImagePaddingBottom =9
                     Overlaps =1
                 End
                 Begin Label
@@ -1753,7 +1753,7 @@ Private Sub cmdBuild_Click()
     End If
     
     ' Close the current database if it is currently open.
-    If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
+    If Not CurrentProject Is Nothing Then
         If FolderHasVcsOptionsFile(Options.GetExportFolder) Then
             strMsg(0) = "Build " & GetVBProjectForCurrentDB.Name & " (" & CurrentProject.Name & ") from source?"
             strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _

@@ -35,7 +35,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Can't export without an open database
-    If CurrentDb Is Nothing And CurrentProject.Connection Is Nothing Then Exit Sub
+    If CurrentProject Is Nothing Then Exit Sub
     
     ' If we are running this from the current database, we need to run it a different
     ' way to prevent file corruption issues.
@@ -250,7 +250,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     
     ' For full builds, close the current database if it is currently open.
     If blnFullBuild Then
-        If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
+        If Not CurrentProject Is Nothing Then
             ' Need to close the current database before we can replace it.
             RunBuildAfterClose strSourceFolder
             Exit Sub

@@ -424,7 +424,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function DatabaseOpen() As Boolean
-    DatabaseOpen = Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing)
+    DatabaseOpen = (Not CurrentProject Is Nothing)
     'DatabaseOpen = Workspaces(0).Databases.Count > 0   ' Another approach
 End Function
 
