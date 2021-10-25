@@ -55,6 +55,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim dProject As Dictionary
     Dim proj As CurrentProject
+    Dim strConnect As String
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -63,9 +64,14 @@ Private Sub IDbComponent_Import(strFile As String)
     Set dProject = ReadJsonFile(strFile)
     Set proj = CurrentProject
     
-    ' Update project properties (Only one we can really change)
+    ' Update project properties (Only a couple we can really change)
     With proj
         .RemovePersonalInformation = Nz2(dNZ(dProject, "Items\RemovePersonalInformation"), False)
+        If .ProjectType = acADP Then
+            strConnect = dNZ(dProject, "Items\BaseConnectionString")
+            ' Connect to SQL server
+            If strConnect <> vbNullString Then CurrentProject.OpenConnection strConnect
+        End If
     End With
     
     CatchAny eelError, "Importing Project", ModuleName & ".Import"

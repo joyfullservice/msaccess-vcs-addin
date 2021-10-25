@@ -30,7 +30,7 @@ Public Sub RunBuildAfterClose(strSourceFolder As String)
     SaveSetting GetCodeVBProject.Name, "Build", "TimerID", m_lngBuildTimerID
     SaveSetting GetCodeVBProject.Name, "Build", "SourceFolder", strSourceFolder
     ' Now we should be ready to close the current database
-    If Not CurrentProject Is Nothing Then Application.CloseCurrentDatabase
+    If DatabaseFileOpen Then Application.CloseCurrentDatabase
 End Sub
 
 
