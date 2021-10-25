@@ -417,15 +417,30 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : DatabaseOpen
+' Procedure : DatabaseFileOpen
 ' Author    : Adam Waller
 ' Date      : 7/14/2020
 ' Purpose   : Returns true if a database (or ADP project) is currently open.
 '---------------------------------------------------------------------------------------
 '
-Public Function DatabaseOpen() As Boolean
-    DatabaseOpen = (Not CurrentProject Is Nothing)
-    'DatabaseOpen = Workspaces(0).Databases.Count > 0   ' Another approach
+Public Function DatabaseFileOpen() As Boolean
+
+    Dim strTest As String
+    
+    ' See if we have a reference to a CurrentProject object
+    If CurrentProject Is Nothing Then
+        DatabaseFileOpen = False
+    Else
+        ' For ADP projects, CurrentProject may be an invalid object reference
+        ' after the database file (adp) is closed.
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        strTest = CurrentProject.FullName
+        CatchAny eelNoError, vbNullString
+        DatabaseFileOpen = (strTest <> vbNullString)
+    End If
+    
+    'DatabaseOpen = Workspaces(0).Databases.Count > 0   ' Another approach (Not ADP compatible)
+    
 End Function
 
 
