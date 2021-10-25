@@ -288,7 +288,7 @@ Public Sub LoadProjectOptions()
 
     ' We can only load the options for the current project if we
     ' have a database file open.
-    If Not DatabaseOpen Then Exit Sub
+    If Not DatabaseFileOpen Then Exit Sub
     
     ' Get saved path from database (if defined)
     strSaved = SavedSourcePath
@@ -679,7 +679,7 @@ End Property
 '
 Private Function GetSavedSourcePathProperty() As AccessObjectProperty
     Dim prp As AccessObjectProperty
-    If DatabaseOpen Then
+    If DatabaseFileOpen Then
         For Each prp In CurrentProject.Properties
             If prp.Name = cstrSourcePathProperty Then
                 Set GetSavedSourcePathProperty = prp

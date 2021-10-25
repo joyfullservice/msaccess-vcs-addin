@@ -564,7 +564,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function DefaultFilePath() As String
-    If DatabaseOpen Then DefaultFilePath = Options.GetExportFolder & cstrFileName
+    If DatabaseFileOpen Then DefaultFilePath = Options.GetExportFolder & cstrFileName
 End Function
 
 

@@ -346,7 +346,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             Application.NewCurrentDatabase strPath, GetFileFormat(strSourceFolder)
         End If
         Perf.OperationEnd
-        If DatabaseOpen Then
+        If DatabaseFileOpen Then
             Log.Add "Created blank database for import. (v" & CurrentProject.FileFormat & ")"
         Else
             CatchAny eelCritical, "Unable to create database file", ModuleName & ".Build"

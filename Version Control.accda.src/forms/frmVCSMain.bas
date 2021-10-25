@@ -2009,11 +2009,11 @@ Public Sub Form_Load()
     chkFullExport = Not Options.UseFastSave
     
     ' You can only export if you have a database open.
-    cmdExport.Enabled = DatabaseOpen
-    chkFullExport.Enabled = DatabaseOpen
+    cmdExport.Enabled = DatabaseFileOpen
+    chkFullExport.Enabled = DatabaseFileOpen
     
     ' Require full export after options change
-    If DatabaseOpen Then
+    If DatabaseFileOpen Then
         If VCSIndex.OptionsHash <> Options.GetHash Then
             chkFullExport = True
             chkFullExport.Enabled = False

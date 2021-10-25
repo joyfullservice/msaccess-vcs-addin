@@ -40,7 +40,7 @@ Public Function GetDBProperty(strName As String, Optional dbs As DAO.Database) A
     If Not dbs Is Nothing Then
         Set oParent = dbs.Properties
     Else
-        If DatabaseOpen Then
+        If DatabaseFileOpen Then
             ' Get parent container for properties
             If CurrentProject.ProjectType = acADP Then
                 Set oParent = CurrentProject.Properties
