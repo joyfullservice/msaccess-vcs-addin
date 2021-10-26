@@ -10,6 +10,7 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+Private Const ModuleName As String = "modFileEncoding"
 
 Private Declare PtrSafe Function getTempPath Lib "kernel32" Alias "GetTempPathA" ( _
     ByVal nBufferLength As Long, _
@@ -139,7 +140,17 @@ Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding 
         If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
         ' Write to disk
         VerifyPath strPath
+        ' Watch out for possible write error
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
         .SaveToFile strPath, adSaveCreateOverWrite
+        If Catch(3004) Then
+            ' File is locked. Try again after 1 second, just in case something
+            ' like Google Drive momentarily locked the file.
+            Err.Clear
+            Pause 1
+            .SaveToFile strPath, adSaveCreateOverWrite
+        End If
+        CatchAny eelError, "Error writing file: " & strPath, ModuleName & ".WriteFile"
         .Close
     End With
     
