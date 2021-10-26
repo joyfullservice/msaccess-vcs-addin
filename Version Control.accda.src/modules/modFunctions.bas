@@ -566,7 +566,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub Pause(sngSeconds As Single)
+    If sngSeconds > 0.1 Then Perf.OperationStart "Pause execution"
     Sleep sngSeconds * 1000
+    If sngSeconds > 0.1 Then Perf.OperationEnd
 End Sub
 
 
