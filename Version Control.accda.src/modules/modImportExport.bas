@@ -64,15 +64,15 @@ Public Sub ExportSource(blnFullExport As Boolean)
     If (VCSIndex.OptionsHash <> Options.GetHash) Then blnFullExport = True
 
     ' Display heading
-    With Options
-        '.ShowDebug = True
-        '.UseFastSave = False
-        Log.Spacer
-        Log.Add "Beginning Export of all Source", False
-        Log.Add CurrentProject.Name
-        Log.Add "VCS Version " & GetVCSVersion
-        Log.Add IIf(blnFullExport, "Performing Full Export", "Using Fast Save")
-        Log.Add Now
+    With Log
+        .Spacer
+        .Add "Beginning Export of Source Files", False
+        .Add CurrentProject.Name
+        .Add "VCS Version " & GetVCSVersion
+        .Add "Full Path: " & CurrentProject.FullName, False
+        .Add "Export Folder: " & Options.GetExportFolder, False
+        .Add IIf(blnFullExport, "Performing Full Export", "Using Fast Save")
+        .Add Now
     End With
     
     ' Run any custom sub before export
@@ -322,6 +322,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         .Add "Beginning " & strType & " from Source", False
         .Add FSO.GetFileName(strPath)
         .Add "VCS Version " & GetVCSVersion
+        .Add "Full Path: " & strPath, False
+        .Add "Source Folder: " & strSourceFolder, False
         .Add Now
         .Spacer
         .Flush
