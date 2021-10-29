@@ -124,7 +124,7 @@ Private Sub IDbComponent_Import(strFile As String)
                     If Not TypeOf dItems(varKey)("Value") Is Collection Then
                         varValue = dItems(varKey)("Value")
                         ' Check for relative path
-                        If Left$(varValue, 4) = "rel:" Then varValue = GetPathFromRelative(CStr(varValue))
+                        If IsRelativePath(CStr(varValue)) Then varValue = GetPathFromRelative(CStr(varValue))
                     Else
                         ReDim bArray(0 To dItems(varKey)("Value").Count - 1)
                         For Each varItem In dItems(varKey)("Value")
