@@ -461,12 +461,24 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetPathFromRelative(strPath As String) As String
-    If Left$(strPath, 4) = "rel:" Then
+    If IsRelativePath(strPath) Then
         GetPathFromRelative = FSO.BuildPath(CurrentProject.Path, Mid$(strPath, 5))
     Else
         ' No relative path used.
         GetPathFromRelative = strPath
     End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsRelativePath
+' Author    : Adam Waller
+' Date      : 10/29/2021
+' Purpose   : Returns true if the specified path is stored as relative.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsRelativePath(strPath As String) As Boolean
+    IsRelativePath = (Left$(strPath, 4) = "rel:")
 End Function
 
 

@@ -370,9 +370,15 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
             ' Check to see if we are using an absolute export path  (\\* or *:*)
             If StartsWith(Options.ExportFolder, PathSep & PathSep) _
                 Or (InStr(2, Options.ExportFolder, ":") > 0) Then
-                ' We don't save the absolute path in source code, so the user
-                ' needs to determine the file location.
-                Exit Function
+                ' Look for saved build path
+                Set dContents = ReadJsonFile(FSO.BuildPath(strFolder, "proj-properties.json"))
+                strPath = dNZ(dContents, "Items\VCS Build Path")
+                If strPath <> vbNullString Then
+                    GetOriginalDbFullPathFromSource = strPath & PathSep & strFile
+                Else
+                    ' Unable to determine the original file location.
+                    Exit Function
+                End If
             Else
                 ' Calculate how many levels deep to create original path
                 lngLevel = UBound(Split(StripSlash(Options.ExportFolder), PathSep))
