@@ -173,6 +173,18 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetBytesHash
+' Author    : Adam Waller
+' Date      : 11/1/2021
+' Purpose   : Return hash from byte array
+'---------------------------------------------------------------------------------------
+'
+Public Function GetBytesHash(bteData() As Byte) As String
+    GetBytesHash = GetHash(bteData())
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetDictionaryHash
 ' Author    : Adam Waller
 ' Date      : 12/1/2020
@@ -279,4 +291,6 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
     Perf.OperationEnd
     
 End Function
+
+
 

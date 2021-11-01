@@ -18,6 +18,8 @@ Option Compare Database
 Option Explicit
 
 
+Private Const ModuleName As String = "clsDbSharedImage"
+
 Private m_AllItems As Dictionary
 Private m_Dbs As DAO.Database
 
@@ -53,27 +55,19 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim dItem As Dictionary
     
     ' Build header file
-    Set dItem = New Dictionary
-    dItem.Add "Name", m_Name
-    dItem.Add "FileName", m_FileName
-    dItem.Add "Extension", m_Extension
+    Set dItem = GetDictionary
     
     ' Save json file with header details
     WriteJsonFile TypeName(Me), dItem, Nz2(strAlternatePath, IDbComponent_SourceFile), "Shared Image Gallery Item"
     
     ' Save image file using extension from embedded file.
     strFile = IDbComponent_BaseFolder & FSO.GetBaseName(IDbComponent_SourceFile) & "." & FSO.GetExtensionName(m_FileName)
-
-    With New ADODB.Stream
-        .Type = adTypeBinary
-        .Open
-        .Write StripOLEHeader(m_FileData)     ' Binary data
-        VerifyPath strFile
-        Perf.OperationStart "Write to Disk"
-        .SaveToFile strFile, adSaveCreateOverWrite
-        Perf.OperationEnd
-        .Close
-    End With
+       
+    ' Write binary content to file
+    WriteBinaryFile strFile, StripOLEHeader(m_FileData)
+    
+    ' Update index after export
+    VCSIndex.Update Me, eatExport, GetDictionaryHash(dItem)
     
 End Sub
 
@@ -159,6 +153,13 @@ Private Sub IDbComponent_Import(strFile As String)
             ' Restore image file name if needed.
             If strOriginalName <> strImageFile Then Name strOriginalName As strImageFile
         End If
+        
+        ' Update index after import
+        If LoadItem(dItem("Name")) Then
+            VCSIndex.Update Me, eatExport, GetDictionaryHash(dItem)
+        Else
+            Log.Error eelError, "Unable to find shared image '" & dItem("Name") & "' after importing.", ModuleName & ".Import"
+        End If
     End If
 
 End Sub
@@ -175,6 +176,61 @@ End Sub
 Private Sub IDbComponent_Merge(strFile As String)
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadItem
+' Author    : Adam Waller
+' Date      : 11/1/2021
+' Purpose   : Load a shared resource by name into this class so we can reconstruct the
+'           : hash when updating the index after import.
+'---------------------------------------------------------------------------------------
+'
+Private Function LoadItem(strName As String) As Boolean
+
+    Dim rst As DAO.Recordset
+    Dim strSql As String
+    
+    ' This system table should exist, but just in case...
+    If TableExists("MSysResources") Then
+        
+        If m_Dbs Is Nothing Then Set m_Dbs = CurrentDb
+        strSql = "SELECT * FROM MSysResources WHERE Type='img'"
+        Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
+        With rst
+            Do While Not .EOF
+                If Nz(!Name) = strName Then
+                    ' Set the DB object, reloading the properties
+                    Set IDbComponent_DbObject = rst
+                    Exit Do
+                End If
+                .MoveNext
+            Loop
+            .Close
+        End With
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 11/1/2021
+' Purpose   : Return a dictionary object representing the content for the json file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
+    Set GetDictionary = New Dictionary
+    With GetDictionary
+        .Add "Name", m_Name
+        .Add "FileName", m_FileName
+        .Add "Extension", m_Extension
+        ' Store a hash of the binary image content, so we can verify
+        ' that the file content itself has not changed.
+        .Add "ContentHash", GetBytesHash(StripOLEHeader(m_FileData))
+    End With
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -228,8 +284,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             With rst
                 Do While Not .EOF
                     Set cImg = New clsDbSharedImage
-                    Set cImg.DbObject = rst    ' Reference to OLE object recordset2
-                    m_AllItems.Add cImg, cImg
+                    ' Also sets reference to OLE object recordset2
+                    Set cImg.DbObject = rst
+                    m_AllItems.Add cImg.Name, cImg
                     .MoveNext
                 Loop
                 .Close
@@ -260,6 +317,7 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Remove any source files for objects not in the current database.
+'           : Matches list of supported image files (in 2010), plus icon image.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
@@ -273,10 +331,11 @@ End Sub
 ' Date      : 11/21/2020
 ' Purpose   : Returns true if the object in the database has been modified since
 '           : the last export of the object.
+'           : Compare the index hash to the existing database content
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = (VCSIndex.Item(Me).Hash = GetDictionaryHash(GetDictionary))
 End Function
 
 
@@ -475,3 +534,4 @@ End Property
 Private Sub Class_Terminate()
     Set m_Dbs = Nothing
 End Sub
+

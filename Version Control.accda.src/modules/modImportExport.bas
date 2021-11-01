@@ -86,7 +86,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
 
     ' Finish header section
     Log.Spacer
-    If Not blnFullExport Then Log.Add "Scanning for changes..."
+    Log.Add "Scanning " & IIf(blnFullExport, "source files...", "for changes...")
     Log.Flush
     
     ' Scan database objects for changes

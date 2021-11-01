@@ -88,8 +88,8 @@ Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Dat
         .FileDate = dteFileDate
         .Suggestion = intSuggestedResolution
         Set .CategoryList = m_dCategories
+        m_dItems.Add .FileName, cItem
     End With
-    m_dItems.Add strKey, cItem
     
 End Sub
 
@@ -206,5 +206,4 @@ Public Sub Initialize(ByRef dCategories As Dictionary)
     Set m_dItems = New Dictionary
     Me.ApproveResolutions = False
 End Sub
-
 
