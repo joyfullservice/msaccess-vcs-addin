@@ -16,8 +16,8 @@ Begin Form
     Width =5040
     DatasheetFontHeight =11
     ItemSuffix =31
-    Right =25320
-    Bottom =12585
+    Right =19905
+    Bottom =12840
     RecSrcDt = Begin
         0x9bf1b7f2f3a6e540
     End
@@ -217,6 +217,7 @@ Begin Form
                     Top =1440
                     Width =2625
                     Height =360
+                    ColumnWidth =1785
                     TabIndex =2
                     LeftMargin =44
                     TopMargin =22
@@ -273,6 +274,7 @@ Begin Form
                     Top =1980
                     Width =2625
                     Height =360
+                    ColumnWidth =1755
                     TabIndex =3
                     LeftMargin =44
                     TopMargin =22
