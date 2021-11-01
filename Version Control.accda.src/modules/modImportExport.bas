@@ -90,22 +90,21 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Log.Flush
     
     ' Scan database objects for changes
-    VCSIndex.Conflicts.Reset
-    Perf.OperationStart "Scan DB Objects"
     Set dCategories = New Dictionary
+    VCSIndex.Conflicts.Initialize dCategories
+    Perf.OperationStart "Scan DB Objects"
     For Each cCategory In GetAllContainers
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
         ' Get collection of database objects (IDbComponent classes)
         Set dObjects = cCategory.GetAllFromDB(Not blnFullExport)
         If dObjects.Count = 0 Then
-            Log.Spacer Options.ShowDebug
             Log.Add IIf(blnFullExport, "No ", "No modified ") & _
                 LCase(cCategory.Category) & " found in this database.", Options.ShowDebug
         End If
         dCategory.Add "Objects", dObjects
+        dCategories.Add cCategory.Category, dCategory
         VCSIndex.CheckExportConflicts dObjects
-        dCategories.Add cCategory, dCategory
         ' Clear any orphaned files in this category
         cCategory.ClearOrphanedSourceFiles
     Next cCategory
@@ -121,7 +120,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
                 .Resolve dCategories
             Else
                 ' Cancel export
-                Log.Add "Export Canceled"
+                Log.Add "Export Canceled", , , "Red", True
                 Log.ErrorLevel = eelCritical
                 GoTo CleanUp
             End If
@@ -377,9 +376,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     ' Build collections of files to import/merge
     Log.Add "Scanning source files..."
     Log.Flush
-    VCSIndex.Conflicts.Reset
-    Perf.OperationStart "Scan Source Files"
     Set dCategories = New Dictionary
+    VCSIndex.Conflicts.Initialize dCategories
+    Perf.OperationStart "Scan Source Files"
     'Set colCategories = GetAllContainers
     For Each cCategory In GetAllContainers
         Set dCategory = New Dictionary
@@ -786,3 +785,5 @@ Public Sub InitializeForms()
     CatchAny eelError, "Unhandled error while initializing forms", ModuleName & ".InitializeForms"
     
 End Sub
+
+

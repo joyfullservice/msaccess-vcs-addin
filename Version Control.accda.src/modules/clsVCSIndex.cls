@@ -442,6 +442,7 @@ Public Sub CheckExportConflicts(dDbComponents As Dictionary)
         If IsExportConflict(cItem) Then
             ' Add to list of conflicts
             Me.Conflicts.Add cItem, _
+                CStr(varKey), _
                 Me.Item(cItem).ExportDate, _
                 GetLastModifiedDate(cItem.SourceFile), _
                 ercOverwrite

@@ -595,7 +595,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
                     ' by another developer. Don't delete it, as it may need to be merged
                     ' into the database. (Defaults to skip deleting the file)
                     Log.Add "  Found new source file: " & strFile, Options.ShowDebug
-                    VCSIndex.Conflicts.Add cType, 0, GetLastModifiedDate(strFile), ercDelete, strFile, ercSkip
+                    VCSIndex.Conflicts.Add cType, strFile, 0, GetLastModifiedDate(strFile), ercDelete, strFile, ercSkip
                 End If
             End If
         End If
