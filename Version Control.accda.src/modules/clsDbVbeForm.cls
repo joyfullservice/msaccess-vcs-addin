@@ -34,6 +34,11 @@ Implements IDbComponent
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Export the individual database component (table, form, query, etc...)
+'           : NOTE: If there is interest, this could be expanded to implement some
+'           : code to serialize the form to JSON for better integration with version
+'           : control. (Instead of the default binary format that changes with each
+'           : export. See the following link for an example implementation:
+'           : https://github.com/gkuenzli/vbaDeveloper/blob/7665e34b51574d676999e2a55b60c483254c1728/src/vbaDeveloper.xlam/FormSerializer.bas
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
