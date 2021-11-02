@@ -13,11 +13,54 @@ Option Explicit
 ' API call to determine active code page (default system encoding)
 Private Declare PtrSafe Function GetACP Lib "kernel32" () As Long
 
+' CodePage constant for UTF-8
+Private Const CP_UTF8 = 65001                    
 
 ' Cache the Ucs2 requirement for this database
 Private m_blnUcs2 As Boolean
 Private m_strDbPath As String
 
+
+Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" ( _
+                            ByVal CodePage As Long, _
+                            ByVal dwFlags As Long, _
+                            ByVal lpWideCharStr As LongPtr, _
+                            ByVal cchWideChar As Long, _
+                            ByVal lpMultiByteStr As LongPtr, _
+                            ByVal cbMultiByte As Long, _
+                            ByVal lpDefaultChar As Long, _
+                            ByVal lpUsedDefaultChar As Long) As Long
+
+Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" ( _
+                            ByVal CodePage As Long, _
+                            ByVal dwFlags As Long, _
+                            ByVal lpMultiByteStr As LongPtr, _
+                            ByVal cchMultiByte As Long, _
+                            ByVal lpWideCharStr As LongPtr, _
+                            ByVal cchWideChar As Long _
+) As Long
+
+
+Public Function Utf8BytesFromString(strInput As String) As Byte()
+    Dim nBytes As Long
+    Dim abBuffer() As Byte
+    ' Catch empty or null input string
+    Utf8BytesFromString = vbNullString
+    If Len(strInput) < 1 Then Exit Function
+    ' Get length in bytes *including* terminating null
+    nBytes = WideCharToMultiByte(CP_UTF8, 0&, ByVal StrPtr(strInput), -1, 0&, 0&, 0&, 0&)
+    ' We don't want the terminating null in our byte array, so ask for `nBytes-1` bytes
+    ReDim abBuffer(nBytes - 2)                   ' NB ReDim with one less byte than you need
+    nBytes = WideCharToMultiByte(CP_UTF8, 0&, ByVal StrPtr(strInput), -1, ByVal VarPtr(abBuffer(0)), nBytes - 1, 0&, 0&)
+    Utf8BytesFromString = abBuffer
+End Function
+
+' Return length of byte array or zero if uninitialized
+Private Function BytesLength(abBytes() As Byte) As Long
+    ' Trap error if array is uninitialized
+    On Error Resume Next
+    BytesLength = UBound(abBytes) - LBound(abBytes) + 1
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RequiresUcs2

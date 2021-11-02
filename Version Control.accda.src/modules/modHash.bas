@@ -147,6 +147,33 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetStringHashNumbers
+' Author    : hecon5
+' Date      : 11/02/2021
+' Purpose   : Convert string to byte array, and return a hash number string.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetStringHashNumbers(strText As String) As String
+    Dim bteTextIn() As Byte
+    Dim bteTextOut() As Byte
+    Dim TextIn As String
+    Dim TextOut As New clsConcat
+    
+    Dim Iter As Long
+    
+    TextIn = Utf8BytesFromString(strText)
+
+    bteTextOut = HashString(TextIn)
+
+    TextOut.Clear
+    For Iter = LBound(bteTextOut()) To UBound(bteTextOut())
+        TextOut.Add CStr(bteTextOut(Iter))
+    Next Iter
+    
+    GetStringHashNumbers = TextOut.GetStr
+End Function
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetStringHash
 ' Author    : Adam Waller
 ' Date      : 11/30/2020
@@ -155,7 +182,7 @@ End Function
 '
 Public Function GetStringHash(strText As String) As String
     Dim bteText() As Byte
-    bteText = strText
+    bteText = Utf8BytesFromString(strText)
     GetStringHash = GetHash(bteText)
 End Function
 
