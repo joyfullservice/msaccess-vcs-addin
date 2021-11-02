@@ -154,9 +154,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetStringHash(strText As String) As String
-    Dim bteText() As Byte
-    bteText = strText
-    GetStringHash = GetHash(bteText)
+    GetStringHash = GetHash(GetUTF8Bytes(strText))
 End Function
 
 
@@ -277,6 +275,40 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
     ' Return hash (if any)
     GetCodeModuleHash = strHash
     Perf.OperationEnd
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetUTF8Bytes
+' Author    : Adam Waller
+' Date      : 11/2/2021
+' Purpose   : Return a UTF-8 (wide) byte array from a string.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetUTF8Bytes(strText As String) As Byte()
+
+    Dim stmBinary As ADODB.Stream
+    
+    ' Set up binary stream
+    Set stmBinary = New ADODB.Stream
+    stmBinary.Open
+    stmBinary.Charset = "utf-8"
+    stmBinary.Type = adTypeBinary
+    
+    ' Load text into text stream
+    With New ADODB.Stream
+        .Open
+        .Charset = GetSystemEncoding
+        .Type = adTypeText
+        .WriteText strText
+        .Position = 0
+        ' Copy to binary stream
+        .CopyTo stmBinary, adReadAll
+        ' Return binary stream
+        stmBinary.Position = 0
+        GetUTF8Bytes = stmBinary.Read(adReadAll)
+    End With
     
 End Function
 
