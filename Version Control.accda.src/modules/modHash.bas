@@ -311,20 +311,21 @@ Private Function GetUTF8Bytes(strText As String) As Byte()
     ' Set up binary stream
     Set stmBinary = New ADODB.Stream
     stmBinary.Open
-    stmBinary.Charset = "utf-8"
+    stmBinary.Charset = "utf-16"
     stmBinary.Type = adTypeBinary
     
     ' Load text into text stream
     With New ADODB.Stream
         .Open
-        .Charset = GetSystemEncoding
+        .Charset = "utf-8"
         .Type = adTypeText
         .WriteText strText
         .Position = 0
         ' Copy to binary stream
         .CopyTo stmBinary, adReadAll
+        ' Move position past the BOM
+        stmBinary.Position = 3
         ' Return binary stream
-        stmBinary.Position = 0
         GetUTF8Bytes = stmBinary.Read(adReadAll)
     End With
     
