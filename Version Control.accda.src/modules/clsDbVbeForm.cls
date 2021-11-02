@@ -120,7 +120,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             If frm.Type = vbext_ct_MSForm Then
                 Set cForm = New clsDbVbeForm
                 Set cForm.DbObject = frm
-                m_AllItems.Add frm.Name, cForm
+                m_AllItems.Add cForm.SourceFile, cForm
             End If
         Next frm
 

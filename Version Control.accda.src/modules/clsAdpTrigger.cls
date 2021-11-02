@@ -106,7 +106,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     .SqlModifyDate = Nz(rst!modify_date)
                 End With
                 Set cComponent = cTrigger
-                m_AllItems.Add cTrigger.TriggerName, cComponent
+                m_AllItems.Add cComponent.SourceFile, cComponent
                 .MoveNext
             Loop
             .Close

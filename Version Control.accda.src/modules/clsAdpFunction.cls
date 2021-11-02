@@ -80,7 +80,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         For Each fn In CurrentData.AllFunctions
             Set cFn = New clsAdpFunction
             Set cFn.DbObject = fn
-            m_AllItems.Add fn.Name, cFn
+            m_AllItems.Add cFn.SourceFile, cFn
         Next fn
     End If
 

@@ -276,6 +276,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim varCont As Variant
     Dim varDoc As Variant
     Dim varProp As Variant
+    Dim strKey As String
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Then
@@ -296,7 +297,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         ' Add as class instance
                         Set cDoc = New clsDbDocument
                         Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc).Properties(varProp)
-                        m_AllItems.Add cDoc, cDoc
+                        strKey = cDoc.SourceFile & ":" & varCont & ":" & varDoc & ":" & varProp
+                        m_AllItems.Add strKey, cDoc
                     Next varProp
                 Next varDoc
             Next varCont

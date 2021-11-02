@@ -82,7 +82,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         For Each view In CurrentData.AllViews
             Set cView = New clsAdpServerView
             Set cView.DbObject = view
-            m_AllItems.Add view.Name, cView
+            m_AllItems.Add cView.SourceFile, cView
         Next view
     End If
 

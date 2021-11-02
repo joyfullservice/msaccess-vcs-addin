@@ -272,9 +272,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             Set cModule = New clsDbModule
             Set cModule.DbObject = oMod
             If blnModifiedOnly Then
-                If cModule.IsModified Then m_AllItems.Add oMod.Name, cModule
+                If cModule.IsModified Then m_AllItems.Add cModule.SourceFile, cModule
             Else
-                m_AllItems.Add oMod.Name, cModule
+                m_AllItems.Add cModule.SourceFile, cModule
             End If
         Next oMod
     End If

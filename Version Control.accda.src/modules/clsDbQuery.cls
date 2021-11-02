@@ -142,9 +142,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             Set cQuery = New clsDbQuery
             Set cQuery.DbObject = qry
             If blnModifiedOnly Then
-                If cQuery.IsModified Then m_AllItems.Add qry.Name, cQuery
+                If cQuery.IsModified Then m_AllItems.Add cQuery.SourceFile, cQuery
             Else
-                m_AllItems.Add qry.Name, cQuery
+                m_AllItems.Add cQuery.SourceFile, cQuery
             End If
         Next qry
     End If

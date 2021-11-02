@@ -126,6 +126,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim varCont As Variant
     Dim varDoc As Variant
     Dim blnNoChanges As Boolean
+    Dim strKey As String
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
@@ -143,7 +144,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 For Each varDoc In colCont
                     Set cDoc = New clsDbHiddenAttribute
                     Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc)
-                    m_AllItems.Add cDoc, cDoc
+                    strKey = cDoc.SourceFile & ":" & varCont & ":" & varDoc
+                    m_AllItems.Add strKey, cDoc
                 Next varDoc
             Next varCont
         End If

@@ -129,7 +129,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         For Each tbl In CurrentData.AllTables
             Set cTable = New clsAdpTable
             Set cTable.DbObject = tbl
-            m_AllItems.Add tbl.Name, cTable
+            m_AllItems.Add cTable.SourceFile, cTable
         Next tbl
     End If
 

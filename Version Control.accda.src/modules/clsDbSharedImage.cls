@@ -286,7 +286,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     Set cImg = New clsDbSharedImage
                     ' Also sets reference to OLE object recordset2
                     Set cImg.DbObject = rst
-                    m_AllItems.Add cImg.Name, cImg
+                    m_AllItems.Add cImg.SourceFile, cImg
                     .MoveNext
                 Loop
                 .Close

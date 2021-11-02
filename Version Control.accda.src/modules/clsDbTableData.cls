@@ -397,7 +397,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         cTable.Format = .GetTableExportFormat(CStr(.TablesToExportData(tbl.Name)("Format")))
                         Set cComponent = cTable
                         Set cComponent.DbObject = tbl
-                        m_AllItems.Add tbl.Name, cComponent
+                        m_AllItems.Add cComponent.SourceFile, cComponent
                     End If
                 Next tbl
             End With

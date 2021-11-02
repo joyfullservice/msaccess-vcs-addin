@@ -147,7 +147,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         Set cProj = New clsDbProject
         Set cProj.DbObject = m_Project
         If (Not blnModifiedOnly) Or IDbComponent_IsModified Then
-            m_AllItems.Add m_Project.Name, cProj
+            m_AllItems.Add cProj.SourceFile, cProj
         End If
     End If
 

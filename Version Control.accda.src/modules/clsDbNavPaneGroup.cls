@@ -354,6 +354,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim varGroup As Variant
     Dim colObjects As Collection
     Dim varObject As Variant
+    Dim strKey As String
     
     ' Build collection if not already cached
     If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
@@ -373,7 +374,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     If dCategory.Exists("Groups") Then
                         For Each varGroup In dCategory("Groups")
                             Set cGroup = New clsDbNavPaneGroup
-                            m_AllItems.Add cGroup, cGroup
+                            strKey = cGroup.SourceFile & ":" & varCategory("Name") & ":" & varGroup("Name")
+                            m_AllItems.Add strKey, cGroup
                         Next varGroup
                     End If
                 Next varCategory

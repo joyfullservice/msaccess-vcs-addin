@@ -116,7 +116,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         For Each spec In CurrentProject.ImportExportSpecifications
             Set cSpec = New clsDbSavedSpec
             Set cSpec.DbObject = spec
-            m_AllItems.Add spec.Name, cSpec
+            m_AllItems.Add cSpec.SourceFile, cSpec
         Next spec
     End If
 
