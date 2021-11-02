@@ -311,7 +311,7 @@ Private Function GetUTF8Bytes(strText As String) As Byte()
     ' Set up binary stream
     Set stmBinary = New ADODB.Stream
     stmBinary.Open
-    stmBinary.Charset = "utf-16"
+    stmBinary.Charset = "utf-8"
     stmBinary.Type = adTypeBinary
     
     ' Load text into text stream
