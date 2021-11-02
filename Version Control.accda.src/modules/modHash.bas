@@ -302,6 +302,12 @@ Private Function GetUTF8Bytes(strText As String) As Byte()
 
     Dim stmBinary As ADODB.Stream
     
+    ' Check for empty string
+    If Len(strText) = 0 Then
+        GetUTF8Bytes = vbNullString
+        Exit Function
+    End If
+    
     ' Set up binary stream
     Set stmBinary = New ADODB.Stream
     stmBinary.Open
