@@ -49,7 +49,7 @@ End Sub
 ' Purpose   : Remove database objects that are not represented by existing source files.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ClearOrphanedDatabaseObjects(dFileList As Dictionary)
+Public Sub ClearOrphanedDatabaseObjects()
 End Sub
 
 

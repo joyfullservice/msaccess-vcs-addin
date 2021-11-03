@@ -125,7 +125,7 @@ End Sub
 ' Purpose   : Remove database objects that are not represented by existing source files.
 '---------------------------------------------------------------------------------------
 '
-Public Sub IDbComponent_ClearOrphanedDatabaseObjects(dFileList As Dictionary)
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
 End Sub
 
 
