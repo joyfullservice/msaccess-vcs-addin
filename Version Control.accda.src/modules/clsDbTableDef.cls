@@ -21,6 +21,7 @@ Const ModuleName As String = "clsDbTableDef"
 
 Private m_Table As AccessObject
 Private m_AllItems As Dictionary
+Private m_FileList As Dictionary
 Private m_blnModifiedOnly As Boolean
 Private m_Dbs As Database
 
@@ -557,8 +558,11 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml")
-    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml")
+        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    End If
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 

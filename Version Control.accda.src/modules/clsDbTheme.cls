@@ -20,8 +20,9 @@ Option Explicit
 Private Const ModuleName As String = "clsDbTheme"
 
 Private m_AllItems As Dictionary
-Private m_Dbs As DAO.Database
+Private m_FileList As Dictionary
 Private m_blnModifiedOnly As Boolean
+Private m_Dbs As DAO.Database
 
 ' This is used to pass a reference to the record back
 ' into the class for loading the private variables
@@ -434,8 +435,11 @@ End Sub
 '
 Private Function IDbComponent_GetFileList() As Dictionary
     ' Get list of folders (extracted files) as well as zip files.
-    Set IDbComponent_GetFileList = GetSubfolderPaths(IDbComponent_BaseFolder)
-    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetSubfolderPaths(IDbComponent_BaseFolder)
+        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
+    End If
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 

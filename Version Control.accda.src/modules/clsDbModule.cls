@@ -22,6 +22,7 @@ Private Const ModuleName As String = "clsDbModule"
 Private m_Module As AccessObject
 Private m_Component As VBComponent
 Private m_AllItems As Dictionary
+Private m_FileList As Dictionary
 Private m_blnModifiedOnly As Boolean
 
 Private Type udtVbaFileContent
@@ -293,8 +294,11 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
-    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.cls")
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.cls")
+    End If
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 

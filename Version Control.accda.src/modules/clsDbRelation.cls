@@ -19,6 +19,7 @@ Option Explicit
 
 Private m_Relation As DAO.Relation
 Private m_AllItems As Dictionary
+Private m_FileList As Dictionary
 Private m_Dbs As DAO.Database
 
 
@@ -234,7 +235,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 

@@ -19,6 +19,7 @@ Option Explicit
 
 Private m_Query As AccessObject
 Private m_AllItems As Dictionary
+Private m_FileList As Dictionary
 Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -163,7 +164,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
