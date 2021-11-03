@@ -164,3 +164,112 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetObjectNameListFromFileList
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Return a dictionary of unique object names from the file names.
+'           : (Translates the names from the safe file name to the original object name.)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetObjectNameListFromFileList(dFileList As Dictionary) As Dictionary
+    
+    Dim varKey As Variant
+    Dim dNames As Dictionary
+    Dim strName As String
+    
+    Set dNames = New Dictionary
+    For Each varKey In dFileList.Keys
+        strName = GetObjectNameFromFileName(CStr(varKey))
+        If Not dNames.Exists(strName) Then dNames.Add strName, vbNullString
+    Next varKey
+    
+    Set GetObjectNameListFromFileList = dNames
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDbObjectNameList
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Returns a dictionary of the object names. (Using `DBObject.Name` property)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetDbObjectNameList(cComponent As IDbComponent) As Dictionary
+    
+    Dim dAllItems As Dictionary
+    Dim cItem As IDbComponent
+    Dim varKey As Variant
+    Dim strName As String
+    Dim dNames As Dictionary
+    
+    ' Return dictionary of all items
+    Set dAllItems = cComponent.GetAllFromDB(False)
+    Set dNames = New Dictionary
+    
+    ' Get name for each item
+    For Each varKey In dAllItems.Keys
+        Set cItem = dAllItems(varKey)
+        strName = cItem.DbObject.Name
+        If Not dNames.Exists(strName) Then dNames.Add strName, cItem
+    Next varKey
+    
+    ' Return list of object names
+    Set GetDbObjectNameList = dNames
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove orphaned database objects when the source file no longer exists
+'           : for that object. (Works for most standard database objects)
+'---------------------------------------------------------------------------------------
+'
+Public Sub RemoveOrphanedDatabaseObjects(cCategory As IDbComponent)
+
+    Dim varKey As Variant
+    Dim dObjects As Dictionary
+    Dim dSource As Dictionary
+    Dim strName As String
+    Dim cItem As IDbComponent
+    
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
+    ' Get list of source file object names
+    Set dSource = GetObjectNameListFromFileList(cCategory.GetFileList)
+    
+    ' Get list of current database objects
+    Set dObjects = GetDbObjectNameList(cCategory)
+    
+    ' Loop through objects, getting list
+    For Each varKey In dObjects.Keys
+        strName = CStr(varKey)
+        If Not dSource.Exists(strName) Then
+            ' No source file found for this object
+            Set cItem = dObjects(varKey)
+            If cItem.IsModified Then
+                ' Item should be removed, but appears to be modified in the database
+                With cItem
+                    ' Log this item as a conflict so the user can make a decision on whether to
+                    ' proceed with removing the orphaned database object.
+                    VCSIndex.Conflicts.Add cItem, .SourceFile, VCSIndex.Item(cItem).ExportDate, _
+                        0, ercDelete, .SourceFile, ercSkip
+                    Log.Add "The " & cCategory.Name & " '" & strName & "' appears to have been modified since the last export, " & _
+                        "but does not have a corresponding source file. Normally this would be deleted as an orphaned object during " & _
+                        "the merge operation, but has been flagged as a conflict for user resolution. (Could not find " & .SourceFile & ")", False
+                End With
+            Else
+                ' Index is current. Safe to remove
+                Log.Add "Removing orphaned " & cCategory.Name & " '" & strName & "'"
+                DoCmd.DeleteObject cCategory.ComponentType, strName
+                CatchAny eelError, "Error removing orphaned " & cCategory.Name & " '" & strName & "'", ModuleName & ".RemoveOrphanedDatabaseObjects"
+            End If
+        End If
+    Next varKey
+    
+End Sub
+
