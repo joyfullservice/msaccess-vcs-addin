@@ -144,6 +144,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+    RemoveOrphanedDatabaseObjects Me
 End Sub
 
 
