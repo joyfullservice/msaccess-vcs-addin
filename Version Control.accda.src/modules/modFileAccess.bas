@@ -10,7 +10,7 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
-Private Const ModuleName As String = "modFileEncoding"
+Private Const ModuleName As String = "modFileAccess"
 
 Private Declare PtrSafe Function getTempPath Lib "kernel32" Alias "GetTempPathA" ( _
     ByVal nBufferLength As Long, _
