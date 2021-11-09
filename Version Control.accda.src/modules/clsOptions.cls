@@ -646,7 +646,7 @@ Private Sub SetBuildPath()
     Set prp = GetPropertyByName(cstrBuildPathProperty)
 
     ' This should only be done on an open database/project
-    If DatabaseFileOpen Then
+    If DatabaseOpen Then
         ' Check the export folder option
         If Me.ExportFolder = vbNullString Then
             ' When using the default of a blank export path, we don't need
@@ -727,7 +727,7 @@ Private Function GetPropertyByName(strName As String) As AccessObjectProperty
     If DatabaseOpen Then
         For Each prp In CurrentProject.Properties
             If prp.Name = cstrSourcePathProperty Then
-                Set GetSavedSourcePathProperty = prp
+                Set GetPropertyByName = prp
                 Exit For
             End If
         Next prp
