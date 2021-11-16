@@ -83,7 +83,7 @@ The concept here is that you are selecting the table from which you want to save
 
 A unique feature of this add-in is the ability to build a fully functioning database completely from source files. This allows multi-user development in a more typical development workflow where source files are exported and combined to build the end product.
 
-|Setting <img width = 175> |**Default** <p> *(Setting)*|Description
+|Setting|**Default** <p> *(Setting)*|Description
 |-|:-:|:-
 |**Force import of original SQL for queries**|**Default: Off**|In some cases, such as when a query contains a subquery, _AND_ has been modified in the visual query designer, it may be imported incorrectly and unable to run. For these cases we have added an option to overwrite the .SQL property with the SQL that we saved separately during the export. See [issue #76](https://github.com/joyfullservice/msaccess-vcs-integration/issues/76) for further details.
 |**Run Sub Before Build**|**Default: [Blank]**|Same as below, except before the build.
@@ -94,11 +94,11 @@ These affect your system at large; not just the currently open Access Project.
 
 ![Settings Options Tab](img/options-settings.jpg)
 
-|Setting <img width = 175> |Description|
-|-|:-|
-|**System Defaults**||
+|Setting|Description
+|-|:-
+|**System Defaults**
 |*Save as Default*|Save the current options as default for new projects. Anytime you export source and a `vcs-options.json` file does not already exist, it will use the default options that you have specified.
 |*Restore Defaults*|In the current project (open database), restore all the options to their default values based on your saved system defaults.
 |*Clear Defaults*|Reset all the options to the default settings specified in the add-in source code. If you click this button, then the *Save as Default* button, it will reset any user customizations to the default options.
-|**Remove Add-In**||
+|**Remove Add-In**
 |**Uninstall**|Uninstalls the add-in from your user profile, including all saved defaults and encryption keys. <p> [Click here for Install / Uninstall Instructions](Installation)
