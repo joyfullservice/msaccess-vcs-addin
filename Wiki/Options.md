@@ -21,49 +21,33 @@ The options dialog can be opened from the main screen by click the `Options` but
 <p>
 
 ## Export Tab
+
+Note that these options only determine what is *Exported* and saved to the JSON file. Any settings defined in the JSON source file will be applied when the Form or Report object is imported, regardless of the currently specified options.
+
 ![Export Options Tab](img/options-export.jpg) 
 
- * **Export Folder** *Default: [Blank]* - I like to keep this relative to the project, but it can be customized here. <details><summary>Click to expand folder options</summary>
-  
-    * *[Blank]* - Use default name of `/[database.accdb].src`, i.e. `/Test.accdb.src`
-    * *Relative Path* - Prefix folder name with a backslash. For example, to export source into a subfolder called `Source`, you would enter `\Source` in this box.
-    * *Absolute Path* - You may also use a full path name to a folder. I.e. `W:\Git\Projects\Vehicles Database`
-    * *Placeholder* - In combination with the above options, you may also use a `%dbName%` [placeholder](https://github.com/joyfullservice/msaccess-vcs-integration/issues/139) to use the database filename in a custom path. I.e. `\src\%dbName%.src\`
-</details>
-
- * **Use Fast Save** *Default: ON* - Major performance gain with small changes to large projects. This attempts to only export the objects that have changed since the last export. This especially helps to not have to export forms and reports if they have not changed. 
-
- * **Sanitize Level** *Default: Aggressive* - Set level for sanitize routines to remove noise. Sanitizing allows you to remove noise from your exported files. Turn it off to export raw file outputs. Santization routines are checked to ensure most do not affect building of exported files.<details><summary>Click to expand levels...</summary>
- 
-    **_NOTE:_ If you set Sanitize level to "*None (Off)*", none of the Sanitize Options (Sanitize Color, Strip out publish, etc.) will be used.**
-   * *None (Off)* Turn off sanitization, export raw files. These may not import properly, but they may be useful when trying to troubleshoot. _**Note:** Files will still be converted to UTF-8 or System Codepage encoding depending on Access Version in this mode._
-   * *Basic* Only basic sanitization to ensure reliable rebuilding of files.
-   * *Aggressive* Remove most exported noise (GUIDs, the like). Removes object GUIDs, name maps, and other data that changes from build to build. (These values are recreated automatically when importing source files.) From a development perspective, these are more like binary artifacts that just add noise to the version control commits, reducing clarity on actual code changes.
-   * *Advanced (Beta)* Remove as much as possible. This may lead to unexpected changes upon rebuilding. Features that are still in testing or confirmed to be tempermental may be introduced here prior to being implemented. **_User beware!_**
-<p></details>
-
- * **Sanitize Colors** *Default: Basic* - Removes color exports on forms where themes are used, or other situations where the color can be correctly set upon rebuild. These colors export differently in different machines, or different settings and are largely noise. ***NOTE:* The most aggressive options may lead to unexpected color changes on forms!**
-
- * **Strip out Publish Option** *Default: ON* - Strips out some *Publish to Web* settings from source files that are irrelevant to most projects.
-
- * **Save Printer Settings** *Default: ON* - Saves a copy of the print configuration for reports and forms. This is especially useful when you are using specific printer settings. The output is stored in human-readable json. By default, page orientation and paper size are saved with each report, but additional options are also available. <details><summary>Show Advanced Printer Options...</summary>
-![Printer Settings Options Screen Image](img/options-printer-settings.jpg)
-Note that these options only determine what is *Exported* and saved to the JSON file. Any settings defined in the JSON source file will be applied when the report object is Imported, regardless of the currently specified options.
-<p>
-<p>
- </details>
-
- * **Save Query SQL** *Default: ON* - In addition to the Access object, this option exports a copy of just the SQL code from queries. I find this much more readable than the source of the Access Object when reviewing what I actually changed on the SQL side. (The Access object includes other information relating to the layout of the query designer.)
-
- * **Save Table SQL** *Default: ON* - In addition to the Access object, this creates a SQL statement like what you would use to create the table. Here again I find this easier to see at a glance what changed in the actual structure of the table between versions.
-
- * **Extract Theme Files** *Default OFF* - Extract the contents of the `*.thmx` files. Microsoft Office Theme files `*.thmx` are actually zip files containing XML and other files that define the specifics of a theme. If you are customizing a theme, you may wish to extract these files so your changes can be tracked in Version Control.
-
- * **Use git integration** - (Work in Progress, only part of dev at the moment).
-
- * **Run Sub Before Export** - Run a VBA subroutine before exporting the source code. This can be used to clean up temporary data, mask sensitive information, or anything else you want to do. This will be called using  `Application.Run`.
-
- * **Run Sub After Export** - Similar to the option above, this allows you to specify a VBA subroutine to run *after* exporting the source code.
+   |Setting <img width = 175> |**Default** <p> *Setting*|Description
+   |-|:-:|-
+   |**Export Folder** |**Default: [Blank]**| I like to keep this relative to the project, but it can be customized here. <details><summary>Click to expand folder options</summary> 
+   ||*[Blank]*|Use default name of `\[database.accdb].src`, i.e. `\Test.accdb.src`
+   ||*Relative Path*|Prefix folder name with a backslash. For example, to export source into a subfolder called `Source`, you would enter `\Source` in this box. 
+   ||*Absolute Path* |You may also use a full path name to a folder. I.e. `W:\Git\Projects\Vehicles Database` 
+   ||*Placeholder* |In combination with the above options, you may also use a `%dbName%` |[placeholder](https://github.com/joyfullservice/msaccess-vcs-integration/issues/139) to use the database filename in a custom path. I.e. `\src\%dbName%.src\`</details>
+|**Use Fast Save**|**Default: On**|Major performance gain with small changes to large projects. This attempts to only export the objects that have changed since the last export. This especially helps to not have to export forms and reports if they have not changed.
+|**Sanitize Level**|**Default: Aggressive**|Set level for sanitize routines to remove noise. Sanitizing allows you to remove noise from your exported files. Turn it off to export raw file outputs. Santization routines are checked to ensure most do not affect building of exported files.<details><summary>Click to expand levels...</summary>
+||*None (Off)* | Turn off sanitization, export raw files. These may not import properly, but they may be useful when trying to troubleshoot. <p>_**Note:** Files will still be converted to UTF-8 or System Codepage encoding depending on Access Version in this mode._ <p>**_NOTE:_ If you set Sanitize level to "*None (Off)*", none of the Sanitize Options (Sanitize Color, Strip out publish, etc.) will be used.**
+||*Basic*| Only basic sanitization to ensure reliable rebuilding of files.
+|| *Aggressive*| Remove most exported noise (GUIDs, the like). Removes object GUIDs, name maps, and other data that changes from build to build. (These values are recreated automatically when importing source files.) From a development perspective, these are more like binary artifacts that just add noise to the version control commits, reducing clarity on actual code changes.
+||*Advanced (Beta)*|Remove as much as possible. This may lead to unexpected changes upon rebuilding. Features that are still in testing or confirmed to be tempermental may be introduced here prior to being implemented. **_User beware!_**<p></details>
+|**Sanitize Colors**|**Default: Basic**|Removes color exports on forms where themes are used, or other situations where the color can be correctly set upon rebuild. These colors export differently in different machines, or different settings and are largely noise. <P> ***NOTE:* The most aggressive options may lead to unexpected color changes on forms!**
+|**Strip out Publish Option**|**Default: On**|Strips out some *Publish to Web* settings from source files that are irrelevant to most projects.
+|**Save Printer Settings**|**Default: On**|Saves a copy of the print configuration for reports and forms. This is especially useful when you are using specific printer settings. The output is stored in human-readable json. By default, page orientation and paper size are saved with each report, but additional options are also available. <details><summary>Show Advanced Printer Options...</summary> ![Printer Settings Options Screen Image](img/options-printer-settings.jpg)<p></details>
+ |**Save Query SQL**|**Default: On**|In addition to the Access object, this option exports a copy of just the SQL code from queries. I find this much more readable than the source of the Access Object when reviewing what I actually changed on the SQL side. (The Access object includes other information relating to the layout of the query designer.)
+|**Save Table SQL**|**Default: On**|In addition to the Access object, this creates a SQL statement like what you would use to create the table. Here again I find this easier to see at a glance what changed in the actual structure of the table between versions.
+|**Extract Theme Files**|**Default: Off**|Extract the contents of the `*.thmx` files. Microsoft Office Theme files `*.thmx` are actually zip files containing XML and other files that define the specifics of a theme. If you are customizing a theme, you may wish to extract these files so your changes can be tracked in Version Control.
+|**Use git integration**|**Default: Off** |Work in Progress, only part of dev at the moment.
+|**Run Sub Before Export**|**Default: [Blank]**|Run a VBA subroutine before exporting the source code. This can be used to clean up temporary data, mask sensitive information, or anything else you want to do. This will be called using  `Application.Run`.
+|**Run Sub After Export**|**Default: [Blank]**|Similar to the option above, this allows you to specify a VBA subroutine to run *after* exporting the source code.
 
 ## Table Data
 ![Table Data Options Tab Image](img/options-table-data.jpg)
@@ -90,10 +74,18 @@ The concept here is that you are selecting the table from which you want to save
 
  * **Update** - Save output specification changes for the selected table. You should see the Save Data column update in the list of tables when you click the Update button.
 
+   ***NOTE:*** The following system tables should not be added to the export list, as they are already handled by this tool elsewhere.
+
+      | Table Name   | Type | Explanation  
+      |-|-|-
+      | `MSysResources` |System | Images and Themes are exported in the `.\images\` and `.\themes\` folders, respectively.
+      <P>
+      <p>
+
 ## Build
 ![Build Options Tab Image](img/options-build.jpg)
 
-One of the unique features of this add-in is the ability to build a fully functioning database completely from source files. This allows multi-user development in a more typical development workflow where source files are exported and combined to build the end product.
+A unique feature of this add-in is the ability to build a fully functioning database completely from source files. This allows multi-user development in a more typical development workflow where source files are exported and combined to build the end product.
 
  * **Force import of original SQL for queries** - In some cases, such as when a query contains a subquery, _AND_ has been modified in the visual query designer, it may be imported incorrectly and unable to run. For these cases we have added an option to overwrite the .SQL property with the SQL that we saved separately during the export. See [issue #76](https://github.com/joyfullservice/msaccess-vcs-integration/issues/76) for further details.
 
