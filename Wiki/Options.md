@@ -33,12 +33,15 @@ Note that these options only determine what is *Exported* and saved to the JSON 
 ||*Relative Path*|Prefix folder name with a backslash. For example, to export source into a subfolder called `Source`, you would enter `\Source` in this box. 
 ||*Absolute Path* |You may also use a full path name to a folder. I.e. `W:\Git\Projects\Vehicles Database` 
 ||*Placeholder* |In combination with the above options, you may also use a `%dbName%` |[placeholder](https://github.com/joyfullservice/msaccess-vcs-integration/issues/139) to use the database filename in a custom path. I.e. `\src\%dbName%.src\`
+|
 |**Use Fast Save**|**Default: On**|Major performance gain with small changes to large projects. This attempts to only export the objects that have changed since the last export. This especially helps to not have to export forms and reports if they have not changed.
+|
 |**Sanitize Level**|**Default: Aggressive**|Set level for sanitize routines to remove noise. Sanitizing allows you to remove noise from your exported files. Turn it off to export raw file outputs. Santization routines are checked to ensure most do not affect building of exported files.
 ||*None (Off)* | Turn off sanitization, export raw files. These may not import properly, but they may be useful when trying to troubleshoot. <p>_**Note:** Files will still be converted to UTF-8 or System Codepage encoding depending on Access Version in this mode._ <p>**_NOTE:_ If you set Sanitize level to "*None (Off)*", none of the Sanitize Options (Sanitize Color, Strip out publish, etc.) will be used.**
 ||*Basic*| Only basic sanitization to ensure reliable rebuilding of files.
 || *Aggressive*| Remove most exported noise (GUIDs, the like). Removes object GUIDs, name maps, and other data that changes from build to build. (These values are recreated automatically when importing source files.) From a development perspective, these are more like binary artifacts that just add noise to the version control commits, reducing clarity on actual code changes.
 ||*Advanced (Beta)*|Remove as much as possible. This may lead to unexpected changes upon rebuilding. Features that are still in testing or confirmed to be tempermental may be introduced here prior to being implemented. **_User beware!_**<p>
+|
 |**Sanitize Colors**|**Default: Basic**|Removes color exports on forms where themes are used, or other situations where the color can be correctly set upon rebuild. These colors export differently in different machines, or different settings and are largely noise. <P> ***NOTE:* The most aggressive options may lead to unexpected color changes on forms!**
 |**Strip out Publish Option**|**Default: On**|Strips out some *Publish to Web* settings from source files that are irrelevant to most projects.
 |**Save Printer Settings**|**Default: On**|Saves a copy of the print configuration for reports and forms. This is especially useful when you are using specific printer settings. The output is stored in human-readable json. By default, page orientation and paper size are saved with each report, but additional options are also available. <details><summary>Show Advanced Printer Options...</summary> ![Printer Settings Options Screen Image](img/options-printer-settings.jpg)<p></details>
@@ -68,6 +71,7 @@ The concept here is that you are selecting the table from which you want to save
 ||*Tab Delimited*|Separate values with tab character. This is a good format to use when importing to Microsoft Excel, or reading the values in Version Control files.
 ||*XML Format*|Select this option for the most complete and robust representation of the data. It is harder to read in source files, but should import back in to accurate recreate the original data.
 ||*No Data*|Don't save data for this table.
+|
 |**Update**||Save output specification changes for the selected table. You should see the Save Data column update in the list of tables when you click the Update button.
 
 **NOTE:** The following tables should not be added to the export list, as they are already handled by this tool elsewhere.
