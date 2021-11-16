@@ -7,12 +7,12 @@ The options dialog can be opened from the main screen by click the `Options` but
 |Setting <img width = 175> |**Default** <p> *(Setting)*|Description
 |-|:-:|:-
 |**Show Detailed Output**|**Default: Off**|Enable verbose output of each step; useful when you're real curious. This may slow down Export and Build operations.
-|**Debug VBA Errors**|**Default: Off**|*(Advanced Users/Add-in Developers) If an unexpected error occurs in the add-in code, stop and open the VBA IDE to do further debugging. This may be helpful when debugging a problem with the add-in, or reviewing an existing issue. *You should generally keep this off unless you're trying to find the source of a bug, or doing development work on the add-in.*
+|**Debug VBA Errors**|**Default: Off**|*(Advanced Users/Add-in Developers)* If an unexpected error occurs in the add-in code, stop and open the VBA IDE to do further debugging. This may be helpful when debugging a problem with the add-in, or reviewing an existing issue. *You should generally keep this off unless you're trying to find the source of a bug, or doing development work on the add-in.*
 |**Show Legacy Prompts**|**Default: On**|If you're upgrading from the integrated version of this project, there may be legacy VCS modules left in your database project that are no longer needed. This will notify you if these legacy modules are found. If you would like to keep them in your project, you can uncheck this option to turn off the notification. 
 ||*On*|Prompts are on.
 ||*Off*|Prompts are off. 
 |**Hash Algorithm**|**Default: SHA256**|You may choose the hashing algorithm here. This may affect build time if you choose a more complex option. (Hashes are used to help determine whether source files have changed between import/export operations.)
-||*SHA1*|***WARNING:** <p>SHA1 is known to be broken, use of this option is left as a legacy capability and is not recommended.** <p><p> Use SHA1 hashing algorythm to create hashes.
+||*SHA1*|***WARNING:***<p>*SHA1 is known to be broken, use of this option is left as a legacy capability and is not recommended.* <p><p> Use SHA1 hashing algorythm to create hashes.
 ||*SHA256*|Use SHA256 hashing algorythm to create hashes.
 ||*SHA512*|Use SHA512 hashing algorythm to create hashes.
 |**Use short hashes in index**|**Default: On**|If on, `git` style hashes (first 7 characters) will be used in the file index. <p>*NOTE: This was done to improve readability and reduce file size, but you can always uncheck this box if you want to store the full hash.*
@@ -28,11 +28,11 @@ Note that these options only determine what is *Exported* and saved to the JSON 
 
 |Setting <img width = 175> |**Default** <p> *(Setting)*|Description
 |-|:-:|:-
-|**Export Folder** |**Default: [Blank]**| I like to keep this relative to the project, but it can be customized here.
+|**Export Folder** |**Default: [Blank]**| Keeping this blank ensures the source code stays local to the development file, and works best with git and other version control systems. Your environment may need other options.
 ||*[Blank]*|Use default name of `\[database.accdb].src`, i.e. `\Test.accdb.src`
 ||*Relative Path*|Prefix folder name with a backslash. For example, to export source into a subfolder called `Source`, you would enter `\Source` in this box. 
 ||*Absolute Path* |You may also use a full path name to a folder. I.e. `W:\Git\Projects\Vehicles Database` 
-||*Placeholder* |In combination with the above options, you may also use a `%dbName%` |[placeholder](https://github.com/joyfullservice/msaccess-vcs-integration/issues/139) to use the database filename in a custom path. I.e. `\src\%dbName%.src\`
+||*Placeholder* |In combination with the above options, you may also use a `%dbName%` [placeholder](https://github.com/joyfullservice/msaccess-vcs-integration/issues/139) to use the database filename in a custom path. I.e. `\src\%dbName%.src\`
 |**Use Fast Save**|**Default: On**|Major performance gain with small changes to large projects. This attempts to only export the objects that have changed since the last export. This especially helps to not have to export forms and reports if they have not changed.
 |**Sanitize Level**|**Default: Aggressive**|Set level for sanitize routines to remove noise. Sanitizing allows you to remove noise from your exported files. Turn it off to export raw file outputs. Santization routines are checked to ensure most do not affect building of exported files.
 ||*None (Off)* | Turn off sanitization, export raw files. These may not import properly, but they may be useful when trying to troubleshoot. <p>_**Note:** Files will still be converted to UTF-8 or System Codepage encoding depending on Access Version in this mode._ <p>**_NOTE:_ If you set Sanitize level to "*None (Off)*", none of the Sanitize Options (Sanitize Color, Strip out publish, etc.) will be used.**
