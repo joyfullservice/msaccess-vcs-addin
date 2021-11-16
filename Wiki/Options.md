@@ -96,9 +96,9 @@ These affect your system at large; not just the currently open Access Project.
 
 |Setting <img width = 175> |Description
 |-|:-
-|**System Defaults** 
+|<td colspan="2">**System Defaults**</td>
 |*Save as Default*|Save the current options as default for new projects. Anytime you export source and a `vcs-options.json` file does not already exist, it will use the default options that you have specified.
 |*Restore Defaults*|In the current project (open database), restore all the options to their default values based on your saved system defaults.
 |*Clear Defaults*|Reset all the options to the default settings specified in the add-in source code. If you click this button, then the *Save as Default* button, it will reset any user customizations to the default options.
-|**Remove Add-In**
-|*Uninstall**|Uninstalls the add-in from your user profile, including all saved defaults and encryption keys. <p> [Click here for Install / Uninstall Instructions](Installation)
+|<td colspan="2">**Remove Add-In**</td>
+|**Uninstall**|Uninstalls the add-in from your user profile, including all saved defaults and encryption keys. <p> [Click here for Install / Uninstall Instructions](Installation)
