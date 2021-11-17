@@ -63,7 +63,8 @@ The concept here is that you are selecting the table from which you want to save
 |**Show Hidden**|**Default: Off**|List hidden tables in the current database.
 |**Show System**|**Default: Off**|List system tables in the current database.
 |**Show Other**|**Default: Off**|List table names that are saved in the options, but do not exist in the current database. You can also manually add table names to your `vcs-options.json` file. (Add a table through the interface first, and use the same syntax.)
-|**Selected Table**||This highlights which table you have selected to set the export format. To add a table that is not listed, click the [*Other...*]() link.
+|**Selected Table**||This highlights which table you have selected to set the export format. To add a table that is not listed, click the [*Other...*](#TableData) link.
+|Selected Table: **<u>Other...</u>**||Click [*Other...*](#TableData) to enter a table name that doesn't exist in the database but you want to export if found.
 |**Data to Export**|**Default: Tab Delimited**|Select the format to use for the exported data.
 ||*Tab Delimited*|Separate values with tab character. This is a good format to use when importing to Microsoft Excel, or reading the values in Version Control files.
 ||*XML Format*|Select this option for the most complete and robust representation of the data. It is harder to read in source files, but should import back in to accurate recreate the original data.
