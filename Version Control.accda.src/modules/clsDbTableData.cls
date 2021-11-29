@@ -22,6 +22,7 @@ Public Format As eTableDataExportFormat
 Private m_Table As AccessObject
 Private m_AllItems As Dictionary
 Private m_FileList As Dictionary
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -380,11 +381,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim tbl As AccessObject
     Dim cTable As clsDbTableData
-    Dim cComponent As IDbComponent
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
         Set m_AllItems = New Dictionary
+        m_blnModifiedOnly = blnModifiedOnly
         
         ' No need to go any further if we don't have any saved tables defined
         If Options.TablesToExportData.Count > 0 Then
@@ -396,9 +397,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     If .TablesToExportData.Exists(tbl.Name) Then
                         Set cTable = New clsDbTableData
                         cTable.Format = .GetTableExportFormat(CStr(.TablesToExportData(tbl.Name)("Format")))
-                        Set cComponent = cTable
-                        Set cComponent.DbObject = tbl
-                        m_AllItems.Add cComponent.SourceFile, cComponent
+                        Set cTable.Parent.DbObject = tbl
+                        m_AllItems.Add cTable.Parent.SourceFile, cTable
                     End If
                 Next tbl
             End With
