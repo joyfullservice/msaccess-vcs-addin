@@ -724,9 +724,12 @@ End Property
 Private Function GetPropertyByName(strName As String) As AccessObjectProperty
     
     Dim prp As AccessObjectProperty
+    Dim proj As CurrentProject
+    
     If DatabaseOpen Then
-        For Each prp In CurrentProject.Properties
-            If prp.Name = cstrSourcePathProperty Then
+        Set proj = CurrentProject
+        For Each prp In proj.Properties
+            If prp.Name = strName Then
                 Set GetPropertyByName = prp
                 Exit For
             End If
@@ -734,5 +737,4 @@ Private Function GetPropertyByName(strName As String) As AccessObjectProperty
     End If
     
 End Function
-
 
