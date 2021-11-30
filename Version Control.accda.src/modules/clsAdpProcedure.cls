@@ -152,6 +152,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_SProc Is Nothing Then Exit Function
     IDbComponent_DateModified = GetSQLObjectModifiedDate(m_SProc.Name, estStoredProcedure)
 End Function
 
@@ -202,6 +203,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_SProc Is Nothing Then Exit Property
     IDbComponent_Name = m_SProc.Name
 End Property
 

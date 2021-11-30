@@ -337,6 +337,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Relation Is Nothing Then Exit Property
     IDbComponent_Name = m_Relation.Name
 End Property
 
@@ -349,6 +350,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Relation Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetRelationFileName(m_Relation) & ".json"
 End Property
 

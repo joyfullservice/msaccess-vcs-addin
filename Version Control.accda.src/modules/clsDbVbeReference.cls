@@ -417,6 +417,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Ref Is Nothing Then Exit Property
     IDbComponent_Name = m_Ref.Name
 End Property
 

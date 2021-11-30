@@ -152,6 +152,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_View Is Nothing Then Exit Function
     IDbComponent_DateModified = GetSQLObjectModifiedDate(m_View.Name, estView)
 End Function
 
@@ -202,6 +203,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_View Is Nothing Then Exit Property
     IDbComponent_Name = m_View.Name
 End Property
 

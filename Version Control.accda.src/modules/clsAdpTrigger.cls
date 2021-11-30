@@ -180,6 +180,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If Me.TriggerName = vbNullString Then Exit Function
     IDbComponent_DateModified = GetSQLObjectModifiedDate(Me.TriggerName, estTrigger)
 End Function
 

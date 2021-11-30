@@ -614,6 +614,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Table Is Nothing Then Exit Function
     IDbComponent_DateModified = m_Table.DateModified
 End Function
 
@@ -664,6 +665,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Table Is Nothing Then Exit Property
     IDbComponent_Name = m_Table.Name
 End Property
 
@@ -679,6 +681,8 @@ Private Property Get IDbComponent_SourceFile() As String
 
     Dim dbs As DAO.Database
     Dim tdf As DAO.TableDef
+    
+    If m_Table Is Nothing Then Exit Property
     
     Set dbs = CurrentDb
     Set tdf = dbs.TableDefs(m_Table.Name)

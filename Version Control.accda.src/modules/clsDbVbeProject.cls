@@ -395,6 +395,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Project Is Nothing Then Exit Property
     IDbComponent_Name = m_Project.Name
 End Property
 

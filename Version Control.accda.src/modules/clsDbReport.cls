@@ -184,6 +184,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Report Is Nothing Then Exit Function
     IDbComponent_DateModified = m_Report.DateModified
 End Function
 
@@ -234,6 +235,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Report Is Nothing Then Exit Property
     IDbComponent_Name = m_Report.Name
 End Property
 
@@ -246,6 +248,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Report Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Report.Name) & ".bas"
 End Property
 

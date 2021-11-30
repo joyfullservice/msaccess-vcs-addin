@@ -171,6 +171,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Macro Is Nothing Then Exit Function
     IDbComponent_DateModified = m_Macro.DateModified
 End Function
 
@@ -221,6 +222,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Macro Is Nothing Then Exit Property
     IDbComponent_Name = m_Macro.Name
 End Property
 
@@ -233,6 +235,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Macro Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Macro.Name) & ".bas"
 End Property
 

@@ -355,6 +355,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Module Is Nothing Then Exit Function
     IDbComponent_DateModified = CurrentProject.AllModules(m_Module.Name).DateModified
 End Function
 
@@ -405,6 +406,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Module Is Nothing Then Exit Property
     IDbComponent_Name = m_Module.Name
 End Property
 
@@ -417,6 +419,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Module Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & GetExtension
 End Property
 

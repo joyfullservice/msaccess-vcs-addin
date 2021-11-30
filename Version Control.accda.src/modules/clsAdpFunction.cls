@@ -150,6 +150,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Function Is Nothing Then Exit Function
     IDbComponent_DateModified = GetSQLObjectModifiedDate(m_Function.Name, estOther)
 End Function
 
@@ -200,6 +201,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Function Is Nothing Then Exit Property
     IDbComponent_Name = m_Function.Name
 End Property
 
