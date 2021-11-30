@@ -85,6 +85,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     Dim dBaseNames As Dictionary
     Dim dExtensions As Dictionary
     Dim strBaseName As String
+    Dim strFileName As String
     Dim strFile As String
     Dim dItems As Dictionary
     Dim varKey As Variant
@@ -93,6 +94,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     Dim cItem As IDbComponent
     Dim strHash As String
     Dim cXItem As clsVCSIndexItem
+    Dim dteModified As Date
     
     ' No orphaned files if the folder doesn't exist.
     If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
@@ -122,9 +124,10 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     
         ' Get base name and file extension
         ' (For performance reasons, minimize property access on oFile)
-        strFile = oFile.Name
-        strBaseName = FSO.GetBaseName(strFile)
-        strExt = Mid$(strFile, Len(strBaseName) + 2)
+        strFileName = oFile.Name
+        strFile = cType.BaseFolder & strFileName
+        strBaseName = FSO.GetBaseName(strFileName)
+        strExt = Mid$(strFileName, Len(strBaseName) + 2)
         
         ' See if extension exists in cached list
         If dExtensions.Exists(strExt) Then
@@ -133,19 +136,25 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
             If Not dBaseNames.Exists(strBaseName) Then
                 
                 ' Object not found in database. Check the index
-                If VCSIndex.Exists(cType, strFile) Then
+                If VCSIndex.Exists(cType, strFileName) Then
                     
                     ' If file is unchanged from the index, we can go ahead and delete it.
                     ' (The source file matches the last version imported or exported)
                     strHash = VCSIndex.GetFilePropertyHash(strFile)
-                    If VCSIndex.Item(cType, strFile).FilePropertiesHash = strHash Then
+                    If VCSIndex.Item(cType, strFileName).FilePropertiesHash = strHash Then
                     
                         ' Remove file and index entry
-                        Log.Add "  Removing orphaned file: " & strFile, Options.ShowDebug
+                        Log.Add "  Removing orphaned file: " & cType.BaseFolder & strFileName, Options.ShowDebug
                         DeleteFile strFile, True
                         VCSIndex.Remove cType, strFile
+                    Else
+                        ' File properties different from index. Add as a conflict to resolve.
+                        ' (This can happen when the last export was during a different daylight savings time
+                        ' setting, as the past file modified date returned by FSO is not adjusted for DST.)
+                        Log.Add "  Orphaned source file does not match last export: " & strFile, Options.ShowDebug
+                        VCSIndex.Conflicts.Add cType, strFile, 0, GetLastModifiedDate(strFile), ercDelete, strFile, ercDelete
                     End If
-                
+                    
                 Else
                     ' Object does not exist in the index. It might be a new file added
                     ' by another developer. Don't delete it, as it may need to be merged
@@ -272,4 +281,3 @@ Public Sub RemoveOrphanedDatabaseObjects(cCategory As IDbComponent)
     Next varKey
     
 End Sub
-
