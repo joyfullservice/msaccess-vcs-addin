@@ -352,12 +352,14 @@ Public Function GetFilePathsInFolder(strFolder As String, Optional strFilePatter
     strBaseFolder = StripSlash(strFolder)
     Set GetFilePathsInFolder = New Dictionary
     
+    Perf.OperationStart "Get File List"
     If FSO.FolderExists(strBaseFolder) Then
         For Each oFile In FSO.GetFolder(strBaseFolder).Files
             ' Add files that match the pattern.
             If oFile.Name Like strFilePattern Then GetFilePathsInFolder.Add oFile.Path, vbNullString
         Next oFile
     End If
+    Perf.OperationEnd
     
 End Function
 
