@@ -292,6 +292,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
     
         Set m_AllItems = New Dictionary
+        m_blnModifiedOnly = blnModifiedOnly
         
         ' Use dictionary to make sure we don't add duplicate records if we have
         ' both a folder and a theme file for the same theme.
