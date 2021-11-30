@@ -82,12 +82,7 @@ Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Dat
     With cItem
         .CategoryName = cComponent.Category
         .ItemKey = strKey
-        If strSourceFile <> vbNullString Then
-            ' Could be a new file
-            .FileName = cComponent.BaseFolder & strSourceFile
-        Else
-            .FileName = cComponent.SourceFile
-        End If
+        .FileName = Nz2(strSourceFile, cComponent.SourceFile)
         .ObjectDate = cComponent.DateModified
         .IndexDate = dteIndexDate
         .FileDate = dteFileDate
