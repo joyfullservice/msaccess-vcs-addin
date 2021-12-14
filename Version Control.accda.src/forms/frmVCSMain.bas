@@ -1291,6 +1291,7 @@ Begin Form
                     Height =2400
                     FontSize =10
                     TabIndex =3
+                    BackColor =15130848
                     ForeColor =5324600
                     Name ="txtDescription"
                     TextFormat =1
@@ -1300,6 +1301,7 @@ Begin Form
                     LayoutCachedTop =3300
                     LayoutCachedWidth =2760
                     LayoutCachedHeight =5700
+                    BackThemeColorIndex =-1
                     BorderThemeColorIndex =0
                     BorderTint =50.0
                     BorderShade =100.0
