@@ -1871,22 +1871,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdClose_Click()
-    
-    ' Check to see if we are actively logging a process.
-    If Log.Active Then
-        If ConfirmCancel Then
-            ' Throw a critical error, which will terminate the current export/build
-            Log.Error eelCritical, "Canceled Operation", Me.Name & ".cmdClose_Click"
-        End If
-        ' Either way, we should not attempt to close the form while the log is active.
-        Exit Sub
-    End If
-    
-    ' Close the form
-    Log.SetConsole Nothing
-    Set Log.ProgressBar = Nothing
     DoCmd.Close acForm, Me.Name
-    
 End Sub
 
 
