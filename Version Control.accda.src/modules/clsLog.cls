@@ -64,8 +64,6 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
     Optional blnNextOutputOnNewLine As Boolean = True, _
     Optional strColor As String = vbNullString, _
     Optional blnBold As Boolean = False)
-
-    Dim strHtml As String
     
     ' Add to log file output
     m_Log.Add strText, vbCrLf
