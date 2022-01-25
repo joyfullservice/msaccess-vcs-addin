@@ -88,6 +88,9 @@ Private Sub IDbComponent_Export()
         
     End If
     
+    ' Remove any alternate source file in case we have switched formats
+    RemoveAlternateFormatSourceFile
+    
     ' Optionally save in SQL format
     If Options.SaveTableSQL Then
         Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
@@ -97,6 +100,21 @@ Private Sub IDbComponent_Export()
     ' Update index
     VCSIndex.Update Me, eatExport
     
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveAlternateFormatSourceFile
+' Author    : Adam Waller
+' Date      : 1/25/2022
+' Purpose   : Remove any existing alternate format source file. (When switching a table
+'           : from local to linked, or vice versa.)
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveAlternateFormatSourceFile()
+    Dim strAltFile As String
+    strAltFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, (m_Table.Connect = vbNullString))
+    If FSO.FileExists(strAltFile) Then DeleteFile strAltFile
 End Sub
 
 
@@ -661,13 +679,24 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    If m_Table.Connect = vbNullString Then
-        IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".xml"
-    Else
-        ' Linked table
-        IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".json"
-    End If
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, (m_Table.Connect <> vbNullString))
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSourceFileName
+' Author    : Adam Waller
+' Date      : 1/25/2022
+' Purpose   : Return a safe file name with the correct file extension.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSourceFileName(strName As String, blnLinkedTable As Boolean) As String
+    If blnLinkedTable Then
+        GetSourceFileName = GetSafeFileName(strName) & ".json"
+    Else
+        GetSourceFileName = GetSafeFileName(strName) & ".xml"
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
