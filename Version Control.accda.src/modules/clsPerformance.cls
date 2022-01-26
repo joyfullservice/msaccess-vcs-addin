@@ -77,6 +77,7 @@ Public Property Get CallStack() As String
         For CallStackPosition = 1 To m_colOpsCallStack.Count
             .Add CStr(m_colOpsCallStack(CallStackPosition))
         Next CallStackPosition
+        .Remove 1 ' Remove last period so it doesn't look silly.
         CallStack = .GetStr
     End With
 End Property
