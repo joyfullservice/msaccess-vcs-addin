@@ -1,10 +1,70 @@
-This page is a work in progress. Help us! 
+Note: This page is a work in progress. Feel free to contribute!
 
-Files and their uses are documented here; if a file isn't listed, feel free to make a PR to add it and make this better!
+# File Structure Overview
+The following outline illustrates the folder and file structure used by the add-in when exporting source files for a project. (For simplicity, ADP project folders are not shown here.)
 
-This page is broken out for each Folder within the repository. The repository for your project may not be identical. In general, files are only exported when they are present in your database, or you have a setting active. 
+Note that in your export folder you will only see the folders and files for the components actually used in your database. See [Supported Objects](Supported-Objects.md) for a comprehensive list of object types and the related code sections in this add-in.
 
-See [Supported Ojbects](Supported-Objects.md) for the specific MSAccessVCS-Addin export/import component and other details.
+    .
+    ├── ...
+    ├── .gitattributes                  # (Recommended for git) Configure git attributes
+    ├── .gitignore                      # (Recommended for git) Ignore specific files in git
+    ├── Database.accdb                  # Main database file
+    └── Database.accdb.src              # Folder for source file export (default path)
+        ├── forms                       # Access forms
+        │   ├── MyForm.bas              # Object definition
+        │   └── MyForm.json             # Custom print settings (if used)
+        ├── images                      # Linked images
+        │   ├── MyPicture.png           # Image file
+        │   └── MyPicture.json          # Image metadata
+        ├── imexspecs                   # Legacy table-based import/export specifications
+        │   └── LinkedTableSpec.json    # Json representation of specification
+        ├── macros                      # Macros
+        │   └── AutoExec.bas            # Object definition
+        ├── modules                     # VBA modules (standard and class)
+        │   ├── MyModule.bas            # Standard module
+        │   └── MyClass.cls             # Class module
+        ├── queries                     # Queries
+        │   ├── MyQuery.bas             # Object definition
+        │   └── MyQuery.sql             # Raw SQL definition (easier to see changes)
+        ├── relations                   # Database relationships
+        │   └── Table1Table2.json       # Json representation of a single relationship
+        ├── reports                     # Reports
+        │   ├── MyReport.bas            # Object definition
+        │   └── MyReport.json           # Print settings
+        ├── savedspecs                  # XML-based import/export specifications
+        │   └── MyExport.json           # Metadata with embedded XML
+        ├── tables                      # Table data
+        │   ├── MyTable.txt             # Tab-delimited text format (more readable)
+        │   └── MyTable.xml             # XML table data (better data preservation)
+        ├── tbldefs                     # Table definitions (structure, columns)
+        │   ├── MyTable.sql             # A SQL rendition of the table structure (more readable)
+        │   └── MyTable.xml             # XML object definition (for export/import) 
+        ├── tdmacros                    # Table Data Macros
+        │   └── MyTable.xml             # Object definition
+        ├── themes                      # Database themes (visual appearance)
+        │   ├── Angles.thmx             # Self-contained zip file
+        │   └── Executive               # (Alternate) Extracted contents folder
+        │       ├── _rels               # Recommended when customizing the theme
+        │       ├── theme               # files in a database project
+        │       └── ...                 # 
+        ├── vbeforms                    # MSForms 2.0 Forms (Traditional VBA Forms)
+        │   ├── MyForm.frm              # Form definition stub
+        │   ├── MyForm.frx              # Binary OLE Blob content and structure
+        │   └── MyForm.json             # Json representation of content and structure
+        ├── Build.log                   # VCS build log
+        ├── dbs-properties.json         # DAO database properties
+        ├── documents.json              # Document container metadata
+        ├── Export.log                  # VCS export log
+        ├── hidden-attributes.json      # Hidden flag attributes
+        ├── nav-pane-groups.json        # Custom navigation pane groups
+        ├── project.json                # File format and Remove Personal Info flag
+        ├── proj-properties.json        # CurrentProject properties
+        ├── vbe-project.json            # VBA project properties
+        ├── vbe-references.json         # VBA project references
+        ├── vcs-index.json              # Index to track changes and versions for VCS
+        └── vcs-options.json            # VCS options for this project
+
 
 # Main Folder
 These files are present in the MSAccessVCS-Addin project; they may or may not be present in your repository depending on how you have yours set up. 
