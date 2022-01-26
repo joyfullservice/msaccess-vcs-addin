@@ -12,13 +12,11 @@ click **Options** to open the **Options dialog**. Internally options are stored 
 ||*On*|Legacy prompts on.
 ||*Off*|Legacy prompts off. 
 |**Hash Algorithm**|**Default: SHA256**|Choose the hashing algorithm here. This may affect build time if you choose a more complex option. Hashes are used to help determine whether source files changed between import/export operations.
-||*SHA1*|***WARNING:***<p>*SHA-1 is [known to be compromised](https://en.wikipedia.org/wiki/SHA-1). Use of this option is a legacy capability and is not recommended.* <p><p> Use SHA-1 hashing algorythm.
-||*SHA256*|Use SHA-256 hashing algorythm.
-||*SHA512*|Use SHA-512 hashing algorythm.
+||~~*SHA1*~~|Use SHA-1 hashing algorithm. ([Not recommended](https://en.wikipedia.org/wiki/SHA-1). While hashing is not used for security purposes in this add-in, any usage of SHA1 is not allowed in some network environments.)
+||*SHA256*|Use SHA-256 hashing algorithm.
+||*SHA512*|Use SHA-512 hashing algorithm.
 |**Use short hashes in index**|**Default: On**|If on, `git` style hashes (first 7 characters) will be used in the file index. <p>*NOTE: This was done to improve readability and reduce file size, but you can always uncheck this box if you want to store the full hash.*
 
-<p>
-<p>
 
 ## Export Tab
 
@@ -34,11 +32,11 @@ Note that these options only determine what is *Exported* and saved to the JSON 
 ||*Absolute Path* |You may also use a full path name to a folder. I.e. `W:\Git\Projects\Vehicles Database` 
 ||*Placeholder* |In combination with the above options, you may also use a `%dbName%` [placeholder](https://github.com/joyfullservice/msaccess-vcs-integration/issues/139) to use the database filename in a custom path. I.e. `\src\%dbName%.src\`
 |**Use Fast Save**|**Default: On**|Major performance gain with small changes to large projects. This attempts to only export the objects that have changed since the last export. This especially helps to not have to export forms and reports if they have not changed.
-|**Sanitize Level**|**Default: Aggressive**|Set level for sanitize routines to remove noise. Sanitizing allows you to remove noise from your exported files. Turn off to export raw file outputs. Santization routines are checked to ensure most do not affect building of exported files.
+|**Sanitize Level**|**Default: Aggressive**|Set level for sanitize routines to remove noise. Sanitizing allows you to remove noise from your exported files. Turn off to export raw file outputs. Sanitization routines are checked to ensure most do not affect building of exported files.
 ||*None (Off)* | Turn off sanitization, export raw files. These may not import properly, but they may be useful when trying to troubleshoot. <p>_**Note:** Files will still be converted to UTF-8 or System Codepage encoding depending on Access Version in this mode._ <p>**_NOTE:_ If you set Sanitize level to "*None (Off)*", none of the Sanitize Options (Sanitize Color, Strip out publish, etc.) will be used.**
 ||*Basic*| Only basic sanitization to ensure reliable rebuilding of files.
 || *Aggressive*| Remove most exported noise (GUIDs, the like). Removes object GUIDs, name maps, and other data that changes from build to build. (These values are recreated automatically when importing source files.) From a development perspective, these are more like binary artifacts that just add noise to the version control commits, reducing clarity on actual code changes.
-||*Advanced (Beta)*|Remove as much as possible. This may lead to unexpected changes upon rebuilding. Features that are still in testing or confirmed to be tempermental may be introduced here prior to being implemented. **_User beware!_**<p>
+||*Advanced (Beta)*|Remove as much as possible. This may lead to unexpected changes upon rebuilding. Features that are still in testing or confirmed to be temperamental may be introduced here prior to being implemented. **_User beware!_**<p>
 |**Sanitize Colors**|**Default: Basic**|Removes color exports on forms where themes are used, or other situations where the color can be correctly set upon rebuild. These colors export differently in different machines, or different settings and are largely noise. <P> ***NOTE:* The most aggressive options may lead to unexpected color changes on forms!**
 |**Strip out Publish Option**|**Default: On**|Strips out some *Publish to Web* settings from source files that are irrelevant to most projects.
 |**Save Printer Settings**|**Default: On**|Saves a copy of the print configuration for reports and forms. This is especially useful when you are using specific printer settings. The output is stored in human-readable json. By default, page orientation and paper size are saved with each report, but additional options are also available. <details><summary>Show Advanced Printer Options...</summary> ![Printer Settings Options Screen Image](img/options-printer-settings.jpg)<p></details>
