@@ -455,7 +455,6 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "InsideWidth"
                 .Add "KeepScrollBarsVisible"
                 .Add "Name"
-                .Add "Parent"
                 .Add "Picture"
                 .Add "PictureAlignment"
                 .Add "PictureSizeMode"
@@ -522,7 +521,6 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "MouseIcon"
                 .Add "MousePointer"
                 .Add "MultiRow"
-                .Add "SelectedItem"
                 .Add "Style"
                 .Add "TabFixedHeight"
                 .Add "TabFixedWidth"
@@ -592,5 +590,4 @@ Private Function GetPropertyList(strType As String) As Collection
     End With
     
 End Function
-
 
