@@ -56,7 +56,7 @@ Public Sub StartTiming()
 End Sub
 
 '---------------------------------------------------------------------------------------
-' Procedure : StartTiming
+' Procedure : CallStack
 ' Author    : hecon5
 ' Date      : 01/26/2022
 ' Purpose   : Return the call stack in operation.
@@ -77,6 +77,7 @@ Public Property Get CallStack() As String
         For CallStackPosition = 1 To m_colOpsCallStack.Count
             .Add CStr(m_colOpsCallStack(CallStackPosition))
         Next CallStackPosition
+        .Add m_strOperation
         .Remove 1 ' Remove last period so it doesn't look silly.
         CallStack = .GetStr
     End With
