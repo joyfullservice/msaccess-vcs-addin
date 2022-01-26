@@ -1,4 +1,11 @@
 ﻿Attribute VB_Name = "modVbeForm"
+'---------------------------------------------------------------------------------------
+' Module    : modVbeForm
+' Author    : Adam Waller / Adapted from FormSerializer
+' Date      : 1/24/2022
+' Purpose   : Serialize a MSForms 2.0 form into human-readable JSON output.
+'---------------------------------------------------------------------------------------
+
 ''
 ' FormSerializer v1.0.0
 ' (c) Georges Kuenzli - https://github.com/gkuenzli/vbaDeveloper
@@ -15,7 +22,7 @@ Option Explicit
 ''
 ' Convert a VBComponent of type MSForm to a JSON descriptive data
 '
-' @method serializeMSForm
+' @method SerializeMSForm
 ' @param {VBComponent} FormComponent
 ' @return {String} MSForm JSON descriptive data
 ''
@@ -23,14 +30,14 @@ Public Function SerializeMSForm(ByVal FormComponent As VBComponent) As String
     Dim dict As Dictionary
     Dim json As String
     Set dict = GetMSFormProperties(FormComponent)
-    json = ConvertToJson(dict, vbTab)
+    json = ConvertToJson(dict, JSON_WHITESPACE)
     SerializeMSForm = json
 End Function
 
 Private Function GetMSFormProperties(ByVal FormComponent As VBComponent) As Dictionary
     Dim dict As New Dictionary
     Dim p As Property
-    dict.Add "Name", FormComponent.name
+    dict.Add "Name", FormComponent.Name
     dict.Add "Designer", GetDesigner(FormComponent)
     dict.Add "Properties", GetProperties(FormComponent, FormComponent.Properties)
     Set GetMSFormProperties = dict
@@ -42,73 +49,72 @@ Private Function GetDesigner(ByVal FormComponent As VBComponent) As Dictionary
     Set GetDesigner = dict
 End Function
 
-Private Function GetProperties(ByVal Context As Object, ByVal Properties As Properties) As Dictionary
+Private Function GetProperties(ByVal Context As Object, ByVal Properties As VBIDE.Properties) As Dictionary
     Dim dict As New Dictionary
     Dim props As New Collection
-    Dim p As Property
+    Dim p As VBIDE.Property
     Dim i As Long
     For i = 1 To Properties.Count
         Set p = Properties(i)
         If IsSerializableProperty(Context, p) Then
-            'props.Add GetProperty(Context, p)
-            dict.Add p.name, GetValue(Context, p)
+            dict.Add p.Name, GetValue(Context, p)
         End If
     Next i
     Set GetProperties = dict
 End Function
 
-Private Function IsSerializableProperty(ByVal Context As Object, ByVal Property As Property) As Boolean
+Private Function IsSerializableProperty(ByVal Context As Object, ByVal Property As VBIDE.Property) As Boolean
     Dim tp As VbVarType
     On Error Resume Next
     tp = VarType(Property.Value)
     On Error GoTo 0
     IsSerializableProperty = _
         (tp <> vbEmpty) And (tp <> vbError) And _
-        Left(Property.name, 1) <> "_" And _
-        InStr("ActiveControls,Controls,Handle,MouseIcon,Picture,Selected,DesignMode,ShowToolbox,ShowGridDots,SnapToGrid,GridX,GridY,DrawBuffer,CanPaste", Property.name) = 0
+        Left(Property.Name, 1) <> "_" And _
+        InStr("ActiveControls,Controls,Handle,MouseIcon,Picture,Selected,DesignMode,ShowToolbox,ShowGridDots,SnapToGrid,GridX,GridY,DrawBuffer,CanPaste", Property.Name) = 0
 
     If TypeName(Context) = "VBComponent" Then
         ' We must ignore Top and Height MSForm properties since these seem to be related to the some settings in the Windows user profile.
         IsSerializableProperty = _
             IsSerializableProperty And _
-            InStr("Top,Height", Property.name) = 0
+            InStr("Top,Height", Property.Name) = 0
     End If
 End Function
 
 Private Function GetProperty(ByVal Context As Object, ByVal Property As Property) As Dictionary
     Dim dict As New Dictionary
-    dict.Add "Name", Property.name
-    If Property.name = "Controls" Then
+    dict.Add "Name", Property.Name
+    If Property.Name = "Controls" Then
     Else
         dict.Add "Value", GetValue(Context, Property)
     End If
     Set GetProperty = dict
 End Function
 
-Private Function GetControls(ByVal Controls As Controls) As Collection
+Private Function GetControls(ByVal Controls As MSForms.Controls) As Collection
     Dim coll As New Collection
-    Dim ctrl As Control
+    Dim ctrl As MSForms.Control
     For Each ctrl In Controls
-        If Not ControlExistsInSubElements(Controls, ctrl.name, 0) Then
+        If Not ControlExistsInSubElements(Controls, ctrl.Name, 0) Then
             coll.Add GetControl(ctrl)
         End If
     Next ctrl
     Set GetControls = coll
 End Function
 
-Private Function ControlExistsInSubElements(ByVal Controls As Controls, ByVal name As String, ByVal Depth As Long) As Boolean
-    Dim ctrl As Control
+Private Function ControlExistsInSubElements(ByVal Controls As MSForms.Controls, ByVal Name As String, ByVal Depth As Long) As Boolean
+    Dim ctrl As MSForms.Control
     Dim o As Object
     For Each ctrl In Controls
         Set o = ctrl
         If Depth > 0 Then
-            If name = ctrl.name Then
+            If Name = ctrl.Name Then
                 ControlExistsInSubElements = True
                 Exit Function
             End If
         End If
         On Error Resume Next
-        ControlExistsInSubElements = ControlExistsInSubElements(o.Controls, name, Depth + 1)
+        ControlExistsInSubElements = ControlExistsInSubElements(o.Controls, Name, Depth + 1)
         On Error GoTo 0
         If ControlExistsInSubElements Then
             Exit Function
@@ -151,54 +157,44 @@ Private Function GetPages(ByVal Pages As MSForms.Pages) As Collection
     Dim p As MSForms.Page
     For i = 0 To Pages.Count - 1
         Set p = Pages(i)
-        coll.Add GetPage(p)
+        coll.Add GetControl(p)
     Next i
     Set GetPages = coll
-End Function
-
-Private Function GetPage(ByVal Page As MSForms.Page) As Dictionary
-    Dim dict As New Dictionary
-    AddPage dict, Page
-    Set GetPage = dict
 End Function
 
 Private Function GetTabs(ByVal Tabs As Tabs) As Collection
     Dim coll As New Collection
     Dim i As Long
-    Dim p As MSForms.Tab
+    Dim t As MSForms.Tab
     For i = 0 To Tabs.Count - 1
-        Set p = Tabs(i)
-        coll.Add GetTab(p)
+        Set t = Tabs(i)
+        coll.Add GetControl(t)
     Next i
     Set GetTabs = coll
 End Function
 
-Private Function GetTab(ByVal t As MSForms.Tab) As Dictionary
-    Dim dict As New Dictionary
-    AddTab dict, t
-    Set GetTab = dict
-End Function
-
-Private Function GetFont(ByVal Font As NewFont) As Dictionary
-    Dim dict As New Dictionary
-    dict.Add "Bold", Font.Bold
-    dict.Add "Charset", Font.Charset
-    dict.Add "Italic", Font.Italic
-    dict.Add "Name", Font.name
-    dict.Add "Size", Font.Size
-    dict.Add "Strikethrough", Font.Strikethrough
-    dict.Add "Underline", Font.Underline
-    dict.Add "Weight", Font.Weight
-    Set GetFont = dict
+Private Function GetFont(ByVal fnt As NewFont) As Dictionary
+    Set GetFont = New Dictionary
+    With GetFont
+        .Add "Bold", fnt.Bold
+        .Add "Charset", fnt.Charset
+        .Add "Italic", fnt.Italic
+        .Add "Name", fnt.Name
+        .Add "Size", fnt.Size
+        .Add "Strikethrough", fnt.Strikethrough
+        .Add "Underline", fnt.Underline
+        .Add "Weight", fnt.Weight
+    End With
 End Function
 
 Private Function GetPicture(ByVal Picture As IPictureDisp) As String
 
     ' TODO: implement a Base64-encoding of the picture
+    'StdFunctions.SavePicture Picture, strFileName
 
 End Function
 
-Private Function GetValue(ByVal Context As Object, ByVal Property As Property) As Variant
+Private Function GetValue(ByVal Context As Object, ByVal Property As VBIDE.Property) As Variant
     If VarType(Property.Value) = vbObject Then
         Select Case TypeName(Property.Value)
             Case "Properties"
