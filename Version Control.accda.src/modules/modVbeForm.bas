@@ -116,458 +116,33 @@ Private Function ControlExistsInSubElements(ByVal Controls As Controls, ByVal na
     Next ctrl
 End Function
 
-Private Function GetControl(ByVal Control As Control) As Dictionary
-    Dim dict As New Dictionary
-    Dim o As Object
-    Set o = Control
-    On Error Resume Next
-    dict.Add "Class", TypeName(o)
-    dict.Add "Name", Control.name
-    dict.Add "Cancel", Control.Cancel
-    dict.Add "ControlSource", Control.ControlSource
-    dict.Add "ControlTipText", Control.ControlTipText
-    dict.Add "Default", Control.Default
-    dict.Add "Height", Control.Height
-    dict.Add "HelpContextID", Control.HelpContextId
-    dict.Add "LayoutEffect", Control.LayoutEffect
-    dict.Add "Left", Control.Left
-    dict.Add "RowSource", Control.RowSource
-    dict.Add "RowSourceType", Control.RowSourceType
-    dict.Add "TabIndex", Control.TabIndex
-    dict.Add "TabStop", Control.TabStop
-    dict.Add "Tag", Control.Tag
-    dict.Add "Top", Control.Top
-    dict.Add "Visible", Control.Visible
-    dict.Add "Width", Control.Width
-
-    Select Case TypeName(o)
-        Case "CheckBox"
-            AddCheckBox dict, o
-        Case "ComboBox"
-            AddComboBox dict, o
-        Case "CommandButton"
-            AddCommandButton dict, o
-        Case "Frame"
-            AddFrame dict, o
-        Case "Image"
-            AddImage dict, o
-        Case "Label"
-            AddLabel dict, o
-        Case "ListBox"
-            AddListBox dict, o
-        Case "MultiPage"
-            AddMultiPage dict, o
-        Case "OptionButton"
-            AddOptionButton dict, o
-        Case "Page"
-            AddPage dict, o
-        Case "ScrollBar"
-            AddScrollBar dict, o
-        Case "SpinButton"
-            AddSpinButton dict, o
-        Case "Tab"
-            AddTab dict, o
-        Case "TabStrip"
-            AddTabStrip dict, o
-        Case "TextBox"
-            AddTextBox dict, o
-        Case "ToggleButton"
-            AddToggleButton dict, o
-        Case "RefEdit"
-            AddRefEdit dict, o
-        Case Else
-            Debug.Print "Unknown ActiveX Control Type Name : " & TypeName(o)
-    End Select
-
-    Set GetControl = dict
+Private Function GetControl(ByVal ctl As Object) As Dictionary ' MSForms.Control
+    Dim dic As Dictionary
+    Dim varName As Variant
+    Set dic = New Dictionary
+    ' Loop through properties, adding each value to dictionary
+    For Each varName In GetPropertyList(TypeName(ctl))
+        AddProperty dic, ctl, varName
+    Next varName
+    ' Return dictionary of control properties
+    Set GetControl = dic
 End Function
 
-Private Sub AddCheckBox(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "Accelerator", o.Accelerator
-    dict.Add "Alignment", o.Alignment
-    dict.Add "AutoSize", o.AutoSize
-    dict.Add "BackColor", o.BackColor
-    dict.Add "BackStyle", o.BackStyle
-    dict.Add "Caption", o.Caption
-    dict.Add "Enabled", o.Enabled
-    dict.Add "Font", GetFont(o.Font)
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "GroupName", o.GroupName
-    dict.Add "Locked", o.Locked
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "Picture", GetPicture(o.Picture)
-    dict.Add "PicturePosition", o.PicturePosition
-    dict.Add "SpecialEffect", o.SpecialEffect
-    dict.Add "TextAlign", o.TextAlign
-    dict.Add "TripleState", o.TripleState
-    dict.Add "Value", o.Value
-    dict.Add "WordWrap", o.WordWrap
-End Sub
-
-Private Sub AddComboBox(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "AutoSize", o.AutoSize
-    dict.Add "AutoTab", o.AutoTab
-    dict.Add "AutoWordSelect", o.AutoWordSelect
-    dict.Add "BackColor", o.BackColor
-    dict.Add "BackStyle", o.BackStyle
-    dict.Add "BorderColor", o.BorderColor
-    dict.Add "BorderStyle", o.BorderStyle
-    dict.Add "BoundColumn", o.BoundColumn
-'    dict.Add "CanPaste", o.CanPaste
-    dict.Add "ColumnCount", o.ColumnCount
-    dict.Add "ColumnHeads", o.ColumnHeads
-    dict.Add "ColumnWidths", o.ColumnWidths
-    dict.Add "DragBehavior", o.DragBehavior
-    dict.Add "DropButtonStyle", o.DropButtonStyle
-    dict.Add "Enabled", o.Enabled
-    dict.Add "EnterFieldBehavior", o.EnterFieldBehavior
-    dict.Add "Font", GetFont(o.Font)
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "HideSelection", o.HideSelection
-    dict.Add "IMEMode", o.IMEMode
-    dict.Add "ListRows", o.ListRows
-    dict.Add "ListStyle", o.ListStyle
-    dict.Add "ListWidth", o.ListWidth
-    dict.Add "Locked", o.Locked
-    dict.Add "MatchEntry", o.MatchEntry
-    dict.Add "MatchRequired", o.MatchRequired
-    dict.Add "MaxLength", o.maxLength
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "SelectionMargin", o.SelectionMargin
-    dict.Add "ShowDropButtonWhen", o.ShowDropButtonWhen
-    dict.Add "SpecialEffect", o.SpecialEffect
-    dict.Add "Style", o.Style
-    dict.Add "Text", o.Text
-    dict.Add "TextAlign", o.TextAlign
-    dict.Add "TextColumn", o.TextColumn
-    dict.Add "TopIndex", o.TopIndex
-    dict.Add "Value", o.Value
-End Sub
-
-Private Sub AddCommandButton(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "Accelerator", o.Accelerator
-    dict.Add "AutoSize", o.AutoSize
-    dict.Add "BackColor", o.BackColor
-    dict.Add "BackStyle", o.BackStyle
-    dict.Add "Caption", o.Caption
-    dict.Add "Enabled", o.Enabled
-    dict.Add "Font", GetFont(o.Font)
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "Locked", o.Locked
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "Picture", GetPicture(o.Picture)
-    dict.Add "PicturePosition", o.PicturePosition
-    dict.Add "TakeFocusOnClick", o.TakeFocusOnClick
-    dict.Add "WordWrap", o.WordWrap
-End Sub
-
-Private Sub AddFrame(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "BackColor", o.BackColor
-    dict.Add "BorderColor", o.BorderColor
-    dict.Add "BorderStyle", o.BorderStyle
-    'dict.Add "CanPaste", o.CanPaste
-    dict.Add "CanRedo", o.CanRedo
-    dict.Add "CanUndo", o.CanUndo
-    dict.Add "Caption", o.Caption
-    dict.Add "Controls", GetControls(o.Controls)
-    dict.Add "Cycle", o.Cycle
-    dict.Add "Enabled", o.Enabled
-    dict.Add "Font", GetFont(o.Font)
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "InsideHeight", o.InsideHeight
-    dict.Add "InsideWidth", o.InsideWidth
-    dict.Add "KeepScrollBarsVisible", o.KeepScrollBarsVisible
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "Picture", GetPicture(o.Picture)
-    dict.Add "PictureAlignment", o.PictureAlignment
-    dict.Add "PictureSizeMode", o.PictureSizeMode
-    dict.Add "PictureTiling", o.PictureTiling
-    dict.Add "ScrollBars", o.ScrollBars
-    dict.Add "ScrollHeight", o.ScrollHeight
-    dict.Add "ScrollLeft", o.ScrollLeft
-    dict.Add "ScrollTop", o.ScrollTop
-    dict.Add "ScrollWidth", o.ScrollWidth
-    dict.Add "SpecialEffect", o.SpecialEffect
-    dict.Add "VerticalScrollBarSide", o.VerticalScrollBarSide
-    dict.Add "Zoom", o.Zoom
-End Sub
-
-Private Sub AddImage(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "AutoSize", o.AutoSize
-    dict.Add "BackColor", o.BackColor
-    dict.Add "BackStyle", o.BackStyle
-    dict.Add "BorderColor", o.BorderColor
-    dict.Add "BorderStyle", o.BorderStyle
-    dict.Add "Enabled", o.Enabled
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "Picture", GetPicture(o.Picture)
-    dict.Add "PictureAlignment", o.PictureAlignment
-    dict.Add "PictureSizeMode", o.PictureSizeMode
-    dict.Add "PictureTiling", o.PictureTiling
-    dict.Add "SpecialEffect", o.SpecialEffect
-End Sub
-
-Private Sub AddLabel(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "Accelerator", o.Accelerator
-    dict.Add "AutoSize", o.AutoSize
-    dict.Add "BackColor", o.BackColor
-    dict.Add "BackStyle", o.BackStyle
-    dict.Add "BorderColor", o.BorderColor
-    dict.Add "BorderStyle", o.BorderStyle
-    dict.Add "Caption", o.Caption
-    dict.Add "Enabled", o.Enabled
-    dict.Add "Font", GetFont(o.Font)
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "Picture", GetPicture(o.Picture)
-    dict.Add "PicturePosition", o.PicturePosition
-    dict.Add "SpecialEffect", o.SpecialEffect
-    dict.Add "TextAlign", o.TextAlign
-    dict.Add "WordWrap", o.WordWrap
-End Sub
-
-Private Sub AddListBox(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "BackColor", o.BackColor
-    dict.Add "BorderColor", o.BorderColor
-    dict.Add "BorderStyle", o.BorderStyle
-    dict.Add "BoundColumn", o.BoundColumn
-    dict.Add "ColumnHeads", o.ColumnHeads
-    dict.Add "ColumnWidths", o.ColumnWidths
-    dict.Add "Enabled", o.Enabled
-    dict.Add "Font", GetFont(o.Font)
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "IMEMode", o.IMEMode
-    dict.Add "IntegralHeight", o.IntegralHeight
-    dict.Add "ListIndex", o.ListIndex
-    dict.Add "ListStyle", o.ListStyle
-    dict.Add "Locked", o.Locked
-    dict.Add "MatchEntry", o.MatchEntry
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "MultiSelect", o.MultiSelect
-    dict.Add "Selected", o.Selected
-    dict.Add "SpecialEffect", o.SpecialEffect
-    dict.Add "Text", o.Text
-    dict.Add "TextAlign", o.TextAlign
-    dict.Add "TextColumn", o.TextColumn
-    dict.Add "TopIndex", o.TopIndex
-    dict.Add "Value", o.Value
-End Sub
-
-Private Sub AddMultiPage(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "BackColor", o.BackColor
-    dict.Add "Enabled", o.Enabled
-    dict.Add "Font", GetFont(o.Font)
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "MultiRow", o.MultiRow
-    dict.Add "Pages", GetPages(o.Pages)
-    dict.Add "Style", o.Style
-    dict.Add "TabFixedHeight", o.TabFixedHeight
-    dict.Add "TabFixedWidth", o.TabFixedWidth
-    dict.Add "TabOrientation", o.TabOrientation
-    dict.Add "Value", o.Value
-End Sub
-
-Private Sub AddOptionButton(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "Accelerator", o.Accelerator
-    dict.Add "Alignment", o.Alignment
-    dict.Add "AutoSize", o.AutoSize
-    dict.Add "BackColor", o.BackColor
-    dict.Add "BackStyle", o.BackStyle
-    dict.Add "Caption", o.Caption
-    dict.Add "Enabled", o.Enabled
-    dict.Add "Font", GetFont(o.Font)
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "GroupName", o.GroupName
-    dict.Add "Locked", o.Locked
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "Picture", GetPicture(o.Picture)
-    dict.Add "PicturePosition", o.PicturePosition
-    dict.Add "SpecialEffect", o.SpecialEffect
-    dict.Add "TextAlign", o.TextAlign
-    dict.Add "TripleState", o.TripleState
-    dict.Add "Value", o.Value
-    dict.Add "WordWrap", o.WordWrap
-End Sub
-
-Private Sub AddPage(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "Accelerator", o.Accelerator
-    'dict.Add "CanPaste", o.CanPaste
-    dict.Add "CanRedo", o.CanRedo
-    dict.Add "CanUndo", o.CanUndo
-    dict.Add "Caption", o.Caption
-    dict.Add "Controls", GetControls(o.Controls)
-    dict.Add "ControlTipText", o.ControlTipText
-    dict.Add "Cycle", o.Cycle
-    dict.Add "Enabled", o.Enabled
-    dict.Add "Index", o.Index
-    dict.Add "InsideHeight", o.InsideHeight
-    dict.Add "InsideWidth", o.InsideWidth
-    dict.Add "KeepScrollBarsVisible", o.KeepScrollBarsVisible
-    dict.Add "Name", o.name
-    dict.Add "Parent", o.Parent
-    dict.Add "Picture", GetPicture(o.Picture)
-    dict.Add "PictureAlignment", o.PictureAlignment
-    dict.Add "PictureSizeMode", o.PictureSizeMode
-    dict.Add "PictureTiling", o.PictureTiling
-    dict.Add "ScrollBars", o.ScrollBars
-    dict.Add "ScrollHeight", o.ScrollHeight
-    dict.Add "ScrollLeft", o.ScrollLeft
-    dict.Add "ScrollTop", o.ScrollTop
-    dict.Add "ScrollWidth", o.ScrollWidth
-    dict.Add "Tag", o.Tag
-    dict.Add "TransitionEffect", o.TransitionEffect
-    dict.Add "TransitionPeriod", o.TransitionPeriod
-    dict.Add "VerticalScrollBarSide", o.VerticalScrollBarSide
-    dict.Add "Visible", o.Visible
-    dict.Add "Zoom", o.Zoom
-End Sub
-
-Private Sub AddScrollBar(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "BackColor", o.BackColor
-    dict.Add "Delay", o.Delay
-    dict.Add "Enabled", o.Enabled
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "LargeChange", o.LargeChange
-    dict.Add "Max", o.Max
-    dict.Add "Min", o.Min
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "Orientation", o.Orientation
-    dict.Add "ProportionalThumb", o.ProportionalThumb
-    dict.Add "SmallChange", o.SmallChange
-    dict.Add "Value", o.Value
-End Sub
-
-Private Sub AddSpinButton(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "BackColor", o.BackColor
-    dict.Add "Delay", o.Delay
-    dict.Add "Enabled", o.Enabled
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "Max", o.Max
-    dict.Add "Min", o.Min
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "Orientation", o.Orientation
-    dict.Add "SmallChange", o.SmallChange
-    dict.Add "Value", o.Value
-End Sub
-
-Private Sub AddTab(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "Accelerator", o.Accelerator
-    dict.Add "Caption", o.Caption
-    dict.Add "ControlTipText", o.ControlTipText
-    dict.Add "Enabled", o.Enabled
-    dict.Add "Index", o.Index
-    dict.Add "Name", o.name
-    dict.Add "Tag", o.Tag
-    dict.Add "Visible", o.Visible
-End Sub
-
-Private Sub AddTabStrip(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "BackColor", o.BackColor
-    dict.Add "ClientHeight", o.ClientHeight
-    dict.Add "ClientLeft", o.ClientLeft
-    dict.Add "ClientTop", o.ClientTop
-    dict.Add "ClientWidth", o.ClientWidth
-    dict.Add "Enabled", o.Enabled
-    dict.Add "Font", GetFont(o.Font)
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "MultiRow", o.MultiRow
-    dict.Add "SelectedItem", o.SelectedItem
-    dict.Add "Style", o.Style
-    dict.Add "TabFixedHeight", o.TabFixedHeight
-    dict.Add "TabFixedWidth", o.TabFixedWidth
-    dict.Add "TabOrientation", o.TabOrientation
-    dict.Add "Tabs", GetTabs(o.Tabs)
-    dict.Add "Value", o.Value
-End Sub
-
-Private Sub AddTextBox(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "AutoSize", o.AutoSize
-    dict.Add "AutoTab", o.AutoTab
-    dict.Add "AutoWordSelect", o.AutoWordSelect
-    dict.Add "BackColor", o.BackColor
-    dict.Add "BackStyle", o.BackStyle
-    dict.Add "BorderColor", o.BorderColor
-    dict.Add "BorderStyle", o.BorderStyle
-    'dict.Add "CanPaste", o.CanPaste
-    dict.Add "CurLine", o.CurLine
-    dict.Add "DragBehavior", o.DragBehavior
-    dict.Add "Enabled", o.Enabled
-    dict.Add "EnterFieldBehavior", o.EnterFieldBehavior
-    dict.Add "EnterKeyBehavior", o.EnterKeyBehavior
-    dict.Add "Font", GetFont(o.Font)
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "HideSelection", o.HideSelection
-    dict.Add "IMEMode", o.IMEMode
-    dict.Add "IntegralHeight", o.IntegralHeight
-    dict.Add "Locked", o.Locked
-    dict.Add "MaxLength", o.maxLength
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "MultiLine", o.Multiline
-    dict.Add "PasswordChar", o.PasswordChar
-    dict.Add "ScrollBars", o.ScrollBars
-    dict.Add "SelectionMargin", o.SelectionMargin
-    dict.Add "SpecialEffect", o.SpecialEffect
-    dict.Add "TabKeyBehavior", o.TabKeyBehavior
-    dict.Add "Text", o.Text
-    dict.Add "TextAlign", o.TextAlign
-    dict.Add "Value", o.Value
-    dict.Add "WordWrap", o.WordWrap
-End Sub
-
-Private Sub AddToggleButton(ByVal dict As Dictionary, ByVal o As Object)
-    On Error Resume Next
-    dict.Add "Accelerator", o.Accelerator
-    dict.Add "Alignment", o.Alignment
-    dict.Add "AutoSize", o.AutoSize
-    dict.Add "BackColor", o.BackColor
-    dict.Add "BackStyle", o.BackStyle
-    dict.Add "Caption", o.Caption
-    dict.Add "Enabled", o.Enabled
-    dict.Add "ForeColor", o.ForeColor
-    dict.Add "GroupName", o.GroupName
-    dict.Add "Locked", o.Locked
-    dict.Add "MouseIcon", GetPicture(o.MouseIcon)
-    dict.Add "MousePointer", o.MousePointer
-    dict.Add "Picture", GetPicture(o.Picture)
-    dict.Add "PicturePosition", o.PicturePosition
-    dict.Add "SpecialEffect", o.SpecialEffect
-    dict.Add "TextAlign", o.TextAlign
-    dict.Add "TripleState", o.TripleState
-    dict.Add "Value", o.Value
-    dict.Add "WordWrap", o.WordWrap
-End Sub
-
-Private Sub AddRefEdit(ByVal dict As Dictionary, ByVal o As Object)
-    AddComboBox dict, o
-    On Error Resume Next
+Private Sub AddProperty(dic As Dictionary, o As Object, strName As Variant)
+    Select Case strName
+        Case "Class":       dic.Add strName, TypeName(o)
+        Case "Font":        dic.Add strName, GetFont(o.Font)
+        Case "Picture":     dic.Add strName, GetPicture(o.Picture)
+        Case "MouseIcon":   dic.Add strName, GetPicture(o.MouseIcon)
+        Case "Controls":    dic.Add strName, GetControls(o.Controls)
+        Case "Pages":       dic.Add strName, GetPages(o.Pages)
+        Case "Tabs":        dic.Add strName, GetTabs(o.Tabs)
+        Case Else
+            ' Standard property.
+            ' Use CallByName on object to get value if the property exists
+            On Error Resume Next
+            dic.Add strName, CallByName(o, strName, VbGet)
+    End Select
 End Sub
 
 Private Function GetPages(ByVal Pages As MSForms.Pages) As Collection
@@ -635,4 +210,391 @@ Private Function GetValue(ByVal Context As Object, ByVal Property As Property) A
         GetValue = Property.Value
     End If
 End Function
+
+Private Function GetPropertyList(strType As String) As Collection
+
+    Set GetPropertyList = New Collection
+    With GetPropertyList
+    
+        ' Generic control level properties
+        .Add "Class"
+        .Add "Name"
+        .Add "Cancel"
+        .Add "ControlSource"
+        .Add "ControlTipText"
+        .Add "Default"
+        .Add "Height"
+        .Add "HelpContextID"
+        .Add "LayoutEffect"
+        .Add "Left"
+        .Add "RowSource"
+        .Add "RowSourceType"
+        .Add "TabIndex"
+        .Add "TabStop"
+        .Add "Tag"
+        .Add "Top"
+        .Add "Visible"
+        .Add "Width"
+    
+        ' Specific properties based on control type
+        Select Case strType
+            Case "CheckBox"
+                .Add "Accelerator"
+                .Add "Alignment"
+                .Add "AutoSize"
+                .Add "BackColor"
+                .Add "BackStyle"
+                .Add "Caption"
+                .Add "Enabled"
+                .Add "Font"
+                .Add "ForeColor"
+                .Add "GroupName"
+                .Add "Locked"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "Picture"
+                .Add "PicturePosition"
+                .Add "SpecialEffect"
+                .Add "TextAlign"
+                .Add "TripleState"
+                .Add "Value"
+                .Add "WordWrap"
+            
+            Case "ComboBox", "RefEdit"  ' (Also used for Excel Reference control)
+                .Add "AutoSize"
+                .Add "AutoTab"
+                .Add "AutoWordSelect"
+                .Add "BackColor"
+                .Add "BackStyle"
+                .Add "BorderColor"
+                .Add "BorderStyle"
+                .Add "BoundColumn"
+            '    .Add "CanPaste"
+                .Add "ColumnCount"
+                .Add "ColumnHeads"
+                .Add "ColumnWidths"
+                .Add "DragBehavior"
+                .Add "DropButtonStyle"
+                .Add "Enabled"
+                .Add "EnterFieldBehavior"
+                .Add "Font"
+                .Add "ForeColor"
+                .Add "HideSelection"
+                .Add "IMEMode"
+                .Add "ListRows"
+                .Add "ListStyle"
+                .Add "ListWidth"
+                .Add "Locked"
+                .Add "MatchEntry"
+                .Add "MatchRequired"
+                .Add "MaxLength"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "SelectionMargin"
+                .Add "ShowDropButtonWhen"
+                .Add "SpecialEffect"
+                .Add "Style"
+                .Add "Text"
+                .Add "TextAlign"
+                .Add "TextColumn"
+                .Add "TopIndex"
+                .Add "Value"
+            
+            Case "CommandButton"
+                .Add "Accelerator"
+                .Add "AutoSize"
+                .Add "BackColor"
+                .Add "BackStyle"
+                .Add "Caption"
+                .Add "Enabled"
+                .Add "Font"
+                .Add "ForeColor"
+                .Add "Locked"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "Picture"
+                .Add "PicturePosition"
+                .Add "TakeFocusOnClick"
+                .Add "WordWrap"
+                
+            Case "Frame"
+                .Add "BackColor"
+                .Add "BorderColor"
+                .Add "BorderStyle"
+                '.Add "CanPaste"
+                .Add "CanRedo"
+                .Add "CanUndo"
+                .Add "Caption"
+                .Add "Controls"
+                .Add "Cycle"
+                .Add "Enabled"
+                .Add "Font"
+                .Add "ForeColor"
+                .Add "InsideHeight"
+                .Add "InsideWidth"
+                .Add "KeepScrollBarsVisible"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "Picture"
+                .Add "PictureAlignment"
+                .Add "PictureSizeMode"
+                .Add "PictureTiling"
+                .Add "ScrollBars"
+                .Add "ScrollHeight"
+                .Add "ScrollLeft"
+                .Add "ScrollTop"
+                .Add "ScrollWidth"
+                .Add "SpecialEffect"
+                .Add "VerticalScrollBarSide"
+                .Add "Zoom"
+        
+            Case "Image"
+                .Add "AutoSize"
+                .Add "BackColor"
+                .Add "BackStyle"
+                .Add "BorderColor"
+                .Add "BorderStyle"
+                .Add "Enabled"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "Picture"
+                .Add "PictureAlignment"
+                .Add "PictureSizeMode"
+                .Add "PictureTiling"
+                .Add "SpecialEffect"
+            
+            Case "Label"
+                .Add "Accelerator"
+                .Add "AutoSize"
+                .Add "BackColor"
+                .Add "BackStyle"
+                .Add "BorderColor"
+                .Add "BorderStyle"
+                .Add "Caption"
+                .Add "Enabled"
+                .Add "Font"
+                .Add "ForeColor"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "Picture"
+                .Add "PicturePosition"
+                .Add "SpecialEffect"
+                .Add "TextAlign"
+                .Add "WordWrap"
+            
+            Case "ListBox"
+                .Add "BackColor"
+                .Add "BorderColor"
+                .Add "BorderStyle"
+                .Add "BoundColumn"
+                .Add "ColumnHeads"
+                .Add "ColumnWidths"
+                .Add "Enabled"
+                .Add "Font"
+                .Add "ForeColor"
+                .Add "IMEMode"
+                .Add "IntegralHeight"
+                .Add "ListIndex"
+                .Add "ListStyle"
+                .Add "Locked"
+                .Add "MatchEntry"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "MultiSelect"
+                .Add "Selected"
+                .Add "SpecialEffect"
+                .Add "Text"
+                .Add "TextAlign"
+                .Add "TextColumn"
+                .Add "TopIndex"
+                .Add "Value"
+        
+            Case "MultiPage"
+                .Add "BackColor"
+                .Add "Enabled"
+                .Add "Font"
+                .Add "ForeColor"
+                .Add "MultiRow"
+                .Add "Pages"
+                .Add "Style"
+                .Add "TabFixedHeight"
+                .Add "TabFixedWidth"
+                .Add "TabOrientation"
+                .Add "Value"
+        
+            Case "OptionButton"
+                .Add "Accelerator"
+                .Add "Alignment"
+                .Add "AutoSize"
+                .Add "BackColor"
+                .Add "BackStyle"
+                .Add "Caption"
+                .Add "Enabled"
+                .Add "Font"
+                .Add "ForeColor"
+                .Add "GroupName"
+                .Add "Locked"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "Picture"
+                .Add "PicturePosition"
+                .Add "SpecialEffect"
+                .Add "TextAlign"
+                .Add "TripleState"
+                .Add "Value"
+                .Add "WordWrap"
+        
+            Case "Page"
+                .Add "Accelerator"
+                '.Add "CanPaste"
+                .Add "CanRedo"
+                .Add "CanUndo"
+                .Add "Caption"
+                .Add "Controls"
+                .Add "ControlTipText"
+                .Add "Cycle"
+                .Add "Enabled"
+                .Add "Index"
+                .Add "InsideHeight"
+                .Add "InsideWidth"
+                .Add "KeepScrollBarsVisible"
+                .Add "Name"
+                .Add "Parent"
+                .Add "Picture"
+                .Add "PictureAlignment"
+                .Add "PictureSizeMode"
+                .Add "PictureTiling"
+                .Add "ScrollBars"
+                .Add "ScrollHeight"
+                .Add "ScrollLeft"
+                .Add "ScrollTop"
+                .Add "ScrollWidth"
+                .Add "Tag"
+                .Add "TransitionEffect"
+                .Add "TransitionPeriod"
+                .Add "VerticalScrollBarSide"
+                .Add "Visible"
+                .Add "Zoom"
+        
+            Case "ScrollBar"
+                .Add "BackColor"
+                .Add "Delay"
+                .Add "Enabled"
+                .Add "ForeColor"
+                .Add "LargeChange"
+                .Add "Max"
+                .Add "Min"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "Orientation"
+                .Add "ProportionalThumb"
+                .Add "SmallChange"
+                .Add "Value"
+        
+            Case "SpinButton"
+                .Add "BackColor"
+                .Add "Delay"
+                .Add "Enabled"
+                .Add "ForeColor"
+                .Add "Max"
+                .Add "Min"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "Orientation"
+                .Add "SmallChange"
+                .Add "Value"
+        
+            Case "Tab"
+                .Add "Accelerator"
+                .Add "Caption"
+                .Add "ControlTipText"
+                .Add "Enabled"
+                .Add "Index"
+                .Add "Name"
+                .Add "Tag"
+                .Add "Visible"
+        
+            Case "TabStrip"
+                .Add "BackColor"
+                .Add "ClientHeight"
+                .Add "ClientLeft"
+                .Add "ClientTop"
+                .Add "ClientWidth"
+                .Add "Enabled"
+                .Add "Font"
+                .Add "ForeColor"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "MultiRow"
+                .Add "SelectedItem"
+                .Add "Style"
+                .Add "TabFixedHeight"
+                .Add "TabFixedWidth"
+                .Add "TabOrientation"
+                .Add "Tabs"
+                .Add "Value"
+        
+            Case "TextBox"
+                .Add "AutoSize"
+                .Add "AutoTab"
+                .Add "AutoWordSelect"
+                .Add "BackColor"
+                .Add "BackStyle"
+                .Add "BorderColor"
+                .Add "BorderStyle"
+                '.Add "CanPaste"
+                .Add "CurLine"
+                .Add "DragBehavior"
+                .Add "Enabled"
+                .Add "EnterFieldBehavior"
+                .Add "EnterKeyBehavior"
+                .Add "Font"
+                .Add "ForeColor"
+                .Add "HideSelection"
+                .Add "IMEMode"
+                .Add "IntegralHeight"
+                .Add "Locked"
+                .Add "MaxLength"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "MultiLine"
+                .Add "PasswordChar"
+                .Add "ScrollBars"
+                .Add "SelectionMargin"
+                .Add "SpecialEffect"
+                .Add "TabKeyBehavior"
+                .Add "Text"
+                .Add "TextAlign"
+                .Add "Value"
+                .Add "WordWrap"
+        
+            Case "ToggleButton"
+                .Add "Accelerator"
+                .Add "Alignment"
+                .Add "AutoSize"
+                .Add "BackColor"
+                .Add "BackStyle"
+                .Add "Caption"
+                .Add "Enabled"
+                .Add "ForeColor"
+                .Add "GroupName"
+                .Add "Locked"
+                .Add "MouseIcon"
+                .Add "MousePointer"
+                .Add "Picture"
+                .Add "PicturePosition"
+                .Add "SpecialEffect"
+                .Add "TextAlign"
+                .Add "TripleState"
+                .Add "Value"
+                .Add "WordWrap"
+            
+            Case Else
+                Debug.Print "Warning: Unknown ActiveX Control Type Name : " & strType
+    
+        End Select
+    End With
+    
+End Function
+
 
