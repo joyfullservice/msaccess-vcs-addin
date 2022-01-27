@@ -45,6 +45,7 @@ Implements IDbComponent
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     VerifyPath IDbComponent_SourceFile
     m_Form.Export IDbComponent_SourceFile
+    WriteFile SerializeMSForm(m_Form), IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json"
 End Sub
 
 
@@ -154,7 +155,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFiles Me, "frm", "frx"
+    ClearOrphanedSourceFiles Me, "frm", "frx", "json"
 End Sub
 
 
