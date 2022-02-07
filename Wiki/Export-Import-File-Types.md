@@ -3,7 +3,7 @@ Note: This page is a work in progress. Feel free to contribute!
 # File Structure Overview
 The following outline illustrates the folder and file structure used by the add-in when exporting source files for a project. (For simplicity, ADP project folders are not shown here.)
 
-Note that in your export folder you will only see the folders and files for the components actually used in your database. See [Supported Objects](Supported-Objects.md) for a comprehensive list of object types and the related code sections in this add-in.
+Note that in your export folder you will only see the folders and files for the components actually used in your database. See [Supported Objects](Supported-Objects) for a comprehensive list of object types and the related code sections in this add-in.
 
     .
     ├── ...
@@ -139,7 +139,7 @@ Reports are exported into the `reports` folder by default.
 
 
 ### [YourSource.extension].src\tables
-Table data is exported into `tables` folder by for each table you setup to export data. See [Options](Options.md) for what you can choose.
+Table data is exported into `tables` folder by for each table you setup to export data. See [Options](Options#table-data) for what you can choose.
 
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
@@ -158,7 +158,7 @@ Table definitions are exported into the `tbldefs` folder by default. Note table 
 
 
 ### [YourSource.extension].src\themes
-Themes are exported into the `themes` folder by default. See [Options](Options.md) for what you can choose. 
+Themes are exported into the `themes` folder by default. See [Options](Options#export-tab) for what you can choose. 
 
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
