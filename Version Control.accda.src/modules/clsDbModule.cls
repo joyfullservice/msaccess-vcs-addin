@@ -62,7 +62,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     ' Update the index with the current VBA hash. (Note, this will not show
     ' changes to the hidden VBE properties that might have been added.)
-    VCSIndex.Update Me, eatExport, GetCodeModuleHash(edbModule, m_Module.Name)
+    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, _
+        GetFileHash(IDbComponent_SourceFile), GetCodeModuleHash(edbModule, m_Module.Name)
         
 End Sub
 
@@ -232,7 +233,7 @@ Private Sub IDbComponent_Merge(strFile As String)
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
     Else
-        VCSIndex.Remove Me
+        VCSIndex.Remove Me, strFile
     End If
 End Sub
 
@@ -340,7 +341,7 @@ Public Function IDbComponent_IsModified() As Boolean
     ' so use the hash instead to detect changes.
     
     ' NOTE: This will not detect changes to hidden VBE attributes
-    IDbComponent_IsModified = VCSIndex.Item(Me).Hash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
+    IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
 
 End Function
 

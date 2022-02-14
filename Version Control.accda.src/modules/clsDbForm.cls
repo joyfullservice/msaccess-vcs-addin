@@ -37,8 +37,9 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    SaveComponentAsText acForm, m_Form.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me
-    VCSIndex.Update Me, eatExport, GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
+    Dim strHash As String
+    strHash = SaveComponentAsText(acForm, m_Form.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
+    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, strHash, GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
 End Sub
 
 
@@ -168,7 +169,7 @@ Public Function IDbComponent_IsModified() As Boolean
     If m_Form.DateModified <= VCSIndex.Item(Me).ExportDate Then
             
         ' Date is okay, check hash
-        IDbComponent_IsModified = VCSIndex.Item(Me).Hash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
+        IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
     End If
 
 End Function

@@ -38,6 +38,7 @@ Implements IDbComponent
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim dSpec As Dictionary
+    Dim strContent As String
     
     Set dSpec = New Dictionary
     
@@ -52,8 +53,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     CatchAny eelNoError, vbNullString, , False
     
     ' Write as Json format.
-    WriteJsonFile TypeName(Me), dSpec, Nz2(strAlternatePath, IDbComponent_SourceFile), "Saved Import/Export Specification"
-    
+    strContent = BuildJsonFile(TypeName(Me), dSpec, "Saved Import/Export Specification")
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
+
 End Sub
 
 

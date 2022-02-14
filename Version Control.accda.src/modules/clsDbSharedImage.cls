@@ -52,14 +52,17 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
+    Dim strContent As String
     Dim strFile As String
     Dim dItem As Dictionary
+    Dim strHash As String
     
     ' Build header file
     Set dItem = GetDictionary
     
     ' Save json file with header details
-    WriteJsonFile TypeName(Me), dItem, Nz2(strAlternatePath, IDbComponent_SourceFile), "Shared Image Gallery Item"
+    strContent = BuildJsonFile(TypeName(Me), dItem, "Shared Image Gallery Item")
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
     
     ' Save image file using extension from embedded file.
     strFile = IDbComponent_BaseFolder & FSO.GetBaseName(IDbComponent_SourceFile) & "." & FSO.GetExtensionName(m_FileName)
@@ -68,7 +71,12 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     WriteBinaryFile strFile, StripOLEHeader(m_FileData)
     
     ' Update index after export
-    VCSIndex.Update Me, eatExport, GetDictionaryHash(dItem)
+    If strAlternatePath = vbNullString Then
+    
+        ' Build hash of both file content and header so we can detect changes in either.
+        strHash = GetStringHash(strContent & GetFileHash(strFile), True)
+        VCSIndex.Update Me, eatExport, strHash
+    End If
     
 End Sub
 
@@ -348,7 +356,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = (VCSIndex.Item(Me).Hash = GetDictionaryHash(GetDictionary))
+    IDbComponent_IsModified = (VCSIndex.Item(Me).FileHash = GetDictionaryHash(GetDictionary))
 End Function
 
 

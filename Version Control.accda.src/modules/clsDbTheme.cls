@@ -58,6 +58,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim rst As Recordset2
     Dim rstAtc As Recordset2
     Dim strSql As String
+    Dim strHash As String
     
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -80,6 +81,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     If Not rst.EOF Then
         Set rstAtc = rst!Data.Value
         If FSO.FileExists(strFile) Then DeleteFile strFile, True
+        If FSO.FolderExists(strFile) Then FSO.DeleteFolder strFile, True
         VerifyPath strFile
         Perf.OperationStart "Export Theme"
         rstAtc!FileData.SaveToFile strFile
@@ -91,6 +93,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Set rst = Nothing
 
     CatchAny eelError, "Error exporting theme file: " & strFile, ModuleName & ".Export", True, True
+    
+    ' Get hash before extracting the theme
+    strHash = GetFileHash(strFile)
 
     ' See if we need to extract the theme source files.
     ' (Only really needed when you are tracking themes customizations.)
@@ -110,8 +115,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         CatchAny eelError, "Error extracting theme. Folder: " & strFolder, ModuleName & ".Export", True, True
     End If
     
-    ' Update index
-    VCSIndex.Update Me, eatExport, GetSignatureHash
+    ' Update index if exporting to default folder
+    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, strHash, GetSignatureHash
 
 End Sub
 
@@ -477,8 +482,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    ' Load the database object first so we can calculate the hash
-    IDbComponent_IsModified = VCSIndex.Item(Me).Hash <> GetSignatureHash
+    ' Compare the index hash with the current theme signature hash
+    IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetSignatureHash
 End Function
 
 

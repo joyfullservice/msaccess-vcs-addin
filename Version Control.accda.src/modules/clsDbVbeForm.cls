@@ -179,7 +179,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    ' Compare the hash of the serialized JSON output, not the ever-changing binary source file.
+    ' NOTE: This will not detect changes in unserialized objects such as ActiveX controls.
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(SerializeMSForm(m_Form))
 End Function
 
 

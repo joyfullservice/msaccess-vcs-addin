@@ -37,8 +37,10 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    WriteJsonFile TypeName(Me), GetDictionary, Nz2(strAlternatePath, IDbComponent_SourceFile), "Database Properties (DAO)"
-    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
+    Dim strContent As String
+    strContent = GetSource
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    If strAlternatePath <> vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
 End Sub
 
 
@@ -166,7 +168,7 @@ Private Sub IDbComponent_Import(strFile As String)
     End If
     
     ' Update index
-    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary(False))
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
     
 End Sub
 
@@ -194,6 +196,18 @@ Private Sub IDbComponent_Merge(strFile As String)
     IDbComponent_Import strFile
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Database Properties (DAO)")
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -353,7 +367,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = VCSIndex.Item(Me).Hash <> GetDictionaryHash(GetDictionary)
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 

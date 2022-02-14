@@ -37,8 +37,9 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    SaveComponentAsText acMacro, m_Macro.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
-    VCSIndex.Update Me, eatExport
+    Dim strHash As String
+    strHash = SaveComponentAsText(acMacro, m_Macro.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
+    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, strHash
 End Sub
 
 

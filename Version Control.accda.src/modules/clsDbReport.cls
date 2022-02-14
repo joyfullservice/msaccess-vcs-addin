@@ -37,8 +37,9 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    SaveComponentAsText acReport, m_Report.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me
-    VCSIndex.Update Me, eatExport, GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
+    Dim strHash As String
+    strHash = SaveComponentAsText(acReport, m_Report.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
+    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, strHash, GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
 End Sub
 
 
@@ -59,7 +60,7 @@ Private Sub IDbComponent_Import(strFile As String)
     strName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acReport, strName, strFile, Me
     Set m_Report = CurrentProject.AllReports(strName)
-    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile), GetCodeModuleHash(IDbComponent_ComponentType, strName)
 
 End Sub
 
@@ -168,7 +169,7 @@ Public Function IDbComponent_IsModified() As Boolean
     If m_Report.DateModified <= VCSIndex.Item(Me).ExportDate Then
             
         ' Date is okay, check hash
-        IDbComponent_IsModified = VCSIndex.Item(Me).Hash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
+        IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
     End If
     
 End Function

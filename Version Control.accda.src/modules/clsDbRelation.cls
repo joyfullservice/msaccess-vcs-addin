@@ -51,6 +51,7 @@ End Sub
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
+    Dim strContent As String
     Dim dItem As Dictionary
     Dim dField As Dictionary
     Dim colItems As Collection
@@ -78,7 +79,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     dItem.Add "Fields", colItems
     
     ' Write to json file
-    WriteJsonFile TypeName(Me), dItem, Nz2(strAlternatePath, IDbComponent_SourceFile), "Database relationship"
+    strContent = BuildJsonFile(TypeName(Me), dItem, "Database relationship")
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
     
 End Sub
 
@@ -146,7 +149,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-
+    ' Existing relationships will be removed during import
+    IDbComponent_Import strFile
 End Sub
 
 

@@ -39,20 +39,25 @@ Implements IDbComponent
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     Dim strFile As String
+    Dim strHash As String
     Dim dbs As DAO.Database
 
     ' Save and sanitize file
-    SaveComponentAsText acQuery, m_Query.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
-    VCSIndex.Update Me, eatExport
+    strHash = SaveComponentAsText(acQuery, m_Query.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
     
-    ' Export as SQL (if using that option)
-    If Options.SaveQuerySQL Then
-        Perf.OperationStart "Save Query SQL"
-        Set dbs = CurrentDb
-        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
-        WriteFile dbs.QueryDefs(m_Query.Name).SQL, strFile
-        Perf.OperationEnd
-        Log.Add "  " & m_Query.Name & " (SQL)", Options.ShowDebug
+    ' If saving in source folder, update index and check SQL option
+    If strAlternatePath = vbNullString Then
+        VCSIndex.Update Me, eatExport, strHash
+        
+        ' Export as SQL (if using that option)
+        If Options.SaveQuerySQL Then
+            Perf.OperationStart "Save Query SQL"
+            Set dbs = CurrentDb
+            strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
+            WriteFile dbs.QueryDefs(m_Query.Name).SQL, strFile
+            Perf.OperationEnd
+            Log.Add "  " & m_Query.Name & " (SQL)", Options.ShowDebug
+        End If
     End If
     
 End Sub

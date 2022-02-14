@@ -46,6 +46,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim tbl As DAO.TableDef
     Dim idx As DAO.Index
     Dim dItem As Dictionary
+    Dim strHash As String
+    Dim strContent As String
     
     Set dbs = CurrentDb
     Set tbl = dbs.TableDefs(m_Table.Name)
@@ -62,7 +64,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         Perf.OperationEnd
         
         ' Rewrite sanitized XML as formatted UTF-8 content
-        SanitizeXML strFile
+        strHash = SanitizeXML(strFile, True)
     
     Else
         ' Linked table - Save as JSON
@@ -85,21 +87,27 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         End With
         
         ' Write export file.
-        WriteJsonFile TypeName(Me), dItem, strFile, "Linked Table"
+        strContent = BuildJsonFile(TypeName(Me), dItem, "Linked Table")
+        strHash = GetStringHash(strContent, True)
+        WriteFile strContent, strFile
         
     End If
     
-    ' Remove any alternate source file in case we have switched formats
-    RemoveAlternateFormatSourceFile
-  
-    ' Optionally save in SQL format
-    If Options.SaveTableSQL Then
-        Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
-        SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder
+    ' Additional processing when exporting to source folder
+    If strAlternatePath = vbNullString Then
+        
+        ' Remove any alternate source file in case we have switched formats
+        RemoveAlternateFormatSourceFile
+      
+        ' Optionally save in SQL format
+        If Options.SaveTableSQL Then
+            Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
+            SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder
+        End If
+    
+        ' Update index
+        VCSIndex.Update Me, eatExport, strHash
     End If
-
-    ' Update index
-    VCSIndex.Update Me, eatExport
     
 End Sub
 
@@ -114,7 +122,7 @@ End Sub
 '
 Private Sub RemoveAlternateFormatSourceFile()
     Dim strAltFile As String
-    strAltFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, (m_Table.Connect = vbNullString))
+    strAltFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, Not IsLinked)
     If FSO.FileExists(strAltFile) Then DeleteFile strAltFile
 End Sub
 
@@ -696,18 +704,21 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-
-    Dim dbs As DAO.Database
-    Dim tdf As DAO.TableDef
-    
     If m_Table Is Nothing Then Exit Property
-    
-    Set dbs = CurrentDb
-    Set tdf = dbs.TableDefs(m_Table.Name)
-    
-    ' Check connection string for linked table
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, (tdf.Connect <> vbNullString))
-        
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, IsLinked)
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsLinked
+' Author    : Adam Waller
+' Date      : 2/12/2022
+' Purpose   : Returns true if this table is a linked table
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IsLinked() As Boolean
+    If m_Table Is Nothing Then Exit Property
+    IsLinked = CurrentDb.TableDefs(m_Table.Name).Connect <> vbNullString
 End Property
 
 

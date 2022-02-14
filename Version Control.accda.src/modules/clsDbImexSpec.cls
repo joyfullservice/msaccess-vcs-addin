@@ -47,6 +47,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim rst As DAO.Recordset
     Dim strSql As String
     Dim fld As DAO.Field
+    Dim strContent As String
     
     Set dSpec = New Dictionary
     Set dCols = New Dictionary
@@ -89,7 +90,11 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     dSpec.Add "Columns", dCols
     
     ' Write as Json format.
-    WriteJsonFile TypeName(Me), dSpec, Nz2(strAlternatePath, IDbComponent_SourceFile), "Import/Export Specification from MSysIMEXSpecs"
+    strContent = BuildJsonFile(TypeName(Me), dSpec, "Import/Export Specification from MSysIMEXSpecs")
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    
+    ' Update index
+    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
     
 End Sub
 

@@ -38,8 +38,10 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    WriteJsonFile TypeName(Me), GetDictionary, Nz2(strAlternatePath, IDbComponent_SourceFile), "Database objects hidden attribute"
-    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
+    Dim strContent As String
+    strContent = BuildJsonFile(TypeName(Me), GetDictionary, "Database objects hidden attribute")
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
 End Sub
 
 
@@ -326,7 +328,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = VCSIndex.Item(Me).Hash <> GetDictionaryHash(GetDictionary)
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetDictionaryHash(GetDictionary)
 End Function
 
 
