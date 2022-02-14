@@ -126,15 +126,18 @@ End Function
 ' Date      : 4/29/2020
 ' Purpose   : Wrapper for Application.SaveAsText that verifies that the path exists,
 '           : and then removes any existing file before saving the object as text.
+'           : Returns a hash of the file content (if applicable) to track changes.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveComponentAsText(intType As AcObjectType, _
+Public Function SaveComponentAsText(intType As AcObjectType, _
                                 strName As String, _
                                 strFile As String, _
-                                Optional cDbObjectClass As IDbComponent = Nothing)
+                                Optional cDbObjectClass As IDbComponent = Nothing) As String
     
     Dim strTempFile As String
     Dim strPrintSettingsFile As String
+    Dim strContent As String
+    Dim strHash As String
     
     On Error GoTo ErrHandler
     
@@ -158,8 +161,8 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
                     ' Only need to save print settings if they are different
                     ' from the default printer settings.
                     If (.GetHash <> VCSIndex.DefaultDevModeHash) And .HasData Then
-                        WriteJsonFile TypeName(cDbObjectClass), .GetDictionary, _
-                        strPrintSettingsFile, strName & " Print Settings"
+                        WriteFile BuildJsonFile(TypeName(cDbObjectClass), .GetDictionary, _
+                          strName & " Print Settings"), strPrintSettingsFile
                     Else
                         ' No print settings in this object.
                         If FSO.FileExists(strPrintSettingsFile) Then DeleteFile strPrintSettingsFile
@@ -171,30 +174,20 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
             End With
             ' Sanitizing converts to UTF-8
             If FSO.FileExists(strFile) Then DeleteFile strFile
-            SanitizeFile strTempFile
+            strHash = SanitizeFile(strTempFile, True)
             FSO.MoveFile strTempFile, strFile
     
         Case acQuery, acMacro
             ' Sanitizing converts to UTF-8
             If FSO.FileExists(strFile) Then DeleteFile strFile
-            SanitizeFile strTempFile
+            strHash = SanitizeFile(strTempFile, True)
             FSO.MoveFile strTempFile, strFile
             
-        Case acModule '(ANSI text file)
-            ' Modules may contain extended characters that need UTF-8 conversion
-            ' to display correctly in some editors.
-            If StringHasExtendedASCII(ReadFile(strTempFile, GetSystemEncoding)) Then
-                ' Convert to UTF-8
-                ConvertAnsiUtf8 strTempFile, strFile
-            Else
-                ' Leave as ANSI
-                If FSO.FileExists(strFile) Then DeleteFile strFile
-                FSO.MoveFile strTempFile, strFile
-            End If
+        ' Case acModule - Use VBE export instead.
         
         Case acTableDataMacro
             ' Table data macros are stored in XML format
-            If FSO.FileExists(strFile) Then SanitizeXML strFile
+            If FSO.FileExists(strFile) Then strHash = SanitizeXML(strFile, True)
             
         Case Else
             ' Handle UCS conversion if needed
@@ -204,18 +197,21 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
     
     ' Normal exit
     On Error GoTo 0
-    Exit Sub
+    
+    ' Return content hash
+    SaveComponentAsText = strHash
+    Exit Function
     
 ErrHandler:
     If Err.Number = 2950 And intType = acTableDataMacro Then
         ' This table apparently didn't have a Table Data Macro.
-        Exit Sub
+        Exit Function
     Else
         ' Some other error.
         Err.Raise Err.Number
     End If
     
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
