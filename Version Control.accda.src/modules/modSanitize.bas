@@ -21,10 +21,11 @@ Private m_colBlocks As Collection
 ' Procedure : SanitizeFile
 ' Author    : Adam Waller
 ' Date      : 11/4/2020
-' Purpose   : Rewritten version of sanitize function
+' Purpose   : Rewritten version of sanitize function. Returns hash of content as well
+'           : as saving to the specified path.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SanitizeFile(strPath As String)
+Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As String
 
     Dim strFile As String
     Dim varLines As Variant
@@ -38,7 +39,7 @@ Public Sub SanitizeFile(strPath As String)
     Dim blnIsPassThroughQuery As Boolean
     Dim curStart As Currency
     Dim strTempFile As String
-
+    Dim strContent As String
     
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -225,7 +226,11 @@ Public Sub SanitizeFile(strPath As String)
     
 Build_Output:
     ' Build the final output
-    BuildOutput varLines, strPath
+    strContent = BuildOutput(varLines)
+    WriteFile strContent, strPath
+    
+    ' Return hash of content
+    If blnReturnHash Then SanitizeFile = GetStringHash(strContent, True)
 
     ' Log performance
     Perf.OperationEnd
@@ -234,7 +239,7 @@ Build_Output:
     ' Log any errors
     CatchAny eelError, "Error sanitizing file " & FSO.GetFileName(strPath), ModuleName & ".SanitizeFile"
     
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -244,7 +249,7 @@ End Sub
 ' Purpose   : Splitting this out into its own sub to reduce complexity.
 '---------------------------------------------------------------------------------------
 '
-Private Sub BuildOutput(varLines As Variant, strFile As String)
+Private Function BuildOutput(varLines As Variant) As String
 
     Dim cData As clsConcat
     Dim lngSkip As Long
@@ -283,12 +288,11 @@ Private Sub BuildOutput(varLines As Variant, strFile As String)
         ' Remove last vbcrlf
         cData.Remove Len(vbCrLf)
     
-        ' Replace original file with sanitized version
-        WriteFile cData.GetStr, strFile
-        
+        ' Return assembled output
+        BuildOutput = .GetStr
     End With
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -469,9 +473,11 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 4/29/2021
 ' Purpose   : Remove non-essential data that changes every time the file is exported.
+'           : Optionally returns a hash of the file content. (To save reading the file
+'           : back again afterwards to compute the hash.)
 '---------------------------------------------------------------------------------------
 '
-Public Sub SanitizeXML(strPath As String)
+Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As String
 
     Dim curStart As Currency
     Dim cData As clsConcat
@@ -566,13 +572,16 @@ Public Sub SanitizeXML(strPath As String)
     ' Write out sanitized XML file
     WriteFile cData.GetStr, strPath
 
+    ' Return hash, if requested
+    If blnReturnHash Then SanitizeXML = GetStringHash(cData.GetStr, True)
+    
     ' Show stats if debug turned on.
     Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
 
     ' Log any errors
     CatchAny eelError, "Error sanitizing XML file " & FSO.GetFileName(strPath), ModuleName & ".SanitizeXML"
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
