@@ -395,9 +395,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
         dCategories.Add cCategory, dCategory
         ' Record any conflicts for later review
         VCSIndex.CheckImportConflicts cCategory, dCategory("Files")
-        
         ' Clear orphaned database objects (With no corresponding source file)
-        cCategory.ClearOrphanedSourceFiles
+        If Not blnFullBuild Then cCategory.ClearOrphanedDatabaseObjects
     Next cCategory
     Perf.OperationEnd
     
@@ -467,7 +466,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     ' (This must be done after all objects are imported, since subforms/subreports
     '  may be involved, and must already exist in the database.)
     Log.Add "Initializing forms..."
-    InitializeForms
+    InitializeForms dCategories
     
     ' Run any post-build/merge instructions
     If blnFullBuild Then
@@ -748,16 +747,29 @@ End Sub
 ' Purpose   : Opens and closes each form in design view to complete the process of
 '           : fully rendering the colors and applying the theme. (This is needed to
 '           : provide a consistent output after importing from source.)
+'           : Pass this function a reference to the container of objects being
+'           : imported into the database. (All object types)
 '---------------------------------------------------------------------------------------
 '
-Public Sub InitializeForms()
+Public Sub InitializeForms(cContainers As Dictionary)
 
     Dim cont As IDbComponent
     Dim frm As IDbComponent
     Dim strHash As String
+    Dim colForms As Collection
     
     ' Trap any errors that may occur when opening forms
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+
+    ' Build list of forms that were imported
+    Set colForms = New Collection
+    For Each cont In cContainers
+        If cont.ComponentType = edbForm Then
+            'for each frm in cont.
+        End If
+    Next cont
+    ' TODO: This is still a work in progress
+    Exit Sub
 
     ' Use form class so we can update the index later.
     Set cont = New clsDbForm
@@ -780,8 +792,9 @@ Public Sub InitializeForms()
         
         ' Update the index, since the save date has changed, but reuse the code hash
         ' since we just calculated it after importing the form.
-        strHash = dNZ(VCSIndex.Item(frm), "FileHash")
-        VCSIndex.Update frm, eatImport, strHash
+        With VCSIndex.Item(frm)
+            VCSIndex.Update frm, eatImport, .FileHash, .OtherHash
+        End With
         
     Next frm
     

@@ -112,6 +112,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 End Function
 
 
+Private Sub InitializeForm(strName As String)
+
+End Sub
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : GetFileList
 ' Author    : Adam Waller
