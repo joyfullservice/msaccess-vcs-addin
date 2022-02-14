@@ -21,7 +21,8 @@ Public dParent As Dictionary
 Public ImportDate As Date
 Public ExportDate As Date
 Public SourceModified As Date
-Public Hash As String
+Public FileHash As String
+Public OtherHash As String
 Public FilePropertiesHash As String
 
 

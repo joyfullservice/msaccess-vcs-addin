@@ -137,7 +137,7 @@ Public Sub Save(Optional strInFolder As String)
 
     ' Save index to file
     If m_strFile <> vbNullString Then
-        WriteJsonFile TypeName(Me), m_dIndex, strFile, "Version Control System Index"
+        WriteFile BuildJsonFile(TypeName(Me), m_dIndex, "Version Control System Index"), strFile
     End If
     
 End Sub
@@ -151,7 +151,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, _
-    Optional strHash As String, Optional dteDateTime As Date) As Dictionary
+    Optional strFileHash As String, Optional strOtherHash As String, Optional dteDateTime As Date) As Dictionary
     
     Dim dItem As Dictionary
     
@@ -165,11 +165,19 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
     With dItem
     
         ' Update hash
-        If strHash = vbNullString Then
+        If strFileHash = vbNullString Then
             ' Remove hash if not used.
-            If .Exists("Hash") Then .Remove "Hash"
+            If .Exists("FileHash") Then .Remove "FileHash"
         Else
-            .Item("Hash") = strHash
+            .Item("FileHash") = strFileHash
+        End If
+        
+        ' Code module hash (Detects changes to VBA code that are not reflected in modified date)
+        If strOtherHash = vbNullString Then
+            ' Remove hash if not used.
+            If .Exists("OtherHash") Then .Remove "OtherHash"
+        Else
+            .Item("OtherHash") = strOtherHash
         End If
         
         ' Add timestamp, defaulting to now
@@ -273,7 +281,8 @@ Private Function LoadItem(cItem As IDbComponent, strSourceFile As String) As cls
             .ImportDate = Nz2(dNZ(dItem, "ImportDate"), 0)
             .SourceModified = Nz2(dNZ(dItem, "SourceModified"), 0)
             .FilePropertiesHash = dNZ(dItem, "FilePropertiesHash")
-            .Hash = dNZ(dItem, "Hash")
+            .FileHash = dNZ(dItem, "FileHash")
+            .OtherHash = dNZ(dItem, "OtherHash")
         End With
     End With
 
@@ -468,6 +477,7 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
     Dim strHash As String
     Dim strFile As String
     Dim strTempFile As String
+    Dim blnCompareTemp As Boolean
     
     strFile = cItem.SourceFile
     
@@ -492,17 +502,22 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
                 ' last export date...
                 If Me.Item(cItem).ExportDate < GetLastModifiedDate(strFile) Then
                     ' ...and the content is different, then we have a conflict.
-                    blnConflict = Not FileContentsMatch(strFile, strTempFile)
+                    blnCompareTemp = True
                 End If
             End If
         Else
             ' Without an existing index entry, we will need to compare a fresh
             ' export of the item to the source file and check for differing content.
-            strTempFile = GetTempFile
-            cItem.Export strTempFile
-            blnConflict = Not FileContentsMatch(strFile, strTempFile)
-            DeleteFile strTempFile
+            blnCompareTemp = True
         End If
+    End If
+    
+    ' Compare the content hash of a fresh export to see if it matches the existing file.
+    If blnCompareTemp Then
+        strTempFile = GetTempFile
+        cItem.Export strTempFile
+        blnConflict = Not FileContentsMatch(strFile, strTempFile)
+        DeleteFile strTempFile
     End If
     
     ' Return result
