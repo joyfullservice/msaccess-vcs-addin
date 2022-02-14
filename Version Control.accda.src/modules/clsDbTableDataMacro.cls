@@ -177,7 +177,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    ' A table modification doesn't always mean the macro was modified, but we will
+    ' export on any table modification, just to be on the safe side.
+    IDbComponent_IsModified = (m_Table.DateModified > VCSIndex.Item(Me).ExportDate)
 End Function
 
 

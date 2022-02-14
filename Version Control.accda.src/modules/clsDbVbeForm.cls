@@ -22,6 +22,7 @@ Private Const ModuleName As String = "clsDbVbeForm"
 Private m_Form As VBIDE.VBComponent
 Private m_AllItems As Dictionary
 Private m_FileList As Dictionary
+Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -35,17 +36,24 @@ Implements IDbComponent
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Export the individual database component (table, form, query, etc...)
-'           : NOTE: If there is interest, this could be expanded to implement some
-'           : code to serialize the form to JSON for better integration with version
-'           : control. (Instead of the default binary format that changes with each
-'           : export. See the following link for an example implementation:
-'           : https://github.com/gkuenzli/vbaDeveloper/blob/7665e34b51574d676999e2a55b60c483254c1728/src/vbaDeveloper.xlam/FormSerializer.bas
+'           : NOTE: This has been expanded to include an export (for reference only) of
+'           : a serialized representation of the form properties, controls, and layout.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    VerifyPath IDbComponent_SourceFile
+    
+    Dim strContent As String
+    
+    ' This is the serialized output file in JSON format to track changes in version control
+    strContent = GetSource
+    WriteFile strContent, IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json"
+    
+    ' This is the binary export file used when building from source
     m_Form.Export IDbComponent_SourceFile
-    WriteFile SerializeMSForm(m_Form), IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json"
+    
+    ' Update index with a hash of the serialized content. (Since the binary content changes frequently)
+    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
+
 End Sub
 
 
@@ -59,14 +67,16 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
     
     Dim strLine As String
+    Dim proj As VBProject
     
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Only import files with the correct extension.
     If Not strFile Like "*.frm" Then Exit Sub
 
-    With GetVBProjectForCurrentDB.VBComponents
-    
+    Set proj = GetVBProjectForCurrentDB
+    With proj.VBComponents
+        
         ' Import the source file
         .Import strFile
     
@@ -74,7 +84,7 @@ Private Sub IDbComponent_Import(strFile As String)
         With .Item(GetObjectNameFromFileName(strFile))
             If Not .CodeModule Is Nothing Then
                 If .CodeModule.Lines(1, 1) = vbNullString Then
-                    ' Remove blank line added during import
+                    ' Remove blank line added during import (Known VBA Bug)
                     .CodeModule.DeleteLines 1
                     ' Note, this change is not saved at this time. It will be saved during
                     ' the next compile/save operation.
@@ -93,12 +103,34 @@ End Sub
 ' Procedure : Merge
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
-' Purpose   : Merge the source file into the existing database, updating or replacing
+' Purpose   : Merge the source file into the existing database, replacing or removing
 '           : any existing object.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
+    DeleteVbeFormIfExists GetObjectNameFromFileName(strFile)
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeleteVbeFormIfExists
+' Author    : Adam Waller
+' Date      : 2/5/2022
+' Purpose   : Remove any existing VBE form
+'---------------------------------------------------------------------------------------
+'
+Private Sub DeleteVbeFormIfExists(strName)
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    With GetVBProjectForCurrentDB.VBComponents
+        .Remove .Item(strName)
+    End With
+    Catch 9 ' Subscript out of range (name not found)
+    CatchAny eelError, "Deleting VBE Form " & strName
 End Sub
 
 
@@ -115,22 +147,37 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cForm As IDbComponent
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-
+    If m_AllItems Is Nothing Or blnModifiedOnly <> m_blnModifiedOnly Then
+        m_blnModifiedOnly = blnModifiedOnly
         Set m_AllItems = New Dictionary
         For Each frm In GetVBProjectForCurrentDB.VBComponents
             If frm.Type = vbext_ct_MSForm Then
                 Set cForm = New clsDbVbeForm
                 Set cForm.DbObject = frm
-                m_AllItems.Add cForm.SourceFile, cForm
+                If blnModifiedOnly Then
+                    If cForm.IsModified Then m_AllItems.Add cForm.SourceFile, cForm
+                Else
+                    m_AllItems.Add cForm.SourceFile, cForm
+                End If
             End If
         Next frm
-
     End If
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_AllItems
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), SerializeMSForm(m_Form), "Serialized VBE Form")
 End Function
 
 
@@ -181,7 +228,7 @@ End Sub
 Public Function IDbComponent_IsModified() As Boolean
     ' Compare the hash of the serialized JSON output, not the ever-changing binary source file.
     ' NOTE: This will not detect changes in unserialized objects such as ActiveX controls.
-    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(SerializeMSForm(m_Form))
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 

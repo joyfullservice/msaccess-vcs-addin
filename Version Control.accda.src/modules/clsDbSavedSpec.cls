@@ -36,27 +36,10 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    
-    Dim dSpec As Dictionary
     Dim strContent As String
-    
-    Set dSpec = New Dictionary
-    
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    ' For some reason it throws an error if there is no
-    ' description in the specification.
-    With dSpec
-        .Add "Name", m_Spec.Name
-        .Add "Description", m_Spec.Description
-        .Add "XML", m_Spec.XML
-    End With
-    CatchAny eelNoError, vbNullString, , False
-    
-    ' Write as Json format.
-    strContent = BuildJsonFile(TypeName(Me), dSpec, "Saved Import/Export Specification")
+    strContent = GetSource
     WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
     If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
-
 End Sub
 
 
@@ -131,6 +114,36 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+
+    Dim dSpec As Dictionary
+    Dim strContent As String
+    
+    Set dSpec = New Dictionary
+    
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    ' For some reason it throws an error if there is no
+    ' description in the specification.
+    With dSpec
+        .Add "Name", m_Spec.Name
+        .Add "Description", m_Spec.Description
+        .Add "XML", m_Spec.XML
+    End With
+    CatchAny eelNoError, vbNullString, , False
+    
+    ' Return source file content
+    GetSource = BuildJsonFile(TypeName(Me), dSpec, "Saved Import/Export Specification")
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetFileList
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -175,7 +188,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 

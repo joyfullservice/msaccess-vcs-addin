@@ -50,39 +50,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    
     Dim strContent As String
-    Dim dItem As Dictionary
-    Dim dField As Dictionary
-    Dim colItems As Collection
-    Dim fld As DAO.Field
-    
-    ' Relation properties
-    Set dItem = New Dictionary
-    With dItem
-        .Add "Name", m_Relation.Name
-        .Add "Attributes", m_Relation.Attributes
-        .Add "Table", m_Relation.Table
-        .Add "ForeignTable", m_Relation.ForeignTable
-    End With
-    
-    ' Fields
-    Set colItems = New Collection
-    For Each fld In m_Relation.Fields
-        Set dField = New Dictionary
-        With dField
-            .Add "Name", fld.Name
-            .Add "ForeignName", fld.ForeignName
-        End With
-        colItems.Add dField
-    Next fld
-    dItem.Add "Fields", colItems
-    
-    ' Write to json file
-    strContent = BuildJsonFile(TypeName(Me), dItem, "Database relationship")
+    strContent = GetSource
     WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
     If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
-    
 End Sub
 
 
@@ -232,6 +203,47 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+
+    Dim dItem As Dictionary
+    Dim dField As Dictionary
+    Dim colItems As Collection
+    Dim fld As DAO.Field
+    
+    ' Relation properties
+    Set dItem = New Dictionary
+    With dItem
+        .Add "Name", m_Relation.Name
+        .Add "Attributes", m_Relation.Attributes
+        .Add "Table", m_Relation.Table
+        .Add "ForeignTable", m_Relation.ForeignTable
+    End With
+    
+    ' Fields
+    Set colItems = New Collection
+    For Each fld In m_Relation.Fields
+        Set dField = New Dictionary
+        With dField
+            .Add "Name", fld.Name
+            .Add "ForeignName", fld.ForeignName
+        End With
+        colItems.Add dField
+    Next fld
+    dItem.Add "Fields", colItems
+
+    ' Return source file content
+    GetSource = BuildJsonFile(TypeName(Me), dItem, "Database relationship")
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetFileList
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -277,7 +289,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 

@@ -39,7 +39,7 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strContent As String
-    strContent = BuildJsonFile(TypeName(Me), GetDictionary, "Database objects hidden attribute")
+    strContent = GetSource
     WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
     If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
 End Sub
@@ -156,6 +156,18 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_AllItems
         
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Database objects hidden attribute")
 End Function
 
 
@@ -328,7 +340,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetDictionaryHash(GetDictionary)
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 

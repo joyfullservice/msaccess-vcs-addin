@@ -16,6 +16,8 @@
 ' @author gkuenzli
 ' @license MIT (http://www.opensource.org/licenses/mit-license.php)
 '' ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ '
+Option Compare Database
+Option Private Module
 Option Explicit
 
 
@@ -24,14 +26,10 @@ Option Explicit
 '
 ' @method SerializeMSForm
 ' @param {VBComponent} FormComponent
-' @return {String} MSForm JSON descriptive data
+' @return {Dictionary} MSForm JSON descriptive dictionary
 ''
-Public Function SerializeMSForm(ByVal FormComponent As VBComponent) As String
-    Dim dict As Dictionary
-    Dim json As String
-    Set dict = GetMSFormProperties(FormComponent)
-    json = ConvertToJson(dict, JSON_WHITESPACE)
-    SerializeMSForm = json
+Public Function SerializeMSForm(ByVal FormComponent As VBComponent) As Dictionary
+    Set SerializeMSForm = GetMSFormProperties(FormComponent)
 End Function
 
 Private Function GetMSFormProperties(ByVal FormComponent As VBComponent) As Dictionary

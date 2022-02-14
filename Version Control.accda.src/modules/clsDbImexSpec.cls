@@ -39,63 +39,10 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    
-    Dim dSpec As Dictionary
-    Dim dCol As Dictionary
-    Dim dCols As Dictionary
-    Dim dbs As DAO.Database
-    Dim rst As DAO.Recordset
-    Dim strSql As String
-    Dim fld As DAO.Field
     Dim strContent As String
-    
-    Set dSpec = New Dictionary
-    Set dCols = New Dictionary
-    Set dbs = CurrentDb
-
-    ' Build header info first
-    strSql = "SELECT * FROM MSysIMEXSpecs WHERE SpecID=" & Me.ID
-    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
-    With rst
-        For Each fld In .Fields
-            If fld.Name <> "SpecID" Then
-                ' Add all columns except the primary key.
-                dSpec.Add CStr(fld.Name), fld.Value
-            End If
-        Next fld
-        .Close
-    End With
-    
-    ' Build list of columns
-    strSql = "SELECT * FROM MSysIMEXColumns WHERE SpecID=" & Me.ID
-    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
-    With rst
-        Do While Not .EOF
-            Set dCol = New Dictionary
-            For Each fld In .Fields
-                Select Case fld.Name
-                    Case "SpecID", "FieldName"
-                    Case Else
-                        dCol.Add CStr(fld.Name), fld.Value
-                End Select
-            Next fld
-            ' Add column to columns dictionary
-            dCols.Add Nz(!FieldName), dCol
-            .MoveNext
-        Loop
-        .Close
-    End With
-    
-    ' Add columns to spec
-    dSpec.Add "Columns", dCols
-    
-    ' Write as Json format.
-    strContent = BuildJsonFile(TypeName(Me), dSpec, "Import/Export Specification from MSysIMEXSpecs")
+    strContent = GetSource
     WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
-    
-    ' Update index
     If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
-    
 End Sub
 
 
@@ -228,6 +175,70 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+
+    Dim dSpec As Dictionary
+    Dim dCol As Dictionary
+    Dim dCols As Dictionary
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+    Dim strSql As String
+    Dim fld As DAO.Field
+    Dim strContent As String
+    
+    Set dSpec = New Dictionary
+    Set dCols = New Dictionary
+    Set dbs = CurrentDb
+
+    ' Build header info first
+    strSql = "SELECT * FROM MSysIMEXSpecs WHERE SpecID=" & Me.ID
+    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
+    With rst
+        For Each fld In .Fields
+            If fld.Name <> "SpecID" Then
+                ' Add all columns except the primary key.
+                dSpec.Add CStr(fld.Name), fld.Value
+            End If
+        Next fld
+        .Close
+    End With
+    
+    ' Build list of columns
+    strSql = "SELECT * FROM MSysIMEXColumns WHERE SpecID=" & Me.ID
+    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
+    With rst
+        Do While Not .EOF
+            Set dCol = New Dictionary
+            For Each fld In .Fields
+                Select Case fld.Name
+                    Case "SpecID", "FieldName"
+                    Case Else
+                        dCol.Add CStr(fld.Name), fld.Value
+                End Select
+            Next fld
+            ' Add column to columns dictionary
+            dCols.Add Nz(!FieldName), dCol
+            .MoveNext
+        Loop
+        .Close
+    End With
+    
+    ' Add columns to spec
+    dSpec.Add "Columns", dCols
+    
+    ' Return source file content
+    GetSource = BuildJsonFile(TypeName(Me), dSpec, "Import/Export Specification from MSysIMEXSpecs")
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : VerifyImexTables
 ' Author    : Adam Waller
 ' Date      : 5/7/2020
@@ -292,7 +303,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 

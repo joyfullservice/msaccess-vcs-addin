@@ -61,7 +61,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Set dItem = GetDictionary
     
     ' Save json file with header details
-    strContent = BuildJsonFile(TypeName(Me), dItem, "Shared Image Gallery Item")
+    strContent = GetSource
     WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
     
     ' Save image file using extension from embedded file.
@@ -71,12 +71,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     WriteBinaryFile strFile, StripOLEHeader(m_FileData)
     
     ' Update index after export
-    If strAlternatePath = vbNullString Then
-    
-        ' Build hash of both file content and header so we can detect changes in either.
-        strHash = GetStringHash(strContent & GetFileHash(strFile), True)
-        VCSIndex.Update Me, eatExport, strHash
-    End If
+    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True), GetSignatureHash
     
 End Sub
 
@@ -223,6 +218,52 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetSignatureHash
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Return a simple hash that should give us a pretty good idea if the image
+'           : has changed since it was last exported.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSignatureHash() As String
+    
+    Dim intCnt As Integer
+    Dim lngLen As Long
+        
+    ' Get length (bytes) of file data
+    If StrPtr(m_FileData) <> 0 Then lngLen = UBound(m_FileData)
+    
+    With New clsConcat
+        ' Compile string with file information
+        .Add m_Name, m_FileName, m_Extension, CStr(lngLen)
+        ' Add in last 100 characters of file content (byte numbers)
+        ' Since this is likely a compressed file format, we will probably
+        ' see a change here if the contents were modified.
+        If lngLen > 100 Then
+            For intCnt = lngLen To lngLen - 100 Step -1
+                .Add CStr(m_FileData(intCnt))
+            Next intCnt
+        End If
+        ' Return hash of this string
+        GetSignatureHash = GetStringHash(.GetStr)
+    End With
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Shared Image Gallery Item")
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetDictionary
 ' Author    : Adam Waller
 ' Date      : 11/1/2021
@@ -356,7 +397,18 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = (VCSIndex.Item(Me).FileHash = GetDictionaryHash(GetDictionary))
+
+    ' Check file hash of definition
+    With VCSIndex.Item(Me)
+        If .FileHash <> GetStringHash(GetSource, True) Then
+            ' Definition file is different
+            IDbComponent_IsModified = True
+        Else
+            ' Check signature of actual image content
+            IDbComponent_IsModified = (.OtherHash <> GetSignatureHash)
+        End If
+    End With
+    
 End Function
 
 
