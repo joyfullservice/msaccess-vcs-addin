@@ -402,44 +402,23 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : WriteJsonFile
+' Procedure : BuildJsonFile
 ' Author    : Adam Waller
-' Date      : 4/24/2020
-' Purpose   : Creates a json file with an info header giving some clues about the
+' Date      : 2/5/2022
+' Purpose   : Creates json file content with an info header giving some clues about the
 '           : contents of the file. (Helps with upgrades or changes later.)
 '           : Set the file format version only when the dictionary structure changes
 '           : with potentially breaking changes for prior versions.
 '---------------------------------------------------------------------------------------
 '
-Public Sub WriteJsonFile(strClassName As String, dItems As Dictionary, strFile As String, strDescription As String, _
-    Optional dblExportFormatVersion As Double)
+Public Function BuildJsonFile(strClassName As String, dItems As Dictionary, strDescription As String, _
+    Optional dblExportFormatVersion As Double) As String
     
     Dim dContents As Dictionary
     Dim dHeader As Dictionary
-    Dim dFile As Dictionary
-    Dim dExisting As Dictionary
     
     Set dContents = New Dictionary
     Set dHeader = New Dictionary
-    
-    ' Compare with existing file
-    If FSO.FileExists(strFile) Then
-        Set dFile = ReadJsonFile(strFile)
-        If Not dFile Is Nothing Then
-            ' Check file format version
-            If dblExportFormatVersion <> 0 And dNZ(dFile, "Info\Export File Format") <> vbNullString Then
-                ' Rewrite file using upgraded format.
-            Else
-                If dFile.Exists("Items") Then
-                    Set dExisting = dFile("Items")
-                    If DictionaryEqual(dItems, dExisting) Then
-                        ' No changes to content. Leave existing file.
-                        Exit Sub
-                    End If
-                End If
-            End If
-        End If
-    End If
     
     ' Build dictionary structure
     dHeader.Add "Class", strClassName
@@ -448,10 +427,10 @@ Public Sub WriteJsonFile(strClassName As String, dItems As Dictionary, strFile A
     dContents.Add "Info", dHeader
     dContents.Add "Items", dItems
     
-    ' Write to file in Json format
-    WriteFile ConvertToJson(dContents, JSON_WHITESPACE), strFile
+    ' Return assembled content in Json format
+    BuildJsonFile = ConvertToJson(dContents, JSON_WHITESPACE)
     
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
