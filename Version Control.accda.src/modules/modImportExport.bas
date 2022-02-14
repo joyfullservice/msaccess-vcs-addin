@@ -120,6 +120,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
                 .Resolve dCategories
             Else
                 ' Cancel export
+                Log.Spacer
                 Log.Add "Export Canceled", , , "Red", True
                 Log.ErrorLevel = eelCritical
                 GoTo CleanUp
@@ -379,7 +380,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Set dCategories = New Dictionary
     VCSIndex.Conflicts.Initialize dCategories
     Perf.OperationStart "Scan Source Files"
-    'Set colCategories = GetAllContainers
     For Each cCategory In GetAllContainers
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
@@ -391,10 +391,13 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
             ' Return just the modified source files for merge
             ' (Optionally uses the git integration to determine changes.)
             dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory)
-            ' Record any conflicts for later review
-            VCSIndex.CheckImportConflicts cCategory, dCategory("Files")
         End If
         dCategories.Add cCategory, dCategory
+        ' Record any conflicts for later review
+        VCSIndex.CheckImportConflicts cCategory, dCategory("Files")
+        
+        ' Clear orphaned database objects (With no corresponding source file)
+        cCategory.ClearOrphanedSourceFiles
     Next cCategory
     Perf.OperationEnd
     
@@ -408,6 +411,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
                 .Resolve dCategories
             Else
                 ' Cancel build/merge
+                Log.Spacer
                 Log.Add "Build Canceled"
                 Log.ErrorLevel = eelCritical
                 GoTo CleanUp
@@ -776,7 +780,7 @@ Public Sub InitializeForms()
         
         ' Update the index, since the save date has changed, but reuse the code hash
         ' since we just calculated it after importing the form.
-        strHash = dNZ(VCSIndex.Item(frm), "hash")
+        strHash = dNZ(VCSIndex.Item(frm), "FileHash")
         VCSIndex.Update frm, eatImport, strHash
         
     Next frm
@@ -785,5 +789,3 @@ Public Sub InitializeForms()
     CatchAny eelError, "Unhandled error while initializing forms", ModuleName & ".InitializeForms"
     
 End Sub
-
-
