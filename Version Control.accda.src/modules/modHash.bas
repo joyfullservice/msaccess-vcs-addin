@@ -150,11 +150,12 @@ End Function
 ' Procedure : GetStringHash
 ' Author    : Adam Waller
 ' Date      : 11/30/2020
-' Purpose   : Convert string to byte array, and return a hash.
+' Purpose   : Convert string to byte array, and return a hash. Optionally include the
+'           : UTF-8 BOM. (Useful when comparing to a file hash)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetStringHash(strText As String) As String
-    GetStringHash = GetHash(GetUTF8Bytes(strText))
+Public Function GetStringHash(strText As String, Optional blnWithBom As Boolean = False) As String
+    GetStringHash = GetHash(GetUTF8Bytes(strText, blnWithBom))
 End Function
 
 
@@ -295,15 +296,16 @@ End Function
 ' Procedure : GetUTF8Bytes
 ' Author    : Adam Waller
 ' Date      : 11/2/2021
-' Purpose   : Return a UTF-8 (wide) byte array from a string.
+' Purpose   : Return a UTF-8 (wide) byte array from a string. Optionally include the
+'           : UTF-8 BOM. (Useful when comparing to a file hash)
 '---------------------------------------------------------------------------------------
 '
-Private Function GetUTF8Bytes(strText As String) As Byte()
+Private Function GetUTF8Bytes(strText As String, Optional blnWithBom As Boolean = False) As Byte()
 
     Dim stmBinary As ADODB.Stream
     
     ' Check for empty string
-    If Len(strText) = 0 Then
+    If (Len(strText) = 0) And Not blnWithBom Then
         GetUTF8Bytes = vbNullString
         Exit Function
     End If
@@ -323,8 +325,13 @@ Private Function GetUTF8Bytes(strText As String) As Byte()
         .Position = 0
         ' Copy to binary stream
         .CopyTo stmBinary, adReadAll
-        ' Move position past the BOM
-        stmBinary.Position = 3
+        If blnWithBom Then
+            ' Include BOM
+            stmBinary.Position = 0
+        Else
+            ' Move past BOM
+            stmBinary.Position = 3
+        End If
         ' Return binary stream
         GetUTF8Bytes = stmBinary.Read(adReadAll)
     End With
