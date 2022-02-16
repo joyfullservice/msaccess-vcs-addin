@@ -19,9 +19,8 @@ Option Explicit
 
 Private Const ModuleName As String = "clsDbHiddenAttribute"
 
-Private m_Items As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
-Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export

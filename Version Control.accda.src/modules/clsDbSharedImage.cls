@@ -17,7 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-
 Private Const ModuleName As String = "clsDbSharedImage"
 
 Private m_Items(True To False) As Dictionary

@@ -20,9 +20,8 @@ Option Explicit
 Private Const ModuleName As String = "clsDbNavPaneGroup"
 Private Const FormatVersion As Double = 1.1
 
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
-Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -359,11 +358,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim strKey As String
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
+    If m_Items(blnModifiedOnly) Is Nothing Then
     
-        Set m_AllItems = New Dictionary
+        Set m_Items(blnModifiedOnly) = New Dictionary
         Set m_dItems = GetDictionary
-        m_blnModifiedOnly = blnModifiedOnly
         
         ' Only need to iterate through the groups if we need to get a count.
         If Not blnModifiedOnly Or IDbComponent_IsModified Then
@@ -377,7 +375,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         For Each varGroup In dCategory("Groups")
                             Set cGroup = New clsDbNavPaneGroup
                             strKey = cGroup.SourceFile & ":" & varCategory("Name") & ":" & varGroup("Name")
-                            m_AllItems.Add strKey, cGroup
+                            m_Items(blnModifiedOnly).Add strKey, cGroup
                         Next varGroup
                     End If
                 Next varCategory
@@ -386,7 +384,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
 
 End Function
 

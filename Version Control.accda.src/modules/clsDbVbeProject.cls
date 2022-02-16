@@ -20,7 +20,7 @@ Option Explicit
 Private Const ModuleName As String = "clsDbVbeProject"
 
 Private m_Project As VBIDE.VBProject
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -282,21 +282,22 @@ End Sub
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
     
     Dim cProj As IDbComponent
-
+    Dim blnAdd As Boolean
+    
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_Items(blnModifiedOnly) Is Nothing Then
         ' Load class details
         Set m_Project = GetVBProjectForCurrentDB
-        Set m_AllItems = New Dictionary
+        Set m_Items(blnModifiedOnly) = New Dictionary
         Set cProj = New clsDbVbeProject
         Set cProj.DbObject = m_Project
-        If (Not blnModifiedOnly) Or IDbComponent_IsModified Then
-            m_AllItems.Add cProj.SourceFile, cProj
-        End If
+        blnAdd = True
+        If blnModifiedOnly Then blnAdd = cProj.IsModified
+        If blnAdd Then m_Items(blnModifiedOnly).Add cProj.SourceFile, cProj
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 

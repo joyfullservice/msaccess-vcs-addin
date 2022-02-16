@@ -18,9 +18,8 @@ Option Compare Database
 Option Explicit
 
 Private m_Property As DAO.Property
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
-Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -301,21 +300,21 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cProp As IDbComponent
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         If Not blnModifiedOnly Or IDbComponent_IsModified Then
             ' Return all the properties, since we don't know which ones
             ' were modified.
             For Each prp In CurrentDb.Properties
                 Set cProp = New clsDbProperty
                 Set cProp.DbObject = prp
-                m_AllItems.Add cProp.SourceFile & ":" & prp.Name, cProp
+                m_Items(blnModifiedOnly).Add cProp.SourceFile & ":" & prp.Name, cProp
             Next prp
         End If
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 

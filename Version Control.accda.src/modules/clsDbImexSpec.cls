@@ -17,7 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-
 Public Name As String
 Public ID As String
 

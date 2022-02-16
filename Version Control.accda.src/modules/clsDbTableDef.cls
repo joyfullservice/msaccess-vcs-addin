@@ -20,9 +20,8 @@ Option Explicit
 Const ModuleName As String = "clsDbTableDef"
 
 Private m_Table As AccessObject
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
-Private m_blnModifiedOnly As Boolean
 Private m_Dbs As Database
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -549,11 +548,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim tdf As TableDef
     Dim cTable As IDbComponent
+    Dim blnAdd As Boolean
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Dictionary
-        m_blnModifiedOnly = blnModifiedOnly
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         Set m_Dbs = CurrentDb
         For Each tdf In m_Dbs.TableDefs
             If tdf.Name Like "MSys*" Or tdf.Name Like "~*" Then
@@ -561,17 +560,15 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             Else
                 Set cTable = New clsDbTableDef
                 Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
-                If blnModifiedOnly Then
-                    If cTable.IsModified Then m_AllItems.Add cTable.SourceFile, cTable
-                Else
-                    m_AllItems.Add cTable.SourceFile, cTable
-                End If
+                blnAdd = True
+                If blnModifiedOnly Then blnAdd = cTable.IsModified
+                If blnAdd Then m_Items(blnModifiedOnly).Add cTable.SourceFile, cTable
             End If
         Next tdf
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 

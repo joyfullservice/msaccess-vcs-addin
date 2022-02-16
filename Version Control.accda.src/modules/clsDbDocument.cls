@@ -19,7 +19,7 @@ Option Explicit
 
 Private Const ModuleName As String = "clsDbDocument"
 
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Public m_dItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -293,9 +293,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim strKey As String
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_Items(blnModifiedOnly) Is Nothing Then
 
-        Set m_AllItems = New Dictionary
+        Set m_Items(blnModifiedOnly) = New Dictionary
         
         ' Check index hash of properties to determine if they have been changed.
         If Not blnModifiedOnly Or IDbComponent_IsModified Then
@@ -312,7 +312,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         Set cDoc = New clsDbDocument
                         Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc).Properties(varProp)
                         strKey = cDoc.SourceFile & ":" & varCont & ":" & varDoc & ":" & varProp
-                        m_AllItems.Add strKey, cDoc
+                        m_Items(blnModifiedOnly).Add strKey, cDoc
                     Next varProp
                 Next varDoc
             Next varCont
@@ -320,7 +320,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 

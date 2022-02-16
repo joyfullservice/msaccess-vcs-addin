@@ -18,9 +18,8 @@ Option Compare Database
 Option Explicit
 
 Private m_Query As AccessObject
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
-Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -139,24 +138,22 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim qry As AccessObject
     Dim cQuery As IDbComponent
+    Dim blnAdd As Boolean
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Dictionary
-        m_blnModifiedOnly = blnModifiedOnly
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         For Each qry In CurrentData.AllQueries
             Set cQuery = New clsDbQuery
             Set cQuery.DbObject = qry
-            If blnModifiedOnly Then
-                If cQuery.IsModified Then m_AllItems.Add cQuery.SourceFile, cQuery
-            Else
-                m_AllItems.Add cQuery.SourceFile, cQuery
-            End If
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cQuery.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cQuery.SourceFile, cQuery
         Next qry
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
             
 End Function
 

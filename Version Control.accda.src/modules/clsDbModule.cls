@@ -21,9 +21,8 @@ Private Const ModuleName As String = "clsDbModule"
 
 Private m_Module As AccessObject
 Private m_Component As VBComponent
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
-Private m_blnModifiedOnly As Boolean
 
 Private Type udtVbaFileContent
     strContent As String
@@ -264,25 +263,23 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim oMod As AccessObject
     Dim cModule As IDbComponent
     Dim proj As VBProject
+    Dim blnAdd As Boolean
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or blnModifiedOnly <> m_blnModifiedOnly Then
-        m_blnModifiedOnly = blnModifiedOnly
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         Set proj = GetVBProjectForCurrentDB
         For Each oMod In CurrentProject.AllModules
             Set cModule = New clsDbModule
             Set cModule.DbObject = oMod
-            If blnModifiedOnly Then
-                If cModule.IsModified Then m_AllItems.Add cModule.SourceFile, cModule
-            Else
-                m_AllItems.Add cModule.SourceFile, cModule
-            End If
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cModule.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cModule.SourceFile, cModule
         Next oMod
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 

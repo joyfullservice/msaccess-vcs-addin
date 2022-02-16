@@ -20,9 +20,8 @@ Option Explicit
 Private Const ModuleName As String = "clsDbVbeForm"
 
 Private m_Form As VBIDE.VBComponent
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
-Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -145,26 +144,24 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim frm As VBComponent
     Dim cForm As IDbComponent
-
+    Dim blnAdd As Boolean
+    
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or blnModifiedOnly <> m_blnModifiedOnly Then
-        m_blnModifiedOnly = blnModifiedOnly
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         For Each frm In GetVBProjectForCurrentDB.VBComponents
             If frm.Type = vbext_ct_MSForm Then
                 Set cForm = New clsDbVbeForm
                 Set cForm.DbObject = frm
-                If blnModifiedOnly Then
-                    If cForm.IsModified Then m_AllItems.Add cForm.SourceFile, cForm
-                Else
-                    m_AllItems.Add cForm.SourceFile, cForm
-                End If
+                blnAdd = True
+                If blnModifiedOnly Then blnAdd = cForm.IsModified
+                If blnAdd Then m_Items(blnModifiedOnly).Add cForm.SourceFile, cForm
             End If
         Next frm
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
 
 End Function
 

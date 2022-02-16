@@ -20,9 +20,8 @@ Option Explicit
 Public Format As eTableDataExportFormat
 
 Private m_Table As AccessObject
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
-Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -381,11 +380,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim tbl As AccessObject
     Dim cTable As clsDbTableData
+    Dim blnAdd As Boolean
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Dictionary
-        m_blnModifiedOnly = blnModifiedOnly
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         
         ' No need to go any further if we don't have any saved tables defined
         If Options.TablesToExportData.Count > 0 Then
@@ -398,7 +397,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         Set cTable = New clsDbTableData
                         cTable.Format = .GetTableExportFormat(CStr(.TablesToExportData(tbl.Name)("Format")))
                         Set cTable.Parent.DbObject = tbl
-                        m_AllItems.Add cTable.Parent.SourceFile, cTable
+                        blnAdd = True
+                        If blnModifiedOnly Then blnAdd = cTable.IDbComponent_IsModified
+                        If blnAdd Then m_Items(blnModifiedOnly).Add cTable.Parent.SourceFile, cTable
                     End If
                 Next tbl
             End With
@@ -406,7 +407,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 

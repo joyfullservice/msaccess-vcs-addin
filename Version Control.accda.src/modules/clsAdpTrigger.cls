@@ -23,7 +23,7 @@ Public TableName As String
 Public SchemaName As String
 Public SqlModifyDate As Date
 
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -88,10 +88,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim strSql As String
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_Items(blnModifiedOnly) Is Nothing Then
     
         ' Use parameter options if provided.
-        Set m_AllItems = New Dictionary
+        Set m_Items(blnModifiedOnly) = New Dictionary
 
         ' Build list of triggers in database (from sysobjects)
         strSql = "SELECT [name],object_name(parent_object_id) AS parent_name, schema_name([schema_id]) AS [schema_name], modify_date FROM sys.objects WHERE type='TR'"
@@ -107,7 +107,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     .SqlModifyDate = Nz(rst!modify_date)
                 End With
                 Set cComponent = cTrigger
-                m_AllItems.Add cComponent.SourceFile, cComponent
+                m_Items(blnModifiedOnly).Add cComponent.SourceFile, cComponent
                 .MoveNext
             Loop
             .Close
@@ -116,7 +116,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
     
 End Function
 

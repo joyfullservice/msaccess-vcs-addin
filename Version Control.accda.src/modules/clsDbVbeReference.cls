@@ -20,9 +20,8 @@ Option Explicit
 Const ModuleName = "clsDbVbeReference"
 
 Private m_Ref As VBIDE.Reference
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
-Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -288,21 +287,21 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim dItems As Dictionary
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         Set dNames = New Dictionary
         Set dItems = GetDictionary
         
         ' This is where references work a little differently than most other objects.
         ' If ANY changes are detected in ANY of the references, the whole list of
         ' references will be returned as changed.
-        If Not blnModifiedOnly Or IDbComponent_IsModified Then
+        If (Not blnModifiedOnly) Or IDbComponent_IsModified Then
             For Each ref In GetVBProjectForCurrentDB.References
                 If Not ref.BuiltIn Then
                     If Not dNames.Exists(ref.Name) Then
                         Set cRef = New clsDbVbeReference
                         Set cRef.DbObject = ref
-                        m_AllItems.Add cRef.SourceFile & ":" & ref.Name, cRef
+                        m_Items(blnModifiedOnly).Add cRef.SourceFile & ":" & ref.Name, cRef
                         ' Don't attempt add two references with the same name, such as
                         ' circular references to nested library database files.
                         dNames.Add ref.Name, ref.Name
@@ -314,7 +313,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 

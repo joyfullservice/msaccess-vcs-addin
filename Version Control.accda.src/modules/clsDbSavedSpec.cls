@@ -21,7 +21,6 @@ Private m_Spec As ImportExportSpecification
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 
-
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
 ' and import process. The implemented functions should be kept private as they are called

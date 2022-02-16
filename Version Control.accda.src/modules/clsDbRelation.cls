@@ -18,10 +18,9 @@ Option Compare Database
 Option Explicit
 
 Private m_Relation As DAO.Relation
-Private m_Items As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 Private m_Dbs As DAO.Database
-
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export

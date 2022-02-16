@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Private m_View As AccessObject
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -78,17 +78,17 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cView As IDbComponent
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         For Each view In CurrentData.AllViews
             Set cView = New clsAdpServerView
             Set cView.DbObject = view
-            m_AllItems.Add cView.SourceFile, cView
+            m_Items(blnModifiedOnly).Add cView.SourceFile, cView
         Next view
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 

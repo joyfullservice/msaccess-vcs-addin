@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Private m_Table As AccessObject
-Private m_Items As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
