@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Private m_Table As AccessObject
-Private m_AllItems As Dictionary
+Private m_Items As Dictionary
 Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -98,11 +98,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim tdf As TableDef
     Dim cTable As IDbComponent
     Dim strSql As String
-
+    Dim blnAdd As Boolean
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         Set dbs = CurrentDb
         For Each tdf In dbs.TableDefs
             ' Skip system, temp, and linked tables
@@ -114,7 +114,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         If DCount("[Name]", "MSysObjects", strSql) > 0 Then
                             Set cTable = New clsDbTableDataMacro
                             Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
-                            m_AllItems.Add cTable.SourceFile, cTable
+                            blnAdd = True
+                            If blnModifiedOnly Then blnAdd = cTable.IsModified
+                            If blnAdd Then m_Items(blnModifiedOnly).Add cTable.SourceFile, cTable
                         End If
                     End If
                 End If
@@ -127,7 +129,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 

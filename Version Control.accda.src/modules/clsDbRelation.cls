@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Private m_Relation As DAO.Relation
-Private m_AllItems As Dictionary
+Private m_Items As Dictionary
 Private m_FileList As Dictionary
 Private m_Dbs As DAO.Database
 
@@ -136,16 +136,17 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim rel As Relation
     Dim cRelation As IDbComponent
-
+    Dim blnAdd As Boolean
+    
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_Items(blnModifiedOnly) Is Nothing Then
     
         ' Maintain persistent reference to database object so we don't
         ' lose the reference to the relation object with this procedure
         ' goes out of scope. (Make sure we release this on termination)
         Set m_Dbs = CurrentDb
         
-        Set m_AllItems = New Dictionary
+        Set m_Items(blnModifiedOnly) = New Dictionary
         For Each rel In m_Dbs.Relations
             ' Navigation pane groups are handled separately
             If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
@@ -153,13 +154,15 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 Or IsInherited(rel)) Then
                 Set cRelation = New clsDbRelation
                 Set cRelation.DbObject = rel
-                m_AllItems.Add cRelation.SourceFile, cRelation
+                blnAdd = True
+                If blnModifiedOnly Then blnAdd = cRelation.IsModified
+                If blnAdd Then m_Items(blnModifiedOnly).Add cRelation.SourceFile, cRelation
             End If
         Next rel
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
     
 End Function
 

@@ -19,7 +19,7 @@ Option Explicit
 
 Private Const ModuleName As String = "clsDbHiddenAttribute"
 
-Private m_AllItems As Dictionary
+Private m_Items As Dictionary
 Private m_dItems As Dictionary
 Private m_blnModifiedOnly As Boolean
 
@@ -131,9 +131,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim strKey As String
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
+    If m_Items(blnModifiedOnly) Is Nothing Then
 
-        Set m_AllItems = New Dictionary
+        Set m_Items(blnModifiedOnly) = New Dictionary
         Set m_dItems = GetDictionary
         
         ' Return no objects if we match the hash from the cache
@@ -147,14 +147,14 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     Set cDoc = New clsDbHiddenAttribute
                     Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc)
                     strKey = cDoc.SourceFile & ":" & varCont & ":" & varDoc
-                    m_AllItems.Add strKey, cDoc
+                    m_Items(blnModifiedOnly).Add strKey, cDoc
                 Next varDoc
             Next varCont
         End If
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 

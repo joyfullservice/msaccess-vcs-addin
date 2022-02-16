@@ -491,7 +491,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    ' It's not really worth it to try to determine if the table data has been changed.
+    ' We would have to fully export anyway just to check, so let's always export for
+    ' table data. (This is handled different from just about every other object type.)
+    IDbComponent_IsModified = True
 End Function
 
 

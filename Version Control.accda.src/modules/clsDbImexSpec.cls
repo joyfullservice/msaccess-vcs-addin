@@ -21,7 +21,7 @@ Option Explicit
 Public Name As String
 Public ID As String
 
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -139,12 +139,13 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     Dim strName As String
+    Dim blnAdd As Boolean
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_Items(blnModifiedOnly) Is Nothing Then
         
         ' Set up new collection
-        Set m_AllItems = New Dictionary
+        Set m_Items(blnModifiedOnly) = New Dictionary
         
         ' This table may not (yet) exist.
         If TableExists("MSysIMEXSpecs") Then
@@ -160,7 +161,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     Set cSpec = New clsDbImexSpec
                     cSpec.Name = strName
                     cSpec.ID = Nz(!SpecID, 0)
-                    m_AllItems.Add cSpec.Parent.SourceFile, cSpec
+                    blnAdd = True
+                    If blnModifiedOnly Then blnAdd = cSpec.IDbComponent_IsModified
+                    If blnAdd Then m_Items(blnModifiedOnly).Add cSpec.Parent.SourceFile, cSpec
                     .MoveNext
                 Loop
                 .Close
@@ -169,7 +172,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
     
 End Function
 

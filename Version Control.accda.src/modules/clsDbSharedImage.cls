@@ -20,7 +20,7 @@ Option Explicit
 
 Private Const ModuleName As String = "clsDbSharedImage"
 
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 Private m_Dbs As DAO.Database
 
@@ -320,10 +320,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cImg As IDbComponent
     Dim rst As DAO.Recordset
     Dim strSql As String
+    Dim blnAdd As Boolean
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
@@ -336,7 +337,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     Set cImg = New clsDbSharedImage
                     ' Also sets reference to OLE object recordset2
                     Set cImg.DbObject = rst
-                    m_AllItems.Add cImg.SourceFile, cImg
+                    blnAdd = True
+                    If blnModifiedOnly Then blnAdd = cImg.IsModified
+                    If blnAdd Then m_Items(blnModifiedOnly).Add cImg.SourceFile, cImg
                     .MoveNext
                 Loop
                 .Close
@@ -345,7 +348,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
 
 End Function
 
