@@ -101,3 +101,10 @@ Public Enum eResolveConflict
     ercOverwrite
     ercDelete
 End Enum
+
+' Conflict types for import/export conflicts
+Public Enum eConflictType
+    ectOrphanedSourceFile
+    ectNewerDatabaseObject
+    ectNewerSourceFile
+End Enum

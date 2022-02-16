@@ -33,11 +33,14 @@ Public Suggestion As eResolveConflict
 Public Function Resolve(dCategories As Dictionary)
 
     Select Case Me.Resolution
-        Case ercDelete
-            Log.Add "  " & FSO.GetFileName(FileName) & " (Delete)", False
-            DeleteFile Me.FileName
         Case ercOverwrite
-            Log.Add "  " & FSO.GetFileName(FileName) & " (Overwrite)", False
+            If Me.ActionType = ercDelete Then
+                Log.Add "  " & FSO.GetFileName(FileName) & " (Delete)", False
+                DeleteFile Me.FileName
+            ElseIf Me.ActionType = ercOverwrite Then
+                Log.Add "  " & FSO.GetFileName(FileName) & " (Overwrite)", False
+                ' Leave in list of files to overwrite.
+            End If
         Case ercSkip
             RemoveFromItemList
             Log.Add "  " & FSO.GetFileName(FileName) & " (Skip)", False

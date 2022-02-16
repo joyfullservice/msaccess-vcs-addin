@@ -86,6 +86,7 @@ Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Dat
         .ObjectDate = cComponent.DateModified
         .IndexDate = dteIndexDate
         .FileDate = dteFileDate
+        .ActionType = intActionType
         .Suggestion = intSuggestedResolution
         Set .CategoryList = m_dCategories
         m_dItems.Add .FileName, cItem
