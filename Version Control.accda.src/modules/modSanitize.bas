@@ -677,6 +677,9 @@ Private Function FormatXML(strSourceXML As String, _
 
     Dim objReader As SAXXMLReader60
     Dim objWriter As MXXMLWriter60
+
+    ' Skip processing if no content to format
+    If strSourceXML = vbNullString Then Exit Function
     
     Perf.OperationStart "Format XML"
     Set objWriter = New MXHTMLWriter60
@@ -696,9 +699,49 @@ Private Function FormatXML(strSourceXML As String, _
     End With
 
     ' Return formatted output
-    FormatXML = objWriter.output
+    FormatXML = CustomIndent(objWriter.output)
     Perf.OperationEnd
     
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : CustomIndent
+' Author    : Adam Waller
+' Date      : 2/16/2022
+' Purpose   : Convert tabbed indents to two spaces for more compact display
+'---------------------------------------------------------------------------------------
+'
+Private Function CustomIndent(strText As String, Optional intSpaces As Integer = 2) As String
+
+    Dim lngLine As Long
+    Dim varLines As Variant
+    Dim strLine As String
+    Dim lngPos As Long
+    
+    ' Split content into lines
+    varLines = Split(strText, vbCrLf)
+    
+    ' Rebuild while converting tabs to
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        
+        ' Loop through lines
+        For lngLine = 0 To UBound(varLines)
+            strLine = varLines(lngLine)
+            For lngPos = 1 To Len(strLine)
+                If Mid$(strLine, lngPos, 1) <> vbTab Then
+                    ' Replace any leading tabs with space indent
+                    .Add Space$(intSpaces * (lngPos - 1)), Mid$(strLine, lngPos)
+                    Exit For
+                End If
+            Next lngPos
+        Next lngLine
+        
+        ' Return result after trimming off last return
+        If lngLine > 0 Then .Remove 2
+        CustomIndent = .GetStr
+    End With
+    
+End Function
 
