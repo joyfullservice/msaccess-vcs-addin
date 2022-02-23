@@ -51,10 +51,37 @@ Private m_colOpsCallStack As VBA.Collection
 '---------------------------------------------------------------------------------------
 '
 Public Sub StartTiming()
-    ResetAll
+    Reset
     m_Overall.Start = MicroTimer
 End Sub
 
+'---------------------------------------------------------------------------------------
+' Procedure : CallStack
+' Author    : hecon5
+' Date      : 01/26/2022
+' Purpose   : Return the call stack in operation.
+'           : Adds major element "Component" if in use, and the trace of all minor
+'           : elements (Operations) affixed with a period. This facilitates use of
+'           : performance and because the VBA error may be returned before you expect
+'           : (or after...VBA can be fun!).
+'---------------------------------------------------------------------------------------
+'
+Public Property Get CallStack() As String
+    ' Iterates through whole call stack and spits out "where" you are.
+    Dim CallStackPosition As Long
+    Dim strCallStackElement As String
+    
+    With New clsConcat
+        .AppendOnAdd = "."
+        If m_strComponent <> vbNullString Then .Add m_strComponent
+        For CallStackPosition = 1 To m_colOpsCallStack.Count
+            .Add CStr(m_colOpsCallStack(CallStackPosition))
+        Next CallStackPosition
+        .Add m_strOperation
+        .Remove 1 ' Remove last period so it doesn't look silly.
+        CallStack = .GetStr
+    End With
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ComponentStart
@@ -428,13 +455,13 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ResetAll
+' Procedure : Reset
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
 ' Purpose   : Reset all class values
 '---------------------------------------------------------------------------------------
 '
-Private Sub ResetAll()
+Public Sub Reset()
     Class_Initialize
     m_strComponent = vbNullString
     m_strOperation = vbNullString
