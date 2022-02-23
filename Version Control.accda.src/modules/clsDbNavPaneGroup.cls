@@ -39,7 +39,7 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strContent As String
-    strContent = BuildJsonFile(TypeName(Me), GetDictionary, "Navigation Pane Custom Groups", FormatVersion)
+    strContent = GetSource
     WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
     If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
 End Sub
@@ -190,6 +190,18 @@ End Sub
 Private Sub IDbComponent_Merge(strFile As String)
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/23/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Navigation Pane Custom Groups", FormatVersion)
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -436,7 +448,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(BuildJsonFile(TypeName(Me), GetDictionary, "Navigation Pane Custom Groups", FormatVersion), True)
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 
