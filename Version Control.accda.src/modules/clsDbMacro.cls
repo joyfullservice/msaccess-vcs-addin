@@ -74,7 +74,11 @@ End Sub
 '
 Private Sub IDbComponent_Merge(strFile As String)
     DeleteObjectIfExists acMacro, GetObjectNameFromFileName(strFile)
-    IDbComponent_Import strFile
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
 End Sub
 
 

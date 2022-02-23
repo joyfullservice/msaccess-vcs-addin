@@ -119,8 +119,13 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-    ' Existing relationships will be removed during import
-    IDbComponent_Import strFile
+    ' Import if file exists
+    If FSO.FileExists(strFile) Then
+        ' Existing relationships will be removed during import
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
 End Sub
 
 

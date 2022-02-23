@@ -266,9 +266,13 @@ Private Sub IDbComponent_Merge(strFile As String)
     ' Remove existing references first.
     RemoveNonBuiltInReferences
     
-    ' Import the references
-    IDbComponent_Import strFile
-    
+    ' Import the references if the file exists
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+
 End Sub
 
 

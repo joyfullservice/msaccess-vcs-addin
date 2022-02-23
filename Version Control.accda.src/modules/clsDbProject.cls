@@ -136,7 +136,12 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-    IDbComponent_Import strFile
+    ' Import if file exists
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
 End Sub
 
 

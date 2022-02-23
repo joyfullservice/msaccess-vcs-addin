@@ -238,8 +238,14 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-    ' The import will replace the existing theme with the same name.
-    IDbComponent_Import strFile
+    ' Import if file exists
+    If FSO.FileExists(strFile) Then
+        ' The import will replace the existing theme with the same name.
+        IDbComponent_Import strFile
+    Else
+        'TODO: Remove existing theme
+        VCSIndex.Remove Me, strFile
+    End If
 End Sub
 
 

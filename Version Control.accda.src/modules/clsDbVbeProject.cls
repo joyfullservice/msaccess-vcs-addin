@@ -268,6 +268,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
+    ' Import will replace existing values
     IDbComponent_Import strFile
 End Sub
 
