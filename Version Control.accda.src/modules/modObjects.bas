@@ -123,6 +123,20 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Diff
+' Author    : Adam Waller
+' Date      : 2/23/2022
+' Purpose   : Wrapper for class to view diff between string and file content
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Diff() As clsViewDiff
+    Static cDiff As clsViewDiff
+    If cDiff Is Nothing Then Set cDiff = New clsViewDiff
+    Set Diff = cDiff
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DebugMode
 ' Author    : Adam Waller
 ' Date      : 3/9/2021
