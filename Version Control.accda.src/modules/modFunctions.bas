@@ -83,22 +83,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Shell2
-' Author    : Adam Waller
-' Date      : 6/3/2015
-' Purpose   : Alternative to VBA Shell command, to work around issues with the
-'           : TortoiseSVN command line for commits.
-'---------------------------------------------------------------------------------------
-'
-Public Sub Shell2(strCmd As String)
-    Dim objShell As WshShell
-    Set objShell = New WshShell
-    objShell.Exec strCmd
-    Set objShell = Nothing
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetSafeFileName
 ' Author    : Adam Waller
 ' Date      : 1/14/2019
