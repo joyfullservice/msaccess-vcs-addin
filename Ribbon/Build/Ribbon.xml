@@ -1,0 +1,11 @@
+﻿<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui">
+  <ribbon startFromScratch="false">
+    <tabs>
+      <tab id="tabTest" label="Version Control">
+        <group id="grpTwin1" label="Export">
+          <button id="btnHello" size="large" label="Open" getImage="OnGetHelloWorldButtonImage" onAction="OnHelloWorldClicked"/>
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>
