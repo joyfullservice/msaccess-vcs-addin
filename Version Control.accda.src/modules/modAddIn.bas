@@ -134,7 +134,7 @@ Public Function RunExportForCurrentDB()
             If .Name = "MSAccessVCS-Lib" Then .Name = "MSAccessVCS"
         End With
         ' Call export function with an API callback.
-        modTimer.LaunchExportAfterTimer
+        modTimer.SetTimer roExportCurrentDatabase
     End If
 
 End Function

@@ -1792,8 +1792,8 @@ Private Sub cmdBuild_Click()
                     ' Relaunch build if building the add-in from source.
                     If FSO.GetFileName(strFolder) = "Version Control.accda.src" Then
                         DoCmd.Close acForm, Me.Name
-                        RunBuildAfterClose strFolder
-                        Exit Sub
+                        modTimer.SetTimer roFullBuildFromSource, strFolder
+                        CloseCurrentDatabase
                     End If
                 Else
                     MsgBox2 "Source files not found", "Required source files were not found in this folder.", _

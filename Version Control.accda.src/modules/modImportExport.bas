@@ -252,8 +252,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     If blnFullBuild Then
         If DatabaseFileOpen Then
             ' Need to close the current database before we can replace it.
-            RunBuildAfterClose strSourceFolder
-            Exit Sub
+            modTimer.SetTimer roFullBuildFromSource, strSourceFolder
+            CloseCurrentDatabase
         End If
     End If
     
