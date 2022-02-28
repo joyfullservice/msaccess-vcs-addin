@@ -31,6 +31,28 @@ End Enum
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : HandleRibbonCommand
+' Author    : Adam Waller
+' Date      : 2/28/2022
+' Purpose   : Handle an incoming command from the TwinBasic ribbon COM add-in.
+'           : (Allows us to keep all the logic between the XML ribbon file and the
+'           :  Access add-in.)
+'---------------------------------------------------------------------------------------
+'
+Public Function HandleRibbonCommand(strCommand As String) As Boolean
+
+    ' If a function is not found, this will throw an error. It is up to the ribbon
+    ' designer to ensure that the control IDs match public procedures in the VCS
+    ' (clsVersionControl) class module. Additional parameters are not supported.
+    ' For example, to run VCS.Export, the ribbon button ID should be named "btnExport"
+    
+    ' Trim off control ID prefix when calling command
+    CallByName VCS, Mid(strCommand, 4), VbMethod
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : AddInLaunch
 ' Author    : hecon5
 ' Date      : 2/05/2020
@@ -42,6 +64,7 @@ Private Function AddInLaunch(RibbonCmdIn As Long) As Boolean
     Form_frmVCSMain.HandleCmd RibbonCmdIn
     AddInLaunch = True
 End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : AddInMenuItemLaunch
