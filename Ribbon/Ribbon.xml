@@ -1,0 +1,40 @@
+﻿<!-- Created with IDBE Ribbon Creator (Version: 1.1041) -->
+<!--            http://www.RibbonCreator.com            -->
+<!--             http://www.RibbonCreator.de            -->
+
+<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="OnRibbonLoad" loadImage="LoadImages">
+  <ribbon startFromScratch="false">
+    <tabs>
+      <tab id="tabVersionControl" label="Version Control" getVisible ="GetVisible">
+        <group id="grpActions" label="Actions" getVisible ="GetVisible">
+          <button id="btnOpen" size="large" label="Open Add-in" imageMso="AccessFormWizard" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+          <separator id="sep1" getVisible="GetVisible" />
+          <button id="btnExport" size="large" label="Export Source Files" imageMso="SourceControlCheckIn" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+          <button id="btnExportVBA" size="large" label="Export VBA Code" imageMso="GroupMacro" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+          <separator id="sep2" getVisible="GetVisible" />
+          <button id="btnBuild" size="large" label="Build From Source" imageMso="FileCompactAndRepairDatabase" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+        </group>
+        <group id="grpOptions" label="Options" getVisible ="GetVisible">
+          <button id="btnOptions" size="large" label="View Options" imageMso="AdvancedFileProperties" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+        </group>
+        <group id="grpTools" label="Tools" getVisible ="GetVisible">
+          <button id="btnViewSource" size="large" label="Source Folder" imageMso="BlogOpenExisting" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+          <button id="btnOpenExportLog" size="large" label="Export Log" imageMso="ExportTextFile" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+          <button id="btnOpenBuildLog" size="large" label="Build Log" imageMso="ImportTextFile" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+          <menu id="mnuAdvancedTools" size="large" itemSize="large" label="Advanced Tools" imageMso="GroupDesign" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" getVisible="GetVisible" getEnabled="GetEnabled" >
+            <button id="btnViewAdvancedDocumentation" label="View Documentation" description="See documentation on the purpose and usage of these custom tools..." imageMso="TentativeAcceptInvitation" tag="RibbonName:=;inMenu:=mnu15;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+            <button id="btnLocalizeLibraryReferences" label="Localize Library References" description="Relink add-in library databases to the files located in the same folder as the current database." imageMso="MacroShowAllActions" tag="RibbonName:=;inMenu:=mnu15;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+            <button id="btnRepairColors" label="Repair Colors" description="Rebuild color definition blocks in form objects (See documentation for more info)" screentip="test1" supertip="test2" imageMso="SmartArtChangeColorsGallery" tag="RibbonName:=;inMenu:=mnu15;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+          </menu>
+          <!--End menu (mnuAdvancedTools) NOT delete this remark-->
+        </group>
+        <group id="grpGitHub" label="GitHub Community" getVisible ="GetVisible">
+          <button id="btnProjectHome" size="large" label="Project Home" imageMso="BlogHomePage" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+          <button id="btnDocumentation" size="large" label="Online Documentation" imageMso="ViewMasterDocumentViewClassic" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+          <button id="btnSupportIssues" size="large" label="Support Issues" imageMso="FileCreateDocumentWorkspace" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+          <button id="btnDownloadLatest" size="large" label="Download Latest Version" imageMso="GetExternalDataFromWeb" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>
