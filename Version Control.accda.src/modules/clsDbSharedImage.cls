@@ -226,22 +226,27 @@ End Function
 '
 Private Function GetSignatureHash() As String
     
-    Dim intCnt As Integer
-    Dim lngLen As Long
+    Dim dblCnt As Double
+    Dim dblLen As Double
+    Dim strData As String
         
     ' Get length (bytes) of file data
-    If StrPtr(m_FileData) <> 0 Then lngLen = UBound(m_FileData)
+    If StrPtr(m_FileData) <> 0 Then dblLen = UBound(m_FileData)
     
     With New clsConcat
         ' Compile string with file information
-        .Add m_Name, m_FileName, m_Extension, CStr(lngLen)
+        .Add m_Name, m_FileName, m_Extension, CStr(dblLen)
         ' Add in last 100 characters of file content (byte numbers)
         ' Since this is likely a compressed file format, we will probably
         ' see a change here if the contents were modified.
-        If lngLen > 100 Then
-            For intCnt = lngLen To lngLen - 100 Step -1
-                .Add CStr(m_FileData(intCnt))
-            Next intCnt
+        If dblLen > 100 Then
+            For dblCnt = dblLen To dblLen - 100 Step -1
+                .Add CStr(m_FileData(dblCnt))
+            Next dblCnt
+        Else
+            ' Convert byte array to string and include in hash.
+            strData = m_FileData
+            .Add strData
         End If
         ' Return hash of this string
         GetSignatureHash = GetStringHash(.GetStr)
