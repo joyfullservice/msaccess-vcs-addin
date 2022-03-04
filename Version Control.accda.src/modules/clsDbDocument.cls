@@ -229,6 +229,8 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
                             blnSave = True
                     End Select
                 End If
+                ' Don't save properties on temporary items
+                If Left(doc.Name, 1) = "~" Then blnSave = False
                 ' If save flag set, save the property
                 If blnSave Then dDoc.Add prp.Name, prp.Value
             Next prp
