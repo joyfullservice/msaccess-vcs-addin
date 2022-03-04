@@ -1941,7 +1941,7 @@ End Sub
 ' Purpose   : Hide the action buttons when running a command.
 '---------------------------------------------------------------------------------------
 '
-Private Sub HideActionButtons()
+Public Sub HideActionButtons()
     cmdExport.Visible = False
     chkFullExport.Visible = False
     cmdBuild.Visible = False
@@ -2081,7 +2081,7 @@ End Sub
 '           : status of the current operation.
 '---------------------------------------------------------------------------------------
 '
-Private Sub SetStatusText(strHeading As String, strSubHeading As String, strDescriptionHtml As String)
+Public Sub SetStatusText(strHeading As String, strSubHeading As String, strDescriptionHtml As String)
     If Not FormLoaded(Me) Then Exit Sub
     lblHeading.Caption = strHeading
     lblSubheading.Caption = strSubHeading
@@ -2096,7 +2096,7 @@ End Sub
 ' Purpose   : Set up the progress bar.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetProgressBar() As clsLblProg
+Public Function GetProgressBar() As clsLblProg
     Set GetProgressBar = New clsLblProg
     GetProgressBar.Initialize lblProgBack, lblProgFront, lblProgCaption
 End Function

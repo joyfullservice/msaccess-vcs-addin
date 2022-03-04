@@ -200,6 +200,47 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : VerifyComAddin
+' Author    : Adam Waller
+' Date      : 3/1/2022
+' Purpose   : Verify that the ribbon add-in is installed and the latest version.
+'---------------------------------------------------------------------------------------
+'
+Public Sub VerifyComAddinFiles()
+
+    Dim strPath As String
+    Dim strFile As String
+    Dim strKey As String
+    
+    ' Build path to ribbon folder
+    strPath = Environ$("AppData") & PathSep & "MSAccessVCS" & PathSep
+    
+    ' Ribbon XML file
+    strFile = strPath & "Ribbon.xml"
+    If Not FSO.FileExists(strFile) Then
+        modResource.ExtractResource "Ribbon XML", strPath
+    End If
+
+    ' COM Add-in
+    #If Win64 Then
+        ' 64-bit add-in (Office x64)
+        strFile = strPath & "MSAccessVCS_win64.dll"
+        strKey = "COM Addin x64"
+    #Else
+        ' 32-bit add-in
+        strFile = strPath & "MSAccessVCS_win32.dll"
+        strKey = "COM Addin x32"
+    #End If
+    
+    ' Extract add-in file
+    If Not FSO.FileExists(strFile) Then
+        modResource.ExtractResource strKey, strPath
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAddinFileName
 ' Author    : Adam Waller
 ' Date      : 4/15/2020

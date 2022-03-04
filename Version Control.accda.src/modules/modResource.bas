@@ -150,7 +150,7 @@ Public Sub ExtractResource(strKey As String, strFolder As String)
         Set rstFiles = rst.Fields("Content").Value
         With rstFiles
             If Not .EOF Then
-                strPath = strFolder & PathSep & .Fields("FileName")
+                strPath = strFolder & .Fields("FileName")
                 If FSO.FileExists(strPath) Then DeleteFile strPath
                 .Fields("FileData").SaveToFile strPath
             End If
