@@ -229,7 +229,7 @@ End Function
 Public Function GetAddInProject() As VBProject
     Dim oProj As VBProject
     For Each oProj In VBE.VBProjects
-        If StrComp(oProj.FileName, GetAddinFileName, vbTextCompare) = 0 Then
+        If StrComp(oProj.FileName, GetAddInFileName, vbTextCompare) = 0 Then
             Set GetAddInProject = oProj
             Exit For
         End If
@@ -250,7 +250,7 @@ Private Sub LoadVCSAddIn()
     ' The following lines will load the add-in at the application level,
     ' but will not actually call the function. Ignore the error of function not found.
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    Application.Run GetAddinFileName & "!DummyFunction"
+    Application.Run GetAddInFileName & "!DummyFunction"
 End Sub
 
 

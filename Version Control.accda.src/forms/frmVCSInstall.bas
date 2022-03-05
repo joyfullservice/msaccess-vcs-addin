@@ -1564,7 +1564,7 @@ Private Sub cmdInstall_Click()
             "of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
     
         ' Relaunch from install folder to allow user to trust file.
-        If chkOpenAfterInstall Then modInstall.OpenAddinFile GetAddinFileName, CodeProject.FullName
+        If chkOpenAfterInstall Then modInstall.OpenAddinFile GetAddInFileName, CodeProject.FullName
 
         ' Close the installer add-in file.
         DoCmd.Quit

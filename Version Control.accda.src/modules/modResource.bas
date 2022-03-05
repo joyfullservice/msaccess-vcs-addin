@@ -31,95 +31,27 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : VerifyResource
-' Author    : Adam Waller
-' Date      : 2/28/2022
-' Purpose   : Verify a resource in the embedded resources table. (Compare hash to file)
-'---------------------------------------------------------------------------------------
-'
-Private Sub VerifyResource(strKey As String, strFile As String)
-
-    Dim strPath As String
-    Dim dbs As DAO.Database
-    Dim rst As DAO.Recordset2
-    
-    ' Build full path to file using system path separator
-    strPath = Replace(CodeProject.Path & strFile, "\", PathSep)
-    
-    ' First check to make sure the file exists
-    If FSO.FileExists(strPath) Then
-    
-        ' Look for specified record in resources table
-        Set dbs = CodeDb
-        Set rst = dbs.OpenRecordset( _
-            "select * from tblResources where ResourceName='" & strKey & "'", dbOpenDynaset)
-        If rst.EOF Then
-            ' Record does not exist. Add it (silently)
-            rst.AddNew
-                rst!ResourceName = strKey
-                LoadResource rst, strPath
-            rst.Update
-        Else
-            ' Compare the resource hash with the file hash to see if they match.
-            If GetFileHash(strPath) <> GetResourceHash(rst) Then
-                rst.Edit
-                    LoadResource rst, strPath
-                    MsgBox2 "Updated Resource", strKey & " has been updated from source.", , vbInformation
-                rst.Update
-            End If
-        End If
-    Else
-        ' Source file does not exist. No need to go any further. (Might be running
-        ' on a client computer during the installation process.)
-    End If
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : AddResource
-' Author    : Adam Waller
-' Date      : 2/28/2022
-' Purpose   : Add a resource to the table
-'---------------------------------------------------------------------------------------
-'
-Private Sub LoadResource(rst As DAO.Recordset2, strFile As String)
-    Dim rstFiles As Recordset2
-    Set rstFiles = rst.Fields("Content").Value
-    With rstFiles
-        If .EOF Then
-            .AddNew
-        Else
-            .Edit
-        End If
-        .Fields("FileData").LoadFromFile strFile
-        .Update
-    End With
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetResourceHash
 ' Author    : Adam Waller
-' Date      : 2/28/2022
-' Purpose   : Return a hash of the resource item. (After the header portion)
+' Date      : 3/5/2022
+' Purpose   : Returns the hash of the resource, or an empty string if the key is not
+'           : found.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetResourceHash(rst As DAO.Recordset2)
-    
-    Dim rstFiles As Recordset2
-    Dim bteContent() As Byte
-    
-    Set rstFiles = rst.Fields("Content").Value
-    With rstFiles
-        If Not .EOF Then
-            With .Fields("FileData")
-                bteContent = .Value
-                GetResourceHash = GetBytesHash(StripOLEHeader(bteContent))
-            End With
-        End If
-    End With
-    
+Public Function GetResourceHash(strKey As String) As String
+
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset2
+
+    ' Look for specified record in resources table
+    Set dbs = CodeDb
+    Set rst = dbs.OpenRecordset( _
+        "select * from tblResources where ResourceName='" & strKey & "'", dbOpenDynaset)
+
+    ' Return hash if we found a record
+    If Not rst.EOF Then GetResourceHash = GetRstResourceHash(rst)
+    rst.Close
+
 End Function
 
 
@@ -158,6 +90,99 @@ Public Sub ExtractResource(strKey As String, strFolder As String)
     End If
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyResource
+' Author    : Adam Waller
+' Date      : 2/28/2022
+' Purpose   : Verify a resource in the embedded resources table. (Compare hash to file)
+'---------------------------------------------------------------------------------------
+'
+Private Sub VerifyResource(strKey As String, strFile As String)
+
+    Dim strPath As String
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset2
+    
+    ' Build full path to file using system path separator
+    strPath = Replace(CodeProject.Path & strFile, "\", PathSep)
+    
+    ' First check to make sure the file exists
+    If FSO.FileExists(strPath) Then
+    
+        ' Look for specified record in resources table
+        Set dbs = CodeDb
+        Set rst = dbs.OpenRecordset( _
+            "select * from tblResources where ResourceName='" & strKey & "'", dbOpenDynaset)
+        If rst.EOF Then
+            ' Record does not exist. Add it (silently)
+            rst.AddNew
+                rst!ResourceName = strKey
+                LoadResource rst, strPath
+            rst.Update
+        Else
+            ' Compare the resource hash with the file hash to see if they match.
+            If GetFileHash(strPath) <> GetRstResourceHash(rst) Then
+                rst.Edit
+                    LoadResource rst, strPath
+                    MsgBox2 "Updated Resource", strKey & " has been updated from source.", , vbInformation
+                rst.Update
+            End If
+        End If
+    Else
+        ' Source file does not exist. No need to go any further. (Might be running
+        ' on a client computer during the installation process.)
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddResource
+' Author    : Adam Waller
+' Date      : 2/28/2022
+' Purpose   : Add a resource to the table
+'---------------------------------------------------------------------------------------
+'
+Private Sub LoadResource(rst As DAO.Recordset2, strFile As String)
+    Dim rstFiles As Recordset2
+    Set rstFiles = rst.Fields("Content").Value
+    With rstFiles
+        If .EOF Then
+            .AddNew
+        Else
+            .Edit
+        End If
+        .Fields("FileData").LoadFromFile strFile
+        .Update
+    End With
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetRstResourceHash
+' Author    : Adam Waller
+' Date      : 3/5/2022
+' Purpose   : Return a hash of the resource item. (After the header portion)
+'---------------------------------------------------------------------------------------
+'
+Private Function GetRstResourceHash(rst As DAO.Recordset2)
+    
+    Dim rstFiles As Recordset2
+    Dim bteContent() As Byte
+    
+    Set rstFiles = rst.Fields("Content").Value
+    With rstFiles
+        If Not .EOF Then
+            With .Fields("FileData")
+                bteContent = .Value
+                GetRstResourceHash = GetBytesHash(StripOLEHeader(bteContent))
+            End With
+        End If
+    End With
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------

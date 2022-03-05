@@ -46,7 +46,7 @@ Private Const mcstrTrustedLocationName = "MSAccessVCS Version Control"
 Public Function AutoRun() As Boolean
 
     ' See if the we are opening the file from the installed location.
-    If CodeProject.FullName = GetAddinFileName Then
+    If CodeProject.FullName = GetAddInFileName Then
     
         ' Opening the file from add-in location, which would normally be unusual unless we are trying to remove
         ' legacy registry entries, or to trust the file after install.
@@ -68,6 +68,9 @@ Public Function AutoRun() As Boolean
     Else
         ' Could be running it from another location, such as after downloading
         ' an updated version of the addin, or building from source.
+        VerifyResources
+        
+        ' Open installer form
         DoCmd.OpenForm "frmVCSInstall"
     End If
 
@@ -92,7 +95,7 @@ Public Function InstallVCSAddin() As Boolean
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     strSource = CodeProject.FullName
-    strDest = GetAddinFileName
+    strDest = GetAddInFileName
     VerifyPath strDest
     
     ' We can't replace a file with itself.  :-)
@@ -150,7 +153,7 @@ End Function
 Public Function UninstallVCSAddin() As Boolean
     
     Dim strDest As String
-    strDest = GetAddinFileName
+    strDest = GetAddInFileName
     
     ' Copy the file, overwriting any existing file.
     ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
@@ -199,46 +202,6 @@ Public Function UninstallVCSAddin() As Boolean
 End Function
 
 
-'---------------------------------------------------------------------------------------
-' Procedure : VerifyComAddin
-' Author    : Adam Waller
-' Date      : 3/1/2022
-' Purpose   : Verify that the ribbon add-in is installed and the latest version.
-'---------------------------------------------------------------------------------------
-'
-Public Sub VerifyComAddinFiles()
-
-    Dim strPath As String
-    Dim strFile As String
-    Dim strKey As String
-    
-    ' Build path to ribbon folder
-    strPath = Environ$("AppData") & PathSep & "MSAccessVCS" & PathSep
-    
-    ' Ribbon XML file
-    strFile = strPath & "Ribbon.xml"
-    If Not FSO.FileExists(strFile) Then
-        modResource.ExtractResource "Ribbon XML", strPath
-    End If
-
-    ' COM Add-in
-    #If Win64 Then
-        ' 64-bit add-in (Office x64)
-        strFile = strPath & "MSAccessVCS_win64.dll"
-        strKey = "COM Addin x64"
-    #Else
-        ' 32-bit add-in
-        strFile = strPath & "MSAccessVCS_win32.dll"
-        strKey = "COM Addin x32"
-    #End If
-    
-    ' Extract add-in file
-    If Not FSO.FileExists(strFile) Then
-        modResource.ExtractResource strKey, strPath
-    End If
-
-End Sub
-
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetAddinFileName
@@ -247,8 +210,8 @@ End Sub
 ' Purpose   : This is where the add-in would be installed.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetAddinFileName() As String
-    GetAddinFileName = FSO.BuildPath(FSO.BuildPath(Environ$("AppData"), "MSAccessVCS"), CodeProject.Name)
+Public Function GetAddInFileName() As String
+    GetAddInFileName = FSO.BuildPath(FSO.BuildPath(Environ$("AppData"), "MSAccessVCS"), CodeProject.Name)
 End Function
 
 
@@ -268,7 +231,7 @@ Public Function IsAlreadyInstalled() As Boolean
     If InstalledVersion <> vbNullString Then
         
         ' Check for addin file
-        If LCase(FSO.GetFileName(GetAddinFileName)) = LCase(CodeProject.Name) Then
+        If LCase(FSO.GetFileName(GetAddInFileName)) = LCase(CodeProject.Name) Then
             strPath = GetAddinRegPath & "&Version Control\Library"
             
             ' Check HKLM registry key
@@ -338,7 +301,7 @@ Private Sub RegisterMenuItem(ByVal strName As String, Optional ByVal strFunction
     strPath = GetAddinRegPath & strName & "\"
     With New IWshRuntimeLibrary.WshShell
         .RegWrite strPath & "Expression", strFunction, "REG_SZ"
-        .RegWrite strPath & "Library", GetAddinFileName, "REG_SZ"
+        .RegWrite strPath & "Library", GetAddInFileName, "REG_SZ"
         .RegWrite strPath & "Version", 3, "REG_DWORD"
     End With
     
@@ -379,7 +342,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub RelaunchAsAdmin()
-    ShellExecute 0, "runas", FSO.BuildPath(SysCmd(acSysCmdAccessDir), "msaccess.exe"), """" & GetAddinFileName & """", vbNullString, SW_SHOWNORMAL
+    ShellExecute 0, "runas", FSO.BuildPath(SysCmd(acSysCmdAccessDir), "msaccess.exe"), """" & GetAddInFileName & """", vbNullString, SW_SHOWNORMAL
 End Sub
 
 
@@ -503,7 +466,7 @@ Public Sub RunUpgrades()
         strOldPath = Replace(strOldPath, ".accda", ".json", , , vbTextCompare)
         If FSO.FileExists(strOldPath) Then
             ' Check for settings file in new location
-            strNewPath = Replace(GetAddinFileName, ".accda", ".json", , , vbTextCompare)
+            strNewPath = Replace(GetAddInFileName, ".accda", ".json", , , vbTextCompare)
             If FSO.FileExists(strNewPath) Then
                 ' Leave new settings file, and delete old one.
                 DeleteFile strOldPath
@@ -619,7 +582,7 @@ Public Function VerifyTrustedLocation() As Boolean
 
     ' Get registry path for trusted locations
     strPath = GetTrustedLocationRegPath
-    strTrusted = FSO.GetParentFolderName(GetAddinFileName) & PathSep
+    strTrusted = FSO.GetParentFolderName(GetAddInFileName) & PathSep
 
     ' Use Windows Scripting Shell to read/write to registry
     With New IWshRuntimeLibrary.WshShell
