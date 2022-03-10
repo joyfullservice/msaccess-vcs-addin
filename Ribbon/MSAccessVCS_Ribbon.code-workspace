@@ -5,12 +5,12 @@
             "uri": "twinbasic-builds:/___BUILDS/"
         },
         {
-            "name": "PROJECT: MSAccessVCS",
-            "uri": "twinbasic:/MSAccessVCS/"
+            "name": "PROJECT: MSAccessVCSLib",
+            "uri": "twinbasic:/MSAccessVCSLib/"
         }
     ],
     "settings": {
-        "window.title": "${dirty}MSAccessVCS${separator}twinBASIC",
+        "window.title": "${dirty}MSAccessVCSLib${separator}twinBASIC",
         "files.associations": {
             "*.module": "php",
             "/___BUILDS/*": "twinbasicBuildConfig",
