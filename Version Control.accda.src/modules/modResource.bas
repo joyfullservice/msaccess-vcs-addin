@@ -24,8 +24,8 @@ Public Sub VerifyResources()
     
     ' Ribbon XML and COM add-in for the ribbon
     VerifyResource "Ribbon XML", "\Ribbon\Ribbon.xml"
-    VerifyResource "COM Addin x32", "\Ribbon\Build\MSAccessVCS_win32.dll"
-    VerifyResource "COM Addin x64", "\Ribbon\Build\MSAccessVCS_win64.dll"
+    VerifyResource "COM Addin x32", "\Ribbon\Build\MSAccessVCSLib_win32.dll"
+    VerifyResource "COM Addin x64", "\Ribbon\Build\MSAccessVCSLib_win64.dll"
         
 End Sub
 

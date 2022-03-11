@@ -100,7 +100,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetAddInFileName() As String
-    GetAddInFileName = Replace("MSAccessVCS_winXX.dll", "XX", GetOfficeBitness)
+    GetAddInFileName = Replace("MSAccessVCSLib_winXX.dll", "XX", GetOfficeBitness)
 End Function
 
 
