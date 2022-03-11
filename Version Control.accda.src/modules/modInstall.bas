@@ -129,6 +129,8 @@ Public Function InstallVCSAddin() As Boolean
     Else
         If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
+        ' Install the ribbon
+        modCOMAddIn.VerifyComAddIn
         ' Register the Menu controls
         RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
         RegisterMenuItem "&VCS Options", "=AddInOptionsLaunch()"
