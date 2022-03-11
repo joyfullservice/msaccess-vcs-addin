@@ -1,0 +1,48 @@
+Module DllRegistration
+    
+    Const AddinProjectName As String = VBA.Compilation.CurrentProjectName
+    Const AddinClassName As String = "AddInRibbon"
+    Const AddinQualifiedClassName As String = AddinProjectName & "." & AddinClassName
+    Const AddinFriendlyName As String = "Ribbon integration for MSAccessVCS add-in"
+    Const AddinDescription As String = "Microsoft Access COM add-in to add Fluent UI ribbon support to Access add-in project"
+    Const RootRegistryFolder_ACCESS As String = "HKCU\SOFTWARE\Microsoft\Office\Access\Addins\" & AddinQualifiedClassName & "\"
+
+    Public Function DllRegisterServer() As Boolean
+    
+        On Error GoTo RegError
+        
+        Dim wscript As Object = CreateObject("wscript.shell")
+        
+        ' Integrated DLL registration for Access COM Add-in list
+        wscript.RegWrite RootRegistryFolder_ACCESS & "FriendlyName", AddinFriendlyName, "REG_SZ"
+        wscript.RegWrite RootRegistryFolder_ACCESS & "Description", AddinDescription, "REG_SZ"
+        wscript.RegWrite RootRegistryFolder_ACCESS & "LoadBehavior", 3, "REG_DWORD"
+
+        Return True
+        
+    RegError:
+        MsgBox "DllRegisterServer -- An error occured trying to write to the system registry:" & vbCrLf & _
+                Err.Description & " (" & Hex(Err.Number) & ")"
+        Return False
+        
+    End Function
+ 
+    Public Function DllUnregisterServer() As Boolean
+        
+        On Error GoTo RegError
+        Dim wscript As Object = CreateObject("wscript.shell")
+        wscript.RegDelete RootRegistryFolder_ACCESS & "FriendlyName"
+        wscript.RegDelete RootRegistryFolder_ACCESS & "Description"
+        wscript.RegDelete RootRegistryFolder_ACCESS & "LoadBehavior"
+        wscript.RegDelete RootRegistryFolder_ACCESS
+
+        Return True
+        
+    RegError:
+        MsgBox "DllUnregisterServer -- An error occured trying to delete from the system registry:" & vbCrLf & _
+                Err.Description & " (" & Hex(Err.Number) & ")"
+        Return False
+        
+    End Function
+
+End Module
