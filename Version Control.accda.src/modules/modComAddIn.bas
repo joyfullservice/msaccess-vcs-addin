@@ -13,10 +13,7 @@ Option Explicit
 Private Const ModuleName As String = "modComAddIn"
 
 ' Constants for registry entries
-Private Const cstrAddinProjectName As String = "MSAccessVCS"
-Private Const cstrAddinClassName As String = "AddInRibbon"
-Private Const cstrAddinQualifiedClassName As String = cstrAddinProjectName & "." & cstrAddinClassName
-Private Const cstrRootRegistryFolder As String = "HKCU\SOFTWARE\Microsoft\Office\Access\Addins\" & cstrAddinQualifiedClassName & "\"
+Private Const cstrAddinFriendlyName As String = "Ribbon integration for MSAccessVCS add-in"
 
 
 '---------------------------------------------------------------------------------------
@@ -36,7 +33,7 @@ Public Sub VerifyComAddIn()
     Dim blnInstall As Boolean
     
     ' Build path to ribbon folder
-    strPath = Environ$("AppData") & PathSep & "MSAccessVCS" & PathSep
+    strPath = GetAddInPath
     
     ' Ribbon XML file
     strFile = strPath & "Ribbon.xml"
@@ -78,18 +75,30 @@ Public Sub VerifyComAddIn()
         ' Extract the new file from the resources table
         modResource.ExtractResource strKey, strPath
         ' Register the add-in file
-        RegisterCOMAddIn strFile
+        RegisterCOMAddIn
         ' Now we should be able to load the add-in
-        LoadAddIn strFile
+        LoadAddIn
     Else
         If blnUpdateRibbon Then
             ' Reload the add-in to refresh the ribbon
             UnloadAddIn
-            LoadAddIn strFile
+            LoadAddIn
         End If
     End If
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAddInPath
+' Author    : Adam Waller
+' Date      : 3/11/2022
+' Purpose   : Return path to add-in installation folder
+'---------------------------------------------------------------------------------------
+'
+Private Function GetAddInPath() As String
+    GetAddInPath = Environ$("AppData") & PathSep & "MSAccessVCS" & PathSep
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -127,29 +136,10 @@ End Function
 ' Procedure : RegisterCOMAddIn
 ' Author    : Adam Waller
 ' Date      : 3/5/2022
-' Purpose   : Register the add-in in the Windows registry. We will add it to this
-'           : project as a temporary reference to trigger the registration.
+' Purpose   : Register the add-in in the Windows registry.
 '---------------------------------------------------------------------------------------
 '
-Private Function RegisterCOMAddIn(strFile As String) As Boolean
-
-    Dim proj As VBProject
-    Dim ref As VBIDE.Reference
-    Dim intCnt As Integer
-    
-    ' Use code project just in case this is run from the loaded Access add-in
-    Set proj = GetCodeVBProject
-    
-    ' Add a temporary reference to the file, then remove it
-    With proj.References
-        intCnt = .Count
-        Set ref = .AddFromFile(strFile)
-        If .Count > intCnt Then
-            .Remove ref
-        Else
-            Log.Error eelError, "Ribbon add-in registration failed for " & strFile, ModuleName & ".RegisterCOMAddIn"
-        End If
-    End With
+Private Function RegisterCOMAddIn() As Boolean
 
     ' Register with list of Access add-ins
     DllRegisterServer
@@ -184,13 +174,13 @@ End Sub
 ' Purpose   : Load (connect) the COM add-in
 '---------------------------------------------------------------------------------------
 '
-Private Sub LoadAddIn(strPath As String)
+Private Sub LoadAddIn()
     
     Dim addVCS As COMAddIn
     
     Set addVCS = GetCOMAddIn
     If addVCS Is Nothing Then
-        'application.COMAddIns.
+        ' Add-in not found. May need to be registered
     Else
         ' Load the add-in
         addVCS.Connect = True
@@ -208,7 +198,7 @@ End Sub
 Private Function GetCOMAddIn() As COMAddIn
     Dim addIn As COMAddIn
     For Each addIn In Application.COMAddIns
-        If addIn.Description = "asdfsajdf" Then
+        If addIn.Description = cstrAddinFriendlyName Then
             Set GetCOMAddIn = addIn
             Exit For
         End If
@@ -224,22 +214,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function DllRegisterServer() As Boolean
-
-    On Error GoTo RegError
-    
-    With New IWshRuntimeLibrary.WshShell
-        .RegWrite cstrRootRegistryFolder & "FriendlyName", cstrAddinProjectName, "REG_SZ"
-        .RegWrite cstrRootRegistryFolder & "Description", cstrAddinProjectName, "REG_SZ"
-        .RegWrite cstrRootRegistryFolder & "LoadBehavior", 3, "REG_DWORD"
+    With New WshShell
+        .Exec "regsvr32 /s """ & GetAddInPath & GetAddInFileName & """"
     End With
-    
-    DllRegisterServer = True
-    Exit Function
-    
-RegError:
-    MsgBox "DllRegisterServer -- An error occured trying to write to the system registry:" & vbCrLf & _
-            Err.Description & " (" & Hex(Err.Number) & ")"
-
 End Function
 
 
@@ -251,21 +228,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function DllUnregisterServer() As Boolean
-
-    On Error GoTo RegError
-    
-    With New IWshRuntimeLibrary.WshShell
-        .RegDelete cstrRootRegistryFolder & "FriendlyName"
-        .RegDelete cstrRootRegistryFolder & "Description"
-        .RegDelete cstrRootRegistryFolder & "LoadBehavior"
-        .RegDelete cstrRootRegistryFolder
+    With New WshShell
+        .Exec "regsvr32 /u /s """ & GetAddInPath & GetAddInFileName & """"
     End With
-    
-    DllUnregisterServer = True
-    Exit Function
-        
-RegError:
-        MsgBox "DllUnregisterServer -- An error occured trying to delete from the system registry:" & vbCrLf & _
-                Err.Description & " (" & Hex(Err.Number) & ")"
-        
 End Function
