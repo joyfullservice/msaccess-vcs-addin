@@ -17,13 +17,6 @@
 *.bas linguist-language=VBA
 *.cls linguist-language=VBA
 
-###############################################################################
-# Diff changes in TwinBasic project files as text. (These files are actually
-# a combination of binary and text content, but this allows us to diff changes
-# to the project and embedded source code.) - BE CAREFUL WITH MERGES!!
-###############################################################################
-*.twinproj text
-
 # Git files
 *.gitattributes text 
 *.gitattributes linguist-language=gitattributes
