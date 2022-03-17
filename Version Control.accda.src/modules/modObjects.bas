@@ -145,13 +145,14 @@ End Property
 '
 Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
     
+    Static blnInError As Boolean
     Dim blnBreak As Boolean
     
     ' Don't reference the property this till we have loaded the options.
     If Not m_Options Is Nothing Then blnBreak = m_Options.BreakOnError
     
     ' Check for any unhandled errors
-    If (Err.Number <> 0) And blnTrapUnhandledErrors Then
+    If (Err.Number <> 0) And blnTrapUnhandledErrors And Not blnInError Then
     
         ' Check current BreakOnError mode
         If blnBreak Then
@@ -182,9 +183,12 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
         Else
             ' Log otherwise unhandled error
             If Not m_Log Is Nothing Then
+                ' Set flag so we don't create a loop while logging the error
+                blnInError = True
                 ' We don't know the procedure that it originated from, but we should at least
                 ' log that the error occurred. A review of the log file may help identify the source.
                 Log.Error eelError, "Unhandled error found before `On Error` directive", "Unknown"
+                blnInError = False
             End If
         End If
     
