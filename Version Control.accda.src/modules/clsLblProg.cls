@@ -123,6 +123,9 @@ End Sub
 '
 Private Sub Class_Terminate()
 
+    ' Ignore any errors if object references are no longer valid
+    On Error Resume Next
+    
     #If APPLICATION_NAME = "Microsoft Access" Then
         ' Hide front controls
         mlblFront.Visible = False
