@@ -39,8 +39,8 @@ End Sub
 '
 Public Sub ShowOptions()
     ' Force reload of options from current project before opening the form.
-    Set Options = Nothing
-    DoCmd.OpenForm "frmVCSOptions"
+    Set modObjects.Options = Nothing
+    Form_frmVCSOptions.Visible = True
 End Sub
 
 
