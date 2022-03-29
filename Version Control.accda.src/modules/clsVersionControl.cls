@@ -149,6 +149,10 @@ Private Sub SaveState()
     
     Dim strValue As String
     
+    ' Just in case the user terminated the code before the settings could be restored,
+    ' check for any existing user settings that might need to be restored.
+    If ReadSetting("Save Time") <> vbNullString Then RestoreState
+    
     ' Save a value so we can delete this section later
     PreserveSetting "Save Time", Now()
     
@@ -181,7 +185,7 @@ Private Sub RestoreState()
     End If
     
     ' Remove temporary registry section
-    DeleteSetting GetCodeVBProject.Name, "State"
+    DeleteSetting PROJECT_NAME, "State"
     
 End Sub
 
