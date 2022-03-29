@@ -277,7 +277,7 @@ Public Function CloseAllFormsReports() As Boolean
         On Error GoTo ErrorHandler
         ' Loop through forms
         For intItem = Forms.Count - 1 To 0 Step -1
-            If Forms(intItem).Caption <> "MSAccessVCS" Then
+            If Forms(intItem).Caption <> PROJECT_NAME Then
                 DoCmd.Close acForm, Forms(intItem).Name
                 DoEvents
             End If

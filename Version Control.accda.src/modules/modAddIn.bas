@@ -154,7 +154,7 @@ Public Function RunExportForCurrentDB()
             ' may not be needed, but just in case we refer to this project by name
             ' anywhere else in the code, we will restore the original name before
             ' moving on to the actual export.
-            If .Name = "MSAccessVCS-Lib" Then .Name = "MSAccessVCS"
+            If .Name = "MSAccessVCS-Lib" Then .Name = PROJECT_NAME
         End With
         ' Call export function with an API callback.
         modTimer.SetTimer roExportCurrentDatabase

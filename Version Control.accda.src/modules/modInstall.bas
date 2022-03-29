@@ -213,7 +213,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetAddInFileName() As String
-    GetAddInFileName = FSO.BuildPath(FSO.BuildPath(Environ$("AppData"), "MSAccessVCS"), CodeProject.Name)
+    GetAddInFileName = FSO.BuildPath(FSO.BuildPath(Environ$("AppData"), PROJECT_NAME), CodeProject.Name)
 End Function
 
 

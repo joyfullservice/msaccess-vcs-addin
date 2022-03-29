@@ -10,6 +10,9 @@ Option Private Module
 Option Explicit
 
 
+' VBE Project Name for this Add-In
+Public Const PROJECT_NAME As String = "MSAccessVCS"
+
 ' Read/write chunks of text, rather than the whole thing at once for massive
 ' performance gains when reading large files.
 ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method

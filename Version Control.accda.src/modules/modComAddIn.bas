@@ -97,7 +97,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetAddInPath() As String
-    GetAddInPath = Environ$("AppData") & PathSep & "MSAccessVCS" & PathSep
+    GetAddInPath = Environ$("AppData") & PathSep & PROJECT_NAME & PathSep
 End Function
 
 
