@@ -24,6 +24,22 @@ Private m_FSO As Scripting.FileSystemObject
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ReleaseObjects
+' Author    : Adam Waller
+' Date      : 3/28/2022
+' Purpose   : Release references to objects for a clean exit.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReleaseObjects()
+    Set m_Perf = Nothing
+    Set m_Log = Nothing
+    Set m_Options = Nothing
+    Set m_VCSIndex = Nothing
+    Set m_FSO = Nothing
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : LoadOptions
 ' Author    : Adam Waller
 ' Date      : 4/15/2020
@@ -198,3 +214,4 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
     DebugMode = blnBreak
     
 End Function
+

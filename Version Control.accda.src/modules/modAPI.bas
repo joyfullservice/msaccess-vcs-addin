@@ -37,23 +37,13 @@ Private m_VCS As clsVersionControl
 '---------------------------------------------------------------------------------------
 ' Procedure : VCS
 ' Author    : Adam Waller
-' Date      : 1/13/2021
+' Date      : 3/28/2022
 ' Purpose   : Wrapper for the VCS class, providing easy API access to VCS functions.
+'           : *NOTE* that this class is not persisted. This allows us to wrap up and
+'           : remove any object references after the call completes.
 '---------------------------------------------------------------------------------------
 '
 Public Function VCS() As clsVersionControl
-    If m_VCS Is Nothing Then Set m_VCS = New clsVersionControl
-    Set VCS = m_VCS
+    Set VCS = New clsVersionControl
 End Function
 
-
-'---------------------------------------------------------------------------------------
-' Procedure : RepairColors
-' Author    : Adam Waller
-' Date      : 6/8/2021
-' Purpose   : Reapply the color properties in the current database
-'---------------------------------------------------------------------------------------
-'
-Public Sub RepairColors()
-    RepairColorDefinitionBlocks
-End Sub

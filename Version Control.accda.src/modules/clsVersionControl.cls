@@ -69,6 +69,18 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RepairColors
+' Author    : Adam Waller
+' Date      : 6/8/2021
+' Purpose   : Reapply the color properties in the current database
+'---------------------------------------------------------------------------------------
+'
+Public Sub RepairColors()
+    RepairColorDefinitionBlocks
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Version
 ' Author    : Adam Waller
 ' Date      : 1/13/2021
@@ -78,7 +90,6 @@ End Function
 Public Property Get Version() As String
     Version = GetVCSVersion
 End Property
-
 
 
 '---------------------------------------------------------------------------------------
@@ -101,3 +112,90 @@ Public Sub GoToLinkDownload()
     FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration/releases"
 End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Initialize
+' Author    : Adam Waller
+' Date      : 3/28/2022
+' Purpose   : Save the current state so we can restore it after the current operation.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Initialize()
+    SaveState
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Terminate
+' Author    : Adam Waller
+' Date      : 3/28/2022
+' Purpose   : Release any outstanding objects and restore the session state
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Terminate()
+    modObjects.ReleaseObjects
+    RestoreState
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveState
+' Author    : Adam Waller
+' Date      : 3/28/2022
+' Purpose   : Save any user settings before running our code.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SaveState()
+    
+    Dim strValue As String
+    
+    ' Save a value so we can delete this section later
+    PreserveSetting "Save Time", Now()
+    
+    ' Error trapping setting. (We need this to "Break in Class Modules" for this add-in)
+    strValue = Application.GetOption("Error Trapping")
+    If strValue <> "1" Then
+        PreserveSetting "Error Trapping", strValue
+        Application.SetOption "Error Trapping", 1
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RestoreState
+' Author    : Adam Waller
+' Date      : 3/28/2022
+' Purpose   : Restore user settings.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RestoreState()
+    
+    Dim strValue As String
+    
+    strValue = ReadSetting("Error Trapping")
+    If strValue <> vbNullString Then
+        If Application.GetOption("Error Trapping") <> strValue Then
+            Application.SetOption "Error Trapping", CLng(strValue)
+        End If
+    End If
+    
+    ' Remove temporary registry section
+    DeleteSetting GetCodeVBProject.Name, "State"
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PreserveSetting
+' Author    : Adam Waller
+' Date      : 3/28/2022
+' Purpose   : Wrapper functions for saving and reading session state settings.
+'---------------------------------------------------------------------------------------
+'
+Private Sub PreserveSetting(strName As String, strSetting As String)
+    SaveSetting PROJECT_NAME, "State", strName, strSetting
+End Sub
+Private Function ReadSetting(strName As String, Optional strDefault As String) As String
+    ReadSetting = GetSetting(PROJECT_NAME, "State", strName, strDefault)
+End Function

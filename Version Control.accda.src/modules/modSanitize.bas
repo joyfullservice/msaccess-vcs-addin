@@ -233,6 +233,7 @@ Build_Output:
     If blnReturnHash Then SanitizeFile = GetStringHash(strContent, True)
 
     ' Log performance
+    Set m_colBlocks = Nothing
     Perf.OperationEnd
     Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
     
