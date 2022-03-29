@@ -6,7 +6,6 @@
 ' Purpose   : Functions relating to detecting and removing orphaned items in relation
 '           : to the source code files and existing database objects.
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Private Module
 Option Explicit

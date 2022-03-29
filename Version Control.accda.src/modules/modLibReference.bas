@@ -5,11 +5,9 @@
 ' Date      : 2/17/2022
 ' Purpose   : Module for handling functions related to Access Library references
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Private Module
 Option Explicit
-
 
 
 ' API call to press shift key while opening the database to disable startup code

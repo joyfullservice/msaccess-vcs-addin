@@ -5,7 +5,6 @@
 ' Date      : 12/4/2020
 ' Purpose   : Utility functions specific to the VCS project
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Private Module
 Option Explicit

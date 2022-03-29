@@ -6,7 +6,6 @@
 ' Purpose   : Manage the resource files (such as ribbon XML and COM add-in files) used
 '           : when installing/updating the add-in.
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Private Module
 Option Explicit

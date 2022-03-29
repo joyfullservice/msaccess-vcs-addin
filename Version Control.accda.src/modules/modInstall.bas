@@ -6,11 +6,11 @@
 ' Purpose   : This module contains the logic for installing/updating/removing/deploying
 '           : the add-in.
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Explicit
 Option Private Module
 
+' Registry hive
 Private Enum eHive
     ehHKLM
     ehHKCU
