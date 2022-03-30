@@ -317,10 +317,10 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Let InstalledVersion(strVersion As String)
-    SaveSetting GetCodeVBProject.Name, "Add-in", "Installed Version", strVersion
+    SaveSetting PROJECT_NAME, "Add-in", "Installed Version", strVersion
 End Property
 Public Property Get InstalledVersion() As String
-    InstalledVersion = GetSetting(GetCodeVBProject.Name, "Add-in", "Installed Version", vbNullString)
+    InstalledVersion = GetSetting(PROJECT_NAME, "Add-in", "Installed Version", vbNullString)
 End Property
 
 

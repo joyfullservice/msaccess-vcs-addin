@@ -182,13 +182,13 @@ Public Function UninstallVCSAddin() As Boolean
         
         ' Remove registry entries
         If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-        DeleteSetting GetCodeVBProject.Name, "Install"
-        DeleteSetting GetCodeVBProject.Name, "Build"
-        DeleteSetting GetCodeVBProject.Name, "Add-In"
+        DeleteSetting PROJECT_NAME, "Install"
+        DeleteSetting PROJECT_NAME, "Build"
+        DeleteSetting PROJECT_NAME, "Add-In"
         
         ' Remove private keys; since this (should have been) removed
         ' during install, just do it again to verify.
-        DeleteSetting GetCodeVBProject.Name, "Private Keys"
+        DeleteSetting PROJECT_NAME, "Private Keys"
         
         If Err Then Err.Clear
         On Error GoTo 0
@@ -490,7 +490,7 @@ Public Sub RunUpgrades()
     End If
     
     ' Remove legacy RC4 encryption
-    If HasLegacyRC4Keys Then DeleteSetting GetCodeVBProject.Name, "Private Keys"
+    If HasLegacyRC4Keys Then DeleteSetting PROJECT_NAME, "Private Keys"
     
     ' Use standardized options folder (5/7/2021)
     strOldPath = FSO.BuildPath(CodeProject.Path, FSO.GetBaseName(CodeProject.Name)) & ".json"
@@ -559,10 +559,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Property Let InstallSettingTrustedLocation(InstallTrust As Integer)
-    SaveSetting GetCodeVBProject.Name, "Install", "Trust Folder", InstallTrust
+    SaveSetting PROJECT_NAME, "Install", "Trust Folder", InstallTrust
 End Property
 Public Property Get InstallSettingTrustedLocation() As Integer
-    InstallSettingTrustedLocation = GetSetting(GetCodeVBProject.Name, "Install", "Trust Folder", CInt(True))
+    InstallSettingTrustedLocation = GetSetting(PROJECT_NAME, "Install", "Trust Folder", CInt(True))
 End Property
 
 
@@ -712,10 +712,10 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Let InstallSettingOpenFile(InstallOpen As Integer)
-    SaveSetting GetCodeVBProject.Name, "Install", "Open File", InstallOpen
+    SaveSetting PROJECT_NAME, "Install", "Open File", InstallOpen
 End Property
 Public Property Get InstallSettingOpenFile() As Integer
-    InstallSettingOpenFile = GetSetting(GetCodeVBProject.Name, "Install", "Open File", CInt(False))
+    InstallSettingOpenFile = GetSetting(PROJECT_NAME, "Install", "Open File", CInt(False))
 End Property
 
 

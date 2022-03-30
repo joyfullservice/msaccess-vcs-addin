@@ -39,7 +39,7 @@ Public Sub WinAPITimerCallback()
     KillTimer
     
     ' Now, run the desired operation
-    Select Case GetSetting(GetCodeVBProject.Name, "Timer", "Operation", 0)
+    Select Case GetSetting(PROJECT_NAME, "Timer", "Operation", 0)
     
         Case roUnspecified
             ' Operation type not specified or not found.
@@ -50,8 +50,8 @@ Public Sub WinAPITimerCallback()
                 
         Case roFullBuildFromSource
             ' Build from source (Full build)
-            strFolder = GetSetting(GetCodeVBProject.Name, "Build", "SourceFolder")
-            SaveSetting GetCodeVBProject.Name, "Build", "SourceFolder", vbNullString
+            strFolder = GetSetting(PROJECT_NAME, "Build", "SourceFolder")
+            SaveSetting PROJECT_NAME, "Build", "SourceFolder", vbNullString
             If strFolder <> vbNullString Then Build strFolder, True
         
         Case roLocalizeLibRefs
@@ -85,13 +85,13 @@ Public Sub SetTimer(intOperation As eResumeOperation, Optional strParam As Strin
 
         Case roFullBuildFromSource
             ' Save build path
-            SaveSetting GetCodeVBProject.Name, "Build", "SourceFolder", strParam
+            SaveSetting PROJECT_NAME, "Build", "SourceFolder", strParam
 
     End Select
 
     ' Save ID to registry before setting the timer
-    SaveSetting GetCodeVBProject.Name, "Timer", "Operation", intOperation
-    SaveSetting GetCodeVBProject.Name, "Timer", "TimerID", m_lngTimerID
+    SaveSetting PROJECT_NAME, "Timer", "Operation", intOperation
+    SaveSetting PROJECT_NAME, "Timer", "TimerID", m_lngTimerID
     m_lngTimerID = ApiSetTimer(0, 0, 1000 * sngSeconds, AddressOf WinAPITimerCallback)
     
 End Sub
@@ -105,11 +105,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub KillTimer()
-    If m_lngTimerID = 0 Then m_lngTimerID = GetSetting(GetCodeVBProject.Name, "Timer", "TimerID", 0)
+    If m_lngTimerID = 0 Then m_lngTimerID = GetSetting(PROJECT_NAME, "Timer", "TimerID", 0)
     If m_lngTimerID <> 0 Then
         ApiKillTimer 0, m_lngTimerID
         Debug.Print "Killed timer " & m_lngTimerID
         m_lngTimerID = 0
-        SaveSetting GetCodeVBProject.Name, "Timer", "TimerID", 0
+        SaveSetting PROJECT_NAME, "Timer", "TimerID", 0
     End If
 End Sub

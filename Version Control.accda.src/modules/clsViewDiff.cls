@@ -111,7 +111,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get ToolName() As String
-    If m_strToolName = vbNullString Then m_strToolName = GetSetting(GetCodeVBProject.Name, "Options", "Diff Tool")
+    If m_strToolName = vbNullString Then m_strToolName = GetSetting(PROJECT_NAME, "Options", "Diff Tool")
     ToolName = m_strToolName
 End Property
 
@@ -125,7 +125,7 @@ End Property
 '
 Public Property Let ToolName(strName As String)
     If m_strToolName <> strName Then
-        SaveSetting GetCodeVBProject.Name, "Options", "Diff Tool", strName
+        SaveSetting PROJECT_NAME, "Options", "Diff Tool", strName
         m_strToolName = strName
     End If
 End Property
