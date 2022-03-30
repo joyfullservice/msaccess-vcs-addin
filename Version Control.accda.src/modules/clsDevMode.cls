@@ -1196,7 +1196,7 @@ Private Sub SetDevNames(objPrinter As Access.Printer)
             strDevice = NullPad(23)
         Else
             strDriver = .DriverName & vbNullChar
-            strDevice = Left$(.DeviceName & vbNullChar, 32)
+            strDevice = .DeviceName & vbNullChar
         End If
         strPort = .Port & vbNullChar
     End With
