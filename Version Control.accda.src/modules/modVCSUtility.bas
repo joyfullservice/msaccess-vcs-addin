@@ -3,7 +3,7 @@
 ' Module    : modVCSUtility
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
-' Purpose   : Utility functions specific to the VCS project
+' Purpose   : Utility functions specific to the VCS project but not publicly exposed.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Private Module
@@ -447,4 +447,56 @@ Public Sub CompileAndSaveAllModules()
     DoEvents
     Perf.OperationEnd
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PreloadVBE
+' Author    : Adam Waller
+' Date      : 5/25/2020
+' Purpose   : Force Access to load the VBE project. (This can help prevent crashes
+'           : when code is run before the VB Project is fully loaded.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub PreloadVBE()
+    Dim strName As String
+    DoCmd.Hourglass True
+    strName = VBE.ActiveVBProject.Name
+    DoCmd.Hourglass False
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAddInProject
+' Author    : Adam Waller
+' Date      : 11/10/2020
+' Purpose   : Return the VBProject of the MSAccessVCS add-in.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetAddInProject() As VBProject
+    Dim oProj As VBProject
+    For Each oProj In VBE.VBProjects
+        If StrComp(oProj.FileName, GetAddInFileName, vbTextCompare) = 0 Then
+            Set GetAddInProject = oProj
+            Exit For
+        End If
+    Next oProj
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadVCSAddIn
+' Author    : Adam Waller
+' Date      : 11/10/2020
+' Purpose   : Load the add-in at the application level so it can stay active
+'           : even if the current database is closed.
+'           : https://stackoverflow.com/questions/62270088/how-can-i-launch-an-access-add-in-not-com-add-in-from-vba-code
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadVCSAddIn()
+    ' The following lines will load the add-in at the application level,
+    ' but will not actually call the function. Ignore the error of function not found.
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    Application.Run GetAddInFileName & "!DummyFunction"
+End Sub
+
 

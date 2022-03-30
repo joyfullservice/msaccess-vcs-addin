@@ -26,7 +26,7 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Public Sub Show()
-    AddInMenuItemLaunch
+    Form_frmVCSMain.HandleCmd erlVCSOpen
 End Sub
 
 
@@ -52,7 +52,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Export()
-    AddInMenuItemExport
+    Form_frmVCSMain.HandleCmd erlExportAllRibbon
 End Sub
 
 

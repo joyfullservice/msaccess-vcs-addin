@@ -111,3 +111,27 @@ Public Enum eConflictType
     ectNewerDatabaseObject
     ectNewerSourceFile
 End Enum
+
+' Release type used when updating version
+' or deploying add-in
+Public Enum eReleaseType
+    Major_Vxx = 0
+    Minor_xVx = 1
+    Build_xxV = 2
+    Same_Version = 3
+End Enum
+
+' For automating main form
+Public Enum eRibbonLaunch
+    erlVCSOpen
+    erlVCSOptions
+    erlExportAllRibbon
+    erlExportFormsReportsRibbon
+    erlExportFormsRibbon
+    erlExportReportsRibbon
+    erlExportModulesMacros
+    erlExportTablesQueries
+    erlExportTables
+    erlExportQueries
+End Enum
+

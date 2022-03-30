@@ -803,3 +803,63 @@ Public Sub InitializeForms(cContainers As Dictionary)
     CatchAny eelError, "Unhandled error while initializing forms", ModuleName & ".InitializeForms"
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunExportForCurrentDB
+' Author    : Adam Waller
+' Date      : 11/10/2020
+' Purpose   : The primary purpose of this function is to be able to use VBA code to
+'           : initiate a source code export, without currupting the current DB. This
+'           : would typically be used in a build automation environment, or when
+'           : exporting code from the add-in itself.
+'           : To avoid causing file corruption issues, we need to run the export using
+'           : the installed add-in, not the local MSAccessVCS project. In order to do
+'           : this, we need to load the VCS add-in at the application level, then
+'           : make it the active VB Project, then call the export function. When the
+'           : export function is called, we need to complete any running code in the
+'           : current database before export, so we will use a timer callback to
+'           : launch the export cleanly from the installed add-in.
+'           : This sounds complicated, but it is critical that we don't attempt to
+'           : export code from a module that is currently running, or it may corrupt
+'           : the file and cause Access to crash the next time the file is opened.
+'           : (This can be repaired by rebuilding from source, but let's work to
+'           :  prevent the problem in the first place.)
+'---------------------------------------------------------------------------------------
+'
+Public Function RunExportForCurrentDB()
+
+    Dim projAddIn As VBProject
+    
+    ' Make sure the add-in is loaded.
+    If Not AddinLoaded Then LoadVCSAddIn
+
+    ' When exporting code from the add-in project itself, it gets a little
+    ' tricky because both the add-in and the currentdb have the same VBProject name.
+    ' This means we can't just call `Run "MSAccessVCS.*" because it will run in
+    ' the local project instead of the add-in. To pull this off, we will temporarily
+    ' change the project name of the add-in so we can call it as distinct from the
+    ' current project.
+    Set projAddIn = GetAddInProject
+    If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
+        ' When this is run from the CurrentDB, we should rename the add-in project,
+        ' then call it again using the renamed project to ensure we are running it
+        ' from the add-in.
+        projAddIn.Name = "MSAccessVCS-Lib"
+        Run "MSAccessVCS-Lib.RunExportForCurrentDB"
+    Else
+        ' Reset project name if needed
+        With projAddIn
+            ' Technically, changes in the add-in will not be saved anyway, so this
+            ' may not be needed, but just in case we refer to this project by name
+            ' anywhere else in the code, we will restore the original name before
+            ' moving on to the actual export.
+            If .Name = "MSAccessVCS-Lib" Then .Name = PROJECT_NAME
+        End With
+        ' Call export function with an API callback.
+        modTimer.SetTimer roExportCurrentDatabase
+    End If
+
+End Function
+
+

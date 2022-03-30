@@ -792,3 +792,74 @@ Public Sub OpenAddinFile(strAddinFileName As String, _
 
 End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : IncrementAppVersion
+' Author    : Adam Waller
+' Date      : 1/6/2017
+' Purpose   : Increments the build version (1.0.12)
+'---------------------------------------------------------------------------------------
+'
+Public Sub IncrementAppVersion(Optional ReleaseType As eReleaseType = Build_xxV)
+    
+    Dim varParts As Variant
+    Dim strFrom As String
+    
+    If ReleaseType = Same_Version Then Exit Sub
+    strFrom = AppVersion
+    varParts = Split(AppVersion, ".")
+    varParts(ReleaseType) = varParts(ReleaseType) + 1
+    If ReleaseType < Minor_xVx Then varParts(Minor_xVx) = 0
+    If ReleaseType < Build_xxV Then varParts(Build_xxV) = 0
+    AppVersion = Join(varParts, ".")
+
+    ' Display old and new versions
+    Debug.Print "Updated from " & strFrom & " to " & AppVersion
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AppVersion
+' Author    : Adam Waller
+' Date      : 1/5/2017
+' Purpose   : Get the version from the database property.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get AppVersion() As String
+    Dim strVersion As String
+    strVersion = GetDBProperty("AppVersion", CodeDb)
+    If strVersion = vbNullString Then strVersion = "1.0.0"
+    AppVersion = strVersion
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AppVersion
+' Author    : Adam Waller
+' Date      : 1/5/2017
+' Purpose   : Set version property in current database.
+'---------------------------------------------------------------------------------------
+'
+Public Property Let AppVersion(strVersion As String)
+    SetDBProperty "AppVersion", strVersion, , CodeDb
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InstalledVersion
+' Author    : Adam Waller
+' Date      : 4/21/2020
+' Purpose   : Returns the installed version of the add-in from the registry.
+'           : (We are saving this in the user hive, since it requires admin rights
+'           :  to change the keys actually used by Access to register the add-in)
+'---------------------------------------------------------------------------------------
+'
+Public Property Let InstalledVersion(strVersion As String)
+    SaveSetting PROJECT_NAME, "Add-in", "Installed Version", strVersion
+End Property
+Public Property Get InstalledVersion() As String
+    InstalledVersion = GetSetting(PROJECT_NAME, "Add-in", "Installed Version", vbNullString)
+End Property
+
+
