@@ -1730,6 +1730,10 @@ Option Compare Database
 Option Explicit
 
 
+' This property can be set to export or merge a specific subset of containers
+Public intContainerFilter As eContainerFilter
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdBuild_Click
 ' Author    : Adam Waller
@@ -1918,8 +1922,8 @@ Private Sub cmdExport_Click()
     ' Show the status
     SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
     
-    ' Export the source code
-    modImportExport.ExportSource chkFullExport
+    ' Export the source code using the specified filter.
+    modImportExport.ExportSource chkFullExport, Me.intContainerFilter
     ' Turn on scroll bars in case the user wants to scroll back through the log.
     txtLog.ScrollBars = 2
     Log.Flush

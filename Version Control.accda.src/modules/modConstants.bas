@@ -121,17 +121,8 @@ Public Enum eReleaseType
     Same_Version = 3
 End Enum
 
-' For automating main form
-Public Enum eRibbonLaunch
-    erlVCSOpen
-    erlVCSOptions
-    erlExportAllRibbon
-    erlExportFormsReportsRibbon
-    erlExportFormsRibbon
-    erlExportReportsRibbon
-    erlExportModulesMacros
-    erlExportTablesQueries
-    erlExportTables
-    erlExportQueries
+' Types of objects to include in GetContainers()
+Public Enum eContainerFilter
+    ecfAllObjects
+    ecfVBAItems
 End Enum
-

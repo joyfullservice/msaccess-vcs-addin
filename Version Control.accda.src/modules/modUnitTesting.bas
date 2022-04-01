@@ -246,7 +246,7 @@ Private Sub TestComponentPropertyAccess()
     Dim cnt As IDbComponent
     Dim varTest As Variant
     
-    For Each cnt In GetAllContainers
+    For Each cnt In GetContainers
         ' Make sure none of the following throw an error
         ' when the database object has not been set.
         varTest = cnt.Name
@@ -265,7 +265,7 @@ Private Sub TestUniqueComponentCategory()
     Dim cnt As IDbComponent
     
     Set dList = New Dictionary
-    For Each cnt In GetAllContainers
+    For Each cnt In GetContainers
         Debug.Assert Not dList.Exists(cnt.Category)
         dList.Add cnt.Category, vbNullString
     Next
@@ -280,7 +280,7 @@ Private Sub TestUniqueComponentType()
     Dim cnt As IDbComponent
     
     Set dList = New Dictionary
-    For Each cnt In GetAllContainers
+    For Each cnt In GetContainers
         Debug.Assert Not dList.Exists(cnt.ComponentType)
         dList.Add cnt.ComponentType, vbNullString
     Next
@@ -295,7 +295,7 @@ Private Sub TestUniqueBaseSubfolder()
     Dim cnt As IDbComponent
     
     Set dList = New Dictionary
-    For Each cnt In GetAllContainers
+    For Each cnt In GetContainers
         If Not cnt.SingleFile Then
             Debug.Assert Not dList.Exists(cnt.BaseFolder)
             dList.Add cnt.BaseFolder, vbNullString

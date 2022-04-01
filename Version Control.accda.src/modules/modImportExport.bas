@@ -19,7 +19,7 @@ Private Const ModuleName As String = "modImportExport"
 ' Purpose   : Export source files from the currently open database.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportSource(blnFullExport As Boolean)
+Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContainerFilter = ecfAllObjects)
 
     Dim dCategories As Dictionary
     Dim colCategories As Collection
@@ -94,7 +94,7 @@ Public Sub ExportSource(blnFullExport As Boolean)
     Set dCategories = New Dictionary
     VCSIndex.Conflicts.Initialize dCategories
     Perf.OperationStart "Scan DB Objects"
-    For Each cCategory In GetAllContainers
+    For Each cCategory In GetContainers(intFilter)
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
         ' Get collection of database objects (IDbComponent classes)
@@ -228,7 +228,7 @@ End Sub
 ' Purpose   : Build the project from source files.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
+Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional intFilter As eContainerFilter = ecfAllObjects)
 
     Dim strPath As String
     Dim strBackup As String
@@ -381,7 +381,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean)
     Set dCategories = New Dictionary
     VCSIndex.Conflicts.Initialize dCategories
     Perf.OperationStart "Scan Source Files"
-    For Each cCategory In GetAllContainers
+    For Each cCategory In GetContainers(intFilter)
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
         ' Get collection of source files

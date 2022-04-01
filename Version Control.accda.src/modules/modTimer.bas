@@ -46,6 +46,7 @@ Public Sub WinAPITimerCallback()
         
         Case roExportCurrentDatabase
             ' Launch the code export process. (See modAddIn.RunExportForCurrentDB)
+            ' Only supports exporting all database objects
             VCS.Export
                 
         Case roFullBuildFromSource

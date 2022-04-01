@@ -21,7 +21,7 @@ Private Const ModuleName = "modVCSUtility"
 '           : when building the project from source.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetAllContainers() As Collection
+Public Function GetContainers(Optional intFilter As eContainerFilter = ecfAllObjects) As Collection
     
     Dim blnADP As Boolean
     Dim blnMDB As Boolean
@@ -29,44 +29,58 @@ Public Function GetAllContainers() As Collection
     blnADP = (CurrentProject.ProjectType = acADP)
     blnMDB = (CurrentProject.ProjectType = acMDB)
     
-    Set GetAllContainers = New Collection
-    With GetAllContainers
-        ' Shared objects in both MDB and ADP formats
-        .Add New clsDbProject
-        .Add New clsDbVbeProject
-        .Add New clsDbVbeReference
-        .Add New clsDbVbeForm
-        .Add New clsDbProjProperty
-        .Add New clsDbSavedSpec
-        If blnADP Then
-            ' Some types of objects only exist in ADP projects
-            .Add New clsAdpFunction
-            .Add New clsAdpServerView
-            .Add New clsAdpProcedure
-            .Add New clsAdpTable
-            .Add New clsAdpTrigger
-        ElseIf blnMDB Then
-            ' These objects only exist in DAO databases
-            .Add New clsDbProperty
-            .Add New clsDbSharedImage
-            .Add New clsDbTheme
-            .Add New clsDbImexSpec
-            .Add New clsDbTableDef
-            .Add New clsDbQuery
-        End If
-        ' Additional objects to import after ADP/MDB specific items
-        .Add New clsDbForm
-        .Add New clsDbMacro
-        .Add New clsDbReport
-        .Add New clsDbTableData
-        .Add New clsDbModule
-        If blnMDB Then
-            .Add New clsDbTableDataMacro
-            .Add New clsDbRelation
-            .Add New clsDbDocument
-            .Add New clsDbNavPaneGroup
-            .Add New clsDbHiddenAttribute
-        End If
+    Set GetContainers = New Collection
+    With GetContainers
+        Select Case intFilter
+            
+            ' Primary case for processing all objects
+            Case ecfAllObjects
+            
+                ' Shared objects in both MDB and ADP formats
+                .Add New clsDbProject
+                .Add New clsDbVbeProject
+                .Add New clsDbVbeReference
+                .Add New clsDbVbeForm
+                .Add New clsDbProjProperty
+                .Add New clsDbSavedSpec
+                If blnADP Then
+                    ' Some types of objects only exist in ADP projects
+                    .Add New clsAdpFunction
+                    .Add New clsAdpServerView
+                    .Add New clsAdpProcedure
+                    .Add New clsAdpTable
+                    .Add New clsAdpTrigger
+                ElseIf blnMDB Then
+                    ' These objects only exist in DAO databases
+                    .Add New clsDbProperty
+                    .Add New clsDbSharedImage
+                    .Add New clsDbTheme
+                    .Add New clsDbImexSpec
+                    .Add New clsDbTableDef
+                    .Add New clsDbQuery
+                End If
+                ' Additional objects to import after ADP/MDB specific items
+                .Add New clsDbForm
+                .Add New clsDbMacro
+                .Add New clsDbReport
+                .Add New clsDbTableData
+                .Add New clsDbModule
+                If blnMDB Then
+                    .Add New clsDbTableDataMacro
+                    .Add New clsDbRelation
+                    .Add New clsDbDocument
+                    .Add New clsDbNavPaneGroup
+                    .Add New clsDbHiddenAttribute
+                End If
+            
+            ' Process only items that may contain VBA code
+            Case ecfVBAItems
+            
+                .Add New clsDbForm
+                .Add New clsDbReport
+                .Add New clsDbModule
+        
+        End Select
     End With
     
 End Function
