@@ -62,6 +62,6 @@
 	"project.versionMajor": 1,
 	"project.versionMinor": 0,
 	"project.versionRevision": 0,
-	"project.versionBuild": 0,
+	"project.versionBuild": 1,
 	"project.useProjectIdForTypeLibraryId": true
 }

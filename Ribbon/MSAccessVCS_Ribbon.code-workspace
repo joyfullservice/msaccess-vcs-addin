@@ -14,8 +14,8 @@
         "files.associations": {
             "*.module": "php",
             "/___BUILDS/*": "twinbasicBuildConfig",
-            "/___BUILDS/win32": "twinbasicBuildConfigACTIVE",
-            "/*/Settings": "twinbasicProjectConfig"
+            "/*/Settings": "twinbasicProjectConfig",
+            "/___BUILDS/win32": "twinbasicBuildConfigACTIVE"
         },
         "files.defaultLanguage": "twinbasic",
         "editor.trimAutoWhitespace": false,

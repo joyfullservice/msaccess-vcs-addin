@@ -1,9 +1,6 @@
 
 Class AddInRibbon
- 
-	' Cached copy of the ribbon XML as loaded from the Ribbon.xml file.
-	Private strRibbonXML As string
-	
+
  	' ---------------------------------------------------------------------------------------
     ' For further instructions, please visit https://www.twinbasic.com/preview.html#sample5
 	' ---------------------------------------------------------------------------------------
@@ -23,9 +20,14 @@ Class AddInRibbon
 		on the IRibbonExtensibility interface get routed to our MyCOMAddin default interface.
 		Without it, events like OnHelloWorldClicked (defined below) will not fire.
 	*/
+ 
+	' Cached copy of the ribbon XML as loaded from the Ribbon.xml file.
+	Private strRibbonXML As string
 	
-	Private applicationObject As Object ' Excel.Application, late-bound, but you can add a project reference if you wish
-   
+	' A reference to the Microsoft Access application
+	Private applicationObject As Object
+	
+	' A reference to the ribbon object
 	Private activeRibbon As IRibbonUI
 	
     /* 
@@ -43,6 +45,7 @@ Class AddInRibbon
 		Set applicationObject = Application
 	End Sub
 	
+	
 	Sub OnDisconnection(ByVal RemoveMode As ext_DisconnectMode, _
 						ByRef custom As Variant()) _
 		Implements IDTExtensibility2.OnDisconnection
@@ -50,11 +53,13 @@ Class AddInRibbon
 		'MsgBox "MyCOMAddin.OnDisconnection"
 	End Sub
 	
+	
 	Sub OnAddInsUpdate(ByRef custom As Variant()) _
 		Implements IDTExtensibility2.OnAddInsUpdate
 		
 		'MsgBox "MyCOMAddin.OnAddInsUpdate"
 	End Sub
+	
 	
 	Sub OnStartupComplete(ByRef custom As Variant()) _
 		Implements IDTExtensibility2.OnStartupComplete
@@ -62,11 +67,13 @@ Class AddInRibbon
 		'MsgBox "MyCOMAddin.OnStartupComplete"
 	End Sub
 	
+	
 	Sub OnBeginShutdown(ByRef custom As Variant()) _
 		Implements IDTExtensibility2.OnBeginShutdown
 		
 		'MsgBox "MyCOMAddin.OnBeginShutdown"
 	End Sub
+	
 	
 	/* 
 		Next we implement IRibbonExtensibility.GetCustomUI which lets us provide
@@ -81,6 +88,7 @@ Class AddInRibbon
 		Return Me.strRibbonXML
 		
 	End Function
+	
 	
 	/* 
 		Load the XML ribbon content from a file.
@@ -112,8 +120,8 @@ Class AddInRibbon
 	Private Function VerifyAccessAddinProject() As Boolean
 
 		Dim strAddInPath As String
-		Dim proj As Object      ' VBProject
-		Dim objAddIn As Object  ' VBProject
+		Dim proj As Object      	' VBProject
+		Dim addInProject As Object	' VBProject
 		Dim strName As String
 		
 		' Build default add-in path
@@ -122,12 +130,12 @@ Class AddInRibbon
 		' See if add-in project is already loaded.
 		For Each proj In applicationObject.VBE.VBProjects
 			If StrComp(proj.FileName, strAddInPath, vbTextCompare) = 0 Then
-				Set objAddIn = proj
+				Set addInProject = proj
 			End If
 		Next proj
 		
 		' If not loaded, then attempt to load the add-in.
-		If objAddIn Is Nothing Then
+		If addInProject Is Nothing Then
 			
 			' If NO file is open, and NO add-ins are loaded, we may crash Access if we attempt to load
 			' the MSAccessVCS add-in using the dummy function method below.
@@ -148,16 +156,17 @@ Class AddInRibbon
 				' See if it is loaded now...
 				For Each proj In applicationObject.VBE.VBProjects
 					If StrComp(proj.FileName, strAddInPath, vbTextCompare) = 0 Then
-						Set objAddIn = proj
+						Set addInProject = proj
 					End If
 				Next proj
 			End If
 		End If
 	
 		' Returns true if the project was found
-		Return (Not objAddIn Is Nothing)
+		Return (Not addInProject Is Nothing)
 
 	End Function
+	
 	
 	/*
 		Wrapper for the file system object
@@ -188,10 +197,12 @@ Class AddInRibbon
 		Return True
 	End Function
 	
+	
 	Public Function GetEnabled(control As IRibbonControl) As Boolean
 		' Always enable all buttons for now.
 		Return True
 	End Function
+	
 	
 	Public Sub OnRibbonLoad(ribbon As IRibbonUI)
 		' Save reference to ribbon object
