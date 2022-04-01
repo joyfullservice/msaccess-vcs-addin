@@ -18,9 +18,8 @@ Begin Form
     ItemSuffix =32
     Left =-25575
     Top =1710
-    Right =-6420
+    Right =-255
     Bottom =14295
-    TimerInterval =2000
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -2019,6 +2018,9 @@ Public Sub Form_Load()
             chkFullExport.Enabled = False
         End If
     End If
+    
+    ' Turn off the timer, just in case it was left on.
+    Me.TimerInterval = 0
     
 End Sub
 
