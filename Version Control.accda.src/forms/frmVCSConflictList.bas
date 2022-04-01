@@ -16,12 +16,13 @@ Begin Form
     Width =5040
     DatasheetFontHeight =11
     ItemSuffix =31
-    Right =19905
-    Bottom =12840
+    Right =25320
+    Bottom =12585
     RecSrcDt = Begin
         0x9bf1b7f2f3a6e540
     End
     RecordSource ="tblConflicts"
+    OnClose ="[Event Procedure]"
     DatasheetFontName ="Calibri"
     OnLoad ="[Event Procedure]"
     AllowFormView =0
@@ -460,6 +461,21 @@ Option Compare Database
 Option Explicit
 
 
+Private m_strTempFolder As String
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Form_Close
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   : Clean up any outstanding temp files
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Close()
+    RemoveTempFiles
+End Sub
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : Form_Load
 ' Author    : Adam Waller
@@ -483,5 +499,81 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub txtDiff_Click()
-    MsgBox "Showing diff for " & txtFileName
+    
+    Dim strTemp As String
+    Dim strFile As String
+    Dim cCont As IDbComponent
+    Dim dItems As Dictionary
+    Dim cItem As IDbComponent
+    
+    ' Make sure we have a file name to compare
+    strFile = Options.GetExportFolder & Nz(txtFileName)
+    If strFile <> vbNullString Then
+        
+        ' Try to find matching category and file
+        For Each cCont In GetContainers(ecfAllObjects)
+            If cCont.Category = txtComponent Then
+                Set dItems = cCont.GetAllFromDB(False)
+                If dItems.Exists(strFile) Then
+                    Set cItem = dItems(strFile)
+                    ' Build new export file name
+                    strTemp = Replace(strFile, Options.GetExportFolder, TempFolderName, , , vbTextCompare)
+                    cItem.Export strTemp
+                    Exit For
+                End If
+            End If
+        Next cCont
+    
+        ' Show comparison if we were able to export a temp file
+        If strTemp <> vbNullString Then
+            modObjects.Diff.Files strTemp, strFile
+        Else
+            MsgBox2 "Unable to Diff Object", "Unable to produce a temporary diff file with the current database object.", , vbExclamation
+        End If
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TempFolderName
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   : Return the name of a newly created temp folder.
+'---------------------------------------------------------------------------------------
+'
+Private Function TempFolderName() As String
+    ' Create the folder if it doesn't already exist
+    If m_strTempFolder = vbNullString Then m_strTempFolder = GetTempFolder("VCS") & PathSep
+    TempFolderName = m_strTempFolder
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveTempFiles
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveTempFiles()
+
+    Dim objFile As Scripting.File
+    
+    If m_strTempFolder <> vbNullString Then
+        
+        ' We may encounter errors if files are still open, but let's make our best
+        ' attempt to clean them up and delete the files
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        
+        ' Remove temp folder
+        FSO.DeleteFolder m_strTempFolder, True
+        
+        ' Log any issues removing the files
+        CatchAny eelWarning, "Error removing temporary files used for comparison. You may need to manually remove the files from " & m_strTempFolder, Me.Name & ".RemoveTempFiles"
+        
+        ' Reset the temp folder name
+        m_strTempFolder = vbNullString
+    End If
+        
 End Sub
