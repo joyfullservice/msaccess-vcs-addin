@@ -44,10 +44,10 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         RunExportForCurrentDB
         Exit Sub
     Else
-        ' Close any open forms or reports.
-        If Not CloseAllFormsReports Then
-            MsgBox2 "Please close forms and reports", _
-                "All forms and reports must be closed to export source code.", _
+        ' Close any open database objects.
+        If Not CloseDatabaseObjects Then
+            MsgBox2 "Please close all database objects", _
+                "All database objects (i.e.forms, reports, tables, queries, etc...) must be closed to export source code.", _
                 , vbExclamation
             Exit Sub
         End If

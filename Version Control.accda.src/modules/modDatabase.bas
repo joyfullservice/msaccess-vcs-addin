@@ -10,6 +10,8 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+Private Const ModuleName As String = "modDatabase"
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ProjectPath
@@ -259,13 +261,69 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CloseDatabaseObjects
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   : Close any open database objects, returns true if no errors were
+'           : encountered. (This is run before a major operation like an export or
+'           : a merge.) ADP-specific items aren't particularly supported here.
+'---------------------------------------------------------------------------------------
+'
+Public Function CloseDatabaseObjects() As Boolean
+
+    Dim blnSuccess As Boolean
+    Dim objItem As AccessObject
+    
+    If DebugMode(True) Then On Error GoTo ErrHandler Else On Error GoTo ErrHandler
+    
+    Perf.OperationStart "Close Open Objects"
+    
+    ' Check forms and reports
+    blnSuccess = CloseAllFormsReports
+    
+    ' If all forms and reports are closed, proceed with other object types.
+    If blnSuccess Then
+        
+        ' Macros
+        For Each objItem In CurrentProject.AllMacros
+            If IsLoaded(acMacro, objItem.Name) Then DoCmd.Close acMacro, objItem.Name
+        Next objItem
+        
+        ' Tables
+        For Each objItem In CurrentData.AllTables
+            If IsLoaded(acTable, objItem.Name) Then DoCmd.Close acTable, objItem.Name
+        Next objItem
+        
+        ' Queries
+        For Each objItem In CurrentData.AllQueries
+            If IsLoaded(acQuery, objItem.Name) Then DoCmd.Close acQuery, objItem.Name
+        Next objItem
+        
+    End If
+
+    Perf.OperationEnd
+    CloseDatabaseObjects = blnSuccess
+    
+    Exit Function
+    
+ErrHandler:
+    
+    blnSuccess = False
+    
+    ' Handle any error message in calling function
+    CatchAny eelNoError, "Unable to close database object", ModuleName & ".CloseDatabaseObjects", False
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CloseAllFormsReports
 ' Author    : Adam Waller
 ' Date      : 1/25/2019
 ' Purpose   : Close all open forms and reports. Returns true if successful.
 '---------------------------------------------------------------------------------------
 '
-Public Function CloseAllFormsReports() As Boolean
+Private Function CloseAllFormsReports() As Boolean
 
     Dim strName As String
     Dim intOpened As Integer
