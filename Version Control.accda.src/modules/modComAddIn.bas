@@ -90,6 +90,20 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ReloadRibbon
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   : Reloads the Fluent UI ribbon interface to reflect changes to the XML
+'           : file, such as switching to a different language.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReloadRibbon()
+    UnloadAddIn
+    LoadAddIn
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAddInPath
 ' Author    : Adam Waller
 ' Date      : 3/11/2022

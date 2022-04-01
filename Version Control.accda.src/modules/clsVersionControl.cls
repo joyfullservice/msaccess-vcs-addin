@@ -26,7 +26,7 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Public Sub Show()
-    Form_frmVCSMain.HandleCmd erlVCSOpen
+    Form_frmVCSMain.Visible = True
 End Sub
 
 
@@ -52,7 +52,51 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Export()
-    Form_frmVCSMain.HandleCmd erlExportAllRibbon
+    RunExport ecfAllObjects
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportVBA
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   : Export just the VBA related components
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportVBA()
+    RunExport ecfVBAItems
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunExport
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   : Handle different kinds of exports based on filter
+'---------------------------------------------------------------------------------------
+'
+Private Sub RunExport(intFilter As eContainerFilter)
+    With Form_frmVCSMain
+        .intContainerFilter = intFilter
+        .Visible = True
+        .cmdExport_Click
+        If Log.ErrorLevel = eelNoError Then .AutoClose
+    End With
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Build
+' Author    : Adam Waller
+' Date      : 3/30/2022
+' Purpose   : Initiate a build from source
+'---------------------------------------------------------------------------------------
+'
+Public Sub Build()
+    With Form_frmVCSMain
+        .Visible = True
+        .cmdBuild_Click
+    End With
 End Sub
 
 
@@ -66,6 +110,77 @@ End Sub
 Public Function Options() As clsOptions
     Set Options = modObjects.Options
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OpenSourceFolder
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   : Open the source files folder for the current project
+'---------------------------------------------------------------------------------------
+'
+Public Sub OpenSourceFolder()
+    Shell "explorer """ & Options.GetExportFolder & """", vbNormalFocus
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OpenExportLog
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   : Open the export log file
+'---------------------------------------------------------------------------------------
+'
+Public Sub OpenExportLog()
+    OpenLog "Export.log"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OpenBuildLog
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   : Open the build log file
+'---------------------------------------------------------------------------------------
+'
+Public Sub OpenBuildLog()
+    OpenLog "Build.log"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OpenLog
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   : Open a log file by name, or show a message if the file is not found.
+'---------------------------------------------------------------------------------------
+'
+Private Sub OpenLog(strName As String)
+    
+    Dim strPath As String
+    Dim objShell As Object
+    
+    strPath = Options.GetExportFolder & strName
+    If FSO.FileExists(strPath) Then
+        ' Note that the parentheses around the path are required for this to work.
+        CreateObject("Shell.Application").Open (strPath)
+    Else
+        MsgBox2 "Log File Not Found", "Could not find the following file in the export location:", strPath, vbExclamation
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReloadRibbon
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   : Reload the add-in ribbon to reflect changes in XML source
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReloadRibbon()
+    modCOMAddIn.ReloadRibbon
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -99,6 +214,10 @@ End Property
 ' Purpose   : Wrapper functions to visit online links (called from Ribbon menu)
 '---------------------------------------------------------------------------------------
 '
+Public Sub GoToLinkAdvancedTools()
+    ' TODO: Create page describing advanced tools.
+    FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration/wiki"
+End Sub
 Public Sub GoToLinkHome()
     FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration"
 End Sub

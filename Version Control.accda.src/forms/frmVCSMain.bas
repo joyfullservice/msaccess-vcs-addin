@@ -18,8 +18,9 @@ Begin Form
     ItemSuffix =32
     Left =-25575
     Top =1710
-    Right =-255
+    Right =-6420
     Bottom =14295
+    TimerInterval =2000
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -172,7 +173,7 @@ Begin Form
                     OverlapFlags =223
                     Left =360
                     Top =300
-                    Width =4260
+                    Width =4290
                     Height =540
                     FontSize =18
                     FontWeight =700
@@ -180,7 +181,7 @@ Begin Form
                     Caption ="Version Control System"
                     LayoutCachedLeft =360
                     LayoutCachedTop =300
-                    LayoutCachedWidth =4620
+                    LayoutCachedWidth =4650
                     LayoutCachedHeight =840
                     ForeThemeColorIndex =1
                     ForeTint =100.0
@@ -1419,10 +1420,10 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =8
-                    WebImagePaddingTop =8
-                    WebImagePaddingRight =9
-                    WebImagePaddingBottom =9
+                    WebImagePaddingLeft =9
+                    WebImagePaddingTop =9
+                    WebImagePaddingRight =10
+                    WebImagePaddingBottom =10
                     Overlaps =1
                 End
                 Begin Label
@@ -1518,10 +1519,10 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =8
-                    WebImagePaddingTop =8
-                    WebImagePaddingRight =9
-                    WebImagePaddingBottom =9
+                    WebImagePaddingLeft =9
+                    WebImagePaddingTop =9
+                    WebImagePaddingRight =10
+                    WebImagePaddingBottom =10
                     Overlaps =1
                 End
                 Begin Label
@@ -1722,10 +1723,15 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = True
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-' This color scheme can be changed, I just wanted something more aesthetically
-' pleasing than the default wizards and forms.
-' Color scheme: https://coolors.co/383f51-e0e0e6-ffffff-ef8354-d3d7ef
-
+'---------------------------------------------------------------------------------------
+' Module    : Form_frmVCSMain
+' Author    : Adam Waller
+' Date      : 3/30/2022
+' Purpose   : Main form for performing an export or build operation.
+'           : This color scheme can be changed, I just wanted something more aesthetically
+'           : pleasing than the default wizards and forms.
+'           : Color scheme: https://coolors.co/383f51-e0e0e6-ffffff-ef8354-d3d7ef
+'---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
 
@@ -1738,10 +1744,10 @@ Public intContainerFilter As eContainerFilter
 ' Procedure : cmdBuild_Click
 ' Author    : Adam Waller
 ' Date      : 5/4/2020
-' Purpose   :
+' Purpose   : Initiate the process to build from source
 '---------------------------------------------------------------------------------------
 '
-Private Sub cmdBuild_Click()
+Public Sub cmdBuild_Click()
 
     Dim strFolder As String
     Dim strMsg(0 To 2) As String
@@ -1906,7 +1912,7 @@ End Function
 ' Purpose   : Export source code from current database
 '---------------------------------------------------------------------------------------
 '
-Private Sub cmdExport_Click()
+Public Sub cmdExport_Click()
     
     cmdClose.SetFocus
     HideActionButtons
@@ -1977,7 +1983,7 @@ End Sub
 Private Sub cmdOptions_Click()
     ' Force reload of options from current project before opening the form.
     Set Options = Nothing
-    DoCmd.OpenForm "frmVCSOptions"
+    Form_frmVCSOptions.Visible = True
 End Sub
 
 
@@ -2014,39 +2020,6 @@ Public Sub Form_Load()
         End If
     End If
     
-    ' Run any incomming commands
-    HandleCmd
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : HandleCmd
-' Author    : Adam Waller
-' Date      : 2/17/2021
-' Purpose   : Support automation of the form
-'---------------------------------------------------------------------------------------
-'
-Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = erlVCSOpen)
-    Select Case RibbonCmdIn
-        Case erlVCSOpen
-            Me.Visible = True
-            'PlaceHolder; do nothing.
-        Case erlVCSOptions
-            'Open Settings
-            Me.Visible = True
-            cmdOptions_Click
-        Case erlExportAllRibbon
-            'Start export, then close if no errors.
-            Me.Visible = True
-            cmdExport_Click
-            If Log.ErrorLevel = eelNoError Then AutoClose
-        Case Else
-            'default to export and close if no errors.
-            Me.Visible = True
-            cmdExport_Click
-            If Log.ErrorLevel = eelNoError Then cmdClose_Click
-    End Select
 End Sub
 
 
@@ -2059,7 +2032,7 @@ End Sub
 '           :  completion and close.)
 '---------------------------------------------------------------------------------------
 '
-Private Sub AutoClose()
+Public Sub AutoClose()
     Me.TimerInterval = 2000
 End Sub
 
@@ -2141,6 +2114,6 @@ End Sub
 '
 Private Sub lblOpenLogFile_Click()
     If FSO.FileExists(Log.LogFilePath) Then
-        CreateObject("Shell.Application").Open Log.LogFilePath
+        CreateObject("Shell.Application").Open (Log.LogFilePath)
     End If
 End Sub

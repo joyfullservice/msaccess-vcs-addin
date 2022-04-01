@@ -71,7 +71,7 @@ Public Function AutoRun() As Boolean
         VerifyResources
         
         ' Open installer form
-        DoCmd.OpenForm "frmVCSInstall"
+        Form_frmVCSInstall.Visible = True
     End If
 
 End Function
