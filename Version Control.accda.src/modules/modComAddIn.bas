@@ -104,6 +104,37 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : UninstallComAddIn
+' Author    : Adam Waller
+' Date      : 4/5/2022
+' Purpose   : Unload, unregister, and remove COM add-in.
+'---------------------------------------------------------------------------------------
+'
+Public Sub UninstallComAddIn()
+
+    Dim strPath As String
+    
+    ' Unload the add-in ribbon
+    UnloadAddIn
+    
+    ' Unregister the DLL from the registry
+    DllUnregisterServer
+    
+    ' Remove DLL file
+    strPath = GetAddInPath & GetAddInFileName
+    If FSO.FileExists(strPath) Then DeleteFile strPath
+    
+    ' Remove ribbon XML file
+    strPath = GetAddInPath & "Ribbon.xml"
+    If FSO.FileExists(strPath) Then DeleteFile strPath
+    
+    ' Update the list of COM add-ins
+    Application.COMAddIns.Update
+        
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAddInPath
 ' Author    : Adam Waller
 ' Date      : 3/11/2022

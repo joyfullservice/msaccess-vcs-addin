@@ -197,6 +197,8 @@ Public Function UninstallVCSAddin() As Boolean
         InstalledVersion = 0
         ' Remove trusted location added by this add-in. (if found)
         RemoveTrustedLocation
+        ' Remove COM add-in
+        modCOMAddIn.UninstallComAddIn
         ' Return success
         UninstallVCSAddin = True
     End If
