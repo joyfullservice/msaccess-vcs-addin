@@ -12,10 +12,12 @@
     "settings": {
         "window.title": "${dirty}MSAccessVCSLib${separator}twinBASIC",
         "files.associations": {
+            "*.mht": "html",
+            "*.pwmacro": "powershell",
             "*.module": "php",
             "/___BUILDS/*": "twinbasicBuildConfig",
             "/*/Settings": "twinbasicProjectConfig",
-            "/___BUILDS/win32": "twinbasicBuildConfigACTIVE"
+            "/___BUILDS/win64": "twinbasicBuildConfigACTIVE"
         },
         "files.defaultLanguage": "twinbasic",
         "editor.trimAutoWhitespace": false,
