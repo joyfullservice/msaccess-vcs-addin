@@ -273,7 +273,7 @@ Begin Form
                     Height =360
                     FontSize =10
                     Name ="lblVersion"
-                    Caption ="Version Control System 3.3.37"
+                    Caption ="Version Control System ${version}"
                     LayoutCachedLeft =600
                     LayoutCachedTop =840
                     LayoutCachedWidth =3540
