@@ -1,48 +1,49 @@
 Module DllRegistration
     
-    Const AddinProjectName As String = VBA.Compilation.CurrentProjectName
-    Const AddinClassName As String = "AddInRibbon"
-    Const AddinQualifiedClassName As String = AddinProjectName & "." & AddinClassName
-    Const AddinFriendlyName As String = "Ribbon integration for MSAccessVCS add-in"
-    Const AddinDescription As String = "Microsoft Access COM add-in to add Fluent UI ribbon support to Access add-in project"
-    Const RootRegistryFolder_ACCESS As String = "HKCU\SOFTWARE\Microsoft\Office\Access\Addins\" & AddinQualifiedClassName & "\"
+    Private Const AddinProjectName As String = VBA.Compilation.CurrentProjectName
+    Private Const AddinClassName As String = "AddInRibbon"
+    Private Const AddinQualifiedClassName As String = AddinProjectName & "." & AddinClassName
+    Private Const AddinFriendlyName As String = "Ribbon integration for MSAccessVCS add-in"
+    Private Const AddinDescription As String = "Microsoft Access COM add-in to add Fluent UI ribbon support to Access add-in project"
+    Private Const RootRegistryFolder_ACCESS As String = "HKCU\SOFTWARE\Microsoft\Office\Access\Addins\" & AddinQualifiedClassName & "\"
 
     Public Function DllRegisterServer() As Boolean
     
         On Error GoTo RegError
         
-        Dim wscript As Object = CreateObject("wscript.shell")
-        
         ' Integrated DLL registration for Access COM Add-in list
-        wscript.RegWrite RootRegistryFolder_ACCESS & "FriendlyName", AddinFriendlyName, "REG_SZ"
-        wscript.RegWrite RootRegistryFolder_ACCESS & "Description", AddinDescription, "REG_SZ"
-        wscript.RegWrite RootRegistryFolder_ACCESS & "LoadBehavior", 3, "REG_DWORD"
-
+        With CreateObject("wscript.shell")
+            .RegWrite RootRegistryFolder_ACCESS & "FriendlyName", AddinFriendlyName, "REG_SZ"
+            .RegWrite RootRegistryFolder_ACCESS & "Description", AddinDescription, "REG_SZ"
+            .RegWrite RootRegistryFolder_ACCESS & "LoadBehavior", 3, "REG_DWORD"
+        End With
+    
         Return True
         
     RegError:
         MsgBox "DllRegisterServer -- An error occured trying to write to the system registry:" & vbCrLf & _
                 Err.Description & " (" & Hex(Err.Number) & ")"
+                
         Return False
-        
     End Function
  
     Public Function DllUnregisterServer() As Boolean
         
         On Error GoTo RegError
-        Dim wscript As Object = CreateObject("wscript.shell")
-        wscript.RegDelete RootRegistryFolder_ACCESS & "FriendlyName"
-        wscript.RegDelete RootRegistryFolder_ACCESS & "Description"
-        wscript.RegDelete RootRegistryFolder_ACCESS & "LoadBehavior"
-        wscript.RegDelete RootRegistryFolder_ACCESS
-
+        
+        With CreateObject("wscript.shell")
+            .RegDelete RootRegistryFolder_ACCESS & "FriendlyName"
+            .RegDelete RootRegistryFolder_ACCESS & "Description"
+            .RegDelete RootRegistryFolder_ACCESS & "LoadBehavior"
+            .RegDelete RootRegistryFolder_ACCESS
+        End With
+    
         Return True
         
     RegError:
         MsgBox "DllUnregisterServer -- An error occured trying to delete from the system registry:" & vbCrLf & _
                 Err.Description & " (" & Hex(Err.Number) & ")"
+                
         Return False
-        
     End Function
-
 End Module

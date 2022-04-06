@@ -1,10 +1,6 @@
 
 Class AddInRibbon
 
- 	' ---------------------------------------------------------------------------------------
-    ' For further instructions, please visit https://www.twinbasic.com/preview.html#sample5
-	' ---------------------------------------------------------------------------------------
-
 	Implements IDTExtensibility2
 
 	/*
@@ -17,8 +13,8 @@ Class AddInRibbon
 	
 	/* 
 		The [WithDispatchForwarding] attribute seen above is needed so that late-bound calls
-		on the IRibbonExtensibility interface get routed to our MyCOMAddin default interface.
-		Without it, events like OnHelloWorldClicked (defined below) will not fire.
+		on the IRibbonExtensibility interface get routed to our default interface.
+		Without it, events will not fire.
 	*/
  
 	' Cached copy of the ribbon XML as loaded from the Ribbon.xml file.
@@ -35,42 +31,38 @@ Class AddInRibbon
 		We don't do anything particularly interesting here, except for taking a reference
 		to the Application object provided to us in the OnConnection event
 	*/
-	Sub OnConnection(ByVal Application As Object, _
-							ByVal ConnectMode As ext_ConnectMode, _
-							ByVal AddInInst As Object, _
-							ByRef custom As Variant()) _
-		Implements IDTExtensibility2.OnConnection
+	Public Sub OnConnection(ByVal Application As Object, _
+					 ByVal ConnectMode As ext_ConnectMode, _
+					 ByVal AddInInst As Object, _
+					 ByRef custom As Variant()) Implements IDTExtensibility2.OnConnection
 		
 		'MsgBox "MyCOMAddin.OnConnection"
 		Set applicationObject = Application
 	End Sub
 	
 	
-	Sub OnDisconnection(ByVal RemoveMode As ext_DisconnectMode, _
-						ByRef custom As Variant()) _
-		Implements IDTExtensibility2.OnDisconnection
+	Public Sub OnDisconnection(ByVal RemoveMode As ext_DisconnectMode, _
+						ByRef custom As Variant()) Implements IDTExtensibility2.OnDisconnection
 		
 		'MsgBox "MyCOMAddin.OnDisconnection"
+		Set applicationObject = Nothing
 	End Sub
 	
 	
-	Sub OnAddInsUpdate(ByRef custom As Variant()) _
-		Implements IDTExtensibility2.OnAddInsUpdate
+	Public Sub OnAddInsUpdate(ByRef custom As Variant()) Implements IDTExtensibility2.OnAddInsUpdate
 		
 		'MsgBox "MyCOMAddin.OnAddInsUpdate"
 	End Sub
 	
 	
-	Sub OnStartupComplete(ByRef custom As Variant()) _
-		Implements IDTExtensibility2.OnStartupComplete
+	Public Sub OnStartupComplete(ByRef custom As Variant()) Implements IDTExtensibility2.OnStartupComplete
 		
 		'MsgBox "MyCOMAddin.OnStartupComplete"
 	End Sub
 	
 	
-	Sub OnBeginShutdown(ByRef custom As Variant()) _
-		Implements IDTExtensibility2.OnBeginShutdown
-		
+	Public Sub OnBeginShutdown(ByRef custom As Variant()) Implements IDTExtensibility2.OnBeginShutdown
+		Set activeRibbon = Nothing
 		'MsgBox "MyCOMAddin.OnBeginShutdown"
 	End Sub
 	
@@ -79,14 +71,12 @@ Class AddInRibbon
 		Next we implement IRibbonExtensibility.GetCustomUI which lets us provide
 		a ribbon XML string to the host
 	*/
-	Private Function GetCustomUI(ByVal RibbonID As String) As String _
-		Implements IRibbonExtensibility.GetCustomUI
+	Private Function GetCustomUI(ByVal RibbonID As String) As String Implements IRibbonExtensibility.GetCustomUI
 		
 		' Load XML to cached variable if needed
 		If Me.strRibbonXML = vbNullString Then Me.strRibbonXML = LoadXMLFile
 		
 		Return Me.strRibbonXML
-		
 	End Function
 	
 	
@@ -94,12 +84,9 @@ Class AddInRibbon
 		Load the XML ribbon content from a file.
 	*/
 	Private Function LoadXMLFile() As String
-		
-		Dim strPath As String
-		Dim strContent As String
-		
 		' Expects the XML file to be in the add-in folder.
-		strPath = App.Path & "\Ribbon.xml"
+		Dim strPath As String = App.Path & "\Ribbon.xml"
+		Dim strContent As String
 		
 		' If the file exists, load the XML
 		If FSO.FileExists(strPath) Then
@@ -107,10 +94,12 @@ Class AddInRibbon
 				.Charset = "utf-8"
 				.Open
 				.LoadFromFile strPath
-				LoadXMLFile = .ReadText
+				strContent = .ReadText
 				.Close
 			End With
 		End If
+		
+		Return strContent
 	End Function
 	
 	
@@ -118,7 +107,6 @@ Class AddInRibbon
 		Ensure that the add-in project is loaded in VBE
 	*/
 	Private Function VerifyAccessAddinProject() As Boolean
-
 		Dim strAddInPath As String
 		Dim proj As Object      	' VBProject
 		Dim addInProject As Object	' VBProject
@@ -208,5 +196,4 @@ Class AddInRibbon
 		' Save reference to ribbon object
 		Set activeRibbon = ribbon
 	End Sub
-
 End Class
