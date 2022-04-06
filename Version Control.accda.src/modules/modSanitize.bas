@@ -685,11 +685,16 @@ Private Function FormatXML(strSourceXML As String, _
 
     Dim objReader As SAXXMLReader60
     Dim objWriter As MXXMLWriter60
+    Dim strOutput As String
 
     ' Skip processing if no content to format
     If strSourceXML = vbNullString Then Exit Function
     
     Perf.OperationStart "Format XML"
+    
+    ' Trap any errors with parsing or formatting the XML
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
     Set objWriter = New MXHTMLWriter60
     Set objReader = New SAXXMLReader60
     
@@ -706,9 +711,22 @@ Private Function FormatXML(strSourceXML As String, _
         .parse strSourceXML
     End With
 
+    ' Apply custom indent to output
+    strOutput = CustomIndent(objWriter.output)
+    
+    ' Check for any errors parsing the XML
+    If CatchAny(eelError, "Error parsing XML content", ModuleName & ".FormatXML") Then
+        ' Fall back to input XML
+        strOutput = strSourceXML
+        ' Output XML to log file
+        Log.Spacer False
+        Log.Add strSourceXML, False
+        Log.Spacer False
+    End If
+    
     ' Return formatted output
-    FormatXML = CustomIndent(objWriter.output)
     Perf.OperationEnd
+    FormatXML = strOutput
     
 End Function
 
