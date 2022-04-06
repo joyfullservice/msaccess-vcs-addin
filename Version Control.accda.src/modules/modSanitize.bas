@@ -502,6 +502,13 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
     Perf.OperationStart "Sanitize XML"
     curStart = Perf.MicroTimer
     
+    ' Exporting Table Def as XML does not properly encode ampersand character (See #314)
+    ' Most likely if any ampersands are encoded correctly, all of them will be.
+    If InStr(1, strFile, "&amp;", vbTextCompare) = 0 Then
+        ' Properly encode any embedded ampersand characters to make valid XML
+        strFile = Replace(strFile, "&", "&amp;")
+    End If
+    
     ' Split into array of lines
     varLines = Split(FormatXML(strFile), vbCrLf)
 
