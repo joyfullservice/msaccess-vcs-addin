@@ -64,9 +64,12 @@ Public Sub VerifyComAddIn()
         strHash = modResource.GetResourceHash(strKey)
         If strHash <> vbNullString Then
             ' Reinstall if the file is different
-            blnInstall = (strHash <> GetFileHash(strFile))
+            If strHash <> GetFileHash(strFile) Then blnInstall = True
         End If
     End If
+    
+    ' Verify COM registration
+    If Not blnInstall Then blnInstall = DllIsRegistered
     
     ' Install/reinstall if needed
     If blnInstall Then
@@ -248,6 +251,40 @@ Private Function GetCOMAddIn() As COMAddIn
             Exit For
         End If
     Next addIn
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DllIsRegistered
+' Author    : Adam Waller
+' Date      : 4/7/2022
+' Purpose   : Checks for the CLSID registrations to verify that the COM DLL is properly
+'           : registered in the registry for the current user.
+'           : (This can change if the DLL is compiled in twinBASIC and registered to
+'           :  the compiled DLL instead of the installed one.)
+'---------------------------------------------------------------------------------------
+'
+Private Function DllIsRegistered() As Boolean
+
+    Dim strTest As String
+
+    ' Check HKLM registry key
+    With New IWshRuntimeLibrary.WshShell
+        ' We should have a value here if the install ran in the past.
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        ' Look up the class ID from the COM registration
+        strTest = .RegRead("HKCU\SOFTWARE\Classes\MSAccessVCSLib.AddInRibbon\CLSID\")
+        If strTest <> vbNullString Then
+            ' Read the file path for the registered DLL
+            strTest = .RegRead("HKCU\SOFTWARE\Classes\CLSID\" & strTest & "\InProcServer32\")
+            ' See if it matches the installation folder
+            If strTest = GetAddInPath & GetAddInFileName Then
+                ' Path matches. See if the file actually exists
+                DllIsRegistered = FSO.FileExists(strTest)
+            End If
+        End If
+    End With
+    
 End Function
 
 
