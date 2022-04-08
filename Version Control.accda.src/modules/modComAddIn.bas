@@ -116,6 +116,7 @@ End Sub
 Public Sub UninstallComAddIn()
 
     Dim strPath As String
+    Dim strTemp As String
     
     ' Unload the add-in ribbon
     UnloadAddIn
@@ -123,9 +124,16 @@ Public Sub UninstallComAddIn()
     ' Unregister the DLL from the registry
     DllUnregisterServer
     
-    ' Remove DLL file
+    ' Remove DLL file (We can't delete it because it has a file handle open by the
+    ' Access application. But we can rename it to a temp file in the temp folder.
     strPath = GetAddInPath & GetAddInFileName
-    If FSO.FileExists(strPath) Then DeleteFile strPath
+    If FSO.FileExists(strPath) Then
+        strTemp = GetTempFile
+        ' Rename to temp file in the temp folder
+        DeleteFile strTemp
+        FSO.MoveFile strPath, strTemp
+        ' DeleteFile strTemp
+    End If
     
     ' Remove ribbon XML file
     strPath = GetAddInPath & "Ribbon.xml"
@@ -212,6 +220,7 @@ Private Sub UnloadAddIn()
     Dim addVCS As COMAddIn
     Set addVCS = GetCOMAddIn
     If Not addVCS Is Nothing Then addVCS.Connect = False
+    Application.COMAddIns.Update
 End Sub
 
 
