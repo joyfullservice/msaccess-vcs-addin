@@ -75,6 +75,7 @@ Public Sub VerifyComAddIn()
     If blnInstall Then
         ' Unload the add-in, so we don't try to overwrite a file that is in use
         UnloadAddIn
+        RemoveComDll
         ' Extract the new file from the resources table
         modResource.ExtractResource strKey, strPath
         ' Register the add-in file
@@ -124,16 +125,8 @@ Public Sub UninstallComAddIn()
     ' Unregister the DLL from the registry
     DllUnregisterServer
     
-    ' Remove DLL file (We can't delete it because it has a file handle open by the
-    ' Access application. But we can rename it to a temp file in the temp folder.
-    strPath = GetAddInPath & GetAddInFileName
-    If FSO.FileExists(strPath) Then
-        strTemp = GetTempFile
-        ' Rename to temp file in the temp folder
-        DeleteFile strTemp
-        FSO.MoveFile strPath, strTemp
-        ' DeleteFile strTemp
-    End If
+    ' Remove DLL file
+    RemoveComDll
     
     ' Remove ribbon XML file
     strPath = GetAddInPath & "Ribbon.xml"
@@ -142,6 +135,39 @@ Public Sub UninstallComAddIn()
     ' Update the list of COM add-ins
     Application.COMAddIns.Update
         
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveComDll
+' Author    : Adam Waller
+' Date      : 4/8/2022
+' Purpose   : This can be a little tricky because if the COM add-in was loaded in
+'           : Microsoft Access, it may have a handle open that prevents us from deleting
+'           : the file. If we can't delete it, we can rename it to a temp file in the
+'           : current user's temp folder.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveComDll()
+
+    Dim strPath As String
+    Dim strTemp As String
+    
+    ' Build expected path for DLL
+    strPath = GetAddInPath & GetAddInFileName
+    If FSO.FileExists(strPath) Then
+    
+        ' Attempt to delete it first
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        DeleteFile strPath
+        If Catch(70) Then
+            ' File handle in use. Rename to temp file
+            strTemp = GetTempFile
+            DeleteFile strTemp
+            FSO.MoveFile strPath, strTemp
+        End If
+    End If
+    
 End Sub
 
 
