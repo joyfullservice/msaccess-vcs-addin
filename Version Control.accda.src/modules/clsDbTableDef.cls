@@ -422,7 +422,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
     Dim strSql As String
     Dim strConnect As String
     
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     
     ' Read json file
     Set dTable = ReadJsonFile(strFile)
