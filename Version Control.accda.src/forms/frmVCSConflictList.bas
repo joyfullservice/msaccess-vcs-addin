@@ -514,13 +514,17 @@ Private Sub txtDiff_Click()
         For Each cCont In GetContainers(ecfAllObjects)
             If cCont.Category = txtComponent Then
                 Set dItems = cCont.GetAllFromDB(False)
-                If dItems.Exists(strFile) Then
-                    Set cItem = dItems(strFile)
-                    ' Build new export file name
-                    strTemp = Replace(strFile, Options.GetExportFolder, TempFolderName, , , vbTextCompare)
-                    cItem.Export strTemp
-                    Exit For
+                If cCont.SingleFile Then
+                    Set cItem = cCont
+                Else
+                    If dItems.Exists(strFile) Then
+                        Set cItem = dItems(strFile)
+                    End If
                 End If
+                ' Build new export file name and export
+                strTemp = Replace(strFile, Options.GetExportFolder, TempFolderName, , , vbTextCompare)
+                If Not cItem Is Nothing Then cItem.Export strTemp
+                Exit For
             End If
         Next cCont
     
