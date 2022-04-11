@@ -19,7 +19,7 @@ Begin Form
     ItemSuffix =46
     Left =-25575
     Top =1710
-    Right =-255
+    Right =-6420
     Bottom =14295
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -180,7 +180,7 @@ Begin Form
                     OverlapFlags =223
                     Left =420
                     Top =300
-                    Width =4725
+                    Width =5940
                     Height =540
                     FontSize =18
                     FontWeight =700
@@ -188,7 +188,7 @@ Begin Form
                     Caption ="Resolve Conflicts to Continue..."
                     LayoutCachedLeft =420
                     LayoutCachedTop =300
-                    LayoutCachedWidth =5145
+                    LayoutCachedWidth =6360
                     LayoutCachedHeight =840
                     ForeThemeColorIndex =1
                     ForeTint =100.0
@@ -269,14 +269,14 @@ Begin Form
                     OverlapFlags =215
                     Left =600
                     Top =840
-                    Width =2940
+                    Width =5040
                     Height =360
                     FontSize =10
                     Name ="lblVersion"
                     Caption ="Version Control System ${version}"
                     LayoutCachedLeft =600
                     LayoutCachedTop =840
-                    LayoutCachedWidth =3540
+                    LayoutCachedWidth =5640
                     LayoutCachedHeight =1200
                     ForeThemeColorIndex =1
                     ForeTint =100.0
@@ -865,8 +865,17 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Form_Load()
+
     ' Display version (better performance than bound control)
     lblVersion.Caption = Replace(lblVersion.Caption, "${version}", GetVCSVersion())
+    
+    ' Update heading caption
+    If Log.OperationType = eotBuild Then
+        lblHeading.Caption = "These database objects have changed since the last export"
+    Else
+        lblHeading.Caption = "These source files have changed since the last export"
+    End If
+    
 End Sub
 
 
