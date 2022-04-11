@@ -98,6 +98,12 @@ Public Enum eCompareMethod2
     ecmSourceMethod = 3
 End Enum
 
+' Type of operation in progress
+Public Enum eOperationType
+    eotExport = 1
+    eotBuild = 2
+End Enum
+
 ' Options for resolving file conflicts
 Public Enum eResolveConflict
     ercSkip

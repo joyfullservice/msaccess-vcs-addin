@@ -58,6 +58,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
+    Log.OperationType = eotExport
     Log.Active = True
     Perf.StartTiming
 
@@ -302,6 +303,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     
     ' Start log and performance timers
     Log.Clear
+    Log.OperationType = eotBuild
     Log.Active = True
     Perf.StartTiming
     

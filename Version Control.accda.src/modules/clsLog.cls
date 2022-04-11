@@ -13,6 +13,7 @@ Option Explicit
 Public PadLength As Integer
 Public LogFilePath As String
 Public ErrorLevel As eErrorLevel
+Public OperationType As eOperationType
 
 ' Set this to true when logging an operation such as an export or build
 ' then set back to false after writing the log file. This affects

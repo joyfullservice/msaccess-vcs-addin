@@ -530,7 +530,13 @@ Private Sub txtDiff_Click()
     
         ' Show comparison if we were able to export a temp file
         If strTemp <> vbNullString Then
-            modObjects.Diff.Files strTemp, strFile
+            If Log.OperationType = eotBuild Then
+                ' Show the source file as the modified version
+                modObjects.Diff.Files strTemp, strFile
+            Else
+                ' Show the database object as the modified version
+                modObjects.Diff.Files strFile, strTemp
+            End If
         Else
             MsgBox2 "Unable to Diff Object", "Unable to produce a temporary diff file with the current database object.", , vbExclamation
         End If
