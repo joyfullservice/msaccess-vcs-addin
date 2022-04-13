@@ -45,12 +45,14 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Save as selected format, and remove other formats if they exist.
     For intFormat = 1 To eTableDataExportFormat.[_Last]
         ' Build file name for this format
-        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat)
+        strFile = Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat))
         If FSO.FileExists(strFile) Then DeleteFile strFile, True
         If intFormat = Me.Format Then
             ' Export the table using this format.
             Select Case intFormat
-                Case etdTabDelimited:   ExportTableDataAsTDF m_Table.Name
+                Case etdTabDelimited
+                    ' Export in tab delimited text file
+                    ExportTableDataAsTDF m_Table.Name, strFile
                 Case etdXML
                     ' Export data rows as XML (encoding default is UTF-8)
                     VerifyPath strFile
@@ -72,7 +74,7 @@ End Sub
 ' Purpose   : Export the data from the table.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportTableDataAsTDF(strTable As String)
+Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
 
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
@@ -83,6 +85,8 @@ Public Sub ExportTableDataAsTDF(strTable As String)
     Dim strText As String
     Dim lngProgMax As Long
     Dim lngProgValue As Long
+    
+    Perf.OperationStart "Export Table Data as TDF"
     
     ' Open table in fast read-only view
     Set dbs = CurrentDb
@@ -129,8 +133,10 @@ Public Sub ExportTableDataAsTDF(strTable As String)
          .Value = lngProgValue
     End With
     
+    Perf.OperationEnd
+    
     ' Save output file
-    WriteFile cData.GetStr, IDbComponent_BaseFolder & GetSafeFileName(StripDboPrefix(strTable)) & ".txt"
+    WriteFile cData.GetStr, strFile
 
 End Sub
 
@@ -155,6 +161,8 @@ Private Sub ImportTableDataTDF(strFile As String)
     Dim varHeader As Variant
     Dim intCol As Integer
     Dim strValue As String
+    
+    Perf.OperationStart "Import TDF Data"
     
     ' Build a dictionary of column names so we can load the data
     ' into the matching columns.
@@ -228,6 +236,8 @@ Private Sub ImportTableDataTDF(strFile As String)
     Set stm = Nothing
     rst.Close
     Set rst = Nothing
+    
+    Perf.OperationEnd
     
 End Sub
 
