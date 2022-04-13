@@ -45,13 +45,17 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     ' This is the serialized output file in JSON format to track changes in version control
     strContent = GetSource
-    WriteFile strContent, IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json"
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json")
     
-    ' This is the binary export file used when building from source
-    m_Form.Export IDbComponent_SourceFile
+    ' Only export binary on regular export
+    If strAlternatePath = vbNullString Then
     
-    ' Update index with a hash of the serialized content. (Since the binary content changes frequently)
-    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
+        ' This is the binary export file used when building from source
+        m_Form.Export IDbComponent_SourceFile
+    
+        ' Update index with a hash of the serialized content. (Since the binary content changes frequently)
+        VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
+    End If
 
 End Sub
 
