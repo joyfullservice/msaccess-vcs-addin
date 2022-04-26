@@ -89,13 +89,13 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ComponentStart
+' Procedure : CategoryStart
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
 ' Purpose   : Start timing a component type.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ComponentStart(strName As String)
+Public Sub CategoryStart(strName As String)
     StartTimer this.Categories, strName
     this.CategoryName = strName
 End Sub
@@ -108,7 +108,7 @@ End Sub
 ' Purpose   : End the timing of the active component
 '---------------------------------------------------------------------------------------
 '
-Public Sub ComponentEnd(Optional lngCount As Long = 1)
+Public Sub CategoryEnd(Optional lngCount As Long = 1)
     If this.CategoryName <> vbNullString Then
         LapTimer this.Categories(this.CategoryName), lngCount
         this.CategoryName = vbNullString

@@ -146,7 +146,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             Log.Spacer Options.ShowDebug
             Log.PadRight "Exporting " & LCase(cCategory.Category) & "...", , Options.ShowDebug
             Log.ProgMax = lngCount
-            Perf.ComponentStart cCategory.Category
+            Perf.CategoryStart cCategory.Category
 
             ' Loop through each object in this category.
             For Each varKey In dObjects.Keys
@@ -170,7 +170,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             ' Show category wrap-up.
             Log.Add "[" & lngCount & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
             'Log.Flush  ' Gives smoother output, but slows down export.
-            Perf.ComponentEnd lngCount
+            Perf.CategoryEnd lngCount
         End If
         
     Next varCatKey
@@ -440,7 +440,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
             Log.Spacer Options.ShowDebug
             Log.PadRight IIf(blnFullBuild, "Importing ", "Merging ") & LCase(cCategory.Category) & "...", , Options.ShowDebug
             Log.ProgMax = dFiles.Count
-            Perf.ComponentStart cCategory.Category
+            Perf.CategoryStart cCategory.Category
 
             ' Loop through each file in this category.
             For Each varFile In dFiles.Keys
@@ -461,7 +461,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
             
             ' Show category wrap-up.
             Log.Add "[" & dFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
-            Perf.ComponentEnd dFiles.Count
+            Perf.CategoryEnd dFiles.Count
         End If
     Next varCategory
     
