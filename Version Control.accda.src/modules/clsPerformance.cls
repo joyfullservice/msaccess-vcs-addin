@@ -24,6 +24,15 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+' Delimits what the timing is; this may need to live in modConstants, or refactor the properties to fit
+Private Enum perfStartType
+    pNotTiming
+    pTimingStartedManually
+    pTimingStartedAutomatically
+End Enum
+
+Private m_StartType As perfStartType
+Private m_StartingFunction As String
 
 ' Use type for private class variables
 Private Type udtPerformance
@@ -54,10 +63,76 @@ Private Declare PtrSafe Function GetTimeAPI Lib "kernel32" Alias "QueryPerforman
 '---------------------------------------------------------------------------------------
 '
 Public Sub StartTiming()
-    Reset
+    Reset ' < Do we really want to reset every time now? 
+    TimingStartedManually = True
     this.Overall.Start = MicroTimer
 End Sub
 
+Private Sub AutoStartTiming
+    TimingStartedAutomatically = True
+    this.Overall.Start = MicroTimer
+End Sub
+
+'---------------------------------------------------------------------------------------
+' Property  : Timing Start Types
+' Author    : Hecon5
+' Date      : 04/27/2022
+' Purpose   : Outputs if the timing is Started manually or automatically, and what type via bits.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get TimingStartedAutomatically As Boolean
+    If m_StartType = pTimingStartedAutomatically Then TimingStartedAutomatically = True
+End Property
+Public Property Let TimingStartedAutomatically(NewVal As Boolean) ' This may need to be Private, not sure yet.
+    If m_StartType = pNotTiming And NewVal Then 
+        m_StartType = pTimingStartedAutomatically
+        m_StartingFunction = Me.CallStack
+    ElseIf m_StartType = pTimingStartedAutomatically And Not NewVal Then
+        m_StartType = pNotTiming
+        m_StartingFunction = vbNullString
+    End If
+End Property
+
+Public Property Get TimingStartingFunction As String
+    TimingStartingFunction = m_StartingFunction
+End Property
+
+Public Property Get TimingStartedManually As Boolean
+    If m_StartType = pTimingStartedManually Then TimingStartedManually = True
+End Property
+Public Property Let TimingStartedManually(NewVal As Boolean) ' This may need to be Private, not sure yet.
+    If m_StartType = pNotTiming Then m_StartType = pTimingStartedManually
+End Property
+
+Public Property Get TimingStarted As Boolean
+    If m_StartType <> pNotTiming Then TimingStarted = True
+End Property
+Public Property Let TimingStarted(NewVal As Boolean) ' This may need to be Private, not sure yet.
+    If m_StartType = pNotTiming Then m_StartType = pTimingStartedManually
+End Property
+
+'---------------------------------------------------------------------------------------
+' Property  : CheckStart
+' Author    : Hecon5
+' Date      : 04/27/2022
+' Purpose   : Checks to see if Overall Timing has started, and if not, sets to autostart and saves
+'           : Initiating Name
+'---------------------------------------------------------------------------------------
+'
+Private Sub CheckStart()
+    If Not TimingStarted Then AutoStartTiming
+End Sub
+
+Private Sub CheckEnd()
+    ' To speed up checking when timing was auto started, only check the Start Function 
+    '  name if timing was automatically started
+    If TimingStartedAutomatically Then 
+        If TimingStartingFunction = Me.CallStack Then
+            EndTiming
+            TimingStartedAutomatically = False
+        End If 
+    End If
+End If
 
 '---------------------------------------------------------------------------------------
 ' Procedure : CallStack
@@ -97,6 +172,7 @@ End Property
 '
 Public Sub CategoryStart(strName As String)
     StartTimer this.Categories, strName
+    CheckStart
     this.CategoryName = strName
 End Sub
 
@@ -113,6 +189,7 @@ Public Sub CategoryEnd(Optional lngCount As Long = 1)
         LapTimer this.Categories(this.CategoryName), lngCount
         this.CategoryName = vbNullString
     End If
+    CheckEnd
 End Sub
 
 
@@ -126,7 +203,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub OperationStart(strName As String)
-    
+    CheckStart
     ' See if we are already timing something
     If this.OperationName <> vbNullString Then
     
@@ -179,7 +256,7 @@ Public Sub OperationEnd(Optional lngCount As Long = 1)
             End If
         End With
     End If
-    
+    CheckEnd
 End Sub
 
 
