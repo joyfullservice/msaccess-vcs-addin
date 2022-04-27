@@ -68,7 +68,7 @@ Public Sub StartTiming()
     this.Overall.Start = MicroTimer
 End Sub
 
-Private Sub AutoStartTiming
+Private Sub AutoStartTiming()
     TimingStartedAutomatically = True
     this.Overall.Start = MicroTimer
 End Sub
