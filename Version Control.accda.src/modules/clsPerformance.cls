@@ -103,7 +103,7 @@ End Property
 ' Purpose   : Start timing a component type.
 '---------------------------------------------------------------------------------------
 '
-Public Sub CategoryStart(strName As String)
+Private Sub CategoryStart(strName As String)
     If this.CategoryName <> vbNullString Then CategoryEnd
     If this.Categories Is Nothing Then Set this.Categories = New Dictionary
     StartTimer this.Categories, strName
@@ -121,7 +121,7 @@ End Sub
 ' Purpose   : End the timing of the active component
 '---------------------------------------------------------------------------------------
 '
-Public Sub CategoryEnd(Optional lngCount As Long = 1)
+Private Sub CategoryEnd(Optional lngCount As Long = 1)
     If this.CategoryName <> vbNullString And Not this.Categories Is Nothing Then
         LapTimer this.Categories(this.CategoryName), lngCount
         this.CategoryName = vbNullString
