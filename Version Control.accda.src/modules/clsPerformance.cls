@@ -80,7 +80,7 @@ End Sub
 ' Purpose   : Outputs if the timing is Started manually or automatically, and what type via bits.
 '---------------------------------------------------------------------------------------
 '
-Public Property Get TimingStartedAutomatically As Boolean
+Public Property Get TimingStartedAutomatically() As Boolean
     If m_StartType = pTimingStartedAutomatically Then TimingStartedAutomatically = True
 End Property
 Public Property Let TimingStartedAutomatically(NewVal As Boolean) ' This may need to be Private, not sure yet.
@@ -93,18 +93,18 @@ Public Property Let TimingStartedAutomatically(NewVal As Boolean) ' This may nee
     End If
 End Property
 
-Public Property Get TimingStartingFunction As String
+Public Property Get TimingStartingFunction() As String
     TimingStartingFunction = m_StartingFunction
 End Property
 
-Public Property Get TimingStartedManually As Boolean
+Public Property Get TimingStartedManually() As Boolean
     If m_StartType = pTimingStartedManually Then TimingStartedManually = True
 End Property
 Public Property Let TimingStartedManually(NewVal As Boolean) ' This may need to be Private, not sure yet.
     If m_StartType = pNotTiming Then m_StartType = pTimingStartedManually
 End Property
 
-Public Property Get TimingStarted As Boolean
+Public Property Get TimingStarted() As Boolean
     If m_StartType <> pNotTiming Then TimingStarted = True
 End Property
 Public Property Let TimingStarted(NewVal As Boolean) ' This may need to be Private, not sure yet.
