@@ -65,7 +65,7 @@ End Sub
 ' Author    : hecon5
 ' Date      : 01/26/2022
 ' Purpose   : Return the call stack in operation.
-'           : Adds major element "Component" if in use, and the trace of all minor
+'           : Adds major element "Component"(now "Category") if in use, and the trace of all minor
 '           : elements (Operations) affixed with a period. This facilitates use of
 '           : performance and because the VBA error may be returned before you expect
 '           : (or after...VBA can be fun!).
@@ -109,7 +109,10 @@ Public Sub CategoryStart(strName As String)
     StartTimer this.Categories, strName
     this.CategoryName = strName
 End Sub
-
+' Wrapper to allow previously written code to live on undisturbed for now...
+Public Sub ComponentStart(strName As String)
+    CategoryStart strName
+End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ComponentEnd
@@ -124,7 +127,10 @@ Public Sub CategoryEnd(Optional lngCount As Long = 1)
         this.CategoryName = vbNullString
     End If
 End Sub
-
+' Wrapper to allow previously written code to live on undisturbed for now...
+Public Sub ComponentEnd(Optional lngCount As Long = 1)
+    CategoryEnd lngCount
+End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : OperationStart
