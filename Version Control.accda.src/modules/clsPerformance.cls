@@ -76,7 +76,10 @@ Public Property Get CallStack() As String
     Dim lngCallStackPosition As Long
     Dim strCallStackElement As String
     
-    If this.CallStackItems Is Nothing Then
+    If this.CallStackItems Is Nothing _
+        And this.CategoryName = vbNullString _
+        And this.OperationName = vbNullString Then
+        
         ' No call stack established (yet)
         CallStack = vbNullString
     Else
