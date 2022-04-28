@@ -63,9 +63,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : CallStack
 ' Author    : hecon5
-' Date      : 01/26/2022
+' Date      : 01/26/2022; 04/28/2022
 ' Purpose   : Return the call stack in operation.
-'           : Adds major element "Component" if in use, and the trace of all minor
+'           : Adds major element "Component"(now "Category") if in use, and the trace of all minor
 '           : elements (Operations) affixed with a period. This facilitates use of
 '           : performance and because the VBA error may be returned before you expect
 '           : (or after...VBA can be fun!).
@@ -75,26 +75,20 @@ Public Property Get CallStack() As String
 
     Dim lngCallStackPosition As Long
     Dim strCallStackElement As String
-    
-    If this.CallStackItems Is Nothing _
-        And this.CategoryName = vbNullString _
-        And this.OperationName = vbNullString Then
-        
-        ' No call stack established (yet)
-        CallStack = vbNullString
-    Else
-        ' Build out breadcrumb type call stack string
-        With New clsConcat
-            .AppendOnAdd = "."
-            If this.CategoryName <> vbNullString Then .Add this.CategoryName
+
+    ' Build out breadcrumb type call stack string
+    With New clsConcat
+        .AppendOnAdd = "."
+        If this.CategoryName <> vbNullString Then .Add this.CategoryName
+        If Not this.CallStackItems Is Nothing Then
             For lngCallStackPosition = 1 To this.CallStackItems.Count
                 .Add CStr(this.CallStackItems(lngCallStackPosition))
             Next lngCallStackPosition
-            If this.OperationName <> vbNullString Then .Add this.OperationName
-            If .Length > 0 Then .Remove 1 ' Remove trailing delimiter only if there's something to remove.
-            CallStack = .GetStr
-        End With
-    End If
+        End If
+        If this.OperationName <> vbNullString Then .Add this.OperationName
+        If .Length > 0 Then .Remove 1 ' Remove trailing delimiter only if there's something to remove.
+        CallStack = .GetStr
+    End With
     
 End Property
 
