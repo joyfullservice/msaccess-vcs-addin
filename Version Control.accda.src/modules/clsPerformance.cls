@@ -87,8 +87,8 @@ Public Property Get CallStack() As String
             For lngCallStackPosition = 1 To this.CallStackItems.Count
                 .Add CStr(this.CallStackItems(lngCallStackPosition))
             Next lngCallStackPosition
-            .Add this.OperationName
-            .Remove 1 ' Remove trailing delimiter
+            If this.OperationName <> vbNullString Then .Add this.OperationName
+            If .Length > 0 Then .Remove 1 ' Remove trailing delimiter only if there's something to remove.
             CallStack = .GetStr
         End With
     End If
