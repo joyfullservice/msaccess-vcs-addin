@@ -200,7 +200,11 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
         
         Case acTableDataMacro
             ' Table data macros are stored in XML format
-            If FSO.FileExists(strFile) Then strHash = SanitizeXML(strFile, True)
+            If FSO.FileExists(strTempFile) Then
+                strHash = SanitizeXML(strTempFile, True)
+                If FSO.FileExists(strFile) Then DeleteFile strFile
+                FSO.MoveFile strTempFile, strFile
+            End If
             
         Case Else
             ' Handle UCS conversion if needed
@@ -512,5 +516,4 @@ Public Sub LoadVCSAddIn()
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     Application.Run GetAddInFileName & "!DummyFunction"
 End Sub
-
 
