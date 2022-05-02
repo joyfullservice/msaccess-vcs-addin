@@ -491,7 +491,11 @@ Public Sub SanitizeXML(strPath As String)
     Set rxLine = New VBScript_RegExp_55.RegExp
 
     ' Read text from file
-    strFile = ReadFile(strPath)
+    If HasUcs2Bom(strPath) Then
+        strFile = ReadFile(strPath, "Unicode")
+    Else
+        strFile = ReadFile(strPath)
+    End If
     Perf.OperationStart "Sanitize XML"
     curStart = Perf.MicroTimer
     
