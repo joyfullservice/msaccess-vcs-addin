@@ -498,6 +498,7 @@ End Function
 '
 Public Sub Reset()
     Set this.Overall = Nothing
+    Set this.CallStackItems = Nothing
     this.CategoryName = vbNullString
     Set this.Categories = Nothing
     this.OperationName = vbNullString
