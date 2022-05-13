@@ -37,7 +37,7 @@ Option Compare Database
 
 
 ' Public properties
-Public Max As Double                    ' Maximum value of progress bar at 100%
+Private m_Max As Double                    ' Maximum value of progress bar at 100%
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
 
 ' Private properties
@@ -57,7 +57,7 @@ Private mblnNotSmooth As Boolean        ' Display smoothly by doevents after eve
 ' Purpose   : Initialize the progress bar before using it
 '---------------------------------------------------------------------------------------
 '
-Public Sub Initialize(BackLabel As Label, Optional FrontLabel As Label, Optional CaptionLabel As Label)
+Public Sub Initialize(ByRef BackLabel As Label, ByRef FrontLabel As Label, ByRef CaptionLabel As Label)
 
     Dim objParent As Object ' could be a form or tab control
     Dim frm As Form
@@ -92,7 +92,7 @@ Public Sub Initialize(BackLabel As Label, Optional FrontLabel As Label, Optional
         .Top = mlblBack.Top + sngOffset
         .Width = 0
         .Height = mlblBack.Height - (sngOffset * 2)
-        .Caption = ""
+        .Caption = vbNullString
         .BackColor = 8388608
         .BackStyle = 1
         .Visible = True
@@ -105,12 +105,14 @@ Public Sub Initialize(BackLabel As Label, Optional FrontLabel As Label, Optional
         .Width = mlblBack.Width - 4
         .Height = mlblBack.Height - 4
         .TextAlign = 2 'fmTextAlignCenter
+        .TopMargin = sngOffset * 2
         .BackStyle = 0 'fmBackStyleTransparent
         .Caption = "0%"
         .Visible = Not Me.HideCaption
         .ForeColor = 16777215   ' white
     End With
-
+    If Me.Max = 0 Then Me.Max = 100
+    Update
 End Sub
 
 
@@ -135,7 +137,7 @@ Private Sub Class_Terminate()
         mobjParent.Controls.Remove (mlblFront.Name)
         mobjParent.Controls.Remove (mlblCaption.Name)
     #End If
-
+    Err.Clear ' Clear the Errors if thrown; they're not useful
 End Sub
 
 
@@ -207,6 +209,13 @@ Public Property Let IncrementSize(ByVal dblSize As Double)
     mdblIncSize = dblSize
 End Property
 
+Public Property Get Max() As Double
+    Max = m_Max
+End Property
+Public Property Let Max(NewVal As Double)
+    m_Max = NewVal
+    Update
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : HideCaption
@@ -299,7 +308,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Clear()
-    Call Class_Terminate
+    Class_Terminate
 End Sub
 
 
@@ -312,6 +321,7 @@ End Sub
 '
 Public Sub Reset()
     Me.Value = 0
+    Update
 End Sub
 
 
@@ -323,31 +333,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Hide()
+    On Error Resume Next
     mlblCaption.Visible = False
     mlblFront.Visible = False
     mlblBack.Visible = False
+    CatchAny eelNoError, vbNullString, vbNullString, False, True
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetParentFormName
-' Author    : Adam Waller
-' Date      : 2/17/2021
-' Purpose   : Return the name of the parent form
-'---------------------------------------------------------------------------------------
-'
-Private Function GetParentFormName(ctlControl As Control) As String
-
-    ' returns the name of the parent form
-    Dim objParent As Object
-    
-    Set objParent = ctlControl
-    
-    Do While Not TypeOf objParent Is Form
-       Set objParent = objParent.Parent
-    Loop
-    
-    ' Now we should have the parent form
-    GetParentFormName = objParent.Name
-    
-End Function
