@@ -322,31 +322,12 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Increment()
-    
-    ' Track the last time we did an increment
-    Static sngLastIncrement As Single
-    Static lngProgress As Long
-    
+
     ' Ignore if we are not using the form
     If m_Prog Is Nothing Then Exit Sub
-    
-    ' Increment value, even if we don't display it.
-    lngProgress = lngProgress + 1
-    
-    ' Don't run the incrementer unless it has been 1
-    ' second since the last displayed output refresh.
-    If m_sngLastUpdate > Timer - 1 Then Exit Sub
-    
-    ' Allow an update to the screen every x seconds.
-    ' Find the balance between good progress feedback
-    ' without slowing down the overall export time.
-    If sngLastIncrement > Timer - 0.5 Then Exit Sub
-
     ' Check the current status.
     Perf.OperationStart "Increment Progress"
     If Not m_blnProgressActive Then
-        ' Show the progress bar
-        lngProgress = 1
         ' Flush any pending output
         With m_RichText
             Echo False
@@ -358,12 +339,9 @@ Public Sub Increment()
             Echo True
         End With
     End If
-    
-    ' Status is now active
-    sngLastIncrement = Timer
-    m_blnProgressActive = True
-    m_Prog.Value = lngProgress
-    Perf.OperationEnd
-    
-End Sub
+    Me.ProgressBar.Increment
 
+    ' Status is now active
+    m_blnProgressActive = True
+    Perf.OperationEnd
+End Sub
