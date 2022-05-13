@@ -136,7 +136,7 @@ Public Property Get Max() As Double
 End Property
 Public Property Let Max(NewVal As Double)
     m_Max = NewVal
-    Update
+    Update True
 End Property
 '---------------------------------------------------------------------------------------
 ' Procedure : Value
