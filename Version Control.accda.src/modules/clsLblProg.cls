@@ -24,10 +24,8 @@ Option Compare Database
 Const CompletionFormat As String = "0.00" ' Defines the number of digits to display.
 
 ' Public properties
-Private m_Max As Double                  ' Maximum value of progress bar at 100%
+Private m_Max As Double                 ' Maximum value of progress bar at 100%
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
-Public IncrementSize                    ' Custom size of increments
-Public HideCaption                      ' Optionally hide the percentage label
 
 ' Private properties
 Private Type udtProg
@@ -121,13 +119,19 @@ Public Sub Initialize(ByRef BackLabel As Label, ByRef FrontLabel As Label, ByRef
         .TopMargin = this.sngOffset * 2
         .BackStyle = 0 'fmBackStyleTransparent
         .Caption = "0%"
-        .Visible = Not Me.HideCaption
+        .Visible = Not this.blnHideCaption
         .ForeColor = 16777215   ' white
     End With
     Update
 
 End Sub
 
+Public Property Get HideCaption() As Boolean
+    HideCaption = this.blnHideCaption
+End Property
+Public Property Let HideCaption(NewVal As Boolean)
+    this.blnHideCaption = NewVal
+End Property
 
 Public Property Get DisplayTimeRemaining() As Boolean
     DisplayTimeRemaining = this.blnShowTimeRemain
@@ -218,6 +222,13 @@ Public Property Let Value(ByVal dblValue As Double)
 
 End Property
 
+Public Property Get IncrementSize() As Double
+    If this.dblIncrementSize <= 0 Then this.dblIncrementSize = 1
+    IncrementSize = this.dblIncrementSize
+End Property
+Public Property Let IncrementSize(NewVal As Double)
+    this.dblIncrementSize = NewVal
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Increment
