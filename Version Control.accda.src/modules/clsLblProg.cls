@@ -21,7 +21,7 @@ Option Compare Database
 ' object types in early binding.
 #Const APPLICATION_NAME = "Microsoft Access"
 
-Const CompletionFormat As String = "0.00" ' Defines the number of digits to display.
+Private Const CompletionFormat As String = "0.00" ' Defines the number of digits to display.
 
 ' Public properties
 Private m_Max As Double                 ' Maximum value of progress bar at 100%
