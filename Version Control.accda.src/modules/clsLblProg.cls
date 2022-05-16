@@ -21,8 +21,10 @@ Option Compare Database
 ' object types in early binding.
 #Const APPLICATION_NAME = "Microsoft Access"
 
+Const CompletionFormat As String = "0.00" ' Defines the number of digits to display.
+
 ' Public properties
-Private m_Max As Double                    ' Maximum value of progress bar at 100%
+Private m_Max As Double                  ' Maximum value of progress bar at 100%
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
 Public IncrementSize                    ' Custom size of increments
 Public HideCaption                      ' Optionally hide the percentage label
@@ -52,6 +54,9 @@ Private Type udtProg
     blnHideCaption As Boolean           ' Show/hide percent complete caption
     objParent As Object                 ' Parent object of back label
     dteStartTime As Date                ' Time of first value change
+    blnShowTimeRemain As Boolean        ' Show time on progress bar in addition to Percentage
+    blnShowTimeComplete As Boolean      ' Show time of completion (clock time) in addition to percentage.
+                                        ' Only Time remaining OR clock time can be shown; if you turn on one the other will turn off.
 End Type
 Private this As udtProg
 
@@ -122,6 +127,22 @@ Public Sub Initialize(ByRef BackLabel As Label, ByRef FrontLabel As Label, ByRef
     Update
 
 End Sub
+
+
+Public Property Get DisplayTimeRemaining() As Boolean
+    DisplayTimeRemaining = this.blnShowTimeRemain
+End Property
+Public Property Let DisplayTimeRemaining(NewVal As Boolean)
+    this.blnShowTimeRemain = NewVal
+    If NewVal Then this.blnShowTimeComplete = False
+End Property
+Public Property Get DisplayTimeComplete() As Boolean
+    DisplayTimeComplete = this.blnShowTimeComplete
+End Property
+Public Property Let DisplayTimeComplete(NewVal As Boolean)
+    this.blnShowTimeComplete = NewVal
+    If NewVal Then this.blnShowTimeRemain = False
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -246,7 +267,7 @@ Public Property Get EstCompletionTime() As Date
             ' Get elapsed seconds
             dblSeconds = DateDiff("s", .dteStartTime, Now)
             ' Calculate remaining seconds
-            dblRemaining = (dblSeconds / .dblValue) * (Me.Max - .dblValue)
+            If .dblValue > 0 Then dblRemaining = (dblSeconds / .dblValue) * (Me.Max - .dblValue)
             ' Convert to completion time
             EstCompletionTime = DateAdd("s", dblRemaining, Now)
         End With
@@ -269,11 +290,11 @@ Public Property Get EstRemainingTime() As String
     
     dblSeconds = DateDiff("s", Now, Me.EstCompletionTime)
     If dblSeconds < 120 Then
-        EstRemainingTime = dblSeconds & " seconds"
+        EstRemainingTime = Format(dblSeconds, CompletionFormat) & " seconds"
     ElseIf dblSeconds < (60 * 120) Then
-        EstRemainingTime = dblSeconds \ 60 & " minutes"
+        EstRemainingTime = Format(dblSeconds / 60, CompletionFormat) & " minutes"
     Else
-        EstRemainingTime = dblSeconds \ 3600 & " hours"
+        EstRemainingTime = Format(dblSeconds / 3600, CompletionFormat) & " hours"
     End If
     
 End Property
@@ -348,7 +369,15 @@ Private Sub Update(Optional ByRef ForceUpdate As Boolean = False)
             dblWidth = .dblValue * (.dblFullWidth / Me.Max)
         End If
         .lblFront.Width = dblWidth
-        .lblCaption.Caption = intPercent & "%"
+        
+        If .blnShowTimeComplete Then
+            .lblCaption.Caption = intPercent & "% Est. Completion Time: " & Me.EstCompletionTime
+        ElseIf .blnShowTimeRemain Then
+            .lblCaption.Caption = intPercent & "% Est. Remaining Time: " & Me.EstRemainingTime
+        Else
+            .lblCaption.Caption = intPercent & "%"
+        End If
+
         .dblDisplayed = .dblValue
     End With
     
