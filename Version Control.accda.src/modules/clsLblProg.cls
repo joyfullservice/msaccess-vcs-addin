@@ -67,9 +67,6 @@ Private this As udtProg
 '---------------------------------------------------------------------------------------
 '
 Public Sub Initialize(ByRef BackLabel As Label, ByRef FrontLabel As Label, ByRef CaptionLabel As Label)
-
-    Dim objParent As Object ' could be a form or tab control
-    Dim frm As Form
     
     Set this.objParent = BackLabel.Parent
     Set this.lblBack = BackLabel
