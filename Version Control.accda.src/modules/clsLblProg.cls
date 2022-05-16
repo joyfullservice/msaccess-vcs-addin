@@ -244,8 +244,11 @@ Public Sub Increment(Optional dblAmount As Double = 1)
     Dim dblNew As Double
     
     ' Calculate how much to add
-    If dblAmount = 1 And Me.IncrementSize > 0 Then dblAdd = Me.IncrementSize
-    If dblAdd = 0 Then dblAdd = dblAmount
+    If dblAmount = 1 Then
+        dblAdd = Me.IncrementSize
+    Else
+        dblAdd = dblAmount
+    End If
     
     ' Check boundaries
     dblNew = Me.Value + dblAdd
@@ -370,7 +373,7 @@ Private Sub Update(Optional ByRef ForceUpdate As Boolean = False)
 
     ' Set size and caption
     With this
-        If Me.Max = 0 Or .dblValue = 0 Then
+        If Me.Max = 0 Then
             .lblFront.Visible = False
             .lblCaption.Visible = False
             intPercent = 0
