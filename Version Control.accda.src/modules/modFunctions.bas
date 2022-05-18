@@ -740,3 +740,244 @@ Public Function Coalesce(ParamArray varStrings()) As String
     Next intString
 End Function
 
+'---------------------------------------------------------------------------------------
+' Procedure : ListResult
+' Author    : Adam Waller, hecon5
+' Date      : 11/3/2020, May 18, 2022
+' Purpose   : List the result of a test in a fixed width format. The result strings
+'           : are positioned at the number of characters specified.
+'           : I.e:
+'           : MyFancyTest      23     2.45
+'---------------------------------------------------------------------------------------
+'
+Public Function ListResult(ByRef strHeading As String _
+                            , ByRef strResult1 As String _
+                            , ByRef strResult2 As String _
+                            , ByRef lngCol() As Long) As String
+    If Options.ShowFullPerformanceName Then
+        ListResult = ListResultIndent(strHeading, strResult1, strResult2, lngCol)
+    Else
+        ListResult = PadRight(strHeading, lngCol(0)) & _
+                    PadRight(strResult1, lngCol(1)) & _
+                    Left(strResult2, lngCol(2))
+    End If
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : ListResultIndent
+' Author    : hecon5
+' Date      : May 18, 2022
+' Purpose   : List the result of a test in a fixed width format. The result strings
+'           : are positioned at the number of characters specified. strHeadings longer
+'           : than the column are repeated on the following line.
+'           : I.e:
+'           :   MyFancyTest                   23        2.45
+'           :   Short Category                1         6.83
+'           :   Long Category name from long  1         1.14
+'           :       town
+'           :   Some Other Category           2         1000
+'---------------------------------------------------------------------------------------
+'
+Public Function ListResultIndent(ByRef strHeading As String _
+                                , ByRef strResult1 As String _
+                                , ByRef strResult2 As String _
+                                , ByRef lngCol() As Long _
+                                , Optional ByRef ColumnIndent As Long = 4) As String
+
+    Dim StrArr() As String
+    Dim StrFirstLine As String
+    Dim StrRemainingLines As String
+    
+    On Error Resume Next
+    Perf.OperationStart ModuleName & ".ListResultIndent"
+    StrArr = FitStringToColumn(strHeading, lngCol(0) - 1, 4)
+    StrFirstLine = PadRight(StrArr(0), lngCol(0)) & PadRight(strResult1, lngCol(1)) & Left(strResult2, lngCol(2))
+    If UBound(StrArr) > 0 Then
+        DeleteArrayElement StrArr, 0
+        StrRemainingLines = Join(StrArr, vbNewLine)
+        StrFirstLine = StrFirstLine & vbNewLine
+    Else
+
+    End If
+    ListResultIndent = StrFirstLine & StrRemainingLines
+    Perf.OperationEnd
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeleteArrayElement
+' Author    : hecon5
+' Date      : May 18, 2022
+' Purpose   : Deletes an array element at the specified location
+'---------------------------------------------------------------------------------------
+'
+Public Function DeleteArrayElement(ByRef ArrayIn As Variant _
+                                , Optional ByRef DeletePosition As Long = 0)
+    Dim ArrPosition As Long
+    For ArrPosition = DeletePosition + 1 To UBound(ArrayIn)
+        ArrayIn(ArrPosition - 1) = ArrayIn(ArrPosition)
+    Next ArrPosition
+    
+    ReDim Preserve ArrayIn(LBound(ArrayIn) To UBound(ArrayIn) - 1)
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : PadRight
+' Author    : Adam Waller
+' Date      : 11/3/2020
+' Purpose   : Pads a string
+'---------------------------------------------------------------------------------------
+'
+Private Function PadRight(strText As String _
+                        , lngLen As Long _
+                        , Optional lngMinTrailingSpaces As Long = 1) As String
+
+    Dim strResult As String
+    Dim strTrimmed As String
+    
+    strResult = Space$(lngLen)
+    strTrimmed = Left$(strText, lngLen - lngMinTrailingSpaces)
+    
+    ' Use mid function to write over existing string of spaces.
+    Mid$(strResult, 1, Len(strTrimmed)) = strTrimmed
+    PadRight = strResult
+    
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : RoundUp
+' Author    : hecon5
+' Date      : May 18, 2022
+' Purpose   : Rounds a Value up to next higher whole number.
+'---------------------------------------------------------------------------------------
+'
+Public Function RoundUp(ByVal Value As Double) As Long
+    Dim lngVal As Long
+    Dim deltaValue As Double
+    
+    lngVal = CLng(Value)
+    deltaValue = lngVal - Value
+        
+    If deltaValue < 0 Then
+        RoundUp = lngVal + 1
+    Else
+        RoundUp = lngVal
+    End If
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : RoundDown
+' Author    : hecon5
+' Date      : May 18, 2022
+' Purpose   : Rounds a Value down to next lower whole number.
+'---------------------------------------------------------------------------------------
+'
+Public Function RoundDown(ByVal Value As Double) As Long
+    Dim lngVal As Long
+    Dim deltaValue As Double
+    
+    lngVal = CLng(Value)
+    deltaValue = lngVal - Value
+        
+    If deltaValue <= 0 Then
+        RoundDown = lngVal
+    Else
+        RoundDown = lngVal - 1
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FitStringToColumn
+' Author    : hecon5
+' Date      : May 18, 2022
+' Purpose   : Takes in a long string and returns an array of strings ColumnWidth wide.
+'---------------------------------------------------------------------------------------
+'
+Public Function FitStringToColumn(ByRef LongString As String _
+                                , Optional ByRef ColumnWidth As Long = 200 _
+                                , Optional ByRef ColumnIndent As Long = 0) As String()
+
+    Dim RowTotal As Long
+    Dim StrLen As Long
+    Dim StrIndentedLen As Long
+    Dim StrTextWidth As Long
+    Dim StrPosition As Long
+    Dim ArrPosition As Long
+    Dim StrArr() As String
+    Dim ColumnWidthInternal As Long
+    
+    On Error Resume Next
+    Perf.OperationStart ModuleName & ".FitStringToColumn"
+    
+    ColumnWidthInternal = ColumnWidth
+    If ColumnWidthInternal <= 0 Then ColumnWidthInternal = 1
+    
+    StrTextWidth = ColumnWidthInternal - ColumnIndent
+    
+    StrLen = Len(LongString)
+    RowTotal = RoundUp((StrLen - ColumnWidthInternal) / StrTextWidth) + 1
+    StrPosition = 1
+    
+    ReDim StrArr(0 To (RowTotal - 1))
+    
+    ' The first row is longer.
+    StrArr(ArrPosition) = mid$(LongString, StrPosition, ColumnWidthInternal)
+    If RowTotal <= 1 Then GoTo Exit_Here ' Don't do the rest if there's only one row...
+    StrPosition = StrPosition + ColumnWidthInternal
+    
+    For ArrPosition = 1 To (RowTotal - 1)
+        StrArr(ArrPosition) = Space$(ColumnIndent) & mid$(LongString, StrPosition, StrTextWidth)
+        StrPosition = StrPosition + StrTextWidth
+    Next ArrPosition
+
+Exit_Here:
+    CatchAny eelError, "Could not fit to column", Perf.CurrentOperationName
+    FitStringToColumn = StrArr
+    Perf.OperationEnd
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : FitStringToWidth
+' Author    : hecon5
+' Date      : May 18, 2022
+' Purpose   : Takes in a long string and returns a string DesiredWidth wide if longer than MaxWidth.
+'             Useful when used on a text box where you'd prefer a specific width, but 
+'             allowing a slightly longer string would potentially be more appealing to users.
+'             This avoids a 1-2 word dangling line.
+'---------------------------------------------------------------------------------------
+'
+Public Function FitStringToWidth(ByRef LongString As String _
+                                , Optional ByRef MaxWidth As Long = 200 _
+                                , Optional ByRef DesiredWidth As Long = 75) As String
+    ' Fits a string to a message box if it's wider than MaxWidth
+    Dim OutputConcat As clsConcat
+    Dim StrPosition As Long
+    Dim StrLen As Long
+    Dim NewLineCount As Long
+    Dim ArrPosition As Long
+    Dim StringArr() As String
+    
+    Perf.OperationStart "FitStringToWidth"
+    StrLen = Len(LongString)
+    If StrLen > MaxWidth Then
+        Perf.OperationStart "FitStringToWidth.Resize"
+        StringArr = Split(LongString, vbNewLine, , vbBinaryCompare)
+        NewLineCount = UBound(StringArr) - LBound(StringArr)
+        Set OutputConcat = New clsConcat
+        For ArrPosition = 0 To NewLineCount
+            StrPosition = 1
+            If ArrPosition > 0 Then OutputConcat.Add vbNewLine
+            Do While StrPosition < StrLen
+                If StrPosition > 1 Then OutputConcat.Add vbNewLine
+                OutputConcat.Add mid$(StringArr(ArrPosition), StrPosition, DesiredWidth)
+                StrPosition = StrPosition + DesiredWidth
+            Loop
+        Next ArrPosition
+        FitStringToWidth = OutputConcat.GetStr
+        Perf.OperationEnd
+    Else
+        FitStringToWidth = LongString
+    End If
+    Perf.OperationEnd
+End Function

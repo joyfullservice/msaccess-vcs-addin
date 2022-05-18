@@ -367,6 +367,60 @@ Public Property Get TotalTime() As Currency
     End If
 End Property
 
+Private Function GetPerformanceItemDict(ByRef PerformanceDict As Scripting.Dictionary) As Scripting.Dictionary
+    Dim dOutputDict As Scripting.Dictionary
+    Dim dEntry As Scripting.Dictionary
+    Dim VarItem As Variant
+    
+    Dim curTotal As Currency
+    Dim dblCount As Double
+    
+    If Not PerformanceDict Is Nothing Then
+        Set dOutputDict = New Scripting.Dictionary
+            
+            
+        For Each VarItem In PerformanceDict
+            Set dEntry = New Scripting.Dictionary
+            
+            dEntry.Add "Count", PerformanceDict.Item(VarItem).Count
+            dEntry.Add "Total", PerformanceDict.Item(VarItem).Total
+            
+            dblCount = dblCount + PerformanceDict.Item(VarItem).Count
+            curTotal = curTotal + PerformanceDict.Item(VarItem).Total
+            
+            dOutputDict.Add CStr(VarItem), dEntry
+            
+        Next VarItem
+        
+        Set dEntry = New Scripting.Dictionary
+        If Not this.Overall Is Nothing Then dOutputDict.Add "Untimed Processes", this.Overall.Total - curTotal
+        dOutputDict.Add "Count", PerformanceDict.Count
+        dOutputDict.Add "TotalRuns", dblCount
+        dOutputDict.Add "TotalTime", curTotal
+        
+    End If
+    
+    Set GetPerformanceItemDict = dOutputDict
+End Function
+
+Public Function GetReportsJSON() As String
+    Dim dReports As Scripting.Dictionary
+    Dim dSection As Scripting.Dictionary
+    
+    Set dReports = New Scripting.Dictionary
+    
+    With dReports
+        If Not this.Categories Is Nothing Then .Add "Categories", GetPerformanceItemDict(this.Categories)
+        If Not this.Operations Is Nothing Then .Add "Operations", GetPerformanceItemDict(this.Operations)
+        If Not this.CallStackItems Is Nothing Then _
+            If this.CallStackItems.Count > 0 Then .Add "CallStackRemaining", this.CallStackItems
+        If Not this.Overall Is Nothing Then
+            .Add "Overall Time", this.Overall.Total
+        End If
+    End With
+    GetReportsJSON = modJsonConverter.ConvertToJson(dReports, JSON_WHITESPACE)
+    
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetReports
@@ -391,7 +445,7 @@ Public Function GetReports() As String
     lngCol(2) = 10
     strSpacer = Space(lngCol(0) + lngCol(1) + lngCol(2))
     strSpacer = Replace(strSpacer, " ", "-")
-    
+    Me.PauseTiming
     With New clsConcat
         .AppendOnAdd = vbCrLf
         .Add strSpacer
@@ -452,48 +506,8 @@ Public Function GetReports() As String
         ' Return report section
         GetReports = .GetStr
     End With
-    
+    Me.ResumeTiming
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ListResult
-' Author    : Adam Waller
-' Date      : 11/3/2020
-' Purpose   : List the result of a test in a fixed width format. The result strings
-'           : are positioned at the number of characters specified.
-'           : I.e:
-'           : MyFancyTest      23     2.45
-'---------------------------------------------------------------------------------------
-'
-Private Function ListResult(strHeading As String, strResult1 As String, strResult2 As String, _
-    lngCol() As Long) As String
-    ListResult = PadRight(strHeading, lngCol(0)) & _
-        PadRight(strResult1, lngCol(1)) & strResult2
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : PadRight
-' Author    : Adam Waller
-' Date      : 11/3/2020
-' Purpose   : Pads a string
-'---------------------------------------------------------------------------------------
-'
-Private Function PadRight(strText As String, lngLen As Long, Optional lngMinTrailingSpaces As Long = 1) As String
-
-    Dim strResult As String
-    Dim strTrimmed As String
-    
-    strResult = Space$(lngLen)
-    strTrimmed = Left$(strText, lngLen - lngMinTrailingSpaces)
-    
-    ' Use mid function to write over existing string of spaces.
-    Mid$(strResult, 1, Len(strTrimmed)) = strTrimmed
-    PadRight = strResult
-    
-End Function
-
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Reset
