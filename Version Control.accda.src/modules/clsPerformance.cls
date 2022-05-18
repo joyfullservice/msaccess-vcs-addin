@@ -92,7 +92,9 @@ Public Property Get CallStack() As String
     
 End Property
 
-
+Public Property Get CurrentCategoryName() As String
+    CurrentCategoryName = this.CategoryName
+End Property
 '---------------------------------------------------------------------------------------
 ' Procedure : CategoryStart
 ' Author    : Adam Waller
@@ -106,7 +108,6 @@ Public Sub CategoryStart(strName As String)
     StartTimer this.Categories, strName
     this.CategoryName = strName
 End Sub
-
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ComponentEnd
@@ -123,6 +124,9 @@ Public Sub CategoryEnd(Optional lngCount As Long = 1)
 End Sub
 
 
+Public Property Get CurrentOperationName() As String
+    CurrentOperationName = this.OperationName
+End Property
 '---------------------------------------------------------------------------------------
 ' Procedure : OperationStart
 ' Author    : Adam Waller
@@ -190,6 +194,8 @@ Public Sub OperationEnd(Optional lngCount As Long = 1)
                     this.OperationName = vbNullString
                 End If
             End With
+        Else
+            this.OperationName = vbNullString
         End If
     End If
     
