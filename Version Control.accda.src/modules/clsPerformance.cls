@@ -445,7 +445,6 @@ Public Function GetReports() As String
     lngCol(2) = 10
     strSpacer = Space(lngCol(0) + lngCol(1) + lngCol(2))
     strSpacer = Replace(strSpacer, " ", "-")
-    Me.PauseTiming
     With New clsConcat
         .AppendOnAdd = vbCrLf
         .Add strSpacer
@@ -506,7 +505,6 @@ Public Function GetReports() As String
         ' Return report section
         GetReports = .GetStr
     End With
-    Me.ResumeTiming
 End Function
 
 '---------------------------------------------------------------------------------------
