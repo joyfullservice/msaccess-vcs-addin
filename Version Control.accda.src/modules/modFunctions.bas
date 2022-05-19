@@ -917,6 +917,7 @@ Public Function FitStringToColumn(ByRef LongString As String _
     
     StrLen = Len(LongString)
     RowTotal = RoundUp((StrLen - ColumnWidthInternal) / StrTextWidth) + 1
+    If RowTotal < 1 Then RowTotal = 1
     StrPosition = 1
     
     ReDim StrArr(0 To (RowTotal - 1))
@@ -924,8 +925,9 @@ Public Function FitStringToColumn(ByRef LongString As String _
     ' The first row is longer.
     StrArr(ArrPosition) = mid$(LongString, StrPosition, ColumnWidthInternal)
     If RowTotal <= 1 Then GoTo Exit_Here ' Don't do the rest if there's only one row...
-    StrPosition = StrPosition + ColumnWidthInternal
     
+    StrPosition = StrPosition + ColumnWidthInternal
+
     For ArrPosition = 1 To (RowTotal - 1)
         StrArr(ArrPosition) = Space$(ColumnIndent) & mid$(LongString, StrPosition, StrTextWidth)
         StrPosition = StrPosition + StrTextWidth
