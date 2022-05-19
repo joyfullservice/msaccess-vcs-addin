@@ -384,6 +384,7 @@ Private Function GetPerformanceItemDict(ByRef PerformanceDict As Scripting.Dicti
             
             dEntry.Add "Count", PerformanceDict.Item(VarItem).Count
             dEntry.Add "Total", PerformanceDict.Item(VarItem).Total
+            dEntry.Add "Average", PerformanceDict.Item(VarItem).Total / PerformanceDict.Item(VarItem).Count
             
             dblCount = dblCount + PerformanceDict.Item(VarItem).Count
             curTotal = curTotal + PerformanceDict.Item(VarItem).Total
