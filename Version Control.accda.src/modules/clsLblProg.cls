@@ -62,6 +62,11 @@ End Type
 Private this As udtProg
 
 
+' Fires when the value of the progress bar changes.
+' (This can be used to set a custom caption)
+Public Event ProgressChange(dblValue As Double, intPercent As Integer)
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : Initialize
 ' Author    : Adam Waller
@@ -413,9 +418,11 @@ Private Sub Update(Optional ByRef ForceUpdate As Boolean = False)
     ' Use DoEvents to repaint display
     If Me.Smooth Then
         ' Always update display
+        RaiseEvent ProgressChange(this.dblValue, intPercent)
         DoEvents
     ElseIf (dteLastUpdate <> Now) Or ForceUpdate Then
         ' Update every second
+        RaiseEvent ProgressChange(this.dblValue, intPercent)
         DoEvents
         dteLastUpdate = Now
     End If
