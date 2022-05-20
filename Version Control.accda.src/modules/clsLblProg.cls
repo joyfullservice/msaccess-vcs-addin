@@ -26,7 +26,6 @@ Private Const CompletionFormat As String = "0.00" ' Defines the number of digits
 
 ' Public properties
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
-Public IncrementSize                    ' Custom size of increments
 
 ' Private properties
 Private Type udtProg
@@ -50,12 +49,8 @@ Private Type udtProg
     dblDisplayed As Double              ' Displayed value
     dblFullWidth As Double              ' Width of front label at 100%
     sngOffset As Single                 ' Offset for front label
-    dblIncrementSize As Double          ' Increment size
     objParent As Object                 ' Parent object of back label
     dteStartTime As Date                ' Time of first value change
-    blnShowTimeRemain As Boolean        ' Show time on progress bar in addition to Percentage
-    blnShowTimeComplete As Boolean      ' Show time of completion (clock time) in addition to percentage.
-                                        ' Only Time remaining OR clock time can be shown; if you turn on one the other will turn off.
 End Type
 Private this As udtProg
 
@@ -134,20 +129,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
     End If
 
 
-Public Property Get DisplayTimeRemaining() As Boolean
-    DisplayTimeRemaining = this.blnShowTimeRemain
-End Property
-Public Property Let DisplayTimeRemaining(NewVal As Boolean)
-    this.blnShowTimeRemain = NewVal
-    If NewVal Then this.blnShowTimeComplete = False
-End Property
-Public Property Get DisplayTimeComplete() As Boolean
-    DisplayTimeComplete = this.blnShowTimeComplete
-End Property
-Public Property Let DisplayTimeComplete(NewVal As Boolean)
-    this.blnShowTimeComplete = NewVal
-    If NewVal Then this.blnShowTimeRemain = False
-End Property
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -224,14 +206,6 @@ Public Property Let Value(ByVal dblValue As Double)
 
 End Property
 
-                                      
-Public Property Get IncrementSize() As Double
-    If this.dblIncrementSize <= 0 Then this.dblIncrementSize = 1
-    IncrementSize = this.dblIncrementSize
-End Property
-Public Property Let IncrementSize(NewVal As Double)
-    this.dblIncrementSize = NewVal
-End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Increment
@@ -243,18 +217,10 @@ End Property
 '
 Public Sub Increment(Optional dblAmount As Double = 1)
 
-    Dim dblAdd As Double
     Dim dblNew As Double
-    
-    ' Calculate how much to add
-    If dblAmount = 1 Then
-        dblAdd = Me.IncrementSize
-    Else
-        dblAdd = dblAmount
-    End If
-    
+
     ' Check boundaries
-    dblNew = Me.Value + dblAdd
+    dblNew = Me.Value + dblAmount
     If dblNew > Me.Max Then dblNew = Me.Max
     If dblNew < 0 Then dblNew = 0
 
@@ -386,14 +352,6 @@ Private Sub Update(Optional ByRef ForceUpdate As Boolean = False)
             dblWidth = .dblValue * (.dblFullWidth / Me.Max)
         End If
         .lblFront.Width = dblWidth
-        
-        If .blnShowTimeComplete Then
-            .lblCaption.Caption = intPercent & "% Est. Completion Time: " & Me.EstCompletionTime
-        ElseIf .blnShowTimeRemain Then
-            .lblCaption.Caption = intPercent & "% Est. Remaining Time: " & Me.EstRemainingTime
-        Else
-            .lblCaption.Caption = intPercent & "%"
-        End If
 
         .dblDisplayed = .dblValue
 
