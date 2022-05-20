@@ -1836,8 +1836,7 @@ Public Sub StartBuild()
         .Visible = True
         .SetFocus
     End With
-    Log.SetConsole Me.txtLog
-    Set Log.ProgressBar = GetProgressBar
+    Log.SetConsole Me.txtLog, GetProgressBar
     Me.Visible = True
     
     ' Show the status
@@ -1916,8 +1915,7 @@ Public Sub cmdExport_Click()
         .Visible = True
         .SetFocus
     End With
-    Log.SetConsole Me.txtLog
-    Set Log.ProgressBar = GetProgressBar
+    Log.SetConsole Me.txtLog, GetProgressBar
     
     ' Show the status
     SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."

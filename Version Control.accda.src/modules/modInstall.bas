@@ -411,7 +411,7 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Same_Version)
     blnSuccess = InstallVCSAddin
     
     ' Use the newly installed add-in to Export the project to version control.
-    RunExportForCurrentDB
+    VCS.Export
     
     ' Finish with success message if the latest version was installed.
     If blnSuccess Then Debug.Print "Version " & AppVersion & " installed."

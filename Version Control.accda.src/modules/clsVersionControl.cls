@@ -26,7 +26,7 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Public Sub Show()
-    Form_frmVCSMain.Visible = True
+    DoCmd.OpenForm "frmVCSMain"
 End Sub
 
 
@@ -40,7 +40,7 @@ End Sub
 Public Sub ShowOptions()
     ' Force reload of options from current project before opening the form.
     Set modObjects.Options = Nothing
-    Form_frmVCSOptions.Visible = True
+    DoCmd.OpenForm "frmVCSOptions"
 End Sub
 
 
@@ -76,6 +76,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub RunExport(intFilter As eContainerFilter)
+    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     With Form_frmVCSMain
         .intContainerFilter = intFilter
         .Visible = True
@@ -93,10 +94,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Build()
-    With Form_frmVCSMain
-        .Visible = True
-        .cmdBuild_Click
-    End With
+    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+    Form_frmVCSMain.cmdBuild_Click
 End Sub
 
 

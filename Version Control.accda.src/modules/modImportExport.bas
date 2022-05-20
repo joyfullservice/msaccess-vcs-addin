@@ -218,6 +218,9 @@ CleanUp:
     ' Clear references to FileSystemObject and other objects
     Set FSO = Nothing
     Set VCSIndex = Nothing
+    Log.Flush
+    Log.ReleaseConsole
+    Log.Clear
     
 End Sub
 
@@ -532,6 +535,11 @@ CleanUp:
             "Note that some settings may not take effect until this database is reopened.", _
             "A backup of the previous build was saved as '" & FSO.GetFileName(strBackup) & "'.", vbInformation
     End If
+    
+    ' Release object references
+    Log.Flush
+    Log.ReleaseConsole
+    Log.Clear
     
 End Sub
 

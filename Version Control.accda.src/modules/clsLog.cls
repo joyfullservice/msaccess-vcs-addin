@@ -34,7 +34,7 @@ Private m_sngLastUpdate As Single
 ' Procedure : Clear
 ' Author    : Adam Waller
 ' Date      : 4/16/2020
-' Purpose   : Clear the log buffers
+' Purpose   : Clear the log buffers and release object references
 '---------------------------------------------------------------------------------------
 '
 Public Sub Clear()
@@ -226,14 +226,30 @@ End Sub
 ' Procedure : SetConsole
 ' Author    : Adam Waller
 ' Date      : 4/28/2020
-' Purpose   : Set a reference to the text box.
+' Purpose   : Set a reference to the rich text box for output display, and the
+'           : associated progress bar for logging progress.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SetConsole(txtRichText As TextBox)
+Public Sub SetConsole(txtRichText As TextBox, cProg As clsLblProg)
+    Set m_Prog = cProg
     Set m_RichText = txtRichText
     If Not m_RichText Is Nothing Then
         m_RichText.AllowAutoCorrect = False
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReleaseConsole
+' Author    : Adam Waller
+' Date      : 5/5/2022
+' Purpose   : Releases object references to the console form that were created with
+'           : the SetConsole sub.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReleaseConsole()
+    Set m_RichText = Nothing
+    Set m_Prog = Nothing
 End Sub
 
 
