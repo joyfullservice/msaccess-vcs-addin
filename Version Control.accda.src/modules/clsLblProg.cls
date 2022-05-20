@@ -27,7 +27,6 @@ Private Const CompletionFormat As String = "0.00" ' Defines the number of digits
 ' Public properties
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
 Public IncrementSize                    ' Custom size of increments
-Public HideCaption                      ' Optionally hide the percentage label
 
 ' Private properties
 Private Type udtProg
@@ -52,7 +51,6 @@ Private Type udtProg
     dblFullWidth As Double              ' Width of front label at 100%
     sngOffset As Single                 ' Offset for front label
     dblIncrementSize As Double          ' Increment size
-    blnHideCaption As Boolean           ' Show/hide percent complete caption
     objParent As Object                 ' Parent object of back label
     dteStartTime As Date                ' Time of first value change
     blnShowTimeRemain As Boolean        ' Show time on progress bar in addition to Percentage
@@ -71,7 +69,8 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
 ' Procedure : Initialize
 ' Author    : Adam Waller
 ' Date      : 2/17/2021
-' Purpose   : Initialize the progress bar before using it
+' Purpose   : Initialize the progress bar before using it. Include a caption label
+'           : if you want to display the percentage complete after updates.
 '---------------------------------------------------------------------------------------
 '
 #If APPLICATION_NAME = "Microsoft Access" Then
@@ -118,30 +117,22 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         .BackColor = 8388608
         .BackStyle = 1
     End With
-    
-    ' set properties for caption label
-    With this.lblCaption
-        .Left = this.lblBack.Left + 2
-        .Top = this.lblBack.Top + 2
-        .Width = this.lblBack.Width - 4
-        .Height = this.lblBack.Height - 4
-        .TextAlign = 2 'fmTextAlignCenter
-        .TopMargin = this.sngOffset * 2
-        .BackStyle = 0 'fmBackStyleTransparent
-        .Caption = "0%"
-        .Visible = Not this.blnHideCaption
-        .ForeColor = 16777215   ' white
-    End With
-    Update
 
-End Sub
+    ' Passing in a caption label is optional
+    If Not this.lblCaption Is Nothing Then
+        ' set properties for caption label
+        With this.lblCaption
+            .Left = this.lblBack.Left + 2
+            .Top = this.lblBack.Top + 2
+            .Width = this.lblBack.Width - 4
+            .Height = this.lblBack.Height - 4
+            .TextAlign = 2 'fmTextAlignCenter
+            .BackStyle = 0 'fmBackStyleTransparent
+            .Caption = "0%"
+            .ForeColor = 16777215   ' white
+        End With
+    End If
 
-Public Property Get HideCaption() As Boolean
-    HideCaption = this.blnHideCaption
-End Property
-Public Property Let HideCaption(NewVal As Boolean)
-    this.blnHideCaption = NewVal
-End Property
 
 Public Property Get DisplayTimeRemaining() As Boolean
     DisplayTimeRemaining = this.blnShowTimeRemain
@@ -405,6 +396,11 @@ Private Sub Update(Optional ByRef ForceUpdate As Boolean = False)
         End If
 
         .dblDisplayed = .dblValue
+
+        ' Set caption if we are using a caption
+        If Not .lblCaption Is Nothing Then
+            .lblCaption.Caption = intPercent & "%"
+        End If
     End With
     
     ' Use white or black, depending on progress level
