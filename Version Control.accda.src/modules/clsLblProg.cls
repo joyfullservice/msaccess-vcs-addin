@@ -21,9 +21,6 @@ Option Compare Database
 ' object types in early binding.
 #Const APPLICATION_NAME = "Microsoft Access"
 
-Private Const CompletionFormat As String = "0.00" ' Defines the number of digits to display.
-
-
 ' Public properties
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
 
@@ -270,16 +267,16 @@ End Property
 Public Property Get EstRemainingTime() As String
 
     Dim dblSeconds As Double
-    
+
     dblSeconds = DateDiff("s", Now, Me.EstCompletionTime)
     If dblSeconds < 120 Then
-        EstRemainingTime = Format(dblSeconds, CompletionFormat) & " seconds"
+        EstRemainingTime = dblSeconds & " seconds"
     ElseIf dblSeconds < (60 * 120) Then
-        EstRemainingTime = Format(dblSeconds / 60, CompletionFormat) & " minutes"
+        EstRemainingTime = dblSeconds \ 60 & " minutes"
     Else
-        EstRemainingTime = Format(dblSeconds / 3600, CompletionFormat) & " hours"
+        EstRemainingTime = dblSeconds \ 3600 & " hours"
     End If
-    
+
 End Property
 
 
