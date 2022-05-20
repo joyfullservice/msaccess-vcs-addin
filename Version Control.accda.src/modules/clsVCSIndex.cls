@@ -479,9 +479,16 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
     Dim strTempFile As String
     Dim blnCompareTemp As Boolean
     
-    strFile = cItem.SourceFile
+    ' Check for special cases based on component type
+    If cItem.ComponentType = edbTableData Then
+        ' Table data is not considered an export conflict, and should
+        ' always be overwritten.
+        IsExportConflict = False
+        Exit Function
+    End If
     
     ' See if the export file even exists before we worry about conflicts.
+    strFile = cItem.SourceFile
     If FSO.FileExists(strFile) Then
     
         ' Get a hash of the file properties
@@ -515,6 +522,7 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
     ' Compare the content hash of a fresh export to see if it matches the existing file.
     If blnCompareTemp Then
         strTempFile = GetTempFile
+        Log.Add "  Exporting " & cItem.Name, False
         cItem.Export strTempFile
         blnConflict = Not FileContentsMatch(strFile, strTempFile)
         DeleteFile strTempFile
