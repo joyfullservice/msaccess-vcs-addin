@@ -99,11 +99,9 @@ Private this As udtProg
     #End If
         
     ' Set properties for back label
-    With this.lblBack
-        .Visible = True
-        .SpecialEffect = 2  ' sunken. Seems to lose when not visible.
-    End With
-    
+    this.lblBack.SpecialEffect = 2  ' Sunken. Seems to lose when not visible.
+    SetVisibility this.lblBack, True
+
     ' Set properties for front label
     With this.lblFront
         this.dblFullWidth = this.lblBack.Width - (this.sngOffset * 2)
@@ -114,7 +112,6 @@ Private this As udtProg
         .Caption = vbNullString
         .BackColor = 8388608
         .BackStyle = 1
-        .Visible = True
     End With
     
     ' set properties for caption label
@@ -196,13 +193,13 @@ Public Property Let Value(ByVal dblValue As Double)
     
     ' Check visibility
     If Me.Max = 0 Or dblValue = 0 Then
-        this.lblFront.Visible = False
-        this.lblCaption.Visible = False
+        SetVisibility this.lblFront, False
+        SetVisibility this.lblCaption, False
     Else
         ' Ensure controls are visible
-        If Not this.lblBack.Visible Then this.lblBack.Visible = True
-        If Not this.lblFront.Visible Then this.lblFront.Visible = True
-        If Not this.blnHideCaption And Not this.lblCaption.Visible Then this.lblCaption.Visible = True
+        SetVisibility this.lblBack, True
+        SetVisibility this.lblFront, True
+        SetVisibility this.lblCaption, True
     End If
     
     ' Don't allow value to exceed maximum value
@@ -448,6 +445,21 @@ Private Function GetParentFormName(ctlControl As Control) As String
     GetParentFormName = objParent.Name
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetVisibility
+' Author    : Adam Waller
+' Date      : 5/20/2022
+' Purpose   : Set the visibility of the object if it exists and does not match the
+'           : desired visibility setting.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SetVisibility(ctlObject As Control, blnVisible As Boolean)
+    If Not ctlObject Is Nothing Then
+        If ctlObject.Visible <> blnVisible Then ctlObject.Visible = blnVisible
+    End If
+End Sub
 
 
 '---------------------------------------------------------------------------------------
