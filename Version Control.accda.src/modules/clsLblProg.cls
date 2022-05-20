@@ -21,8 +21,11 @@ Option Compare Database
 ' object types in early binding.
 #Const APPLICATION_NAME = "Microsoft Access"
 
+Private Const CompletionFormat As String = "0.00" ' Defines the number of digits to display.
+
+
 ' Public properties
-Public Max As Double                    ' Maximum value of progress bar at 100%
+Private m_Max As Double                 ' Maximum value of progress bar at 100%
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
 Public IncrementSize                    ' Custom size of increments
 Public HideCaption                      ' Optionally hide the percentage label
@@ -48,10 +51,13 @@ Private Type udtProg
     dblDisplayed As Double              ' Displayed value
     dblFullWidth As Double              ' Width of front label at 100%
     sngOffset As Single                 ' Offset for front label
-    dblIncrementSize As Double          ' Icrement size
+    dblIncrementSize As Double          ' Increment size
     blnHideCaption As Boolean           ' Show/hide percent complete caption
     objParent As Object                 ' Parent object of back label
     dteStartTime As Date                ' Time of first value change
+    blnShowTimeRemain As Boolean        ' Show time on progress bar in addition to Percentage
+    blnShowTimeComplete As Boolean      ' Show time of completion (clock time) in addition to percentage.
+                                        ' Only Time remaining OR clock time can be shown; if you turn on one the other will turn off.
 End Type
 Private this As udtProg
 
@@ -63,10 +69,7 @@ Private this As udtProg
 ' Purpose   : Initialize the progress bar before using it
 '---------------------------------------------------------------------------------------
 '
-Public Sub Initialize(BackLabel As Label, Optional FrontLabel As Label, Optional CaptionLabel As Label)
-
-    Dim objParent As Object ' could be a form or tab control
-    Dim frm As Form
+Public Sub Initialize(ByRef BackLabel As Label, ByRef FrontLabel As Label, ByRef CaptionLabel As Label)
     
     Set this.objParent = BackLabel.Parent
     Set this.lblBack = BackLabel
@@ -100,7 +103,7 @@ Public Sub Initialize(BackLabel As Label, Optional FrontLabel As Label, Optional
         .Top = this.lblBack.Top + this.sngOffset
         .Width = 0
         .Height = this.lblBack.Height - (this.sngOffset * 2)
-        .Caption = ""
+        .Caption = vbNullString
         .BackColor = 8388608
         .BackStyle = 1
         .Visible = True
@@ -113,15 +116,53 @@ Public Sub Initialize(BackLabel As Label, Optional FrontLabel As Label, Optional
         .Width = this.lblBack.Width - 4
         .Height = this.lblBack.Height - 4
         .TextAlign = 2 'fmTextAlignCenter
+        .TopMargin = this.sngOffset * 2
         .BackStyle = 0 'fmBackStyleTransparent
         .Caption = "0%"
-        .Visible = Not Me.HideCaption
+        .Visible = Not this.blnHideCaption
         .ForeColor = 16777215   ' white
     End With
+    Update
 
 End Sub
 
+Public Property Get HideCaption() As Boolean
+    HideCaption = this.blnHideCaption
+End Property
+Public Property Let HideCaption(NewVal As Boolean)
+    this.blnHideCaption = NewVal
+End Property
 
+Public Property Get DisplayTimeRemaining() As Boolean
+    DisplayTimeRemaining = this.blnShowTimeRemain
+End Property
+Public Property Let DisplayTimeRemaining(NewVal As Boolean)
+    this.blnShowTimeRemain = NewVal
+    If NewVal Then this.blnShowTimeComplete = False
+End Property
+Public Property Get DisplayTimeComplete() As Boolean
+    DisplayTimeComplete = this.blnShowTimeComplete
+End Property
+Public Property Let DisplayTimeComplete(NewVal As Boolean)
+    this.blnShowTimeComplete = NewVal
+    If NewVal Then this.blnShowTimeRemain = False
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Max Property
+' Author    : hecon5
+' Date      : 5/13/2022
+' Purpose   : Set maximum value for value.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Max() As Double
+    Max = m_Max
+End Property
+Public Property Let Max(NewVal As Double)
+    m_Max = NewVal
+    Update True
+End Property
 '---------------------------------------------------------------------------------------
 ' Procedure : Value
 ' Author    : Adam Waller
@@ -132,7 +173,6 @@ End Sub
 Public Property Get Value() As Double
     Value = this.dblValue
 End Property
-
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Value
@@ -160,6 +200,8 @@ Public Property Let Value(ByVal dblValue As Double)
     ' Don't allow value to exceed maximum value
     If dblValue > Me.Max Then
         this.dblValue = Me.Max
+'    ElseIf Me.Max = 0 Then
+'        this.dblValue = 0
     Else
         ' Update value
         this.dblValue = dblValue
@@ -180,6 +222,14 @@ Public Property Let Value(ByVal dblValue As Double)
 
 End Property
 
+                                      
+Public Property Get IncrementSize() As Double
+    If this.dblIncrementSize <= 0 Then this.dblIncrementSize = 1
+    IncrementSize = this.dblIncrementSize
+End Property
+Public Property Let IncrementSize(NewVal As Double)
+    this.dblIncrementSize = NewVal
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Increment
@@ -195,8 +245,11 @@ Public Sub Increment(Optional dblAmount As Double = 1)
     Dim dblNew As Double
     
     ' Calculate how much to add
-    If dblAmount = 1 And Me.IncrementSize > 0 Then dblAdd = Me.IncrementSize
-    If dblAdd = 0 Then dblAdd = dblAmount
+    If dblAmount = 1 Then
+        dblAdd = Me.IncrementSize
+    Else
+        dblAdd = dblAmount
+    End If
     
     ' Check boundaries
     dblNew = Me.Value + dblAdd
@@ -229,7 +282,7 @@ Public Property Get EstCompletionTime() As Date
             ' Get elapsed seconds
             dblSeconds = DateDiff("s", .dteStartTime, Now)
             ' Calculate remaining seconds
-            dblRemaining = (dblSeconds / .dblValue) * (Me.Max - .dblValue)
+            If .dblValue > 0 Then dblRemaining = (dblSeconds / .dblValue) * (Me.Max - .dblValue)
             ' Convert to completion time
             EstCompletionTime = DateAdd("s", dblRemaining, Now)
         End With
@@ -252,11 +305,11 @@ Public Property Get EstRemainingTime() As String
     
     dblSeconds = DateDiff("s", Now, Me.EstCompletionTime)
     If dblSeconds < 120 Then
-        EstRemainingTime = dblSeconds & " seconds"
+        EstRemainingTime = Format(dblSeconds, CompletionFormat) & " seconds"
     ElseIf dblSeconds < (60 * 120) Then
-        EstRemainingTime = dblSeconds \ 60 & " minutes"
+        EstRemainingTime = Format(dblSeconds / 60, CompletionFormat) & " minutes"
     Else
-        EstRemainingTime = dblSeconds \ 3600 & " hours"
+        EstRemainingTime = Format(dblSeconds / 3600, CompletionFormat) & " hours"
     End If
     
 End Property
@@ -270,7 +323,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Sub Clear()
-    Call Class_Terminate
+    Class_Terminate
 End Sub
 
 
@@ -284,6 +337,7 @@ End Sub
 Public Sub Reset()
     Me.Value = 0
     this.dteStartTime = 0
+    Update True
 End Sub
 
 
@@ -295,11 +349,13 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Hide()
+    On Error Resume Next
     With this
         .lblCaption.Visible = False
         .lblFront.Visible = False
         .lblBack.Visible = False
     End With
+    Err.Clear
 End Sub
 
 
@@ -310,18 +366,33 @@ End Sub
 ' Purpose   : Update the display
 '---------------------------------------------------------------------------------------
 '
-Private Sub Update()
+Private Sub Update(Optional ByRef ForceUpdate As Boolean = False)
 
     Dim intPercent As Integer
     Dim dblWidth As Double
     Static dteLastUpdate As Date
-    
+                                                    
     ' Set size and caption
     With this
-        intPercent = .dblValue * (100 / Me.Max)
-        dblWidth = .dblValue * (.dblFullWidth / Me.Max)
+        If Me.Max = 0 Then
+            .lblFront.Visible = False
+            .lblCaption.Visible = False
+            intPercent = 0
+            dblWidth = 0
+        Else
+            intPercent = .dblValue * (100 / Me.Max)
+            dblWidth = .dblValue * (.dblFullWidth / Me.Max)
+        End If
         .lblFront.Width = dblWidth
-        .lblCaption.Caption = intPercent & "%"
+        
+        If .blnShowTimeComplete Then
+            .lblCaption.Caption = intPercent & "% Est. Completion Time: " & Me.EstCompletionTime
+        ElseIf .blnShowTimeRemain Then
+            .lblCaption.Caption = intPercent & "% Est. Remaining Time: " & Me.EstRemainingTime
+        Else
+            .lblCaption.Caption = intPercent & "%"
+        End If
+
         .dblDisplayed = .dblValue
     End With
     
@@ -338,12 +409,10 @@ Private Sub Update()
     If Me.Smooth Then
         ' Always update display
         DoEvents
-    Else
-        If dteLastUpdate <> Now Then
-            ' Update every second
-            DoEvents
-            dteLastUpdate = Now
-        End If
+    ElseIf (dteLastUpdate <> Now) Or ForceUpdate Then
+        ' Update every second
+        DoEvents
+        dteLastUpdate = Now
     End If
 
 End Sub
@@ -381,10 +450,11 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Terminate()
-
+                                                        
+    Me.Reset
+    Me.Hide
     ' Ignore any errors if object references are no longer valid
     On Error Resume Next
-    
     #If APPLICATION_NAME = "Microsoft Access" Then
         ' Hide front controls
         this.lblFront.Visible = False
@@ -394,6 +464,7 @@ Private Sub Class_Terminate()
         this.objParent.Controls.Remove (mlblFront.Name)
         this.objParent.Controls.Remove (mlblCaption.Name)
     #End If
+    Err.Clear ' Clear any errors, they mean the form closed before the class terminated.
 
 End Sub
-
+                                                      
