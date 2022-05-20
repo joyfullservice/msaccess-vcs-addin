@@ -304,16 +304,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     Log.Active = True
     Perf.StartTiming
     
-    ' Check if we are building the add-in file
-    If FSO.GetFileName(strPath) = CodeProject.Name Then
-        ' When building this add-in file, we should output to the debug
-        ' window instead of the GUI form. (Since we are importing
-        ' a form with the same name as the GUI form.)
-        ShowIDE
-    Else
-        ' Launch the GUI form
-        Form_frmVCSMain.StartBuild
-    End If
+    ' Launch the GUI form
+    Form_frmVCSMain.StartBuild
 
     ' Display the build header.
     DoCmd.Hourglass True
