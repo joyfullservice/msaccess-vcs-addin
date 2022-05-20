@@ -41,9 +41,9 @@ Private Type udtProg
         lblCaption As Access.Label      ' Progress bar caption
     #Else
         ' Generic VBA objects
-        lblBack As Label                ' Existing label for back
-        lblFront As Label               ' Label created for front
-        lblCaption As Label             ' Label created for caption
+        lblBack As MSForms.Label        ' Existing label for back
+        lblFront As MSForms.Label       ' Label created for front
+        lblCaption As MSForms.Label     ' Label created for caption
     #End If
 
     ' Shared private properties
@@ -69,23 +69,31 @@ Private this As udtProg
 ' Purpose   : Initialize the progress bar before using it
 '---------------------------------------------------------------------------------------
 '
-Public Sub Initialize(ByRef BackLabel As Label, ByRef FrontLabel As Label, ByRef CaptionLabel As Label)
-    
+#If APPLICATION_NAME = "Microsoft Access" Then
+    Public Sub Initialize(BackLabel As Label, Optional FrontLabel As Label, Optional CaptionLabel As Label)
+#Else
+    Public Sub Initialize(BackLabel As MSForms.Label, Optional FrontLabel As MSForms.Label, Optional CaptionLabel As MSForms.Label)
+#End If
+
     Set this.objParent = BackLabel.Parent
     Set this.lblBack = BackLabel
-    
+
     #If APPLICATION_NAME = "Microsoft Access" Then
         this.sngOffset = 15
+        ' Verify front label (not optional for Microsoft Access)
+        If FrontLabel Is Nothing Then
+            MsgBox "Missing required front label for progress bar" & vbCrLf & _
+                "This parameter is required when using Microsoft Access.", vbExclamation
+            Exit Sub
+        End If
         ' Use existing controls
         Set this.lblFront = FrontLabel
         Set this.lblCaption = CaptionLabel
     #Else
         this.sngOffset = 1.5
         ' Create front controls dynamically
-        Set this.lblFront = mobjParent.Controls.Add("forms.label.1", "", False)
-        Set this.lblFront = CreateControl(GetParentFormName(BackLabel), acLabel, , BackLabel.Parent.Name)
-        Set this.lblCaption = mobjParent.Controls.Add("forms.label.1", "", False)
-        Set this.lblCaption = CreateControl(GetParentFormName(BackLabel), acLabel, , BackLabel.Parent)
+        Set this.lblFront = this.objParent.Controls.Add("forms.label.1", "", False)
+        Set this.lblCaption = this.objParent.Controls.Add("forms.label.1", "", False)
         ' Refresh display of parent form
         this.objParent.Repaint
     #End If
@@ -461,8 +469,8 @@ Private Sub Class_Terminate()
         this.lblCaption.Visible = False
     #Else
         ' Remove front controls
-        this.objParent.Controls.Remove (mlblFront.Name)
-        this.objParent.Controls.Remove (mlblCaption.Name)
+        this.objParent.Controls.Remove (this.lblFront.Name)
+        this.objParent.Controls.Remove (this.lblCaption.Name)
     #End If
     Err.Clear ' Clear any errors, they mean the form closed before the class terminated.
 
