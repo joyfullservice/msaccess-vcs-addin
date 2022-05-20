@@ -25,7 +25,6 @@ Private Const CompletionFormat As String = "0.00" ' Defines the number of digits
 
 
 ' Public properties
-Private m_Max As Double                 ' Maximum value of progress bar at 100%
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
 Public IncrementSize                    ' Custom size of increments
 Public HideCaption                      ' Optionally hide the percentage label
@@ -48,6 +47,7 @@ Private Type udtProg
 
     ' Shared private properties
     dblValue As Double                  ' Current value of progress bar
+    dblMax As Double                    ' Max value of progress bar
     dblDisplayed As Double              ' Displayed value
     dblFullWidth As Double              ' Width of front label at 100%
     sngOffset As Single                 ' Offset for front label
@@ -163,15 +163,16 @@ End Property
 ' Procedure : Max Property
 ' Author    : hecon5
 ' Date      : 5/13/2022
-' Purpose   : Set maximum value for value.
+' Purpose   : Set maximum value for value. (Reset value and update after changing Max)
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Max() As Double
-    Max = m_Max
+    Max = this.dblMax
 End Property
 Public Property Let Max(NewVal As Double)
-    m_Max = NewVal
-    Update True
+    this.dblMax = NewVal
+    this.dblValue = 0
+    UpdateDisplay True
 End Property
 '---------------------------------------------------------------------------------------
 ' Procedure : Value
