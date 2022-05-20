@@ -10,11 +10,10 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 ' Module    : clsLblProg
 ' Author    : Adam Waller
-' Date      : 4/21/2022
+' Date      : 5/20/2022
 ' Purpose   : Display a progress bar using three labels on a form
 '---------------------------------------------------------------------------------------
 Option Explicit
-Option Compare Database
 
 
 ' Set the application name here to utilize the appropriate
@@ -93,7 +92,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         ' Refresh display of parent form
         this.objParent.Repaint
     #End If
-        
+
     ' Set properties for back label
     this.lblBack.SpecialEffect = 2  ' Sunken. Seems to lose when not visible.
     SetVisibility this.lblBack, True
@@ -125,6 +124,8 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         End With
     End If
 
+    ' Update the display immediately
+    UpdateDisplay True
 
 End Sub
 
@@ -144,6 +145,8 @@ Public Property Let Max(NewVal As Double)
     this.dblValue = 0
     UpdateDisplay True
 End Property
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : Value
 ' Author    : Adam Waller
@@ -154,6 +157,7 @@ End Property
 Public Property Get Value() As Double
     Value = this.dblValue
 End Property
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Value
@@ -166,7 +170,7 @@ End Property
 Public Property Let Value(ByVal dblValue As Double)
 
     Dim dblChange As Double
-    
+
     ' Check visibility
     If Me.Max = 0 Or dblValue = 0 Then
         SetVisibility this.lblFront, False
@@ -177,28 +181,26 @@ Public Property Let Value(ByVal dblValue As Double)
         SetVisibility this.lblFront, True
         SetVisibility this.lblCaption, True
     End If
-    
+
     ' Don't allow value to exceed maximum value
     If dblValue > Me.Max Then
         this.dblValue = Me.Max
-'    ElseIf Me.Max = 0 Then
-'        this.dblValue = 0
     Else
-        ' Update value
+        ' Update value property
         this.dblValue = dblValue
     End If
-    
+
     ' Record start time on first change
     If this.dteStartTime = 0 Then this.dteStartTime = Now
-    
+
     ' Measure change from currently displayed value
     dblChange = Abs(this.dblValue - this.dblDisplayed)
-    
+
     ' Set value and update display if needed.
     If dblChange > 0 And Me.Max > 0 Then
         ' See if we need to update the display
         ' (Normally updated every 1% or each increment if Smooth = True
-        If Me.Smooth Or ((dblChange / Me.Max) > 0.01) Then Update
+        If Me.Smooth Or ((dblChange / Me.Max) > 0.01) Then UpdateDisplay
     End If
 
 End Property
@@ -208,8 +210,8 @@ End Property
 ' Procedure : Increment
 ' Author    : Adam Waller
 ' Date      : 2/17/2021
-' Purpose   : Increment the progress bar, defaulting to custom increment size, then
-'           : passed value, then 1 as default. (Normally used without any argument.)
+' Purpose   : Increment the progress bar by 1, or by a custom amount, if desired.
+'           : (Normally used without any argument.)
 '---------------------------------------------------------------------------------------
 '
 Public Sub Increment(Optional dblAmount As Double = 1)
@@ -233,13 +235,15 @@ End Sub
 ' Date      : 4/21/2022
 ' Purpose   : Return an estimated completion time based on the start date and remaining
 '           : segments. (Simple calculation assuming even increment intervals.)
+'           : Note that the START time is set at the COMPLETION of the first segment,
+'           : so the first segment is not included in the time calculation.
 '---------------------------------------------------------------------------------------
 '
 Public Property Get EstCompletionTime() As Date
 
     Dim dblSeconds As Double
     Dim dblRemaining As Double
-    
+
     If this.dteStartTime = 0 Then
         EstCompletionTime = Now
     Else
@@ -247,12 +251,12 @@ Public Property Get EstCompletionTime() As Date
             ' Get elapsed seconds
             dblSeconds = DateDiff("s", .dteStartTime, Now)
             ' Calculate remaining seconds
-            If .dblValue > 0 Then dblRemaining = (dblSeconds / .dblValue) * (Me.Max - .dblValue)
+            If .dblValue > 1 Then dblRemaining = (dblSeconds / (.dblValue - 1)) * (Me.Max - .dblValue)
             ' Convert to completion time
             EstCompletionTime = DateAdd("s", dblRemaining, Now)
         End With
     End If
-    
+
 End Property
 
 
@@ -300,9 +304,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Reset()
-    Me.Value = 0
     this.dteStartTime = 0
-    Update True
+    Me.Value = 0
+    UpdateDisplay True
 End Sub
 
 
@@ -328,20 +332,20 @@ End Sub
 ' Procedure : Update
 ' Author    : Adam Waller
 ' Date      : 2/17/2021
-' Purpose   : Update the display
+' Purpose   : Update the display with an optional force parameter. (Normally updates
+'           : every second to prevent a performance hit with frequent calls to the
+'           : DoEvents function.)
 '---------------------------------------------------------------------------------------
 '
-Private Sub Update(Optional ByRef ForceUpdate As Boolean = False)
+Private Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
 
     Dim intPercent As Integer
     Dim dblWidth As Double
     Static dteLastUpdate As Date
-                                                    
+
     ' Set size and caption
     With this
-        If Me.Max = 0 Then
-            .lblFront.Visible = False
-            .lblCaption.Visible = False
+        If .dblMax <= 0 Then
             intPercent = 0
             dblWidth = 0
         Else
@@ -350,6 +354,7 @@ Private Sub Update(Optional ByRef ForceUpdate As Boolean = False)
         End If
         .lblFront.Width = dblWidth
 
+        ' Save currently displayed value
         .dblDisplayed = .dblValue
 
         ' Set caption if we are using a caption
@@ -357,7 +362,7 @@ Private Sub Update(Optional ByRef ForceUpdate As Boolean = False)
             .lblCaption.Caption = intPercent & "%"
         End If
     End With
-    
+
     ' Use white or black, depending on progress level
     If Me.Value > (Me.Max / 2) Then
         ' Show white on blue background after 50%
@@ -372,8 +377,8 @@ Private Sub Update(Optional ByRef ForceUpdate As Boolean = False)
         ' Always update display
         RaiseEvent ProgressChange(this.dblValue, intPercent)
         DoEvents
-    ElseIf (dteLastUpdate <> Now) Or ForceUpdate Then
-        ' Update every second
+    ElseIf (dteLastUpdate <> Now) Or blnForceUpdate Then
+        ' Update every second, or when forcing an immediate update
         RaiseEvent ProgressChange(this.dblValue, intPercent)
         DoEvents
         dteLastUpdate = Now
@@ -393,16 +398,16 @@ Private Function GetParentFormName(ctlControl As Control) As String
 
     ' returns the name of the parent form
     Dim objParent As Object
-    
+
     Set objParent = ctlControl
-    
-    Do While Not TypeOf objParent Is Form
+
+    Do While Not TypeOf objParent Is UserForm
        Set objParent = objParent.Parent
     Loop
-    
+
     ' Now we should have the parent form
     GetParentFormName = objParent.Name
-    
+
 End Function
 
 
@@ -429,9 +434,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Terminate()
-                                                        
-    Me.Reset
-    Me.Hide
+
     ' Ignore any errors if object references are no longer valid
     On Error Resume Next
     #If APPLICATION_NAME = "Microsoft Access" Then
@@ -443,7 +446,6 @@ Private Sub Class_Terminate()
         this.objParent.Controls.Remove (this.lblFront.Name)
         this.objParent.Controls.Remove (this.lblCaption.Name)
     #End If
-    Err.Clear ' Clear any errors, they mean the form closed before the class terminated.
+    Err.Clear ' Clear any errors
 
 End Sub
-                                                      
