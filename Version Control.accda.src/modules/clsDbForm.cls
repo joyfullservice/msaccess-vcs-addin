@@ -52,14 +52,29 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
 
     Dim strName As String
+    Dim blnStage As Boolean
     
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
 
     strName = GetObjectNameFromFileName(strFile)
+    
+    ' We can't import a form with the same name as a running form, even though
+    ' it is technically in a different database.
+    If strName = "frmVCSMain" Then
+        If IsLoaded(acForm, "frmVCSMain") Then
+            StageForm Form_frmVCSMain
+            blnStage = True
+        End If
+    End If
+    
+    ' Load the form from the source file
     LoadComponentFromText acForm, strName, strFile, Me
     Set m_Form = CurrentProject.AllForms(strName)
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
+    
+    ' Restore main form if staged
+    If blnStage Then RestoreForm Form_frmVCSMain
     
 End Sub
 
