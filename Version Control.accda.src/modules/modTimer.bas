@@ -12,9 +12,9 @@ Option Explicit
 ' Types of operations to resume
 Public Enum eResumeOperation
     roUnspecified
-    roExportCurrentDatabase
     roFullBuildFromSource
     roLocalizeLibRefs
+    roRibbonCommand
 End Enum
 
 
@@ -34,6 +34,7 @@ Private m_lngTimerID As LongPtr
 Public Sub WinAPITimerCallback()
 
     Dim strFolder As String
+    Dim strParam As String
     
     ' First, make sure we kill the timer!
     KillTimer
@@ -43,11 +44,10 @@ Public Sub WinAPITimerCallback()
     
         Case roUnspecified
             ' Operation type not specified or not found.
-        
-        Case roExportCurrentDatabase
-            ' Launch the code export process. (See modAddIn.RunExportForCurrentDB)
-            ' Only supports exporting all database objects
-            VCS.Export
+
+        Case roRibbonCommand
+            strParam = GetSetting(PROJECT_NAME, "Timer", "RibbonCommand")
+            If strParam <> vbNullString Then HandleRibbonCommand strParam
                 
         Case roFullBuildFromSource
             ' Build from source (Full build)
@@ -83,6 +83,9 @@ Public Sub SetTimer(intOperation As eResumeOperation, Optional strParam As Strin
 
     ' Set any additional parameters here
     Select Case intOperation
+    
+        Case roRibbonCommand
+            SaveSetting PROJECT_NAME, "Timer", "RibbonCommand", strParam
 
         Case roFullBuildFromSource
             ' Save build path

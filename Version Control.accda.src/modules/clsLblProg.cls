@@ -23,9 +23,12 @@ Option Compare Database
 
 Private Const CompletionFormat As String = "0.00" ' Defines the number of digits to display.
 
+
 ' Public properties
 Private m_Max As Double                 ' Maximum value of progress bar at 100%
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
+Public IncrementSize                    ' Custom size of increments
+Public HideCaption                      ' Optionally hide the percentage label
 
 ' Private properties
 Private Type udtProg
@@ -219,6 +222,7 @@ Public Property Let Value(ByVal dblValue As Double)
 
 End Property
 
+                                      
 Public Property Get IncrementSize() As Double
     If this.dblIncrementSize <= 0 Then this.dblIncrementSize = 1
     IncrementSize = this.dblIncrementSize
@@ -367,7 +371,7 @@ Private Sub Update(Optional ByRef ForceUpdate As Boolean = False)
     Dim intPercent As Integer
     Dim dblWidth As Double
     Static dteLastUpdate As Date
-
+                                                    
     ' Set size and caption
     With this
         If Me.Max = 0 Then
@@ -446,6 +450,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Terminate()
+                                                        
     Me.Reset
     Me.Hide
     ' Ignore any errors if object references are no longer valid
@@ -462,3 +467,4 @@ Private Sub Class_Terminate()
     Err.Clear ' Clear any errors, they mean the form closed before the class terminated.
 
 End Sub
+                                                      

@@ -39,9 +39,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     If Not DatabaseFileOpen Then Exit Sub
     
     ' If we are running this from the current database, we need to run it a different
-    ' way to prevent file corruption issues.
+    ' way to prevent file corruption issues. (This really shouldn't happen after v4.02)
     If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
-        RunExportForCurrentDB
+        MsgBox2 "Unabled to Export Running Database", "Please launch the export using the add-in menu or ribbon", , vbExclamation
         Exit Sub
     Else
         ' Close any open database objects.
@@ -218,6 +218,9 @@ CleanUp:
     ' Clear references to FileSystemObject and other objects
     Set FSO = Nothing
     Set VCSIndex = Nothing
+    Log.Flush
+    Log.ReleaseConsole
+    Log.Clear
     
 End Sub
 
@@ -251,13 +254,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     strType = IIf(blnFullBuild, "Build", "Merge")
     
     ' For full builds, close the current database if it is currently open.
-    If blnFullBuild Then
-        If DatabaseFileOpen Then
-            ' Need to close the current database before we can replace it.
-            modTimer.SetTimer roFullBuildFromSource, strSourceFolder
-            CloseCurrentDatabase
-        End If
-    End If
+    If blnFullBuild Then If DatabaseFileOpen Then CloseCurrentDatabase2
     
     ' Make sure we can find the source files
     If Not FolderHasVcsOptionsFile(strSourceFolder) Then
@@ -307,16 +304,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     Log.Active = True
     Perf.StartTiming
     
-    ' Check if we are building the add-in file
-    If FSO.GetFileName(strPath) = CodeProject.Name Then
-        ' When building this add-in file, we should output to the debug
-        ' window instead of the GUI form. (Since we are importing
-        ' a form with the same name as the GUI form.)
-        ShowIDE
-    Else
-        ' Launch the GUI form
-        Form_frmVCSMain.StartBuild
-    End If
+    ' Launch the GUI form
+    Form_frmVCSMain.StartBuild
 
     ' Display the build header.
     DoCmd.Hourglass True
@@ -539,6 +528,11 @@ CleanUp:
             "A backup of the previous build was saved as '" & FSO.GetFileName(strBackup) & "'.", vbInformation
     End If
     
+    ' Release object references
+    Log.Flush
+    Log.ReleaseConsole
+    Log.Clear
+    
 End Sub
 
 
@@ -566,8 +560,8 @@ Private Function GetBackupFileName(strPath As String) As String
     strBase = FSO.GetBaseName(strFile) & cstrSuffix
     strExt = "." & FSO.GetExtensionName(strFile)
     
-    ' Attempt up to 100 versions of the file name. (i.e. Database_VSBackup45.accdb)
-    For intCnt = 1 To 100
+    ' Attempt up to 500 versions of the file name. (i.e. Database_VSBackup45.accdb)
+    For intCnt = 1 To 500
         strTest = strFolder & strBase & strIncrement & strExt
         If FSO.FileExists(strTest) Then
             ' Try next number
@@ -805,63 +799,4 @@ Public Sub InitializeForms(cContainers As Dictionary)
     CatchAny eelError, "Unhandled error while initializing forms", ModuleName & ".InitializeForms"
     
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : RunExportForCurrentDB
-' Author    : Adam Waller
-' Date      : 11/10/2020
-' Purpose   : The primary purpose of this function is to be able to use VBA code to
-'           : initiate a source code export, without currupting the current DB. This
-'           : would typically be used in a build automation environment, or when
-'           : exporting code from the add-in itself.
-'           : To avoid causing file corruption issues, we need to run the export using
-'           : the installed add-in, not the local MSAccessVCS project. In order to do
-'           : this, we need to load the VCS add-in at the application level, then
-'           : make it the active VB Project, then call the export function. When the
-'           : export function is called, we need to complete any running code in the
-'           : current database before export, so we will use a timer callback to
-'           : launch the export cleanly from the installed add-in.
-'           : This sounds complicated, but it is critical that we don't attempt to
-'           : export code from a module that is currently running, or it may corrupt
-'           : the file and cause Access to crash the next time the file is opened.
-'           : (This can be repaired by rebuilding from source, but let's work to
-'           :  prevent the problem in the first place.)
-'---------------------------------------------------------------------------------------
-'
-Public Function RunExportForCurrentDB()
-
-    Dim projAddIn As VBProject
-    
-    ' Make sure the add-in is loaded.
-    If Not AddinLoaded Then LoadVCSAddIn
-
-    ' When exporting code from the add-in project itself, it gets a little
-    ' tricky because both the add-in and the currentdb have the same VBProject name.
-    ' This means we can't just call `Run "MSAccessVCS.*" because it will run in
-    ' the local project instead of the add-in. To pull this off, we will temporarily
-    ' change the project name of the add-in so we can call it as distinct from the
-    ' current project.
-    Set projAddIn = GetAddInProject
-    If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
-        ' When this is run from the CurrentDB, we should rename the add-in project,
-        ' then call it again using the renamed project to ensure we are running it
-        ' from the add-in.
-        projAddIn.Name = "MSAccessVCS-Lib"
-        Run "MSAccessVCS-Lib.RunExportForCurrentDB"
-    Else
-        ' Reset project name if needed
-        With projAddIn
-            ' Technically, changes in the add-in will not be saved anyway, so this
-            ' may not be needed, but just in case we refer to this project by name
-            ' anywhere else in the code, we will restore the original name before
-            ' moving on to the actual export.
-            If .Name = "MSAccessVCS-Lib" Then .Name = PROJECT_NAME
-        End With
-        ' Call export function with an API callback.
-        modTimer.SetTimer roExportCurrentDatabase
-    End If
-
-End Function
-
 

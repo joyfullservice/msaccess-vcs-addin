@@ -220,6 +220,7 @@ End Function
 Public Function IsLoaded(intType As AcObjectType, strName As String, Optional blnAllowDesignView As Boolean = False) As Boolean
 
     Dim frm As Form
+    Dim rpt As Report
     Dim ctl As Control
     
     If SysCmd(acSysCmdGetObjectState, intType, strName) <> adStateClosed Then
@@ -227,10 +228,23 @@ Public Function IsLoaded(intType As AcObjectType, strName As String, Optional bl
             IsLoaded = True
         Else
             Select Case intType
-                Case acReport
-                    IsLoaded = Reports(strName).CurrentView <> acCurViewDesign
                 Case acForm
-                    IsLoaded = Forms(strName).CurrentView <> acCurViewDesign
+                    ' Loop through forms collection, since this includes instances
+                    ' of add-in forms that cannot be referenced directly by name.
+                    For Each frm In Forms
+                        If StrComp(frm.Name, strName, vbTextCompare) = 0 Then
+                            IsLoaded = frm.CurrentView <> acCurViewDesign
+                            Exit For
+                        End If
+                    Next frm
+                Case acReport
+                    ' Loop through reports, looking for matching name.
+                    For Each rpt In Reports
+                        If StrComp(rpt.Name, strName, vbTextCompare) = 0 Then
+                            IsLoaded = rpt.CurrentView <> acCurViewDesign
+                            Exit For
+                        End If
+                    Next rpt
                 Case acServerView
                     IsLoaded = CurrentData.AllViews(strName).CurrentView <> acCurViewDesign
                 Case acStoredProcedure

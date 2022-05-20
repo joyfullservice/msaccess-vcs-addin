@@ -378,7 +378,7 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
         ' Check export folder settings
         If Options.ExportFolder = vbNullString Then
             ' Default setting, using parent folder of source directory
-            GetOriginalDbFullPathFromSource = strFolder & PathSep & ".." & PathSep & strFile
+            GetOriginalDbFullPathFromSource = strExportFolder & PathSep & ".." & PathSep & strFile
         Else
             ' Check to see if we are using an absolute export path  (\\* or *:*)
             If StartsWith(Options.ExportFolder, PathSep & PathSep) _
