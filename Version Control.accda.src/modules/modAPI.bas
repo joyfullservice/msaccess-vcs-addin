@@ -9,7 +9,7 @@ Option Compare Database
 Option Explicit
 
 ' Note, some enums are listed here when they are directly exposed
-' through the Options class. (Allowing them to be used externally)
+' through the Options and VCS classes. (Allowing them to be used externally)
 
 ' Formats used when exporting table data.
 Public Enum eTableDataExportFormat
@@ -43,6 +43,10 @@ End Enum
 '
 Public Function HandleRibbonCommand(strCommand As String) As Boolean
 
+    ' Make sure we are not attempting to run this from the current database when making
+    ' changes to the add-in itself. (It will re-run the command through the add-in.)
+    If RunningOnLocal(strCommand) Then Exit Function
+    
     ' If a function is not found, this will throw an error. It is up to the ribbon
     ' designer to ensure that the control IDs match public procedures in the VCS
     ' (clsVersionControl) class module. Additional parameters are not supported.
@@ -65,6 +69,55 @@ End Function
 '
 Public Function VCS() As clsVersionControl
     Set VCS = New clsVersionControl
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunningOnLocal
+' Author    : Adam Waller
+' Date      : 5/18/2022
+' Purpose   : Returns true if the code is running in the current database instead of
+'           : the add-in database.
+'---------------------------------------------------------------------------------------
+'
+Private Function RunningOnLocal(strCommand As String) As Boolean
+    
+    Dim projAddIn As VBProject
+    
+    ' Make sure the add-in is loaded.
+    If Not AddinLoaded Then LoadVCSAddIn
+
+    ' When running code from the add-in project itself, it gets a little
+    ' tricky because both the add-in and the currentdb have the same VBProject name.
+    ' This means we can't just call `Run "MSAccessVCS.*" because it will run in
+    ' the local project instead of the add-in. To pull this off, we will temporarily
+    ' change the project name of the add-in so we can call it as distinct from the
+    ' current project.
+    Set projAddIn = GetAddInProject
+    If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
+        ' When this is run from the CurrentDB, we should rename the add-in project,
+        ' then call it again using the renamed project to ensure we are running it
+        ' from the add-in.
+        projAddIn.Name = "MSAccessVCS-Lib"
+        RunningOnLocal = True
+        Run "MSAccessVCS-Lib.HandleRibbonCommand", strCommand
+    Else
+        ' Reset project name if needed
+        With projAddIn
+            ' Technically, changes in the add-in will not be saved anyway, so this
+            ' may not be needed, but just in case we refer to this project by name
+            ' anywhere else in the code, we will restore the original name before
+            ' passing in the
+            If .Name = "MSAccessVCS-Lib" Then
+                .Name = PROJECT_NAME
+                ' User a timer to initiate the command again in the add-in database,
+                ' giving the calling code a moment to close and release references.
+                RunningOnLocal = True
+                SetTimer roRibbonCommand, strCommand
+            End If
+        End With
+    End If
+    
 End Function
 
 

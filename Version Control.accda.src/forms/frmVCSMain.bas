@@ -1798,12 +1798,7 @@ Public Sub cmdBuild_Click()
                 If FolderHasVcsOptionsFile(.SelectedItems(1)) Then
                     ' Has source files
                     strFolder = .SelectedItems(1) & PathSep
-                    ' Relaunch build if building the add-in from source.
-                    If FSO.GetFileName(strFolder) = "Version Control.accda.src" Then
-                        DoCmd.Close acForm, Me.Name
-                        modTimer.SetTimer roFullBuildFromSource, strFolder
-                        CloseCurrentDatabase
-                    End If
+
                 Else
                     MsgBox2 "Source files not found", "Required source files were not found in this folder.", _
                         "You selected: " & .SelectedItems(1), vbExclamation
@@ -1817,7 +1812,7 @@ Public Sub cmdBuild_Click()
             End If
         End With
     End If
-
+    
     ' Build using selected folder
     Build strFolder, chkFullBuild
     
