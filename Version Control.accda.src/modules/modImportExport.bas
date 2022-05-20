@@ -560,8 +560,8 @@ Private Function GetBackupFileName(strPath As String) As String
     strBase = FSO.GetBaseName(strFile) & cstrSuffix
     strExt = "." & FSO.GetExtensionName(strFile)
     
-    ' Attempt up to 100 versions of the file name. (i.e. Database_VSBackup45.accdb)
-    For intCnt = 1 To 100
+    ' Attempt up to 500 versions of the file name. (i.e. Database_VSBackup45.accdb)
+    For intCnt = 1 To 500
         strTest = strFolder & strBase & strIncrement & strExt
         If FSO.FileExists(strTest) Then
             ' Try next number
