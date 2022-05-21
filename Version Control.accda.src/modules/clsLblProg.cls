@@ -65,7 +65,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
 '---------------------------------------------------------------------------------------
 '
 #If APPLICATION_NAME = "Microsoft Access" Then
-    Public Sub Initialize(BackLabel As Label, Optional FrontLabel As Label, Optional CaptionLabel As Label)
+    Public Sub Initialize(BackLabel As Label, FrontLabel As Label, Optional CaptionLabel As Label)
 #Else
     Public Sub Initialize(BackLabel As MSForms.Label, Optional FrontLabel As MSForms.Label, Optional CaptionLabel As MSForms.Label)
 #End If
