@@ -276,9 +276,9 @@ Public Property Get EstRemainingTime() As String
     Dim dblSeconds As Double
 
     dblSeconds = DateDiff("s", Now, Me.EstCompletionTime)
-    If dblSeconds < 120 Then
+    If dblSeconds < 120 Then ' Less than two minutes
         EstRemainingTime = dblSeconds & " seconds"
-    ElseIf dblSeconds < (60 * 120) Then
+    ElseIf dblSeconds < (60 * 120) Then ' Less than 2 hours
         EstRemainingTime = dblSeconds \ 60 & " minutes"
     Else
         EstRemainingTime = dblSeconds \ 3600 & " hours"
