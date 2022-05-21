@@ -20,6 +20,8 @@ Option Explicit
 ' object types in early binding.
 #Const APPLICATION_NAME = "Microsoft Access"
 
+Private Const lngBarColorDefault As Long = 8388608 ' Default progress bar color (Navy Blue). 
+
 ' Public properties
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
 
@@ -65,9 +67,14 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
 '---------------------------------------------------------------------------------------
 '
 #If APPLICATION_NAME = "Microsoft Access" Then
-    Public Sub Initialize(BackLabel As Label, FrontLabel As Label, Optional CaptionLabel As Label)
+    Public Sub Initialize(BackLabel As Label, FrontLabel As Label _
+    			, Optional CaptionLabel As Label _
+    			, Optional BarColor As Long = lngBarColorDefault)
 #Else
-    Public Sub Initialize(BackLabel As MSForms.Label, Optional FrontLabel As MSForms.Label, Optional CaptionLabel As MSForms.Label)
+    Public Sub Initialize(BackLabel As MSForms.Label _
+    			, Optional FrontLabel As MSForms.Label _
+			, Optional CaptionLabel As MSForms.Label _
+			, Optional lngBarColorIn As Long = lngBarColorDefault)
 #End If
 
     Set this.objParent = BackLabel.Parent
@@ -105,7 +112,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         .Width = 0
         .Height = this.lblBack.Height - (this.sngOffset * 2)
         .Caption = vbNullString
-        .BackColor = 8388608
+        .BackColor = lngBarColorIn
         .BackStyle = 1
     End With
 
