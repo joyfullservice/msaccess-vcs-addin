@@ -118,6 +118,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
             .Width = this.lblBack.Width - 4
             .Height = this.lblBack.Height - 4
             .TextAlign = 2 'fmTextAlignCenter
+            .TopMargin = this.sngOffset * 2
             .BackStyle = 0 'fmBackStyleTransparent
             .Caption = "0%"
             .ForeColor = 16777215   ' white
