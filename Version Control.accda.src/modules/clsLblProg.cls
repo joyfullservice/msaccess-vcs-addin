@@ -47,8 +47,12 @@ Private Type udtProg
     dblDisplayed As Double              ' Displayed value
     dblFullWidth As Double              ' Width of front label at 100%
     sngOffset As Single                 ' Offset for front label
+    blnHideCaption As Boolean           ' Show/hide percent complete caption
     objParent As Object                 ' Parent object of back label
     dteStartTime As Date                ' Time of first value change
+    blnShowTimeRemain As Boolean        ' Show time on progress bar in addition to Percentage
+    blnShowTimeComplete As Boolean      ' Show time of completion (clock time) in addition to percentage.
+                                        ' Only Time remaining OR clock time can be shown; if you turn on one the other will turn off.
 End Type
 Private this As udtProg
 
@@ -136,6 +140,28 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
     UpdateDisplay True
 
 End Sub
+
+Public Property Get HideCaption() As Boolean
+    HideCaption = this.blnHideCaption
+End Property
+Public Property Let HideCaption(NewVal As Boolean)
+    this.blnHideCaption = NewVal
+End Property
+
+Public Property Get DisplayTimeRemaining() As Boolean
+    DisplayTimeRemaining = this.blnShowTimeRemain
+End Property
+Public Property Let DisplayTimeRemaining(NewVal As Boolean)
+    this.blnShowTimeRemain = NewVal
+    If NewVal Then this.blnShowTimeComplete = False
+End Property
+Public Property Get DisplayTimeComplete() As Boolean
+    DisplayTimeComplete = this.blnShowTimeComplete
+End Property
+Public Property Let DisplayTimeComplete(NewVal As Boolean)
+    this.blnShowTimeComplete = NewVal
+    If NewVal Then this.blnShowTimeRemain = False
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -369,8 +395,17 @@ Private Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
 
         ' Set caption if we are using a caption
         If Not .lblCaption Is Nothing Then
-            .lblCaption.Caption = intPercent & "%"
-        End If
+            If .blnHideCaption Then
+                .lblCaption.Caption = vbNullString
+	        ElseIf .blnShowTimeComplete Then
+	            .lblCaption.Caption = intPercent & "% Est. Completion Time: " & Me.EstCompletionTime
+	        ElseIf .blnShowTimeRemain Then
+	            .lblCaption.Caption = intPercent & "% Est. Remaining Time: " & Me.EstRemainingTime
+	        Else
+	            .lblCaption.Caption = intPercent & "%"
+	        End If
+            SetVisibility .lblCaption, Not .blnHideCaption
+	    End If
     End With
 
     ' Use white or black, depending on progress level
