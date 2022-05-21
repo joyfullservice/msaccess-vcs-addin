@@ -211,13 +211,16 @@ End Property
 ' Author    : Adam Waller
 ' Date      : 2/17/2021
 ' Purpose   : Increment the progress bar by 1, or by a custom amount, if desired.
-'           : (Normally used without any argument.)
+'           : Normally used without arguments.
 '---------------------------------------------------------------------------------------
 '
 Public Sub Increment(Optional dblAmount As Double = 1)
 
     Dim dblNew As Double
 
+    ' If incrementing by zero, cancel doing anything.
+    If dblAmount = 0 Then Exit Sub
+    
     ' Check boundaries
     dblNew = Me.Value + dblAmount
     If dblNew > Me.Max Then dblNew = Me.Max
