@@ -47,7 +47,8 @@ Private Type udtProg
     dblDisplayed As Double              ' Displayed value
     dblFullWidth As Double              ' Width of front label at 100%
     sngOffset As Single                 ' Offset for front label
-    blnHideCaption As Boolean           ' Show/hide percent complete caption
+    blnCaptionVisible As Boolean        ' Show/hide percent complete caption
+    strCustomCaption As String          ' Custom Caption additional text
     objParent As Object                 ' Parent object of back label
     dteStartTime As Date                ' Time of first value change
     blnShowTimeRemain As Boolean        ' Show time on progress bar in addition to Percentage
@@ -140,11 +141,38 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
 
 End Sub
 
-Public Property Get HideCaption() As Boolean
-    HideCaption = this.blnHideCaption
+Public Property Get BarColor As Long
+    BarColor = this.lblFront.BackColor
 End Property
-Public Property Let HideCaption(NewVal As Boolean)
-    this.blnHideCaption = NewVal
+Public Property Let BarColor(NewVal As Long)
+    this.lblFront.BackColor = NewVal
+End Property
+
+Public Property Get Caption As String
+    Caption = this.strCustomCaption
+    If Not .blnCaptionVisible Then
+        Caption = vbNullString
+    ElseIf .blnShowTimeComplete Then
+        Caption = "Est. Completion Time: " & Me.EstCompletionTime & vbNewLine & .strCustomCaption
+    ElseIf .blnShowTimeRemain Then
+        Caption = "Est. Remaining Time: " & Me.EstRemainingTime & vbNewLine & .strCustomCaption
+    Else 
+        Caption = .strCustomCaption
+    End If
+End Property
+Public Property Let Caption (NewVal As String)
+    If this.strCustomCaption <> NewVal Then
+        If NewVal Then HideCaption = Not NewVal
+        this.strCustomCaption = NewVal
+        UpdateDisplay True
+    End If
+End Property
+
+Public Property Get CaptionVisible() As Boolean
+    CaptionVisible = this.blnCaptionVisible
+End Property
+Public Property Let CaptionVisible(NewVal As Boolean)
+    this.blnCaptionVisible = NewVal
 End Property
 
 Public Property Get DisplayTimeRemaining() As Boolean
@@ -341,6 +369,7 @@ End Sub
 Public Sub Reset()
     this.dteStartTime = 0
     Me.Value = 0
+    this.strCustomCaption = vbNullString
     UpdateDisplay True
 End Sub
 
@@ -376,6 +405,7 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
 
     Dim intPercent As Integer
     Dim dblWidth As Double
+
     Static dteLastUpdate As Date
 
     ' Set size and caption
@@ -394,16 +424,8 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
 
         ' Set caption if we are using a caption
         If Not .lblCaption Is Nothing Then
-            If .blnHideCaption Then
-                .lblCaption.Caption = vbNullString
-	        ElseIf .blnShowTimeComplete Then
-	            .lblCaption.Caption = intPercent & "% Est. Completion Time: " & Me.EstCompletionTime
-	        ElseIf .blnShowTimeRemain Then
-	            .lblCaption.Caption = intPercent & "% Est. Remaining Time: " & Me.EstRemainingTime
-	        Else
-	            .lblCaption.Caption = intPercent & "%"
-	        End If
-            SetVisibility .lblCaption, Not .blnHideCaption
+            .lblCaption.Caption = Me.Caption
+            SetVisibility .lblCaption, .blnCaptionVisible
 	    End If
     End With
 
