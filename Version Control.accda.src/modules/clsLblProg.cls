@@ -71,14 +71,15 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
 '---------------------------------------------------------------------------------------
 '
 #If APPLICATION_NAME = "Microsoft Access" Then
-    Public Sub Initialize(BackLabel As Label, FrontLabel As Label _
-    			, Optional CaptionLabel As Label _
-    			, Optional lngBarColorIn As Long = lngBarColorDefault)
+    Public Sub Initialize(BackLabel As Label _ 
+                        , FrontLabel As Label _
+                        , Optional CaptionLabel As Label _
+                        , Optional lngBarColorIn As Long = lngBarColorDefault)
 #Else
     Public Sub Initialize(BackLabel As MSForms.Label _
-    			, Optional FrontLabel As MSForms.Label _
-			, Optional CaptionLabel As MSForms.Label _
-			, Optional lngBarColorIn As Long = lngBarColorDefault)
+                        , Optional FrontLabel As MSForms.Label _
+                        , Optional CaptionLabel As MSForms.Label _
+                        , Optional lngBarColorIn As Long = lngBarColorDefault)
 #End If
 
     Set this.objParent = BackLabel.Parent
