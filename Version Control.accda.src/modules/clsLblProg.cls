@@ -20,7 +20,7 @@ Option Explicit
 ' object types in early binding.
 #Const APPLICATION_NAME = "Microsoft Access"
 
-Private Const lngBarColorDefault As Long = 8388608 ' Default progress bar color (Navy Blue). 
+Private Const lngBarColorDefault As Long = 8388608 ' Default progress bar color (Navy Blue).
 
 ' Public properties
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
@@ -72,7 +72,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
 '---------------------------------------------------------------------------------------
 '
 #If APPLICATION_NAME = "Microsoft Access" Then
-    Public Sub Initialize(BackLabel As Label _ 
+    Public Sub Initialize(BackLabel As Label _
                         , FrontLabel As Label _
                         , Optional CaptionLabel As Label _
                         , Optional lngBarColorIn As Long = lngBarColorDefault)
@@ -141,14 +141,14 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
 
 End Sub
 
-Public Property Get BarColor As Long
+Public Property Get BarColor() As Long
     BarColor = this.lblFront.BackColor
 End Property
 Public Property Let BarColor(NewVal As Long)
     this.lblFront.BackColor = NewVal
 End Property
 
-Public Property Get Caption As String
+Public Property Get Caption() As String
     With this
         If Not .blnCaptionVisible Then
             Caption = vbNullString
@@ -156,12 +156,12 @@ Public Property Get Caption As String
             Caption = "Est. Completion Time: " & Me.EstCompletionTime & vbNewLine & .strCustomCaption
         ElseIf .blnShowTimeRemain Then
             Caption = "Est. Remaining Time: " & Me.EstRemainingTime & vbNewLine & .strCustomCaption
-        Else 
+        Else
             Caption = .strCustomCaption
         End If
     End With
 End Property
-Public Property Let Caption (NewVal As String)
+Public Property Let Caption(NewVal As String)
     With this
         If .strCustomCaption <> NewVal Then
             .strCustomCaption = NewVal
@@ -177,9 +177,9 @@ Public Property Get CaptionVisible() As Boolean
 End Property
 Public Property Let CaptionVisible(NewVal As Boolean)
     With this
-        If .blnCaptionVisible <> NewVal Then 
+        If .blnCaptionVisible <> NewVal Then
             .blnCaptionVisible = NewVal
-            If Not .lblCaption Is Nothing Then 
+            If Not .lblCaption Is Nothing Then
                 .lblCaption.Caption = Me.Caption
                 SetVisibility .lblCaption, .blnCaptionVisible
             Else
@@ -437,7 +437,7 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
         If Not .lblCaption Is Nothing Then
             .lblCaption.Caption = Me.Caption
             SetVisibility .lblCaption, .blnCaptionVisible
-	    End If
+        End If
     End With
 
     ' Use DoEvents to repaint display
@@ -520,3 +520,5 @@ Private Sub Class_Terminate()
     Err.Clear ' Clear any errors
 
 End Sub
+
+
