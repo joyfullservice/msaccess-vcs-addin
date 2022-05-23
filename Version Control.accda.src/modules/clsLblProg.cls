@@ -468,8 +468,11 @@ Private Function GetParentFormName(ctlControl As Control) As String
     Dim objParent As Object
 
     Set objParent = ctlControl
-
+#If APPLICATION_NAME = "Microsoft Access" Then
+    Do While Not TypeOf objParent Is Form
+#Else
     Do While Not TypeOf objParent Is UserForm
+#End If
        Set objParent = objParent.Parent
     Loop
 
