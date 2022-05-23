@@ -161,18 +161,27 @@ Public Property Get Caption As String
     End If
 End Property
 Public Property Let Caption (NewVal As String)
-    If this.strCustomCaption <> NewVal Then
-        If NewVal Then HideCaption = Not NewVal
-        this.strCustomCaption = NewVal
-        UpdateDisplay True
-    End If
+    With this
+        If .strCustomCaption <> NewVal Then
+            .strCustomCaption = NewVal
+            .lblCaption.Caption = Me.Caption
+            ' Turn on the caption if it was off AND you're not passing in an empty string.
+            If NewVal <> vbNullString And Not .blnCaptionVisible Then CaptionVisible True
+        End If
+    End With
 End Property
 
 Public Property Get CaptionVisible() As Boolean
     CaptionVisible = this.blnCaptionVisible
 End Property
 Public Property Let CaptionVisible(NewVal As Boolean)
-    this.blnCaptionVisible = NewVal
+    With this
+        If .blnCaptionVisible <> NewVal Then 
+            .blnCaptionVisible = NewVal
+            .lblCaption.Caption = Me.Caption
+            SetVisibility .lblCaption, .blnCaptionVisible
+        End If
+    End With
 End Property
 
 Public Property Get DisplayTimeRemaining() As Boolean
