@@ -374,7 +374,7 @@ End Sub
 '           : DoEvents function.)
 '---------------------------------------------------------------------------------------
 '
-Private Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
+Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
 
     Dim intPercent As Integer
     Dim dblWidth As Double
@@ -408,15 +408,6 @@ Private Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
             SetVisibility .lblCaption, Not .blnHideCaption
 	    End If
     End With
-
-    ' Use white or black, depending on progress level
-    If Me.Value > (Me.Max / 2) Then
-        ' Show white on blue background after 50%
-        this.lblCaption.ForeColor = 16777215
-    Else
-        ' Show black on grey background
-        this.lblCaption.ForeColor = 0
-    End If
 
     ' Use DoEvents to repaint display
     If Me.Smooth Then
