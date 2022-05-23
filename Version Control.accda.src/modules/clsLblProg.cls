@@ -470,14 +470,17 @@ Private Function GetParentFormName(ctlControl As Control) As String
 
     ' returns the name of the parent form
     Dim objParent As Object
-
+    Dim lngRunCount As Long
+    
     Set objParent = ctlControl
+
 #If APPLICATION_NAME = "Microsoft Access" Then
-    Do While Not TypeOf objParent Is Form And Not TypeOf ctlControl Is Form
+    Do While Not TypeOf objParent Is Form And lngRunCount < 100
 #Else
     Do While Not TypeOf objParent Is UserForm
 #End If
-       Set objParent = objParent.Parent
+        lngRunCount = lngRunCount + 1 
+        Set objParent = objParent.Parent
     Loop
 
     ' Now we should have the parent form
