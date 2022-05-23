@@ -125,6 +125,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
     ' Passing in a caption label is optional
     If Not this.lblCaption Is Nothing Then
         ' set properties for caption label
+        this.blnCaptionVisible = True ' Turn this on as needed.
         With this.lblCaption ' Caption goes below progress bar.
             .Left = this.lblBack.Left + 2
             .Top = this.lblBack.Top + this.lblBack.Height + 2
