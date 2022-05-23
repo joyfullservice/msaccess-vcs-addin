@@ -127,7 +127,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         ' set properties for caption label
         With this.lblCaption ' Caption goes below progress bar.
             .Left = this.lblBack.Left + 2
-            .Top = this.lblBack.Bottom + 2
+            .Top = this.lblBack.Top + this.lblBack.Height + 2
             .Width = this.lblBack.Width - 4
             .Height = (this.lblBack.Height - 4) * 2 ' Two lines of text should be shown
             .TextAlign = 1 ' fmTextAlignLeft
