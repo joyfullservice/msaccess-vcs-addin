@@ -51,8 +51,8 @@ Private Type udtProg
     strCustomCaption As String          ' Custom Caption additional text
     objParent As Object                 ' Parent object of back label
     dteStartTime As Date                ' Time of first value change
-    blnShowTimeRemain As Boolean        ' Show time on progress bar in addition to Percentage
-    blnShowTimeComplete As Boolean      ' Show time of completion (clock time) in addition to percentage.
+    blnShowTimeRemain As Boolean        ' Show time on caption
+    blnShowTimeComplete As Boolean      ' Show time of completion (clock time)
                                         ' Only Time remaining OR clock time can be shown; if you turn on one the other will turn off.
 End Type
 Private this As udtProg
@@ -255,7 +255,7 @@ Public Property Let Value(ByVal dblValue As Double)
         ' Ensure controls are visible
         SetVisibility this.lblBack, True
         SetVisibility this.lblFront, True
-        SetVisibility this.lblCaption, True
+        SetVisibility this.lblCaption, Me.CaptionVisible
     End If
 
     ' Don't allow value to exceed maximum value
