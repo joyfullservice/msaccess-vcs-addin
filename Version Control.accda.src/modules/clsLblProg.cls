@@ -391,13 +391,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Hide()
-    On Error Resume Next
-    With this
-        .lblCaption.Visible = False
-        .lblFront.Visible = False
-        .lblBack.Visible = False
-    End With
-    Err.Clear
+    SetVisibility this.lblBack, False
+    SetVisibility this.lblFront, False
+    SetVisibility this.lblCaption, False
 End Sub
 
 
