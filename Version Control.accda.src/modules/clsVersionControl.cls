@@ -195,6 +195,19 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : LocalizeLibraryReferences
+' Author    : Adam Waller
+' Date      : 5/4/2022
+' Purpose   : Localize Access database libraries to files in same folder as the
+'           : current database.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LocalizeLibraryReferences()
+    modLibReference.LocalizeLibraryReferences
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Version
 ' Author    : Adam Waller
 ' Date      : 1/13/2021

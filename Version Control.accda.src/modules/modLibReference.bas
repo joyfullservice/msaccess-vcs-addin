@@ -37,8 +37,10 @@ Private Declare PtrSafe Sub keybd_event Lib "user32" (ByVal bteVK As Byte, ByVal
 Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
 
     Dim strPath As String
+    Dim strFolder As String
     Dim dRefs As Dictionary
     Dim varKey As Variant
+    Dim frm As Form_frmVCSMain
     Dim oApp As Access.Application
     
     ' Look up the references from the current database
@@ -56,9 +58,12 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
     ' Reset the log file
     Log.Clear
     strPath = CurrentProject.FullName
+    strFolder = CurrentProject.Path & PathSep
 
     ' Use the main form to display progress
-    With Form_frmVCSMain
+    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+    Set frm = Form_frmVCSMain   ' Connect to hidden instance
+    With frm
     
         ' Prepare the UI screen
         .cmdClose.SetFocus
@@ -69,9 +74,7 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
             .Visible = True
             .SetFocus
         End With
-        Log.SetConsole .txtLog
-        Set Log.ProgressBar = .GetProgressBar
-        .Visible = True
+        Log.SetConsole .txtLog, .GetProgressBar
 
         ' Show the status
         .SetStatusText "Running...", "Localizing References", _
@@ -79,35 +82,40 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
         Log.Add "Fixing " & dRefs("RefCount") & " references in " & dRefs("ProjCount") & " databases. " & _
             "This may take several seconds to complete, so please be patient."
         Log.Spacer
-    
-        ' Loop through databases
-        For Each varKey In dRefs.Keys
-            Select Case varKey
-                Case "ProjCount", "RefCount"
-                Case Else
-                    Log.Add FSO.GetFileName(varKey)
-                    ShiftOpenDatabase CStr(varKey), True
-                    FixReferences dRefs(varKey)
-            End Select
-        Next varKey
-
+        .Visible = True
     End With
     
+    ' Loop through databases
+    For Each varKey In dRefs.Keys
+        Select Case varKey
+            Case "ProjCount", "RefCount"
+            Case Else
+                Log.Add FSO.GetFileName(varKey)
+                ShiftOpenDatabase strFolder & varKey, True, frm
+                FixReferences dRefs(varKey)
+        End Select
+    Next varKey
+    Log.Spacer
+
     ' Reopen the original database, if it is not already open
     If CurrentProject.FullName <> strPath Then
         Log.Add "Opening original database..."
-        ShiftOpenDatabase strPath, False
+        Log.Flush
+        ShiftOpenDatabase strPath, False, frm
         DoEvents
     End If
     
+    Log.Spacer
     Log.Add "Operation Complete", , , , True
     
     ' Save the log file
     Perf.EndTiming
     With Log
+        .Flush
         .Add vbCrLf & Perf.GetReports, False
         .SaveFile FSO.BuildPath(Options.GetExportFolder, "References.log")
         .Active = False
+        .Clear
     End With
     
 End Sub
@@ -179,16 +187,16 @@ Public Function GetReferencesDictionary() As Dictionary
                 ' We might have multiple VB projects with the same name, but
                 ' pointing to different locations. Add ALL broken references
                 ' since we don't know which file has the broken reference.
-                If dProjects.Exists(strPath) Then
+                If dProjects.Exists(strFile) Then
                     For Each varKey In dRefs.Keys
-                        If Not dProjects(strPath).Exists(varKey) Then
+                        If Not dProjects(strFile).Exists(varKey) Then
                             dProjects(strPath).Add varKey, dRefs(varKey)
                             dProjects("RefCount") = dProjects("RefCount") + 1
                         End If
                     Next varKey
                 Else
                     ' Add database and broken references
-                    dProjects.Add strPath, dRefs
+                    dProjects.Add strFile, dRefs
                     dProjects("ProjCount") = dProjects("ProjCount") + 1
                     dProjects("RefCount") = dProjects("RefCount") + dRefs.Count
                 End If
@@ -230,7 +238,7 @@ Private Sub FixReferences(dProject As Dictionary)
             If colExisting.Count = 0 Then
                 ' Only need to remove and add the ones at and after
                 ' the point where we find the first broken one.
-                If dProject.Exists(ref.FullPath) Then colExisting.Add Array(ref.Name, ref.FullPath)
+                If dProject.Exists(ref.Name) Then colExisting.Add Array(ref.Name, ref.FullPath)
             Else
                 ' Add all library references from this point on.
                 colExisting.Add Array(ref.Name, ref.FullPath)
@@ -262,7 +270,20 @@ End Sub
 '           : bypass the startup code.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean)
+Private Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain As Form_frmVCSMain)
+
+    ' Skip open if we are already on the correct database
+    If CurrentProject.FullName = strPath And Not blnExclusive Then Exit Sub
+
+    ' Close any open database before we try to open another one.
+    If DatabaseFileOpen Then
+        StageForm frmMain
+        Set frmMain = Nothing
+        CloseCurrentDatabase2
+        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+        Set frmMain = Form_frmVCSMain
+        RestoreForm frmMain
+    End If
 
     ' Hold shift key down to bypass startup macro/form.
     keybd_event VK_SHIFT, &H45, KEYEVENTF_EXTENDEDKEY Or 0, 0
@@ -278,3 +299,5 @@ Private Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean)
     DoEvents
     
 End Sub
+
+
