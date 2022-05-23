@@ -425,6 +425,9 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
         If .dblMax <= 0 Then
             intPercent = 0
             dblWidth = 0
+        ElseIf .dblValue >= .dblMax Then
+            intPercent = 100
+            dblWidth = .dblFullWidth
         Else
             intPercent = .dblValue * (100 / Me.Max)
             dblWidth = .dblValue * (.dblFullWidth / Me.Max)
@@ -521,5 +524,4 @@ Private Sub Class_Terminate()
     Err.Clear ' Clear any errors
 
 End Sub
-
 
