@@ -124,16 +124,14 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
     ' Passing in a caption label is optional
     If Not this.lblCaption Is Nothing Then
         ' set properties for caption label
-        With this.lblCaption
+        With this.lblCaption ' Caption goes below progress bar.
             .Left = this.lblBack.Left + 2
-            .Top = this.lblBack.Top + 2
+            .Top = this.lblBack.Bottom + 2
             .Width = this.lblBack.Width - 4
-            .Height = this.lblBack.Height - 4
-            .TextAlign = 2 'fmTextAlignCenter
-            .TopMargin = this.sngOffset * 2
-            .BackStyle = 0 'fmBackStyleTransparent
-            .Caption = "0%"
-            .ForeColor = 16777215   ' white
+            .Height = (this.lblBack.Height - 4) * 2 ' Two lines of text should be shown
+            .TextAlign = 1 ' fmTextAlignLeft
+            .BackStyle = 0 ' fmBackStyleTransparent
+            .Caption = vbNullString
         End With
     End If
 
