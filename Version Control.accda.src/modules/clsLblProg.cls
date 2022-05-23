@@ -178,8 +178,13 @@ Public Property Let CaptionVisible(NewVal As Boolean)
     With this
         If .blnCaptionVisible <> NewVal Then 
             .blnCaptionVisible = NewVal
-            .lblCaption.Caption = Me.Caption
-            SetVisibility .lblCaption, .blnCaptionVisible
+            If Not .lblCaption Is Nothing Then 
+                .lblCaption.Caption = Me.Caption
+                SetVisibility .lblCaption, .blnCaptionVisible
+            Else
+                ' If the control isn't present, it's never visible.
+                .blnCaptionVisible = False
+            End If
         End If
     End With
 End Property
