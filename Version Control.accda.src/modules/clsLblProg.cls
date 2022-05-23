@@ -149,22 +149,23 @@ Public Property Let BarColor(NewVal As Long)
 End Property
 
 Public Property Get Caption As String
-    Caption = this.strCustomCaption
-    If Not .blnCaptionVisible Then
-        Caption = vbNullString
-    ElseIf .blnShowTimeComplete Then
-        Caption = "Est. Completion Time: " & Me.EstCompletionTime & vbNewLine & .strCustomCaption
-    ElseIf .blnShowTimeRemain Then
-        Caption = "Est. Remaining Time: " & Me.EstRemainingTime & vbNewLine & .strCustomCaption
-    Else 
-        Caption = .strCustomCaption
-    End If
+    With this
+        If Not .blnCaptionVisible Then
+            Caption = vbNullString
+        ElseIf .blnShowTimeComplete Then
+            Caption = "Est. Completion Time: " & Me.EstCompletionTime & vbNewLine & .strCustomCaption
+        ElseIf .blnShowTimeRemain Then
+            Caption = "Est. Remaining Time: " & Me.EstRemainingTime & vbNewLine & .strCustomCaption
+        Else 
+            Caption = .strCustomCaption
+        End If
+    End With
 End Property
 Public Property Let Caption (NewVal As String)
     With this
         If .strCustomCaption <> NewVal Then
             .strCustomCaption = NewVal
-            .lblCaption.Caption = Me.Caption
+            If Not .lblCaption Is Nothing Then .lblCaption.Caption = Me.Caption
             ' Turn on the caption if it was off AND you're not passing in an empty string.
             If NewVal <> vbNullString And Not .blnCaptionVisible Then CaptionVisible True
         End If
