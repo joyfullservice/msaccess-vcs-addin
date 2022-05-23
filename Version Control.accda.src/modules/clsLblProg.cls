@@ -167,7 +167,7 @@ Public Property Let Caption(NewVal As String)
             .strCustomCaption = NewVal
             If Not .lblCaption Is Nothing Then .lblCaption.Caption = Me.Caption
             ' Turn on the caption if it was off AND you're not passing in an empty string.
-            If NewVal <> vbNullString And Not .blnCaptionVisible Then CaptionVisible True
+            If NewVal <> vbNullString And Not .blnCaptionVisible Then CaptionVisible = True
         End If
     End With
 End Property
