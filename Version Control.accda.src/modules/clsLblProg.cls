@@ -511,10 +511,10 @@ Private Sub Class_Terminate()
     On Error Resume Next
     #If APPLICATION_NAME = "Microsoft Access" Then
         ' Hide front controls
-        this.lblFront.Visible = False
-        this.lblCaption.Visible = False
+        Hide
     #Else
         ' Remove front controls
+        this.lblBack.Visible = False
         this.objParent.Controls.Remove (this.lblFront.Name)
         this.objParent.Controls.Remove (this.lblCaption.Name)
     #End If
