@@ -178,6 +178,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Run any cleanup routines
     RemoveThemeZipFiles
     
+    ' Ensure that we have created the .gitignore and .gitattributes files in Git environments.
+    CheckGitFiles
+    
     ' Run any custom sub after export
     If Options.RunAfterExport <> vbNullString Then
         Log.Add "Running " & Options.RunAfterExport & "..."
