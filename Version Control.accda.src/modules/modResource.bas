@@ -170,14 +170,14 @@ Private Function GetRstResourceHash(rst As DAO.Recordset2)
     
     Dim rstFiles As Recordset2
     Dim bteContent() As Byte
+    Dim strExt As String
     
     Set rstFiles = rst.Fields("Content").Value
     With rstFiles
         If Not .EOF Then
-            With .Fields("FileData")
-                bteContent = .Value
-                GetRstResourceHash = GetBytesHash(StripOLEHeader(bteContent))
-            End With
+            strExt = .Fields("FileType").Value
+            bteContent = .Fields("FileData").Value
+            GetRstResourceHash = GetBytesHash(StripOLEHeader(strExt, bteContent))
         End If
     End With
     
@@ -192,7 +192,7 @@ End Function
 '           : it would be saved as a file. (First 20 bytes (10 chars) of the data)
 '---------------------------------------------------------------------------------------
 '
-Private Function StripOLEHeader(bteData() As Byte) As Byte()
+Private Function StripOLEHeader(strExt As String, bteData() As Byte) As Byte()
 
     Dim strData As String
     
@@ -200,6 +200,6 @@ Private Function StripOLEHeader(bteData() As Byte) As Byte()
     strData = bteData
     
     ' Strip off header, and convert back to byte array
-    StripOLEHeader = Mid$(strData, 11)
+    StripOLEHeader = Mid$(strData, 8 + Len(strExt))
     
 End Function

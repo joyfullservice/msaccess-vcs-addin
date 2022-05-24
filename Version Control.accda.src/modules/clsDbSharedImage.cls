@@ -67,7 +67,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     strFile = IDbComponent_BaseFolder & FSO.GetBaseName(IDbComponent_SourceFile) & "." & FSO.GetExtensionName(m_FileName)
        
     ' Write binary content to file
-    WriteBinaryFile strFile, StripOLEHeader(m_FileData)
+    WriteBinaryFile strFile, StripOLEHeader(m_Extension, m_FileData)
     
     ' Update index after export
     If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True), GetSignatureHash
@@ -84,7 +84,7 @@ End Sub
 '           : Tested with jpg, gif, png, tiff
 '---------------------------------------------------------------------------------------
 '
-Private Function StripOLEHeader(bteData() As Byte) As Byte()
+Private Function StripOLEHeader(strExt As String, bteData() As Byte) As Byte()
 
     Dim strData As String
     
@@ -92,7 +92,7 @@ Private Function StripOLEHeader(bteData() As Byte) As Byte()
     strData = bteData
     
     ' Strip off header, and convert back to byte array
-    StripOLEHeader = Mid$(strData, 11)
+    StripOLEHeader = Mid$(strData, 8 + Len(strExt))
     
 End Function
 
@@ -283,7 +283,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
         .Add "Extension", m_Extension
         ' Store a hash of the binary image content, so we can verify
         ' that the file content itself has not changed.
-        .Add "ContentHash", GetBytesHash(StripOLEHeader(m_FileData))
+        .Add "ContentHash", GetBytesHash(StripOLEHeader(m_Extension, m_FileData))
     End With
 End Function
 
