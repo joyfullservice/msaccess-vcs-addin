@@ -211,6 +211,7 @@ Private Function LoadItem(strName As String) As Boolean
             Loop
             .Close
         End With
+        LoadItem = True
     End If
 
 End Function
