@@ -107,7 +107,6 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
     #End If
 
     ' Set properties for back label
-    this.lblBack.SpecialEffect = 2  ' Sunken. Seems to lose when not visible.
     SetVisibility this.lblBack, True
 
     ' Set properties for front label
@@ -128,9 +127,8 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         this.blnCaptionVisible = True ' Turn this on as needed.
         With this.lblCaption ' Caption goes below progress bar.
             .Left = this.lblBack.Left + 2
-            .Top = this.lblBack.Top + this.lblBack.Height + 2
+            .Top = this.lblBack.Top + this.lblBack.Height + (this.sngOffset * 2)
             .Width = this.lblBack.Width - 4
-            .Height = (this.lblBack.Height - 4) * 2 ' Two lines of text should be shown
             .TextAlign = 1 ' fmTextAlignLeft
             .BackStyle = 0 ' fmBackStyleTransparent
             .Caption = vbNullString
