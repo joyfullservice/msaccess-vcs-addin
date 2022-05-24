@@ -1787,6 +1787,7 @@ Public Sub cmdBuild_Click()
     If strFolder = vbNullString Then
     
         ' Show a folder picker to select the file with source code.
+        DoCmd.Hourglass False
         With Application.FileDialog(msoFileDialogFolderPicker)
             .AllowMultiSelect = False
             .ButtonName = "Select Source Files Folder"
@@ -1798,16 +1799,14 @@ Public Sub cmdBuild_Click()
                 If FolderHasVcsOptionsFile(.SelectedItems(1)) Then
                     ' Has source files
                     strFolder = .SelectedItems(1) & PathSep
-
+                    DoCmd.Hourglass True
                 Else
                     MsgBox2 "Source files not found", "Required source files were not found in this folder.", _
                         "You selected: " & .SelectedItems(1), vbExclamation
-                    DoCmd.Hourglass False
                     Exit Sub
                 End If
             Else
                 ' Canceled dialog
-                DoCmd.Hourglass False
                 Exit Sub
             End If
         End With
