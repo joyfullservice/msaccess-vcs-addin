@@ -79,7 +79,7 @@ Private Function IsSerializableProperty(ByVal Context As Object, ByVal Property 
     End If
 End Function
 
-Private Function GetProperty(ByVal Context As Object, ByVal Property As Property) As Dictionary
+Private Function GetProperty(ByVal Context As Object, ByVal Property As VBIDE.Property) As Dictionary
     Dim dict As New Dictionary
     dict.Add "Name", Property.Name
     If Property.Name = "Controls" Then
