@@ -690,7 +690,7 @@ Private Function FormatXML(strSourceXML As String, _
     Optional blnOmitDeclaration As Boolean) As String
 
     Dim objReader As SAXXMLReader60
-    Dim objWriter As MXXMLWriter60
+    Dim objWriter As MXHTMLWriter60
     Dim strOutput As String
 
     ' Skip processing if no content to format
@@ -701,7 +701,7 @@ Private Function FormatXML(strSourceXML As String, _
     ' Trap any errors with parsing or formatting the XML
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
-    Set objWriter = New MXXMLWriter60
+    Set objWriter = New MXHTMLWriter60
     Set objReader = New SAXXMLReader60
     
     ' Set up writer
