@@ -282,8 +282,13 @@ Public Function dNZ(dObject As Dictionary, strPath As String, Optional strDelimi
                 End If
             Else
                 ' Move out to next segment
-                If varSegment.Exists(strKey) And Not IsEmpty(varSegment(strKey)) Then
-                    Set varSegment = varSegment(strKey)
+                If varSegment.Exists(strKey) Then
+                    If Not IsEmpty(varSegment(strKey)) Then
+                        Set varSegment = varSegment(strKey)
+                    Else
+                        ' Empty value
+                        Exit For
+                    End If
                 Else
                     ' Path not found
                     Exit For
