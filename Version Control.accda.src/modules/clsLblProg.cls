@@ -477,7 +477,7 @@ Private Function GetParentFormName(ctlControl As Control) As String
 #Else
     Do While Not TypeOf objParent Is UserForm
 #End If
-        lngRunCount = lngRunCount + 1 
+        lngRunCount = lngRunCount + 1
         Set objParent = objParent.Parent
     Loop
 
