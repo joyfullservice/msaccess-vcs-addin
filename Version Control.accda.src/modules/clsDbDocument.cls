@@ -323,6 +323,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         m_Items(blnModifiedOnly).Add strKey, cDoc
                     Next varProp
                 Next varDoc
+                If m_dItems.Exists(varCont) Then
+                End If
             Next varCont
         End If
     End If
