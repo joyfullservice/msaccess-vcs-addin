@@ -217,7 +217,6 @@ Public Property Get Max() As Double
 End Property
 Public Property Let Max(NewVal As Double)
     this.dblMax = NewVal
-    UpdateDisplay True
 End Property
 
 
