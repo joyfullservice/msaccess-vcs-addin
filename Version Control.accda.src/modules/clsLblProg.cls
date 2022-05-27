@@ -372,7 +372,7 @@ Public Sub Reset()
     
     With this
         .dteStartTime = 0
-        .dblValue = 0 ' 
+        .dblValue = 0 '
         .strCustomCaption = vbNullString
     End With
     UpdateDisplay True
