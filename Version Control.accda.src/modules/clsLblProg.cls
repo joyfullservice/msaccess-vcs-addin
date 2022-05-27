@@ -380,9 +380,12 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Reset()
-    this.dteStartTime = 0
-    Me.Value = 0
-    this.strCustomCaption = vbNullString
+    
+    With this
+        .dteStartTime = 0
+        .dblValue = 0 ' 
+        .strCustomCaption = vbNullString
+    End With
     UpdateDisplay True
 End Sub
 
