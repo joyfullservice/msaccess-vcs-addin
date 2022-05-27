@@ -244,17 +244,6 @@ Public Property Let Value(ByVal dblValue As Double)
 
     Dim dblChange As Double
 
-    ' Check visibility
-    If Me.Max = 0 Or dblValue = 0 Then
-        SetVisibility this.lblFront, False
-        SetVisibility this.lblCaption, False
-    Else
-        ' Ensure controls are visible
-        SetVisibility this.lblBack, True
-        SetVisibility this.lblFront, True
-        SetVisibility this.lblCaption, Me.CaptionVisible
-    End If
-
     ' Don't allow value to exceed maximum value
     If dblValue > Me.Max Then
         this.dblValue = Me.Max
@@ -420,6 +409,14 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
 
     Static dteLastUpdate As Date
 
+    ' Check visibility
+    If Me.Max = 0 Or Me.Value = 0 Then
+        SetVisibility this.lblFront, False
+        SetVisibility this.lblCaption, False
+        ' Skip all the rest of the updates; there's no reason to do the rest of this math.
+        Exit Sub
+    End If
+
     ' Set size and caption
     With this
         If .dblMax <= 0 Then
@@ -436,6 +433,10 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
 
         ' Save currently displayed value
         .dblDisplayed = .dblValue
+
+        ' Ensure controls are visible
+        SetVisibility .lblBack, True
+        SetVisibility .lblFront, True
 
         ' Set caption if we are using a caption
         If Not .lblCaption Is Nothing Then
