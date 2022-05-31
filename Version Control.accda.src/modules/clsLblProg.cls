@@ -147,6 +147,13 @@ Public Property Let BarColor(NewVal As Long)
     this.lblFront.BackColor = NewVal
 End Property
 
+Public Property Get BackColor() As Long
+    BarColor = this.lblBack.BackColor
+End Property
+Public Property Let BackColor(NewVal As Long)
+    this.lblBack.BackColor = NewVal
+End Property
+
 Public Property Get Caption() As String
     With this
         If Not .blnCaptionVisible Then
