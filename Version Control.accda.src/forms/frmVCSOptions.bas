@@ -391,7 +391,7 @@ Begin Form
                     Left =540
                     Top =1500
                     Width =9000
-                    Height =4755
+                    Height =4920
                     TabIndex =2
                     Name ="tabOptions"
                     HorizontalAnchor =2
@@ -400,7 +400,7 @@ Begin Form
                     LayoutCachedLeft =540
                     LayoutCachedTop =1500
                     LayoutCachedWidth =9540
-                    LayoutCachedHeight =6255
+                    LayoutCachedHeight =6420
                     ThemeFontIndex =1
                     Shape =1
                     Gradient =12
@@ -420,13 +420,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4370
                             Name ="pgeGeneral"
                             Caption ="General"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6350
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -447,14 +447,14 @@ Begin Form
                                             OverlapFlags =215
                                             Left =1320
                                             Top =3960
-                                            Width =2640
+                                            Width =3060
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label23"
                                             Caption ="Show Detailed Output"
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =3960
-                                            LayoutCachedWidth =3960
+                                            LayoutCachedWidth =4380
                                             LayoutCachedHeight =4275
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
@@ -464,39 +464,9 @@ Begin Form
                                 Begin CheckBox
                                     OverlapFlags =215
                                     Left =1020
-                                    Top =4440
+                                    Top =4860
                                     TabIndex =1
                                     Name ="chkBreakOnError"
-
-                                    LayoutCachedLeft =1020
-                                    LayoutCachedTop =4440
-                                    LayoutCachedWidth =1280
-                                    LayoutCachedHeight =4680
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =215
-                                            Left =1320
-                                            Top =4380
-                                            Width =2640
-                                            Height =315
-                                            ForeColor =5324600
-                                            Name ="Label219"
-                                            Caption ="Debug VBA Errors"
-                                            LayoutCachedLeft =1320
-                                            LayoutCachedTop =4380
-                                            LayoutCachedWidth =3960
-                                            LayoutCachedHeight =4695
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
-                                End
-                                Begin CheckBox
-                                    OverlapFlags =215
-                                    Left =1020
-                                    Top =4860
-                                    TabIndex =2
-                                    Name ="chkShowVCSLegacy"
 
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =4860
@@ -507,14 +477,14 @@ Begin Form
                                             OverlapFlags =215
                                             Left =1320
                                             Top =4800
-                                            Width =2640
+                                            Width =3060
                                             Height =315
                                             ForeColor =5324600
-                                            Name ="Label215"
-                                            Caption ="Show Legacy Prompts"
+                                            Name ="Label219"
+                                            Caption ="Debug VBA Errors"
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =4800
-                                            LayoutCachedWidth =3960
+                                            LayoutCachedWidth =4380
                                             LayoutCachedHeight =5115
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
@@ -522,13 +492,11 @@ Begin Form
                                     End
                                 End
                                 Begin CheckBox
-                                    Visible = NotDefault
                                     OverlapFlags =215
                                     Left =1020
                                     Top =5280
-                                    TabIndex =3
-                                    Name ="chkUseGitIntegration"
-                                    OnClick ="[Event Procedure]"
+                                    TabIndex =2
+                                    Name ="chkShowVCSLegacy"
 
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =5280
@@ -539,15 +507,47 @@ Begin Form
                                             OverlapFlags =215
                                             Left =1320
                                             Top =5220
-                                            Width =2640
+                                            Width =3060
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label215"
+                                            Caption ="Show Legacy Prompts"
+                                            LayoutCachedLeft =1320
+                                            LayoutCachedTop =5220
+                                            LayoutCachedWidth =4380
+                                            LayoutCachedHeight =5535
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin CheckBox
+                                    Visible = NotDefault
+                                    OverlapFlags =215
+                                    Left =1020
+                                    Top =5700
+                                    TabIndex =3
+                                    Name ="chkUseGitIntegration"
+                                    OnClick ="[Event Procedure]"
+
+                                    LayoutCachedLeft =1020
+                                    LayoutCachedTop =5700
+                                    LayoutCachedWidth =1280
+                                    LayoutCachedHeight =5940
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =1320
+                                            Top =5640
+                                            Width =3060
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label163"
                                             Caption ="Use Git Integration"
                                             LayoutCachedLeft =1320
-                                            LayoutCachedTop =5220
-                                            LayoutCachedWidth =3960
-                                            LayoutCachedHeight =5535
+                                            LayoutCachedTop =5640
+                                            LayoutCachedWidth =4380
+                                            LayoutCachedHeight =5955
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -672,6 +672,36 @@ Begin Form
                                     ForeThemeColorIndex =-1
                                     ForeTint =100.0
                                 End
+                                Begin CheckBox
+                                    OverlapFlags =215
+                                    Left =1020
+                                    Top =4440
+                                    TabIndex =6
+                                    Name ="chkShowFullPerformanceName"
+
+                                    LayoutCachedLeft =1020
+                                    LayoutCachedTop =4440
+                                    LayoutCachedWidth =1280
+                                    LayoutCachedHeight =4680
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =1320
+                                            Top =4380
+                                            Width =3060
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label238"
+                                            Caption ="Show Full Performance Name"
+                                            LayoutCachedLeft =1320
+                                            LayoutCachedTop =4380
+                                            LayoutCachedWidth =4380
+                                            LayoutCachedHeight =4695
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
                             End
                         End
                         Begin Page
@@ -679,13 +709,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4365
                             Name ="pgeExport"
                             Caption ="Export"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1121,10 +1151,10 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =1
-                                    WebImagePaddingTop =1
-                                    WebImagePaddingRight =1
-                                    WebImagePaddingBottom =1
+                                    WebImagePaddingLeft =2
+                                    WebImagePaddingTop =2
+                                    WebImagePaddingRight =2
+                                    WebImagePaddingBottom =2
                                 End
                                 Begin Label
                                     OverlapFlags =247
@@ -1172,13 +1202,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4365
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1824,13 +1854,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4365
                             Name ="pgeTable"
                             Caption ="Table Data"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2162,13 +2192,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4365
                             Name ="pgeBuild"
                             Caption ="Build"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2343,13 +2373,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4365
                             Name ="pgeGitIntegration"
                             Caption ="Git Integration"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2664,13 +2694,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4365
                             Name ="pgeSettings"
                             Caption ="Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6345
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -3185,10 +3215,10 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =1
-                    WebImagePaddingTop =1
-                    WebImagePaddingRight =1
-                    WebImagePaddingBottom =1
+                    WebImagePaddingLeft =2
+                    WebImagePaddingTop =2
+                    WebImagePaddingRight =2
+                    WebImagePaddingBottom =2
                     Overlaps =1
                 End
                 Begin Label

@@ -944,7 +944,7 @@ End Function
 ' Author    : hecon5
 ' Date      : May 18, 2022
 ' Purpose   : Takes in a long string and returns a string DesiredWidth wide if longer than MaxWidth.
-'             Useful when used on a text box where you'd prefer a specific width, but 
+'             Useful when used on a text box where you'd prefer a specific width, but
 '             allowing a slightly longer string would potentially be more appealing to users.
 '             This avoids a 1-2 word dangling line.
 '---------------------------------------------------------------------------------------
