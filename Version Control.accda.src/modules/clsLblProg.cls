@@ -58,12 +58,9 @@ Private Type udtProg
     dblFullWidth As Double              ' Width of front label at 100%
     sngOffset As Single                 ' Offset for front label
     blnCaptionVisible As Boolean        ' Show/hide percent complete caption
-    strCustomCaption As String          ' Custom Caption additional text
     objParent As Object                 ' Parent object of back label (in MSForms 2.0)
     dteStartTime As Date                ' Time of first value change
-    blnShowTimeRemain As Boolean        ' Show time on caption
-    blnShowTimeComplete As Boolean      ' Show time of completion (clock time)
-                                        ' Only Time remaining OR clock time can be shown; if you turn on one the other will turn off.
+
 End Type
 Private this As udtProg
 
@@ -152,7 +149,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
             .Width = this.lblBack.Width - (this.sngOffset * 4)
             .TextAlign = 2 'fmTextAlignCenter
             .BackStyle = 0 ' fmBackStyleTransparent
-            .Caption = vbNullString
+            .Caption = "0%"
             .ForeColor = lngColorWhite
         End With
     End If
@@ -184,30 +181,14 @@ Public Property Let BackColor(NewVal As Long)
     this.lblBack.BackColor = NewVal
 End Property
 
-Public Property Get Caption() As String
-    With this
-        If Not .blnCaptionVisible Then
-            Caption = vbNullString
-        ElseIf .blnShowTimeComplete Then
-            Caption = "Est. Completion Time: " & Me.EstCompletionTime & vbNewLine & .strCustomCaption
-        ElseIf .blnShowTimeRemain Then
-            Caption = "Est. Remaining Time: " & Me.EstRemainingTime & vbNewLine & .strCustomCaption
-        Else
-            Caption = .strCustomCaption
-        End If
-    End With
-End Property
-Public Property Let Caption(NewVal As String)
-    With this
-        If .strCustomCaption <> NewVal Then
-            .strCustomCaption = NewVal
-            If Not .lblCaption Is Nothing Then .lblCaption.Caption = Me.Caption
-            ' Turn on the caption if it was off AND you're not passing in an empty string.
-            If NewVal <> vbNullString And Not .blnCaptionVisible Then CaptionVisible = True
-        End If
-    End With
-End Property
 
+'---------------------------------------------------------------------------------------
+' Procedure : CaptionVisible
+' Author    : Adam Waller
+' Date      : 5/31/2022
+' Purpose   : Expose properties for caption visibility
+'---------------------------------------------------------------------------------------
+'
 Public Property Get CaptionVisible() As Boolean
     CaptionVisible = this.blnCaptionVisible
 End Property
@@ -216,7 +197,6 @@ Public Property Let CaptionVisible(NewVal As Boolean)
         If .blnCaptionVisible <> NewVal Then
             .blnCaptionVisible = NewVal
             If Not .lblCaption Is Nothing Then
-                .lblCaption.Caption = Me.Caption
                 SetVisibility .lblCaption, .blnCaptionVisible
             Else
                 ' If the control isn't present, it's never visible.
@@ -225,22 +205,6 @@ Public Property Let CaptionVisible(NewVal As Boolean)
         End If
     End With
 End Property
-
-Public Property Get DisplayTimeRemaining() As Boolean
-    DisplayTimeRemaining = this.blnShowTimeRemain
-End Property
-Public Property Let DisplayTimeRemaining(NewVal As Boolean)
-    this.blnShowTimeRemain = NewVal
-    If NewVal Then this.blnShowTimeComplete = False
-End Property
-Public Property Get DisplayTimeComplete() As Boolean
-    DisplayTimeComplete = this.blnShowTimeComplete
-End Property
-Public Property Let DisplayTimeComplete(NewVal As Boolean)
-    this.blnShowTimeComplete = NewVal
-    If NewVal Then this.blnShowTimeRemain = False
-End Property
-
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Max Property
@@ -406,11 +370,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Reset()
-    
     With this
         .dteStartTime = 0
-        .dblValue = 0 '
-        .strCustomCaption = vbNullString
+        .dblValue = 0
     End With
     UpdateDisplay True
 End Sub
@@ -478,7 +440,7 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
 
         ' Set caption if we are using a caption
         If Not .lblCaption Is Nothing Then
-            .lblCaption.Caption = Me.Caption
+            .lblCaption.Caption = intPercent & "%"
             SetVisibility .lblCaption, .blnCaptionVisible
         End If
     End With
