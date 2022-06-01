@@ -206,20 +206,6 @@ Public Property Let CaptionVisible(NewVal As Boolean)
     End With
 End Property
 
-'---------------------------------------------------------------------------------------
-' Procedure : Max Property
-' Author    : hecon5
-' Date      : 5/13/2022
-' Purpose   : Set maximum value for value. (Reset value and update after changing Max)
-'---------------------------------------------------------------------------------------
-'
-Public Property Get Max() As Double
-    Max = this.dblMax
-End Property
-Public Property Let Max(NewVal As Double)
-    this.dblMax = NewVal
-End Property
-
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Value
