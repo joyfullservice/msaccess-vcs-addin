@@ -400,12 +400,15 @@ Private Function GetPerformanceItemDict(ByRef PerformanceDict As Scripting.Dicti
             
         Next VarItem
         
-        Set dEntry = New Scripting.Dictionary
-        If Not this.Overall Is Nothing Then dOutputDict.Add "Untimed Processes", this.Overall.Total - curTotal
-        dOutputDict.Add "Count", PerformanceDict.Count
-        dOutputDict.Add "TotalRuns", dblCount
-        dOutputDict.Add "TotalTime", curTotal
+        Set dOutputDict = SortDictionaryByKeys(dOutputDict)
         
+        Set dEntry = New Scripting.Dictionary
+        If Not this.Overall Is Nothing Then dEntry.Add "Untimed Processes", this.Overall.Total - curTotal
+        dEntry.Add "Count", PerformanceDict.Count
+        dEntry.Add "TotalRuns", dblCount
+        dEntry.Add "TotalTime", curTotal
+        
+        dOutputDict.Add "TOTALS", dEntry
     End If
     
     Set GetPerformanceItemDict = dOutputDict
@@ -421,7 +424,6 @@ End Function
 '
 Public Function GetReportsJSON() As String
     Dim dReports As Scripting.Dictionary
-    Dim dSection As Scripting.Dictionary
     
     Set dReports = New Scripting.Dictionary
     
@@ -430,12 +432,14 @@ Public Function GetReportsJSON() As String
         If Not this.Operations Is Nothing Then .Add "Operations", GetPerformanceItemDict(this.Operations)
         If Not this.CallStackItems Is Nothing Then _
             If this.CallStackItems.Count > 0 Then .Add "CallStackRemaining", this.CallStackItems
-        If Not this.Overall Is Nothing Then
-            .Add "Overall Time", this.Overall.Total
-        End If
+        If Not this.Overall Is Nothing Then .Add "Overall Time", this.Overall.Total
     End With
-    GetReportsJSON = modJsonConverter.ConvertToJson(dReports, JSON_WHITESPACE)
-    
+
+    If dReports.Count > 0 Then ' Only process if you have to.
+        GetReportsJSON = modJsonConverter.ConvertToJson(dReports, JSON_WHITESPACE)
+    Else
+        GetReportsJSON = vbNullString
+    End If
 End Function
 
 '---------------------------------------------------------------------------------------
@@ -454,6 +458,7 @@ Public Function GetReports() As String
     Dim dblCount As Double
     Dim lngCol(0 To 2) As Long
     Dim strSpacer As String
+    Dim dSorted As Scripting.Dictionary ' Sorted dictionary object.
 
     ' Set up column sizes
     lngCol(0) = 30
@@ -470,12 +475,15 @@ Public Function GetReports() As String
         If Not this.Categories Is Nothing Then
             .Add strSpacer
             .Add ListResult("Category", "Count", "Seconds", lngCol), vbCrLf, strSpacer
-            For Each varKey In this.Categories.Keys
-                .Add ListResult(CStr(varKey), CStr(this.Categories(varKey).Count), _
-                    Format(this.Categories(varKey).Total, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
+            
+            Set dSorted = SortDictionaryByKeys(this.Categories)
+            
+            For Each varKey In dSorted.Keys
+                .Add ListResult(CStr(varKey), CStr(dSorted(varKey).Count), _
+                    Format(dSorted(varKey).Total, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
                 ' Add to totals
-                dblCount = dblCount + this.Categories(varKey).Count
-                curTotal = curTotal + this.Categories(varKey).Total
+                dblCount = dblCount + dSorted(varKey).Count
+                curTotal = curTotal + dSorted(varKey).Total
             Next varKey
             .Add strSpacer
             .Add ListResult("TOTALS:", CStr(dblCount), _
@@ -489,17 +497,20 @@ Public Function GetReports() As String
             curTotal = 0
             .Add strSpacer
             .Add ListResult("Operations", "Count", "Seconds", lngCol), vbCrLf, strSpacer
-            For Each varKey In this.Operations.Keys
-                .Add ListResult(CStr(varKey), CStr(this.Operations(varKey).Count), _
-                    Format(this.Operations(varKey).Total, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
-                curTotal = curTotal + this.Operations(varKey).Total
+            
+            Set dSorted = SortDictionaryByKeys(this.Operations)
+            
+            For Each varKey In dSorted.Keys
+                .Add ListResult(CStr(varKey), CStr(dSorted(varKey).Count), _
+                    Format(dSorted(varKey).Total, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
+                ' Add to totals
+                dblCount = dblCount + dSorted(varKey).Count
+                curTotal = curTotal + dSorted(varKey).Total
             Next varKey
             .Add strSpacer
-            If Not this.Overall Is Nothing Then
-                .Add ListResult("Other Operations", vbNullString, _
-                    Format(this.Overall.Total - curTotal, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
-                .Add strSpacer
-            End If
+            .Add ListResult("TOTALS:", CStr(dblCount), _
+                Format(curTotal, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
+            .Add strSpacer
             .Add vbNullString
         End If
         
