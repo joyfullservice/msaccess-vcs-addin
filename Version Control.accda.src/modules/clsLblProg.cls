@@ -414,7 +414,7 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
     Dim intPercent As Integer
     Dim dblWidth As Double
 
-    Static dteLastUpdate As Date
+    Static sngLastUpdate As Single
 
     ' Check visibility
     If Me.Max = 0 Or Me.Value = 0 Then
@@ -458,11 +458,11 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
         ' Always update display
         RaiseEvent ProgressChange(this.dblValue, intPercent)
         DoEvents
-    ElseIf (dteLastUpdate <> Now) Or blnForceUpdate Then
+    ElseIf (Abs(sngLastUpdate - Timer) > 1) Or blnForceUpdate Then
         ' Update every second, or when forcing an immediate update
         RaiseEvent ProgressChange(this.dblValue, intPercent)
         DoEvents
-        dteLastUpdate = Now
+        sngLastUpdate = Timer
     End If
 
 End Sub
