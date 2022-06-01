@@ -20,11 +20,21 @@ Option Explicit
 ' object types in early binding.
 #Const APPLICATION_NAME = "Microsoft Access"
 
-Private Const lngBarColorDefault As Long = 8388608 ' Default progress bar color (Navy Blue).
+' Color constants
+Private Const lngColorNavy As Long = 8388608    ' Default progress bar color (Navy Blue)
+Private Const lngColorWhite As Long = 16777215  ' Caption over blue background (White)
+Private Const lngColorBlack As Long = 0         ' Caption over grey background (Black)
+Private Const lngColorGrey As Long = 12566463   ' Back label color (Grey)
 
 ' Public properties
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
 Public Max As Double                    ' Max total value of progress bar
+
+' General style of progress bar
+Public Enum eProgressBarStyle
+    epbTraditional  ' Sunken style back label, inset bar
+    epbModernFlat   ' Flat, equally sized progress bar, no border
+End Enum
 
 ' Private properties
 Private Type udtProg
@@ -75,12 +85,12 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
     Public Sub Initialize(BackLabel As Label _
                         , FrontLabel As Label _
                         , Optional CaptionLabel As Label _
-                        , Optional lngBarColorIn As Long = lngBarColorDefault)
+                        , Optional BarStyle As eProgressBarStyle = epbTraditional)
 #Else
     Public Sub Initialize(BackLabel As MSForms.Label _
                         , Optional FrontLabel As MSForms.Label _
                         , Optional CaptionLabel As MSForms.Label _
-                        , Optional lngBarColorIn As Long = lngBarColorDefault)
+                        , Optional BarStyle As eProgressBarStyle = epbTraditional)
 #End If
 
     Set this.objParent = BackLabel.Parent
@@ -106,7 +116,17 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         this.objParent.Repaint
     #End If
 
-    ' Set properties for back label
+    ' Set style-specific properties
+    If BarStyle = epbTraditional Then
+        this.lblBack.SpecialEffect = 2
+    ElseIf BarStyle = epbModernFlat Then
+        this.sngOffset = 0
+        this.lblBack.SpecialEffect = 0
+        this.lblBack.BackStyle = 1
+        this.lblBack.BackColor = lngColorGrey
+    End If
+    
+    ' Properties for back label
     SetVisibility this.lblBack, True
 
     ' Set properties for front label
@@ -117,21 +137,23 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         .Width = 0
         .Height = this.lblBack.Height - (this.sngOffset * 2)
         .Caption = vbNullString
-        .BackColor = lngBarColorIn
-        .BackStyle = 1
+        .BackColor = lngColorNavy
+        .BackStyle = 1      ' Opaque
+        .SpecialEffect = 0  ' Flat
     End With
 
     ' Passing in a caption label is optional
     If Not this.lblCaption Is Nothing Then
         ' set properties for caption label
         this.blnCaptionVisible = True ' Turn this on as needed.
-        With this.lblCaption ' Caption goes below progress bar.
-            .Left = this.lblBack.Left + 2
-            .Top = this.lblBack.Top + this.lblBack.Height + (this.sngOffset * 2)
-            .Width = this.lblBack.Width - 4
-            .TextAlign = 1 ' fmTextAlignLeft
+        With this.lblCaption
+            .Top = this.lblBack.Top + (this.sngOffset * 1.33)
+            .Left = this.lblBack.Left + (this.sngOffset * 2)
+            .Width = this.lblBack.Width - (this.sngOffset * 4)
+            .TextAlign = 2 'fmTextAlignCenter
             .BackStyle = 0 ' fmBackStyleTransparent
             .Caption = vbNullString
+            .ForeColor = lngColorWhite
         End With
     End If
 
@@ -140,13 +162,21 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
 
 End Sub
 
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BarColor & BackColor
+' Author    : Adam Waller
+' Date      : 5/31/2022
+' Purpose   : Publicly expose some properties for ease of customization
+'---------------------------------------------------------------------------------------
+'
 Public Property Get BarColor() As Long
     BarColor = this.lblFront.BackColor
 End Property
 Public Property Let BarColor(NewVal As Long)
     this.lblFront.BackColor = NewVal
 End Property
-
 Public Property Get BackColor() As Long
     BarColor = this.lblBack.BackColor
 End Property
