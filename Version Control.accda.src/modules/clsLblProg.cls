@@ -234,6 +234,8 @@ Public Property Let Value(ByVal dblValue As Double)
     ' Don't allow value to exceed maximum value
     If dblValue > Me.Max Then
         this.dblValue = Me.Max
+    ElseIf dblValue < 0 Then
+        this.dblValue = 0
     Else
         ' Update value property
         this.dblValue = dblValue
