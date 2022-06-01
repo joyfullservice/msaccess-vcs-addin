@@ -59,7 +59,7 @@ Private Type udtProg
     sngOffset As Single                 ' Offset for front label
     blnCaptionVisible As Boolean        ' Show/hide percent complete caption
     strCustomCaption As String          ' Custom Caption additional text
-    objParent As Object                 ' Parent object of back label
+    objParent As Object                 ' Parent object of back label (in MSForms 2.0)
     dteStartTime As Date                ' Time of first value change
     blnShowTimeRemain As Boolean        ' Show time on caption
     blnShowTimeComplete As Boolean      ' Show time of completion (clock time)
@@ -93,7 +93,6 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
                         , Optional BarStyle As eProgressBarStyle = epbTraditional)
 #End If
 
-    Set this.objParent = BackLabel.Parent
     Set this.lblBack = BackLabel
 
     #If APPLICATION_NAME = "Microsoft Access" Then
@@ -110,6 +109,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
     #Else
         this.sngOffset = 1.5
         ' Create front controls dynamically
+        Set this.objParent = GetParentFormName(BackLabel)
         Set this.lblFront = this.objParent.Controls.Add("forms.label.1", "", False)
         Set this.lblCaption = this.objParent.Controls.Add("forms.label.1", "", False)
         ' Refresh display of parent form
@@ -511,13 +511,14 @@ Private Function GetParentFormName(ctlControl As Control) As String
     Dim objParent As Object
     Dim lngRunCount As Long
     
+    ' This is only used in other VBA applications, not Microsoft Access
+    #If APPLICATION_NAME = "Microsoft Access" Then
+        Exit Function
+    #End If
+    
+    ' Walk up parent controls to find parent form.
     Set objParent = ctlControl
-
-#If APPLICATION_NAME = "Microsoft Access" Then
-    Do While Not TypeOf objParent Is Form And lngRunCount < 100
-#Else
-    Do While Not TypeOf objParent Is UserForm
-#End If
+    Do While Not TypeName(objParent) = "UserForm" And lngRunCount < 100
         lngRunCount = lngRunCount + 1
         Set objParent = objParent.Parent
     Loop
