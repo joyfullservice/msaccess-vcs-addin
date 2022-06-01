@@ -24,6 +24,7 @@ Private Const lngBarColorDefault As Long = 8388608 ' Default progress bar color 
 
 ' Public properties
 Public Smooth As Boolean                ' Set to true for smooth updates < 1%
+Public Max As Double                    ' Max total value of progress bar
 
 ' Private properties
 Private Type udtProg
@@ -43,7 +44,6 @@ Private Type udtProg
 
     ' Shared private properties
     dblValue As Double                  ' Current value of progress bar
-    dblMax As Double                    ' Max value of progress bar
     dblDisplayed As Double              ' Displayed value
     dblFullWidth As Double              ' Width of front label at 100%
     sngOffset As Single                 ' Offset for front label
@@ -426,11 +426,12 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
 
     ' Set size and caption
     With this
-        If .dblMax <= 0 Then
+        If Me.Max <= 0 Then
             intPercent = 0
             dblWidth = 0
-        ElseIf .dblValue >= .dblMax Then
+        ElseIf .dblValue >= Me.Max Then
             intPercent = 100
+            .dblValue = Me.Max
             dblWidth = .dblFullWidth
         Else
             intPercent = .dblValue * (100 / Me.Max)
