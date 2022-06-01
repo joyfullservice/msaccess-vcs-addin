@@ -278,20 +278,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Sub Increment(Optional dblAmount As Double = 1)
-
-    Dim dblNew As Double
-
-    ' If incrementing by zero, cancel doing anything.
-    If dblAmount = 0 Then Exit Sub
-    
-    ' Check boundaries
-    dblNew = Me.Value + dblAmount
-    If dblNew > Me.Max Then dblNew = Me.Max
-    If dblNew < 0 Then dblNew = 0
-
-    ' Set new value (and any needed display updates)
-    Me.Value = dblNew
-
+    Me.Value = Me.Value + dblAmount
 End Sub
 
 
