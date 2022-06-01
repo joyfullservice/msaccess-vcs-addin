@@ -223,8 +223,7 @@ End Property
 ' Procedure : Value
 ' Author    : Adam Waller
 ' Date      : 2/17/2021
-' Purpose   : Set the value of the progress bar, checking visibility of controls, and
-'           : updating screen as needed.
+' Purpose   : Set the value of the progress bar, adjusting to fit within Max
 '---------------------------------------------------------------------------------------
 '
 Public Property Let Value(ByVal dblValue As Double)
@@ -250,7 +249,7 @@ Public Property Let Value(ByVal dblValue As Double)
     ' Set value and update display if needed.
     If dblChange > 0 And Me.Max > 0 Then
         ' See if we need to update the display
-        ' (Normally updated every 1% or each increment if Smooth = True
+        ' (Normally updated every 1% or each increment if Smooth = True)
         If Me.Smooth Or ((dblChange / Me.Max) > 0.01) Then UpdateDisplay
     End If
 
@@ -341,7 +340,7 @@ End Sub
 ' Procedure : Reset
 ' Author    : Adam Waller
 ' Date      : 2/17/2021
-' Purpose   : Reset back to zero.
+' Purpose   : Reset value back to zero. (Without changing Max)
 '---------------------------------------------------------------------------------------
 '
 Public Sub Reset()
