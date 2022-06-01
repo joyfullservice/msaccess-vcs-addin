@@ -367,6 +367,13 @@ Public Property Get TotalTime() As Currency
     End If
 End Property
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetPerformanceItemDict
+' Author    : hecon5
+' Date      : 2022 JUN 01
+' Purpose   : Get a sorted PerformanceItem dictionary object ("TOTALS" at the end).
+'---------------------------------------------------------------------------------------
+'
 Private Function GetPerformanceItemDict(ByRef PerformanceDict As Scripting.Dictionary) As Scripting.Dictionary
     Dim dOutputDict As Scripting.Dictionary
     Dim dEntry As Scripting.Dictionary
@@ -404,6 +411,14 @@ Private Function GetPerformanceItemDict(ByRef PerformanceDict As Scripting.Dicti
     Set GetPerformanceItemDict = dOutputDict
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetReportsJSON
+' Author    : hecon5
+' Date      : 2022 JUN 01
+' Purpose   : Get a JSON string of performance reports.
+'---------------------------------------------------------------------------------------
+'
 Public Function GetReportsJSON() As String
     Dim dReports As Scripting.Dictionary
     Dim dSection As Scripting.Dictionary
