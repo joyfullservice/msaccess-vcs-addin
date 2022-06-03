@@ -2070,6 +2070,7 @@ End Sub
 Public Function GetProgressBar() As clsLblProg
     Set GetProgressBar = New clsLblProg
     GetProgressBar.Initialize lblProgBack, lblProgFront, lblProgCaption
+    GetProgressBar.SetRepaintInterval 0.5
 End Function
 
 
