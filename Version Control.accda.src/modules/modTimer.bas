@@ -112,7 +112,7 @@ Private Sub KillTimer()
     If m_lngTimerID = 0 Then m_lngTimerID = GetSetting(PROJECT_NAME, "Timer", "TimerID", 0)
     If m_lngTimerID <> 0 Then
         ApiKillTimer 0, m_lngTimerID
-        Debug.Print "Killed timer " & m_lngTimerID
+        Debug.Print "Killed API Timer " & m_lngTimerID
         m_lngTimerID = 0
         SaveSetting PROJECT_NAME, "Timer", "TimerID", 0
     End If
