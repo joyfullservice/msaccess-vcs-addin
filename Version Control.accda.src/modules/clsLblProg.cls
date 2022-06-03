@@ -60,7 +60,7 @@ Private Type udtProg
     blnCaptionVisible As Boolean        ' Show/hide percent complete caption
     objParent As Object                 ' Parent object of back label (in MSForms 2.0)
     dteStartTime As Date                ' Time of first value change
-
+    sngRepaintInterval As Single        ' Seconds between updates
 End Type
 Private this As udtProg
 
@@ -154,6 +154,9 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         End With
     End If
 
+    ' Set default repaint interval to once every second
+    this.sngRepaintInterval = 1
+    
     ' Update the display immediately
     UpdateDisplay True
 
@@ -205,6 +208,18 @@ Public Property Let CaptionVisible(NewVal As Boolean)
         End If
     End With
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetRepaintInterval
+' Author    : Adam Waller
+' Date      : 6/3/2022
+' Purpose   : Set how frequently to repaint the screen (DoEvents)
+'---------------------------------------------------------------------------------------
+'
+Public Function SetRepaintInterval(sngSeconds As Single)
+    this.sngRepaintInterval = sngSeconds
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -424,8 +439,9 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
         ' Always update display
         RaiseEvent ProgressChange(this.dblValue, intPercent)
         DoEvents
-    ElseIf (Abs(sngLastUpdate - Timer) > 1) Or blnForceUpdate Then
-        ' Update every second, or when forcing an immediate update
+    ElseIf (Abs(sngLastUpdate - Timer) > this.sngRepaintInterval) Or blnForceUpdate Then
+        ' Update every second (or other specified interval),
+        ' or when forcing an immediate update
         RaiseEvent ProgressChange(this.dblValue, intPercent)
         DoEvents
         sngLastUpdate = Timer
