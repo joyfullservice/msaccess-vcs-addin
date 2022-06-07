@@ -207,7 +207,10 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                         
                         ' Check for pass-through query connection string
                         If StartsWith(strLine, "dbMemo ""Connect"" =""") Then
-                            blnIsPassThroughQuery = True
+                            ' Not just an empty value (See issue #337)
+                            If Len(strLine) > 20 Then
+                                blnIsPassThroughQuery = True
+                            End If
                         End If
                     End If
             
