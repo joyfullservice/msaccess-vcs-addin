@@ -150,7 +150,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
             .TextAlign = 2 'fmTextAlignCenter
             .BackStyle = 0 ' fmBackStyleTransparent
             .Caption = "0%"
-            .ForeColor = lngColorWhite
+            .ForeColor = lngColorBlack
         End With
     End If
 
@@ -431,6 +431,8 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
         If Not .lblCaption Is Nothing Then
             .lblCaption.Caption = intPercent & "%"
             SetVisibility .lblCaption, .blnCaptionVisible
+            ' Verify caption color (black till 50%, then white)
+            VerifyForeColor .lblCaption, IIf(intPercent > 50, lngColorWhite, lngColorBlack)
         End If
     End With
 
@@ -493,6 +495,18 @@ Private Sub SetVisibility(ctlObject As Control, blnVisible As Boolean)
     If Not ctlObject Is Nothing Then
         If ctlObject.Visible <> blnVisible Then ctlObject.Visible = blnVisible
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyForeColor
+' Author    : Adam Waller
+' Date      : 6/8/2022
+' Purpose   : Sets the ForeColor property to match the desired value.
+'---------------------------------------------------------------------------------------
+'
+Private Sub VerifyForeColor(ctlLabel As Control, lngForeColor As Long)
+    If ctlLabel.ForeColor <> lngForeColor Then ctlLabel.ForeColor = lngForeColor
 End Sub
 
 
