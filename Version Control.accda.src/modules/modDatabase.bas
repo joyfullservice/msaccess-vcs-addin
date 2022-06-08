@@ -623,3 +623,39 @@ Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
     
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAvailableConnectionCount
+' Author    : Adam Waller
+' Date      : 6/8/2022
+' Purpose   : Returns the number of available connections in the current database.
+'           : (Access has a maximum of 255 connections that can be made to the current
+'           :  database object.) See issue #338
+'---------------------------------------------------------------------------------------
+'
+Public Function GetAvailableConnectionCount()
+
+    Dim colDbs As Collection
+    Dim dbs As DAO.Database
+    Dim intCnt As Integer
+    
+    Set colDbs = New Collection
+    
+    On Error Resume Next
+    For intCnt = 1 To 300
+        Set dbs = CurrentDb
+        If Err Then
+            ' Probably cannot open any more databases
+            Err.Clear
+            Exit For
+        End If
+        colDbs.Add dbs
+    Next intCnt
+    
+    Set dbs = Nothing
+
+    ' Return count of how many connections we were
+    ' able to create before hitting an error
+    GetAvailableConnectionCount = intCnt
+    
+End Function
