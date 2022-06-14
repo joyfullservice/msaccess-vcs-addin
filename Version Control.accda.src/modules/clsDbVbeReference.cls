@@ -464,6 +464,20 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    IDbComponent_QuickCount = 1
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ComponentType
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
