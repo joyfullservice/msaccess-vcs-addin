@@ -62,10 +62,17 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
     
+    Dim strName As String
+    
     ' Only import files with the correct extension.
     If Not strFile Like "*.xml" Then Exit Sub
 
-    LoadComponentFromText acTableDataMacro, GetObjectNameFromFileName(strFile), strFile
+    strName = GetObjectNameFromFileName(strFile)
+    LoadComponentFromText acTableDataMacro, strName, strFile
+    
+    ' Update index
+    Set m_Table = CurrentData.AllTables(strName)
+    VCSIndex.Update Me, eatImport
     
 End Sub
 
@@ -79,6 +86,22 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
+
+    Dim strTemp As String
+
+    If FSO.FileExists(strFile) Then
+        ' Load the table data macro into the existing table, overwriting any existing macro
+        IDbComponent_Import strFile
+    Else
+        ' Create and load a blank file to clear any existing table data macros.
+        ' (Tested in Access 2010 with no errors on 6/15/2022)
+        strTemp = GetTempFile   ' Create an empty temporary file.
+        LoadFromText acTableDataMacro, GetObjectNameFromFileName(strFile), strTemp
+        DeleteFile strTemp
+        
+        ' Remove entry from index
+        VCSIndex.Remove Me, strFile
+    End If
 
 End Sub
 
