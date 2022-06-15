@@ -111,7 +111,6 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 End Sub
 
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : Import
 ' Author    : Adam Waller
@@ -167,7 +166,12 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-
+    DeleteObjectIfExists acTable, GetObjectNameFromFileName(strFile)
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
 End Sub
 
 
