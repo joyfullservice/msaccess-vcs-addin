@@ -111,6 +111,66 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 End Sub
 
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : Import
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Import the individual database component from a file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Import(strFile As String)
+
+    Dim blnUseTemp As Boolean
+    Dim strTempFile As String
+    Dim strName As String
+    
+    ' Determine import type from extension
+    Select Case LCase$(FSO.GetExtensionName(strFile))
+    
+        Case "json"
+            If Not ImportLinkedTable(strFile) Then Exit Sub
+        
+        Case "xml"
+            ' The ImportXML function does not properly handle UrlEncoded paths
+            blnUseTemp = (InStr(1, strFile, "%") > 0)
+            If blnUseTemp Then
+                ' Import from (safe) temporary file name.
+                strTempFile = GetTempFile
+                FSO.CopyFile strFile, strTempFile
+                Application.ImportXML strTempFile, acStructureOnly
+                DeleteFile strTempFile
+            Else
+                Application.ImportXML strFile, acStructureOnly
+            End If
+        
+        Case Else
+            ' Unsupported file
+            Exit Sub
+            
+    End Select
+    
+    ' Update index
+    strName = GetObjectNameFromFileName(strFile)
+    Set m_Table = CurrentData.AllTables(strName)
+    VCSIndex.Update Me, eatImport
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Merge
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Merge the source file into the existing database, updating or replacing
+'           : any existing object.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Merge(strFile As String)
+
+End Sub
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : RemoveAlternateFormatSourceFile
 ' Author    : Adam Waller
@@ -344,65 +404,6 @@ Private Function IndexAvailable(tdf As TableDef) As Boolean
     CatchAny eelNoError, vbNullString, , False
     
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Import
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Import the individual database component from a file.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Import(strFile As String)
-
-    Dim blnUseTemp As Boolean
-    Dim strTempFile As String
-    Dim strName As String
-    
-    ' Determine import type from extension
-    Select Case LCase$(FSO.GetExtensionName(strFile))
-    
-        Case "json"
-            If Not ImportLinkedTable(strFile) Then Exit Sub
-        
-        Case "xml"
-            ' The ImportXML function does not properly handle UrlEncoded paths
-            blnUseTemp = (InStr(1, strFile, "%") > 0)
-            If blnUseTemp Then
-                ' Import from (safe) temporary file name.
-                strTempFile = GetTempFile
-                FSO.CopyFile strFile, strTempFile
-                Application.ImportXML strTempFile, acStructureOnly
-                DeleteFile strTempFile
-            Else
-                Application.ImportXML strFile, acStructureOnly
-            End If
-        
-        Case Else
-            ' Unsupported file
-            Exit Sub
-            
-    End Select
-    
-    ' Update index
-    strName = GetObjectNameFromFileName(strFile)
-    Set m_Table = CurrentData.AllTables(strName)
-    VCSIndex.Update Me, eatImport
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Merge
-' Author    : Adam Waller
-' Date      : 11/21/2020
-' Purpose   : Merge the source file into the existing database, updating or replacing
-'           : any existing object.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Merge(strFile As String)
-
-End Sub
 
 
 '---------------------------------------------------------------------------------------
