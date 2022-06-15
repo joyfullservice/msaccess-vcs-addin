@@ -163,6 +163,8 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
                 End If
             End If
         End If
+        ' Increment the progress bar as we scan through the files
+        Log.Increment
     Next oFile
     
     ' Remove base folder if we don't have any files in it

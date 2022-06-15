@@ -456,6 +456,8 @@ Public Sub CheckExportConflicts(dDbComponents As Dictionary)
                 GetLastModifiedDate(cItem.SourceFile), _
                 ercOverwrite
         End If
+        ' Increment the progress bar
+        Log.Increment
         ' Exit loop if single source file
         If cItem.SingleFile Then Exit For
     Next varKey

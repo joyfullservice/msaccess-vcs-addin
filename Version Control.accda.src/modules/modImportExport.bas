@@ -91,11 +91,16 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Log.Add "Scanning " & IIf(blnFullExport, "source files...", "for changes...")
     Log.Flush
     
+    ' Set up progress bar to show status on large projects
+    Set colCategories = GetContainers(intFilter)
+    Log.ProgressBar.Reset
+    Log.ProgressBar.Max = GetQuickObjectCount(colCategories) + GetQuickFileCount(colCategories)
+    
     ' Scan database objects for changes
     Set dCategories = New Dictionary
     VCSIndex.Conflicts.Initialize dCategories
     Perf.OperationStart "Scan DB Objects"
-    For Each cCategory In GetContainers(intFilter)
+    For Each cCategory In colCategories
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
         ' Get collection of database objects (IDbComponent classes)
@@ -111,6 +116,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         cCategory.ClearOrphanedSourceFiles
     Next cCategory
     Perf.OperationEnd
+    Log.ProgressBar.Reset
     
     ' Check for any conflicts
     With VCSIndex.Conflicts

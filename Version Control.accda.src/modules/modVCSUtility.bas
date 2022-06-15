@@ -87,6 +87,70 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetQuickObjectCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a quick, non-iterative object count for the collection of
+'           : database components. (Used for progress bar)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetQuickObjectCount(colContainers As Collection) As Long
+
+    Dim lngTotal As Long
+    Dim cCont As IDbComponent
+    
+    Perf.OperationStart "Quick Count Objects"
+    For Each cCont In colContainers
+        lngTotal = lngTotal + cCont.QuickCount
+    Next cCont
+    Perf.OperationEnd
+    
+    GetQuickObjectCount = lngTotal
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetQuickFileCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a quick count of the files in each folder so we can increment
+'           : the progress of scanning through files in a folder.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetQuickFileCount(colContainers As Collection) As Long
+
+    Dim lngTotal As Long
+    Dim strBase As String
+    Dim strFolder As String
+    Dim cCont As IDbComponent
+    
+    ' Get base folder path
+    Perf.OperationStart "Quick Count Files"
+    strBase = Options.GetExportFolder
+    
+    For Each cCont In colContainers
+        strFolder = cCont.BaseFolder
+        If StrComp(strBase, strFolder, vbTextCompare) = 0 Then
+            ' Add a single count for the single file
+            lngTotal = lngTotal + 1
+        Else
+            ' Make sure the folder actually exists before getting a file count
+            If FSO.FolderExists(strFolder) Then
+                ' Add a count of the files in the folder
+                lngTotal = lngTotal + FSO.GetFolder(strFolder).Files.Count
+            End If
+        End If
+    Next cCont
+    Perf.OperationEnd
+    
+    ' Return total number of files in all source folders
+    GetQuickFileCount = lngTotal
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : HasMoreRecentChanges
 ' Author    : Adam Waller
 ' Date      : 4/27/2020
