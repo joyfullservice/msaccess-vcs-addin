@@ -501,7 +501,12 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
     Set rxLine = New VBScript_RegExp_55.RegExp
 
     ' Read text from file
-    strFile = ReadFile(strPath)
+    If HasUcs2Bom(strPath) Then
+        ' Table data macro XML is exported as UTF-16 LE BOM
+        strFile = ReadFile(strPath, "Unicode")
+    Else
+        strFile = ReadFile(strPath)
+    End If
     Perf.OperationStart "Sanitize XML"
     curStart = Perf.MicroTimer
     

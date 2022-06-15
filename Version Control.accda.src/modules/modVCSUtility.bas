@@ -284,8 +284,7 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
     Exit Function
     
 ErrHandler:
-    If intType = acTableDataMacro And _
-        (Err.Number = 2950 Or Err.Number = -1072894419) Then
+    If Err.Number = 2950 And intType = acTableDataMacro Then
         ' This table apparently didn't have a Table Data Macro.
         Exit Function
     Else
