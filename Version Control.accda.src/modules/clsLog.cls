@@ -147,10 +147,10 @@ Public Sub Flush()
             Echo True
             'Form_frmVCSMain.Repaint
         End With
+    Else
+        ' Update display in immediate window if not using console
+        DoEvents
     End If
-    
-    ' Update the display (especially for immediate window)
-    DoEvents
     Perf.OperationEnd
     
 End Sub
@@ -334,7 +334,7 @@ End Sub
 ' Procedure : Increment
 ' Author    : Adam Waller
 ' Date      : 4/28/2020
-' Purpose   : Increment the progress bar
+' Purpose   : Increment the progress bar/output display
 '---------------------------------------------------------------------------------------
 '
 Public Sub Increment()
@@ -360,4 +360,5 @@ Public Sub Increment()
     ' Status is now active
     m_blnProgressActive = True
     Perf.OperationEnd
+    
 End Sub
