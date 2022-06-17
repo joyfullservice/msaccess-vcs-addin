@@ -2071,6 +2071,8 @@ Public Function GetProgressBar() As clsLblProg
     Set GetProgressBar = New clsLblProg
     GetProgressBar.Initialize lblProgBack, lblProgFront, lblProgCaption
     GetProgressBar.SetRepaintInterval 0.5
+    ' Move caption up slightly for better alignment on this very small progress bar
+    lblProgCaption.Top = lblProgBack.Top + 1
 End Function
 
 
