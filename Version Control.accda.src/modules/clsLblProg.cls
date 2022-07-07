@@ -359,10 +359,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Reset()
-    With this
-        .dteStartTime = 0
-        .dblValue = 0
-    End With
+    this.dteStartTime = 0
+    Me.Value = 0
     UpdateDisplay True
 End Sub
 
@@ -397,14 +395,6 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
 
     Static sngLastUpdate As Single
 
-    ' Check visibility
-    If Me.Max = 0 Or Me.Value = 0 Then
-        SetVisibility this.lblFront, False
-        SetVisibility this.lblCaption, False
-        ' Skip all the rest of the updates; there's no reason to do the rest of this math.
-        Exit Sub
-    End If
-
     ' Set size and caption
     With this
         If Me.Max <= 0 Then
@@ -418,7 +408,19 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
             intPercent = .dblValue * (100 / Me.Max)
             dblWidth = .dblValue * (.dblFullWidth / Me.Max)
         End If
-        .lblFront.Width = dblWidth
+        
+        ' See if we have a label assigned
+        If .lblFront Is Nothing Then
+            #If APPLICATION_NAME = "Microsoft Access" Then
+                ' Use system progress meter at bottom right of
+                ' the Microsoft Access application window
+                SysCmd acSysCmdInitMeter, "Working...", 100
+                SysCmd acSysCmdUpdateMeter, intPercent
+            #End If
+        Else
+            ' Adjust width of label to show progress
+            .lblFront.Width = dblWidth
+        End If
 
         ' Save currently displayed value
         .dblDisplayed = .dblValue
@@ -524,9 +526,11 @@ Private Sub Class_Terminate()
     #If APPLICATION_NAME = "Microsoft Access" Then
         ' Hide front controls
         Hide
+        ' Remove any progress meter if not using labels
+        If this.lblBack Is Nothing Then SysCmd acSysCmdRemoveMeter
     #Else
         ' Remove front controls
-        this.lblBack.Visible = False
+        SetVisibility this.lblBack, False
         this.objParent.Controls.Remove (this.lblFront.Name)
         this.objParent.Controls.Remove (this.lblCaption.Name)
     #End If

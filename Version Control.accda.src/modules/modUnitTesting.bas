@@ -303,3 +303,23 @@ Private Sub TestUniqueBaseSubfolder()
     Next
     
 End Sub
+
+
+' Test the operation of a progress bar without using label objects
+' (Uses Access system progress meter instead)
+Public Sub TestMeterProgressBar()
+
+    Dim intCnt As Integer
+    
+    With New clsLblProg
+        .Max = 20
+        For intCnt = 1 To 30
+            'Pause 0.1
+            .Increment
+        Next intCnt
+        .Reset
+        .Clear
+    End With
+    
+End Sub
+
