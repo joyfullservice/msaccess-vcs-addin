@@ -129,9 +129,13 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim rstResources As DAO.Recordset2
-    Dim rstAttachment As DAO.Recordset2
-    Dim fldFile As DAO.Field2
+    ' IMPORTANT: These variables must be declared as the
+    ' generic parent classes to avoid problems in newer
+    ' releases of Microsoft Access. (See issue #341)
+    Dim rstResources As DAO.Recordset   ' Recordset2
+    Dim rstAttachment As DAO.Recordset  ' Recordset2
+    Dim fldFile As DAO.Field            ' Field2
+    
     Dim strZip As String
     Dim strThemeFile As String
     Dim strThemeName As String
@@ -641,8 +645,11 @@ End Property
 '
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
 
-    Dim fld2 As DAO.Field2
-    Dim rst2 As DAO.Recordset2
+    ' IMPORTANT: These variables must be declared as the
+    ' generic parent classes to avoid problems in newer
+    ' releases of Microsoft Access. (See issue #341)
+    Dim fld2 As DAO.Field       ' Field2
+    Dim rst2 As DAO.Recordset   ' Recordset2
 
     Set m_Rst = RHS
 
