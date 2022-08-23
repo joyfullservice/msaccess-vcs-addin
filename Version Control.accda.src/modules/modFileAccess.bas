@@ -264,20 +264,31 @@ Public Function VerifyPath(PathToCheck As String _
     Const ERROR_ALREADY_EXISTS As Long = &HB7       'The directory exists.
     Const ERROR_CANCELLED As Long = &H4C7           'The user canceled the operation.
     Const ERROR_INVALID_NAME As Long = &H7B         'Unicode path passed when SHCreateDirectoryEx passes PathToCheck as string.
-    
+
     Const LONG_PATH_PREFIX As String = "\\?\"
 
     Dim ReturnCode As Long
-    
-    On Error Resume Next
+    Dim strFolder As String
+
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     Perf.OperationStart FunctionName
-    
-    If EnableLongPath Then
-        ReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(LONG_PATH_PREFIX & PathToCheck), ByVal 0&)
+
+    If PathToCheck = vbNullString Then GoTo Exit_Here
+
+    If Right$(PathToCheck, 1) = PathSep Then
+        ' Folder name. (Folder names can contain periods)
+        strFolder = Left$(PathToCheck, Len(PathToCheck) - 1)
     Else
-        ReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(PathToCheck), ByVal 0&)
+        ' File name
+        strFolder = FSO.GetParentFolderName(PathToCheck)
     End If
-    
+
+    If EnableLongPath And Not StartsWith(strFolder, ".") Then ' Can't use relative paths for LongPaths.
+        ReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(LONG_PATH_PREFIX & strFolder), ByVal 0&)
+    Else
+        ReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(strFolder), ByVal 0&)
+    End If
+
     Select Case ReturnCode
     Case ERROR_SUCCESS, _
          ERROR_FILE_EXISTS, _
@@ -466,22 +477,46 @@ End Function
 ' Purpose   : Returns the UNC path for a network location (if applicable)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetUncPath(strPath As String)
-
+Public Function GetUNCPath(ByRef strPath As String)
+    Const FunctionName As String = ModuleName & ".GetUNCPath"
     Dim strDrive As String
     Dim strUNC As String
-    
+    Perf.OperationStart FunctionName
     strUNC = strPath
+Retry:
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+
     strDrive = FSO.GetDriveName(strPath)
+    If Catch(68) Then GoTo HandleDriveLoss
+    CatchAny eelError, "Issue getting drive paths.", FunctionName
     With FSO.GetDrive(strDrive)
+        If Catch(68) Then GoTo HandleDriveLoss
         If .DriveType = Remote Then
-            strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
+            If .IsReady Then
+                strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
+            Else
+                GoTo HandleDriveLoss
+            End If
         End If
     End With
-    GetUncPath = strUNC
-    
-End Function
+    GetUNCPath = strUNC
 
+Exit_Here:
+    Perf.OperationEnd
+    CatchAny eelError, "Issue getting drive paths.", FunctionName
+    Exit Function
+    
+HandleDriveLoss:
+    Select Case Log.Error(eelError, "Your drive isn't ready! Reconnect " & strDrive & " to continue.", FunctionName, vbRetryCancel, , _
+             "Click Retry AFTER reconnecting drive (often this means simply opening the drive in Windows File Explorer). " & vbNewLine & _
+             "Click Cancel to stop operation." & vbNewLine)
+        Case vbRetry
+            GoTo Retry
+        Case Else
+            ' Log error, quit operation.
+            GoTo Exit_Here
+    End Select
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetLastModifiedDate
