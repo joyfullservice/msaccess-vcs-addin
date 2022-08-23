@@ -477,7 +477,7 @@ End Function
 ' Purpose   : Returns the UNC path for a network location (if applicable)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetUNCPath(ByRef strPath As String)
+Public Function GetUncPath(ByRef strPath As String)
     Const FunctionName As String = ModuleName & ".GetUNCPath"
     Dim strDrive As String
     Dim strUNC As String
@@ -499,7 +499,7 @@ Retry:
             End If
         End If
     End With
-    GetUNCPath = strUNC
+    GetUncPath = strUNC
 
 Exit_Here:
     Perf.OperationEnd
@@ -507,15 +507,8 @@ Exit_Here:
     Exit Function
     
 HandleDriveLoss:
-    Select Case Log.Error(eelError, "Your drive isn't ready! Reconnect " & strDrive & " to continue.", FunctionName, vbRetryCancel, , _
-             "Click Retry AFTER reconnecting drive (often this means simply opening the drive in Windows File Explorer). " & vbNewLine & _
-             "Click Cancel to stop operation." & vbNewLine)
-        Case vbRetry
-            GoTo Retry
-        Case Else
-            ' Log error, quit operation.
-            GoTo Exit_Here
-    End Select
+    Log.Error eelError, "Your drive isn't ready! Reconnect " & strDrive & " then click OK to continue.", FunctionName
+    GoTo Retry
 End Function
 
 '---------------------------------------------------------------------------------------
@@ -539,7 +532,6 @@ Public Function GetLastModifiedDate(strPath As String) As Date
         GetLastModifiedDate = oFolder.DateLastModified
     End If
     Perf.OperationEnd
-        
 End Function
 
 
