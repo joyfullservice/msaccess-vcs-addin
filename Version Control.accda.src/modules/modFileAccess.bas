@@ -594,9 +594,6 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetSafeFileName(strName As String) As String
-
-    Dim strSafe As String
-
     ' Use URL encoding for these characters
     ' https://www.w3schools.com/tags/ref_urlencode.asp
     ' 
@@ -650,7 +647,7 @@ End Function
 Public Function GetObjectNameFromFileName(strFile As String) As String
 
     Dim strName As String
-    
+
     strName = FSO.GetBaseName(strFile)
     ' Make sure the following list matches the one above.
     GetObjectNameFromFileName = MultiReplace (strName _
@@ -664,8 +661,4 @@ Public Function GetObjectNameFromFileName(strFile As String) As String
                                 , "%3F", "?" _
                                 , "%2A", "*" _
                                 , "%25", "%")  ' This should be done last.
-    
-    ' Return the object name
-    GetObjectNameFromFileName = strName
-    
 End Function
