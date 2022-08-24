@@ -21,7 +21,7 @@ Private Const ModuleName As String = "modStringFunctions"
 '
 Public Function MultiReplace(ByVal strText As String _
                             , ParamArray varPairs()) As String
-    Dim intPair As Integer
+    Dim intPair As Long
     For intPair = 0 To UBound(varPairs) Step 2
         strText = Replace(strText, varPairs(intPair), varPairs(intPair + 1))
     Next intPair
@@ -50,7 +50,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function Coalesce(ParamArray varStrings()) As String
-    Dim intString As Integer
+    Dim intString As Long
     For intString = 0 To UBound(varStrings)
         If Nz(varStrings(intString)) <> vbNullString Then
             Coalesce = varStrings(intString)
