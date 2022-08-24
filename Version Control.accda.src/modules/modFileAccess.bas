@@ -409,6 +409,25 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : BuildPath2
+' Author    : Adam Waller
+' Date      : 3/3/2021
+' Purpose   : Like FSO.BuildPath, but with unlimited arguments)
+'---------------------------------------------------------------------------------------
+'
+Public Function BuildPath2(ParamArray Segments())
+    Dim lngPart As Long
+    With New clsConcat
+        For lngPart = LBound(Segments) To UBound(Segments)
+            .Add CStr(Segments(lngPart))
+            If lngPart < UBound(Segments) Then .Add PathSep
+        Next lngPart
+    BuildPath2 = .GetStr
+    End With
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetRelativePath
 ' Author    : Adam Waller
 ' Date      : 5/11/2020
@@ -548,3 +567,103 @@ Public Function StripSlash(strText As String) As String
     End If
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : PathSep
+' Author    : Adam Waller
+' Date      : 3/3/2021
+' Purpose   : Return the current path separator, based on language settings.
+'           : Caches value to avoid extra calls to FSO object.
+'---------------------------------------------------------------------------------------
+'
+Public Function PathSep() As String
+    Static strSeparator As String
+    If strSeparator = vbNullString Then strSeparator = Mid$(FSO.BuildPath("a", "b"), 2, 1)
+    PathSep = strSeparator
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSafeFileName
+' Author    : Adam Waller, hecon5
+' Date      : 1/14/2019, 2022 MAY 20
+' Purpose   : Replace illegal filename characters with URL encoded substitutes
+'           : Sources: http://stackoverflow.com/questions/1976007/what-characters-are-forbidden-in-windows-and-linux-directory-names
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSafeFileName(strName As String) As String
+
+    Dim strSafe As String
+
+    ' Use URL encoding for these characters
+    ' https://www.w3schools.com/tags/ref_urlencode.asp
+    ' 
+    ' NOTE: Do "%" replace first, as all the remainder use the "%" symbol and
+    '       you will create a huge loop otherwise.
+    GetSafeFileName = MultiReplace(strName _
+                        , "%", "%25" _
+                        , "<", "%3C" _
+                        , ">", "%3E" _
+                        , ":", "%3A" _
+                        , """", "%22" _
+                        , "/", "%2F" _
+                        , "\", "%5C" _
+                        , "|", "%7C" _
+                        , "?", "%3F" _
+                        , "*", "%2A" _
+                        )
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetUploadSafeFileName
+' Author    : hecon5
+' Date      : 2022 MAY 20
+' Purpose   : Remove illegal filename characters with URL encoded substitutes safe for 
+'           : many websites (EG: SharePoint doesn't like "URL Safe" charachters)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetUploadSafeFileName(ByRef strName As String) As String
+    GetUploadSafeFileName = MultiReplace(strName _
+                            , "%", vbNullString _
+                            , "<", vbNullString _
+                            , ">", vbNullString _
+                            , ":", vbNullString _
+                            , """", vbNullString _
+                            , "/", vbNullString _
+                            , "\", vbNullString _
+                            , "|", vbNullString _
+                            , "?", vbNullString _
+                            , "*", vbNullString _
+                            )
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetObjectNameFromFileName
+' Author    : Adam Waller
+' Date      : 5/6/2020
+' Purpose   : Return the object name after translating the HTML encoding back to normal
+'           : file name characters.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetObjectNameFromFileName(strFile As String) As String
+
+    Dim strName As String
+    
+    strName = FSO.GetBaseName(strFile)
+    ' Make sure the following list matches the one above.
+    GetObjectNameFromFileName = MultiReplace (strName _
+                                , "%3C", "<" _
+                                , "%3E", ">" _
+                                , "%3A", ":" _
+                                , "%22", """" _
+                                , "%2F", "/" _
+                                , "%5C", "\" _
+                                , "%7C", "|" _
+                                , "%3F", "?" _
+                                , "%2A", "*" _
+                                , "%25", "%")  ' This should be done last.
+    
+    ' Return the object name
+    GetObjectNameFromFileName = strName
+    
+End Function
