@@ -122,7 +122,7 @@ Public Function ListResultIndent(ByRef strHeading As String _
                                 , ByRef strResult2 As String _
                                 , ByRef lngCol() As Long _
                                 , Optional ByVal ColumnIndent As Long = 4) As String
-    
+    Const FunctionName As String = ModuleName & ".ListResultIndent"
     Dim Col1StrArr() As String
     Dim Col2StrArr() As String
     Dim Col3StrArr() As String
@@ -137,7 +137,7 @@ Public Function ListResultIndent(ByRef strHeading As String _
     Dim StrOutput As clsConcat
     
     On Error Resume Next
-    Perf.OperationStart ModuleName & ".ListResultIndent"
+    Perf.OperationStart FunctionName
     
     Col1StrArr = FitStringToColumn(strHeading, lngCol(0) - 1, ColumnIndent)
     Col2StrArr = FitStringToColumn(strResult1, lngCol(1) - 1, ColumnIndent)
@@ -148,7 +148,7 @@ Public Function ListResultIndent(ByRef strHeading As String _
     Col3Rows = UBound(Col3StrArr)
     
     RowTotal = MaxValue(Col1Rows, Col2Rows, Col3Rows)
-        
+    
     Set StrOutput = New clsConcat
     
     For RowPosition = 0 To RowTotal
@@ -172,7 +172,8 @@ Public Function ListResultIndent(ByRef strHeading As String _
         If RowTotal > RowPosition Then StrOutput.Add vbNewLine
     
     Next RowPosition
-
+Exit_Here:
+    CatchAny eelError, "Could not build indented list.", FunctionName
     ListResultIndent = StrOutput.GetStr
     Perf.OperationEnd
 End Function
@@ -188,7 +189,7 @@ End Function
 Public Function FitStringToColumn(ByRef LongString As String _
                                 , Optional ByRef ColumnWidth As Long = 200 _
                                 , Optional ByRef ColumnIndent As Long = 0) As String()
-
+    Const FunctionName As String = ModuleName & ".FitStringToColumn"
     Dim RowTotal As Long
     Dim StrLen As Long
     Dim StrIndentedLen As Long
@@ -199,7 +200,7 @@ Public Function FitStringToColumn(ByRef LongString As String _
     Dim ColumnWidthInternal As Long
     
     On Error Resume Next
-    Perf.OperationStart ModuleName & ".FitStringToColumn"
+    Perf.OperationStart FunctionName
     If Len(LongString) = 0 Then Exit Function
     ColumnWidthInternal = ColumnWidth
     If ColumnWidthInternal <= 0 Then ColumnWidthInternal = 1
@@ -225,7 +226,7 @@ Public Function FitStringToColumn(ByRef LongString As String _
     Next ArrPosition
 
 Exit_Here:
-    CatchAny eelError, "Could not fit to column", Perf.CurrentOperationName
+    CatchAny eelError, "Could not fit to column", FunctionName
     FitStringToColumn = StrArr
     Perf.OperationEnd
 End Function
@@ -244,6 +245,7 @@ End Function
 Public Function FitStringToWidth(ByRef LongString As String _
                                 , Optional ByRef MaxWidth As Long = 200 _
                                 , Optional ByRef DesiredWidth As Long = 75) As String
+    Const FunctionName As String = ModuleName & ".FitStringToWidth"
     ' Fits a string to a message box if it's wider than MaxWidth
     Dim OutputConcat As clsConcat
     Dim StrPosition As Long
@@ -253,10 +255,10 @@ Public Function FitStringToWidth(ByRef LongString As String _
     Dim StrArrLen As Long ' Length of substring
     Dim StringArr() As String
     
-    Perf.OperationStart "FitStringToWidth"
+    Perf.OperationStart FunctionName
     StrLen = Len(LongString)
     If StrLen > MaxWidth Then
-        Perf.OperationStart "FitStringToWidth.Resize"
+        Perf.OperationStart FunctionName & ".Resize"
         StringArr = Split(LongString, vbNewLine, , vbTextCompare)
         NewLineCount = UBound(StringArr) - LBound(StringArr)
         Set OutputConcat = New clsConcat
