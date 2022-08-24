@@ -83,6 +83,68 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetSafeFileName
+' Author    : Adam Waller
+' Date      : 1/14/2019
+' Purpose   : Replace illegal filename characters with URL encoded substitutes
+'           : Sources: http://stackoverflow.com/questions/1976007/what-characters-are-forbidden-in-windows-and-linux-directory-names
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSafeFileName(strName As String) As String
+
+    Dim strSafe As String
+
+    ' Use URL encoding for these characters
+    ' https://www.w3schools.com/tags/ref_urlencode.asp
+    strSafe = Replace(strName, "%", "%25")  ' This should be done first.
+    strSafe = Replace(strSafe, "<", "%3C")
+    strSafe = Replace(strSafe, ">", "%3E")
+    strSafe = Replace(strSafe, ":", "%3A")
+    strSafe = Replace(strSafe, """", "%22")
+    strSafe = Replace(strSafe, "/", "%2F")
+    strSafe = Replace(strSafe, "\", "%5C")
+    strSafe = Replace(strSafe, "|", "%7C")
+    strSafe = Replace(strSafe, "?", "%3F")
+    strSafe = Replace(strSafe, "*", "%2A")
+
+    ' Return the sanitized file name.
+    GetSafeFileName = strSafe
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetObjectNameFromFileName
+' Author    : Adam Waller
+' Date      : 5/6/2020
+' Purpose   : Return the object name after translating the HTML encoding back to normal
+'           : file name characters.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetObjectNameFromFileName(strFile As String) As String
+
+    Dim strName As String
+    
+    strName = FSO.GetBaseName(strFile)
+    ' Make sure the following list matches the one above.
+    strName = Replace(strName, "%3C", "<")
+    strName = Replace(strName, "%3E", ">")
+    strName = Replace(strName, "%3A", ":")
+    strName = Replace(strName, "%22", """")
+    strName = Replace(strName, "%2F", "/")
+    strName = Replace(strName, "%5C", "\")
+    strName = Replace(strName, "%7C", "|")
+    strName = Replace(strName, "%3F", "?")
+    strName = Replace(strName, "%2A", "*")
+    strName = Replace(strName, "%25", "%")  ' This should be done last.
+    
+    ' Return the object name
+    GetObjectNameFromFileName = strName
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DatesClose
 ' Author    : Adam Waller
 ' Date      : 10/13/2017
@@ -571,6 +633,40 @@ Public Function ZNDate(varValue As Variant) As Variant
     Else
         ZNDate = Null
     End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PathSep
+' Author    : Adam Waller
+' Date      : 3/3/2021
+' Purpose   : Return the current path separator, based on language settings.
+'           : Caches value to avoid extra calls to FSO object.
+'---------------------------------------------------------------------------------------
+'
+Public Function PathSep() As String
+    Static strSeparator As String
+    If strSeparator = vbNullString Then strSeparator = Mid$(FSO.BuildPath("a", "b"), 2, 1)
+    PathSep = strSeparator
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildPath2
+' Author    : Adam Waller
+' Date      : 3/3/2021
+' Purpose   : Like FSO.BuildPath, but with unlimited arguments)
+'---------------------------------------------------------------------------------------
+'
+Public Function BuildPath2(ParamArray Segments())
+    Dim lngPart As Long
+    With New clsConcat
+        For lngPart = LBound(Segments) To UBound(Segments)
+            .Add CStr(Segments(lngPart))
+            If lngPart < UBound(Segments) Then .Add PathSep
+        Next lngPart
+    BuildPath2 = .GetStr
+    End With
 End Function
 
 
