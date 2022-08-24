@@ -96,22 +96,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : MultiReplace
-' Author    : Adam Waller
-' Date      : 1/18/2019
-' Purpose   : Does a string replacement of multiple items in one call.
-'---------------------------------------------------------------------------------------
-'
-Public Function MultiReplace(ByVal strText As String, ParamArray varPairs()) As String
-    Dim intPair As Integer
-    For intPair = 0 To UBound(varPairs) Step 2
-        strText = Replace(strText, varPairs(intPair), varPairs(intPair + 1))
-    Next intPair
-    MultiReplace = strText
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : ShowIDE
 ' Author    : Adam Waller
 ' Date      : 5/18/2015
