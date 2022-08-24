@@ -120,7 +120,7 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     
     Dim strMsg As String
     Dim varLines(0 To 3) As String
-    Dim intCursor As Integer
+    Dim intCursor As Long
     
     ' Turn off any hourglass
     intCursor = Screen.MousePointer
@@ -154,7 +154,7 @@ End Function
 Public Function dNZ(dObject As Dictionary, strPath As String, Optional strDelimiter As String = "\") As String
 
     Dim varPath As Variant
-    Dim intCnt As Integer
+    Dim intCnt As Long
     Dim dblVal As Double
     Dim strKey As String
     Dim varSegment As Variant
@@ -233,7 +233,7 @@ End Function
 '
 Public Function KeyExists(dDictionary As Dictionary, ParamArray varSegmentKeys()) As Boolean
     
-    Dim intSegment As Integer
+    Dim intSegment As Long
     Dim dBase As Dictionary
     
     ' Bail out if no valid dictionary passed
@@ -530,7 +530,7 @@ End Function
 Public Function Largest(ParamArray varValues()) As Variant
 
     Dim varLargest As Variant
-    Dim intCnt As Integer
+    Dim intCnt As Long
     
     For intCnt = LBound(varValues) To UBound(varValues)
         If varLargest < varValues(intCnt) Then varLargest = varValues(intCnt)
