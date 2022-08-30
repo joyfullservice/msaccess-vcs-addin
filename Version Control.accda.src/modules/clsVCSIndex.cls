@@ -446,6 +446,11 @@ Public Sub CheckExportConflicts(dDbComponents As Dictionary)
     
     Dim varKey As Variant
     Dim cItem As IDbComponent
+    Dim sngStart As Single
+    
+    ' Capture start time so we can display some progress if this
+    ' scan takes a while.
+    sngStart = Timer
     
     ' Loop through all components
     For Each varKey In dDbComponents.Keys
@@ -462,6 +467,11 @@ Public Sub CheckExportConflicts(dDbComponents As Dictionary)
         Log.Increment
         ' Exit loop if single source file
         If cItem.SingleFile Then Exit For
+        ' Display more detail if export runs more than 1 second.
+        If sngStart > 0 And (Timer - sngStart > 1) Then
+            Log.Add " - Checking " & dDbComponents.Count & " " & LCase(cItem.Category) & "...", , , , , True
+            sngStart = 0
+        End If
     Next varKey
     
 End Sub
