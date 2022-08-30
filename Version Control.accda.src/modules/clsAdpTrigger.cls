@@ -243,6 +243,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If Me.TriggerName = vbNullString Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(Me.SchemaName & "_" & Me.TriggerName) & ".sql"
 End Property
 
