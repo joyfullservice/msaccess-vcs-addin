@@ -64,7 +64,8 @@ End Sub
 Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
     Optional blnNextOutputOnNewLine As Boolean = True, _
     Optional strColor As String = vbNullString, _
-    Optional blnBold As Boolean = False)
+    Optional blnBold As Boolean = False, _
+    Optional blnItalic As Boolean = False)
     
     ' Add to log file output
     m_Log.Add strText, vbCrLf
@@ -82,6 +83,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
         
             ' Opening tags
             If blnBold Then .Add "<strong>"
+            If blnItalic Then .Add "<i>"
             If strColor <> vbNullString Then .Add "<font color=", strColor, ">"
             
             ' Content
@@ -91,7 +93,8 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             
             ' Closing tags
             If strColor <> vbNullString Then .Add "</font>"
-            If blnBold Then m_Console.Add "</strong>"
+            If blnItalic Then .Add "</i>"
+            If blnBold Then .Add "</strong>"
             
             ' Add line break for HTML
             If blnNextOutputOnNewLine Then m_Console.Add "<br>"
