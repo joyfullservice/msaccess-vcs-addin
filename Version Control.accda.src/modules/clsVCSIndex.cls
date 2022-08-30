@@ -19,6 +19,7 @@ Option Explicit
 
 ' File name for index
 Private Const cstrFileName As String = "vcs-index.json"
+Private Const ModuleName As String = "clsVCSIndex"
 
 ' General properties
 Public MergeBuildDate As Date
@@ -43,6 +44,7 @@ Private m_dGitIndex As Dictionary
 Private m_strFile As String
 Private m_Git As clsGitIntegration
 Private m_Conflicts As clsConflicts
+Private m_strTempExportFolderPath As String
 
 
 '---------------------------------------------------------------------------------------
@@ -523,11 +525,10 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
     
     ' Compare the content hash of a fresh export to see if it matches the existing file.
     If blnCompareTemp Then
-        strTempFile = GetTempFile
+        strTempFile = Replace(strFile, Options.GetExportFolder, GetTempExportFolder)
         Log.Add "  Exporting " & cItem.Name, False
         cItem.Export strTempFile
         blnConflict = Not FileContentsMatch(strFile, strTempFile)
-        DeleteFile strTempFile
     End If
     
     ' Return result
@@ -566,6 +567,48 @@ End Function
 '
 Public Sub CheckImportConflicts(cComponent As IDbComponent, dFiles As Dictionary)
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTempExportFolder
+' Author    : Adam Waller
+' Date      : 8/30/2022
+' Purpose   : Returns the temp folder used for temporary source exports when the
+'           : modified status of the the component cannot be determined without running
+'           : an export operation. Persisting this folder during the export operation
+'           : allows us to perform a single export of the component while still giving
+'           : the user the ability to decide whether to overwrite the existing file.
+'           : NOTE: If the folder does not exist, a new one will be created.
+'           : This should be cleared after the export operation using the corresponding
+'           : ClearTempExportFolder sub.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get GetTempExportFolder() As String
+    If m_strTempExportFolderPath = vbNullString Then m_strTempExportFolderPath = GetTempFolder("VCS")
+    GetTempExportFolder = m_strTempExportFolderPath & PathSep
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearTempExportFolder
+' Author    : Adam Waller
+' Date      : 8/30/2022
+' Purpose   : Removes the temporary export folder, including any source files exported
+'           : into this folder while scanning for changes.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearTempExportFolder()
+    If m_strTempExportFolderPath <> vbNullString Then
+        If FSO.FolderExists(m_strTempExportFolderPath) Then
+            If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+            ' Use FSO to delete the folder and contents
+            FSO.DeleteFolder m_strTempExportFolderPath, True
+            CatchAny eelWarning, "Unable to delete temp folder: '" & m_strTempExportFolderPath & _
+                "' You will need to manually remove this folder.", ModuleName & ".ClearTempExportFolder"
+        End If
+        m_strTempExportFolderPath = vbNullString
+    End If
 End Sub
 
 
@@ -618,6 +661,4 @@ Private Sub Class_Initialize()
     Set m_dGitIndex = Nothing
     
 End Sub
-
-
 

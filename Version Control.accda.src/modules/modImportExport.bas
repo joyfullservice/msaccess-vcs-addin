@@ -31,6 +31,8 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
     Dim lngCount As Long
+    Dim strTempFile As String
+    Dim strSourceFile As String
     
     ' Use inline error handling functions to trap and log errors.
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -160,12 +162,23 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 ' Export object
                 Set cDbObject = dObjects(varKey)
                 Log.Add "  " & cDbObject.Name, Options.ShowDebug
-                cDbObject.Export
-                CatchAny eelError, "Error exporting " & cDbObject.Name, ModuleName & ".ExportSource", True, True
-                Log.Increment
-                    
+                
+                ' If we have already exported this object while scanning for changes, use that copy.
+                strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
+                If FSO.FileExists(strTempFile) Then
+                    ' Move the temp file over to the source export folder.
+                    strSourceFile = cDbObject.SourceFile
+                    If FSO.FileExists(strSourceFile) Then DeleteFile strSourceFile
+                    FSO.MoveFile strTempFile, strSourceFile
+                Else
+                    ' Export a fresh copy
+                    cDbObject.Export
+                End If
+                
                 ' Bail out if we hit a critical error.
+                CatchAny eelError, "Error exporting " & cDbObject.Name, ModuleName & ".ExportSource", True, True
                 If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+                Log.Increment
                 
                 ' Some kinds of objects are combined into a single export file, such
                 ' as database properties. For these, we just need to run the export once.
@@ -182,6 +195,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Next varCatKey
     
     ' Run any cleanup routines
+    VCSIndex.ClearTempExportFolder
     RemoveThemeZipFiles
     
     ' Ensure that we have created the .gitignore and .gitattributes files in Git environments.
