@@ -22,7 +22,6 @@ Begin Form
         0x9bf1b7f2f3a6e540
     End
     RecordSource ="tblConflicts"
-    OnClose ="[Event Procedure]"
     DatasheetFontName ="Calibri"
     OnLoad ="[Event Procedure]"
     AllowFormView =0
@@ -461,21 +460,6 @@ Option Compare Database
 Option Explicit
 
 
-Private m_strTempFolder As String
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Form_Close
-' Author    : Adam Waller
-' Date      : 4/1/2022
-' Purpose   : Clean up any outstanding temp files
-'---------------------------------------------------------------------------------------
-'
-Private Sub Form_Close()
-    RemoveTempFiles
-End Sub
-
-
 '---------------------------------------------------------------------------------------
 ' Procedure : Form_Load
 ' Author    : Adam Waller
@@ -507,83 +491,53 @@ Private Sub txtDiff_Click()
     Dim cItem As IDbComponent
     
     ' Make sure we have a file name to compare
-    strFile = Options.GetExportFolder & Nz(txtFileName)
-    If strFile <> vbNullString Then
-        
-        ' Try to find matching category and file
-        For Each cCont In GetContainers(ecfAllObjects)
-            If cCont.Category = txtComponent Then
-                Set dItems = cCont.GetAllFromDB(False)
-                If cCont.SingleFile Then
-                    Set cItem = cCont
-                Else
-                    If dItems.Exists(strFile) Then
-                        Set cItem = dItems(strFile)
+    strFile = Nz(txtFileName)
+    If strFile = vbNullString Then
+        MsgBox2 "File name not found", "A file name is required to compare source files.", , vbExclamation
+    Else
+        ' Build full path to source file
+        strFile = Options.GetExportFolder & strFile
+    
+        ' Check for existing temp file
+        strTemp = VCSIndex.GetTempExportFolder & strFile
+        If Not FSO.FileExists(strTemp) Then
+            
+            ' Has not already been exported. Export a copy that we can use for the compare.
+            ' Try to find matching category and file
+            For Each cCont In GetContainers(ecfAllObjects)
+                If cCont.Category = Nz(txtComponent) Then
+                    Set dItems = cCont.GetAllFromDB(False)
+                    If cCont.SingleFile Then
+                        Set cItem = cCont
+                    Else
+                        If dItems.Exists(strFile) Then
+                            Set cItem = dItems(strFile)
+                        End If
                     End If
+                    ' Build new export file name and export
+                    If Not cItem Is Nothing Then cItem.Export strTemp
+                    Exit For
                 End If
-                ' Build new export file name and export
-                strTemp = Replace(strFile, Options.GetExportFolder, TempFolderName, , , vbTextCompare)
-                If Not cItem Is Nothing Then cItem.Export strTemp
-                Exit For
-            End If
-        Next cCont
+            Next cCont
+        End If
     
         ' Show comparison if we were able to export a temp file
-        If strTemp <> vbNullString Then
-            If Log.OperationType = eotBuild Then
-                ' Show the source file as the modified version
-                modObjects.Diff.Files strTemp, strFile
-            Else
-                ' Show the database object as the modified version
-                modObjects.Diff.Files strFile, strTemp
-            End If
-        Else
+        If Not FSO.FileExists(strTemp) Then
             MsgBox2 "Unable to Diff Object", "Unable to produce a temporary diff file with the current database object.", , vbExclamation
+        Else
+            If Not FSO.FileExists(strFile) Then
+                MsgBox2 "Source File Not Found", "Could not find the source file needed to diff this object:", strFile, vbExclamation
+            Else
+                ' Now that we have both files, diff the files for the user
+                If Log.OperationType = eotBuild Then
+                    ' Show the source file as the modified version
+                    modObjects.Diff.Files strTemp, strFile
+                Else
+                    ' Show the database object as the modified version
+                    modObjects.Diff.Files strFile, strTemp
+                End If
+            End If
         End If
     End If
     
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : TempFolderName
-' Author    : Adam Waller
-' Date      : 4/1/2022
-' Purpose   : Return the name of a newly created temp folder.
-'---------------------------------------------------------------------------------------
-'
-Private Function TempFolderName() As String
-    ' Create the folder if it doesn't already exist
-    If m_strTempFolder = vbNullString Then m_strTempFolder = GetTempFolder("VCS") & PathSep
-    TempFolderName = m_strTempFolder
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : RemoveTempFiles
-' Author    : Adam Waller
-' Date      : 4/1/2022
-' Purpose   :
-'---------------------------------------------------------------------------------------
-'
-Private Sub RemoveTempFiles()
-
-    Dim objFile As Scripting.File
-    
-    If m_strTempFolder <> vbNullString Then
-        
-        ' We may encounter errors if files are still open, but let's make our best
-        ' attempt to clean them up and delete the files
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-        
-        ' Remove temp folder
-        FSO.DeleteFolder m_strTempFolder, True
-        
-        ' Log any issues removing the files
-        CatchAny eelWarning, "Error removing temporary files used for comparison. You may need to manually remove the files from " & m_strTempFolder, Me.Name & ".RemoveTempFiles"
-        
-        ' Reset the temp folder name
-        m_strTempFolder = vbNullString
-    End If
-        
 End Sub

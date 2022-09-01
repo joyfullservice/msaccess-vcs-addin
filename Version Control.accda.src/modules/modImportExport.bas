@@ -194,10 +194,6 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         
     Next varCatKey
     
-    ' Run any cleanup routines
-    VCSIndex.ClearTempExportFolder
-    RemoveThemeZipFiles
-    
     ' Ensure that we have created the .gitignore and .gitattributes files in Git environments.
     CheckGitFiles
     
@@ -215,6 +211,10 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Log.Add "Done. (" & Round(Perf.TotalTime, 2) & " seconds)", , False, "green", True
         
 CleanUp:
+    
+    ' Run any cleanup routines
+    VCSIndex.ClearTempExportFolder
+    RemoveThemeZipFiles
 
     ' Add performance data to log file and save file
     Perf.EndTiming

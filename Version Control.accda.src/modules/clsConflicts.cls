@@ -124,6 +124,7 @@ Private Sub SaveToTable()
             .AddNew
                 !Component = cItem.CategoryName
                 !ItemKey = cItem.ItemKey
+                ' Save the file name, including object type folder
                 !FileName = Mid$(cItem.FileName, Len(Options.GetExportFolder) + 1)
                 !ObjectDate = ZN(cItem.ObjectDate)
                 !IndexDate = ZN(cItem.IndexDate)
