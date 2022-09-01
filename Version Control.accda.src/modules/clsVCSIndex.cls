@@ -36,6 +36,7 @@ Public LastMergedCommit As String
 Public Enum eIndexOperationType
     eatExport
     eatImport
+    eatAltExport    ' Alternate export folder, such as a scan for changes
 End Enum
 
 ' Index of component/file information, based on source files
@@ -76,13 +77,15 @@ Public Sub LoadFromFile(Optional strFile As String)
                 ' Load properties from class
                 For Each varKey In dFile("Items").Keys
                     If m_dIndex.Exists(varKey) Then
-                        If varKey = "Components" Then
-                            Set dItem = dFile("Items")(varKey)
-                            Set m_dIndex(varKey) = dItem
-                        Else
-                            ' Set property by name
-                            CallByName Me, CStr(varKey), VbLet, Nz(dFile("Items")(varKey), 0)
-                        End If
+                        Select Case varKey
+                            Case "Components", "AlternateExport"
+                                ' Load as dictionary
+                                Set dItem = dFile("Items")(varKey)
+                                Set m_dIndex(varKey) = dItem
+                            Case Else
+                                ' Set property by name
+                                CallByName Me, CStr(varKey), VbLet, Nz(dFile("Items")(varKey), 0)
+                        End Select
                     End If
                 Next varKey
             End If
@@ -101,10 +104,8 @@ End Sub
 '
 Public Sub Save(Optional strInFolder As String)
 
-    Dim varCat As Variant
     Dim varKey As Variant
     Dim varValue As Variant
-    Dim dComponents As Dictionary
     Dim strFile As String
 
     ' Exit if we have disabled the index functionality
@@ -112,23 +113,22 @@ Public Sub Save(Optional strInFolder As String)
 
     ' Load dictionary from properties
     For Each varKey In m_dIndex.Keys
-        If varKey <> "Components" Then
-            varValue = CallByName(Me, CStr(varKey), VbGet)
-            ' Save blank dates as null
-            If Right(varKey, 4) = "Date" Then
-                m_dIndex(varKey) = ZNDate(CStr(varValue))
-            Else
-                m_dIndex(varKey) = CStr(varValue)
-            End If
-        End If
+        Select Case varKey
+            Case "Components", "AlternateExport"
+            Case Else
+                varValue = CallByName(Me, CStr(varKey), VbGet)
+                ' Save blank dates as null
+                If Right(varKey, 4) = "Date" Then
+                    m_dIndex(varKey) = ZNDate(CStr(varValue))
+                Else
+                    m_dIndex(varKey) = CStr(varValue)
+                End If
+        End Select
     Next varKey
 
     ' Sort files and components
-    Set dComponents = m_dIndex("Components")
-    For Each varCat In dComponents.Keys
-        Set dComponents(varCat) = SortDictionaryByKeys(dComponents(varCat))
-    Next varCat
-    Set m_dIndex("Components") = SortDictionaryByKeys(dComponents)
+    SortComponentSection m_dIndex, "Components"
+    SortComponentSection m_dIndex, "AlternateExport"
 
     ' Build file path
     If strInFolder = vbNullString Then
@@ -146,6 +146,30 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SortComponentSection
+' Author    : Adam Waller
+' Date      : 9/1/2022
+' Purpose   : Save a named section of components as
+'---------------------------------------------------------------------------------------
+'
+Private Sub SortComponentSection(ByRef dIndex As Dictionary, strSection As String)
+
+    Dim dComponents As Dictionary
+    Dim varCat As Variant
+    
+    Set dComponents = dIndex(strSection)
+    For Each varCat In dComponents.Keys
+        ' Sort list of files in each category
+        Set dComponents(varCat) = SortDictionaryByKeys(dComponents(varCat))
+    Next varCat
+    
+    ' Sort list of categories
+    Set dIndex(strSection) = SortDictionaryByKeys(dComponents)
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Update
 ' Author    : Adam Waller
 ' Date      : 11/30/2020
@@ -156,12 +180,20 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
     Optional strFileHash As String, Optional strOtherHash As String, Optional dteDateTime As Date) As Dictionary
     
     Dim dItem As Dictionary
+    Dim strSection As String
     
     ' Exit if we have disabled the index functionality
     If Me.Disabled Then Exit Function
     
+    ' Determine section
+    If intAction = eatAltExport Then
+        strSection = "AlternateExport"
+    Else
+        strSection = "Components"
+    End If
+    
     ' Look up dictionary item, creating if needed.
-    Set dItem = Me.Item(cItem).dParent
+    Set dItem = Me.Item(cItem, , strSection).dParent
     
     ' Update dictionary values
     With dItem
@@ -206,6 +238,51 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : UpdateFromAltExport
+' Author    : Adam Waller
+' Date      : 9/1/2022
+' Purpose   : Update the index entry from the alternate export section. This is done
+'           : after resolving a conflict where the exported file in the temp folder is
+'           : moved to the primary export folder. (This way we don't have to compute
+'           : the hashes and index values again.
+'---------------------------------------------------------------------------------------
+'
+Public Sub UpdateFromAltExport(cItem As IDbComponent)
+
+    Dim strFile As String
+    Dim dAltItem As Dictionary
+    Dim varKey As Variant
+    
+    ' Exit if we have disabled the index functionality
+    If Me.Disabled Then Exit Sub
+    
+    ' Get file name from component
+    strFile = FSO.GetFileName(cItem.SourceFile)
+    
+    ' Look for entry in AlternateExport section
+    With m_dIndex("AlternateExport")
+        If .Exists(cItem.Category) Then
+            If .Item(cItem.Category).Exists(strFile) Then
+                ' Get reference to alternate export entry
+                Set dAltItem = .Item(cItem.Category).Item(strFile)
+            End If
+        End If
+    End With
+    
+    ' Update entry in main component section with values
+    ' from the alternate export section.
+    If Not dAltItem Is Nothing Then
+        With LoadItem(cItem, strFile, "Components").dParent
+            For Each varKey In dAltItem.Keys
+                .Item(varKey) = dAltItem(varKey)
+            Next varKey
+        End With
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Remove
 ' Author    : Adam Waller
 ' Date      : 12/2/2020
@@ -245,7 +322,8 @@ End Sub
 ' Purpose   : Returns a dictionary object with the saved values, creating if needed.
 '---------------------------------------------------------------------------------------
 '
-Public Function Item(cItem As IDbComponent, Optional strSourceFile As String) As clsVCSIndexItem
+Public Function Item(cItem As IDbComponent, Optional strSourceFile As String, _
+    Optional strSection As String = "Components") As clsVCSIndexItem
 
     Dim strFile As String
     
@@ -254,7 +332,7 @@ Public Function Item(cItem As IDbComponent, Optional strSourceFile As String) As
 
     ' Get just the file name from the path.
     strFile = FSO.GetFileName(Nz2(strSourceFile, cItem.SourceFile))
-    Set Item = LoadItem(cItem, strFile)
+    Set Item = LoadItem(cItem, strFile, strSection)
     
 End Function
 
@@ -266,12 +344,12 @@ End Function
 ' Purpose   : Loads the item from the index, creating if it does not exist.
 '---------------------------------------------------------------------------------------
 '
-Private Function LoadItem(cItem As IDbComponent, strSourceFile As String) As clsVCSIndexItem
+Private Function LoadItem(cItem As IDbComponent, strSourceFile As String, strSection As String) As clsVCSIndexItem
 
     Dim dItem As Dictionary
     
     ' Get or create dictionary objects.
-    With m_dIndex("Components")
+    With m_dIndex(strSection)
         If Not .Exists(cItem.Category) Then Set .Item(cItem.Category) = New Dictionary
         If Not .Item(cItem.Category).Exists(strSourceFile) Then Set .Item(cItem.Category)(strSourceFile) = New Dictionary
         Set dItem = .Item(cItem.Category)(strSourceFile)
@@ -665,6 +743,7 @@ Private Sub Class_Initialize()
         .Add "OptionsHash", vbNullString
         .Add "LastMergedCommit", vbNullString
         Set .Item("Components") = New Dictionary
+        Set .Item("AlternateExport") = New Dictionary
     End With
     
     ' Load Git integration

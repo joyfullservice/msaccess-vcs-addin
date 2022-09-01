@@ -537,7 +537,7 @@ End Function
 ' Procedure : StripSlash
 ' Author    : Adam Waller
 ' Date      : 1/25/2019
-' Purpose   : Strip the trailing slash
+' Purpose   : Strip the trailing slash (or other path separator)
 '---------------------------------------------------------------------------------------
 '
 Public Function StripSlash(strText As String) As String

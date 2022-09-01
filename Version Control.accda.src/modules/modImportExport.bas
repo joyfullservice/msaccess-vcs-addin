@@ -170,6 +170,8 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                     strSourceFile = cDbObject.SourceFile
                     If FSO.FileExists(strSourceFile) Then DeleteFile strSourceFile
                     FSO.MoveFile strTempFile, strSourceFile
+                    ' Update the index with the values from the alternate export
+                    VCSIndex.UpdateFromAltExport cDbObject
                 Else
                     ' Export a fresh copy
                     cDbObject.Export
