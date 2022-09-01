@@ -36,6 +36,46 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    Dim strContent As String
+    strContent = GetSource
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Import
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Import the individual database component from a file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Import(strFile As String)
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Merge
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Merge the source file into the existing database, updating or replacing
+'           : any existing object.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Merge(strFile As String)
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 9/1/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
 
     Dim strSql As String
     Dim rst As ADODB.Recordset
@@ -81,35 +121,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Set fld = Nothing
     Set rst = Nothing
     
-    ' Write SQL text to file
-    WriteFile colText.GetStr, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    ' Return SQL content
+    GetSource = colText.GetStr
     
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Import
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Import the individual database component from a file.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Import(strFile As String)
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Merge
-' Author    : Adam Waller
-' Date      : 11/21/2020
-' Purpose   : Merge the source file into the existing database, updating or replacing
-'           : any existing object.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Merge(strFile As String)
-
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------

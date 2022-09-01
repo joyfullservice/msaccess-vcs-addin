@@ -36,7 +36,10 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    WriteFile GetSQLObjectDefinitionForADP(m_View.Name), Nz2(strAlternatePath, IDbComponent_SourceFile)
+    Dim strContent As String
+    strContent = GetSQLObjectDefinitionForADP(m_View.Name)
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 End Sub
 
 
