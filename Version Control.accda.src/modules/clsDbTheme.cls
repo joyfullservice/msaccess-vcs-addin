@@ -115,7 +115,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     End If
     
     ' Update index if exporting to default folder
-    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, strHash, GetSignatureHash
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash, GetSignatureHash
 
 End Sub
 

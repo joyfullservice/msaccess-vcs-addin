@@ -46,8 +46,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     strHash = SaveComponentAsText(acTableDataMacro, m_Table.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
     
     ' Save index if we found an item to export
-    If strAlternatePath = vbNullString And strHash <> vbNullString Then
-        VCSIndex.Update Me, eatExport, strHash
+    If strHash <> vbNullString Then
+        VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
     End If
     
 End Sub

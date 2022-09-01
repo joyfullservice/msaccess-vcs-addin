@@ -61,7 +61,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     ' Update the index with the current VBA hash. (Note, this will not show
     ' changes to the hidden VBE properties that might have been added.)
-    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, _
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
         GetFileHash(IDbComponent_SourceFile), GetCodeModuleHash(edbModule, m_Module.Name)
         
 End Sub

@@ -52,10 +52,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
         ' This is the binary export file used when building from source
         m_Form.Export IDbComponent_SourceFile
-    
-        ' Update index with a hash of the serialized content. (Since the binary content changes frequently)
-        VCSIndex.Update Me, eatExport, GetStringHash(strContent, True)
     End If
+    
+    ' Update index with a hash of the serialized content. (Since the binary content changes frequently)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 
 End Sub
 

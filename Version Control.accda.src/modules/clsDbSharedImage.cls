@@ -70,7 +70,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     WriteBinaryFile strFile, StripOLEHeader(m_Extension, m_FileData)
     
     ' Update index after export
-    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, GetStringHash(strContent, True), GetSignatureHash
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
+        GetStringHash(strContent, True), GetSignatureHash
     
 End Sub
 

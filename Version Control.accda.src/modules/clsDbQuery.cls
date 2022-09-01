@@ -44,10 +44,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Save and sanitize file
     strHash = SaveComponentAsText(acQuery, m_Query.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
     
-    ' If saving in source folder, update index and check SQL option
+    ' If saving in source folder, check SQL option
     If strAlternatePath = vbNullString Then
-        VCSIndex.Update Me, eatExport, strHash
-        
         ' Export as SQL (if using that option)
         If Options.SaveQuerySQL Then
             Perf.OperationStart "Save Query SQL"
@@ -58,6 +56,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             Log.Add "  " & m_Query.Name & " (SQL)", Options.ShowDebug
         End If
     End If
+    
+    ' Update the index
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
     
 End Sub
 

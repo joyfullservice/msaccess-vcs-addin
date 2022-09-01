@@ -38,7 +38,8 @@ Implements IDbComponent
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strHash As String
     strHash = SaveComponentAsText(acForm, m_Form.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
-    If strAlternatePath = vbNullString Then VCSIndex.Update Me, eatExport, strHash, GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
+        strHash, GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
 End Sub
 
 

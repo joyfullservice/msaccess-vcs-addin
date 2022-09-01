@@ -103,10 +103,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
             SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder
         End If
-    
-        ' Update index
-        VCSIndex.Update Me, eatExport, strHash
     End If
+    
+    ' Update index
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
     
 End Sub
 
