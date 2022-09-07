@@ -52,9 +52,9 @@ Public Function GetContainers(Optional intFilter As eContainerFilter = ecfAllObj
                     .Add New clsAdpTrigger
                 ElseIf blnMDB Then
                     ' These objects only exist in DAO databases
-                    .Add New clsDbProperty
                     .Add New clsDbSharedImage
                     .Add New clsDbTheme
+                    .Add New clsDbProperty
                     .Add New clsDbImexSpec
                     .Add New clsDbTableDef
                     .Add New clsDbQuery
