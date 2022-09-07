@@ -1,7 +1,7 @@
 ﻿Attribute VB_Name = "modJsonConverter"
 
 ''
-' VBA-JSON v3.0.0
+' VBA-JSON v3.3.1
 ' (c) Tim Hall - https://github.com/VBA-tools/VBA-JSON
 '
 ' JSON Converter for VBA
@@ -478,12 +478,14 @@ Private Function json_ParseValue(ByVal json_String As String _
 End Function
 
 Private Function json_ParseString(ByRef json_String As String _
-                                , ByRef json_Index As Long) As String
+                                , ByRef json_Index As Long) As Variant
     Dim json_Quote As String
     Dim json_Char As String
     Dim json_Code As String
     Dim json_Buffer As StringBufferCache
     Dim tjsonOutput As String
+    
+    json_ParseString = vbNullString
     
     json_SkipSpaces json_String, json_Index
 
