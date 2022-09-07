@@ -257,7 +257,7 @@ Recheck_Year:
     Exit Function
 
 utc_ErrorHandling:
-    Err.Raise 10011, "UtcConverter.ConvertToLocalDate", "UTC parsing error: " & Err.Number & " - " & Err.description
+    Err.Raise 10011, "UtcConverter.ConvertToLocalDate", "UTC parsing error: " & Err.Number & " - " & Err.Description
 End Function
 
 ''
@@ -294,7 +294,7 @@ Public Function ConvertToUtc(utc_LocalDate As Date) As Date
     Exit Function
 
 utc_ErrorHandling:
-    Err.Raise 10012, "UtcConverter.ConvertToUtc", "UTC conversion error: " & Err.Number & " - " & Err.description
+    Err.Raise 10012, "UtcConverter.ConvertToUtc", "UTC conversion error: " & Err.Number & " - " & Err.Description
 End Function
 
 ' NOTE: As of now, "LocalTimeStamp" does nothing on a Mac; need to build "getTimeZoneOffset" for Mac, and I don't have one.
@@ -449,7 +449,7 @@ Public Function ParseIso(utc_IsoString As String _
     Exit Function
 #End If
 utc_ErrorHandling:
-    Err.Raise 10013, "UtcConverter.ParseIso", "ISO 8601 parsing error for " & utc_IsoString & ": " & Err.Number & " - " & Err.description
+    Err.Raise 10013, "UtcConverter.ParseIso", "ISO 8601 parsing error for " & utc_IsoString & ": " & Err.Number & " - " & Err.Description
 End Function
 
 Public Function ConvertToUTCISO8601TimeStamp(ByVal LocalDateIn As Date) As String
@@ -476,7 +476,7 @@ Public Function ConvertToIsoTime(utc_LocalDate As Date _
     Exit Function
 
 utc_ErrorHandling:
-    Err.Raise 10014, "UtcConverter.ConvertToIso", "ISO 8601 conversion error: " & Err.Number & " - " & Err.description
+    Err.Raise 10014, "UtcConverter.ConvertToIso", "ISO 8601 conversion error: " & Err.Number & " - " & Err.Description
 End Function
 
 
