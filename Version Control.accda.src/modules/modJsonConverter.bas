@@ -483,7 +483,8 @@ Private Function json_ParseString(ByRef json_String As String _
     Dim json_Char As String
     Dim json_Code As String
     Dim json_Buffer As StringBufferCache
-
+    Dim tjsonOutput As String
+    
     json_SkipSpaces json_String, json_Index
 
     ' Store opening quote to look for matching closing quote
@@ -526,11 +527,12 @@ Private Function json_ParseString(ByRef json_String As String _
                 json_Index = json_Index + 4
             End Select
         Case json_Quote
+            tjsonOutput = String_BufferToString(json_Buffer)
             ' only test for ISO format when NoConvertDateToUTC is Off
-            If (Not JsonOptions.NoConvertDateToUTC) And (json_ParseString Like "####-##-##T##:##:##*") Then
-                json_ParseString = ParseIso(json_ParseString)
+            If (Not JsonOptions.NoConvertDateToUTC) And (tjsonOutput Like "####-##-##T##:##:##*") Then
+                json_ParseString = ParseIso(tjsonOutput)
             Else
-                json_ParseString = String_BufferToString(json_Buffer)
+                json_ParseString = tjsonOutput
             End If
             json_Index = json_Index + 1
             Exit Function
