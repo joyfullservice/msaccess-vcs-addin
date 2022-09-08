@@ -217,8 +217,10 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         ' Add timestamp, defaulting to now
         If dteDateTime = 0 Then dteDateTime = Now
         Select Case intAction
-            Case eatExport: .Item("ExportDate") = CStr(dteDateTime)
-            Case eatImport: .Item("ImportDate") = CStr(dteDateTime)
+            Case eatExport, eatAltExport
+                .Item("ExportDate") = CStr(dteDateTime)
+            Case eatImport
+                .Item("ImportDate") = CStr(dteDateTime)
         End Select
         
         ' Save timestamp of exported source file.
