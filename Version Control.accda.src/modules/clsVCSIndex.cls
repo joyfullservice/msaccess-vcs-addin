@@ -157,14 +157,16 @@ Private Sub SortComponentSection(ByRef dIndex As Dictionary, strSection As Strin
     Dim dComponents As Dictionary
     Dim varCat As Variant
     
-    Set dComponents = dIndex(strSection)
-    For Each varCat In dComponents.Keys
-        ' Sort list of files in each category
-        Set dComponents(varCat) = SortDictionaryByKeys(dComponents(varCat))
-    Next varCat
-    
-    ' Sort list of categories
-    Set dIndex(strSection) = SortDictionaryByKeys(dComponents)
+    If dIndex.Exists(strSection) Then
+        Set dComponents = dIndex(strSection)
+        For Each varCat In dComponents.Keys
+            ' Sort list of files in each category
+            Set dComponents(varCat) = SortDictionaryByKeys(dComponents(varCat))
+        Next varCat
+        
+        ' Sort list of categories
+        Set dIndex(strSection) = SortDictionaryByKeys(dComponents)
+    End If
     
 End Sub
 
