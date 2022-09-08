@@ -138,6 +138,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim tbl As AccessObject
     Dim cTable As IDbComponent
+    Dim blnAdd As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -145,7 +146,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         For Each tbl In CurrentData.AllTables
             Set cTable = New clsAdpTable
             Set cTable.DbObject = tbl
-            m_Items(blnModifiedOnly).Add cTable.SourceFile, cTable
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cTable.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cTable.SourceFile, cTable
         Next tbl
     End If
 
@@ -201,7 +204,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = (GetSQLObjectModifiedDate(m_Table.Name, estTable) > VCSIndex.Item(Me).ExportDate)
 End Function
 
 

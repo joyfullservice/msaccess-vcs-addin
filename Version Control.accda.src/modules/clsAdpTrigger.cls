@@ -86,6 +86,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cComponent As IDbComponent
     Dim rst As ADODB.Recordset
     Dim strSql As String
+    Dim blnAdd As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -107,7 +108,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     .SqlModifyDate = Nz(rst!modify_date)
                 End With
                 Set cComponent = cTrigger
-                m_Items(blnModifiedOnly).Add cComponent.SourceFile, cComponent
+                ' Compare modified date with index
+                blnAdd = True
+                If blnModifiedOnly Then blnAdd = cComponent.IsModified
+                If blnAdd Then m_Items(blnModifiedOnly).Add cComponent.SourceFile, cComponent
                 .MoveNext
             Loop
             .Close
@@ -166,7 +170,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = (Me.SqlModifyDate > VCSIndex.Item(Me).ExportDate)
 End Function
 
 

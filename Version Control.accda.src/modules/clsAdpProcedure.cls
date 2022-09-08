@@ -79,6 +79,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim sproc As AccessObject
     Dim cSproc As IDbComponent
+    Dim blnAdd As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -86,7 +87,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         For Each sproc In CurrentData.AllStoredProcedures
             Set cSproc = New clsAdpProcedure
             Set cSproc.DbObject = sproc
-            m_Items(blnModifiedOnly).Add cSproc.SourceFile, cSproc
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cSproc.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cSproc.SourceFile, cSproc
         Next sproc
     End If
 
@@ -141,7 +144,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = (GetSQLObjectModifiedDate(m_SProc.Name, estStoredProcedure) > VCSIndex.Item(Me).ExportDate)
 End Function
 
 
