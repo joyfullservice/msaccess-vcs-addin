@@ -128,7 +128,10 @@ Public Sub Save(Optional strInFolder As String)
 
     ' Sort files and components
     SortComponentSection m_dIndex, "Components"
-    SortComponentSection m_dIndex, "AlternateExport"
+
+    ' Remove the AlternateExport section, since this is not
+    ' needed after the completion of the export process.
+    If m_dIndex.Exists("AlternateExport") Then m_dIndex.Remove "AlternateExport"
 
     ' Build file path
     If strInFolder = vbNullString Then
