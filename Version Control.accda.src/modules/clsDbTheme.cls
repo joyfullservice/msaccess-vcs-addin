@@ -106,6 +106,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         DoEvents ' Make sure the folder is deleted before we recreate it.
         ' Rename to zip file before extracting
         strZip = strFolder & ".zip"
+        If FSO.FileExists(strZip) Then DeleteFile (strZip)
         Name strFile As strZip
         ExtractFromZip strZip, strFolder, False
         ' Rather than holding up the export while we extract the file,
@@ -114,7 +115,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         CatchAny eelError, "Error extracting theme. Folder: " & strFolder, ModuleName & ".Export", True, True
     End If
     
-    ' Update index if exporting to default folder
+    ' Update index after exporting theme
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash, GetSignatureHash
 
 End Sub
