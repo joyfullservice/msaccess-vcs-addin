@@ -19,6 +19,8 @@ Option Explicit
 
 Public Format As eTableDataExportFormat
 
+Const UNSUPPORTED_DATA_TYPE As String = "UNSUPPORTED DATA TYPE"
+
 Private m_Table As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
@@ -122,7 +124,7 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
             For Each fld In rst.Fields
                 If IsBinaryType(fld) Then
                     ' Binary data not supported
-                    cData.Add "UNSUPPORTED DATA TYPE"
+                    cData.Add UNSUPPORTED_DATA_TYPE
                 Else
                     ' Format for TDF format without line breaks
                     cData.Add FormatStringForTDF(Nz(fld.Value))
@@ -234,8 +236,10 @@ Private Sub ImportTableDataTDF(strFile As String)
                                 ' Use replaced string value
                                 rst.Fields(varHeader(intCol)).Value = strValue
                             Else
-                                ' Use variant value without the string conversion
-                                rst.Fields(varHeader(intCol)).Value = varLine(intCol)
+                                If strValue <> UNSUPPORTED_DATA_TYPE Then
+                                    ' Use variant value without the string conversion
+                                    rst.Fields(varHeader(intCol)).Value = varLine(intCol)
+                                End If
                             End If
                         End If
                     End If
