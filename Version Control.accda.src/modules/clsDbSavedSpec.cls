@@ -148,7 +148,10 @@ Private Function GetSource() As String
     With dSpec
         .Add "Name", m_Spec.Name
         .Add "Description", m_Spec.Description
-        .Add "XML", m_Spec.XML
+        ' For some odd reason, duplicate return characters are added
+        ' with every export/build cycle. Purge any duplicate return
+        ' characters when creating source.
+        .Add "XML", DeDupString(m_Spec.XML, vbCr)
     End With
     CatchAny eelNoError, vbNullString, , False
     

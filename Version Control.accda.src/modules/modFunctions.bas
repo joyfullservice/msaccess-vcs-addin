@@ -751,3 +751,31 @@ End Function
 Public Function DblQ(strText As String) As String
     DblQ = MultiReplace(strText, "'", "''", """", """""")
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeDupString
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Removes consecutive duplicates of a string within a string.
+'           : (Some logic built in for efficiency and to prevent infinite loops)
+'---------------------------------------------------------------------------------------
+'
+Public Function DeDupString(strText As String, strDuplicated As String) As String
+
+    Dim lngCnt As Long
+    Dim strNew As String
+    
+    strNew = strText
+    
+    ' See if the searched string exists before attempting to replace
+    If InStr(1, strText, strDuplicated) > 0 Then
+        For lngCnt = 10 To 2 Step -1
+            strNew = Replace(strNew, Repeat(strDuplicated, lngCnt), strDuplicated)
+        Next lngCnt
+    End If
+    
+    ' Return deduplicated string
+    DeDupString = strNew
+    
+End Function
