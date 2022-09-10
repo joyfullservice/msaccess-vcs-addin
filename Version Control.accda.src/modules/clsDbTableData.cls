@@ -120,8 +120,13 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
         Do While Not rst.EOF
             intCnt = 0
             For Each fld In rst.Fields
-                ' Format for TDF format without line breaks
-                cData.Add FormatStringForTDF(Nz(fld.Value))
+                If IsBinaryType(fld) Then
+                    ' Binary data not supported
+                    cData.Add "UNSUPPORTED DATA TYPE"
+                Else
+                    ' Format for TDF format without line breaks
+                    cData.Add FormatStringForTDF(Nz(fld.Value))
+                End If
                 intCnt = intCnt + 1
                 If intCnt < intFields Then cData.Add vbTab
             Next fld
@@ -314,12 +319,7 @@ Private Function GetTableExportSql(strTable As String) As String
     With cFieldList
         For Each fld In tdf.Fields
             .Add "[", fld.Name, "], "
-            Select Case fld.Type
-                Case dbLongBinary, dbVarBinary, dbAttachment
-                    ' Can't sort by these
-                Case Else
-                    cSortList.Add "[", fld.Name, "], "
-            End Select
+            If Not IsBinaryType(fld) Then cSortList.Add "[", fld.Name, "], "
         Next fld
     End With
     
@@ -465,6 +465,22 @@ Private Function IDbComponent_GetFileList() As Dictionary
         MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdXML))
     End If
     Set IDbComponent_GetFileList = m_FileList
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsBinaryType
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Returns true if the field type uses binary content. (Export/import on
+'           : binary data through XML or text is not well supported.)
+'---------------------------------------------------------------------------------------
+'
+Private Function IsBinaryType(fld As DAO.Field) As Boolean
+    Select Case fld.Type
+        Case dbLongBinary, dbVarBinary, dbAttachment: IsBinaryType = True
+        Case Else: IsBinaryType = False
+    End Select
 End Function
 
 
