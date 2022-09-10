@@ -88,6 +88,19 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the source file(s) associated with this component from one folder
+'           : to another. This is especially important for components that produce more
+'           : than one source file, such as VBE Forms, themes, and queries.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MoveSource(strFromFolder As String, strToFolder As String)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
