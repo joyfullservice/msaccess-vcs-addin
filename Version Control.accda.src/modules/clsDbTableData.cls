@@ -101,37 +101,42 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
     Next fld
     cData.Add vbCrLf
     
-    ' Stash current progress bar values so we can reuse the
-    ' progress bar to show the progress through the rows.
-    With Log.ProgressBar
-        lngProgMax = .Max
-        lngProgValue = .Value
-        ' Set to recordset after accessing all records
-        rst.MoveLast
-        .Max = rst.RecordCount
-        .Value = 1
-        rst.MoveFirst
-    End With
+    ' Make sure we actually have records
+    If Not rst.EOF Then
+        
+        ' Stash current progress bar values so we can reuse the
+        ' progress bar to show the progress through the rows.
+        With Log.ProgressBar
+            lngProgMax = .Max
+            lngProgValue = .Value
+            ' Set to recordset after accessing all records
+            rst.MoveLast
+            .Max = rst.RecordCount
+            .Value = 1
+            rst.MoveFirst
+        End With
+        
+        ' Add data rows
+        Do While Not rst.EOF
+            intCnt = 0
+            For Each fld In rst.Fields
+                ' Format for TDF format without line breaks
+                cData.Add FormatStringForTDF(Nz(fld.Value))
+                intCnt = intCnt + 1
+                If intCnt < intFields Then cData.Add vbTab
+            Next fld
+            cData.Add vbCrLf
+            rst.MoveNext
+            Log.Increment ' Increment log, in case this takes a while
+        Loop
+        
+        ' Restore progress bar values for object iteration
+        With Log.ProgressBar
+             .Max = lngProgMax
+             .Value = lngProgValue
+        End With
+    End If
     
-    ' Add data rows
-    Do While Not rst.EOF
-        intCnt = 0
-        For Each fld In rst.Fields
-            ' Format for TDF format without line breaks
-            cData.Add FormatStringForTDF(Nz(fld.Value))
-            intCnt = intCnt + 1
-            If intCnt < intFields Then cData.Add vbTab
-        Next fld
-        cData.Add vbCrLf
-        rst.MoveNext
-        Log.Increment ' Increment log, in case this takes a while
-    Loop
-    
-    ' Restore progress bar values for object iteration
-    With Log.ProgressBar
-         .Max = lngProgMax
-         .Value = lngProgValue
-    End With
     
     Perf.OperationEnd
     
