@@ -303,6 +303,7 @@ Private Function GetTableExportSql(strTable As String) As String
     Dim intFields As Integer
     Dim cText As New clsConcat
     Dim cFieldList As New clsConcat
+    Dim cSortList As New clsConcat
     Dim dbs As Database
 
     Set dbs = CurrentDb
@@ -312,17 +313,25 @@ Private Function GetTableExportSql(strTable As String) As String
     ' Build list of fields
     With cFieldList
         For Each fld In tdf.Fields
-            .Add "[", fld.Name, "]"
-            intCnt = intCnt + 1
-            If intCnt < intFields Then .Add ", "
+            .Add "[", fld.Name, "], "
+            Select Case fld.Type
+                Case dbLongBinary, dbVarBinary, dbAttachment
+                    ' Can't sort by these
+                Case Else
+                    cSortList.Add "[", fld.Name, "], "
+            End Select
         Next fld
     End With
+    
+    ' Remove any trailing commas
+    cFieldList.Remove 2
+    cSortList.Remove 2
 
     ' Build select statement
     With cText
         .Add "SELECT ", cFieldList.GetStr
         .Add " FROM [", strTable, "] ORDER BY "
-        .Add cFieldList.GetStr
+        .Add cSortList.GetStr
     End With
 
     GetTableExportSql = cText.GetStr
@@ -699,4 +708,5 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
 
