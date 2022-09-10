@@ -481,6 +481,14 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     ' (This must be done after all objects are imported, since subforms/subreports
     '  may be involved, and must already exist in the database.)
     Log.Add "Initializing forms..."
+    
+    ' Reopen the database so the themes are loaded
+    StageForm Form_frmVCSMain
+    CloseCurrentDatabase2
+    OpenCurrentDatabase strPath
+    RestoreForm Form_frmVCSMain
+    
+    ' Now we can initialize the form objects
     InitializeForms dCategories
     
     ' Run any post-build/merge instructions
@@ -767,7 +775,7 @@ End Sub
 ' Purpose   : Opens and closes each form in design view to complete the process of
 '           : fully rendering the colors and applying the theme. (This is needed to
 '           : provide a consistent output after importing from source.)
-'           : Pass this function a reference to the container of objects being
+'           : Pass this function the dictionary of container of objects being
 '           : imported into the database. (All object types)
 '---------------------------------------------------------------------------------------
 '
@@ -775,48 +783,50 @@ Public Sub InitializeForms(cContainers As Dictionary)
 
     Dim cont As IDbComponent
     Dim frm As IDbComponent
+    Dim dForms As Dictionary
     Dim strHash As String
     Dim colForms As Collection
+    Dim varFile As Variant
+    Dim cAllForms As IDbComponent
+    Dim varKey As Variant
     
     ' Trap any errors that may occur when opening forms
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
 
-    ' Build list of forms that were imported
-    Set colForms = New Collection
+    ' See if we imported any forms
     For Each cont In cContainers
         If cont.ComponentType = edbForm Then
-            'for each frm in cont.
+                        
+            ' Loop through the forms in the current database
+            Set cAllForms = New clsDbForm
+            Set dForms = cAllForms.GetAllFromDB
+            For Each varKey In dForms.Keys
+            
+                ' See if this form matches one of the files we just imported
+                Set frm = dForms(varKey)
+                If cContainers(cont)("Files").Exists(frm.SourceFile) Then
+                
+                    ' Open each form in design view
+                    Perf.OperationStart "Initialize Forms"
+                    DoCmd.OpenForm frm.Name, acDesign, , , , acHidden
+                    DoEvents
+                    DoCmd.Close acForm, frm.Name, acSaveNo
+                    Perf.OperationEnd
+                    Log.Increment
+                    
+                    ' Log any errors
+                    CatchAny eelError, "Error while initializing form " & frm.Name, ModuleName & ".InitializeForms"
+                    
+                    ' Update the index, since the save date has changed, but reuse the code hash
+                    ' since we just calculated it after importing the form.
+                    With VCSIndex.Item(frm)
+                        VCSIndex.Update frm, eatImport, .FileHash, .OtherHash
+                    End With
+                    
+                End If
+            Next varKey
         End If
     Next cont
-    ' TODO: This is still a work in progress
-    Exit Sub
-
-    ' Use form class so we can update the index later.
-    Set cont = New clsDbForm
-    
-    ' Set up progress bar
-    Log.ProgMax = cont.GetAllFromDB.Count
-    
-    ' Loop through all forms
-    For Each frm In cont.GetAllFromDB
-    
-        ' Open each form in design view
-        Perf.OperationStart "Initialize Forms"
-        DoCmd.OpenForm frm.Name, acDesign, , , , acHidden
-        DoCmd.Close acForm, frm.Name, acSaveNo
-        Perf.OperationEnd
-        Log.Increment
-        
-        ' Log any errors
-        CatchAny eelError, "Error while initializing form " & frm.Name, ModuleName & ".InitializeForms"
-        
-        ' Update the index, since the save date has changed, but reuse the code hash
-        ' since we just calculated it after importing the form.
-        With VCSIndex.Item(frm)
-            VCSIndex.Update frm, eatImport, .FileHash, .OtherHash
-        End With
-        
-    Next frm
     
     ' Check for any unhandled errors
     CatchAny eelError, "Unhandled error while initializing forms", ModuleName & ".InitializeForms"
