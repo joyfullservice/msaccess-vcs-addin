@@ -137,6 +137,9 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
         End With
     End If
     
+    ' Close database objects
+    rst.Close
+    Set rst = Nothing
     
     Perf.OperationEnd
     
