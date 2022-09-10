@@ -51,7 +51,6 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-
 End Sub
 
 
@@ -64,6 +63,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
+End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : IDbComponent_MoveSource
@@ -75,6 +76,37 @@ Private Sub IDbComponent_Merge(strFile As String)
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
     MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAllFromDB
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return a collection of class objects represented by this component type.
+'---------------------------------------------------------------------------------------
+'
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
+    
+    Dim tbl As AccessObject
+    Dim cTable As IDbComponent
+    Dim blnAdd As Boolean
+
+    ' Build collection if not already cached
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
+        For Each tbl In CurrentData.AllTables
+            Set cTable = New clsAdpTable
+            Set cTable.DbObject = tbl
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cTable.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cTable.SourceFile, cTable
+        Next tbl
+    End If
+
+    ' Return cached collection
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -133,37 +165,6 @@ Private Function GetSource() As String
     ' Return SQL content
     GetSource = colText.GetStr
     
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetAllFromDB
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return a collection of class objects represented by this component type.
-'---------------------------------------------------------------------------------------
-'
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
-    Dim tbl As AccessObject
-    Dim cTable As IDbComponent
-    Dim blnAdd As Boolean
-
-    ' Build collection if not already cached
-    If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
-        For Each tbl In CurrentData.AllTables
-            Set cTable = New clsAdpTable
-            Set cTable.DbObject = tbl
-            blnAdd = True
-            If blnModifiedOnly Then blnAdd = cTable.IsModified
-            If blnAdd Then m_Items(blnModifiedOnly).Add cTable.SourceFile, cTable
-        Next tbl
-    End If
-
-    ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-
 End Function
 
 
