@@ -740,3 +740,14 @@ Public Function Coalesce(ParamArray varStrings()) As String
     Next intString
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : DblQ
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Double any single or double quotes in the string (Used for SQL output)
+'---------------------------------------------------------------------------------------
+'
+Public Function DblQ(strText As String) As String
+    DblQ = MultiReplace(strText, "'", "''", """", """""")
+End Function
