@@ -168,6 +168,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
+    If Not Options.SavePrintVars Then ClearFilesByExtension IDbComponent_BaseFolder, "json"
     ClearOrphanedSourceFiles Me, "bas", "json"
 End Sub
 
