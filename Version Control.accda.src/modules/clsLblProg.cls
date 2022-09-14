@@ -337,3 +337,25 @@ Public Sub Hide()
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetParentFormName
+' Author    : Adam Waller
+' Date      : 2/17/2021
+' Purpose   : Return the name of the parent form
+'---------------------------------------------------------------------------------------
+'
+Private Function GetParentFormName(ctlControl As Control) As String
+
+    ' returns the name of the parent form
+    Dim objParent As Object
+    
+    Set objParent = ctlControl
+    
+    Do While Not TypeOf objParent Is Form
+       Set objParent = objParent.Parent
+    Loop
+    
+    ' Now we should have the parent form
+    GetParentFormName = objParent.Name
+    
+End Function
