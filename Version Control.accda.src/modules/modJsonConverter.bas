@@ -1,7 +1,8 @@
 ﻿Attribute VB_Name = "modJsonConverter"
+Private Const ModuleName As String = "modJsonConverter"
 
 ''
-' VBA-JSON v3.3.1
+' VBA-JSON v2.3.1
 ' (c) Tim Hall - https://github.com/VBA-tools/VBA-JSON
 '
 ' JSON Converter for VBA
@@ -92,20 +93,20 @@ Public JsonOptions As json_Options
 ''
 Public Function ParseJson(ByVal JsonString As String) As Object
     Dim json_Index As Long
+    Dim CleanString As String
     json_Index = 1
 
     Perf.OperationStart "Parse JSON"
     
     ' Remove vbCr, vbLf, and vbTab from json_String
-    Dim cleanString As String
-    cleanString = VBA.Replace(VBA.Replace(VBA.Replace(JsonString, VBA.vbCr, vbNullString), VBA.vbLf, vbNullString), VBA.vbTab, vbNullString)
+    CleanString = VBA.Replace(VBA.Replace(VBA.Replace(JsonString, VBA.vbCr, vbNullString), VBA.vbLf, vbNullString), VBA.vbTab, vbNullString)
 
-    json_SkipSpaces cleanString, json_Index
-    Select Case VBA.Mid$(cleanString, json_Index, 1)
+    json_SkipSpaces CleanString, json_Index
+    Select Case VBA.Mid$(CleanString, json_Index, 1)
     Case "{"
-        Set ParseJson = json_ParseObject(cleanString, json_Index)
+        Set ParseJson = json_ParseObject(CleanString, json_Index)
     Case "["
-        Set ParseJson = json_ParseArray(cleanString, json_Index)
+        Set ParseJson = json_ParseArray(CleanString, json_Index)
     Case Else
         ' Error: Invalid JSON string
         Err.Raise 10001, "JSONConverter", json_ParseErrorMessage(JsonString, json_Index, "Expecting '{' or '['")
@@ -191,7 +192,7 @@ Public Function ConvertToJson(ByVal JsonValue As Variant _
         End If
 
         ' Array
-        String_BufferAppend json_Buffer, "["
+        json_BufferAppend json_Buffer, "[", json_BufferPosition, json_BufferLength
 
         On Error Resume Next
 
@@ -206,19 +207,21 @@ Public Function ConvertToJson(ByVal JsonValue As Variant _
                     json_IsFirstItem = False
                 Else
                     ' Append comma to previous line
-                    String_BufferAppend json_Buffer, ","
+                    json_BufferAppend json_Buffer, ",", json_BufferPosition, json_BufferLength
                 End If
 
                 If json_LBound2D >= 0 And json_UBound2D >= 0 Then
                     ' 2D Array
-                    If json_PrettyPrint Then String_BufferAppend json_Buffer, vbNewLine
-                    String_BufferAppend json_Buffer, json_Indentation & "["
+                    If json_PrettyPrint Then
+                        json_BufferAppend json_Buffer, vbNewLine, json_BufferPosition, json_BufferLength
+                    End If
+                    json_BufferAppend json_Buffer, json_Indentation & "[", json_BufferPosition, json_BufferLength
 
                     For json_Index2D = json_LBound2D To json_UBound2D
                         If json_IsFirstItem2D Then
                             json_IsFirstItem2D = False
                         Else
-                            String_BufferAppend json_Buffer, ","
+                            json_BufferAppend json_Buffer, ",", json_BufferPosition, json_BufferLength
                         End If
 
                         json_Converted = ConvertToJson(JsonValue(json_Index, json_Index2D), Whitespace, json_CurrentIndentation + 2)
@@ -235,14 +238,14 @@ Public Function ConvertToJson(ByVal JsonValue As Variant _
                             json_Converted = vbNewLine & json_InnerIndentation & json_Converted
                         End If
 
-                        String_BufferAppend json_Buffer, json_Converted
+                        json_BufferAppend json_Buffer, json_Converted, json_BufferPosition, json_BufferLength
                     Next json_Index2D
 
                     If json_PrettyPrint Then
-                        String_BufferAppend json_Buffer, vbNewLine
+                        json_BufferAppend json_Buffer, vbNewLine, json_BufferPosition, json_BufferLength
                     End If
 
-                    String_BufferAppend json_Buffer, json_Indentation & "]"
+                    json_BufferAppend json_Buffer, json_Indentation & "]", json_BufferPosition, json_BufferLength
                     json_IsFirstItem2D = True
                 Else
                     ' 1D Array
@@ -260,7 +263,7 @@ Public Function ConvertToJson(ByVal JsonValue As Variant _
                         json_Converted = vbNewLine & json_Indentation & json_Converted
                     End If
 
-                    String_BufferAppend json_Buffer, json_Converted
+                    json_BufferAppend json_Buffer, json_Converted, json_BufferPosition, json_BufferLength
                 End If
             Next json_Index
         End If
@@ -268,7 +271,7 @@ Public Function ConvertToJson(ByVal JsonValue As Variant _
         On Error GoTo 0
 
         If json_PrettyPrint Then
-            String_BufferAppend json_Buffer, vbNewLine
+            json_BufferAppend json_Buffer, vbNewLine, json_BufferPosition, json_BufferLength
 
             If VBA.VarType(Whitespace) = VBA.vbString Then
                 json_Indentation = VBA.String$(json_CurrentIndentation, Whitespace)
@@ -277,9 +280,9 @@ Public Function ConvertToJson(ByVal JsonValue As Variant _
             End If
         End If
 
-        String_BufferAppend json_Buffer, json_Indentation & "]"
+        json_BufferAppend json_Buffer, json_Indentation & "]", json_BufferPosition, json_BufferLength
 
-        ConvertToJson = String_BufferToString(json_Buffer)
+        ConvertToJson = json_BufferToString(json_Buffer, json_BufferPosition)
 
     ' Dictionary or Collection
     Case VBA.vbObject
@@ -293,7 +296,7 @@ Public Function ConvertToJson(ByVal JsonValue As Variant _
 
         ' Dictionary
         If VBA.TypeName(JsonValue) = "Dictionary" Then
-            String_BufferAppend json_Buffer, "{"
+            json_BufferAppend json_Buffer, "{", json_BufferPosition, json_BufferLength
             For Each json_Key In JsonValue.Keys
                 ' For Objects, undefined (Empty/Nothing) is not added to object
                 json_Converted = ConvertToJson(JsonValue(json_Key), Whitespace, json_CurrentIndentation + 1)
@@ -307,7 +310,7 @@ Public Function ConvertToJson(ByVal JsonValue As Variant _
                     If json_IsFirstItem Then
                         json_IsFirstItem = False
                     Else
-                        String_BufferAppend json_Buffer, ","
+                        json_BufferAppend json_Buffer, ",", json_BufferPosition, json_BufferLength
                     End If
 
                     If json_PrettyPrint Then
@@ -316,12 +319,12 @@ Public Function ConvertToJson(ByVal JsonValue As Variant _
                         json_Converted = """" & json_Encode(json_Key) & """:" & json_Converted
                     End If
 
-                    String_BufferAppend json_Buffer, json_Converted
+                    json_BufferAppend json_Buffer, json_Converted, json_BufferPosition, json_BufferLength
                 End If
             Next json_Key
 
             If json_PrettyPrint Then
-                String_BufferAppend json_Buffer, vbNewLine
+                json_BufferAppend json_Buffer, vbNewLine, json_BufferPosition, json_BufferLength
 
                 If VBA.VarType(Whitespace) = VBA.vbString Then
                     json_Indentation = VBA.String$(json_CurrentIndentation, Whitespace)
@@ -330,16 +333,16 @@ Public Function ConvertToJson(ByVal JsonValue As Variant _
                 End If
             End If
 
-            String_BufferAppend json_Buffer, json_Indentation & "}"
+            json_BufferAppend json_Buffer, json_Indentation & "}", json_BufferPosition, json_BufferLength
 
         ' Collection
         ElseIf VBA.TypeName(JsonValue) = "Collection" Then
-            String_BufferAppend json_Buffer, "["
+            json_BufferAppend json_Buffer, "[", json_BufferPosition, json_BufferLength
             For Each json_Value In JsonValue
                 If json_IsFirstItem Then
                     json_IsFirstItem = False
                 Else
-                    String_BufferAppend json_Buffer, ","
+                    json_BufferAppend json_Buffer, ",", json_BufferPosition, json_BufferLength
                 End If
 
                 json_Converted = ConvertToJson(json_Value, Whitespace, json_CurrentIndentation + 1)
@@ -356,11 +359,11 @@ Public Function ConvertToJson(ByVal JsonValue As Variant _
                     json_Converted = vbNewLine & json_Indentation & json_Converted
                 End If
 
-                String_BufferAppend json_Buffer, json_Converted
+                json_BufferAppend json_Buffer, json_Converted, json_BufferPosition, json_BufferLength
             Next json_Value
 
             If json_PrettyPrint Then
-                String_BufferAppend json_Buffer, vbNewLine
+                json_BufferAppend json_Buffer, vbNewLine, json_BufferPosition, json_BufferLength
 
                 If VBA.VarType(Whitespace) = VBA.vbString Then
                     json_Indentation = VBA.String$(json_CurrentIndentation, Whitespace)
@@ -369,10 +372,10 @@ Public Function ConvertToJson(ByVal JsonValue As Variant _
                 End If
             End If
 
-            String_BufferAppend json_Buffer, json_Indentation & "]"
+            json_BufferAppend json_Buffer, json_Indentation & "]", json_BufferPosition, json_BufferLength
         End If
 
-        ConvertToJson = String_BufferToString(json_Buffer)
+        ConvertToJson = json_BufferToString(json_Buffer, json_BufferPosition)
     Case VBA.vbInteger, VBA.vbLong, VBA.vbSingle, VBA.vbDouble, VBA.vbCurrency, VBA.vbDecimal
         ' Number (use decimals for numbers)
         ConvertToJson = VBA.Replace(JsonValue, ",", ".")
@@ -482,11 +485,10 @@ Private Function json_ParseString(ByRef json_String As String _
     Dim json_Quote As String
     Dim json_Char As String
     Dim json_Code As String
-    Dim json_Buffer As StringBufferCache
-    Dim tjsonOutput As String
-    
-    json_ParseString = vbNullString
-    
+    Dim json_Buffer As String
+    Dim json_BufferPosition As Long
+    Dim json_BufferLength As Long
+'    Perf.OperationStart ModuleName & ".json_ParseString"
     json_SkipSpaces json_String, json_Index
 
     ' Store opening quote to look for matching closing quote
@@ -504,28 +506,28 @@ Private Function json_ParseString(ByRef json_String As String _
 
             Select Case json_Char
             Case """", "\", "/", "'"
-                String_BufferAppend json_Buffer, json_Char
+                json_BufferAppend json_Buffer, json_Char, json_BufferPosition, json_BufferLength
                 json_Index = json_Index + 1
             Case "b"
-                String_BufferAppend json_Buffer, vbBack
+                json_BufferAppend json_Buffer, vbBack, json_BufferPosition, json_BufferLength
                 json_Index = json_Index + 1
             Case "f"
-                String_BufferAppend json_Buffer, vbFormFeed
+                json_BufferAppend json_Buffer, vbFormFeed, json_BufferPosition, json_BufferLength
                 json_Index = json_Index + 1
             Case "n"
-                String_BufferAppend json_Buffer, vbCrLf
+                json_BufferAppend json_Buffer, vbCrLf, json_BufferPosition, json_BufferLength
                 json_Index = json_Index + 1
             Case "r"
-                String_BufferAppend json_Buffer, vbCr
+                json_BufferAppend json_Buffer, vbCr, json_BufferPosition, json_BufferLength
                 json_Index = json_Index + 1
             Case "t"
-                String_BufferAppend json_Buffer, vbTab
+                json_BufferAppend json_Buffer, vbTab, json_BufferPosition, json_BufferLength
                 json_Index = json_Index + 1
             Case "u"
                 ' Unicode character escape (e.g. \u00a9 = Copyright)
                 json_Index = json_Index + 1
                 json_Code = VBA.Mid$(json_String, json_Index, 4)
-                String_BufferAppend json_Buffer, VBA.ChrW$(VBA.Val("&h" + json_Code))
+                json_BufferAppend json_Buffer, VBA.ChrW$(VBA.Val("&h" + json_Code)), json_BufferPosition, json_BufferLength
                 json_Index = json_Index + 4
             End Select
         Case json_Quote
@@ -539,7 +541,7 @@ Private Function json_ParseString(ByRef json_String As String _
             json_Index = json_Index + 1
             Exit Function
         Case Else
-            String_BufferAppend json_Buffer, json_Char
+            json_BufferAppend json_Buffer, json_Char, json_BufferPosition, json_BufferLength
             json_Index = json_Index + 1
         End Select
     Loop
@@ -627,7 +629,9 @@ Private Function json_Encode(ByVal json_Text As Variant) As String
     Dim json_Index As Long
     Dim json_Char As String
     Dim json_AscCode As Long
-    Dim json_Buffer As StringBufferCache
+    Dim json_Buffer As String
+    Dim json_BufferPosition As Long
+    Dim json_BufferLength As Long
 
     For json_Index = 1 To VBA.Len(json_Text)
         json_Char = VBA.Mid$(json_Text, json_Index, 1)
@@ -679,10 +683,10 @@ Private Function json_Encode(ByVal json_Text As Variant) As String
             End If
         End Select
 
-        String_BufferAppend json_Buffer, json_Char
+        json_BufferAppend json_Buffer, json_Char, json_BufferPosition, json_BufferLength
     Next json_Index
 
-    json_Encode = String_BufferToString(json_Buffer)
+    json_Encode = json_BufferToString(json_Buffer, json_BufferPosition)
 End Function
 
 Private Function json_Peek(ByRef json_String As String _
@@ -759,9 +763,10 @@ Private Function json_ParseErrorMessage(ByRef json_String As String _
                              errorMessage
 End Function
 
-' To use, your calling routine needs to store the StringBufferCache to be handed back.
-Private Sub String_BufferAppend(ByRef StringBufferIn As StringBufferCache _
-                                , ByRef String_Append As Variant)
+Private Sub json_BufferAppend(ByRef json_Buffer As String, _
+                              ByRef json_Append As Variant, _
+                              ByRef json_BufferPosition As Long, _
+                              ByRef json_BufferLength As Long)
     ' VBA can be slow to append strings due to allocating a new string for each append
     ' Instead of using the traditional append, allocate a large empty string and then copy string at append position
     '
@@ -784,32 +789,33 @@ Private Sub String_BufferAppend(ByRef StringBufferIn As StringBufferCache _
     ' and clsStringAppend from Philip Swannell
     ' https://github.com/VBA-tools/VBA-JSON/pull/82
 
-    Dim String_AppendLength As Long
-    Dim String_LengthPlusPosition As Long
+    Dim json_AppendLength As Long
+    Dim json_LengthPlusPosition As Long
 
-    String_AppendLength = VBA.Len(String_Append)
-    String_LengthPlusPosition = String_AppendLength + StringBufferIn.string_BufferPosition
+    json_AppendLength = VBA.Len(json_Append)
+    json_LengthPlusPosition = json_AppendLength + json_BufferPosition
 
-    If String_LengthPlusPosition > StringBufferIn.string_BufferLength Then
+    If json_LengthPlusPosition > json_BufferLength Then
         ' Appending would overflow buffer, add chunk
         ' (double buffer length or append length, whichever is bigger)
-        Dim string_AddedLength As Long
-        string_AddedLength = IIf(String_AppendLength > StringBufferIn.string_BufferLength, String_AppendLength, StringBufferIn.string_BufferLength)
+        Dim json_AddedLength As Long
+        json_AddedLength = IIf(json_AppendLength > json_BufferLength, json_AppendLength, json_BufferLength)
 
-        StringBufferIn.String_Buffer = StringBufferIn.String_Buffer & VBA.Space$(string_AddedLength)
-        StringBufferIn.string_BufferLength = StringBufferIn.string_BufferLength + string_AddedLength
+        json_Buffer = json_Buffer & VBA.Space$(json_AddedLength)
+        json_BufferLength = json_BufferLength + json_AddedLength
     End If
 
     ' Note: Namespacing with VBA.Mid$ doesn't work properly here, throwing compile error:
     ' Function call on left-hand side of assignment must return Variant or Object
-    If String_AppendLength > 0 Then
-        Mid$(StringBufferIn.String_Buffer, StringBufferIn.string_BufferPosition + 1, String_AppendLength) = CStr(String_Append)
-    End If
-    StringBufferIn.string_BufferPosition = StringBufferIn.string_BufferPosition + String_AppendLength
+    Mid$(json_Buffer, json_BufferPosition + 1, json_AppendLength) = CStr(json_Append)
+    json_BufferPosition = json_BufferPosition + json_AppendLength
 End Sub
 
-Private Function String_BufferToString(ByRef StringBufferIn As StringBufferCache) As String
-    If StringBufferIn.string_BufferPosition > 0 Then
-        String_BufferToString = VBA.Left$(StringBufferIn.String_Buffer, StringBufferIn.string_BufferPosition)
+Private Function json_BufferToString(ByRef json_Buffer As String, ByVal json_BufferPosition As Long) As String
+    If json_BufferPosition > 0 Then
+        json_BufferToString = VBA.Left$(json_Buffer, json_BufferPosition)
     End If
 End Function
+
+
+
