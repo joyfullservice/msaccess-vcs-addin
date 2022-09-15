@@ -20,6 +20,7 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+Private Const ShortHashLen As Integer = 7
 
 Private Declare PtrSafe Function BCryptOpenAlgorithmProvider Lib "BCrypt.dll" ( _
                             ByRef phAlgorithm As LongPtr, _
@@ -154,8 +155,10 @@ End Function
 '           : UTF-8 BOM. (Useful when comparing to a file hash)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetStringHash(strText As String, Optional blnWithBom As Boolean = False) As String
-    GetStringHash = GetHash(GetUTF8Bytes(strText, blnWithBom))
+Public Function GetStringHash(strText As String _
+                            , Optional blnWithBom As Boolean = False _
+                            , Optional ByVal intHashLen As Integer = ShortHashLen) As String
+    GetStringHash = GetHash(GetUTF8Bytes(strText, blnWithBom), intHashLen)
 End Function
 
 
@@ -166,8 +169,8 @@ End Function
 ' Purpose   : Return a hash from a file
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFileHash(strPath As String) As String
-    GetFileHash = GetHash(GetFileBytes(strPath))
+Public Function GetFileHash(strPath As String, Optional ByVal intHashLen = ShortHashLen) As String
+    GetFileHash = GetHash(GetFileBytes(strPath), intHashLen)
 End Function
 
 
@@ -202,7 +205,8 @@ End Function
 ' Purpose   : Create a hash from the byte array
 '---------------------------------------------------------------------------------------
 '
-Private Function GetHash(bteContent() As Byte) As String
+Private Function GetHash(bteContent() As Byte _
+                        , Optional ByVal intHashLen As Integer = ShortHashLen) As String
     
     Dim objEnc As Object
     Dim bteHash As Variant
@@ -213,7 +217,7 @@ Private Function GetHash(bteContent() As Byte) As String
     
     ' Get hashing options
     strAlgorithm = Nz2(Options.HashAlgorithm, DefaultHashAlgorithm)
-    If Options.UseShortHash Then intLength = 7
+    If Options.UseShortHash Or (intHashLen <> ShortHashLen) Then intLength = intHashLen
     
     ' Start performance timer and compute the hash
     Perf.OperationStart "Compute " & strAlgorithm
@@ -245,7 +249,9 @@ End Function
 ' Purpose   : Return a hash from the VBA code module behind an object.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As String, Optional intLength As Integer = 7) As String
+Public Function GetCodeModuleHash(intType As eDatabaseComponentType _
+                                , strName As String _
+                                , Optional intLength As Integer = ShortHashLen) As String
 
     Dim strHash As String
     Dim cmpItem As VBComponent
