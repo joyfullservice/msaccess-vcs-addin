@@ -830,18 +830,21 @@ Private Sub json_BufferAppend(ByRef json_Buffer As String, _
 
     json_AppendLength = VBA.Len(json_Append)
     If json_AppendLength < 1 Then Exit Sub
-    
+    If json_AppendLength > 1 Then Stop
     json_LengthPlusPosition = json_AppendLength + json_BufferPosition
 
     If json_LengthPlusPosition > json_BufferLength Then
         ' Appending would overflow buffer, add chunk
         ' (double buffer length or append length, whichever is bigger)
-        Dim json_AddedLength As Long
+        'Dim json_AddedLength As Long
+        
         'json_AddedLength = json_AppendLength + Me.ChunkSize
-        json_AddedLength = IIf(json_AppendLength > Me.ChunkSize, json_AppendLength, Me.ChunkSize)
-
-        json_Buffer = json_Buffer & VBA.Space$(json_AddedLength)
-        json_BufferLength = json_BufferLength + json_AddedLength
+        'json_AddedLength = Me.ChunkSize
+        'json_AddedLength = IIf(json_AppendLength > Me.ChunkSize, json_AppendLength, Me.ChunkSize)
+        'If json_AddedLength > 1 Then Stop
+        json_Buffer = json_Buffer & VBA.Space$(Me.ChunkSize)
+        'json_BufferLength = json_BufferLength + json_AddedLength
+        json_BufferLength = json_BufferLength + Me.ChunkSize
     End If
 
     ' Note: Namespacing with VBA.Mid$ doesn't work properly here, throwing compile error:
