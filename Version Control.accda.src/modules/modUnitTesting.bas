@@ -375,3 +375,128 @@ Public Sub TestLoadFile()
     Perf.EndTiming
     Debug.Print Perf.GetReports
 End Sub
+
+
+Public Sub CreateFuzzedIndex(Optional ByRef strFilePathIn As String _
+                            , Optional ByVal strFolderPathOut As String)
+' Creates a fuzzed index for testing json imports, since we don't need the file names to be anything particular.
+
+' Will hash the component names using the current date as a salt,
+' will then truncating their output names to 10-50 charachters, and add ".bas" to the name, so it
+' looks and works like a real index.
+
+
+
+    Dim strPathOutput As String
+    Dim LenSuffix As Long
+    
+    Dim strText  As String
+    
+    Dim strdictKeyIndex As String
+    Dim strdictKeyIndexHash As String
+    
+    Dim dIndex As Scripting.Dictionary
+    Dim vIndexKey As Variant
+    
+    Dim dItemHashed As Scripting.Dictionary
+    Dim vItemKey As Variant
+    
+    Dim dComponentType As Scripting.Dictionary
+    Dim vComponentTypeKey As Variant
+    
+    Dim dComponent As Scripting.Dictionary
+    Dim vComponentKey As Variant
+    
+    Dim dIndexHashed As Scripting.Dictionary
+    Dim dComponentTypeHashed As Scripting.Dictionary
+    Dim vComponentTypeKeyHashed As Variant
+    
+    Dim dComponentHashed As Scripting.Dictionary
+    Dim vComponentKeyHashed As Variant
+    
+    Dim intHashLen As Integer
+    Dim newComponentName As String
+    Dim fileExtPosition As Long
+    
+    
+    Dim strJsonOut As String
+    
+    If strFilePathIn = vbNullString Then strFilePathIn = VCSIndex.DefaultFilePath
+    
+    If strFolderPathOut = vbNullString Then
+        strPathOutput = ProjectPath
+    Else
+        strPathOutput = strFolderPathOut
+    End If
+    
+    LenSuffix = Len(strGiantJsonFileName)
+    
+    If Not (Right$(strPathOutput, LenSuffix) = strGiantJsonFileName) Then strPathOutput = strPathOutput & strGiantJsonFileName
+    
+    strText = ReadFile(strFilePathIn)
+    Set dIndex = modJsonConverter.ParseJson(strText)
+
+    If Not dIndex.Exists("Items") Then Exit Sub
+    If Not dIndex.Item("Items").Exists("Components") Then Exit Sub
+    
+    Set dIndexHashed = New Scripting.Dictionary
+    
+    
+    For Each vIndexKey In dIndex.Keys
+    
+        If vIndexKey = "Items" Then
+        
+            Set dItemHashed = New Scripting.Dictionary
+            
+            For Each vItemKey In dIndex.Item(vIndexKey).Keys
+            
+                Select Case vItemKey
+                Case "Components", "Functions", "Views", "AlternateExport"
+
+                    Set dComponentTypeHashed = New Scripting.Dictionary
+                    
+                    Set dComponentType = dIndex.Item(vIndexKey).Item(vItemKey)
+                    
+                    For Each vComponentTypeKey In dComponentType.Keys
+                        ' Iterate over the dictionary, revising the names to a hash.
+                        ' We're not testing for weird names (we could...), so just hash it and be done
+                        Set dComponentHashed = New Scripting.Dictionary
+                        If IsEmpty(dComponentType.Item(vComponentTypeKey)) Then GoTo Skip_Component
+                        For Each vComponentKey In dComponentType.Item(vComponentTypeKey).Keys
+                            intHashLen = (Rnd * 43) + 7
+                            fileExtPosition = Len(CStr(vComponentKey)) - InStrRev(CStr(vComponentKey), ".") + 1
+                            
+                            newComponentName = modHash.GetStringHash(CStr(vComponentKey), , intHashLen) & Right(CStr(vComponentKey), fileExtPosition)
+                            vComponentKeyHashed = CVar(newComponentName)
+                            
+                            If dComponentHashed.Exists(vComponentKeyHashed) Then
+                                newComponentName = newComponentName & modUtcConverter.ISO8601TimeStamp & Right(CStr(vComponentKey), fileExtPosition)
+                                vComponentKeyHashed = CVar(newComponentName)
+                            
+                            End If
+                            dComponentHashed.Add vComponentKeyHashed, dComponentType.Item(vComponentTypeKey).Item(vComponentKey)
+                        Next vComponentKey
+                        dComponentTypeHashed.Add vComponentTypeKey, dComponentHashed
+Skip_Component:
+                    Next vComponentTypeKey
+                    
+                    dItemHashed.Add vItemKey, dComponentTypeHashed
+                    
+                Case Else
+                    dItemHashed.Add vItemKey, dIndex.Item(vIndexKey).Item(vItemKey)
+               
+                
+                End Select
+
+            Next vItemKey
+            
+            dIndexHashed.Add vIndexKey, dItemHashed
+        Else
+            dIndexHashed.Add vIndexKey, dIndex.Item(vIndexKey)
+        End If
+    Next vIndexKey
+        
+    ' Write the new file
+    strJsonOut = modJsonConverter.ConvertToJson(dIndexHashed)
+    modFileAccess.WriteFile strJsonOut, strPathOutput
+End Sub
