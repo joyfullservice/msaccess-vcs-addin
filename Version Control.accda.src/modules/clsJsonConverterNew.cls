@@ -852,7 +852,8 @@ End Sub
 
 Private Function json_BufferToString(ByRef json_Buffer As String, ByVal json_BufferPosition As Long) As String
     If json_BufferPosition > 0 Then
-        json_BufferToString = VBA.Left$(json_Buffer, json_BufferPosition)
+        'json_BufferToString = VBA.Left$(json_Buffer, json_BufferPosition)
+        json_BufferToString = VBA.Mid$(json_Buffer, 1, json_BufferPosition)
     End If
 End Function
 
