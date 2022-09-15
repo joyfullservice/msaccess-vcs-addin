@@ -727,7 +727,7 @@ End Function
 ' Purpose   : Return file name for git state json file.
 '---------------------------------------------------------------------------------------
 '
-Private Function DefaultFilePath() As String
+Public Function DefaultFilePath() As String
     If DatabaseFileOpen Then DefaultFilePath = Options.GetExportFolder & cstrFileName
 End Function
 
