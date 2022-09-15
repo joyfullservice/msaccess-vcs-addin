@@ -6,6 +6,8 @@ Option Private Module
 '@TestModule
 '@Folder("Tests")
 
+Private Const strGiantJsonFileName As String = "Testing\Giant-VCS-Index.json"
+
 Private Assert As Object
 Private Fakes As Object
 
@@ -326,7 +328,8 @@ End Sub
 
 Public Sub TestLoadFile()
 
-    Const strPath As String = "C:\Users\USERDIR\MSAccess-VCS-Addin\Testing\Giant-vcs-index.json"
+    Dim strLargeJsonFilePath As String
+    
     Dim strText As String
     
     Dim TestIterations As Long
@@ -334,20 +337,25 @@ Public Sub TestLoadFile()
     Dim JSONOld As New clsJsonConverterOriginal
     Dim JSONNew As New clsJsonConverterNew
     Dim JSONNew2 As New clsJsonConverterNew
+    
+    strLargeJsonFilePath = ProjectPath & strGiantJsonFileName
+    
     Perf.Reset
     Perf.DigitsAfterDecimal = 4
     
-    ' Try different chunk methods to evaluate performance.
-    'JSONNew.ChunkSize = 4096
-    JSONNew2.ChunkSize = 8192
+    JSONNew.LongStringLen = 25
+    JSONNew.ChunkSize = 128
+    'JSONNew.ChunkSize = 1024
+    JSONNew2.LongStringLen = 25
+    JSONNew2.ChunkSize = 128
     
     Perf.StartTiming
     
-    Perf.OperationStart "Read File"
-    strText = ReadFile(strPath)
-    Perf.OperationEnd
+    'Perf.OperationStart "Read File"
+    strText = ReadFile(strLargeJsonFilePath)
+    'Perf.OperationEnd
     
-    For TestIterations = 1 To 5
+    For TestIterations = 1 To 10
     
         Perf.CategoryStart "TestLoadingFileOld"
         JSONOld.ParseJson strText
