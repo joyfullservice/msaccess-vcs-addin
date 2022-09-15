@@ -33,6 +33,7 @@ Private Const ISO8601DateTimeSeparator As String = "T"
 Private Const ISO8601TimeDelimiter As String = ":"
 Private Const ISO8601UTCTimeZone As String = "Z"
 
+
 #If Mac Then
 #If VBA7 Then
 ' 64-bit Mac (2016)

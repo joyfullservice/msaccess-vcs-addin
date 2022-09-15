@@ -323,3 +323,47 @@ Public Sub TestMeterProgressBar()
     
 End Sub
 
+
+Public Sub TestLoadFile()
+
+    Const strPath As String = "C:\Users\USERDIR\MSAccess-VCS-Addin\Testing\Giant-vcs-index.json"
+    Dim strText As String
+    
+    Dim TestIterations As Long
+    
+    Dim JSONOld As New clsJsonConverterOriginal
+    Dim JSONNew As New clsJsonConverterNew
+    Dim JSONNew2 As New clsJsonConverterNew
+    Perf.Reset
+    Perf.DigitsAfterDecimal = 4
+    
+    ' Try different chunk methods to evaluate performance.
+    'JSONNew.ChunkSize = 4096
+    JSONNew2.ChunkSize = 8192
+    
+    Perf.StartTiming
+    
+    Perf.OperationStart "Read File"
+    strText = ReadFile(strPath)
+    Perf.OperationEnd
+    
+    For TestIterations = 1 To 5
+    
+        Perf.CategoryStart "TestLoadingFileOld"
+        JSONOld.ParseJson strText
+        Perf.CategoryEnd
+        
+        
+        Perf.CategoryStart "TestLoadingFileNew"
+        JSONNew.ParseJson strText
+        Perf.CategoryEnd
+        
+        
+        Perf.CategoryStart "TestLoadingFileNew2"
+        JSONNew2.ParseJson strText
+        Perf.CategoryEnd
+        
+    Next TestIterations
+    Perf.EndTiming
+    Debug.Print Perf.GetReports
+End Sub

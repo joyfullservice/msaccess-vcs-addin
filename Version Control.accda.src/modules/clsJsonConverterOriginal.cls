@@ -1,4 +1,16 @@
-﻿Attribute VB_Name = "modJsonConverter"
+﻿VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "clsJsonConverterOriginal"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
+
+
+' Class for json comparison
+
 Private Const ModuleName As String = "modJsonConverter"
 
 ''
@@ -47,27 +59,28 @@ Private Const ModuleName As String = "modJsonConverter"
 ' ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ '
 Option Compare Database
 Option Explicit
-Option Private Module
+'
+'Public Type json_Options
+'    ' VBA only stores 15 significant digits, so any numbers larger than that are truncated
+'    ' This can lead to issues when BIGINT's are used (e.g. for Ids or Credit Cards), as they will be invalid above 15 digits
+'    ' See: http://support.microsoft.com/kb/269370
+'    '
+'    ' By default, VBA-JSON will use String for numbers longer than 15 characters that contain only digits
+'    ' to override set `JsonConverter.JsonOptions.UseDoubleForLargeNumbers = True`
+'    UseDoubleForLargeNumbers As Boolean
+'
+'    ' The JSON standard requires object keys to be quoted (" or '), use this option to allow unquoted keys
+'    AllowUnquotedKeys As Boolean
+'
+'    ' The solidus (/) is not required to be escaped, use this option to escape them as \/ in ConvertToJson
+'    EscapeSolidus As Boolean
+'
+'    ' Allow Unicode characters in JSON text. Set to True to use native Unicode or false for escaped values.
+'    AllowUnicodeChars As Boolean
+'End Type
+'Public JsonOptions() As json_Options
 
-Private Type json_Options
-    ' VBA only stores 15 significant digits, so any numbers larger than that are truncated
-    ' This can lead to issues when BIGINT's are used (e.g. for Ids or Credit Cards), as they will be invalid above 15 digits
-    ' See: http://support.microsoft.com/kb/269370
-    '
-    ' By default, VBA-JSON will use String for numbers longer than 15 characters that contain only digits
-    ' to override set `JsonConverter.JsonOptions.UseDoubleForLargeNumbers = True`
-    UseDoubleForLargeNumbers As Boolean
 
-    ' The JSON standard requires object keys to be quoted (" or '), use this option to allow unquoted keys
-    AllowUnquotedKeys As Boolean
-
-    ' The solidus (/) is not required to be escaped, use this option to escape them as \/ in ConvertToJson
-    EscapeSolidus As Boolean
-    
-    ' Allow Unicode characters in JSON text. Set to True to use native Unicode or false for escaped values.
-    AllowUnicodeChars As Boolean
-End Type
-Public JsonOptions As json_Options
 
 ' ============================================= '
 ' Public Methods
@@ -83,20 +96,20 @@ Public JsonOptions As json_Options
 ''
 Public Function ParseJson(ByVal JsonString As String) As Object
     Dim json_Index As Long
-    Dim CleanString As String
+    Dim cleanString As String
     json_Index = 1
 
     Perf.OperationStart "Parse JSON"
     
     ' Remove vbCr, vbLf, and vbTab from json_String
-    CleanString = VBA.Replace(VBA.Replace(VBA.Replace(JsonString, VBA.vbCr, vbNullString), VBA.vbLf, vbNullString), VBA.vbTab, vbNullString)
+    cleanString = VBA.Replace(VBA.Replace(VBA.Replace(JsonString, VBA.vbCr, vbNullString), VBA.vbLf, vbNullString), VBA.vbTab, vbNullString)
 
-    json_SkipSpaces CleanString, json_Index
-    Select Case VBA.Mid$(CleanString, json_Index, 1)
+    json_SkipSpaces cleanString, json_Index
+    Select Case VBA.Mid$(cleanString, json_Index, 1)
     Case "{"
-        Set ParseJson = json_ParseObject(CleanString, json_Index)
+        Set ParseJson = json_ParseObject(cleanString, json_Index)
     Case "["
-        Set ParseJson = json_ParseArray(CleanString, json_Index)
+        Set ParseJson = json_ParseArray(cleanString, json_Index)
     Case Else
         ' Error: Invalid JSON string
         Err.Raise 10001, "JSONConverter", json_ParseErrorMessage(JsonString, json_Index, "Expecting '{' or '['")
@@ -790,6 +803,8 @@ Private Function json_BufferToString(ByRef json_Buffer As String, ByVal json_Buf
         json_BufferToString = VBA.Left$(json_Buffer, json_BufferPosition)
     End If
 End Function
+
+
 
 
 
