@@ -67,28 +67,24 @@ Option Explicit
 '    ' By default, VBA-JSON will use String for numbers longer than 15 characters that contain only digits
 '    ' to override set `JsonConverter.JsonOptions.UseDoubleForLargeNumbers = True`
 Public UseDoubleForLargeNumbers As Boolean
-Private Const DefaultUseDoubleForLargeNumbers As Boolean = False
 '
 '    ' The JSON standard requires object keys to be quoted (" or '), use this option to allow unquoted keys
 Public AllowUnquotedKeys As Boolean
-Private Const DefaultAllowUnquotedKeys As Boolean = False
 '
 '    ' The solidus (/) is not required to be escaped, use this option to escape them as \/ in ConvertToJson
 Public EscapeSolidus As Boolean
-Private Const DefaultEscapeSolidus As Boolean = False
 '
 '    'before version 2.3.1 dates were converted to UTC in ConvertToJson method, but not when json was parsed.
 '    'Convert datetime values to UTC/ISO8601 (false, slower) or dont change local <-> global times (true, faster)
 Public ConvertDateToUTC As Boolean
-Private Const DefaultConvertDateToUTC As Boolean = True
-'
+
 '    ' Allow Unicode characters in JSON text. Set to True to use native Unicode or false for escaped values.
 Public AllowUnicodeChars As Boolean
-Private Const DefaultAllowUnicodeChars As Boolean = True
+
+Public LongStringLen As Long
 
 ' Setting a chunk size can reduce math later.
 Public ChunkSize As Long
-Private Const DefaultChunkSize As Long = 4096
 
 'End Type
 
@@ -96,12 +92,13 @@ Private Const DefaultChunkSize As Long = 4096
 Private Sub Class_Initialize()
     ' Set up default settings.
     With Me
-        .UseDoubleForLargeNumbers = DefaultUseDoubleForLargeNumbers
-        .AllowUnquotedKeys = DefaultAllowUnquotedKeys
-        .EscapeSolidus = DefaultEscapeSolidus
-        .ConvertDateToUTC = DefaultConvertDateToUTC
-        .AllowUnicodeChars = DefaultAllowUnicodeChars
-        .ChunkSize = DefaultChunkSize
+        .UseDoubleForLargeNumbers = False
+        .AllowUnquotedKeys = False
+        .EscapeSolidus = False
+        .ConvertDateToUTC = True
+        .AllowUnicodeChars = True
+        .ChunkSize = 4096
+        .LongStringLen = 25
     End With
 End Sub
 
