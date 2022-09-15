@@ -326,7 +326,7 @@ Public Sub TestMeterProgressBar()
 End Sub
 
 
-Public Sub TestLoadFile()
+Public Sub TestJsonParsing()
 
     Dim strLargeJsonFilePath As String
     
