@@ -92,7 +92,7 @@ Public Sub Initialize(BackLabel As Label, Optional FrontLabel As Label, Optional
         .Top = mlblBack.Top + sngOffset
         .Width = 0
         .Height = mlblBack.Height - (sngOffset * 2)
-        .Caption = ""
+        .Caption = vbNullString
         .BackColor = 8388608
         .BackStyle = 1
         .Visible = True
@@ -123,6 +123,9 @@ End Sub
 '
 Private Sub Class_Terminate()
 
+    ' Ignore any errors if object references are no longer valid
+    On Error Resume Next
+    
     #If APPLICATION_NAME = "Microsoft Access" Then
         ' Hide front controls
         mlblFront.Visible = False
@@ -132,7 +135,7 @@ Private Sub Class_Terminate()
         mobjParent.Controls.Remove (mlblFront.Name)
         mobjParent.Controls.Remove (mlblCaption.Name)
     #End If
-
+    Err.Clear ' Clear the Errors if thrown; they're not useful
 End Sub
 
 
@@ -171,15 +174,20 @@ Public Property Let Value(ByVal dblVal As Double)
         If Not mblnHideCap And Not mlblCaption.Visible Then mlblCaption.Visible = True
     End If
     
+    ' Don't allow value to exceed maximum value
+    If dblVal > Me.Max Then dblVal = Me.Max
+    
     ' Measure change
     dblChange = Abs(dblVal - mdblVal)
     
     ' Set value and update display if needed.
     If dblChange > 0 And Me.Max > 0 Then
-        mdblVal = dblVal
         ' See if we need to update the display
         ' (Normally updated every 1% or each increment if Smooth = True
-        If Me.Smooth Or ((dblChange / Me.Max) > 0.01) Then Update
+        If Me.Smooth Or ((dblChange / Me.Max) > 0.01) Then
+            mdblVal = dblVal
+            Update
+        End If
     End If
 
 End Property
@@ -231,7 +239,12 @@ Private Sub Update()
     ' Set size and caption
     intPercent = mdblVal * (100 / Me.Max)
     dblWidth = mdblVal * (mdblFullWidth / Me.Max)
-    mlblFront.Width = dblWidth
+    If dblWidth <= mdblFullWidth Then
+        mlblFront.Width = dblWidth
+    Else
+        mlblFront.Width = mdblFullWidth
+    End If
+    
     mlblCaption.Caption = intPercent & "%"
     
     ' Use white or black, depending on progress
@@ -291,7 +304,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Clear()
-    Call Class_Terminate
+    Class_Terminate
 End Sub
 
 
@@ -304,6 +317,7 @@ End Sub
 '
 Public Sub Reset()
     Me.Value = 0
+    Update
 End Sub
 
 
@@ -315,9 +329,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Hide()
+    On Error Resume Next
     mlblCaption.Visible = False
     mlblFront.Visible = False
     mlblBack.Visible = False
+    CatchAny eelNoError, vbNullString, vbNullString, False, True
 End Sub
 
 
