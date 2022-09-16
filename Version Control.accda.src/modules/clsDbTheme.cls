@@ -399,8 +399,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFolders Me
     ClearOrphanedSourceFiles Me, "thmx"
+    ClearOrphanedSourceFolders Me
 End Sub
 
 
