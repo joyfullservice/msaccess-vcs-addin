@@ -800,18 +800,24 @@ Public Sub InitializeForms(cContainers As Dictionary)
             ' Loop through the forms in the current database
             Set cAllForms = New clsDbForm
             Set dForms = cAllForms.GetAllFromDB
+            Log.ProgMax = dForms.Count
             For Each varKey In dForms.Keys
             
                 ' See if this form matches one of the files we just imported
                 Set frm = dForms(varKey)
                 If cContainers(cont)("Files").Exists(frm.SourceFile) Then
                 
-                    ' Open each form in design view
-                    Perf.OperationStart "Initialize Forms"
-                    DoCmd.OpenForm frm.Name, acDesign, , , , acHidden
-                    DoEvents
-                    DoCmd.Close acForm, frm.Name, acSaveNo
-                    Perf.OperationEnd
+                    ' Don't attempt to initialize add-in main form
+                    ' (Likely not needed, and would require staging)
+                    If frm.Name <> "frmVCSMain" Then
+                        
+                        ' Open each form in design view
+                        Perf.OperationStart "Initialize Forms"
+                        DoCmd.OpenForm frm.Name, acDesign, , , , acHidden
+                        DoEvents
+                        DoCmd.Close acForm, frm.Name, acSaveNo
+                        Perf.OperationEnd
+                    End If
                     Log.Increment
                     
                     ' Log any errors
@@ -832,4 +838,3 @@ Public Sub InitializeForms(cContainers As Dictionary)
     CatchAny eelError, "Unhandled error while initializing forms", ModuleName & ".InitializeForms"
     
 End Sub
-
