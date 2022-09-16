@@ -534,7 +534,15 @@ Private Sub Class_Terminate()
         this.objParent.Controls.Remove (this.lblFront.Name)
         this.objParent.Controls.Remove (this.lblCaption.Name)
     #End If
-    Err.Clear ' Clear any errors
 
+    ' Clear any remaining object references
+    Set this.lblBack = Nothing
+    Set this.lblFront = Nothing
+    Set this.lblCaption = Nothing
+    Set this.objParent = Nothing
+    
+    ' Clear any VBA errors
+    If Err.Number <> 0 Then Err.Clear
+    
 End Sub
 
