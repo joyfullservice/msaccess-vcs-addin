@@ -12,7 +12,7 @@ Option Explicit
 ' Types of operations to resume
 Public Enum eResumeOperation
     roUnspecified
-    roFullBuildFromSource
+    roBuildFromSource
     roLocalizeLibRefs
     roRibbonCommand
 End Enum
@@ -35,6 +35,7 @@ Public Sub WinAPITimerCallback()
 
     Dim strFolder As String
     Dim strParam As String
+    Dim blnFullBuild As Boolean
     
     ' First, make sure we kill the timer!
     KillTimer
@@ -49,11 +50,13 @@ Public Sub WinAPITimerCallback()
             strParam = GetSetting(PROJECT_NAME, "Timer", "RibbonCommand")
             If strParam <> vbNullString Then HandleRibbonCommand strParam
                 
-        Case roFullBuildFromSource
-            ' Build from source (Full build)
+        Case roBuildFromSource
+            ' Build from source (full or merge build)
             strFolder = GetSetting(PROJECT_NAME, "Build", "SourceFolder")
+            blnFullBuild = CBool(Nz2(GetSetting(PROJECT_NAME, "Build", "FullBuild", "True"), True))
             SaveSetting PROJECT_NAME, "Build", "SourceFolder", vbNullString
-            If strFolder <> vbNullString Then Build strFolder, True
+            SaveSetting PROJECT_NAME, "Build", "FullBuild", vbNullString
+            If strFolder <> vbNullString Then Build strFolder, blnFullBuild
         
         Case roLocalizeLibRefs
         
@@ -69,7 +72,9 @@ End Sub
 ' Purpose   : Set the API timer to trigger the desired operation
 '---------------------------------------------------------------------------------------
 '
-Public Sub SetTimer(intOperation As eResumeOperation, Optional strParam As String, Optional sngSeconds As Single = 0.5)
+Public Sub SetTimer(intOperation As eResumeOperation, _
+    Optional strParam As String, Optional strParam2 As String, _
+    Optional sngSeconds As Single = 0.5)
 
     Dim strPath As String
     
@@ -87,9 +92,10 @@ Public Sub SetTimer(intOperation As eResumeOperation, Optional strParam As Strin
         Case roRibbonCommand
             SaveSetting PROJECT_NAME, "Timer", "RibbonCommand", strParam
 
-        Case roFullBuildFromSource
+        Case roBuildFromSource
             ' Save build path
             SaveSetting PROJECT_NAME, "Build", "SourceFolder", strParam
+            SaveSetting PROJECT_NAME, "Build", "FullBuild", strParam2
 
     End Select
 
