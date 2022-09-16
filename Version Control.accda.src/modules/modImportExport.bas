@@ -483,10 +483,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     Log.Add "Initializing forms..."
     
     ' Reopen the database so the themes are loaded
-    StageForm Form_frmVCSMain
+    StageMainForm
     CloseCurrentDatabase2
     OpenCurrentDatabase strPath
-    RestoreForm Form_frmVCSMain
+    RestoreMainForm
     
     ' Now we can initialize the form objects
     InitializeForms dCategories

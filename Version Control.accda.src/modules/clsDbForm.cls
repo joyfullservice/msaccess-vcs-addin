@@ -64,7 +64,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' it is technically in a different database.
     If strName = "frmVCSMain" Then
         If IsLoaded(acForm, "frmVCSMain") Then
-            StageForm Form_frmVCSMain
+            StageMainForm
             blnStage = True
         End If
     End If
@@ -75,7 +75,7 @@ Private Sub IDbComponent_Import(strFile As String)
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
     
     ' Restore main form if staged
-    If blnStage Then RestoreForm Form_frmVCSMain
+    If blnStage Then RestoreMainForm
     
 End Sub
 
