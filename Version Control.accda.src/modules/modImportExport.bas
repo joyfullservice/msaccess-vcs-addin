@@ -268,6 +268,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     Dim varKey As Variant
     Dim varFile As Variant
     Dim strType As String
+    Dim blnSuccess As Boolean
     
     Dim strText As String   ' Remove later
     
@@ -277,7 +278,16 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     strType = IIf(blnFullBuild, "Build", "Merge")
     
     ' For full builds, close the current database if it is currently open.
-    If blnFullBuild Then If DatabaseFileOpen Then CloseCurrentDatabase2
+    If blnFullBuild Then
+        If DatabaseFileOpen Then
+            CloseCurrentDatabase2
+            If DatabaseFileOpen Then
+                MsgBox2 "Unable to Close Database", _
+                    "The current database must be closed to perform a full build.", , vbExclamation
+                GoTo CleanUp
+            End If
+        End If
+    End If
     
     ' Make sure we can find the source files
     If Not FolderHasVcsOptionsFile(strSourceFolder) Then
@@ -328,6 +338,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     Perf.StartTiming
     
     ' Launch the GUI form
+    DoCmd.OpenForm "frmVCSMain"
     Form_frmVCSMain.StartBuild
 
     ' Display the build header.
@@ -514,7 +525,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     ' Show final output and save log
     Log.Spacer
     Log.Add "Done. (" & Round(Perf.TotalTime, 2) & " seconds)", , False, "green", True
-
+    blnSuccess = True
+    
 CleanUp:
 
     ' Add performance data to log file and save file.
@@ -526,7 +538,7 @@ CleanUp:
     End With
     
     ' Show message if build failed
-    If Log.ErrorLevel = eelCritical Then
+    If Log.ErrorLevel = eelCritical Or Not blnSuccess Then
         Log.Spacer
         Log.Add "Build Failed.", , , "red", True
     End If
@@ -552,7 +564,7 @@ CleanUp:
     Set VCSIndex = Nothing
         
     ' Show MessageBox if not using GUI for build.
-    If Forms.Count = 0 Then
+    If Forms.Count = 0 And blnSuccess Then
         ' Show message box when build is complete.
         MsgBox2 strType & " Complete for '" & CurrentProject.Name & "'", _
             "Note that some settings may not take effect until this database is reopened.", _
