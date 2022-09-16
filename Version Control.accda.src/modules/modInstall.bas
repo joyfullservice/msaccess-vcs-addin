@@ -215,7 +215,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetAddInFileName() As String
-    GetAddInFileName = FSO.BuildPath(FSO.BuildPath(Environ$("AppData"), PROJECT_NAME), CodeProject.Name)
+    GetAddInFileName = FSO.BuildPath(FSO.BuildPath(Environ$(DESIRED_APPDATA_FOLDER), PROJECT_INSTALL_FOLDER), CodeProject.Name)
 End Function
 
 

@@ -179,7 +179,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetAddInPath() As String
-    GetAddInPath = Environ$("AppData") & PathSep & PROJECT_NAME & PathSep
+    GetAddInPath = Environ$(DESIRED_APPDATA_FOLDER) & PathSep & PROJECT_INSTALL_FOLDER & PathSep
 End Function
 
 

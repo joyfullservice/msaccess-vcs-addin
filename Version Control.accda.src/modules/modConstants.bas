@@ -12,7 +12,8 @@ Option Explicit
 
 ' VBE Project Name for this Add-In
 Public Const PROJECT_NAME As String = "MSAccessVCS"
-
+Public Const PROJECT_INSTALL_FOLDER As String = "MSAccessVCS" '"MSAccessVCS" ' Change this if your environment requires a different location. Default: "MSAccessVCS"
+Public Const DESIRED_APPDATA_FOLDER As String = "AppData" ' Options: "AppData" (default), "LocalAppData" (some environments may need to be elsewhere)
 ' Read/write chunks of text, rather than the whole thing at once for massive
 ' performance gains when reading large files.
 ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
