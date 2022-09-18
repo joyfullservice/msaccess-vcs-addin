@@ -16,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =236
-    Left =3225
-    Top =2430
-    Right =22695
-    Bottom =15015
+    Left =-25575
+    Top =1710
+    Right =-255
+    Bottom =14295
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -1121,10 +1121,10 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =2
-                                    WebImagePaddingTop =2
-                                    WebImagePaddingRight =2
-                                    WebImagePaddingBottom =2
+                                    WebImagePaddingLeft =1
+                                    WebImagePaddingTop =1
+                                    WebImagePaddingRight =1
+                                    WebImagePaddingBottom =1
                                 End
                                 Begin Label
                                     OverlapFlags =247
@@ -3185,10 +3185,10 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =2
-                    WebImagePaddingTop =2
-                    WebImagePaddingRight =2
-                    WebImagePaddingBottom =2
+                    WebImagePaddingLeft =1
+                    WebImagePaddingTop =1
+                    WebImagePaddingRight =1
+                    WebImagePaddingBottom =1
                     Overlaps =1
                 End
                 Begin Label
@@ -3391,7 +3391,7 @@ Private Sub LoadTableList()
     Set m_colTables = New Collection
     
     ' Get list of tables if we have a database file open.
-    If DatabaseOpen Then
+    If DatabaseFileOpen Then
         For Each tbl In CurrentData.AllTables
             ' Read table attributes
             blnHidden = Application.GetHiddenAttribute(acTable, tbl.Name)
@@ -3620,7 +3620,7 @@ End Sub
 Private Sub cmdSaveAndClose_Click()
 
     ' Make sure we actually have a file open
-    If Not DatabaseOpen Then
+    If Not DatabaseFileOpen Then
         MsgBox2 "No Database File Open", _
             "You must have a database file open to save VCS options to a source folder.", _
             "Please open a database file before saving options for a project.", vbExclamation

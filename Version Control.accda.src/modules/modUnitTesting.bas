@@ -238,3 +238,88 @@ Private Sub TestCloneDictionary()
     Debug.Assert dClone("Apple").Exists("Seed3") = False
     
 End Sub
+
+
+'@TestMethod("IDbComponent Interface")
+Private Sub TestComponentPropertyAccess()
+
+    Dim cnt As IDbComponent
+    Dim varTest As Variant
+    
+    For Each cnt In GetContainers
+        ' Make sure none of the following throw an error
+        ' when the database object has not been set.
+        varTest = cnt.Name
+        varTest = cnt.DateModified
+        varTest = cnt.SourceFile
+        Debug.Assert cnt.DbObject Is Nothing
+    Next
+    
+End Sub
+
+
+'@TestMethod("IDbComponent Interface")
+Private Sub TestUniqueComponentCategory()
+
+    Dim dList As Dictionary
+    Dim cnt As IDbComponent
+    
+    Set dList = New Dictionary
+    For Each cnt In GetContainers
+        Debug.Assert Not dList.Exists(cnt.Category)
+        dList.Add cnt.Category, vbNullString
+    Next
+    
+End Sub
+
+
+'@TestMethod("IDbComponent Interface")
+Private Sub TestUniqueComponentType()
+
+    Dim dList As Dictionary
+    Dim cnt As IDbComponent
+    
+    Set dList = New Dictionary
+    For Each cnt In GetContainers
+        Debug.Assert Not dList.Exists(cnt.ComponentType)
+        dList.Add cnt.ComponentType, vbNullString
+    Next
+    
+End Sub
+
+
+'@TestMethod("IDbComponent Interface")
+Private Sub TestUniqueBaseSubfolder()
+
+    Dim dList As Dictionary
+    Dim cnt As IDbComponent
+    
+    Set dList = New Dictionary
+    For Each cnt In GetContainers
+        If Not cnt.SingleFile Then
+            Debug.Assert Not dList.Exists(cnt.BaseFolder)
+            dList.Add cnt.BaseFolder, vbNullString
+        End If
+    Next
+    
+End Sub
+
+
+' Test the operation of a progress bar without using label objects
+' (Uses Access system progress meter instead)
+Public Sub TestMeterProgressBar()
+
+    Dim intCnt As Integer
+    
+    With New clsLblProg
+        .Max = 20
+        For intCnt = 1 To 30
+            'Pause 0.1
+            .Increment
+        Next intCnt
+        .Reset
+        .Clear
+    End With
+    
+End Sub
+

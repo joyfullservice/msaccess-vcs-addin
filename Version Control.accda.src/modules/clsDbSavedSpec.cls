@@ -18,7 +18,8 @@ Option Compare Database
 Option Explicit
 
 Private m_Spec As ImportExportSpecification
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -35,24 +36,10 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    
-    Dim dSpec As Dictionary
-    
-    Set dSpec = New Dictionary
-    
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    ' For some reason it throws an error if there is no
-    ' description in the specification.
-    With dSpec
-        .Add "Name", m_Spec.Name
-        .Add "Description", m_Spec.Description
-        .Add "XML", m_Spec.XML
-    End With
-    CatchAny eelNoError, vbNullString, , False
-    
-    ' Write as Json format.
-    WriteJsonFile TypeName(Me), dSpec, Nz2(strAlternatePath, IDbComponent_SourceFile), "Saved Import/Export Specification"
-    
+    Dim strContent As String
+    strContent = GetSource
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 End Sub
 
 
@@ -99,6 +86,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -109,19 +108,55 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim spec As ImportExportSpecification
     Dim cSpec As IDbComponent
-
+    Dim blnAdd As Boolean
+    
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         For Each spec In CurrentProject.ImportExportSpecifications
             Set cSpec = New clsDbSavedSpec
             Set cSpec.DbObject = spec
-            m_AllItems.Add cSpec, spec.Name
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cSpec.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cSpec.SourceFile, cSpec
         Next spec
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+
+    Dim dSpec As Dictionary
+    Dim strContent As String
+    
+    Set dSpec = New Dictionary
+    
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    ' For some reason it throws an error if there is no
+    ' description in the specification.
+    With dSpec
+        .Add "Name", m_Spec.Name
+        .Add "Description", m_Spec.Description
+        ' For some odd reason, duplicate return characters are added
+        ' with every export/build cycle. Purge any duplicate return
+        ' characters when creating source.
+        .Add "XML", DeDupString(m_Spec.XML, vbCr)
+    End With
+    CatchAny eelNoError, vbNullString, , False
+    
+    ' Return source file content
+    GetSource = BuildJsonFile(TypeName(Me), dSpec, "Saved Import/Export Specification")
     
 End Function
 
@@ -134,7 +169,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -151,6 +187,17 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -159,7 +206,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 
@@ -224,6 +271,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Spec Is Nothing Then Exit Property
     IDbComponent_Name = m_Spec.Name
 End Property
 
@@ -236,6 +284,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Spec Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Spec.Name) & ".json"
 End Property
 
@@ -249,6 +298,22 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    Static lngCount As Long
+    If lngCount = 0 Then lngCount = CurrentProject.ImportExportSpecifications.Count - 1
+    IDbComponent_QuickCount = lngCount + 1
 End Property
 
 

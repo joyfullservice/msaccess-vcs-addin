@@ -6,11 +6,11 @@
 ' Purpose   : This module contains the logic for installing/updating/removing/deploying
 '           : the add-in.
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Explicit
 Option Private Module
 
+' Registry hive
 Private Enum eHive
     ehHKLM
     ehHKCU
@@ -46,7 +46,7 @@ Private Const mcstrTrustedLocationName = "MSAccessVCS Version Control"
 Public Function AutoRun() As Boolean
 
     ' See if the we are opening the file from the installed location.
-    If CodeProject.FullName = GetAddinFileName Then
+    If CodeProject.FullName = GetAddInFileName Then
     
         ' Opening the file from add-in location, which would normally be unusual unless we are trying to remove
         ' legacy registry entries, or to trust the file after install.
@@ -68,7 +68,10 @@ Public Function AutoRun() As Boolean
     Else
         ' Could be running it from another location, such as after downloading
         ' an updated version of the addin, or building from source.
-        DoCmd.OpenForm "frmVCSInstall"
+        VerifyResources
+        
+        ' Open installer form
+        Form_frmVCSInstall.Visible = True
     End If
 
 End Function
@@ -92,7 +95,7 @@ Public Function InstallVCSAddin() As Boolean
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     strSource = CodeProject.FullName
-    strDest = GetAddinFileName
+    strDest = GetAddInFileName
     VerifyPath strDest
     
     ' We can't replace a file with itself.  :-)
@@ -126,6 +129,8 @@ Public Function InstallVCSAddin() As Boolean
     Else
         If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
+        ' Install the ribbon
+        modCOMAddIn.VerifyComAddIn
         ' Register the Menu controls
         RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
         RegisterMenuItem "&VCS Options", "=AddInOptionsLaunch()"
@@ -150,7 +155,7 @@ End Function
 Public Function UninstallVCSAddin() As Boolean
     
     Dim strDest As String
-    strDest = GetAddinFileName
+    strDest = GetAddInFileName
     
     ' Copy the file, overwriting any existing file.
     ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
@@ -177,13 +182,13 @@ Public Function UninstallVCSAddin() As Boolean
         
         ' Remove registry entries
         If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-        DeleteSetting GetCodeVBProject.Name, "Install"
-        DeleteSetting GetCodeVBProject.Name, "Build"
-        DeleteSetting GetCodeVBProject.Name, "Add-In"
+        DeleteSetting PROJECT_NAME, "Install"
+        DeleteSetting PROJECT_NAME, "Build"
+        DeleteSetting PROJECT_NAME, "Add-In"
         
         ' Remove private keys; since this (should have been) removed
         ' during install, just do it again to verify.
-        DeleteSetting GetCodeVBProject.Name, "Private Keys"
+        DeleteSetting PROJECT_NAME, "Private Keys"
         
         If Err Then Err.Clear
         On Error GoTo 0
@@ -192,11 +197,14 @@ Public Function UninstallVCSAddin() As Boolean
         InstalledVersion = 0
         ' Remove trusted location added by this add-in. (if found)
         RemoveTrustedLocation
+        ' Remove COM add-in
+        modCOMAddIn.UninstallComAddIn
         ' Return success
         UninstallVCSAddin = True
     End If
     
 End Function
+
 
 
 '---------------------------------------------------------------------------------------
@@ -206,8 +214,8 @@ End Function
 ' Purpose   : This is where the add-in would be installed.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetAddinFileName() As String
-    GetAddinFileName = FSO.BuildPath(FSO.BuildPath(Environ$("AppData"), "MSAccessVCS"), CodeProject.Name)
+Public Function GetAddInFileName() As String
+    GetAddInFileName = FSO.BuildPath(FSO.BuildPath(Environ$("AppData"), PROJECT_NAME), CodeProject.Name)
 End Function
 
 
@@ -227,7 +235,7 @@ Public Function IsAlreadyInstalled() As Boolean
     If InstalledVersion <> vbNullString Then
         
         ' Check for addin file
-        If LCase(FSO.GetFileName(GetAddinFileName)) = LCase(CodeProject.Name) Then
+        If LCase(FSO.GetFileName(GetAddInFileName)) = LCase(CodeProject.Name) Then
             strPath = GetAddinRegPath & "&Version Control\Library"
             
             ' Check HKLM registry key
@@ -297,7 +305,7 @@ Private Sub RegisterMenuItem(ByVal strName As String, Optional ByVal strFunction
     strPath = GetAddinRegPath & strName & "\"
     With New IWshRuntimeLibrary.WshShell
         .RegWrite strPath & "Expression", strFunction, "REG_SZ"
-        .RegWrite strPath & "Library", GetAddinFileName, "REG_SZ"
+        .RegWrite strPath & "Library", GetAddInFileName, "REG_SZ"
         .RegWrite strPath & "Version", 3, "REG_DWORD"
     End With
     
@@ -338,7 +346,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub RelaunchAsAdmin()
-    ShellExecute 0, "runas", FSO.BuildPath(SysCmd(acSysCmdAccessDir), "msaccess.exe"), """" & GetAddinFileName & """", vbNullString, SW_SHOWNORMAL
+    ShellExecute 0, "runas", FSO.BuildPath(SysCmd(acSysCmdAccessDir), "msaccess.exe"), """" & GetAddInFileName & """", vbNullString, SW_SHOWNORMAL
 End Sub
 
 
@@ -403,7 +411,7 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Same_Version)
     blnSuccess = InstallVCSAddin
     
     ' Use the newly installed add-in to Export the project to version control.
-    RunExportForCurrentDB
+    VCS.Export
     
     ' Finish with success message if the latest version was installed.
     If blnSuccess Then Debug.Print "Version " & AppVersion & " installed."
@@ -462,7 +470,7 @@ Public Sub RunUpgrades()
         strOldPath = Replace(strOldPath, ".accda", ".json", , , vbTextCompare)
         If FSO.FileExists(strOldPath) Then
             ' Check for settings file in new location
-            strNewPath = Replace(GetAddinFileName, ".accda", ".json", , , vbTextCompare)
+            strNewPath = Replace(GetAddInFileName, ".accda", ".json", , , vbTextCompare)
             If FSO.FileExists(strNewPath) Then
                 ' Leave new settings file, and delete old one.
                 DeleteFile strOldPath
@@ -484,7 +492,7 @@ Public Sub RunUpgrades()
     End If
     
     ' Remove legacy RC4 encryption
-    If HasLegacyRC4Keys Then DeleteSetting GetCodeVBProject.Name, "Private Keys"
+    If HasLegacyRC4Keys Then DeleteSetting PROJECT_NAME, "Private Keys"
     
     ' Use standardized options folder (5/7/2021)
     strOldPath = FSO.BuildPath(CodeProject.Path, FSO.GetBaseName(CodeProject.Name)) & ".json"
@@ -553,10 +561,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Property Let InstallSettingTrustedLocation(InstallTrust As Integer)
-    SaveSetting GetCodeVBProject.Name, "Install", "Trust Folder", InstallTrust
+    SaveSetting PROJECT_NAME, "Install", "Trust Folder", InstallTrust
 End Property
 Public Property Get InstallSettingTrustedLocation() As Integer
-    InstallSettingTrustedLocation = GetSetting(GetCodeVBProject.Name, "Install", "Trust Folder", CInt(True))
+    InstallSettingTrustedLocation = GetSetting(PROJECT_NAME, "Install", "Trust Folder", CInt(True))
 End Property
 
 
@@ -578,7 +586,7 @@ Public Function VerifyTrustedLocation() As Boolean
 
     ' Get registry path for trusted locations
     strPath = GetTrustedLocationRegPath
-    strTrusted = FSO.GetParentFolderName(GetAddinFileName) & PathSep
+    strTrusted = FSO.GetParentFolderName(GetAddInFileName) & PathSep
 
     ' Use Windows Scripting Shell to read/write to registry
     With New IWshRuntimeLibrary.WshShell
@@ -706,10 +714,10 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Let InstallSettingOpenFile(InstallOpen As Integer)
-    SaveSetting GetCodeVBProject.Name, "Install", "Open File", InstallOpen
+    SaveSetting PROJECT_NAME, "Install", "Open File", InstallOpen
 End Property
 Public Property Get InstallSettingOpenFile() As Integer
-    InstallSettingOpenFile = GetSetting(GetCodeVBProject.Name, "Install", "Open File", CInt(False))
+    InstallSettingOpenFile = GetSetting(PROJECT_NAME, "Install", "Open File", CInt(False))
 End Property
 
 
@@ -763,8 +771,7 @@ Public Sub OpenAddinFile(strAddinFileName As String, _
         .Add "IF EXIST """, lockFilePathInstaller, """ GOTO WAITCLOSEINSTALLER"
         .Add ":WAITCLOSEADDIN"
         .Add "ping 127.0.0.1 -n 1 -w 100 > nul"
-        .Add "SET /a counter=0"
-        .Add "IF !counter!==10 GOTO MOVEON"
+        .Add "IF !counter!==40 GOTO MOVEON"
         .Add "IF EXIST """, lockFilePathAddin, """ GOTO WAITCLOSEADDIN"
         .Add ":OPENADDIN"
         .Add "ECHO Opening Add-in to finish installation..."
@@ -786,4 +793,75 @@ Public Sub OpenAddinFile(strAddinFileName As String, _
     Shell strScriptFile, vbNormalFocus
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IncrementAppVersion
+' Author    : Adam Waller
+' Date      : 1/6/2017
+' Purpose   : Increments the build version (1.0.12)
+'---------------------------------------------------------------------------------------
+'
+Public Sub IncrementAppVersion(Optional ReleaseType As eReleaseType = Build_xxV)
+    
+    Dim varParts As Variant
+    Dim strFrom As String
+    
+    If ReleaseType = Same_Version Then Exit Sub
+    strFrom = AppVersion
+    varParts = Split(AppVersion, ".")
+    varParts(ReleaseType) = varParts(ReleaseType) + 1
+    If ReleaseType < Minor_xVx Then varParts(Minor_xVx) = 0
+    If ReleaseType < Build_xxV Then varParts(Build_xxV) = 0
+    AppVersion = Join(varParts, ".")
+
+    ' Display old and new versions
+    Debug.Print "Updated from " & strFrom & " to " & AppVersion
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AppVersion
+' Author    : Adam Waller
+' Date      : 1/5/2017
+' Purpose   : Get the version from the database property.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get AppVersion() As String
+    Dim strVersion As String
+    strVersion = GetDBProperty("AppVersion", CodeDb)
+    If strVersion = vbNullString Then strVersion = "1.0.0"
+    AppVersion = strVersion
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AppVersion
+' Author    : Adam Waller
+' Date      : 1/5/2017
+' Purpose   : Set version property in current database.
+'---------------------------------------------------------------------------------------
+'
+Public Property Let AppVersion(strVersion As String)
+    SetDBProperty "AppVersion", strVersion, , CodeDb
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InstalledVersion
+' Author    : Adam Waller
+' Date      : 4/21/2020
+' Purpose   : Returns the installed version of the add-in from the registry.
+'           : (We are saving this in the user hive, since it requires admin rights
+'           :  to change the keys actually used by Access to register the add-in)
+'---------------------------------------------------------------------------------------
+'
+Public Property Let InstalledVersion(strVersion As String)
+    SaveSetting PROJECT_NAME, "Add-in", "Installed Version", strVersion
+End Property
+Public Property Get InstalledVersion() As String
+    InstalledVersion = GetSetting(PROJECT_NAME, "Add-in", "Installed Version", vbNullString)
+End Property
+
 

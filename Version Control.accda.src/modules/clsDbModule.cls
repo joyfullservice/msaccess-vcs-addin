@@ -21,8 +21,8 @@ Private Const ModuleName As String = "clsDbModule"
 
 Private m_Module As AccessObject
 Private m_Component As VBComponent
-Private m_AllItems As Dictionary
-Private m_blnModifiedOnly As Boolean
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 Private Type udtVbaFileContent
     strContent As String
@@ -61,7 +61,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
     ' Update the index with the current VBA hash. (Note, this will not show
     ' changes to the hidden VBE properties that might have been added.)
-    VCSIndex.Update Me, eatExport, GetCodeModuleHash(edbModule, m_Module.Name)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
+        GetFileHash(IDbComponent_SourceFile), GetCodeModuleHash(edbModule, m_Module.Name)
         
 End Sub
 
@@ -231,7 +232,7 @@ Private Sub IDbComponent_Merge(strFile As String)
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
     Else
-        VCSIndex.Remove Me
+        VCSIndex.Remove Me, strFile
     End If
 End Sub
 
@@ -251,6 +252,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -262,25 +275,23 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim oMod As AccessObject
     Dim cModule As IDbComponent
     Dim proj As VBProject
+    Dim blnAdd As Boolean
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or blnModifiedOnly <> m_blnModifiedOnly Then
-        m_blnModifiedOnly = blnModifiedOnly
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         Set proj = GetVBProjectForCurrentDB
         For Each oMod In CurrentProject.AllModules
             Set cModule = New clsDbModule
             Set cModule.DbObject = oMod
-            If blnModifiedOnly Then
-                If cModule.IsModified Then m_AllItems.Add cModule, oMod.Name
-            Else
-                m_AllItems.Add cModule, oMod.Name
-            End If
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cModule.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cModule.SourceFile, cModule
         Next oMod
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 
@@ -293,8 +304,11 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
-    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.cls")
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.cls")
+    End If
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -307,6 +321,18 @@ End Function
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearOrphanedSourceFiles Me, "bas", "cls"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+    RemoveOrphanedDatabaseObjects Me
 End Sub
 
 
@@ -324,7 +350,7 @@ Public Function IDbComponent_IsModified() As Boolean
     ' so use the hash instead to detect changes.
     
     ' NOTE: This will not detect changes to hidden VBE attributes
-    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
+    IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
 
 End Function
 
@@ -339,6 +365,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Module Is Nothing Then Exit Function
     IDbComponent_DateModified = CurrentProject.AllModules(m_Module.Name).DateModified
 End Function
 
@@ -389,6 +416,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Module Is Nothing Then Exit Property
     IDbComponent_Name = m_Module.Name
 End Property
 
@@ -401,6 +429,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Module Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & GetExtension
 End Property
 
@@ -430,6 +459,22 @@ End Function
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    Static lngCount As Long
+    If lngCount = 0 Then lngCount = CurrentProject.AllModules.Count - 1
+    IDbComponent_QuickCount = lngCount + 1
 End Property
 
 

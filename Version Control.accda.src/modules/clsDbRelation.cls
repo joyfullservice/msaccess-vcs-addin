@@ -18,9 +18,9 @@ Option Compare Database
 Option Explicit
 
 Private m_Relation As DAO.Relation
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 Private m_Dbs As DAO.Database
-
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -49,36 +49,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    
-    Dim dItem As Dictionary
-    Dim dField As Dictionary
-    Dim colItems As Collection
-    Dim fld As DAO.Field
-    
-    ' Relation properties
-    Set dItem = New Dictionary
-    With dItem
-        .Add "Name", m_Relation.Name
-        .Add "Attributes", m_Relation.Attributes
-        .Add "Table", m_Relation.Table
-        .Add "ForeignTable", m_Relation.ForeignTable
-    End With
-    
-    ' Fields
-    Set colItems = New Collection
-    For Each fld In m_Relation.Fields
-        Set dField = New Dictionary
-        With dField
-            .Add "Name", fld.Name
-            .Add "ForeignName", fld.ForeignName
-        End With
-        colItems.Add dField
-    Next fld
-    dItem.Add "Fields", colItems
-    
-    ' Write to json file
-    WriteJsonFile TypeName(Me), dItem, Nz2(strAlternatePath, IDbComponent_SourceFile), "Database relationship"
-    
+    Dim strContent As String
+    strContent = GetSource
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 End Sub
 
 
@@ -145,7 +119,25 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
+    ' Import if file exists
+    If FSO.FileExists(strFile) Then
+        ' Existing relationships will be removed during import
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
 End Sub
 
 
@@ -160,16 +152,17 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim rel As Relation
     Dim cRelation As IDbComponent
-
+    Dim blnAdd As Boolean
+    
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_Items(blnModifiedOnly) Is Nothing Then
     
         ' Maintain persistent reference to database object so we don't
         ' lose the reference to the relation object with this procedure
         ' goes out of scope. (Make sure we release this on termination)
         Set m_Dbs = CurrentDb
         
-        Set m_AllItems = New Dictionary
+        Set m_Items(blnModifiedOnly) = New Dictionary
         For Each rel In m_Dbs.Relations
             ' Navigation pane groups are handled separately
             If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
@@ -177,13 +170,15 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 Or IsInherited(rel)) Then
                 Set cRelation = New clsDbRelation
                 Set cRelation.DbObject = rel
-                m_AllItems.Add cRelation, rel.Name
+                blnAdd = True
+                If blnModifiedOnly Then blnAdd = cRelation.IsModified
+                If blnAdd Then m_Items(blnModifiedOnly).Add cRelation.SourceFile, cRelation
             End If
         Next rel
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
     
 End Function
 
@@ -227,6 +222,47 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+
+    Dim dItem As Dictionary
+    Dim dField As Dictionary
+    Dim colItems As Collection
+    Dim fld As DAO.Field
+    
+    ' Relation properties
+    Set dItem = New Dictionary
+    With dItem
+        .Add "Name", m_Relation.Name
+        .Add "Attributes", m_Relation.Attributes
+        .Add "Table", m_Relation.Table
+        .Add "ForeignTable", m_Relation.ForeignTable
+    End With
+    
+    ' Fields
+    Set colItems = New Collection
+    For Each fld In m_Relation.Fields
+        Set dField = New Dictionary
+        With dField
+            .Add "Name", fld.Name
+            .Add "ForeignName", fld.ForeignName
+        End With
+        colItems.Add dField
+    Next fld
+    dItem.Add "Fields", colItems
+
+    ' Return source file content
+    GetSource = BuildJsonFile(TypeName(Me), dItem, "Database relationship")
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetFileList
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -234,7 +270,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -252,6 +289,17 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -260,7 +308,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 
@@ -324,6 +372,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Relation Is Nothing Then Exit Property
     IDbComponent_Name = m_Relation.Name
 End Property
 
@@ -336,6 +385,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Relation Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetRelationFileName(m_Relation) & ".json"
 End Property
 
@@ -349,6 +399,22 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    Static lngCount As Long
+    If lngCount = 0 Then lngCount = CurrentDb.Relations.Count - 1
+    IDbComponent_QuickCount = lngCount + 1
 End Property
 
 

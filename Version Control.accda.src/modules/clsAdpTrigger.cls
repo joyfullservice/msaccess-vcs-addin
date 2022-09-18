@@ -23,7 +23,8 @@ Public TableName As String
 Public SchemaName As String
 Public SqlModifyDate As Date
 
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -40,10 +41,10 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-
-    ' Write SQL text to file
-    WriteFile GetSQLObjectDefinitionForADP(Me.TriggerName), Nz2(strAlternatePath, IDbComponent_SourceFile)
-    
+    Dim strContent As String
+    strContent = GetSQLObjectDefinitionForADP(Me.TriggerName)
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 End Sub
 
 
@@ -73,6 +74,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -85,12 +98,13 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cComponent As IDbComponent
     Dim rst As ADODB.Recordset
     Dim strSql As String
+    Dim blnAdd As Boolean
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_Items(blnModifiedOnly) Is Nothing Then
     
         ' Use parameter options if provided.
-        Set m_AllItems = New Dictionary
+        Set m_Items(blnModifiedOnly) = New Dictionary
 
         ' Build list of triggers in database (from sysobjects)
         strSql = "SELECT [name],object_name(parent_object_id) AS parent_name, schema_name([schema_id]) AS [schema_name], modify_date FROM sys.objects WHERE type='TR'"
@@ -106,7 +120,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     .SqlModifyDate = Nz(rst!modify_date)
                 End With
                 Set cComponent = cTrigger
-                m_AllItems.Add cComponent, cTrigger.TriggerName
+                ' Compare modified date with index
+                blnAdd = True
+                If blnModifiedOnly Then blnAdd = cComponent.IsModified
+                If blnAdd Then m_Items(blnModifiedOnly).Add cComponent.SourceFile, cComponent
                 .MoveNext
             Loop
             .Close
@@ -115,7 +132,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
     
 End Function
 
@@ -128,7 +145,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.sql")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.sql")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -145,6 +163,17 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -153,7 +182,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = (Me.SqlModifyDate > VCSIndex.Item(Me).ExportDate)
 End Function
 
 
@@ -167,6 +196,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If Me.TriggerName = vbNullString Then Exit Function
     IDbComponent_DateModified = GetSQLObjectModifiedDate(Me.TriggerName, estTrigger)
 End Function
 
@@ -229,6 +259,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If Me.TriggerName = vbNullString Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(Me.SchemaName & "_" & Me.TriggerName) & ".sql"
 End Property
 
@@ -242,6 +273,21 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    ' Just return 1 since there is no easy way to count triggers without querying the database
+    IDbComponent_QuickCount = 1
 End Property
 
 

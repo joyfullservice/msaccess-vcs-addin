@@ -18,7 +18,8 @@ Option Compare Database
 Option Explicit
 
 Private m_Function As AccessObject
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -35,7 +36,10 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    WriteFile GetSQLObjectDefinitionForADP(m_Function.Name), Nz2(strAlternatePath, IDbComponent_SourceFile)
+    Dim strContent As String
+    strContent = GetSQLObjectDefinitionForADP(m_Function.Name)
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 End Sub
 
 
@@ -63,6 +67,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -73,19 +89,22 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim fn As AccessObject
     Dim cFn As IDbComponent
+    Dim blnAdd As Boolean
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         For Each fn In CurrentData.AllFunctions
             Set cFn = New clsAdpFunction
             Set cFn.DbObject = fn
-            m_AllItems.Add cFn, fn.Name
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cFn.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cFn.SourceFile, cFn
         Next fn
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 
@@ -98,7 +117,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.sql")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.sql")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -115,6 +135,17 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -123,7 +154,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = (GetSQLObjectModifiedDate(m_Function.Name, estOther) > VCSIndex.Item(Me).ExportDate)
 End Function
 
 
@@ -137,6 +168,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Function Is Nothing Then Exit Function
     IDbComponent_DateModified = GetSQLObjectModifiedDate(m_Function.Name, estOther)
 End Function
 
@@ -187,6 +219,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Function Is Nothing Then Exit Property
     IDbComponent_Name = m_Function.Name
 End Property
 
@@ -199,6 +232,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Function Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(StripDboPrefix(m_Function.Name)) & ".sql"
 End Property
 
@@ -212,6 +246,22 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    Static lngCount As Long
+    If lngCount = 0 Then lngCount = CurrentData.AllFunctions.Count - 1
+    IDbComponent_QuickCount = lngCount + 1
 End Property
 
 

@@ -10,6 +10,9 @@ Option Private Module
 Option Explicit
 
 
+' VBE Project Name for this Add-In
+Public Const PROJECT_NAME As String = "MSAccessVCS"
+
 ' Read/write chunks of text, rather than the whole thing at once for massive
 ' performance gains when reading large files.
 ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
@@ -43,13 +46,13 @@ End Enum
 ' same value.
 Public Enum eDatabaseComponentType
     ' Standard database objects
-    edbForm
-    edbMacro
-    edbModule
-    edbQuery
-    edbReport
-    edbTableDef
-    edbTableDataMacro
+    edbForm = acForm
+    edbMacro = acMacro
+    edbModule = acModule
+    edbQuery = acQuery
+    edbReport = acReport
+    edbTableDef = acTable
+    edbTableDataMacro = acTableDataMacro
     edbLinkedTable
     ' ADP specific
     edbAdpTable
@@ -95,8 +98,37 @@ Public Enum eCompareMethod2
     ecmSourceMethod = 3
 End Enum
 
+' Type of operation in progress
+Public Enum eOperationType
+    eotExport = 1
+    eotBuild = 2
+End Enum
+
 ' Options for resolving file conflicts
 Public Enum eResolveConflict
     ercSkip
     ercOverwrite
+    ercDelete
+End Enum
+
+' Conflict types for import/export conflicts
+Public Enum eConflictType
+    ectOrphanedSourceFile
+    ectNewerDatabaseObject
+    ectNewerSourceFile
+End Enum
+
+' Release type used when updating version
+' or deploying add-in
+Public Enum eReleaseType
+    Major_Vxx = 0
+    Minor_xVx = 1
+    Build_xxV = 2
+    Same_Version = 3
+End Enum
+
+' Types of objects to include in GetContainers()
+Public Enum eContainerFilter
+    ecfAllObjects
+    ecfVBAItems
 End Enum

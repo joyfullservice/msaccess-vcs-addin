@@ -18,7 +18,8 @@ Option Compare Database
 Option Explicit
 
 Private m_Table As AccessObject
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -35,6 +36,87 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    Dim strContent As String
+    strContent = GetSource
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Import
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Import the individual database component from a file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Import(strFile As String)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Merge
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Merge the source file into the existing database, updating or replacing
+'           : any existing object.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Merge(strFile As String)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAllFromDB
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Return a collection of class objects represented by this component type.
+'---------------------------------------------------------------------------------------
+'
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
+    
+    Dim tbl As AccessObject
+    Dim cTable As IDbComponent
+    Dim blnAdd As Boolean
+
+    ' Build collection if not already cached
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
+        For Each tbl In CurrentData.AllTables
+            Set cTable = New clsAdpTable
+            Set cTable.DbObject = tbl
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cTable.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cTable.SourceFile, cTable
+        Next tbl
+    End If
+
+    ' Return cached collection
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 9/1/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
 
     Dim strSql As String
     Dim rst As ADODB.Recordset
@@ -80,62 +162,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Set fld = Nothing
     Set rst = Nothing
     
-    ' Write SQL text to file
-    WriteFile colText.GetStr, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    ' Return SQL content
+    GetSource = colText.GetStr
     
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Import
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Import the individual database component from a file.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Import(strFile As String)
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Merge
-' Author    : Adam Waller
-' Date      : 11/21/2020
-' Purpose   : Merge the source file into the existing database, updating or replacing
-'           : any existing object.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Merge(strFile As String)
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetAllFromDB
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return a collection of class objects represented by this component type.
-'---------------------------------------------------------------------------------------
-'
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
-    Dim tbl As AccessObject
-    Dim cTable As IDbComponent
-
-    ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Dictionary
-        For Each tbl In CurrentData.AllTables
-            Set cTable = New clsAdpTable
-            Set cTable.DbObject = tbl
-            m_AllItems.Add cTable, tbl.Name
-        Next tbl
-    End If
-
-    ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
-
 End Function
 
 
@@ -147,7 +176,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.txt")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.txt")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -165,6 +195,17 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -173,7 +214,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = (GetSQLObjectModifiedDate(m_Table.Name, estTable) > VCSIndex.Item(Me).ExportDate)
 End Function
 
 
@@ -187,6 +228,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Table Is Nothing Then Exit Function
     IDbComponent_DateModified = GetSQLObjectModifiedDate(m_Table.Name, estTable)
 End Function
 
@@ -237,6 +279,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Table Is Nothing Then Exit Property
     IDbComponent_Name = m_Table.Name
 End Property
 
@@ -249,6 +292,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Table Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(StripDboPrefix(m_Table.Name)) & ".txt"
 End Property
 
@@ -262,6 +306,22 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    Static lngCount As Long
+    If lngCount = 0 Then lngCount = CurrentData.AllTables.Count - 1
+    IDbComponent_QuickCount = lngCount + 1
 End Property
 
 

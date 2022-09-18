@@ -17,6 +17,7 @@ Option Explicit
 
 Private Const cstrOptionsFilename As String = "vcs-options.json"
 Private Const cstrSourcePathProperty As String = "VCS Source Path"
+Private Const cstrBuildPathProperty As String = "VCS Build Path"
 Private Const ModuleName As String = "clsOptions"
 
 ' Options
@@ -194,6 +195,8 @@ End Sub
 Public Sub SaveOptionsForProject()
     ' Save source path option in current database.
     SavedSourcePath = Me.ExportFolder
+    ' Set the build path, if needed.
+    SetBuildPath
     ' Save options to the export folder location
     Me.SaveOptionsToFile Me.GetExportFolder & cstrOptionsFilename
 End Sub
@@ -245,6 +248,9 @@ Public Sub LoadOptionsFromFile(strFile As String)
         End If
     End If
 
+    ' Set the build path property when loading options
+    SetBuildPath
+    
     CatchAny eelError, "Loading options from " & strFile, ModuleName & ".LoadOptionsFromFile"
     
 End Sub
@@ -288,7 +294,7 @@ Public Sub LoadProjectOptions()
 
     ' We can only load the options for the current project if we
     ' have a database file open.
-    If Not DatabaseOpen Then Exit Sub
+    If Not DatabaseFileOpen Then Exit Sub
     
     ' Get saved path from database (if defined)
     strSaved = SavedSourcePath
@@ -624,6 +630,44 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SetBuildPath
+' Author    : Adam Waller
+' Date      : 10/28/2021
+' Purpose   : Set a build path property value if the export folder is not relative
+'           : to the current database path.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SetBuildPath()
+
+    Dim prp As AccessObjectProperty
+    Dim proj As CurrentProject
+    
+    Set proj = CurrentProject
+    Set prp = GetPropertyByName(cstrBuildPathProperty)
+
+    ' This should only be done on an open database/project
+    If DatabaseFileOpen Then
+        ' Check the export folder option
+        If Me.ExportFolder = vbNullString Then
+            ' When using the default of a blank export path, we don't need
+            ' to store the build folder location. (It will be different on
+            ' different computers, and not needed for a relative export path.)
+            If Not prp Is Nothing Then proj.Properties.Remove prp.Name
+        Else
+            If prp Is Nothing Then
+                ' Create the property
+                proj.Properties.Add cstrBuildPathProperty, proj.Path
+            Else
+                ' Update the value.
+                If prp.Value <> proj.Path Then prp.Value = proj.Path
+            End If
+        End If
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SavedSourcePath
 ' Author    : Adam Waller
 ' Date      : 7/13/2020
@@ -634,7 +678,7 @@ End Sub
 '
 Private Property Get SavedSourcePath() As String
     Dim prp As AccessObjectProperty
-    Set prp = GetSavedSourcePathProperty
+    Set prp = GetPropertyByName(cstrSourcePathProperty)
     If Not prp Is Nothing Then SavedSourcePath = prp.Value
 End Property
 
@@ -652,7 +696,7 @@ Private Property Let SavedSourcePath(strPath As String)
     Dim proj As CurrentProject
 
     Set proj = CurrentProject
-    Set prp = GetSavedSourcePathProperty
+    Set prp = GetPropertyByName(cstrSourcePathProperty)
 
     If strPath = vbNullString Then
         ' Remove the property when no longer used.
@@ -671,21 +715,27 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetSavedSourcePathProperty
+' Procedure : GetPropertyByName
 ' Author    : Adam Waller
-' Date      : 7/14/2020
-' Purpose   : Helper function to get
+' Date      : 10/28/2021
+' Purpose   : Return a project property
 '---------------------------------------------------------------------------------------
 '
-Private Function GetSavedSourcePathProperty() As AccessObjectProperty
+Private Function GetPropertyByName(strName As String) As AccessObjectProperty
+    
     Dim prp As AccessObjectProperty
-    If DatabaseOpen Then
-        For Each prp In CurrentProject.Properties
-            If prp.Name = cstrSourcePathProperty Then
-                Set GetSavedSourcePathProperty = prp
+    Dim proj As CurrentProject
+    
+    If DatabaseFileOpen Then
+        Set proj = CurrentProject
+        For Each prp In proj.Properties
+            If prp.Name = strName Then
+                Set GetPropertyByName = prp
                 Exit For
             End If
         Next prp
     End If
+    
 End Function
+
 

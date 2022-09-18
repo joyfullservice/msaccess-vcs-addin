@@ -19,9 +19,9 @@ Option Explicit
 
 Private Const ModuleName As String = "clsDbTheme"
 
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 Private m_Dbs As DAO.Database
-Private m_blnModifiedOnly As Boolean
 
 ' This is used to pass a reference to the record back
 ' into the class for loading the private variables
@@ -57,6 +57,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim rst As Recordset2
     Dim rstAtc As Recordset2
     Dim strSql As String
+    Dim strHash As String
     
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -79,6 +80,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     If Not rst.EOF Then
         Set rstAtc = rst!Data.Value
         If FSO.FileExists(strFile) Then DeleteFile strFile, True
+        If FSO.FolderExists(strFile) Then FSO.DeleteFolder strFile, True
         VerifyPath strFile
         Perf.OperationStart "Export Theme"
         rstAtc!FileData.SaveToFile strFile
@@ -90,6 +92,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Set rst = Nothing
 
     CatchAny eelError, "Error exporting theme file: " & strFile, ModuleName & ".Export", True, True
+    
+    ' Get hash before extracting the theme
+    strHash = GetFileHash(strFile)
 
     ' See if we need to extract the theme source files.
     ' (Only really needed when you are tracking themes customizations.)
@@ -101,6 +106,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         DoEvents ' Make sure the folder is deleted before we recreate it.
         ' Rename to zip file before extracting
         strZip = strFolder & ".zip"
+        If FSO.FileExists(strZip) Then DeleteFile (strZip)
         Name strFile As strZip
         ExtractFromZip strZip, strFolder, False
         ' Rather than holding up the export while we extract the file,
@@ -109,8 +115,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         CatchAny eelError, "Error extracting theme. Folder: " & strFolder, ModuleName & ".Export", True, True
     End If
     
-    ' Update index
-    VCSIndex.Update Me, eatExport, GetSignatureHash
+    ' Update index after exporting theme
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash, GetSignatureHash
 
 End Sub
 
@@ -124,9 +130,13 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim rstResources As DAO.Recordset2
-    Dim rstAttachment As DAO.Recordset2
-    Dim fldFile As DAO.Field2
+    ' IMPORTANT: These variables must be declared as the
+    ' generic parent classes to avoid problems in newer
+    ' releases of Microsoft Access. (See issue #341)
+    Dim rstResources As DAO.Recordset   ' Recordset2
+    Dim rstAttachment As DAO.Recordset  ' Recordset2
+    Dim fldFile As DAO.Field            ' Field2
+    
     Dim strZip As String
     Dim strThemeFile As String
     Dim strThemeName As String
@@ -233,8 +243,14 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-    ' The import will replace the existing theme with the same name.
-    IDbComponent_Import strFile
+    ' Import if file exists
+    If FSO.FileExists(strFile) Then
+        ' The import will replace the existing theme with the same name.
+        IDbComponent_Import strFile
+    Else
+        'TODO: Remove existing theme
+        VCSIndex.Remove Me, strFile
+    End If
 End Sub
 
 
@@ -273,6 +289,20 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+    ' Check for extracted theme files
+    MoveFolderIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile), strToFolder
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -286,11 +316,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim strSql As String
     Dim strKey As String
     Dim dItems As Dictionary
+    Dim blnAdd As Boolean
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-    
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         
         ' Use dictionary to make sure we don't add duplicate records if we have
         ' both a folder and a theme file for the same theme.
@@ -309,10 +339,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         ' Load theme details so we can check modified status
                         Set cTheme = New clsDbTheme
                         Set cTheme.DbObject = rst    ' Reference to OLE object recordset2
-                        If Not blnModifiedOnly Or cTheme.IsModified Then
-                            m_AllItems.Add cTheme, strKey
-                            dItems.Add strKey, strKey
-                        End If
+                        blnAdd = True
+                        If blnModifiedOnly Then blnAdd = cTheme.IsModified
+                        If blnAdd Then m_Items(blnModifiedOnly).Add cTheme.SourceFile, cTheme
+                        dItems.Add strKey, strKey
                     End If
                     .MoveNext
                 Loop
@@ -322,7 +352,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
 
 End Function
 
@@ -434,8 +464,11 @@ End Sub
 '
 Private Function IDbComponent_GetFileList() As Dictionary
     ' Get list of folders (extracted files) as well as zip files.
-    Set IDbComponent_GetFileList = GetSubfolderPaths(IDbComponent_BaseFolder)
-    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetSubfolderPaths(IDbComponent_BaseFolder)
+        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
+    End If
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -447,8 +480,19 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFolders Me
     ClearOrphanedSourceFiles Me, "thmx"
+    ClearOrphanedSourceFolders Me
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
 End Sub
 
 
@@ -461,8 +505,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    ' Load the database object first so we can calculate the hash
-    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetSignatureHash
+    ' Compare the index hash with the current theme signature hash
+    IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetSignatureHash
 End Function
 
 
@@ -557,6 +601,20 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    IDbComponent_QuickCount = 1
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ComponentType
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -602,8 +660,11 @@ End Property
 '
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
 
-    Dim fld2 As DAO.Field2
-    Dim rst2 As DAO.Recordset2
+    ' IMPORTANT: These variables must be declared as the
+    ' generic parent classes to avoid problems in newer
+    ' releases of Microsoft Access. (See issue #341)
+    Dim fld2 As DAO.Field       ' Field2
+    Dim rst2 As DAO.Recordset   ' Recordset2
 
     Set m_Rst = RHS
 

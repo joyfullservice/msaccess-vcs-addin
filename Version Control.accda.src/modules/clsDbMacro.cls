@@ -18,8 +18,8 @@ Option Compare Database
 Option Explicit
 
 Private m_Macro As AccessObject
-Private m_AllItems As Dictionary
-Private m_blnModifiedOnly As Boolean
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -36,8 +36,9 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    SaveComponentAsText acMacro, m_Macro.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
-    VCSIndex.Update Me, eatExport
+    Dim strHash As String
+    strHash = SaveComponentAsText(acMacro, m_Macro.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
 End Sub
 
 
@@ -73,7 +74,23 @@ End Sub
 '
 Private Sub IDbComponent_Merge(strFile As String)
     DeleteObjectIfExists acMacro, GetObjectNameFromFileName(strFile)
-    IDbComponent_Import strFile
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
 End Sub
 
 
@@ -88,23 +105,22 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim oMac As AccessObject
     Dim cMac As IDbComponent
-
+    Dim blnAdd As Boolean
+    
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         For Each oMac In CurrentProject.AllMacros
             Set cMac = New clsDbMacro
             Set cMac.DbObject = oMac
-            If blnModifiedOnly Then
-                If cMac.IsModified Then m_AllItems.Add cMac, oMac.Name
-            Else
-                m_AllItems.Add cMac, oMac.Name
-            End If
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cMac.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cMac.SourceFile, cMac
         Next oMac
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
 
 End Function
 
@@ -117,7 +133,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -134,6 +151,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+    RemoveOrphanedDatabaseObjects Me
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -142,7 +171,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = (m_Macro.DateModified > VCSIndex.GetExportDate(Me))
+    IDbComponent_IsModified = (m_Macro.DateModified > VCSIndex.Item(Me).ExportDate)
 End Function
 
 
@@ -156,6 +185,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Macro Is Nothing Then Exit Function
     IDbComponent_DateModified = m_Macro.DateModified
 End Function
 
@@ -206,6 +236,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Macro Is Nothing Then Exit Property
     IDbComponent_Name = m_Macro.Name
 End Property
 
@@ -218,6 +249,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Macro Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Macro.Name) & ".bas"
 End Property
 
@@ -231,6 +263,22 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    Static lngCount As Long
+    If lngCount = 0 Then lngCount = CurrentProject.AllMacros.Count - 1
+    IDbComponent_QuickCount = lngCount + 1
 End Property
 
 

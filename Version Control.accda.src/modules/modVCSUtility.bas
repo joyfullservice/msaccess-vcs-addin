@@ -3,9 +3,8 @@
 ' Module    : modVCSUtility
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
-' Purpose   : Utility functions specific to the VCS project
+' Purpose   : Utility functions specific to the VCS project but not publicly exposed.
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Private Module
 Option Explicit
@@ -22,7 +21,7 @@ Private Const ModuleName = "modVCSUtility"
 '           : when building the project from source.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetAllContainers() As Collection
+Public Function GetContainers(Optional intFilter As eContainerFilter = ecfAllObjects) As Collection
     
     Dim blnADP As Boolean
     Dim blnMDB As Boolean
@@ -30,45 +29,123 @@ Public Function GetAllContainers() As Collection
     blnADP = (CurrentProject.ProjectType = acADP)
     blnMDB = (CurrentProject.ProjectType = acMDB)
     
-    Set GetAllContainers = New Collection
-    With GetAllContainers
-        ' Shared objects in both MDB and ADP formats
-        .Add New clsDbProject
-        .Add New clsDbVbeProject
-        .Add New clsDbVbeReference
-        .Add New clsDbVbeForm
-        .Add New clsDbProjProperty
-        .Add New clsDbSavedSpec
-        If blnADP Then
-            ' Some types of objects only exist in ADP projects
-            .Add New clsAdpFunction
-            .Add New clsAdpServerView
-            .Add New clsAdpProcedure
-            .Add New clsAdpTable
-            .Add New clsAdpTrigger
-        ElseIf blnMDB Then
-            ' These objects only exist in DAO databases
-            .Add New clsDbProperty
-            .Add New clsDbSharedImage
-            .Add New clsDbTheme
-            .Add New clsDbImexSpec
-            .Add New clsDbTableDef
-            .Add New clsDbQuery
-        End If
-        ' Additional objects to import after ADP/MDB specific items
-        .Add New clsDbForm
-        .Add New clsDbMacro
-        .Add New clsDbReport
-        .Add New clsDbTableData
-        .Add New clsDbModule
-        If blnMDB Then
-            .Add New clsDbTableDataMacro
-            .Add New clsDbRelation
-            .Add New clsDbDocument
-            .Add New clsDbNavPaneGroup
-            .Add New clsDbHiddenAttribute
-        End If
+    Set GetContainers = New Collection
+    With GetContainers
+        Select Case intFilter
+            
+            ' Primary case for processing all objects
+            Case ecfAllObjects
+            
+                ' Shared objects in both MDB and ADP formats
+                .Add New clsDbProject
+                .Add New clsDbVbeProject
+                .Add New clsDbVbeReference
+                .Add New clsDbVbeForm
+                .Add New clsDbProjProperty
+                .Add New clsDbSavedSpec
+                If blnADP Then
+                    ' Some types of objects only exist in ADP projects
+                    .Add New clsAdpFunction
+                    .Add New clsAdpServerView
+                    .Add New clsAdpProcedure
+                    .Add New clsAdpTable
+                    .Add New clsAdpTrigger
+                ElseIf blnMDB Then
+                    ' These objects only exist in DAO databases
+                    .Add New clsDbSharedImage
+                    .Add New clsDbTheme
+                    .Add New clsDbProperty
+                    .Add New clsDbImexSpec
+                    .Add New clsDbTableDef
+                    .Add New clsDbQuery
+                End If
+                ' Additional objects to import after ADP/MDB specific items
+                .Add New clsDbForm
+                .Add New clsDbMacro
+                .Add New clsDbReport
+                .Add New clsDbTableData
+                .Add New clsDbModule
+                If blnMDB Then
+                    .Add New clsDbTableDataMacro
+                    .Add New clsDbRelation
+                    .Add New clsDbDocument
+                    .Add New clsDbNavPaneGroup
+                    .Add New clsDbHiddenAttribute
+                End If
+            
+            ' Process only items that may contain VBA code
+            Case ecfVBAItems
+            
+                .Add New clsDbForm
+                .Add New clsDbReport
+                .Add New clsDbModule
+        
+        End Select
     End With
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetQuickObjectCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a quick, non-iterative object count for the collection of
+'           : database components. (Used for progress bar)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetQuickObjectCount(colContainers As Collection) As Long
+
+    Dim lngTotal As Long
+    Dim cCont As IDbComponent
+    
+    Perf.OperationStart "Quick Count Objects"
+    For Each cCont In colContainers
+        lngTotal = lngTotal + cCont.QuickCount
+    Next cCont
+    Perf.OperationEnd
+    
+    GetQuickObjectCount = lngTotal
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetQuickFileCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a quick count of the files in each folder so we can increment
+'           : the progress of scanning through files in a folder.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetQuickFileCount(colContainers As Collection) As Long
+
+    Dim lngTotal As Long
+    Dim strBase As String
+    Dim strFolder As String
+    Dim cCont As IDbComponent
+    
+    ' Get base folder path
+    Perf.OperationStart "Quick Count Files"
+    strBase = Options.GetExportFolder
+    
+    For Each cCont In colContainers
+        strFolder = cCont.BaseFolder
+        If StrComp(strBase, strFolder, vbTextCompare) = 0 Then
+            ' Add a single count for the single file
+            lngTotal = lngTotal + 1
+        Else
+            ' Make sure the folder actually exists before getting a file count
+            If FSO.FolderExists(strFolder) Then
+                ' Add a count of the files in the folder
+                lngTotal = lngTotal + FSO.GetFolder(strFolder).Files.Count
+            End If
+        End If
+    Next cCont
+    Perf.OperationEnd
+    
+    ' Return total number of files in all source folders
+    GetQuickFileCount = lngTotal
     
 End Function
 
@@ -126,15 +203,18 @@ End Function
 ' Date      : 4/29/2020
 ' Purpose   : Wrapper for Application.SaveAsText that verifies that the path exists,
 '           : and then removes any existing file before saving the object as text.
+'           : Returns a hash of the file content (if applicable) to track changes.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveComponentAsText(intType As AcObjectType, _
+Public Function SaveComponentAsText(intType As AcObjectType, _
                                 strName As String, _
                                 strFile As String, _
-                                Optional cDbObjectClass As IDbComponent = Nothing)
+                                Optional cDbObjectClass As IDbComponent = Nothing) As String
     
     Dim strTempFile As String
     Dim strPrintSettingsFile As String
+    Dim strContent As String
+    Dim strHash As String
     
     On Error GoTo ErrHandler
     
@@ -158,8 +238,8 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
                     ' Only need to save print settings if they are different
                     ' from the default printer settings.
                     If (.GetHash <> VCSIndex.DefaultDevModeHash) And .HasData Then
-                        WriteJsonFile TypeName(cDbObjectClass), .GetDictionary, _
-                        strPrintSettingsFile, strName & " Print Settings"
+                        WriteFile BuildJsonFile(TypeName(cDbObjectClass), .GetDictionary, _
+                          strName & " Print Settings"), strPrintSettingsFile
                     Else
                         ' No print settings in this object.
                         If FSO.FileExists(strPrintSettingsFile) Then DeleteFile strPrintSettingsFile
@@ -171,30 +251,24 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
             End With
             ' Sanitizing converts to UTF-8
             If FSO.FileExists(strFile) Then DeleteFile strFile
-            SanitizeFile strTempFile
+            strHash = SanitizeFile(strTempFile, True)
             FSO.MoveFile strTempFile, strFile
     
         Case acQuery, acMacro
             ' Sanitizing converts to UTF-8
             If FSO.FileExists(strFile) Then DeleteFile strFile
-            SanitizeFile strTempFile
+            strHash = SanitizeFile(strTempFile, True)
             FSO.MoveFile strTempFile, strFile
             
-        Case acModule '(ANSI text file)
-            ' Modules may contain extended characters that need UTF-8 conversion
-            ' to display correctly in some editors.
-            If StringHasExtendedASCII(ReadFile(strTempFile, GetSystemEncoding)) Then
-                ' Convert to UTF-8
-                ConvertAnsiUtf8 strTempFile, strFile
-            Else
-                ' Leave as ANSI
-                If FSO.FileExists(strFile) Then DeleteFile strFile
-                FSO.MoveFile strTempFile, strFile
-            End If
+        ' Case acModule - Use VBE export instead.
         
         Case acTableDataMacro
             ' Table data macros are stored in XML format
-            If FSO.FileExists(strFile) Then SanitizeXML strFile
+            If FSO.FileExists(strTempFile) Then
+                strHash = SanitizeXML(strTempFile, True)
+                If FSO.FileExists(strFile) Then DeleteFile strFile
+                FSO.MoveFile strTempFile, strFile
+            End If
             
         Case Else
             ' Handle UCS conversion if needed
@@ -204,18 +278,21 @@ Public Sub SaveComponentAsText(intType As AcObjectType, _
     
     ' Normal exit
     On Error GoTo 0
-    Exit Sub
+    
+    ' Return content hash
+    SaveComponentAsText = strHash
+    Exit Function
     
 ErrHandler:
     If Err.Number = 2950 And intType = acTableDataMacro Then
         ' This table apparently didn't have a Table Data Macro.
-        Exit Sub
+        Exit Function
     Else
         ' Some other error.
         Err.Raise Err.Number
     End If
     
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -365,14 +442,20 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
         ' Check export folder settings
         If Options.ExportFolder = vbNullString Then
             ' Default setting, using parent folder of source directory
-            GetOriginalDbFullPathFromSource = strFolder & PathSep & ".." & PathSep & strFile
+            GetOriginalDbFullPathFromSource = strExportFolder & PathSep & ".." & PathSep & strFile
         Else
             ' Check to see if we are using an absolute export path  (\\* or *:*)
             If StartsWith(Options.ExportFolder, PathSep & PathSep) _
                 Or (InStr(2, Options.ExportFolder, ":") > 0) Then
-                ' We don't save the absolute path in source code, so the user
-                ' needs to determine the file location.
-                Exit Function
+                ' Look for saved build path
+                Set dContents = ReadJsonFile(FSO.BuildPath(strFolder, "proj-properties.json"))
+                strPath = dNZ(dContents, "Items\VCS Build Path")
+                If strPath <> vbNullString Then
+                    GetOriginalDbFullPathFromSource = strPath & PathSep & strFile
+                Else
+                    ' Unable to determine the original file location.
+                    Exit Function
+                End If
             Else
                 ' Calculate how many levels deep to create original path
                 lngLevel = UBound(Split(StripSlash(Options.ExportFolder), PathSep))
@@ -400,44 +483,23 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : WriteJsonFile
+' Procedure : BuildJsonFile
 ' Author    : Adam Waller
-' Date      : 4/24/2020
-' Purpose   : Creates a json file with an info header giving some clues about the
+' Date      : 2/5/2022
+' Purpose   : Creates json file content with an info header giving some clues about the
 '           : contents of the file. (Helps with upgrades or changes later.)
 '           : Set the file format version only when the dictionary structure changes
 '           : with potentially breaking changes for prior versions.
 '---------------------------------------------------------------------------------------
 '
-Public Sub WriteJsonFile(strClassName As String, dItems As Dictionary, strFile As String, strDescription As String, _
-    Optional dblExportFormatVersion As Double)
+Public Function BuildJsonFile(strClassName As String, dItems As Dictionary, strDescription As String, _
+    Optional dblExportFormatVersion As Double) As String
     
     Dim dContents As Dictionary
     Dim dHeader As Dictionary
-    Dim dFile As Dictionary
-    Dim dExisting As Dictionary
     
     Set dContents = New Dictionary
     Set dHeader = New Dictionary
-    
-    ' Compare with existing file
-    If FSO.FileExists(strFile) Then
-        Set dFile = ReadJsonFile(strFile)
-        If Not dFile Is Nothing Then
-            ' Check file format version
-            If dblExportFormatVersion <> 0 And dNZ(dFile, "Info\Export File Format") <> vbNullString Then
-                ' Rewrite file using upgraded format.
-            Else
-                If dFile.Exists("Items") Then
-                    Set dExisting = dFile("Items")
-                    If DictionaryEqual(dItems, dExisting) Then
-                        ' No changes to content. Leave existing file.
-                        Exit Sub
-                    End If
-                End If
-            End If
-        End If
-    End If
     
     ' Build dictionary structure
     dHeader.Add "Class", strClassName
@@ -446,128 +508,10 @@ Public Sub WriteJsonFile(strClassName As String, dItems As Dictionary, strFile A
     dContents.Add "Info", dHeader
     dContents.Add "Items", dItems
     
-    ' Write to file in Json format
-    WriteFile ConvertToJson(dContents, JSON_WHITESPACE), strFile
+    ' Return assembled content in Json format
+    BuildJsonFile = ConvertToJson(dContents, JSON_WHITESPACE)
     
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedSourceFolders
-' Author    : Casper Englund
-' Date      : 2020-06-04
-' Purpose   : Clears existing source folders that don't have a matching object in the
-'           : database.
-'---------------------------------------------------------------------------------------
-'
-Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
-    
-    Dim colNames As Collection
-    Dim cItem As IDbComponent
-    Dim oFolder As Folder
-    Dim oSubFolder As Folder
-    Dim strSubFolderName As String
-    
-    ' No orphaned files if the folder doesn't exist.
-    If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
-    
-    ' Cache a list of source file names for actual database objects
-    Perf.OperationStart "Clear Orphaned Folders"
-    Set colNames = New Collection
-    For Each cItem In cType.GetAllFromDB(False)
-        colNames.Add FSO.GetFileName(cItem.SourceFile)
-    Next cItem
-    
-    Set oFolder = FSO.GetFolder(cType.BaseFolder)
-    For Each oSubFolder In oFolder.SubFolders
-            
-        strSubFolderName = oSubFolder.Name
-        ' Remove any subfolder that doesn't have a matching name.
-        If Not InCollection(colNames, strSubFolderName) Then
-            ' Object not found in database. Remove subfolder.
-            oSubFolder.Delete True
-            Log.Add "  Removing orphaned folder: " & strSubFolderName, Options.ShowDebug
-        End If
-        
-    Next oSubFolder
-    
-    ' Remove base folder if we don't have any subfolders or files in it
-    With oFolder
-        If .SubFolders.Count = 0 Then
-            If .Files.Count = 0 Then .Delete
-        End If
-    End With
-    Perf.OperationEnd
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedSourceFiles
-' Author    : Adam Waller
-' Date      : 2/23/2021
-' Purpose   : Clears existing source files that don't have a matching object in the
-'           : database.
-'---------------------------------------------------------------------------------------
-'
-Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensions())
-    
-    Dim oFolder As Folder
-    Dim oFile As File
-    Dim dBaseNames As Dictionary
-    Dim dExtensions As Dictionary
-    Dim strBaseName As String
-    Dim strFile As String
-    Dim varExt As Variant
-    Dim strExt As String
-    Dim cItem As IDbComponent
-    
-    ' No orphaned files if the folder doesn't exist.
-    If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
-    
-    ' Set up dictionary objects for case-insensitive comparison
-    Set dBaseNames = New Dictionary
-    dBaseNames.CompareMode = TextCompare
-    Set dExtensions = New Dictionary
-    dExtensions.CompareMode = TextCompare
-    
-    ' Cache a list of base source file names for actual database objects
-    Perf.OperationStart "Clear Orphaned Files"
-    For Each cItem In cType.GetAllFromDB(False)
-        dBaseNames.Add FSO.GetBaseName(cItem.SourceFile), vbNullString
-    Next cItem
-    
-    ' Build dictionary of allowed extensions
-    For Each varExt In StrExtensions
-        dExtensions.Add varExt, vbNullString
-    Next varExt
-        
-    ' Loop through files in folder
-    Set oFolder = FSO.GetFolder(cType.BaseFolder)
-    For Each oFile In oFolder.Files
-    
-        ' Get base name and file extension
-        ' (For performance reasons, minimize property access on oFile)
-        strFile = oFile.Name
-        strBaseName = FSO.GetBaseName(strFile)
-        strExt = Mid$(strFile, Len(strBaseName) + 2)
-        
-        ' See if extension exists in cached list
-        If dExtensions.Exists(strExt) Then
-            ' See if base file name exists in list of database objects
-            If Not dBaseNames.Exists(strBaseName) Then
-                ' Object not found in database. Remove file.
-                DeleteFile FSO.BuildPath(oFile.ParentFolder.Path, oFile.Name), True
-                Log.Add "  Removing orphaned file: " & strFile, Options.ShowDebug
-            End If
-        End If
-    Next oFile
-    
-    ' Remove base folder if we don't have any files in it
-    If oFolder.Files.Count = 0 Then oFolder.Delete True
-    Perf.OperationEnd
-    
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -586,3 +530,102 @@ Public Sub CompileAndSaveAllModules()
     Perf.OperationEnd
 End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : PreloadVBE
+' Author    : Adam Waller
+' Date      : 5/25/2020
+' Purpose   : Force Access to load the VBE project. (This can help prevent crashes
+'           : when code is run before the VB Project is fully loaded.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub PreloadVBE()
+    Dim strName As String
+    DoCmd.Hourglass True
+    strName = VBE.ActiveVBProject.Name
+    DoCmd.Hourglass False
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAddInProject
+' Author    : Adam Waller
+' Date      : 11/10/2020
+' Purpose   : Return the VBProject of the MSAccessVCS add-in.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetAddInProject() As VBProject
+    Dim oProj As VBProject
+    For Each oProj In VBE.VBProjects
+        If StrComp(oProj.FileName, GetAddInFileName, vbTextCompare) = 0 Then
+            Set GetAddInProject = oProj
+            Exit For
+        End If
+    Next oProj
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadVCSAddIn
+' Author    : Adam Waller
+' Date      : 11/10/2020
+' Purpose   : Load the add-in at the application level so it can stay active
+'           : even if the current database is closed.
+'           : https://stackoverflow.com/questions/62270088/how-can-i-launch-an-access-add-in-not-com-add-in-from-vba-code
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadVCSAddIn()
+    ' The following lines will load the add-in at the application level,
+    ' but will not actually call the function. Ignore the error of function not found.
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    Application.Run GetAddInFileName & "!DummyFunction"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckGitFiles
+' Author    : Adam Waller
+' Date      : 5/23/2022
+' Purpose   : If this project appears to be a git repository, this checks to see if
+'           : it contains a .gitignore and .gitattributes file. If it doesn't, then
+'           : the default files are extracted and added to the project, and the user
+'           : notified that these have been added.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CheckGitFiles()
+
+    Dim strPath As String
+    Dim strFile As String
+    Dim blnAdded As Boolean
+    
+    strPath = CurrentProject.Path & PathSep
+    If FSO.FolderExists(strPath & ".git") Then
+    
+        ' gitignore file
+        strFile = strPath & ".gitignore"
+        If Not FSO.FileExists(strFile) Then
+            ExtractResource "Default .gitignore", strPath
+            Name strFile & ".default" As strFile
+            Log.Add "Added default .gitignore file", , , "blue"
+            blnAdded = True
+        End If
+        
+        ' gitattributes file
+        strFile = strPath & ".gitattributes"
+        If Not FSO.FileExists(strFile) Then
+            ExtractResource "Default .gitattributes", strPath
+            Name strFile & ".default" As strFile
+            Log.Add "Added default .gitattributes file", , , "blue"
+            blnAdded = True
+        End If
+        
+        ' Notify user
+        If blnAdded Then MsgBox2 "Added Default Git File(s)", _
+            "Added a default .gitignore and/or .gitattributes file to your project.", _
+            "By default these files exclude the binary database files from version control," & vbCrLf & _
+            "allowing you to track changes at the source file level." & vbCrLf & vbCrLf & _
+            "You may wish to customize these further for your environment.", vbInformation
+            
+    End If
+    
+End Sub

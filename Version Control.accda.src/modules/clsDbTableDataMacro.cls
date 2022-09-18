@@ -18,7 +18,8 @@ Option Compare Database
 Option Explicit
 
 Private m_Table As AccessObject
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -36,11 +37,18 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     
+    Dim strHash As String
+    
     ' We THINK that this table probably contains a table macro, but just in case it
     ' doesn't, we have some error handling built into the export function below.
     
     ' Save structure in XML format
-    SaveComponentAsText acTableDataMacro, m_Table.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    strHash = SaveComponentAsText(acTableDataMacro, m_Table.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
+    
+    ' Save index if we found an item to export
+    If strHash <> vbNullString Then
+        VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
+    End If
     
 End Sub
 
@@ -54,10 +62,17 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
     
+    Dim strName As String
+    
     ' Only import files with the correct extension.
     If Not strFile Like "*.xml" Then Exit Sub
 
-    LoadComponentFromText acTableDataMacro, GetObjectNameFromFileName(strFile), strFile
+    strName = GetObjectNameFromFileName(strFile)
+    LoadComponentFromText acTableDataMacro, strName, strFile
+    
+    ' Update index
+    Set m_Table = CurrentData.AllTables(strName)
+    VCSIndex.Update Me, eatImport
     
 End Sub
 
@@ -72,6 +87,34 @@ End Sub
 '
 Private Sub IDbComponent_Merge(strFile As String)
 
+    Dim strTemp As String
+
+    If FSO.FileExists(strFile) Then
+        ' Load the table data macro into the existing table, overwriting any existing macro
+        IDbComponent_Import strFile
+    Else
+        ' Create and load a blank file to clear any existing table data macros.
+        ' (Tested in Access 2010 with no errors on 6/15/2022)
+        strTemp = GetTempFile   ' Create an empty temporary file.
+        LoadFromText acTableDataMacro, GetObjectNameFromFileName(strFile), strTemp
+        DeleteFile strTemp
+        
+        ' Remove entry from index
+        VCSIndex.Remove Me, strFile
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
 End Sub
 
 
@@ -90,11 +133,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim tdf As TableDef
     Dim cTable As IDbComponent
     Dim strSql As String
-
+    Dim blnAdd As Boolean
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         Set dbs = CurrentDb
         For Each tdf In dbs.TableDefs
             ' Skip system, temp, and linked tables
@@ -106,7 +149,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         If DCount("[Name]", "MSysObjects", strSql) > 0 Then
                             Set cTable = New clsDbTableDataMacro
                             Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
-                            m_AllItems.Add cTable, tdf.Name
+                            blnAdd = True
+                            If blnModifiedOnly Then blnAdd = cTable.IsModified
+                            If blnAdd Then m_Items(blnModifiedOnly).Add cTable.SourceFile, cTable
                         End If
                     End If
                 End If
@@ -119,7 +164,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 
@@ -132,7 +177,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -149,6 +195,17 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -157,7 +214,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    ' A table modification doesn't always mean the macro was modified, but we will
+    ' export on any table modification, just to be on the safe side.
+    IDbComponent_IsModified = (m_Table.DateModified > VCSIndex.Item(Me).ExportDate)
 End Function
 
 
@@ -171,6 +230,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Table Is Nothing Then Exit Function
     IDbComponent_DateModified = m_Table.DateModified
 End Function
 
@@ -221,6 +281,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Table Is Nothing Then Exit Property
     IDbComponent_Name = m_Table.Name
 End Property
 
@@ -233,6 +294,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Table Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".xml"
 End Property
 
@@ -246,6 +308,20 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    IDbComponent_QuickCount = 1
 End Property
 
 

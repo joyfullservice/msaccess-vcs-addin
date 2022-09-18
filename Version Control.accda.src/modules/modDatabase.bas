@@ -10,6 +10,8 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+Private Const ModuleName As String = "modDatabase"
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ProjectPath
@@ -40,7 +42,7 @@ Public Function GetDBProperty(strName As String, Optional dbs As DAO.Database) A
     If Not dbs Is Nothing Then
         Set oParent = dbs.Properties
     Else
-        If DatabaseOpen Then
+        If DatabaseFileOpen Then
             ' Get parent container for properties
             If CurrentProject.ProjectType = acADP Then
                 Set oParent = CurrentProject.Properties
@@ -218,6 +220,7 @@ End Function
 Public Function IsLoaded(intType As AcObjectType, strName As String, Optional blnAllowDesignView As Boolean = False) As Boolean
 
     Dim frm As Form
+    Dim rpt As Report
     Dim ctl As Control
     
     If SysCmd(acSysCmdGetObjectState, intType, strName) <> adStateClosed Then
@@ -225,10 +228,23 @@ Public Function IsLoaded(intType As AcObjectType, strName As String, Optional bl
             IsLoaded = True
         Else
             Select Case intType
-                Case acReport
-                    IsLoaded = Reports(strName).CurrentView <> acCurViewDesign
                 Case acForm
-                    IsLoaded = Forms(strName).CurrentView <> acCurViewDesign
+                    ' Loop through forms collection, since this includes instances
+                    ' of add-in forms that cannot be referenced directly by name.
+                    For Each frm In Forms
+                        If StrComp(frm.Name, strName, vbTextCompare) = 0 Then
+                            IsLoaded = frm.CurrentView <> acCurViewDesign
+                            Exit For
+                        End If
+                    Next frm
+                Case acReport
+                    ' Loop through reports, looking for matching name.
+                    For Each rpt In Reports
+                        If StrComp(rpt.Name, strName, vbTextCompare) = 0 Then
+                            IsLoaded = rpt.CurrentView <> acCurViewDesign
+                            Exit For
+                        End If
+                    Next rpt
                 Case acServerView
                     IsLoaded = CurrentData.AllViews(strName).CurrentView <> acCurViewDesign
                 Case acStoredProcedure
@@ -259,13 +275,69 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CloseDatabaseObjects
+' Author    : Adam Waller
+' Date      : 4/1/2022
+' Purpose   : Close any open database objects, returns true if no errors were
+'           : encountered. (This is run before a major operation like an export or
+'           : a merge.) ADP-specific items aren't particularly supported here.
+'---------------------------------------------------------------------------------------
+'
+Public Function CloseDatabaseObjects() As Boolean
+
+    Dim blnSuccess As Boolean
+    Dim objItem As AccessObject
+    
+    If DebugMode(True) Then On Error GoTo ErrHandler Else On Error GoTo ErrHandler
+    
+    Perf.OperationStart "Close Open Objects"
+    
+    ' Check forms and reports
+    blnSuccess = CloseAllFormsReports
+    
+    ' If all forms and reports are closed, proceed with other object types.
+    If blnSuccess Then
+        
+        ' Macros
+        For Each objItem In CurrentProject.AllMacros
+            If IsLoaded(acMacro, objItem.Name) Then DoCmd.Close acMacro, objItem.Name
+        Next objItem
+        
+        ' Tables
+        For Each objItem In CurrentData.AllTables
+            If IsLoaded(acTable, objItem.Name) Then DoCmd.Close acTable, objItem.Name
+        Next objItem
+        
+        ' Queries
+        For Each objItem In CurrentData.AllQueries
+            If IsLoaded(acQuery, objItem.Name) Then DoCmd.Close acQuery, objItem.Name
+        Next objItem
+        
+    End If
+
+    Perf.OperationEnd
+    CloseDatabaseObjects = blnSuccess
+    
+    Exit Function
+    
+ErrHandler:
+    
+    blnSuccess = False
+    
+    ' Handle any error message in calling function
+    CatchAny eelNoError, "Unable to close database object", ModuleName & ".CloseDatabaseObjects", False
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CloseAllFormsReports
 ' Author    : Adam Waller
 ' Date      : 1/25/2019
 ' Purpose   : Close all open forms and reports. Returns true if successful.
 '---------------------------------------------------------------------------------------
 '
-Public Function CloseAllFormsReports() As Boolean
+Private Function CloseAllFormsReports() As Boolean
 
     Dim strName As String
     Dim intOpened As Integer
@@ -277,7 +349,7 @@ Public Function CloseAllFormsReports() As Boolean
         On Error GoTo ErrorHandler
         ' Loop through forms
         For intItem = Forms.Count - 1 To 0 Step -1
-            If Forms(intItem).Caption <> "MSAccessVCS" Then
+            If Forms(intItem).Caption <> PROJECT_NAME Then
                 DoCmd.Close acForm, Forms(intItem).Name
                 DoEvents
             End If
@@ -417,15 +489,30 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : DatabaseOpen
+' Procedure : DatabaseFileOpen
 ' Author    : Adam Waller
 ' Date      : 7/14/2020
 ' Purpose   : Returns true if a database (or ADP project) is currently open.
 '---------------------------------------------------------------------------------------
 '
-Public Function DatabaseOpen() As Boolean
-    DatabaseOpen = Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing)
-    'DatabaseOpen = Workspaces(0).Databases.Count > 0   ' Another approach
+Public Function DatabaseFileOpen() As Boolean
+
+    Dim strTest As String
+    
+    ' See if we have a reference to a CurrentProject object
+    If CurrentProject Is Nothing Then
+        DatabaseFileOpen = False
+    Else
+        ' For ADP projects, CurrentProject may be an invalid object reference
+        ' after the database file (adp) is closed.
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        strTest = CurrentProject.FullName
+        CatchAny eelNoError, vbNullString
+        DatabaseFileOpen = (strTest <> vbNullString)
+    End If
+    
+    'DatabaseOpen = Workspaces(0).Databases.Count > 0   ' Another approach (Not ADP compatible)
+    
 End Function
 
 
@@ -536,3 +623,39 @@ Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
     
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAvailableConnectionCount
+' Author    : Adam Waller
+' Date      : 6/8/2022
+' Purpose   : Returns the number of available connections in the current database.
+'           : (Access has a maximum of 255 connections that can be made to the current
+'           :  database object.) See issue #338
+'---------------------------------------------------------------------------------------
+'
+Public Function GetAvailableConnectionCount()
+
+    Dim colDbs As Collection
+    Dim dbs As DAO.Database
+    Dim intCnt As Integer
+    
+    Set colDbs = New Collection
+    
+    On Error Resume Next
+    For intCnt = 1 To 300
+        Set dbs = CurrentDb
+        If Err Then
+            ' Probably cannot open any more databases
+            Err.Clear
+            Exit For
+        End If
+        colDbs.Add dbs
+    Next intCnt
+    
+    Set dbs = Nothing
+
+    ' Return count of how many connections we were
+    ' able to create before hitting an error
+    GetAvailableConnectionCount = intCnt
+    
+End Function

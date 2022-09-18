@@ -17,11 +17,11 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-
 Public Name As String
 Public ID As String
 
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -38,58 +38,10 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    
-    Dim dSpec As Dictionary
-    Dim dCol As Dictionary
-    Dim dCols As Dictionary
-    Dim dbs As DAO.Database
-    Dim rst As DAO.Recordset
-    Dim strSql As String
-    Dim fld As DAO.Field
-    
-    Set dSpec = New Dictionary
-    Set dCols = New Dictionary
-    Set dbs = CurrentDb
-
-    ' Build header info first
-    strSql = "SELECT * FROM MSysIMEXSpecs WHERE SpecID=" & Me.ID
-    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
-    With rst
-        For Each fld In .Fields
-            If fld.Name <> "SpecID" Then
-                ' Add all columns except the primary key.
-                dSpec.Add CStr(fld.Name), fld.Value
-            End If
-        Next fld
-        .Close
-    End With
-    
-    ' Build list of columns
-    strSql = "SELECT * FROM MSysIMEXColumns WHERE SpecID=" & Me.ID
-    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
-    With rst
-        Do While Not .EOF
-            Set dCol = New Dictionary
-            For Each fld In .Fields
-                Select Case fld.Name
-                    Case "SpecID", "FieldName"
-                    Case Else
-                        dCol.Add CStr(fld.Name), fld.Value
-                End Select
-            Next fld
-            ' Add column to columns dictionary
-            dCols.Add Nz(!FieldName), dCol
-            .MoveNext
-        Loop
-        .Close
-    End With
-    
-    ' Add columns to spec
-    dSpec.Add "Columns", dCols
-    
-    ' Write as Json format.
-    WriteJsonFile TypeName(Me), dSpec, Nz2(strAlternatePath, IDbComponent_SourceFile), "Import/Export Specification from MSysIMEXSpecs"
-    
+    Dim strContent As String
+    strContent = GetSource
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 End Sub
 
 
@@ -174,6 +126,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -186,12 +150,13 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     Dim strName As String
+    Dim blnAdd As Boolean
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_Items(blnModifiedOnly) Is Nothing Then
         
         ' Set up new collection
-        Set m_AllItems = New Dictionary
+        Set m_Items(blnModifiedOnly) = New Dictionary
         
         ' This table may not (yet) exist.
         If TableExists("MSysIMEXSpecs") Then
@@ -207,7 +172,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     Set cSpec = New clsDbImexSpec
                     cSpec.Name = strName
                     cSpec.ID = Nz(!SpecID, 0)
-                    m_AllItems.Add cSpec, cSpec.Name
+                    blnAdd = True
+                    If blnModifiedOnly Then blnAdd = cSpec.IDbComponent_IsModified
+                    If blnAdd Then m_Items(blnModifiedOnly).Add cSpec.Parent.SourceFile, cSpec
                     .MoveNext
                 Loop
                 .Close
@@ -216,7 +183,71 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+
+    Dim dSpec As Dictionary
+    Dim dCol As Dictionary
+    Dim dCols As Dictionary
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+    Dim strSql As String
+    Dim fld As DAO.Field
+    Dim strContent As String
+    
+    Set dSpec = New Dictionary
+    Set dCols = New Dictionary
+    Set dbs = CurrentDb
+
+    ' Build header info first
+    strSql = "SELECT * FROM MSysIMEXSpecs WHERE SpecID=" & Me.ID
+    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
+    With rst
+        For Each fld In .Fields
+            If fld.Name <> "SpecID" Then
+                ' Add all columns except the primary key.
+                dSpec.Add CStr(fld.Name), fld.Value
+            End If
+        Next fld
+        .Close
+    End With
+    
+    ' Build list of columns
+    strSql = "SELECT * FROM MSysIMEXColumns WHERE SpecID=" & Me.ID
+    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
+    With rst
+        Do While Not .EOF
+            Set dCol = New Dictionary
+            For Each fld In .Fields
+                Select Case fld.Name
+                    Case "SpecID", "FieldName"
+                    Case Else
+                        dCol.Add CStr(fld.Name), fld.Value
+                End Select
+            Next fld
+            ' Add column to columns dictionary
+            dCols.Add Nz(!FieldName), dCol
+            .MoveNext
+        Loop
+        .Close
+    End With
+    
+    ' Add columns to spec
+    dSpec.Add "Columns", dCols
+    
+    ' Return source file content
+    GetSource = BuildJsonFile(TypeName(Me), dSpec, "Import/Export Specification from MSysIMEXSpecs")
     
 End Function
 
@@ -249,7 +280,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -266,6 +298,17 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -274,7 +317,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 
@@ -364,6 +407,21 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    ' No simple way to get count without a database query
+    IDbComponent_QuickCount = 1
 End Property
 
 

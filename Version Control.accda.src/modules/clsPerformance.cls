@@ -25,22 +25,25 @@ Option Compare Database
 Option Explicit
 
 
-Private m_Overall As clsPerformanceItem
-Private m_strComponent As String
-Private m_dComponents As Scripting.Dictionary
-Private m_strOperation As String
-Private m_dOperations As Scripting.Dictionary
-Private m_curFrequency As Currency
-Private m_intDigitsAfterDecimal As Integer
+' Use type for private class variables
+Private Type udtPerformance
+    Overall As clsPerformanceItem
+    CategoryName As String
+    Categories As Scripting.Dictionary
+    OperationName As String
+    Operations As Scripting.Dictionary
+    Frequency As Currency
+    intDigitsAfterDecimal As Integer
+    ' Manage a type of call stack to track nested operations.
+    ' When an operation finishes, it goes back to timing the
+    ' previous operation.
+    CallStackItems As Collection
+End Type
+Private this As udtPerformance
 
 ' API calls to get more precise time than Timer function
 Private Declare PtrSafe Function GetFrequencyAPI Lib "kernel32" Alias "QueryPerformanceFrequency" (ByRef Frequency As Currency) As Long
 Private Declare PtrSafe Function GetTimeAPI Lib "kernel32" Alias "QueryPerformanceCounter" (ByRef Counter As Currency) As Long
-
-' Manage a type of call stack to track nested operations.
-' When an operation finishes, it goes back to timing the
-' previous operation.
-Private m_colOpsCallStack As VBA.Collection
 
 
 '---------------------------------------------------------------------------------------
@@ -51,21 +54,57 @@ Private m_colOpsCallStack As VBA.Collection
 '---------------------------------------------------------------------------------------
 '
 Public Sub StartTiming()
-    ResetAll
-    m_Overall.Start = MicroTimer
+    Reset
+    Set this.Overall = New clsPerformanceItem
+    this.Overall.Start = MicroTimer
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ComponentStart
+' Procedure : CallStack
+' Author    : hecon5
+' Date      : 01/26/2022; 04/28/2022
+' Purpose   : Return the call stack in operation.
+'           : Adds major element "Component"(now "Category") if in use, and the trace of all minor
+'           : elements (Operations) affixed with a period. This facilitates use of
+'           : performance and because the VBA error may be returned before you expect
+'           : (or after...VBA can be fun!).
+'---------------------------------------------------------------------------------------
+'
+Public Property Get CallStack() As String
+
+    Dim lngCallStackPosition As Long
+    Dim strCallStackElement As String
+
+    ' Build out breadcrumb type call stack string
+    With New clsConcat
+        .AppendOnAdd = "."
+        If this.CategoryName <> vbNullString Then .Add this.CategoryName
+        If Not this.CallStackItems Is Nothing Then
+            For lngCallStackPosition = 1 To this.CallStackItems.Count
+                .Add CStr(this.CallStackItems(lngCallStackPosition))
+            Next lngCallStackPosition
+        End If
+        If this.OperationName <> vbNullString Then .Add this.OperationName
+        If .Length > 0 Then .Remove 1 ' Remove trailing delimiter only if there's something to remove.
+        CallStack = .GetStr
+    End With
+    
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CategoryStart
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
 ' Purpose   : Start timing a component type.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ComponentStart(strName As String)
-    StartTimer m_dComponents, strName
-    m_strComponent = strName
+Public Sub CategoryStart(strName As String)
+    If this.CategoryName <> vbNullString Then CategoryEnd
+    If this.Categories Is Nothing Then Set this.Categories = New Dictionary
+    StartTimer this.Categories, strName
+    this.CategoryName = strName
 End Sub
 
 
@@ -76,10 +115,10 @@ End Sub
 ' Purpose   : End the timing of the active component
 '---------------------------------------------------------------------------------------
 '
-Public Sub ComponentEnd(Optional lngCount As Long = 1)
-    If m_strComponent <> vbNullString Then
-        LapTimer m_dComponents(m_strComponent), lngCount
-        m_strComponent = vbNullString
+Public Sub CategoryEnd(Optional lngCount As Long = 1)
+    If this.CategoryName <> vbNullString And Not this.Categories Is Nothing Then
+        LapTimer this.Categories(this.CategoryName), lngCount
+        this.CategoryName = vbNullString
     End If
 End Sub
 
@@ -95,22 +134,26 @@ End Sub
 '
 Public Sub OperationStart(strName As String)
     
+    ' Ensure that we have created the operations dictionary
+    If this.Operations Is Nothing Then Set this.Operations = New Dictionary
+    
     ' See if we are already timing something
-    If m_strOperation <> vbNullString Then
+    If this.OperationName <> vbNullString Then
     
         ' We are already timing something else right now.
         ' Save the current process to the call stack before switching
         ' to the new operation.
-        LapTimer m_dOperations(m_strOperation), 0
-        With m_colOpsCallStack
+        LapTimer this.Operations(this.OperationName), 0
+        If this.CallStackItems Is Nothing Then Set this.CallStackItems = New Collection
+        With this.CallStackItems
             ' Safety check!
-            If .Count < 100 Then .Add m_strOperation
+            If .Count < 100 Then .Add this.OperationName
         End With
     End If
     
     ' Start the timer for this operation.
-    StartTimer m_dOperations, strName
-    m_strOperation = strName
+    StartTimer this.Operations, strName
+    this.OperationName = strName
     
 End Sub
 
@@ -127,25 +170,27 @@ Public Sub OperationEnd(Optional lngCount As Long = 1)
     Dim strLastOperation As String
 
     ' Verify that we are timing something, and record the elapsed time.
-    If m_strOperation <> vbNullString Then
+    If this.OperationName <> vbNullString And Not this.Operations Is Nothing Then
 
         ' Record the elapsed time.
-        LapTimer m_dOperations(m_strOperation), lngCount
+        LapTimer this.Operations(this.OperationName), lngCount
         
         ' Check the call stack to see if we need to move back to the previous process.
-        With m_colOpsCallStack
-            If .Count > 0 Then
-                ' Resume previous activity
-                strLastOperation = .Item(.Count)
-                m_strOperation = vbNullString
-                OperationStart strLastOperation
-                ' Remove last item from call stack
-                .Remove .Count
-            Else
-                ' No longer timing any operations.
-                m_strOperation = vbNullString
-            End If
-        End With
+        If Not this.CallStackItems Is Nothing Then
+            With this.CallStackItems
+                If .Count > 0 Then
+                    ' Resume previous activity
+                    strLastOperation = .Item(.Count)
+                    this.OperationName = vbNullString
+                    OperationStart strLastOperation
+                    ' Remove last item from call stack
+                    .Remove .Count
+                Else
+                    ' No longer timing any operations.
+                    this.OperationName = vbNullString
+                End If
+            End With
+        End If
     End If
     
 End Sub
@@ -160,7 +205,7 @@ End Sub
 '
 Public Property Let DigitsAfterDecimal(intDigitsAfterDecimal As Integer)
     If intDigitsAfterDecimal > 4 Then intDigitsAfterDecimal = 4
-    m_intDigitsAfterDecimal = intDigitsAfterDecimal
+    this.intDigitsAfterDecimal = intDigitsAfterDecimal
 End Property
 
 
@@ -173,7 +218,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Sub EndTiming()
-    LapTimer m_Overall, 1
+    LapTimer this.Overall, 1
 End Sub
 
 
@@ -192,7 +237,7 @@ Public Function MicroTimer() As Currency
     GetTimeAPI curTime
     
     ' Convert to seconds
-    MicroTimer = (curTime / m_curFrequency)
+    MicroTimer = (curTime / this.Frequency)
     
 End Function
 
@@ -222,13 +267,56 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub LapTimer(cItem As clsPerformanceItem, lngCount As Long)
-    With cItem
-        If .Start > 0 Then
-            .Total = .Total + GetElapsed(.Start)
-            .Start = 0
-            .Count = .Count + lngCount
-        End If
-    End With
+    If Not cItem Is Nothing Then
+        With cItem
+            If .Start > 0 Then
+                .Total = .Total + GetElapsed(.Start)
+                .Start = 0
+                .Count = .Count + lngCount
+            End If
+        End With
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PauseTiming
+' Author    : Adam Waller
+' Date      : 10/20/2021
+' Purpose   : Lap all timers to capture elapsed time.
+'---------------------------------------------------------------------------------------
+'
+Public Sub PauseTiming()
+
+    ' Lap overall time
+    LapTimer this.Overall, 0
+    
+    ' Lap any active timing operation without incrementing
+    If this.OperationName <> vbNullString And Not this.Operations Is Nothing Then
+        LapTimer this.Operations(this.OperationName), 0
+    End If
+    
+    If this.CategoryName <> vbNullString And Not this.Categories Is Nothing Then
+        LapTimer this.Categories(this.CategoryName), 0
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResumeTiming
+' Author    : Adam Waller
+' Date      : 10/20/2021
+' Purpose   : Resume the timing of all timers by resetting the start time.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ResumeTiming()
+
+    ' Resume overall time
+    If Not this.Overall Is Nothing Then this.Overall.Start = MicroTimer
+    
+    ' Resume current operation
+    If this.OperationName <> vbNullString Then StartTimer this.Operations, this.OperationName
+    
 End Sub
 
 
@@ -265,7 +353,12 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get TotalTime() As Currency
-    TotalTime = GetElapsed(m_Overall.Start)
+    If this.Overall Is Nothing Then
+        TotalTime = 0
+    Else
+        LapTimer this.Overall, 0
+        TotalTime = this.Overall.Total
+    End If
 End Property
 
 
@@ -299,48 +392,55 @@ Public Function GetReports() As String
         .Add Space((Len(strSpacer) - Len(cstrTitle)) / 2) & cstrTitle
 
         ' Table for object types
-        If m_dComponents.Count > 0 Then
+        If Not this.Categories Is Nothing Then
             .Add strSpacer
-            .Add ListResult("Object Type", "Count", "Seconds", lngCol), vbCrLf, strSpacer
-            For Each varKey In m_dComponents.Keys
-                .Add ListResult(CStr(varKey), CStr(m_dComponents(varKey).Count), _
-                    Format(m_dComponents(varKey).Total, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol)
+            .Add ListResult("Category", "Count", "Seconds", lngCol), vbCrLf, strSpacer
+            For Each varKey In this.Categories.Keys
+                .Add ListResult(CStr(varKey), CStr(this.Categories(varKey).Count), _
+                    Format(this.Categories(varKey).Total, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
                 ' Add to totals
-                dblCount = dblCount + m_dComponents(varKey).Count
-                curTotal = curTotal + m_dComponents(varKey).Total
+                dblCount = dblCount + this.Categories(varKey).Count
+                curTotal = curTotal + this.Categories(varKey).Total
             Next varKey
             .Add strSpacer
             .Add ListResult("TOTALS:", CStr(dblCount), _
-                Format(curTotal, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol)
+                Format(curTotal, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
             .Add strSpacer
             .Add vbNullString
         End If
+        
         ' Table for operations
-        curTotal = 0
-        .Add strSpacer
-        .Add ListResult("Operations", "Count", "Seconds", lngCol), vbCrLf, strSpacer
-        For Each varKey In m_dOperations.Keys
-            .Add ListResult(CStr(varKey), CStr(m_dOperations(varKey).Count), _
-                Format(m_dOperations(varKey).Total, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol)
-            curTotal = curTotal + m_dOperations(varKey).Total
-        Next varKey
-        .Add strSpacer
-        .Add ListResult("Other Operations", vbNullString, _
-            Format(m_Overall.Total - curTotal, "0." & String$(m_intDigitsAfterDecimal, "0")), lngCol)
-        .Add strSpacer
-        .Add vbNullString
+        If Not this.Operations Is Nothing Then
+            curTotal = 0
+            .Add strSpacer
+            .Add ListResult("Operations", "Count", "Seconds", lngCol), vbCrLf, strSpacer
+            For Each varKey In this.Operations.Keys
+                .Add ListResult(CStr(varKey), CStr(this.Operations(varKey).Count), _
+                    Format(this.Operations(varKey).Total, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
+                curTotal = curTotal + this.Operations(varKey).Total
+            Next varKey
+            .Add strSpacer
+            If Not this.Overall Is Nothing Then
+                .Add ListResult("Other Operations", vbNullString, _
+                    Format(this.Overall.Total - curTotal, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
+                .Add strSpacer
+            End If
+            .Add vbNullString
+        End If
         
         ' Check for unfinished operations
-        If m_colOpsCallStack.Count > 0 Then
-            .Add vbNullString
-            .Add "WARNING: The performance monitoring for operations still"
-            .Add "had items in the call stack. This typically happens when"
-            .Add "performance logging is started for an operation, but not"
-            .Add "closed at the conclusion of the operation."
-            .Add "The call stack currently contains the following ", m_colOpsCallStack.Count, " items:"
-            For Each varKey In m_colOpsCallStack
-                .Add " - ", CStr(varKey)
-            Next varKey
+        If Not this.CallStackItems Is Nothing Then
+            If this.CallStackItems.Count > 0 Then
+                .Add vbNullString
+                .Add "WARNING: The performance monitoring for operations still"
+                .Add "had items in the call stack. This typically happens when"
+                .Add "performance logging is started for an operation, but not"
+                .Add "closed at the conclusion of the operation."
+                .Add "The call stack currently contains the following ", this.CallStackItems.Count, " items:"
+                For Each varKey In this.CallStackItems
+                    .Add " - ", CStr(varKey)
+                Next varKey
+            End If
         End If
         
         ' Return report section
@@ -390,17 +490,19 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ResetAll
+' Procedure : Reset
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
-' Purpose   : Reset all class values
+' Purpose   : Reset all class values to start timing again.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ResetAll()
-    Class_Initialize
-    m_strComponent = vbNullString
-    m_strOperation = vbNullString
-    m_intDigitsAfterDecimal = 2
+Public Sub Reset()
+    Set this.Overall = Nothing
+    Set this.CallStackItems = Nothing
+    this.CategoryName = vbNullString
+    Set this.Categories = Nothing
+    this.OperationName = vbNullString
+    Set this.Operations = Nothing
 End Sub
 
 
@@ -412,13 +514,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Initialize()
-    Set m_Overall = New clsPerformanceItem
-    Set m_dComponents = New Scripting.Dictionary
-    Set m_dOperations = New Scripting.Dictionary
-    Set m_colOpsCallStack = New VBA.Collection
-
-    ' m_curFrequency need only be queried once
+    ' this.curFrequency need only be queried once
     ' https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
-    GetFrequencyAPI m_curFrequency
+    GetFrequencyAPI this.Frequency
+    this.intDigitsAfterDecimal = 2
 End Sub
 

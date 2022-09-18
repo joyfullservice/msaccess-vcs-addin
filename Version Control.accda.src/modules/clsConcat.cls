@@ -178,7 +178,7 @@ End Function
 
 
 ' Return a partial string from a specified position
-Public Function MidStr(lngStart As Long, Optional lngLength)
+Public Function MidStr(lngStart As Long, Optional lngLength As Long = -1) As String
 
     Dim lngPage As Long
     Dim lngPos As Long
@@ -186,7 +186,7 @@ Public Function MidStr(lngStart As Long, Optional lngLength)
     Dim lngStartPos As Long
     
     ' Prepare return string length.
-    If IsMissing(lngLength) Then
+    If lngLength = -1 Then
         ' Return remaining string after lngStart
         lngLength = (Me.Length - lngStart) + 1
         MidStr = Space$(lngLength)

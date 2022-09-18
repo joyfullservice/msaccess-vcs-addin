@@ -13,6 +13,7 @@ Option Explicit
 Public PadLength As Integer
 Public LogFilePath As String
 Public ErrorLevel As eErrorLevel
+Public OperationType As eOperationType
 
 ' Set this to true when logging an operation such as an export or build
 ' then set back to false after writing the log file. This affects
@@ -33,7 +34,7 @@ Private m_sngLastUpdate As Single
 ' Procedure : Clear
 ' Author    : Adam Waller
 ' Date      : 4/16/2020
-' Purpose   : Clear the log buffers
+' Purpose   : Clear the log buffers and release object references
 '---------------------------------------------------------------------------------------
 '
 Public Sub Clear()
@@ -63,9 +64,8 @@ End Sub
 Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
     Optional blnNextOutputOnNewLine As Boolean = True, _
     Optional strColor As String = vbNullString, _
-    Optional blnBold As Boolean = False)
-
-    Dim strHtml As String
+    Optional blnBold As Boolean = False, _
+    Optional blnItalic As Boolean = False)
     
     ' Add to log file output
     m_Log.Add strText, vbCrLf
@@ -83,6 +83,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
         
             ' Opening tags
             If blnBold Then .Add "<strong>"
+            If blnItalic Then .Add "<i>"
             If strColor <> vbNullString Then .Add "<font color=", strColor, ">"
             
             ' Content
@@ -92,7 +93,8 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             
             ' Closing tags
             If strColor <> vbNullString Then .Add "</font>"
-            If blnBold Then m_Console.Add "</strong>"
+            If blnItalic Then .Add "</i>"
+            If blnBold Then .Add "</strong>"
             
             ' Add line break for HTML
             If blnNextOutputOnNewLine Then m_Console.Add "<br>"
@@ -148,10 +150,10 @@ Public Sub Flush()
             Echo True
             'Form_frmVCSMain.Repaint
         End With
+    Else
+        ' Update display in immediate window if not using console
+        DoEvents
     End If
-    
-    ' Update the display (especially for immediate window)
-    DoEvents
     Perf.OperationEnd
     
 End Sub
@@ -227,14 +229,30 @@ End Sub
 ' Procedure : SetConsole
 ' Author    : Adam Waller
 ' Date      : 4/28/2020
-' Purpose   : Set a reference to the text box.
+' Purpose   : Set a reference to the rich text box for output display, and the
+'           : associated progress bar for logging progress.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SetConsole(txtRichText As TextBox)
+Public Sub SetConsole(txtRichText As TextBox, cProg As clsLblProg)
+    Set m_Prog = cProg
     Set m_RichText = txtRichText
     If Not m_RichText Is Nothing Then
         m_RichText.AllowAutoCorrect = False
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReleaseConsole
+' Author    : Adam Waller
+' Date      : 5/5/2022
+' Purpose   : Releases object references to the console form that were created with
+'           : the SetConsole sub.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReleaseConsole()
+    Set m_RichText = Nothing
+    Set m_Prog = Nothing
 End Sub
 
 
@@ -319,35 +337,16 @@ End Sub
 ' Procedure : Increment
 ' Author    : Adam Waller
 ' Date      : 4/28/2020
-' Purpose   : Increment the progress bar
+' Purpose   : Increment the progress bar/output display
 '---------------------------------------------------------------------------------------
 '
 Public Sub Increment()
-    
-    ' Track the last time we did an increment
-    Static sngLastIncrement As Single
-    Static lngProgress As Long
-    
+
     ' Ignore if we are not using the form
     If m_Prog Is Nothing Then Exit Sub
-    
-    ' Increment value, even if we don't display it.
-    lngProgress = lngProgress + 1
-    
-    ' Don't run the incrementer unless it has been 1
-    ' second since the last displayed output refresh.
-    If m_sngLastUpdate > Timer - 1 Then Exit Sub
-    
-    ' Allow an update to the screen every x seconds.
-    ' Find the balance between good progress feedback
-    ' without slowing down the overall export time.
-    If sngLastIncrement > Timer - 0.5 Then Exit Sub
-
     ' Check the current status.
     Perf.OperationStart "Increment Progress"
     If Not m_blnProgressActive Then
-        ' Show the progress bar
-        lngProgress = 1
         ' Flush any pending output
         With m_RichText
             Echo False
@@ -359,12 +358,10 @@ Public Sub Increment()
             Echo True
         End With
     End If
-    
+    Me.ProgressBar.Increment
+
     ' Status is now active
-    sngLastIncrement = Timer
     m_blnProgressActive = True
-    m_Prog.Value = lngProgress
     Perf.OperationEnd
     
 End Sub
-

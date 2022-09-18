@@ -1,0 +1,23 @@
+# gitattributes template for Microsoft Access database source files
+# Website: https://github.com/joyfullservice/msaccess-vcs-integration
+#
+
+# Set default behavior to automatically normalize line endings.
+* text=auto
+
+# Ensure that source files use CRLF for newlines, in case they are downloaded
+# in a compressed archive directly from GitHub/GitLab.
+*.bas text eol=crlf
+
+# Clarify that the source language is VBA (Auto-detection not always accurate)
+# https://github.com/github/linguist/blob/master/docs/overrides.md
+*.bas linguist-language=VBA
+*.cls linguist-language=VBA
+
+# Attributes for git files
+*.gitattributes text 
+*.gitattributes linguist-language=gitattributes
+
+# Attributes for ignore files (like .npmignore or .gitignore)
+*.*ignore       text
+*.*ignore       export-ignore

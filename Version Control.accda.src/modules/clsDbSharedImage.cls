@@ -17,8 +17,10 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+Private Const ModuleName As String = "clsDbSharedImage"
 
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 Private m_Dbs As DAO.Database
 
 ' This is used to pass a reference to the record back
@@ -49,31 +51,27 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
+    Dim strContent As String
     Dim strFile As String
     Dim dItem As Dictionary
+    Dim strHash As String
     
     ' Build header file
-    Set dItem = New Dictionary
-    dItem.Add "Name", m_Name
-    dItem.Add "FileName", m_FileName
-    dItem.Add "Extension", m_Extension
+    Set dItem = GetDictionary
     
     ' Save json file with header details
-    WriteJsonFile TypeName(Me), dItem, Nz2(strAlternatePath, IDbComponent_SourceFile), "Shared Image Gallery Item"
+    strContent = GetSource
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
     
     ' Save image file using extension from embedded file.
     strFile = IDbComponent_BaseFolder & FSO.GetBaseName(IDbComponent_SourceFile) & "." & FSO.GetExtensionName(m_FileName)
-
-    With New ADODB.Stream
-        .Type = adTypeBinary
-        .Open
-        .Write StripOLEHeader(m_FileData)     ' Binary data
-        VerifyPath strFile
-        Perf.OperationStart "Write to Disk"
-        .SaveToFile strFile, adSaveCreateOverWrite
-        Perf.OperationEnd
-        .Close
-    End With
+       
+    ' Write binary content to file
+    WriteBinaryFile strFile, StripOLEHeader(m_Extension, m_FileData)
+    
+    ' Update index after export
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
+        GetStringHash(strContent, True), GetSignatureHash
     
 End Sub
 
@@ -87,7 +85,7 @@ End Sub
 '           : Tested with jpg, gif, png, tiff
 '---------------------------------------------------------------------------------------
 '
-Private Function StripOLEHeader(bteData() As Byte) As Byte()
+Private Function StripOLEHeader(strExt As String, bteData() As Byte) As Byte()
 
     Dim strData As String
     
@@ -95,7 +93,7 @@ Private Function StripOLEHeader(bteData() As Byte) As Byte()
     strData = bteData
     
     ' Strip off header, and convert back to byte array
-    StripOLEHeader = Mid$(strData, 11)
+    StripOLEHeader = Mid$(strData, 8 + Len(strExt))
     
 End Function
 
@@ -159,6 +157,13 @@ Private Sub IDbComponent_Import(strFile As String)
             ' Restore image file name if needed.
             If strOriginalName <> strImageFile Then Name strOriginalName As strImageFile
         End If
+        
+        ' Update index after import
+        If LoadItem(dItem("Name")) Then
+            VCSIndex.Update Me, eatExport, GetDictionaryHash(dItem)
+        Else
+            Log.Error eelError, "Unable to find shared image '" & dItem("Name") & "' after importing.", ModuleName & ".Import"
+        End If
     End If
 
 End Sub
@@ -175,6 +180,113 @@ End Sub
 Private Sub IDbComponent_Merge(strFile As String)
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadItem
+' Author    : Adam Waller
+' Date      : 11/1/2021
+' Purpose   : Load a shared resource by name into this class so we can reconstruct the
+'           : hash when updating the index after import.
+'---------------------------------------------------------------------------------------
+'
+Private Function LoadItem(strName As String) As Boolean
+
+    Dim rst As DAO.Recordset
+    Dim strSql As String
+    
+    ' This system table should exist, but just in case...
+    If TableExists("MSysResources") Then
+        
+        If m_Dbs Is Nothing Then Set m_Dbs = CurrentDb
+        strSql = "SELECT * FROM MSysResources WHERE Type='img'"
+        Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
+        With rst
+            Do While Not .EOF
+                If Nz(!Name) = strName Then
+                    ' Set the DB object, reloading the properties
+                    Set IDbComponent_DbObject = rst
+                    Exit Do
+                End If
+                .MoveNext
+            Loop
+            .Close
+        End With
+        LoadItem = True
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSignatureHash
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Return a simple hash that should give us a pretty good idea if the image
+'           : has changed since it was last exported.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSignatureHash() As String
+    
+    Dim dblCnt As Double
+    Dim dblLen As Double
+    Dim strData As String
+        
+    ' Get length (bytes) of file data
+    If StrPtr(m_FileData) <> 0 Then dblLen = UBound(m_FileData)
+    
+    With New clsConcat
+        ' Compile string with file information
+        .Add m_Name, m_FileName, m_Extension, CStr(dblLen)
+        ' Add in last 100 characters of file content (byte numbers)
+        ' Since this is likely a compressed file format, we will probably
+        ' see a change here if the contents were modified.
+        If dblLen > 100 Then
+            For dblCnt = dblLen To dblLen - 100 Step -1
+                .Add CStr(m_FileData(dblCnt))
+            Next dblCnt
+        Else
+            ' Convert byte array to string and include in hash.
+            strData = m_FileData
+            .Add strData
+        End If
+        ' Return hash of this string
+        GetSignatureHash = GetStringHash(.GetStr)
+    End With
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Shared Image Gallery Item")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 11/1/2021
+' Purpose   : Return a dictionary object representing the content for the json file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
+    Set GetDictionary = New Dictionary
+    With GetDictionary
+        .Add "Name", m_Name
+        .Add "FileName", m_FileName
+        .Add "Extension", m_Extension
+        ' Store a hash of the binary image content, so we can verify
+        ' that the file content itself has not changed.
+        .Add "ContentHash", GetBytesHash(StripOLEHeader(m_Extension, m_FileData))
+    End With
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -203,6 +315,21 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+    ' Move actual image file
+    MoveFileIfExists strFromFolder & _
+        FSO.GetBaseName(IDbComponent_SourceFile) & "." & FSO.GetExtensionName(m_FileName), strToFolder
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -214,10 +341,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cImg As IDbComponent
     Dim rst As DAO.Recordset
     Dim strSql As String
+    Dim blnAdd As Boolean
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
@@ -228,8 +356,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             With rst
                 Do While Not .EOF
                     Set cImg = New clsDbSharedImage
-                    Set cImg.DbObject = rst    ' Reference to OLE object recordset2
-                    m_AllItems.Add cImg, vbNullString
+                    ' Also sets reference to OLE object recordset2
+                    Set cImg.DbObject = rst
+                    blnAdd = True
+                    If blnModifiedOnly Then blnAdd = cImg.IsModified
+                    If blnAdd Then m_Items(blnModifiedOnly).Add cImg.SourceFile, cImg
                     .MoveNext
                 Loop
                 .Close
@@ -238,7 +369,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
 
 End Function
 
@@ -251,7 +382,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -260,10 +392,22 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Remove any source files for objects not in the current database.
+'           : Matches list of supported image files (in 2010), plus icon image.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearOrphanedSourceFiles Me, "json", "jpg", "jpeg", "jpe", "gif", "png", "ico"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
 End Sub
 
 
@@ -273,10 +417,22 @@ End Sub
 ' Date      : 11/21/2020
 ' Purpose   : Returns true if the object in the database has been modified since
 '           : the last export of the object.
+'           : Compare the index hash to the existing database content
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
 
+    ' Check file hash of definition
+    With VCSIndex.Item(Me)
+        If .FileHash <> GetStringHash(GetSource, True) Then
+            ' Definition file is different
+            IDbComponent_IsModified = True
+        Else
+            ' Check signature of actual image content
+            IDbComponent_IsModified = (.OtherHash <> GetSignatureHash)
+        End If
+    End With
+    
 End Function
 
 
@@ -371,6 +527,20 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    IDbComponent_QuickCount = 1
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ComponentType
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -416,8 +586,11 @@ End Property
 '
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
 
-    Dim fld2 As DAO.Field2
-    Dim rst2 As DAO.Recordset2
+    ' IMPORTANT: These variables must be declared as the
+    ' generic parent classes to avoid problems in newer
+    ' releases of Microsoft Access. (See issue #341)
+    Dim fld2 As DAO.Field       ' Field2
+    Dim rst2 As DAO.Recordset   ' Recordset2
     
     Set m_Rst = RHS
     
@@ -475,3 +648,4 @@ End Property
 Private Sub Class_Terminate()
     Set m_Dbs = Nothing
 End Sub
+

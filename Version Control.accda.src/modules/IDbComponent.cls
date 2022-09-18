@@ -43,6 +43,17 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearOrphanedDatabaseObjects()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Export
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -73,6 +84,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Merge(strFile As String)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the source file(s) associated with this component from one folder
+'           : to another. This is especially important for components that produce more
+'           : than one source file, such as VBE Forms, themes, and queries.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MoveSource(strFromFolder As String, strToFolder As String)
 End Sub
 
 
@@ -214,6 +238,19 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Count(Optional blnModifiedOnly As Boolean = False) As Long
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get QuickCount() As Long
 End Property
 
 

@@ -16,7 +16,7 @@
 ###############################################################################
 *.bas linguist-language=VBA
 *.cls linguist-language=VBA
-
+*.twin linguist-language=VBA
 
 # Git files
 *.gitattributes text 

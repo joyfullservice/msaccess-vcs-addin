@@ -24,6 +24,22 @@ Private m_FSO As Scripting.FileSystemObject
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ReleaseObjects
+' Author    : Adam Waller
+' Date      : 3/28/2022
+' Purpose   : Release references to objects for a clean exit.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReleaseObjects()
+    Set m_Perf = Nothing
+    Set m_Log = Nothing
+    Set m_Options = Nothing
+    Set m_VCSIndex = Nothing
+    Set m_FSO = Nothing
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : LoadOptions
 ' Author    : Adam Waller
 ' Date      : 4/15/2020
@@ -93,10 +109,12 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get FSO() As Scripting.FileSystemObject
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    If m_FSO Is Nothing Then Set m_FSO = New Scripting.FileSystemObject
+    If m_FSO Is Nothing Then
+        If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+        Set m_FSO = New Scripting.FileSystemObject
+        CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", ModuleName & ".FSO"
+    End If
     Set FSO = m_FSO
-    CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", ModuleName & ".FSO"
 End Property
 Public Property Set FSO(ByVal RHS As Scripting.FileSystemObject)
     Set m_FSO = RHS
@@ -123,6 +141,20 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Diff
+' Author    : Adam Waller
+' Date      : 2/23/2022
+' Purpose   : Wrapper for class to view diff between string and file content
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Diff() As clsViewDiff
+    Static cDiff As clsViewDiff
+    If cDiff Is Nothing Then Set cDiff = New clsViewDiff
+    Set Diff = cDiff
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DebugMode
 ' Author    : Adam Waller
 ' Date      : 3/9/2021
@@ -131,13 +163,14 @@ End Property
 '
 Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
     
+    Static blnInError As Boolean
     Dim blnBreak As Boolean
     
     ' Don't reference the property this till we have loaded the options.
     If Not m_Options Is Nothing Then blnBreak = m_Options.BreakOnError
     
     ' Check for any unhandled errors
-    If (Err.Number <> 0) And blnTrapUnhandledErrors Then
+    If (Err.Number <> 0) And blnTrapUnhandledErrors And Not blnInError Then
     
         ' Check current BreakOnError mode
         If blnBreak Then
@@ -168,9 +201,12 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
         Else
             ' Log otherwise unhandled error
             If Not m_Log Is Nothing Then
+                ' Set flag so we don't create a loop while logging the error
+                blnInError = True
                 ' We don't know the procedure that it originated from, but we should at least
                 ' log that the error occurred. A review of the log file may help identify the source.
                 Log.Error eelError, "Unhandled error found before `On Error` directive", "Unknown"
+                blnInError = False
             End If
         End If
     
@@ -180,3 +216,4 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
     DebugMode = blnBreak
     
 End Function
+

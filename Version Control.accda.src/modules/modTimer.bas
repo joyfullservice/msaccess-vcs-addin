@@ -9,90 +9,117 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+' Types of operations to resume
+Public Enum eResumeOperation
+    roUnspecified
+    roBuildFromSource
+    roLocalizeLibRefs
+    roRibbonCommand
+End Enum
 
-Private Declare PtrSafe Function SetTimer Lib "user32" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr, ByVal uElapse As Long, ByVal lpTimerFunc As LongPtr) As LongPtr
-Private Declare PtrSafe Function KillTimer Lib "user32" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr) As Long
 
-Private m_lngBuildTimerID As LongPtr
-Private m_lngExportTimerID As LongPtr
+Private Declare PtrSafe Function ApiSetTimer Lib "user32" Alias "SetTimer" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr, ByVal uElapse As Long, ByVal lpTimerFunc As LongPtr) As LongPtr
+Private Declare PtrSafe Function ApiKillTimer Lib "user32" Alias "KillTimer" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr) As Long
+
+Private m_lngTimerID As LongPtr
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : RunBuildAfterClose
+' Procedure : WinAPITimerCallback
 ' Author    : Adam Waller
-' Date      : 5/4/2020
-' Purpose   : Schedule a timer to fire 1 second after closing the current database.
+' Date      : 2/25/2022
+' Purpose   : Generic callback function to handle timer requests to resume operations.
 '---------------------------------------------------------------------------------------
 '
-Public Sub RunBuildAfterClose(strSourceFolder As String)
-    m_lngBuildTimerID = SetTimer(0, 0, 1000, AddressOf BuildTimerCallback)
-    ' We will also lose the TimerID private variable value, so save it to registry as well.
-    SaveSetting GetCodeVBProject.Name, "Build", "TimerID", m_lngBuildTimerID
-    SaveSetting GetCodeVBProject.Name, "Build", "SourceFolder", strSourceFolder
-    ' Now we should be ready to close the current database
-    If Not CurrentDb Is Nothing Then Application.CloseCurrentDatabase
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : BuildTimerCallback
-' Author    : Adam Waller
-' Date      : 5/4/2020
-' Purpose   : This is called by the API to resume our build process after closing the
-'           : current database. (CloseCurrentDatabase ends all executing code.)
-'---------------------------------------------------------------------------------------
-'
-Public Sub BuildTimerCallback()
+Public Sub WinAPITimerCallback()
 
     Dim strFolder As String
+    Dim strParam As String
+    Dim blnFullBuild As Boolean
     
-    ' Look up the existing timer to make sure we kill it properly.
-    If m_lngBuildTimerID = 0 Then m_lngBuildTimerID = GetSetting(GetCodeVBProject.Name, "Build", "TimerID", 0)
-    If m_lngBuildTimerID <> 0 Then
-        KillTimer 0, m_lngBuildTimerID
-        Debug.Print "Killed build timer " & m_lngBuildTimerID
-        m_lngBuildTimerID = 0
-        SaveSetting GetCodeVBProject.Name, "Build", "TimerID", 0
-    End If
+    ' First, make sure we kill the timer!
+    KillTimer
     
-    ' Now, with the timer killed, we can clear the saved value and relaunch the build.
-    strFolder = GetSetting(GetCodeVBProject.Name, "Build", "SourceFolder")
-    SaveSetting GetCodeVBProject.Name, "Build", "SourceFolder", vbNullString
-    If strFolder <> vbNullString Then
-        ' We would only do a full build with the callback.
-        Build strFolder, True
-    End If
+    ' Now, run the desired operation
+    Select Case GetSetting(PROJECT_NAME, "Timer", "Operation", 0)
+    
+        Case roUnspecified
+            ' Operation type not specified or not found.
+
+        Case roRibbonCommand
+            strParam = GetSetting(PROJECT_NAME, "Timer", "RibbonCommand")
+            If strParam <> vbNullString Then HandleRibbonCommand strParam
+                
+        Case roBuildFromSource
+            ' Build from source (full or merge build)
+            strFolder = GetSetting(PROJECT_NAME, "Build", "SourceFolder")
+            blnFullBuild = CBool(Nz2(GetSetting(PROJECT_NAME, "Build", "FullBuild", "True"), True))
+            SaveSetting PROJECT_NAME, "Build", "SourceFolder", vbNullString
+            SaveSetting PROJECT_NAME, "Build", "FullBuild", vbNullString
+            If strFolder <> vbNullString Then Build strFolder, blnFullBuild
+        
+        Case roLocalizeLibRefs
+        
+    End Select
     
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : LaunchExportAfterTimer
+' Procedure : SetTimer
 ' Author    : Adam Waller
-' Date      : 11/10/2020
-' Purpose   : Allows the calling code to finish running before relaunching the export
-'           : process from the add-in project without any parent call stack.
+' Date      : 2/25/2022
+' Purpose   : Set the API timer to trigger the desired operation
 '---------------------------------------------------------------------------------------
 '
-Public Sub LaunchExportAfterTimer(Optional sngSeconds As Single = 0.5)
-    m_lngExportTimerID = SetTimer(0, 0, 1000 * sngSeconds, AddressOf ExportTimerCallback)
+Public Sub SetTimer(intOperation As eResumeOperation, _
+    Optional strParam As String, Optional strParam2 As String, _
+    Optional sngSeconds As Single = 0.5)
+
+    Dim strPath As String
+    
+    ' Make sure we are not trying to stack timer operations
+    If m_lngTimerID <> 0 Then
+        MsgBox2 "Failed to Set Callback Timer", _
+            "Multiple callback timers are not currently supported.", _
+            "Please ensure that any previous timer was completed or killed first.", vbExclamation
+        Exit Sub
+    End If
+
+    ' Set any additional parameters here
+    Select Case intOperation
+    
+        Case roRibbonCommand
+            SaveSetting PROJECT_NAME, "Timer", "RibbonCommand", strParam
+
+        Case roBuildFromSource
+            ' Save build path
+            SaveSetting PROJECT_NAME, "Build", "SourceFolder", strParam
+            SaveSetting PROJECT_NAME, "Build", "FullBuild", strParam2
+
+    End Select
+
+    ' Save ID to registry before setting the timer
+    SaveSetting PROJECT_NAME, "Timer", "Operation", intOperation
+    SaveSetting PROJECT_NAME, "Timer", "TimerID", m_lngTimerID
+    m_lngTimerID = ApiSetTimer(0, 0, 1000 * sngSeconds, AddressOf WinAPITimerCallback)
+    
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ExportTimerCallback
+' Procedure : KillTimer
 ' Author    : Adam Waller
-' Date      : 11/10/2020
-' Purpose   : Launch the code export process. (See modAddIn.RunExportForCurrentDB)
+' Date      : 2/25/2022
+' Purpose   : Kill any existing timer
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportTimerCallback()
-
-    ' Kill the timer so it doesn't fire again.
-    KillTimer 0, m_lngExportTimerID
-    m_lngExportTimerID = 0
-    
-    ' Launch the export process.
-    modAddIn.AddInMenuItemExport
-    
+Private Sub KillTimer()
+    If m_lngTimerID = 0 Then m_lngTimerID = GetSetting(PROJECT_NAME, "Timer", "TimerID", 0)
+    If m_lngTimerID <> 0 Then
+        ApiKillTimer 0, m_lngTimerID
+        Debug.Print "Killed API Timer " & m_lngTimerID
+        m_lngTimerID = 0
+        SaveSetting PROJECT_NAME, "Timer", "TimerID", 0
+    End If
 End Sub

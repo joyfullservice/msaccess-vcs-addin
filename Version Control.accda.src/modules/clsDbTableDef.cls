@@ -19,9 +19,9 @@ Option Explicit
 
 Const ModuleName As String = "clsDbTableDef"
 
-Private m_Table As DAO.TableDef
-Private m_AllItems As Dictionary
-Private m_blnModifiedOnly As Boolean
+Private m_Table As AccessObject
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 Private m_Dbs As Database
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -45,6 +45,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim tbl As DAO.TableDef
     Dim idx As DAO.Index
     Dim dItem As Dictionary
+    Dim strHash As String
+    Dim strContent As String
     
     Set dbs = CurrentDb
     Set tbl = dbs.TableDefs(m_Table.Name)
@@ -61,7 +63,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         Perf.OperationEnd
         
         ' Rewrite sanitized XML as formatted UTF-8 content
-        SanitizeXML strFile
+        strHash = SanitizeXML(strFile, True)
     
     Else
         ' Linked table - Save as JSON
@@ -84,19 +86,107 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         End With
         
         ' Write export file.
-        WriteJsonFile TypeName(Me), dItem, strFile, "Linked Table"
+        strContent = BuildJsonFile(TypeName(Me), dItem, "Linked Table")
+        strHash = GetStringHash(strContent, True)
+        WriteFile strContent, strFile
         
     End If
     
-    ' Optionally save in SQL format
-    If Options.SaveTableSQL Then
-        Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
-        SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder
+    ' Additional processing when exporting to source folder
+    If strAlternatePath = vbNullString Then
+        
+        ' Remove any alternate source file in case we have switched formats
+        RemoveAlternateFormatSourceFile
+      
+        ' Optionally save in SQL format
+        If Options.SaveTableSQL Then
+            Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
+            SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder
+        End If
     End If
-
-    ' Update index
-    VCSIndex.Update Me, eatExport
     
+    ' Update index
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Import
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Import the individual database component from a file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Import(strFile As String)
+
+    Dim blnUseTemp As Boolean
+    Dim strTempFile As String
+    Dim strName As String
+    
+    ' Determine import type from extension
+    Select Case LCase$(FSO.GetExtensionName(strFile))
+    
+        Case "json"
+            If Not ImportLinkedTable(strFile) Then Exit Sub
+        
+        Case "xml"
+            ' The ImportXML function does not properly handle UrlEncoded paths
+            blnUseTemp = (InStr(1, strFile, "%") > 0)
+            If blnUseTemp Then
+                ' Import from (safe) temporary file name.
+                strTempFile = GetTempFile
+                FSO.CopyFile strFile, strTempFile
+                Application.ImportXML strTempFile, acStructureOnly
+                DeleteFile strTempFile
+            Else
+                Application.ImportXML strFile, acStructureOnly
+            End If
+        
+        Case Else
+            ' Unsupported file
+            Exit Sub
+            
+    End Select
+    
+    ' Update index
+    strName = GetObjectNameFromFileName(strFile)
+    Set m_Table = CurrentData.AllTables(strName)
+    VCSIndex.Update Me, eatImport
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Merge
+' Author    : Adam Waller
+' Date      : 11/21/2020
+' Purpose   : Merge the source file into the existing database, updating or replacing
+'           : any existing object.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_Merge(strFile As String)
+    DeleteObjectIfExists acTable, GetObjectNameFromFileName(strFile)
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveAlternateFormatSourceFile
+' Author    : Adam Waller
+' Date      : 1/25/2022
+' Purpose   : Remove any existing alternate format source file. (When switching a table
+'           : from local to linked, or vice versa.)
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveAlternateFormatSourceFile()
+    Dim strAltFile As String
+    strAltFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, Not IsLinked)
+    If FSO.FileExists(strAltFile) Then DeleteFile strAltFile
 End Sub
 
 
@@ -121,11 +211,11 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
     Set tdf = dbs.TableDefs(strTable)
 
     With cData
-        .Add "CREATE TABLE [", strTable, "] (", vbCrLf
+        .Add "CREATE TABLE [", DblQ(strTable), "] (", vbCrLf
 
         ' Loop through fields
         For Each fld In tdf.Fields
-            .Add "  [", fld.Name, "] "
+            .Add "  [", DblQ(fld.Name), "] "
             If (fld.Attributes And dbAutoIncrField) Then
                 .Add "AUTOINCREMENT"
             Else
@@ -144,7 +234,7 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
                     If idx.Unique Then cAttr.Add " UNIQUE"
                     If idx.Required Then cAttr.Add " NOT NULL"
                     If idx.Foreign Then AddFieldReferences dbs, idx.Fields, strTable, cAttr
-                    If Len(cAttr.GetStr) > 0 Then .Add " CONSTRAINT [", idx.Name, "]"
+                    If Len(cAttr.GetStr) > 0 Then .Add " CONSTRAINT [", DblQ(idx.Name), "]"
                 End If
                 .Add cAttr.GetStr
             Next
@@ -159,9 +249,9 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
                 If idx.Fields.Count > 1 Then
                     If Len(cAttr.GetStr) = 0 Then cAttr.Add " CONSTRAINT "
                     If idx.Primary Then
-                        cAttr.Add "[", idx.Name, "] PRIMARY KEY ("
+                        cAttr.Add "[", DblQ(idx.Name), "] PRIMARY KEY ("
                         For Each fld In idx.Fields
-                            cAttr.Add "[", fld.Name, "], "
+                            cAttr.Add "[", DblQ(fld.Name), "], "
                         Next fld
                         cAttr.Remove 2
                         cAttr.Add ")"
@@ -205,9 +295,9 @@ Private Sub AddFieldReferences(dbs As Database, fld As Object, strTable As Strin
             If FieldsIdentical(fld, rel.Fields) Then
 
                 ' References
-                cData.Add " REFERENCES [", rel.Table, "] ("
+                cData.Add " REFERENCES [", DblQ(rel.Table), "] ("
                 For Each fld2 In rel.Fields
-                    cData.Add "[", fld2.Name, "],"
+                    cData.Add "[", DblQ(fld2.Name), "],"
                 Next fld2
                 ' Remove trailing comma
                 If rel.Fields.Count > 0 Then cData.Remove 1
@@ -321,66 +411,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Import
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Import the individual database component from a file.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Import(strFile As String)
-
-    Dim blnUseTemp As Boolean
-    Dim strTempFile As String
-    Dim strName As String
-    
-    ' Determine import type from extension
-    Select Case LCase$(FSO.GetExtensionName(strFile))
-    
-        Case "json"
-            If Not ImportLinkedTable(strFile) Then Exit Sub
-        
-        Case "xml"
-            ' The ImportXML function does not properly handle UrlEncoded paths
-            blnUseTemp = (InStr(1, strFile, "%") > 0)
-            If blnUseTemp Then
-                ' Import from (safe) temporary file name.
-                strTempFile = GetTempFile
-                FSO.CopyFile strFile, strTempFile
-                Application.ImportXML strTempFile, acStructureOnly
-                DeleteFile strTempFile
-            Else
-                Application.ImportXML strFile, acStructureOnly
-            End If
-        
-        Case Else
-            ' Unsupported file
-            Exit Sub
-            
-    End Select
-    
-    ' Update index
-    strName = GetObjectNameFromFileName(strFile)
-    Set m_Dbs = CurrentDb
-    Set m_Table = m_Dbs.TableDefs(strName)
-    VCSIndex.Update Me, eatImport
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Merge
-' Author    : Adam Waller
-' Date      : 11/21/2020
-' Purpose   : Merge the source file into the existing database, updating or replacing
-'           : any existing object.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Merge(strFile As String)
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : ImportLinkedTable
 ' Author    : Adam Waller
 ' Date      : 5/6/2020
@@ -397,7 +427,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
     Dim strSql As String
     Dim strConnect As String
     
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     
     ' Read json file
     Set dTable = ReadJsonFile(strFile)
@@ -437,11 +467,12 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
                 ' Check for a primary key index (Linked SQL tables may bring over the index, but linked views won't.)
                 If dItem.Exists("PrimaryKey") And Not HasUniqueIndex(tdf) Then
                     ' Create a pseudo index on the linked table
-                    strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & tdf.Name & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
+                    strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & DblQ(tdf.Name) & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
                     dbs.Execute strSql, dbFailOnError
                     dbs.TableDefs.Refresh
                 End If
             End If
+            ImportLinkedTable = (Err.Number = 0)
         End If
     End If
     
@@ -513,6 +544,19 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".sql", strToFolder
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -523,29 +567,27 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim tdf As TableDef
     Dim cTable As IDbComponent
+    Dim blnAdd As Boolean
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Dictionary
-        m_blnModifiedOnly = blnModifiedOnly
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         Set m_Dbs = CurrentDb
         For Each tdf In m_Dbs.TableDefs
             If tdf.Name Like "MSys*" Or tdf.Name Like "~*" Then
                 ' Skip system and temporary tables
             Else
                 Set cTable = New clsDbTableDef
-                Set cTable.DbObject = tdf
-                If blnModifiedOnly Then
-                    If cTable.IsModified Then m_AllItems.Add cTable, tdf.Name
-                Else
-                    m_AllItems.Add cTable, tdf.Name
-                End If
+                Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
+                blnAdd = True
+                If blnModifiedOnly Then blnAdd = cTable.IsModified
+                If blnAdd Then m_Items(blnModifiedOnly).Add cTable.SourceFile, cTable
             End If
         Next tdf
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 
@@ -558,8 +600,11 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml")
-    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml")
+        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    End If
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -577,6 +622,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+    RemoveOrphanedDatabaseObjects Me
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -585,7 +642,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = (m_Table.LastUpdated > VCSIndex.GetExportDate(Me))
+    IDbComponent_IsModified = (m_Table.DateModified > VCSIndex.Item(Me).ExportDate)
 End Function
 
 
@@ -599,7 +656,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
-    IDbComponent_DateModified = m_Table.LastUpdated
+    If m_Table Is Nothing Then Exit Function
+    IDbComponent_DateModified = m_Table.DateModified
 End Function
 
 
@@ -649,6 +707,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Table Is Nothing Then Exit Property
     IDbComponent_Name = m_Table.Name
 End Property
 
@@ -661,13 +720,38 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    If m_Table.Connect = vbNullString Then
-        IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".xml"
-    Else
-        ' Linked table
-        IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".json"
-    End If
+    If m_Table Is Nothing Then Exit Property
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, IsLinked)
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsLinked
+' Author    : Adam Waller
+' Date      : 2/12/2022
+' Purpose   : Returns true if this table is a linked table
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IsLinked() As Boolean
+    If m_Table Is Nothing Then Exit Property
+    IsLinked = CurrentDb.TableDefs(m_Table.Name).Connect <> vbNullString
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSourceFileName
+' Author    : Adam Waller
+' Date      : 1/25/2022
+' Purpose   : Return a safe file name with the correct file extension.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSourceFileName(strName As String, blnLinkedTable As Boolean) As String
+    If blnLinkedTable Then
+        GetSourceFileName = GetSafeFileName(strName) & ".json"
+    Else
+        GetSourceFileName = GetSafeFileName(strName) & ".xml"
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -679,6 +763,22 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    Static lngCount As Long
+    If lngCount = 0 Then lngCount = CurrentData.AllTables.Count - 1
+    IDbComponent_QuickCount = lngCount + 1
 End Property
 
 

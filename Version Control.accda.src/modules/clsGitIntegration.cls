@@ -343,7 +343,7 @@ Public Function GetChangedFileIndex(strFromCommit As String) As Dictionary
     ' Get base folder list from component types.
     ' (Used to organize the changed files by type)
     Set dFolders = New Dictionary
-    For Each cComp In GetAllContainers
+    For Each cComp In GetContainers
         strCategory = StripSlash(Mid$(cComp.BaseFolder, Len(strRootPath) + 1))
         If strCategory = strBasePath Then
             ' Include file name in category

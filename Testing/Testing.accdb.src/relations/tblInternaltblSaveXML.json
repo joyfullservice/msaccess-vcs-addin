@@ -1,8 +1,7 @@
-{
+﻿{
   "Info": {
     "Class": "clsDbRelation",
-    "Description": "Database relationship",
-    "VCS Version": "3.1.25"
+    "Description": "Database relationship"
   },
   "Items": {
     "Name": "tblInternaltblSaveXML",

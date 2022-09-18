@@ -17,9 +17,9 @@ Begin Form
     DatasheetFontHeight =11
     ItemSuffix =32
     Left =-25575
-    Top =1710
+    Top =1500
     Right =-255
-    Bottom =14295
+    Bottom =14085
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -172,7 +172,7 @@ Begin Form
                     OverlapFlags =223
                     Left =360
                     Top =300
-                    Width =4260
+                    Width =4290
                     Height =540
                     FontSize =18
                     FontWeight =700
@@ -180,7 +180,7 @@ Begin Form
                     Caption ="Version Control System"
                     LayoutCachedLeft =360
                     LayoutCachedTop =300
-                    LayoutCachedWidth =4620
+                    LayoutCachedWidth =4650
                     LayoutCachedHeight =840
                     ForeThemeColorIndex =1
                     ForeTint =100.0
@@ -1291,6 +1291,7 @@ Begin Form
                     Height =2400
                     FontSize =10
                     TabIndex =3
+                    BackColor =15130848
                     ForeColor =5324600
                     Name ="txtDescription"
                     TextFormat =1
@@ -1300,6 +1301,7 @@ Begin Form
                     LayoutCachedTop =3300
                     LayoutCachedWidth =2760
                     LayoutCachedHeight =5700
+                    BackThemeColorIndex =-1
                     BorderThemeColorIndex =0
                     BorderTint =50.0
                     BorderShade =100.0
@@ -1720,22 +1722,31 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = True
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-' This color scheme can be changed, I just wanted something more aesthetically
-' pleasing than the default wizards and forms.
-' Color scheme: https://coolors.co/383f51-e0e0e6-ffffff-ef8354-d3d7ef
-
+'---------------------------------------------------------------------------------------
+' Module    : Form_frmVCSMain
+' Author    : Adam Waller
+' Date      : 3/30/2022
+' Purpose   : Main form for performing an export or build operation.
+'           : This color scheme can be changed, I just wanted something more aesthetically
+'           : pleasing than the default wizards and forms.
+'           : Color scheme: https://coolors.co/383f51-e0e0e6-ffffff-ef8354-d3d7ef
+'---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+
+
+' This property can be set to export or merge a specific subset of containers
+Public intContainerFilter As eContainerFilter
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdBuild_Click
 ' Author    : Adam Waller
 ' Date      : 5/4/2020
-' Purpose   :
+' Purpose   : Initiate the process to build from source
 '---------------------------------------------------------------------------------------
 '
-Private Sub cmdBuild_Click()
+Public Sub cmdBuild_Click()
 
     Dim strFolder As String
     Dim strMsg(0 To 2) As String
@@ -1753,7 +1764,7 @@ Private Sub cmdBuild_Click()
     End If
     
     ' Close the current database if it is currently open.
-    If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
+    If DatabaseFileOpen Then
         If FolderHasVcsOptionsFile(Options.GetExportFolder) Then
             strMsg(0) = "Build " & GetVBProjectForCurrentDB.Name & " (" & CurrentProject.Name & ") from source?"
             strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
@@ -1776,6 +1787,7 @@ Private Sub cmdBuild_Click()
     If strFolder = vbNullString Then
     
         ' Show a folder picker to select the file with source code.
+        DoCmd.Hourglass False
         With Application.FileDialog(msoFileDialogFolderPicker)
             .AllowMultiSelect = False
             .ButtonName = "Select Source Files Folder"
@@ -1787,28 +1799,23 @@ Private Sub cmdBuild_Click()
                 If FolderHasVcsOptionsFile(.SelectedItems(1)) Then
                     ' Has source files
                     strFolder = .SelectedItems(1) & PathSep
-                    ' Relaunch build if building the add-in from source.
-                    If FSO.GetFileName(strFolder) = "Version Control.accda.src" Then
-                        DoCmd.Close acForm, Me.Name
-                        RunBuildAfterClose strFolder
-                        Exit Sub
-                    End If
+                    DoCmd.Hourglass True
                 Else
                     MsgBox2 "Source files not found", "Required source files were not found in this folder.", _
                         "You selected: " & .SelectedItems(1), vbExclamation
-                    DoCmd.Hourglass False
                     Exit Sub
                 End If
             Else
                 ' Canceled dialog
-                DoCmd.Hourglass False
                 Exit Sub
             End If
         End With
     End If
-
-    ' Build using selected folder
-    Build strFolder, chkFullBuild
+    
+    ' Build project using the selected source folder
+    ' (Use a timer so we can release the reference to this form before beginning the
+    '  build process, just in case we need to import a form with the same name.)
+    If strFolder <> vbNullString Then SetTimer roBuildFromSource, strFolder, chkFullBuild
     
 End Sub
 
@@ -1830,8 +1837,7 @@ Public Sub StartBuild()
         .Visible = True
         .SetFocus
     End With
-    Log.SetConsole Me.txtLog
-    Set Log.ProgressBar = GetProgressBar
+    Log.SetConsole Me.txtLog, GetProgressBar
     Me.Visible = True
     
     ' Show the status
@@ -1871,22 +1877,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdClose_Click()
-    
-    ' Check to see if we are actively logging a process.
-    If Log.Active Then
-        If ConfirmCancel Then
-            ' Throw a critical error, which will terminate the current export/build
-            Log.Error eelCritical, "Canceled Operation", Me.Name & ".cmdClose_Click"
-        End If
-        ' Either way, we should not attempt to close the form while the log is active.
-        Exit Sub
-    End If
-    
-    ' Close the form
-    Log.SetConsole Nothing
-    Set Log.ProgressBar = Nothing
+    ' Ignore the error if the user resumes (cancels the close operation)
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     DoCmd.Close acForm, Me.Name
-    
+    Catch 2501  ' Close form was canceled.
 End Sub
 
 
@@ -1912,7 +1906,7 @@ End Function
 ' Purpose   : Export source code from current database
 '---------------------------------------------------------------------------------------
 '
-Private Sub cmdExport_Click()
+Public Sub cmdExport_Click()
     
     cmdClose.SetFocus
     HideActionButtons
@@ -1922,14 +1916,13 @@ Private Sub cmdExport_Click()
         .Visible = True
         .SetFocus
     End With
-    Log.SetConsole Me.txtLog
-    Set Log.ProgressBar = GetProgressBar
+    Log.SetConsole Me.txtLog, GetProgressBar
     
     ' Show the status
     SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
     
-    ' Export the source code
-    modImportExport.ExportSource chkFullExport
+    ' Export the source code using the specified filter.
+    modImportExport.ExportSource chkFullExport, Me.intContainerFilter
     ' Turn on scroll bars in case the user wants to scroll back through the log.
     txtLog.ScrollBars = 2
     Log.Flush
@@ -1951,7 +1944,7 @@ End Sub
 ' Purpose   : Hide the action buttons when running a command.
 '---------------------------------------------------------------------------------------
 '
-Private Sub HideActionButtons()
+Public Sub HideActionButtons()
     cmdExport.Visible = False
     chkFullExport.Visible = False
     cmdBuild.Visible = False
@@ -1983,7 +1976,7 @@ End Sub
 Private Sub cmdOptions_Click()
     ' Force reload of options from current project before opening the form.
     Set Options = Nothing
-    DoCmd.OpenForm "frmVCSOptions"
+    Form_frmVCSOptions.Visible = True
 End Sub
 
 
@@ -2009,50 +2002,20 @@ Public Sub Form_Load()
     chkFullExport = Not Options.UseFastSave
     
     ' You can only export if you have a database open.
-    cmdExport.Enabled = DatabaseOpen
-    chkFullExport.Enabled = DatabaseOpen
+    cmdExport.Enabled = DatabaseFileOpen
+    chkFullExport.Enabled = DatabaseFileOpen
     
     ' Require full export after options change
-    If DatabaseOpen Then
+    If DatabaseFileOpen Then
         If VCSIndex.OptionsHash <> Options.GetHash Then
             chkFullExport = True
             chkFullExport.Enabled = False
         End If
     End If
     
-    ' Run any incomming commands
-    HandleCmd
+    ' Turn off the timer, just in case it was left on.
+    Me.TimerInterval = 0
     
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : HandleCmd
-' Author    : Adam Waller
-' Date      : 2/17/2021
-' Purpose   : Support automation of the form
-'---------------------------------------------------------------------------------------
-'
-Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = erlVCSOpen)
-    Select Case RibbonCmdIn
-        Case erlVCSOpen
-            Me.Visible = True
-            'PlaceHolder; do nothing.
-        Case erlVCSOptions
-            'Open Settings
-            Me.Visible = True
-            cmdOptions_Click
-        Case erlExportAllRibbon
-            'Start export, then close if no errors.
-            Me.Visible = True
-            cmdExport_Click
-            If Log.ErrorLevel = eelNoError Then AutoClose
-        Case Else
-            'default to export and close if no errors.
-            Me.Visible = True
-            cmdExport_Click
-            If Log.ErrorLevel = eelNoError Then cmdClose_Click
-    End Select
 End Sub
 
 
@@ -2065,7 +2028,7 @@ End Sub
 '           :  completion and close.)
 '---------------------------------------------------------------------------------------
 '
-Private Sub AutoClose()
+Public Sub AutoClose()
     Me.TimerInterval = 2000
 End Sub
 
@@ -2091,7 +2054,7 @@ End Sub
 '           : status of the current operation.
 '---------------------------------------------------------------------------------------
 '
-Private Sub SetStatusText(strHeading As String, strSubHeading As String, strDescriptionHtml As String)
+Public Sub SetStatusText(strHeading As String, strSubHeading As String, strDescriptionHtml As String)
     If Not FormLoaded(Me) Then Exit Sub
     lblHeading.Caption = strHeading
     lblSubheading.Caption = strSubHeading
@@ -2106,9 +2069,21 @@ End Sub
 ' Purpose   : Set up the progress bar.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetProgressBar() As clsLblProg
-    Set GetProgressBar = New clsLblProg
-    GetProgressBar.Initialize lblProgBack, lblProgFront, lblProgCaption
+Public Function GetProgressBar() As clsLblProg
+
+    Dim cProg As clsLblProg
+    
+    ' Create a new progress bar class, and initialize with form controls
+    Set cProg = New clsLblProg
+    cProg.Initialize lblProgBack, lblProgFront, lblProgCaption
+    cProg.SetRepaintInterval 0.5
+    
+    ' Move caption up slightly for better alignment on this very small progress bar
+    lblProgCaption.Top = lblProgBack.Top + 1
+    
+    ' Return reference to caller
+    Set GetProgressBar = cProg
+    
 End Function
 
 
@@ -2147,6 +2122,6 @@ End Sub
 '
 Private Sub lblOpenLogFile_Click()
     If FSO.FileExists(Log.LogFilePath) Then
-        CreateObject("Shell.Application").Open Log.LogFilePath
+        CreateObject("Shell.Application").Open (Log.LogFilePath)
     End If
 End Sub

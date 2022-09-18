@@ -21,10 +21,11 @@ Private m_colBlocks As Collection
 ' Procedure : SanitizeFile
 ' Author    : Adam Waller
 ' Date      : 11/4/2020
-' Purpose   : Rewritten version of sanitize function
+' Purpose   : Rewritten version of sanitize function. Returns hash of content as well
+'           : as saving to the specified path.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SanitizeFile(strPath As String)
+Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As String
 
     Dim strFile As String
     Dim varLines As Variant
@@ -38,7 +39,7 @@ Public Sub SanitizeFile(strPath As String)
     Dim blnIsPassThroughQuery As Boolean
     Dim curStart As Currency
     Dim strTempFile As String
-
+    Dim strContent As String
     
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -206,7 +207,10 @@ Public Sub SanitizeFile(strPath As String)
                         
                         ' Check for pass-through query connection string
                         If StartsWith(strLine, "dbMemo ""Connect"" =""") Then
-                            blnIsPassThroughQuery = True
+                            ' Not just an empty value (See issue #337)
+                            If Len(strLine) > 20 Then
+                                blnIsPassThroughQuery = True
+                            End If
                         End If
                     End If
             
@@ -225,16 +229,21 @@ Public Sub SanitizeFile(strPath As String)
     
 Build_Output:
     ' Build the final output
-    BuildOutput varLines, strPath
+    strContent = BuildOutput(varLines)
+    WriteFile strContent, strPath
+    
+    ' Return hash of content
+    If blnReturnHash Then SanitizeFile = GetStringHash(strContent, True)
 
     ' Log performance
+    Set m_colBlocks = Nothing
     Perf.OperationEnd
     Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
     
     ' Log any errors
     CatchAny eelError, "Error sanitizing file " & FSO.GetFileName(strPath), ModuleName & ".SanitizeFile"
     
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -244,7 +253,7 @@ End Sub
 ' Purpose   : Splitting this out into its own sub to reduce complexity.
 '---------------------------------------------------------------------------------------
 '
-Private Sub BuildOutput(varLines As Variant, strFile As String)
+Private Function BuildOutput(varLines As Variant) As String
 
     Dim cData As clsConcat
     Dim lngSkip As Long
@@ -283,12 +292,11 @@ Private Sub BuildOutput(varLines As Variant, strFile As String)
         ' Remove last vbcrlf
         cData.Remove Len(vbCrLf)
     
-        ' Replace original file with sanitized version
-        WriteFile cData.GetStr, strFile
-        
+        ' Return assembled output
+        BuildOutput = .GetStr
     End With
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -469,9 +477,11 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 4/29/2021
 ' Purpose   : Remove non-essential data that changes every time the file is exported.
+'           : Optionally returns a hash of the file content. (To save reading the file
+'           : back again afterwards to compute the hash.)
 '---------------------------------------------------------------------------------------
 '
-Public Sub SanitizeXML(strPath As String)
+Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As String
 
     Dim curStart As Currency
     Dim cData As clsConcat
@@ -491,9 +501,27 @@ Public Sub SanitizeXML(strPath As String)
     Set rxLine = New VBScript_RegExp_55.RegExp
 
     ' Read text from file
-    strFile = ReadFile(strPath)
+    If HasUcs2Bom(strPath) Then
+        ' Table data macro XML is exported as UTF-16 LE BOM
+        strFile = ReadFile(strPath, "Unicode")
+    Else
+        strFile = ReadFile(strPath)
+    End If
     Perf.OperationStart "Sanitize XML"
     curStart = Perf.MicroTimer
+    
+    ' Exporting Table Def as XML does not properly encode ampersand character (See #314)
+    ' Most likely if any ampersands are encoded correctly, all of them will be.
+    With New VBScript_RegExp_55.RegExp
+        .Multiline = True
+        .Global = True
+        ' Match &amp; &quot; &gt; &lt; etc...
+        .Pattern = "&[A-z]{2,6};"
+        If Not .Test(strFile) Then
+            ' Properly encode any embedded ampersand characters to make valid XML
+            strFile = Replace(strFile, "&", "&amp;")
+        End If
+    End With
     
     ' Split into array of lines
     varLines = Split(FormatXML(strFile), vbCrLf)
@@ -566,13 +594,16 @@ Public Sub SanitizeXML(strPath As String)
     ' Write out sanitized XML file
     WriteFile cData.GetStr, strPath
 
+    ' Return hash, if requested
+    If blnReturnHash Then SanitizeXML = GetStringHash(cData.GetStr, True)
+    
     ' Show stats if debug turned on.
     Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
 
     ' Log any errors
     CatchAny eelError, "Error sanitizing XML file " & FSO.GetFileName(strPath), ModuleName & ".SanitizeXML"
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -667,9 +698,17 @@ Private Function FormatXML(strSourceXML As String, _
     Optional blnOmitDeclaration As Boolean) As String
 
     Dim objReader As SAXXMLReader60
-    Dim objWriter As MXXMLWriter60
+    Dim objWriter As MXHTMLWriter60
+    Dim strOutput As String
+
+    ' Skip processing if no content to format
+    If strSourceXML = vbNullString Then Exit Function
     
     Perf.OperationStart "Format XML"
+    
+    ' Trap any errors with parsing or formatting the XML
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
     Set objWriter = New MXHTMLWriter60
     Set objReader = New SAXXMLReader60
     
@@ -686,10 +725,63 @@ Private Function FormatXML(strSourceXML As String, _
         .parse strSourceXML
     End With
 
+    ' Apply custom indent to output
+    strOutput = CustomIndent(objWriter.output)
+    
+    ' Check for any errors parsing the XML
+    If CatchAny(eelError, "Error parsing XML content", ModuleName & ".FormatXML") Then
+        ' Fall back to input XML
+        strOutput = strSourceXML
+        ' Output XML to log file
+        Log.Spacer False
+        Log.Add strSourceXML, False
+        Log.Spacer False
+    End If
+    
     ' Return formatted output
-    FormatXML = objWriter.output
     Perf.OperationEnd
+    FormatXML = strOutput
     
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : CustomIndent
+' Author    : Adam Waller
+' Date      : 2/16/2022
+' Purpose   : Convert tabbed indents to two spaces for more compact display
+'---------------------------------------------------------------------------------------
+'
+Private Function CustomIndent(strText As String, Optional intSpaces As Integer = 2) As String
+
+    Dim lngLine As Long
+    Dim varLines As Variant
+    Dim strLine As String
+    Dim lngPos As Long
+    
+    ' Split content into lines
+    varLines = Split(strText, vbCrLf)
+    
+    ' Rebuild while converting tabs to
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        
+        ' Loop through lines
+        For lngLine = 0 To UBound(varLines)
+            strLine = varLines(lngLine)
+            For lngPos = 1 To Len(strLine)
+                If Mid$(strLine, lngPos, 1) <> vbTab Then
+                    ' Replace any leading tabs with space indent
+                    .Add Space$(intSpaces * (lngPos - 1)), Mid$(strLine, lngPos)
+                    Exit For
+                End If
+            Next lngPos
+        Next lngLine
+        
+        ' Return result after trimming off last return
+        If lngLine > 0 Then .Remove 2
+        CustomIndent = .GetStr
+    End With
+    
+End Function
 

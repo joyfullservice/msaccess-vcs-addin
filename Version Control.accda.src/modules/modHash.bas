@@ -150,13 +150,12 @@ End Function
 ' Procedure : GetStringHash
 ' Author    : Adam Waller
 ' Date      : 11/30/2020
-' Purpose   : Convert string to byte array, and return a hash.
+' Purpose   : Convert string to byte array, and return a hash. Optionally include the
+'           : UTF-8 BOM. (Useful when comparing to a file hash)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetStringHash(strText As String) As String
-    Dim bteText() As Byte
-    bteText = strText
-    GetStringHash = GetHash(bteText)
+Public Function GetStringHash(strText As String, Optional blnWithBom As Boolean = False) As String
+    GetStringHash = GetHash(GetUTF8Bytes(strText, blnWithBom))
 End Function
 
 
@@ -169,6 +168,18 @@ End Function
 '
 Public Function GetFileHash(strPath As String) As String
     GetFileHash = GetHash(GetFileBytes(strPath))
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetBytesHash
+' Author    : Adam Waller
+' Date      : 11/1/2021
+' Purpose   : Return hash from byte array
+'---------------------------------------------------------------------------------------
+'
+Public Function GetBytesHash(bteData() As Byte) As String
+    GetBytesHash = GetHash(bteData())
 End Function
 
 
@@ -277,6 +288,53 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
     ' Return hash (if any)
     GetCodeModuleHash = strHash
     Perf.OperationEnd
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetUTF8Bytes
+' Author    : Adam Waller
+' Date      : 11/2/2021
+' Purpose   : Return a UTF-8 (wide) byte array from a string. Optionally include the
+'           : UTF-8 BOM. (Useful when comparing to a file hash)
+'---------------------------------------------------------------------------------------
+'
+Private Function GetUTF8Bytes(strText As String, Optional blnWithBom As Boolean = False) As Byte()
+
+    Dim stmBinary As ADODB.Stream
+    
+    ' Check for empty string
+    If (Len(strText) = 0) And Not blnWithBom Then
+        GetUTF8Bytes = vbNullString
+        Exit Function
+    End If
+    
+    ' Set up binary stream
+    Set stmBinary = New ADODB.Stream
+    stmBinary.Open
+    stmBinary.Charset = "utf-8"
+    stmBinary.Type = adTypeBinary
+    
+    ' Load text into text stream
+    With New ADODB.Stream
+        .Open
+        .Charset = "utf-8"
+        .Type = adTypeText
+        .WriteText strText
+        .Position = 0
+        ' Copy to binary stream
+        .CopyTo stmBinary, adReadAll
+        If blnWithBom Then
+            ' Include BOM
+            stmBinary.Position = 0
+        Else
+            ' Move past BOM
+            stmBinary.Position = 3
+        End If
+        ' Return binary stream
+        GetUTF8Bytes = stmBinary.Read(adReadAll)
+    End With
     
 End Function
 

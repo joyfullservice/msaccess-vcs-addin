@@ -20,7 +20,8 @@ Option Explicit
 Private Const ModuleName As String = "clsDbVbeForm"
 
 Private m_Form As VBIDE.VBComponent
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -34,11 +35,28 @@ Implements IDbComponent
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Export the individual database component (table, form, query, etc...)
+'           : NOTE: This has been expanded to include an export (for reference only) of
+'           : a serialized representation of the form properties, controls, and layout.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    VerifyPath IDbComponent_SourceFile
-    m_Form.Export IDbComponent_SourceFile
+    
+    Dim strContent As String
+    
+    ' This is the serialized output file in JSON format to track changes in version control
+    strContent = GetSource
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json")
+    
+    ' Only export binary on regular export
+    If strAlternatePath = vbNullString Then
+    
+        ' This is the binary export file used when building from source
+        m_Form.Export IDbComponent_SourceFile
+    End If
+    
+    ' Update index with a hash of the serialized content. (Since the binary content changes frequently)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
+
 End Sub
 
 
@@ -52,14 +70,16 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
     
     Dim strLine As String
+    Dim proj As VBProject
     
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
     ' Only import files with the correct extension.
     If Not strFile Like "*.frm" Then Exit Sub
 
-    With GetVBProjectForCurrentDB.VBComponents
-    
+    Set proj = GetVBProjectForCurrentDB
+    With proj.VBComponents
+        
         ' Import the source file
         .Import strFile
     
@@ -67,7 +87,7 @@ Private Sub IDbComponent_Import(strFile As String)
         With .Item(GetObjectNameFromFileName(strFile))
             If Not .CodeModule Is Nothing Then
                 If .CodeModule.Lines(1, 1) = vbNullString Then
-                    ' Remove blank line added during import
+                    ' Remove blank line added during import (Known VBA Bug)
                     .CodeModule.DeleteLines 1
                     ' Note, this change is not saved at this time. It will be saved during
                     ' the next compile/save operation.
@@ -86,12 +106,48 @@ End Sub
 ' Procedure : Merge
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
-' Purpose   : Merge the source file into the existing database, updating or replacing
+' Purpose   : Merge the source file into the existing database, replacing or removing
 '           : any existing object.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
+    DeleteVbeFormIfExists GetObjectNameFromFileName(strFile)
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeleteVbeFormIfExists
+' Author    : Adam Waller
+' Date      : 2/5/2022
+' Purpose   : Remove any existing VBE form
+'---------------------------------------------------------------------------------------
+'
+Private Sub DeleteVbeFormIfExists(strName)
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    With GetVBProjectForCurrentDB.VBComponents
+        .Remove .Item(strName)
+    End With
+    Catch 9 ' Subscript out of range (name not found)
+    CatchAny eelError, "Deleting VBE Form " & strName
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".frx", strToFolder
+    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
 End Sub
 
 
@@ -106,24 +162,37 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim frm As VBComponent
     Dim cForm As IDbComponent
-
+    Dim blnAdd As Boolean
+    
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         For Each frm In GetVBProjectForCurrentDB.VBComponents
             If frm.Type = vbext_ct_MSForm Then
                 Set cForm = New clsDbVbeForm
                 Set cForm.DbObject = frm
-                m_AllItems.Add cForm, frm.Name
+                blnAdd = True
+                If blnModifiedOnly Then blnAdd = cForm.IsModified
+                If blnAdd Then m_Items(blnModifiedOnly).Add cForm.SourceFile, cForm
             End If
         Next frm
-
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), SerializeMSForm(m_Form), "Serialized VBE Form")
 End Function
 
 
@@ -135,7 +204,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.frm")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.frm")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -147,7 +217,18 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFiles Me, "frm", "frx"
+    ClearOrphanedSourceFiles Me, "frm", "frx", "json"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
 End Sub
 
 
@@ -160,7 +241,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    ' Compare the hash of the serialized JSON output, not the ever-changing binary source file.
+    ' NOTE: This will not detect changes in unserialized objects such as ActiveX controls.
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 
@@ -224,6 +307,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Form Is Nothing Then Exit Property
     IDbComponent_Name = m_Form.Name
 End Property
 
@@ -236,6 +320,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Form Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".frm"
 End Property
 
@@ -249,6 +334,21 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    ' No simple way to pull a quick count of these
+    IDbComponent_QuickCount = 1
 End Property
 
 

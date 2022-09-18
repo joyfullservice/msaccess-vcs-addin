@@ -19,7 +19,7 @@ Option Explicit
 
 Private Const ModuleName As String = "clsDbDocument"
 
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Public m_dItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -37,8 +37,10 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    WriteJsonFile TypeName(Me), GetDictionary, Nz2(strAlternatePath, IDbComponent_SourceFile), "Database Documents Properties (DAO)"
-    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
+    Dim strContent As String
+    strContent = GetSource
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 End Sub
 
 
@@ -103,14 +105,20 @@ Private Sub IDbComponent_Merge(strFile As String)
     
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
-    
+
     ' Remove any document properties that don't exist in the incoming file,
     ' then import the file.
     Set dFile = ReadJsonFile(strFile)
     If dFile Is Nothing Then Set dFile = New Dictionary
     RemoveMissing dFile("Items"), GetDictionary
-    IDbComponent_Import strFile
     
+    ' Import if file exists
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+
 End Sub
 
 
@@ -151,6 +159,18 @@ Private Sub ClearDatabaseSummaryProperties()
     Next intProp
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Database Documents Properties (DAO)")
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -209,6 +229,8 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
                             blnSave = True
                     End Select
                 End If
+                ' Don't save properties on temporary items
+                If Left(doc.Name, 1) = "~" Then blnSave = False
                 ' If save flag set, save the property
                 If blnSave Then dDoc.Add prp.Name, prp.Value
             Next prp
@@ -261,6 +283,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 5/28/2021
@@ -276,11 +310,12 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim varCont As Variant
     Dim varDoc As Variant
     Dim varProp As Variant
+    Dim strKey As String
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
+    If m_Items(blnModifiedOnly) Is Nothing Then
 
-        Set m_AllItems = New Dictionary
+        Set m_Items(blnModifiedOnly) = New Dictionary
         
         ' Check index hash of properties to determine if they have been changed.
         If Not blnModifiedOnly Or IDbComponent_IsModified Then
@@ -296,15 +331,18 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         ' Add as class instance
                         Set cDoc = New clsDbDocument
                         Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc).Properties(varProp)
-                        m_AllItems.Add cDoc, vbNullString
+                        strKey = cDoc.SourceFile & ":" & varCont & ":" & varDoc & ":" & varProp
+                        m_Items(blnModifiedOnly).Add strKey, cDoc
                     Next varProp
                 Next varDoc
+                If m_dItems.Exists(varCont) Then
+                End If
             Next varCont
         End If
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 
@@ -334,6 +372,17 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -342,7 +391,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetDictionaryHash(GetDictionary)
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 
@@ -432,6 +481,21 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    ' Skip the more complex iteration for fast single-file output
+    IDbComponent_QuickCount = 1
 End Property
 
 

@@ -1,0 +1,67 @@
+{
+	"project.references": [
+		{
+			"id": "{00020430-0000-0000-C000-000000000046}",
+			"name": "OLE Automation",
+			"versionMajor": 2,
+			"versionMinor": 0,
+			"lcid": 0,
+			"path32": "C:\\Windows\\SysWOW64\\stdole2.tlb",
+			"path64": "C:\\Windows\\System32\\stdole2.tlb"
+		},
+		{
+			"id": "{AC0714F2-3D04-11D1-AE7D-00A0C90F26F4}",
+			"name": "Microsoft Add-In Designer",
+			"versionMajor": 1,
+			"versionMinor": 0,
+			"lcid": 0,
+			"path32": "C:\\Program Files (x86)\\Common Files\\Designer\\MSADDNDR.DLL",
+			"path64": ""
+		},
+		{
+			"id": "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}",
+			"name": "Microsoft Office 14.0 Object Library",
+			"versionMajor": 2,
+			"versionMinor": 5,
+			"lcid": 0,
+			"path32": "C:\\Program Files (x86)\\Common Files\\Microsoft Shared\\OFFICE14\\MSO.DLL",
+			"path64": ""
+		},
+		{
+			"id": "{420B2830-E718-11CF-893D-00A0C9054228}",
+			"name": "Microsoft Scripting Runtime",
+			"versionMajor": 1,
+			"versionMinor": 0,
+			"lcid": 0,
+			"path32": "C:\\Windows\\SysWOW64\\scrrun.dll",
+			"path64": "C:\\Windows\\System32\\scrrun.dll"
+		},
+		{
+			"id": "{B691E011-1797-432E-907A-4D8C69339129}",
+			"name": "Microsoft ActiveX Data Objects 6.1 Library",
+			"versionMajor": 6,
+			"versionMinor": 1,
+			"lcid": 0,
+			"path32": "C:\\Program Files (x86)\\Common Files\\System\\ado\\msado15.dll",
+			"path64": "C:\\Program Files\\Common Files\\System\\ado\\msado15.dll"
+		}
+	],
+	"project.name": "MSAccessVCSLib",
+	"project.description": "Microsoft Access Version Control Ribbon Add-in",
+	"project.id": "{ddde82dd-9e54-46ba-8167-1cf40ec2b1ea}",
+	"configuration.inherits": "Defaults",
+	"project.buildType": "ActiveX DLL",
+	"project.buildPath": "${SourcePath}\\Build\\${ProjectName}_${Architecture}.${FileExtension}",
+	"runtime.useUnicodeStandardLibrary": true,
+	"project.optionExplicit": true,
+	"project.warnings": {
+		"ignored": [],
+		"errors": []
+	},
+	"project.licence": "MIT",
+	"project.versionMajor": 1,
+	"project.versionMinor": 0,
+	"project.versionRevision": 0,
+	"project.versionBuild": 1,
+	"project.useProjectIdForTypeLibraryId": true
+}

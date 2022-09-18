@@ -14,13 +14,13 @@ Begin Form
     DatasheetGridlinesBehavior =3
     GridX =24
     GridY =24
-    Width =11520
+    Width =12240
     DatasheetFontHeight =11
     ItemSuffix =46
-    Left =3225
-    Top =2430
-    Right =22695
-    Bottom =15015
+    Left =-25575
+    Top =1710
+    Right =-6420
+    Bottom =14295
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -153,12 +153,12 @@ Begin Form
                     BorderWidth =5
                     OverlapFlags =85
                     Top =1440
-                    Width =11520
+                    Width =12240
                     BorderColor =15321539
                     Name ="Line10"
                     HorizontalAnchor =2
                     LayoutCachedTop =1440
-                    LayoutCachedWidth =11520
+                    LayoutCachedWidth =12240
                     LayoutCachedHeight =1440
                     BorderThemeColorIndex =-1
                 End
@@ -167,12 +167,12 @@ Begin Form
                     BackStyle =1
                     OldBorderStyle =0
                     OverlapFlags =93
-                    Width =11520
+                    Width =12240
                     Height =1380
                     BackColor =5324600
                     Name ="Box1"
                     HorizontalAnchor =2
-                    LayoutCachedWidth =11520
+                    LayoutCachedWidth =12240
                     LayoutCachedHeight =1380
                     BackThemeColorIndex =-1
                 End
@@ -180,7 +180,7 @@ Begin Form
                     OverlapFlags =223
                     Left =420
                     Top =300
-                    Width =4725
+                    Width =5940
                     Height =540
                     FontSize =18
                     FontWeight =700
@@ -188,7 +188,7 @@ Begin Form
                     Caption ="Resolve Conflicts to Continue..."
                     LayoutCachedLeft =420
                     LayoutCachedTop =300
-                    LayoutCachedWidth =5145
+                    LayoutCachedWidth =6360
                     LayoutCachedHeight =840
                     ForeThemeColorIndex =1
                     ForeTint =100.0
@@ -196,7 +196,7 @@ Begin Form
                 Begin CommandButton
                     TabStop = NotDefault
                     OverlapFlags =85
-                    Left =9180
+                    Left =9600
                     Top =7080
                     Width =2100
                     Height =540
@@ -242,9 +242,9 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =9180
+                    LayoutCachedLeft =9600
                     LayoutCachedTop =7080
-                    LayoutCachedWidth =11280
+                    LayoutCachedWidth =11700
                     LayoutCachedHeight =7620
                     PictureCaptionArrangement =5
                     BackColor =14262935
@@ -269,20 +269,20 @@ Begin Form
                     OverlapFlags =215
                     Left =600
                     Top =840
-                    Width =2940
+                    Width =5040
                     Height =360
                     FontSize =10
                     Name ="lblVersion"
-                    Caption ="Version Control System 3.3.37"
+                    Caption ="Version Control System ${version}"
                     LayoutCachedLeft =600
                     LayoutCachedTop =840
-                    LayoutCachedWidth =3540
+                    LayoutCachedWidth =5640
                     LayoutCachedHeight =1200
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                 End
                 Begin Image
-                    Left =10200
+                    Left =10920
                     Top =240
                     Width =840
                     Height =900
@@ -643,15 +643,15 @@ Begin Form
                         0x046aa9574b0000000049454e44ae426082
                     End
 
-                    LayoutCachedLeft =10200
+                    LayoutCachedLeft =10920
                     LayoutCachedTop =240
-                    LayoutCachedWidth =11040
+                    LayoutCachedWidth =11760
                     LayoutCachedHeight =1140
                     TabIndex =3
                 End
                 Begin Label
                     OverlapFlags =215
-                    Left =5700
+                    Left =6420
                     Top =360
                     Width =3960
                     Height =720
@@ -660,9 +660,9 @@ Begin Form
                     Caption ="WARNING: The following changes may be overwritten. Please select how you would l"
                         "ike to proceed."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =5700
+                    LayoutCachedLeft =6420
                     LayoutCachedTop =360
-                    LayoutCachedWidth =9660
+                    LayoutCachedWidth =10380
                     LayoutCachedHeight =1080
                     ForeThemeColorIndex =1
                     ForeTint =100.0
@@ -671,7 +671,7 @@ Begin Form
                     Cancel = NotDefault
                     TabStop = NotDefault
                     OverlapFlags =85
-                    Left =6780
+                    Left =7200
                     Top =7080
                     Width =2100
                     Height =540
@@ -718,9 +718,9 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =6780
+                    LayoutCachedLeft =7200
                     LayoutCachedTop =7080
-                    LayoutCachedWidth =8880
+                    LayoutCachedWidth =9300
                     LayoutCachedHeight =7620
                     PictureCaptionArrangement =5
                     BackColor =14262935
@@ -745,17 +745,17 @@ Begin Form
                     OverlapFlags =85
                     Left =540
                     Top =2400
-                    Width =10440
+                    Width =11160
                     Height =4380
                     TabIndex =2
-                    Name ="tblConflict"
+                    Name ="sfrmConflictList"
                     SourceObject ="Form.frmVCSConflictList"
                     HorizontalAnchor =2
                     VerticalAnchor =2
 
                     LayoutCachedLeft =540
                     LayoutCachedTop =2400
-                    LayoutCachedWidth =10980
+                    LayoutCachedWidth =11700
                     LayoutCachedHeight =6780
                     Begin
                         Begin Label
@@ -788,6 +788,7 @@ Begin Form
                     Height =300
                     Name ="lblSkipAll"
                     Caption ="Skip All"
+                    OnClick ="[Event Procedure]"
                     HyperlinkAddress ="#"
                     VerticalAnchor =1
                     LayoutCachedLeft =960
@@ -805,8 +806,9 @@ Begin Form
                     Top =6960
                     Width =1620
                     Height =300
-                    Name ="Label45"
+                    Name ="lblOverwriteAll"
                     Caption ="Overwrite All"
+                    OnClick ="[Event Procedure]"
                     HyperlinkAddress ="#"
                     VerticalAnchor =1
                     LayoutCachedLeft =2280
@@ -863,8 +865,41 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Form_Load()
-    
+
     ' Display version (better performance than bound control)
     lblVersion.Caption = Replace(lblVersion.Caption, "${version}", GetVCSVersion())
-        
+    
+    ' Update heading caption
+    If Log.OperationType = eotBuild Then
+        lblHeading.Caption = "These database objects have changed since the last export"
+    Else
+        lblHeading.Caption = "These source files have changed since the last export"
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : lblOverwriteAll_Click
+' Author    : Adam Waller
+' Date      : 11/1/2021
+' Purpose   : Overwrite all items in the list
+'---------------------------------------------------------------------------------------
+'
+Private Sub lblOverwriteAll_Click()
+    CodeDb.Execute "update tblConflicts set Resolution=" & eResolveConflict.ercOverwrite, dbFailOnError
+    sfrmConflictList.Requery
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : lblSkipAll_Click
+' Author    : Adam Waller
+' Date      : 11/1/2021
+' Purpose   : Skip all items in the list
+'---------------------------------------------------------------------------------------
+'
+Private Sub lblSkipAll_Click()
+    CodeDb.Execute "update tblConflicts set Resolution=" & eResolveConflict.ercSkip, dbFailOnError
+    sfrmConflictList.Requery
 End Sub

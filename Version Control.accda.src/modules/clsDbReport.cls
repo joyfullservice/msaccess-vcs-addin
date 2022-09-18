@@ -18,8 +18,8 @@ Option Compare Database
 Option Explicit
 
 Private m_Report As AccessObject
-Private m_AllItems As Dictionary
-Private m_blnModifiedOnly As Boolean
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -36,8 +36,10 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    SaveComponentAsText acReport, m_Report.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me
-    VCSIndex.Update Me, eatExport, GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
+    Dim strHash As String
+    strHash = SaveComponentAsText(acReport, m_Report.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
+        strHash, GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
 End Sub
 
 
@@ -58,7 +60,7 @@ Private Sub IDbComponent_Import(strFile As String)
     strName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acReport, strName, strFile, Me
     Set m_Report = CurrentProject.AllReports(strName)
-    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile), GetCodeModuleHash(IDbComponent_ComponentType, strName)
 
 End Sub
 
@@ -73,7 +75,24 @@ End Sub
 '
 Private Sub IDbComponent_Merge(strFile As String)
     DeleteObjectIfExists acReport, GetObjectNameFromFileName(strFile)
-    IDbComponent_Import strFile
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
 End Sub
 
 
@@ -88,24 +107,22 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim rpt As AccessObject
     Dim cReport As IDbComponent
-
+    Dim blnAdd As Boolean
+    
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Dictionary
-        m_blnModifiedOnly = blnModifiedOnly
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         For Each rpt In CurrentProject.AllReports
             Set cReport = New clsDbReport
             Set cReport.DbObject = rpt
-            If blnModifiedOnly Then
-                If cReport.IsModified Then m_AllItems.Add cReport, rpt.Name
-            Else
-                m_AllItems.Add cReport, rpt.Name
-            End If
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cReport.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cReport.SourceFile, cReport
         Next rpt
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
 
 End Function
 
@@ -118,7 +135,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -130,9 +148,21 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearFilesByExtension IDbComponent_BaseFolder, "pv"
+    ClearFilesByExtension IDbComponent_BaseFolder, "pv" ' Remove legacy files
     If Not Options.SavePrintVars Then ClearFilesByExtension IDbComponent_BaseFolder, "json"
     ClearOrphanedSourceFiles Me, "bas", "json"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+    RemoveOrphanedDatabaseObjects Me
 End Sub
 
 
@@ -151,10 +181,10 @@ Public Function IDbComponent_IsModified() As Boolean
     
     ' Check the modified date first.
     ' (This may not reflect some code changes)
-    If m_Report.DateModified <= VCSIndex.GetExportDate(Me) Then
+    If m_Report.DateModified <= VCSIndex.Item(Me).ExportDate Then
             
         ' Date is okay, check hash
-        IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
+        IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
     End If
     
 End Function
@@ -170,6 +200,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Report Is Nothing Then Exit Function
     IDbComponent_DateModified = m_Report.DateModified
 End Function
 
@@ -220,6 +251,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Report Is Nothing Then Exit Property
     IDbComponent_Name = m_Report.Name
 End Property
 
@@ -232,6 +264,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Report Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Report.Name) & ".bas"
 End Property
 
@@ -245,6 +278,22 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    Static lngCount As Long
+    If lngCount = 0 Then lngCount = CurrentProject.AllReports.Count - 1
+    IDbComponent_QuickCount = lngCount + 1
 End Property
 
 

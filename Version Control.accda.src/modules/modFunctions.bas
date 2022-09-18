@@ -83,22 +83,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Shell2
-' Author    : Adam Waller
-' Date      : 6/3/2015
-' Purpose   : Alternative to VBA Shell command, to work around issues with the
-'           : TortoiseSVN command line for commits.
-'---------------------------------------------------------------------------------------
-'
-Public Sub Shell2(strCmd As String)
-    Dim objShell As WshShell
-    Set objShell = New WshShell
-    objShell.Exec strCmd
-    Set objShell = Nothing
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetSafeFileName
 ' Author    : Adam Waller
 ' Date      : 1/14/2019
@@ -228,9 +212,9 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     
     If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
     strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
-    Perf.OperationStart "Wait for MsgBox Response"
+    Perf.PauseTiming
     MsgBox2 = Eval(strMsg)
-    Perf.OperationEnd
+    Perf.ResumeTiming
     
     ' Restore MousePointer (if needed)
     If intCursor > 0 Then Screen.MousePointer = intCursor
@@ -298,8 +282,13 @@ Public Function dNZ(dObject As Dictionary, strPath As String, Optional strDelimi
                 End If
             Else
                 ' Move out to next segment
-                If varSegment.Exists(strKey) And Not IsEmpty(varSegment(strKey)) Then
-                    Set varSegment = varSegment(strKey)
+                If varSegment.Exists(strKey) Then
+                    If Not IsEmpty(varSegment(strKey)) Then
+                        Set varSegment = varSegment(strKey)
+                    Else
+                        ' Empty value
+                        Exit For
+                    End If
                 Else
                     ' Path not found
                     Exit For
@@ -566,7 +555,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub Pause(sngSeconds As Single)
+    If sngSeconds > 0.1 Then Perf.OperationStart "Pause execution"
     Sleep sngSeconds * 1000
+    If sngSeconds > 0.1 Then Perf.OperationEnd
 End Sub
 
 
@@ -749,3 +740,42 @@ Public Function Coalesce(ParamArray varStrings()) As String
     Next intString
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : DblQ
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Double any single or double quotes in the string (Used for SQL output)
+'---------------------------------------------------------------------------------------
+'
+Public Function DblQ(strText As String) As String
+    DblQ = MultiReplace(strText, "'", "''", """", """""")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeDupString
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Removes consecutive duplicates of a string within a string.
+'           : (Some logic built in for efficiency and to prevent infinite loops)
+'---------------------------------------------------------------------------------------
+'
+Public Function DeDupString(strText As String, strDuplicated As String) As String
+
+    Dim lngCnt As Long
+    Dim strNew As String
+    
+    strNew = strText
+    
+    ' See if the searched string exists before attempting to replace
+    If InStr(1, strText, strDuplicated) > 0 Then
+        For lngCnt = 10 To 2 Step -1
+            strNew = Replace(strNew, Repeat(strDuplicated, lngCnt), strDuplicated)
+        Next lngCnt
+    End If
+    
+    ' Return deduplicated string
+    DeDupString = strNew
+    
+End Function

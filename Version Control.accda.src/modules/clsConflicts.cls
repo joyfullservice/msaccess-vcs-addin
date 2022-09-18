@@ -19,7 +19,8 @@ Option Explicit
 ' Status to approve and continue.
 Public ApproveResolutions As Boolean
 
-Private m_Items As Collection
+Private m_dCategories As Dictionary
+Private m_dItems As Dictionary
 
 
 '---------------------------------------------------------------------------------------
@@ -34,11 +35,14 @@ Public Sub ShowDialog()
     With DoCmd
         ' The following gives a smoother load when using the datasheet subform.
         .Hourglass True
-        .OpenForm "frmVCSConflict", , , , , acHidden
+        '.OpenForm "frmVCSConflict", , , , , acHidden
         DoEvents
         .Hourglass False
         ' Open the form in dialog mode so that we return a status when it closes.
+        Perf.PauseTiming
         .OpenForm "frmVCSConflict", , , , , acDialog
+        UpdateResolutionsFromTable
+        Perf.ResumeTiming
     End With
     ClearTable
 End Sub
@@ -48,14 +52,17 @@ End Sub
 ' Procedure : Resolve
 ' Author    : Adam Waller
 ' Date      : 5/27/2021
-' Purpose   : Resolve the conflicts
+' Purpose   : Resolve the conflicts, removing any objects that should be skipped in the
+'           : import/export process.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Resolve()
+Public Sub Resolve(dCategories As Dictionary)
     Dim cItem As clsConflictItem
-    For Each cItem In m_Items
-        cItem.Resolve
-    Next cItem
+    Dim varKey As Variant
+    For Each varKey In m_dItems.Keys
+        Set cItem = m_dItems(varKey)
+        cItem.Resolve dCategories
+    Next varKey
 End Sub
 
 
@@ -66,17 +73,25 @@ End Sub
 ' Purpose   : Add an item to the conflict list.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Add(cComponent As IDbComponent, dteIndexDate As Date, dteFileDate As Date)
+Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Date, dteFileDate As Date, intActionType As eResolveConflict, _
+    Optional strSourceFile As String, Optional intSuggestedResolution As eResolveConflict)
+    
     Dim cItem As clsConflictItem
+    
     Set cItem = New clsConflictItem
     With cItem
-        .Category = cComponent.Category
-        .FileName = cComponent.SourceFile
+        .CategoryName = cComponent.Category
+        .ItemKey = strKey
+        .FileName = Nz2(strSourceFile, cComponent.SourceFile)
         .ObjectDate = cComponent.DateModified
         .IndexDate = dteIndexDate
         .FileDate = dteFileDate
+        .ActionType = intActionType
+        .Suggestion = intSuggestedResolution
+        Set .CategoryList = m_dCategories
+        m_dItems.Add .FileName, cItem
     End With
-    m_Items.Add cItem
+    
 End Sub
 
 
@@ -91,11 +106,12 @@ Private Sub SaveToTable()
 
     Dim dbs As Database
     Dim rst As Recordset
+    Dim varKey As Variant
     Dim cItem As clsConflictItem
     
     ' Clear any existing records first
     ClearTable
-    If m_Items.Count = 0 Then Exit Sub
+    If m_dItems.Count = 0 Then Exit Sub
     
     ' Open table to add items
     Set dbs = CodeDb
@@ -103,17 +119,51 @@ Private Sub SaveToTable()
     With rst
 
         ' Loop through items
-        For Each cItem In m_Items
+        For Each varKey In m_dItems.Keys
+            Set cItem = m_dItems(varKey)
             .AddNew
-                !Component = cItem.Category
-                !FileName = Mid$(cItem.FileName, Len(Options.GetExportFolder))
-                !ObjectDate = cItem.ObjectDate
-                !IndexDate = cItem.IndexDate
-                !FileDate = cItem.FileDate
+                !Component = cItem.CategoryName
+                !ItemKey = cItem.ItemKey
+                ' Save the file name, including object type folder
+                !FileName = Mid$(cItem.FileName, Len(Options.GetExportFolder) + 1)
+                !ObjectDate = ZN(cItem.ObjectDate)
+                !IndexDate = ZN(cItem.IndexDate)
+                !FileDate = ZN(cItem.FileDate)
                 !Resolution = cItem.Resolution
             .Update
-        Next cItem
+        Next varKey
         .Close
+    End With
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpdateResolutionsFromTable
+' Author    : Adam Waller
+' Date      : 11/1/2021
+' Purpose   : Update the class items with the specified resolution set by the user
+'           : in the work table.
+'---------------------------------------------------------------------------------------
+'
+Private Sub UpdateResolutionsFromTable()
+
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+
+    If m_dItems.Count = 0 Then Exit Sub
+    
+    ' Open table to read records
+    Set dbs = CodeDb
+    Set rst = dbs.OpenRecordset("tblConflicts")
+    With rst
+        Do While Not .EOF
+            ' Update matching class objects
+            If m_dItems.Exists(Nz(!ItemKey)) Then
+                m_dItems(Nz(!ItemKey)).Resolution = Nz(!Resolution, 0)
+            End If
+            .MoveNext
+        Loop
     End With
     
 End Sub
@@ -141,7 +191,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function Count() As Long
-    Count = m_Items.Count
+    Count = m_dItems.Count
 End Function
 
 
@@ -150,22 +200,12 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 5/27/2021
 ' Purpose   : Reset the class, clearing any existing conflicts
+'           : Preserve reference to categories dictionary so we can remove items later.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Reset()
-    Class_Initialize
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Class_Initialize
-' Author    : Adam Waller
-' Date      : 5/27/2021
-' Purpose   : Create new collection of items
-'---------------------------------------------------------------------------------------
-'
-Private Sub Class_Initialize()
-    Set m_Items = New Collection
+Public Sub Initialize(ByRef dCategories As Dictionary)
+    Set m_dCategories = dCategories
+    Set m_dItems = New Dictionary
     Me.ApproveResolutions = False
 End Sub
 

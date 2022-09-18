@@ -19,8 +19,11 @@ Option Explicit
 
 Public Format As eTableDataExportFormat
 
+Const UNSUPPORTED_DATA_TYPE As String = "UNSUPPORTED DATA TYPE"
+
 Private m_Table As AccessObject
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -44,19 +47,21 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Save as selected format, and remove other formats if they exist.
     For intFormat = 1 To eTableDataExportFormat.[_Last]
         ' Build file name for this format
-        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat)
+        strFile = Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat))
         If FSO.FileExists(strFile) Then DeleteFile strFile, True
         If intFormat = Me.Format Then
             ' Export the table using this format.
             Select Case intFormat
-                Case etdTabDelimited:   ExportTableDataAsTDF m_Table.Name
+                Case etdTabDelimited
+                    ' Export in tab delimited text file
+                    ExportTableDataAsTDF m_Table.Name, strFile
                 Case etdXML
                     ' Export data rows as XML (encoding default is UTF-8)
                     VerifyPath strFile
                     Perf.OperationStart "App.ExportXML()"
                     Application.ExportXML acExportTable, m_Table.Name, strFile
                     Perf.OperationEnd
-                    SanitizeXML strFile
+                    SanitizeXML strFile, False
             End Select
         End If
     Next intFormat
@@ -71,17 +76,23 @@ End Sub
 ' Purpose   : Export the data from the table.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportTableDataAsTDF(strTable As String)
+Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
 
+    Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     Dim fld As DAO.Field
     Dim cData As New clsConcat
     Dim intFields As Integer
     Dim intCnt As Integer
     Dim strText As String
-
+    Dim lngProgMax As Long
+    Dim lngProgValue As Long
+    
+    Perf.OperationStart "Export Table Data as TDF"
+    
     ' Open table in fast read-only view
-    Set rst = CurrentDb.OpenRecordset(GetTableExportSql(strTable), dbOpenSnapshot, dbOpenForwardOnly)
+    Set dbs = CurrentDb
+    Set rst = dbs.OpenRecordset(GetTableExportSql(strTable), dbOpenSnapshot, dbReadOnly)
     intFields = rst.Fields.Count
 
     ' Add header row
@@ -91,23 +102,56 @@ Public Sub ExportTableDataAsTDF(strTable As String)
         If intCnt < intFields Then cData.Add vbTab
     Next fld
     cData.Add vbCrLf
-
-    ' Add data rows
-    Do While Not rst.EOF
-        intCnt = 0
-        For Each fld In rst.Fields
-            ' Format for TDF format without line breaks
-            cData.Add FormatStringForTDF(Nz(fld.Value))
-            intCnt = intCnt + 1
-            If intCnt < intFields Then cData.Add vbTab
-        Next fld
-        cData.Add vbCrLf
-        rst.MoveNext
-        Log.Increment ' Increment log, in case this takes a while
-    Loop
-
+    
+    ' Make sure we actually have records
+    If Not rst.EOF Then
+        
+        ' Stash current progress bar values so we can reuse the
+        ' progress bar to show the progress through the rows.
+        With Log.ProgressBar
+            lngProgMax = .Max
+            lngProgValue = .Value
+            ' Set to recordset after accessing all records
+            rst.MoveLast
+            .Max = rst.RecordCount
+            .Value = 1
+            rst.MoveFirst
+        End With
+        
+        ' Add data rows
+        Do While Not rst.EOF
+            intCnt = 0
+            For Each fld In rst.Fields
+                If IsBinaryType(fld) Then
+                    ' Binary data not supported
+                    cData.Add UNSUPPORTED_DATA_TYPE
+                Else
+                    ' Format for TDF format without line breaks
+                    cData.Add FormatStringForTDF(Nz(fld.Value))
+                End If
+                intCnt = intCnt + 1
+                If intCnt < intFields Then cData.Add vbTab
+            Next fld
+            cData.Add vbCrLf
+            rst.MoveNext
+            Log.Increment ' Increment log, in case this takes a while
+        Loop
+        
+        ' Restore progress bar values for object iteration
+        With Log.ProgressBar
+             .Max = lngProgMax
+             .Value = lngProgValue
+        End With
+    End If
+    
+    ' Close database objects
+    rst.Close
+    Set rst = Nothing
+    
+    Perf.OperationEnd
+    
     ' Save output file
-    WriteFile cData.GetStr, IDbComponent_BaseFolder & GetSafeFileName(StripDboPrefix(strTable)) & ".txt"
+    WriteFile cData.GetStr, strFile
 
 End Sub
 
@@ -132,6 +176,8 @@ Private Sub ImportTableDataTDF(strFile As String)
     Dim varHeader As Variant
     Dim intCol As Integer
     Dim strValue As String
+    
+    Perf.OperationStart "Import TDF Data"
     
     ' Build a dictionary of column names so we can load the data
     ' into the matching columns.
@@ -190,8 +236,10 @@ Private Sub ImportTableDataTDF(strFile As String)
                                 ' Use replaced string value
                                 rst.Fields(varHeader(intCol)).Value = strValue
                             Else
-                                ' Use variant value without the string conversion
-                                rst.Fields(varHeader(intCol)).Value = varLine(intCol)
+                                If strValue <> UNSUPPORTED_DATA_TYPE Then
+                                    ' Use variant value without the string conversion
+                                    rst.Fields(varHeader(intCol)).Value = varLine(intCol)
+                                End If
                             End If
                         End If
                     End If
@@ -205,6 +253,8 @@ Private Sub ImportTableDataTDF(strFile As String)
     Set stm = Nothing
     rst.Close
     Set rst = Nothing
+    
+    Perf.OperationEnd
     
 End Sub
 
@@ -262,6 +312,7 @@ Private Function GetTableExportSql(strTable As String) As String
     Dim intFields As Integer
     Dim cText As New clsConcat
     Dim cFieldList As New clsConcat
+    Dim cSortList As New clsConcat
     Dim dbs As Database
 
     Set dbs = CurrentDb
@@ -271,17 +322,20 @@ Private Function GetTableExportSql(strTable As String) As String
     ' Build list of fields
     With cFieldList
         For Each fld In tdf.Fields
-            .Add "[", fld.Name, "]"
-            intCnt = intCnt + 1
-            If intCnt < intFields Then .Add ", "
+            .Add "[", fld.Name, "], "
+            If Not IsBinaryType(fld) Then cSortList.Add "[", fld.Name, "], "
         Next fld
     End With
+    
+    ' Remove any trailing commas
+    cFieldList.Remove 2
+    cSortList.Remove 2
 
     ' Build select statement
     With cText
         .Add "SELECT ", cFieldList.GetStr
         .Add " FROM [", strTable, "] ORDER BY "
-        .Add cFieldList.GetStr
+        .Add cSortList.GetStr
     End With
 
     GetTableExportSql = cText.GetStr
@@ -347,6 +401,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -357,11 +423,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     
     Dim tbl As AccessObject
     Dim cTable As clsDbTableData
-    Dim cComponent As IDbComponent
+    Dim blnAdd As Boolean
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Dictionary
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         
         ' No need to go any further if we don't have any saved tables defined
         If Options.TablesToExportData.Count > 0 Then
@@ -373,9 +439,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     If .TablesToExportData.Exists(tbl.Name) Then
                         Set cTable = New clsDbTableData
                         cTable.Format = .GetTableExportFormat(CStr(.TablesToExportData(tbl.Name)("Format")))
-                        Set cComponent = cTable
-                        Set cComponent.DbObject = tbl
-                        m_AllItems.Add cComponent, tbl.Name
+                        Set cTable.Parent.DbObject = tbl
+                        blnAdd = True
+                        If blnModifiedOnly Then blnAdd = cTable.IDbComponent_IsModified
+                        If blnAdd Then m_Items(blnModifiedOnly).Add cTable.Parent.SourceFile, cTable
                     End If
                 Next tbl
             End With
@@ -383,7 +450,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
 End Function
 
@@ -397,8 +464,27 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdTabDelimited))
-    MergeDictionary IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdXML))
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdTabDelimited))
+        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdXML))
+    End If
+    Set IDbComponent_GetFileList = m_FileList
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsBinaryType
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Returns true if the field type uses binary content. (Export/import on
+'           : binary data through XML or text is not well supported.)
+'---------------------------------------------------------------------------------------
+'
+Private Function IsBinaryType(fld As DAO.Field) As Boolean
+    Select Case fld.Type
+        Case dbLongBinary, dbVarBinary, dbAttachment: IsBinaryType = True
+        Case Else: IsBinaryType = False
+    End Select
 End Function
 
 
@@ -446,6 +532,17 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -454,7 +551,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    ' It's not really worth it to try to determine if the table data has been changed.
+    ' We would have to fully export anyway just to check, so let's always export for
+    ' table data. (This is handled different from just about every other object type.)
+    IDbComponent_IsModified = True
 End Function
 
 
@@ -519,6 +619,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Table Is Nothing Then Exit Property
     IDbComponent_Name = m_Table.Name
 End Property
 
@@ -531,6 +632,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Table Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(Me.Format)
 End Property
 
@@ -544,6 +646,21 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    ' In most cases very few tables will be involved here
+    IDbComponent_QuickCount = 1
 End Property
 
 
@@ -611,4 +728,5 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
 

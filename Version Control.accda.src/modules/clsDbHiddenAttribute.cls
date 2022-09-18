@@ -19,9 +19,8 @@ Option Explicit
 
 Private Const ModuleName As String = "clsDbHiddenAttribute"
 
-Private m_AllItems As Dictionary
+Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
-Private m_blnModifiedOnly As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -38,8 +37,10 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    WriteJsonFile TypeName(Me), GetDictionary, Nz2(strAlternatePath, IDbComponent_SourceFile), "Database objects hidden attribute"
-    VCSIndex.Update Me, eatExport, GetDictionaryHash(GetDictionary)
+    Dim strContent As String
+    strContent = GetSource
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 End Sub
 
 
@@ -106,8 +107,26 @@ Private Sub IDbComponent_Merge(strFile As String)
     Set dFile = ReadJsonFile(strFile)
     If dFile Is Nothing Then Set dFile = New Dictionary
     RemoveMissing dFile("Items"), GetDictionary
-    IDbComponent_Import strFile
     
+    ' Import if file exists
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
 End Sub
 
 
@@ -126,11 +145,12 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim varCont As Variant
     Dim varDoc As Variant
     Dim blnNoChanges As Boolean
+    Dim strKey As String
     
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
+    If m_Items(blnModifiedOnly) Is Nothing Then
 
-        Set m_AllItems = New Dictionary
+        Set m_Items(blnModifiedOnly) = New Dictionary
         Set m_dItems = GetDictionary
         
         ' Return no objects if we match the hash from the cache
@@ -143,15 +163,28 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 For Each varDoc In colCont
                     Set cDoc = New clsDbHiddenAttribute
                     Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc)
-                    m_AllItems.Add cDoc, vbNullString
+                    strKey = cDoc.SourceFile & ":" & varCont & ":" & varDoc
+                    m_Items(blnModifiedOnly).Add strKey, cDoc
                 Next varDoc
             Next varCont
         End If
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
         
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Database objects hidden attribute")
 End Function
 
 
@@ -305,6 +338,17 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedDatabaseObjects
+' Author    : Adam Waller
+' Date      : 11/3/2021
+' Purpose   : Remove database objects that are not represented by existing source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -313,7 +357,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetDictionaryHash(GetDictionary)
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 
@@ -403,6 +447,21 @@ End Property
 '
 Private Property Get IDbComponent_Count(Optional blnModifiedOnly As Boolean = False) As Long
     IDbComponent_Count = IDbComponent_GetAllFromDB(blnModifiedOnly).Count
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    ' Single file output
+    IDbComponent_QuickCount = 1
 End Property
 
 
