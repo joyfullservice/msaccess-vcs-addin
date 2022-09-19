@@ -2,6 +2,7 @@ Version Control System (msaccess-vcs-integration)
 ======================
 *for Microsoft Access Database Development*
 ----------
+Supports Microsoft Access 2010, 2013, 2016, 2019, and 365
 
 About
 -----
