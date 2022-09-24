@@ -139,8 +139,8 @@ Public Function ExampleLoadAddInAndRunExport()
     Dim objAddIn As Object  ' VBProject
     
     ' Build default add-in path
-    strAddInPath = Environ$("AppData") & "\MSAccessVCS\Version Control.accda"
-
+    strAddInPath = GetAddInFileName
+    
     ' See if add-in project is already loaded.
     For Each proj In VBE.VBProjects
         If StrComp(proj.FileName, strAddInPath, vbTextCompare) = 0 Then

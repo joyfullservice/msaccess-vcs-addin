@@ -179,7 +179,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetAddInPath() As String
-    GetAddInPath = Environ$(DESIRED_APPDATA_FOLDER) & PathSep & PROJECT_INSTALL_FOLDER & PathSep
+    GetAddInPath = VCSInstallFolder & PathSep
 End Function
 
 
