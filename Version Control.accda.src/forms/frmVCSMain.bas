@@ -17,9 +17,9 @@ Begin Form
     DatasheetFontHeight =11
     ItemSuffix =32
     Left =-25575
-    Top =1710
+    Top =1500
     Right =-255
-    Bottom =14295
+    Bottom =14085
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1812,8 +1812,10 @@ Public Sub cmdBuild_Click()
         End With
     End If
     
-    ' Build using selected folder
-    Build strFolder, chkFullBuild
+    ' Build project using the selected source folder
+    ' (Use a timer so we can release the reference to this form before beginning the
+    '  build process, just in case we need to import a form with the same name.)
+    If strFolder <> vbNullString Then SetTimer roBuildFromSource, strFolder, chkFullBuild
     
 End Sub
 
@@ -2068,11 +2070,20 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function GetProgressBar() As clsLblProg
-    Set GetProgressBar = New clsLblProg
-    GetProgressBar.Initialize lblProgBack, lblProgFront, lblProgCaption
-    GetProgressBar.SetRepaintInterval 0.5
+
+    Dim cProg As clsLblProg
+    
+    ' Create a new progress bar class, and initialize with form controls
+    Set cProg = New clsLblProg
+    cProg.Initialize lblProgBack, lblProgFront, lblProgCaption
+    cProg.SetRepaintInterval 0.5
+    
     ' Move caption up slightly for better alignment on this very small progress bar
     lblProgCaption.Top = lblProgBack.Top + 1
+    
+    ' Return reference to caller
+    Set GetProgressBar = cProg
+    
 End Function
 
 

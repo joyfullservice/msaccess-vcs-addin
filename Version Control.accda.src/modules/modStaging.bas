@@ -30,15 +30,19 @@ Private this As udtThis
 ' Purpose   : Stage the content of the form so we can close it then restore it later.
 '---------------------------------------------------------------------------------------
 '
-Public Sub StageForm(ByRef frm As Form_frmVCSMain)
+Public Sub StageMainForm()
 
     Dim blnLogActive As Boolean
+    Dim frm As Form_frmVCSMain
+    
+    ' Get reference to form instance
+    Set frm = Form_frmVCSMain
     
     With this
         ' Get headings and content
         .strHeading = frm.lblHeading.Caption
         .strSubHeading = frm.lblSubheading.Caption
-        .strLogHtml = frm.txtLog.Value
+        .strLogHtml = Nz(frm.txtLog.Value)
     
         ' Disconnect from logging class
         If Not Log.ProgressBar Is Nothing Then
@@ -70,8 +74,15 @@ End Sub
 ' Purpose   : Restore the form to the staged values.
 '---------------------------------------------------------------------------------------
 '
-Public Sub RestoreForm(frm As Form_frmVCSMain)
+Public Sub RestoreMainForm()
 
+    Dim frm As Form_frmVCSMain
+    
+    ' Open form in hidden mode, and get reference to instance
+    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+    Set frm = Form_frmVCSMain
+    
+    ' Restore settings on form
     With this
         ' Get headings and content
         frm.lblHeading.Caption = .strHeading

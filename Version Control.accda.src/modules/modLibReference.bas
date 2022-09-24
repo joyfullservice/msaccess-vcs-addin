@@ -277,12 +277,12 @@ Private Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMai
 
     ' Close any open database before we try to open another one.
     If DatabaseFileOpen Then
-        StageForm frmMain
+        StageMainForm
         Set frmMain = Nothing
         CloseCurrentDatabase2
         DoCmd.OpenForm "frmVCSMain", , , , , acHidden
         Set frmMain = Form_frmVCSMain
-        RestoreForm frmMain
+        RestoreMainForm
     End If
 
     ' Hold shift key down to bypass startup macro/form.
