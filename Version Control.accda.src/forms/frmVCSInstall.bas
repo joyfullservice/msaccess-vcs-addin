@@ -1308,7 +1308,7 @@ Begin Form
                     LayoutCachedTop =120
                     LayoutCachedWidth =6780
                     LayoutCachedHeight =1020
-                    TabIndex =5
+                    TabIndex =6
                 End
                 Begin CheckBox
                     TabStop = NotDefault
@@ -1498,10 +1498,10 @@ Begin Form
                     Top =4380
                     Width =2520
                     FontSize =9
-                    TabIndex =6
+                    TabIndex =5
                     Name ="cmdChangeInstallFolder"
                     Caption ="Change Installation Folder"
-                    OnGotFocus ="[Event Procedure]"
+                    OnClick ="[Event Procedure]"
                     ControlTipText ="Click here to change installation folder"
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
@@ -1648,6 +1648,16 @@ Private Sub cmdInstall_Click()
     
 End Sub
 
+'---------------------------------------------------------------------------------------
+' Procedure : cmdChangeInstallFolder_Click
+' Author    : Ahecon5
+' Date      : 2022-SEPT-26
+' Purpose   : Load Install Folder popup.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdChangeInstallFolder_Click()
+    modInstall.SetVCSInstallFolder
+End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Form_Load
