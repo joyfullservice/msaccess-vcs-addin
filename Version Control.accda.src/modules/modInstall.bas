@@ -566,7 +566,7 @@ Public Sub SetVCSInstallFolder()
     If MsgBox2("Warning! If you move the installation location, it is HIGHLY advised to uninstall and remove the Addin then change install location prior to reinstalling." _
             , "Unexpected operation or file export corruption may occur." & vbNewLine & "Are you sure you want to do this AND have uninstalled first?" _
             , "Press [CANCEL] to abort file change." & vbNewLine & _
-             "Press [YES] to confirm and continue moving install." _
+             "Press [OK] to confirm and continue moving install." _
              , vbInformation + vbDefaultButton2 + vbOKCancel, "Confirm installation change") <> vbOK Then Exit Sub
     
     NewFolderLocation = VCSInstallFolder
