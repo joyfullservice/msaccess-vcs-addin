@@ -220,7 +220,7 @@ Public Function GetAddInFileName() As String
     GetAddInFileName = FSO.BuildPath(VCSInstallFolder, CodeProject.Name)
 End Function
 
-Public Function DefaultAddInFolderPath() As String
+Private Function DefaultAddInFolderPath() As String
     DefaultAddInFolderPath = BuildPath2(Environ$(DESIRED_APPDATA_FOLDER), PROJECT_INSTALL_FOLDER)
 End Function
 
