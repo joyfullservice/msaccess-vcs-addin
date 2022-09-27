@@ -22,7 +22,43 @@ Private Declare PtrSafe Function getTempFileName Lib "kernel32" Alias "GetTempFi
     ByVal wUnique As Long, _
     ByVal lpTempFileName As String) As Long
     
-    
+Private Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" Alias "SHCreateDirectoryExW" _
+    (ByVal hwnd As LongPtr, ByVal pszPath As LongPtr, ByVal psa As Any) As Long
+
+
+' Keep a persistent reference to file system object after initializing version control.
+' This way we don't have to recreate this object dozens of times while using VCS.
+Private m_FSO As Scripting.FileSystemObject
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FSO
+' Author    : Adam Waller, hecon5
+' Date      : 1/18/2019
+' Purpose   : Wrapper for file system object. A property allows us to clear the object
+'           : reference when we have completed an export or import operation.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get FSO() As Scripting.FileSystemObject
+    Static RetryCount As Long
+Retry:
+    If m_FSO Is Nothing Then 
+        If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+        Set m_FSO = New Scripting.FileSystemObject
+    End If
+    Set FSO = m_FSO
+    If CatchAny(eelError, "Retry FSO Check", ModuleName & ".FSO", False, True) And RetryCount < 2 Then
+        ' Some machines in some environments may fail to generate the FileSystemObject the first time
+        ' 99% of the time, the second attempt will work. This may be due to a race condition in the OS.
+        RetryCount = RetryCount + 1
+        GoTo Retry
+    End If
+    CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", ModuleName & ".FSO"
+End Property
+Public Property Set FSO(ByVal RHS As Scripting.FileSystemObject)
+    Set m_FSO = RHS
+End Property
+
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTempFile
 ' Author    : Adapted by Adam Waller
@@ -216,22 +252,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : MkDirIfNotExist
-' Author    : Adam Waller
-' Date      : 1/25/2019
-' Purpose   : Create folder `Path`. Silently do nothing if it already exists.
-'---------------------------------------------------------------------------------------
-'
-Public Sub MkDirIfNotExist(strPath As String)
-    If Not FSO.FolderExists(StripSlash(strPath)) Then
-        Perf.OperationStart "Create Folder"
-        FSO.CreateFolder StripSlash(strPath)
-        Perf.OperationEnd
-    End If
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : MoveFileIfExists
 ' Author    : Adam Waller
 ' Date      : 9/10/2022
@@ -299,66 +319,68 @@ Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
 End Sub
 
 
-'---------------------------------------------------------------------------------------
-' Procedure : VerifyPath
-' Author    : Adam Waller
-' Date      : 8/3/2020
-' Purpose   : Verifies that the folder path to a folder or file exists.
-'           : Use this to verify the folder path before attempting to write a file.
-'---------------------------------------------------------------------------------------
-'
-Public Sub VerifyPath(strPath As String)
-    
+' ----------------------------------------------------------------
+' Procedure : VerifyPath (Renamed from EnsurePathExists to allow wrapperless implementation
+' DateTime  : 8/15/2022
+' Author    : Mike Wolfe
+' Source    : https://nolongerset.com/ensurepathexists/
+' Purpose   : Unicode-safe method to ensure a folder exists
+'               and create it (and all subfolders) if it does not.
+' ----------------------------------------------------------------
+Public Function VerifyPath(PathToCheck As String _
+                        , Optional EnableLongPath As Boolean = True) As Boolean
+
+    Const FunctionName As String = ModuleName & ".VerifyPath"
+
+    Const ERROR_SUCCESS As Long = &H0
+    Const ERROR_ACCESS_DENIED As Long = &H5         'Could not create directory; access denied.
+    Const ERROR_BAD_PATHNAME As Long = &HA1         'The pszPath parameter was set to a relative path.
+    Const ERROR_FILENAME_EXCED_RANGE As Long = &HCE 'The path pointed to by pszPath is too long.
+    Const ERROR_FILE_EXISTS As Long = &H50          'The directory exists.
+    Const ERROR_ALREADY_EXISTS As Long = &HB7       'The directory exists.
+    Const ERROR_CANCELLED As Long = &H4C7           'The user canceled the operation.
+    Const ERROR_INVALID_NAME As Long = &H7B         'Unicode path passed when SHCreateDirectoryEx passes PathToCheck as string.
+
+    Const LONG_PATH_PREFIX As String = "\\?\"
+
+    Dim ReturnCode As Long
     Dim strFolder As String
-    Dim varParts As Variant
-    Dim intPart As Integer
-    Dim strVerified As String
-    
-    If strPath = vbNullString Then Exit Sub
-    
-    Perf.OperationStart "Verify Path"
-    
-    ' Determine if the path is a file or folder
-    If Right$(strPath, 1) = PathSep Then
+
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    Perf.OperationStart FunctionName
+
+    If PathToCheck = vbNullString Then GoTo Exit_Here
+
+    If Right$(PathToCheck, 1) = PathSep Then
         ' Folder name. (Folder names can contain periods)
-        strFolder = Left$(strPath, Len(strPath) - 1)
+        strFolder = Left$(PathToCheck, Len(PathToCheck) - 1)
     Else
         ' File name
-        strFolder = FSO.GetParentFolderName(strPath)
+        strFolder = FSO.GetParentFolderName(PathToCheck)
     End If
-    
-    ' Check if full path exists.
-    If Not FSO.FolderExists(strFolder) Then
-        ' Start from the root, and build out full path, creating folders as needed.
-        ' UNC path? change 3 "\" into 3 "@"
-        If strFolder Like PathSep & PathSep & "*" & PathSep & "*" Then
-            strFolder = Replace(strFolder, PathSep, "@", 1, 3)
-        End If
 
-        ' Separate folders from server name
-        varParts = Split(strFolder, PathSep)
-        ' Get the slashes back
-        varParts(0) = Replace(varParts(0), "@", PathSep, 1, 3)
-                
-        ' Make sure the root folder exists. If it doesn't we probably have some other issue.
-        If Not FSO.FolderExists(varParts(0)) Then
-            MsgBox2 "Path Not Found", "Could not find the path '" & varParts(0) & "' on this system.", _
-                    "While trying to verify this path: " & strFolder, vbExclamation
-        Else
-            ' Loop through folder structure, creating as needed.
-            strVerified = varParts(0) & PathSep
-            For intPart = 1 To UBound(varParts)
-                strVerified = FSO.BuildPath(strVerified, varParts(intPart))
-                MkDirIfNotExist strVerified
-
-            Next intPart
-        End If
+    If EnableLongPath And Not StartsWith(strFolder, ".") Then ' Can't use relative paths for LongPaths.
+        ReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(LONG_PATH_PREFIX & strFolder), ByVal 0&)
+    Else
+        ReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(strFolder), ByVal 0&)
     End If
-    
-    ' End timing of operation
+
+    Select Case ReturnCode
+    Case ERROR_SUCCESS, _
+         ERROR_FILE_EXISTS, _
+         ERROR_ALREADY_EXISTS
+        VerifyPath = True
+    Case ERROR_ACCESS_DENIED: Log.Error eelError, "Could not create path: Access denied. Path: " & PathToCheck
+    Case ERROR_BAD_PATHNAME: Log.Error eelError, "Cannot use relative path: " & PathToCheck, FunctionName
+    Case ERROR_FILENAME_EXCED_RANGE: Log.Error eelError, "Path too long." & PathToCheck, FunctionName
+    Case ERROR_CANCELLED: Log.Error eelError, "User cancelled CreateDirectory operation." & PathToCheck, FunctionName
+    Case ERROR_INVALID_NAME: Log.Error eelError, "Invalid path name: " & PathToCheck, FunctionName
+    Case Else: Log.Error eelError, "Unexpected error verifying path. Return Code: " & CStr(ReturnCode) & vbNewLine & vbNewLine & "Path:" & PathToCheck, FunctionName
+    End Select
+Exit_Here:
+    CatchAny eelError, "Unexpected Error verifying path: " & vbNewLine & vbNewLine & PathToCheck, FunctionName
     Perf.OperationEnd
-    
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -450,6 +472,25 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : BuildPath2
+' Author    : Adam Waller
+' Date      : 3/3/2021
+' Purpose   : Like FSO.BuildPath, but with unlimited arguments)
+'---------------------------------------------------------------------------------------
+'
+Public Function BuildPath2(ParamArray Segments())
+    Dim lngPart As Long
+    With New clsConcat
+        For lngPart = LBound(Segments) To UBound(Segments)
+            .Add CStr(Segments(lngPart))
+            If lngPart < UBound(Segments) Then .Add PathSep
+        Next lngPart
+    BuildPath2 = .GetStr
+    End With
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetRelativePath
 ' Author    : Adam Waller
 ' Date      : 5/11/2020
@@ -527,27 +568,51 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetUncPath
-' Author    : Adam Waller
-' Date      : 7/14/2020
+' Author    : Adam Waller, hecon5
+' Date      : 7/14/2020, 2022 Sept 27
 ' Purpose   : Returns the UNC path for a network location (if applicable)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetUncPath(strPath As String)
-
+Public Function GetUNCPath(ByRef strPath As String)
+    Const FunctionName As String = ModuleName & ".GetUNCPath"
     Dim strDrive As String
     Dim strUNC As String
-    
+    Perf.OperationStart FunctionName
     strUNC = strPath
+Retry:
+    On Error Resume Next
+
     strDrive = FSO.GetDriveName(strPath)
+    If Catch(68) Then GoTo HandleDriveLoss
+    CatchAny eelError, "Issue getting drive paths.", FunctionName
     With FSO.GetDrive(strDrive)
+        If Catch(68) Then GoTo HandleDriveLoss
         If .DriveType = Remote Then
-            strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
+            If .IsReady Then
+                strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
+            Else
+                GoTo HandleDriveLoss
+            End If
         End If
     End With
-    GetUncPath = strUNC
-    
-End Function
+    GetUNCPath = strUNC
 
+Exit_Here:
+    Perf.OperationEnd
+    CatchAny eelError, "Issue getting drive paths.", FunctionName
+    Exit Function
+    
+HandleDriveLoss:
+    Select Case Log.Error(eelError, "Your drive isn't ready! Reconnect " & strDrive & " to continue.", FunctionName, vbRetryCancel, , _
+             "Click Retry AFTER reconnecting drive (often this means simply opening the drive in Windows File Explorer). " & vbNewLine & _
+             "Click Cancel to stop operation." & vbNewLine)
+        Case vbRetry
+            GoTo Retry
+        Case Else
+            ' Log error, quit operation.
+            GoTo Exit_Here
+    End Select
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetLastModifiedDate
@@ -589,3 +654,96 @@ Public Function StripSlash(strText As String) As String
     End If
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : PathSep
+' Author    : Adam Waller
+' Date      : 3/3/2021
+' Purpose   : Return the current path separator, based on language settings.
+'           : Caches value to avoid extra calls to FSO object.
+'---------------------------------------------------------------------------------------
+'
+Public Function PathSep() As String
+    Static strSeparator As String
+    If strSeparator = vbNullString Then strSeparator = Mid$(FSO.BuildPath("a", "b"), 2, 1)
+    PathSep = strSeparator
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSafeFileName
+' Author    : Adam Waller, hecon5
+' Date      : 1/14/2019, 2022 MAY 20
+' Purpose   : Replace illegal filename characters with URL encoded substitutes
+'           : Sources: http://stackoverflow.com/questions/1976007/what-characters-are-forbidden-in-windows-and-linux-directory-names
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSafeFileName(strName As String) As String
+    ' Use URL encoding for these characters
+    ' https://www.w3schools.com/tags/ref_urlencode.asp
+    ' 
+    ' NOTE: Do "%" replace first, as all the remainder use the "%" symbol and
+    '       you will create a huge loop otherwise.
+    GetSafeFileName = MultiReplace(strName _
+                        , "%", "%25" _
+                        , "<", "%3C" _
+                        , ">", "%3E" _
+                        , ":", "%3A" _
+                        , """", "%22" _
+                        , "/", "%2F" _
+                        , "\", "%5C" _
+                        , "|", "%7C" _
+                        , "?", "%3F" _
+                        , "*", "%2A" _
+                        )
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetUploadSafeFileName
+' Author    : hecon5
+' Date      : 2022 MAY 20
+' Purpose   : Remove illegal filename characters with URL encoded substitutes safe for 
+'           : many websites (EG: SharePoint doesn't like "URL Safe" charachters)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetUploadSafeFileName(ByRef strName As String) As String
+    GetUploadSafeFileName = MultiReplace(strName _
+                            , "%", vbNullString _
+                            , "<", vbNullString _
+                            , ">", vbNullString _
+                            , ":", vbNullString _
+                            , """", vbNullString _
+                            , "/", vbNullString _
+                            , "\", vbNullString _
+                            , "|", vbNullString _
+                            , "?", vbNullString _
+                            , "*", vbNullString _
+                            )
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetObjectNameFromFileName
+' Author    : Adam Waller
+' Date      : 5/6/2020
+' Purpose   : Return the object name after translating the HTML encoding back to normal
+'           : file name characters.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetObjectNameFromFileName(strFile As String) As String
+
+    Dim strName As String
+
+    strName = FSO.GetBaseName(strFile)
+    ' Make sure the following list matches the one above.
+    GetObjectNameFromFileName = MultiReplace (strName _
+                                , "%3C", "<" _
+                                , "%3E", ">" _
+                                , "%3A", ":" _
+                                , "%22", """" _
+                                , "%2F", "/" _
+                                , "%5C", "\" _
+                                , "%7C", "|" _
+                                , "%3F", "?" _
+                                , "%2A", "*" _
+                                , "%25", "%")  ' This should be done last.
+End Function
