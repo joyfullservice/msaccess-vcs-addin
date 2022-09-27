@@ -69,7 +69,7 @@ Public Sub VerifyComAddIn()
     End If
     
     ' Verify COM registration
-    If Not blnInstall Then blnInstall = DllIsRegistered
+    If Not blnInstall Then blnInstall = Not DllIsRegistered
     
     ' Install/reinstall if needed
     If blnInstall Then
