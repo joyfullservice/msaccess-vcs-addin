@@ -529,7 +529,7 @@ Private Sub json_ParseString(ByRef json_String As String _
     json_Index = json_Index + 1
     
     json_endQuotePosition = InStr(json_Index, json_String, json_Quote, vbBinaryCompare)
-    If (json_endQuotePosition - json_Index) > LongStringLen Then isLongString = True
+    If (json_endQuotePosition - json_Index) > Me.LongStringLen Then isLongString = True
     
     Do While json_Index > 0 And json_Index <= Len(json_String)
         json_Char = VBA.Mid$(json_String, json_Index, 1)
@@ -549,37 +549,37 @@ Private Sub json_ParseString(ByRef json_String As String _
                 End If
                 json_Index = json_Index + 1
             Case "b"
-            If isLongString Then
-                json_BufferAppend json_Buffer, vbBack, json_BufferPosition, json_BufferLength
-                                Else
+                If isLongString Then
+                    json_BufferAppend json_Buffer, vbBack, json_BufferPosition, json_BufferLength
+                Else
                     json_ParsedValue = json_ParsedValue & vbBack
                 End If
                 json_Index = json_Index + 1
             Case "f"
-            If isLongString Then
-                json_BufferAppend json_Buffer, vbFormFeed, json_BufferPosition, json_BufferLength
-                            Else
+                If isLongString Then
+                    json_BufferAppend json_Buffer, vbFormFeed, json_BufferPosition, json_BufferLength
+                Else
                     json_ParsedValue = json_ParsedValue & vbFormFeed
                 End If
                 json_Index = json_Index + 1
             Case "n"
-            If isLongString Then
-                json_BufferAppend json_Buffer, vbCrLf, json_BufferPosition, json_BufferLength
-                                Else
+                If isLongString Then
+                    json_BufferAppend json_Buffer, vbCrLf, json_BufferPosition, json_BufferLength
+                Else
                     json_ParsedValue = json_ParsedValue & vbCrLf
                 End If
                 json_Index = json_Index + 1
             Case "r"
-            If isLongString Then
-                json_BufferAppend json_Buffer, vbCr, json_BufferPosition, json_BufferLength
-                                Else
+                If isLongString Then
+                    json_BufferAppend json_Buffer, vbCr, json_BufferPosition, json_BufferLength
+                Else
                     json_ParsedValue = json_ParsedValue & vbCr
                 End If
                 json_Index = json_Index + 1
             Case "t"
-            If isLongString Then
-                json_BufferAppend json_Buffer, vbTab, json_BufferPosition, json_BufferLength
-                                Else
+                If isLongString Then
+                    json_BufferAppend json_Buffer, vbTab, json_BufferPosition, json_BufferLength
+                Else
                     json_ParsedValue = json_ParsedValue & vbTab
                 End If
                 json_Index = json_Index + 1
@@ -588,8 +588,8 @@ Private Sub json_ParseString(ByRef json_String As String _
                 json_Index = json_Index + 1
                 json_Code = VBA.Mid$(json_String, json_Index, 4)
                 If isLongString Then
-                json_BufferAppend json_Buffer, VBA.ChrW$(VBA.Val("&h" + json_Code)), json_BufferPosition, json_BufferLength
-                                Else
+                    json_BufferAppend json_Buffer, VBA.ChrW$(VBA.Val("&h" + json_Code)), json_BufferPosition, json_BufferLength
+                Else
                     json_ParsedValue = json_ParsedValue & VBA.ChrW$(VBA.Val("&h" + json_Code))
                 End If
                 json_Index = json_Index + 4
@@ -598,7 +598,7 @@ Private Sub json_ParseString(ByRef json_String As String _
             If isLongString Then json_ParsedValue = json_BufferToString(json_Buffer, json_BufferPosition)
             json_Index = json_Index + 1
             
-            If Me.ConvertDateToUTC Then
+            If Me.ConvertDateToUTC Then ' Only convert and test for condition if needed for speed boost.
                 If (json_ParsedValue Like "####-##-##T##:##:##*") Then _
                     json_ParsedValue = ParseIso(VBA.CStr$(json_ParsedValue))
             End If
