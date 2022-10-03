@@ -167,7 +167,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
                 If FSO.FileExists(strTempFile) Then
                     ' Move the temp file(s) over to the source export folder.
-                    cDbObject.MoveSource VCSIndex.GetTempExportFolder, Options.GetExportFolder
+                    cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, cDbObject.BaseFolder
                     ' Update the index with the values from the alternate export
                     VCSIndex.UpdateFromAltExport cDbObject
                 Else
