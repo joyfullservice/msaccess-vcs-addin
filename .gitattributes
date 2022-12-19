@@ -8,7 +8,12 @@
 # in a compressed archive directly from GitHub. (Otherwise class modules may
 # not be imported correctly. See issue #150 for more details.)
 ###############################################################################
-*.bas text eol=crlf
+*.bas text eol=crlf		# Most source files use this extension
+*.cls text eol=crlf		# Class modules
+*.xml text eol=crlf		# Some object definitions
+*.sql text eol=crlf		# SQL output
+*.frm text eol=crlf		# Forms 2.0 form definitions (rarely used)
+*.json text eol=crlf		# Common source file
 
 ###############################################################################
 # Clarify that the source language is VBA (Auto-detection not always accurate)
