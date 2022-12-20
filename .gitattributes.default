@@ -34,7 +34,7 @@
 *.twin linguist-language=VBA
 
 # Git files
-*.gitattributes text 
+*.gitattributes text
 *.gitattributes linguist-language=gitattributes
 
 # Ignore files (like .npmignore or .gitignore)
