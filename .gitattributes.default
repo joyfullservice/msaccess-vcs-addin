@@ -12,12 +12,18 @@
 # in a compressed archive directly from GitHub. (Otherwise class modules may
 # not be imported correctly. See issue #150 for more details.)
 ###############################################################################
-*.bas text eol=crlf		# Most source files use this extension
-*.cls text eol=crlf		# Class modules
-*.xml text eol=crlf		# Some object definitions
-*.sql text eol=crlf		# SQL output
-*.frm text eol=crlf		# Forms 2.0 form definitions (rarely used)
-*.json text eol=crlf		# Common source file
+# Most source files use this extension
+*.bas text eol=crlf
+# Class modules
+*.cls text eol=crlf
+# Some object definitions
+*.xml text eol=crlf
+# SQL output
+*.sql text eol=crlf
+# Forms 2.0 form definitions (rarely used)
+*.frm text eol=crlf
+# Common source file
+*.json text eol=crlf
 
 ###############################################################################
 # Clarify that the source language is VBA (Auto-detection not always accurate)
@@ -28,7 +34,7 @@
 *.twin linguist-language=VBA
 
 # Git files
-*.gitattributes text 
+*.gitattributes text
 *.gitattributes linguist-language=gitattributes
 
 # Ignore files (like .npmignore or .gitignore)
