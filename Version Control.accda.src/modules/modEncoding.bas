@@ -332,10 +332,10 @@ End Sub
 '           : * Note that using utf-8 as a default system encoding may not work
 '           : correctly with some extended characters in VBA code modules. The VBA IDE
 '           : does not support Unicode characters, and requires code pages to display
-'           : extended/non-English characters. See Issues #60, #186, #180, #246
+'           : extended/non-English characters. See Issues #60, #186, #180, #246, #377
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSystemEncoding() As String
+Public Function GetSystemEncoding(Optional blnAllowUtf8 As Boolean = True) As String
     
     Static lngEncoding As Long
     
@@ -465,10 +465,18 @@ Public Function GetSystemEncoding() As String
         Case msoEncodingISCIIGujarati:                  GetSystemEncoding = "x-iscii-gu"
         Case msoEncodingISCIIPunjabi:                   GetSystemEncoding = "x-iscii-pa"
         Case msoEncodingUTF7:                           GetSystemEncoding = "utf-7"
-        Case msoEncodingUTF8:                           GetSystemEncoding = "utf-8" '* See note
         
-        ' *In Windows 10, this is a checkbox in Region settings for
+        ' In Windows 10, this is shown as a checkbox in Region settings for
         ' "Beta: Use Unicode UTF-8 for worldwide language support"
+        Case msoEncodingUTF8:
+            If blnAllowUtf8 Then
+                GetSystemEncoding = "utf-8"
+            Else
+                ' If UTF-8 is not allowed (such as for code modules), then fall back
+                ' to most commonly used codepage, supporting most Western Euorpean
+                ' languages, but not Cyrillic. https://www.wikiwand.com/en/Windows-1252
+                GetSystemEncoding = "Windows-1252"
+            End If
         
         ' Any other language encoding not defined above (should be very rare)
         Case Else

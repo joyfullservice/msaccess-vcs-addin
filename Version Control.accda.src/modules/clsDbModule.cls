@@ -89,7 +89,7 @@ Private Sub IDbComponent_Import(strFile As String)
     
     ' Write to a new file using system encoding (converting from UTF-8)
     strTempFile = GetTempFile
-    WriteFile udtFile.strContent, strTempFile, GetSystemEncoding
+    WriteFile udtFile.strContent, strTempFile, GetSystemEncoding(False)
     
     ' Import the source code
     LoadVbeModuleFromFile strTempFile, strName
