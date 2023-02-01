@@ -539,11 +539,13 @@ Public Function GetUncPath(strPath As String)
     
     strUNC = strPath
     strDrive = FSO.GetDriveName(strPath)
-    With FSO.GetDrive(strDrive)
-        If .DriveType = Remote Then
-            strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
-        End If
-    End With
+    If strDrive <> vbNullString Then
+        With FSO.GetDrive(strDrive)
+            If .DriveType = Remote Then
+                strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
+            End If
+        End With
+    End If
     GetUncPath = strUNC
     
 End Function
