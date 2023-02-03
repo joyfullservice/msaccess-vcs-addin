@@ -490,6 +490,9 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
     Dim strTLine As String
     Dim strLine As String
     Dim lngLine As Long
+    Dim lngData As Long
+    Dim lngPos As Long
+    Dim lngLen As Long
     Dim rxLine As VBScript_RegExp_55.RegExp
     Dim objMatches As VBScript_RegExp_55.MatchCollection
     Dim varLines As Variant
@@ -522,6 +525,23 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
             strFile = Replace(strFile, "&", "&amp;")
         End If
     End With
+    
+    ' When exporting table data, the schema is only required when the table contains
+    ' a calculated field. See if we are working with a table data file, and if it
+    ' contains a calculated field.
+    lngData = InStr(1, strFile, "<dataroot xmlns:xsi=")
+    If lngData > 0 Then
+        ' Looks like a table data export file
+        lngPos = InStr(1, strFile, """ od:expression=""")
+        If lngPos > 0 And lngPos < lngData Then
+            ' Contains a calculated field. Include the schema in the export file.
+        Else
+            ' Trim off the schema, and just include the data.
+            ' Also remove the closing root tag from the end of the file.
+            lngLen = (Len(strFile) - lngData) - Len("</root>" & vbCrLf)
+            strFile = Mid(strFile, lngData, lngLen)
+        End If
+    End If
     
     ' Split into array of lines
     varLines = Split(FormatXML(strFile), vbCrLf)
