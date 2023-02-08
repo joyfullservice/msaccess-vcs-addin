@@ -140,8 +140,8 @@ Private Sub IDbComponent_Import(strFile As String)
         With proj
             lngIndex = .Resources.Count
             ' Import using the original file name as the resource name so the
-            ' embedded file has the correct name.
-            strBase = FSO.GetBaseName(strOriginalName)
+            ' embedded file has the correct name. (Ensuring that we are using a unique name)
+            strBase = GetUnusedResourceName(FSO.GetBaseName(strOriginalName))
             .AddSharedImage strBase, strOriginalName
             If .Resources.Count = lngIndex + 1 Then
                 ' Rename shared resource to saved name if different.
@@ -310,6 +310,53 @@ Private Function GetResourceIndexByName(strName As String) As Long
             Exit For
         End If
     Next lngIndex
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetUnusedResourceName
+' Author    : Adam Waller
+' Date      : 2/7/2023
+' Purpose   : Return the original name if possible, or a similar name that does not
+'           : conflict with any existing resource names.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetUnusedResourceName(strName As String) As String
+
+    Dim resItem As SharedResource
+    Dim strTest As String
+    Dim lngCnt As Long
+    
+    Perf.OperationStart "Get Unused Resource Name"
+    
+    ' Use a dictionary to easily test if a name is in use.
+    With New Dictionary
+        
+        ' Build dictionary of existing items
+        For Each resItem In CurrentProject.Resources
+            If resItem.Type = acResourceImage Then .Add resItem.Name, vbNullString
+        Next resItem
+        
+        ' Start with the initial name
+        strTest = strName
+        
+        ' Loop through name alternatives to find an unused one.
+        ' (Typically we would only have to do one or two iterations)
+        For lngCnt = 1 To 100
+            If Not .Exists(strTest) Then
+                ' Found an unused name
+                Exit For
+            End If
+            ' Build an alternate name with a numerical prefix for the next test.
+            strTest = lngCnt & "_" & strName
+        Next lngCnt
+    End With
+
+    Perf.OperationEnd
+    
+    ' Return the tested and available name
+    GetUnusedResourceName = strTest
     
 End Function
 
