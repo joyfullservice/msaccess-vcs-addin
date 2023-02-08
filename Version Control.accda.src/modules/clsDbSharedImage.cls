@@ -77,28 +77,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : StripOLEHeader
-' Author    : Adam Waller
-' Date      : 5/12/2020
-' Purpose   : Strip out the OLE header so we can save the raw binary image as a
-'           : readable file. (First 20 bytes (10 chars) of the data)
-'           : Tested with jpg, gif, png, tiff
-'---------------------------------------------------------------------------------------
-'
-Private Function StripOLEHeader(strExt As String, bteData() As Byte) As Byte()
-
-    Dim strData As String
-    
-    ' Convert to string
-    strData = bteData
-    
-    ' Strip off header, and convert back to byte array
-    StripOLEHeader = Mid$(strData, 8 + Len(strExt))
-    
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : Import
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -367,6 +345,28 @@ Private Function GetUnusedResourceName(strName As String) As String
     
     ' Return the tested and available name
     GetUnusedResourceName = strTest
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StripOLEHeader
+' Author    : Adam Waller
+' Date      : 5/12/2020
+' Purpose   : Strip out the OLE header so we can save the raw binary image as a
+'           : readable file. (First 20 bytes (10 chars) of the data)
+'           : Tested with jpg, gif, png, tiff
+'---------------------------------------------------------------------------------------
+'
+Private Function StripOLEHeader(strExt As String, bteData() As Byte) As Byte()
+
+    Dim strData As String
+    
+    ' Convert to string
+    strData = bteData
+    
+    ' Strip off header, and convert back to byte array
+    StripOLEHeader = Mid$(strData, 8 + Len(strExt))
     
 End Function
 
