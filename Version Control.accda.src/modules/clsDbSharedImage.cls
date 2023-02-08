@@ -324,20 +324,30 @@ End Function
 '
 Private Function GetUnusedResourceName(strName As String) As String
 
-    Dim resItem As SharedResource
+    Dim strSql As String
     Dim strTest As String
     Dim lngCnt As Long
+    Dim rst As DAO.Recordset
     
     Perf.OperationStart "Get Unused Resource Name"
     
     ' Use a dictionary to easily test if a name is in use.
     With New Dictionary
-        
+            
         ' Build dictionary of existing items
-        For Each resItem In CurrentProject.Resources
-            If resItem.Type = acResourceImage Then .Add resItem.Name, vbNullString
-        Next resItem
-        
+        ' (Reading directly from the table is MUCH faster than iterating through
+        '  the CurrentProject.Resources object model.)
+        If TableExists("MSysResources") Then
+            If m_Dbs Is Nothing Then Set m_Dbs = CurrentDb
+            strSql = "SELECT * FROM MSysResources WHERE Type='img'"
+            Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
+            Do While Not rst.EOF
+                If Not .Exists(Nz(rst!Name)) Then .Add Nz(rst!Name), vbNullString
+                rst.MoveNext
+            Loop
+            rst.Close
+        End If
+
         ' Start with the initial name
         strTest = strName
         
