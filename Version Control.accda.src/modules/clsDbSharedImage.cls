@@ -157,7 +157,50 @@ End Sub
 '
 Private Sub IDbComponent_Merge(strFile As String)
 
+    Dim strName As String
+        
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+    
+    ' Parse name from file name
+    strName = GetObjectNameFromFileName(strFile)
+    
+    ' Remove the existing shared image, if it exists.
+    RemoveIfExists strName
+        
+    ' Import if source file exists
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveIfExists
+' Author    : Adam Waller
+' Date      : 2/7/2023
+' Purpose   : Removes a shared resource if it exists
+'---------------------------------------------------------------------------------------
+'
+Private Function RemoveIfExists(strName As String)
+    
+    Dim resImage As SharedResource
+    
+    Perf.OperationStart "Check/Remove Shared Resource"
+    For Each resImage In CurrentProject.Resources
+        If resImage.Type = acResourceImage Then
+            If resImage.Name = strName Then
+                resImage.Delete
+                Exit For
+            End If
+        End If
+    Next resImage
+    Perf.OperationEnd
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
