@@ -235,7 +235,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function HasUtf8Bom(strFilePath As String) As Boolean
-    HasUtf8Bom = FileHasBom(strFilePath, UTF8_BOM)
+    Dim bte() As Byte
+    bte = GetFileBytes(strFilePath, 3)
+    HasUtf8Bom = ((bte(0) = &HEF) And (bte(1) = &HBB) And (bte(2) = &HBF))
 End Function
 
 
@@ -243,23 +245,15 @@ End Function
 ' Procedure : HasUcs2Bom
 ' Author    : Adam Waller
 ' Date      : 8/1/2020
-' Purpose   : Returns true if the file begins with
+' Purpose   : Returns true if the file begins with the bytes `FF FE` (ÿþ)
+'           : Note that these must be read as bytes, not compared to a string value
+'           : if the system is using the UTF-8 (beta) option in Windows 10. See #378
 '---------------------------------------------------------------------------------------
 '
 Public Function HasUcs2Bom(strFilePath As String) As Boolean
-    HasUcs2Bom = FileHasBom(strFilePath, UCS2_BOM)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : FileHasBom
-' Author    : Adam Waller
-' Date      : 8/1/2020
-' Purpose   : Check for the specified BOM by reading the first few bytes in the file.
-'---------------------------------------------------------------------------------------
-'
-Private Function FileHasBom(strFilePath As String, strBom As String) As Boolean
-    FileHasBom = (strBom = StrConv(GetFileBytes(strFilePath, Len(strBom)), vbUnicode))
+    Dim bte() As Byte
+    bte = GetFileBytes(strFilePath, 2)
+    HasUcs2Bom = ((bte(0) = &HFF) And (bte(1) = &HFE))
 End Function
 
 
