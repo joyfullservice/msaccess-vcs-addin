@@ -335,7 +335,7 @@ End Sub
 '           : extended/non-English characters. See Issues #60, #186, #180, #246, #377
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSystemEncoding(Optional blnAllowUtf8 As Boolean = True) As String
+Public Function GetSystemEncoding(Optional blnAllowUtf8 As Boolean = False) As String
     
     Static lngEncoding As Long
     
