@@ -1738,6 +1738,9 @@ Option Explicit
 ' This property can be set to export or merge a specific subset of containers
 Public intContainerFilter As eContainerFilter
 
+' Used for exporting or loading a single object
+Public objSingleObject As AccessObject
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdBuild_Click
@@ -1921,8 +1924,14 @@ Public Sub cmdExport_Click()
     ' Show the status
     SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
     
-    ' Export the source code using the specified filter.
-    modImportExport.ExportSource chkFullExport, Me.intContainerFilter
+    ' See if we are exporting a single object, or everything.
+    If Me.objSingleObject Is Nothing Then
+        ' Export the source code using the specified filter.
+        modImportExport.ExportSource chkFullExport, Me.intContainerFilter
+    Else
+        modImportExport.ExportSingleObject Me.objSingleObject
+    End If
+    
     ' Turn on scroll bars in case the user wants to scroll back through the log.
     txtLog.ScrollBars = 2
     Log.Flush

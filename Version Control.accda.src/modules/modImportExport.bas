@@ -249,6 +249,131 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ExportSingleObject
+' Author    : Adam Waller
+' Date      : 2/22/2023
+' Purpose   : Export a single object (such as a selected item)
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportSingleObject(objItem As AccessObject)
+
+    Dim dCategories As Dictionary
+    Dim dObjects As Dictionary
+    Dim cDbObject As IDbComponent
+    Dim strTempFile As String
+    
+    ' Guard clause
+    If objItem Is Nothing Then Exit Sub
+    
+    ' Use inline error handling functions to trap and log errors.
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
+    
+    ' Make sure the object is currently closed
+    With objItem
+        Select Case .Type
+            Case acForm, acMacro, acModule, acQuery, acReport, acTable
+                If SysCmd(acSysCmdGetObjectState, .Type, .Name) <> adStateClosed Then
+                    DoCmd.Close .Type, .Name, acSavePrompt
+                End If
+        End Select
+    End With
+    
+    ' Reload the project options and reset the logs
+    Set VCSIndex = Nothing
+    Set Options = Nothing
+    Options.LoadProjectOptions
+    Log.Clear
+    Log.OperationType = eotExport
+    Log.Active = True
+    Perf.StartTiming
+
+    ' Display heading
+    With Log
+        .Spacer
+        .Add "Beginning Export of Single Object", False
+        .Add CurrentProject.Name
+        .Add "VCS Version " & GetVCSVersion
+        .Add "Full Path: " & CurrentProject.FullName, False
+        .Add "Export Folder: " & Options.GetExportFolder, False
+        .Add Now
+        .Spacer
+        .Add "Exporting " & objItem.Name & "..."
+        .Flush
+    End With
+
+    ' Get a database component class from the item
+    Set cDbObject = GetClassFromObject(objItem)
+    
+    ' Check for conflicts
+    Set dObjects = New Dictionary
+    Set dCategories = New Dictionary
+    dObjects.Add objItem.Name, cDbObject
+    dCategories.Add "Objects", dObjects
+    VCSIndex.Conflicts.Initialize dCategories
+    VCSIndex.CheckExportConflicts dObjects
+    
+    ' Resolve any outstanding conflict, or allow user to cancel.
+    With VCSIndex.Conflicts
+        If .Count > 0 Then
+            ' Show the conflicts resolution dialog
+            .ShowDialog
+            If .ApproveResolutions Then
+                Log.Add "Resolving source conflicts", False
+                .Resolve dCategories
+            Else
+                ' Cancel export
+                Log.Spacer
+                Log.Add "Export Canceled", , , "Red", True
+                Log.ErrorLevel = eelCritical
+                GoTo CleanUp
+            End If
+        End If
+    End With
+    
+    ' If we have already exported this object while scanning for changes, use that copy.
+    strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
+    If FSO.FileExists(strTempFile) Then
+        ' Move the temp file(s) over to the source export folder.
+        cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, cDbObject.BaseFolder
+        ' Update the index with the values from the alternate export
+        VCSIndex.UpdateFromAltExport cDbObject
+    Else
+        ' Export a fresh copy
+        cDbObject.Export
+    End If
+    
+    ' Show final output and save log
+    Log.Spacer
+    Log.Add "Done. (" & Round(Perf.TotalTime, 2) & " seconds)", , False, "green", True
+        
+CleanUp:
+    
+    ' Run any cleanup routines
+    VCSIndex.ClearTempExportFolder
+
+    ' Add performance data to log file and save file
+    Perf.EndTiming
+    With Log
+        .Add vbCrLf & Perf.GetReports, False
+        .SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+        .Active = False
+    End With
+    
+    ' Save index file (don't change export date for single item export)
+    VCSIndex.Save
+
+    ' Clear references to FileSystemObject and other objects
+    Set FSO = Nothing
+    Set VCSIndex = Nothing
+    Log.Flush
+    Log.ReleaseConsole
+    Log.Clear
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Build (Full build or Merge Build)
 ' Author    : Adam Waller
 ' Date      : 5/4/2020

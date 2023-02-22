@@ -84,9 +84,10 @@ Public Sub ExportSelected()
             "(This item must have the keyboard focus.)", vbInformation
     Else
         ' Export the item
-        MsgBox2 "Coming Soon...", "You selected " & objSelected.Name, , vbInformation
+        RunExport , objSelected
     End If
 End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RunExport
@@ -95,10 +96,14 @@ End Sub
 ' Purpose   : Handle different kinds of exports based on filter
 '---------------------------------------------------------------------------------------
 '
-Private Sub RunExport(intFilter As eContainerFilter)
+Private Sub RunExport(Optional intFilter As eContainerFilter = ecfAllObjects, Optional objItem As AccessObject)
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     With Form_frmVCSMain
-        .intContainerFilter = intFilter
+        If objItem Is Nothing Then
+            .intContainerFilter = intFilter
+        Else
+            Set .objSingleObject = objItem
+        End If
         .Visible = True
         .cmdExport_Click
         If Log.ErrorLevel = eelNoError Then .AutoClose

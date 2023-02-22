@@ -87,6 +87,40 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetClassFromObject
+' Author    : Adam Waller
+' Date      : 2/22/2023
+' Purpose   : Returns a database component class from a database object. (Used when
+'           : exporting a single object.)
+'           : Note that not all component types are supported.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetClassFromObject(objItem As AccessObject) As IDbComponent
+
+    Dim cItem As IDbComponent
+    
+    ' Map to correct component class
+    Select Case objItem.Type
+        Case acForm:    Set cItem = New clsDbForm
+        Case acMacro:   Set cItem = New clsDbMacro
+        Case acModule:  Set cItem = New clsDbModule
+        Case acQuery:   Set cItem = New clsDbQuery
+        Case acReport:  Set cItem = New clsDbReport
+        Case acTable:   Set cItem = New clsDbTableDef
+        Case Else
+            ' Not currently supported
+    End Select
+    
+    ' Set database item and return class instance
+    If Not cItem Is Nothing Then
+        Set cItem.DbObject = objItem
+        Set GetClassFromObject = cItem
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetQuickObjectCount
 ' Author    : Adam Waller
 ' Date      : 6/14/2022
