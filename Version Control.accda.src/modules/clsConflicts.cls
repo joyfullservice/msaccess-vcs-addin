@@ -129,7 +129,16 @@ Private Sub SaveToTable()
                 !ObjectDate = ZN(cItem.ObjectDate)
                 !IndexDate = ZN(cItem.IndexDate)
                 !FileDate = ZN(cItem.FileDate)
+                !Suggestion = cItem.Suggestion
                 !Resolution = cItem.Resolution
+                ' Set default resolution, if provided
+                If cItem.Resolution = ercNone Then
+                    If cItem.Suggestion <> ercNone Then
+                        !Resolution = cItem.Suggestion
+                    ElseIf cItem.ActionType <> ercNone Then
+                        !Resolution = cItem.ActionType
+                    End If
+                End If
             .Update
         Next varKey
         .Close

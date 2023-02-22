@@ -6,6 +6,7 @@
   [ObjectDate] DATETIME ,
   [IndexDate] DATETIME ,
   [FileDate] DATETIME ,
+  [Suggestion] LONG ,
   [Resolution] LONG ,
   [Diff] LONGTEXT 
 )

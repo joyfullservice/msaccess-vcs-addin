@@ -105,6 +105,7 @@ End Enum
 
 ' Options for resolving file conflicts
 Public Enum eResolveConflict
+    ercNone
     ercSkip
     ercOverwrite
     ercDelete

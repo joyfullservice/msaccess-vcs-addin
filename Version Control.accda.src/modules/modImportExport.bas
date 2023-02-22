@@ -258,6 +258,7 @@ End Sub
 Public Sub ExportSingleObject(objItem As AccessObject)
 
     Dim dCategories As Dictionary
+    Dim dCategory As Dictionary
     Dim dObjects As Dictionary
     Dim cDbObject As IDbComponent
     Dim strTempFile As String
@@ -307,9 +308,12 @@ Public Sub ExportSingleObject(objItem As AccessObject)
     
     ' Check for conflicts
     Set dObjects = New Dictionary
+    Set dCategory = New Dictionary
     Set dCategories = New Dictionary
-    dObjects.Add objItem.Name, cDbObject
-    dCategories.Add "Objects", dObjects
+    dObjects.Add cDbObject.SourceFile, cDbObject
+    dCategory.Add "Class", cDbObject
+    dCategory.Add "Objects", dObjects
+    dCategories.Add cDbObject.Category, dCategory
     VCSIndex.Conflicts.Initialize dCategories
     VCSIndex.CheckExportConflicts dObjects
     
@@ -331,16 +335,21 @@ Public Sub ExportSingleObject(objItem As AccessObject)
         End If
     End With
     
-    ' If we have already exported this object while scanning for changes, use that copy.
-    strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
-    If FSO.FileExists(strTempFile) Then
-        ' Move the temp file(s) over to the source export folder.
-        cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, cDbObject.BaseFolder
-        ' Update the index with the values from the alternate export
-        VCSIndex.UpdateFromAltExport cDbObject
+    ' Check to see if we still have an item to export.
+    If dCategories.Count = 0 Then
+        Log.Add "Skipped after conflict resolution.", , , "blue", True
     Else
-        ' Export a fresh copy
-        cDbObject.Export
+        ' If we have already exported this object while scanning for changes, use that copy.
+        strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
+        If FSO.FileExists(strTempFile) Then
+            ' Move the temp file(s) over to the source export folder.
+            cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, cDbObject.BaseFolder
+            ' Update the index with the values from the alternate export
+            VCSIndex.UpdateFromAltExport cDbObject
+        Else
+            ' Export a fresh copy
+            cDbObject.Export
+        End If
     End If
     
     ' Show final output and save log

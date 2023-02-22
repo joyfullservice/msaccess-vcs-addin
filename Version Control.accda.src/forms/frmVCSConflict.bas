@@ -17,10 +17,10 @@ Begin Form
     Width =12240
     DatasheetFontHeight =11
     ItemSuffix =46
-    Left =-25575
-    Top =1710
-    Right =-6420
-    Bottom =14295
+    Left =3225
+    Top =2430
+    Right =28545
+    Bottom =16815
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -851,8 +851,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdContinue_Click()
-    VCSIndex.Conflicts.ApproveResolutions = True
-    DoCmd.Close acForm, Me.Name
+
+    Dim lngRemaining As Long
+    
+    lngRemaining = ActionDecisionsNeeded
+    If lngRemaining > 0 Then
+        MsgBox2 "Please Resolve Conflicts", _
+            lngRemaining & " item(s) need to be resolved to continue.", _
+            "You can cancel this operation if you need to do further review.", vbInformation
+    Else
+        VCSIndex.Conflicts.ApproveResolutions = True
+        DoCmd.Close acForm, Me.Name
+    End If
+    
 End Sub
 
 
@@ -903,3 +914,28 @@ Private Sub lblSkipAll_Click()
     CodeDb.Execute "update tblConflicts set Resolution=" & eResolveConflict.ercSkip, dbFailOnError
     sfrmConflictList.Requery
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NeedsActionDecision
+' Author    : Adam Waller
+' Date      : 2/22/2023
+' Purpose   : Count how many records need a decision before we can continue.
+'---------------------------------------------------------------------------------------
+'
+Private Function ActionDecisionsNeeded() As Long
+    
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+    
+    Set dbs = CodeDb
+    Set rst = dbs.OpenRecordset( _
+        "select count(*) as Remaining from (select id from tblConflicts where NZ(Resolution)=0)", _
+        dbOpenDynaset, dbOpenForwardOnly, dbReadOnly)
+        
+    ActionDecisionsNeeded = Nz(rst!Remaining)
+    rst.Close
+    Set rst = Nothing
+    Set dbs = Nothing
+    
+End Function
