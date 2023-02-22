@@ -15,11 +15,11 @@ Begin Form
     GridY =24
     Width =10080
     DatasheetFontHeight =11
-    ItemSuffix =236
-    Left =-25575
-    Top =1710
-    Right =-255
-    Bottom =14295
+    ItemSuffix =240
+    Left =3225
+    Top =2430
+    Right =28545
+    Bottom =16815
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -391,7 +391,7 @@ Begin Form
                     Left =540
                     Top =1500
                     Width =9000
-                    Height =4755
+                    Height =4740
                     TabIndex =2
                     Name ="tabOptions"
                     HorizontalAnchor =2
@@ -400,7 +400,7 @@ Begin Form
                     LayoutCachedLeft =540
                     LayoutCachedTop =1500
                     LayoutCachedWidth =9540
-                    LayoutCachedHeight =6255
+                    LayoutCachedHeight =6240
                     ThemeFontIndex =1
                     Shape =1
                     Gradient =12
@@ -420,13 +420,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4190
                             Name ="pgeGeneral"
                             Caption ="General"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6170
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -521,33 +521,71 @@ Begin Form
                                         End
                                     End
                                 End
+                                Begin ComboBox
+                                    RowSourceTypeInt =1
+                                    OverlapFlags =215
+                                    IMESentenceMode =3
+                                    ListWidth =1440
+                                    Left =2040
+                                    Top =5220
+                                    Width =1740
+                                    Height =315
+                                    TabIndex =6
+                                    Name ="cboDiffTool"
+                                    RowSourceType ="Value List"
+                                    RowSource ="\"WinMerge\";\"VSCode\""
+                                    AllowValueListEdits =0
+
+                                    LayoutCachedLeft =2040
+                                    LayoutCachedTop =5220
+                                    LayoutCachedWidth =3780
+                                    LayoutCachedHeight =5535
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =1020
+                                            Top =5220
+                                            Width =960
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label239"
+                                            Caption ="Diff Tool:"
+                                            LayoutCachedLeft =1020
+                                            LayoutCachedTop =5220
+                                            LayoutCachedWidth =1980
+                                            LayoutCachedHeight =5535
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
                                 Begin CheckBox
                                     Visible = NotDefault
                                     OverlapFlags =215
-                                    Left =1020
-                                    Top =5280
+                                    Left =2880
+                                    Top =5640
                                     TabIndex =3
                                     Name ="chkUseGitIntegration"
                                     OnClick ="[Event Procedure]"
 
-                                    LayoutCachedLeft =1020
-                                    LayoutCachedTop =5280
-                                    LayoutCachedWidth =1280
-                                    LayoutCachedHeight =5520
+                                    LayoutCachedLeft =2880
+                                    LayoutCachedTop =5640
+                                    LayoutCachedWidth =3140
+                                    LayoutCachedHeight =5880
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
-                                            Left =1320
-                                            Top =5220
+                                            Left =3180
+                                            Top =5580
                                             Width =2640
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label163"
                                             Caption ="Use Git Integration"
-                                            LayoutCachedLeft =1320
-                                            LayoutCachedTop =5220
-                                            LayoutCachedWidth =3960
-                                            LayoutCachedHeight =5535
+                                            LayoutCachedLeft =3180
+                                            LayoutCachedTop =5580
+                                            LayoutCachedWidth =5820
+                                            LayoutCachedHeight =5895
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -679,13 +717,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4185
                             Name ="pgeExport"
                             Caption ="Export"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1121,10 +1159,10 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =1
-                                    WebImagePaddingTop =1
-                                    WebImagePaddingRight =1
-                                    WebImagePaddingBottom =1
+                                    WebImagePaddingLeft =2
+                                    WebImagePaddingTop =2
+                                    WebImagePaddingRight =2
+                                    WebImagePaddingBottom =2
                                 End
                                 Begin Label
                                     OverlapFlags =247
@@ -1172,13 +1210,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4185
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1824,13 +1862,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4185
                             Name ="pgeTable"
                             Caption ="Table Data"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2162,13 +2200,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4185
                             Name ="pgeBuild"
                             Caption ="Build"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2343,13 +2381,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4185
                             Name ="pgeGitIntegration"
                             Caption ="Git Integration"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2664,13 +2702,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4200
+                            Height =4185
                             Name ="pgeSettings"
                             Caption ="Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -3185,10 +3223,10 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =1
-                    WebImagePaddingTop =1
-                    WebImagePaddingRight =1
-                    WebImagePaddingBottom =1
+                    WebImagePaddingLeft =2
+                    WebImagePaddingTop =2
+                    WebImagePaddingRight =2
+                    WebImagePaddingBottom =2
                     Overlaps =1
                 End
                 Begin Label
@@ -3771,6 +3809,13 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                             Case "chkTableShowHidden", "chkTableShowSystem", "chkTableShowOther", _
                                 "cboTableDataSaveType", "txtTableName"
                                 ' Skip these exceptions.
+                            Case "cboDiffTool"
+                                ' This is saved on the computer profile (registry)
+                                If eAction = emaClassToForm Then
+                                    ctl = Diff.ToolName
+                                Else
+                                    Diff.ToolName = Nz(ctl)
+                                End If
                             Case Else
                                 ' Get option name from control name following prefix.
                                 If eAction = emaClassToForm Then

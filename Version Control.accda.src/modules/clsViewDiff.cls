@@ -168,6 +168,10 @@ Private Sub RunCompare(strFile1 As String, strFile2 As String)
     
         Case vbNullString
             ' No tool defined
+            MsgBox2 "No Diff Tool Specified", _
+                "Please specify a diff tool to use for file comparison.", _
+                "This setting may be changed in the add-in options.", vbExclamation
+            Exit Sub
             
         Case "WinMerge"
             strCmd = "WinMerge """ & strFile1 & """ """ & strFile2 & """"
