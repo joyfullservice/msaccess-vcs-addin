@@ -16,8 +16,8 @@ Begin Form
     Width =5040
     DatasheetFontHeight =11
     ItemSuffix =31
-    Right =25320
-    Bottom =12585
+    Right =19470
+    Bottom =14385
     RecSrcDt = Begin
         0x9bf1b7f2f3a6e540
     End
@@ -323,7 +323,6 @@ Begin Form
                     End
                 End
                 Begin TextBox
-                    Enabled = NotDefault
                     Locked = NotDefault
                     FontUnderline = NotDefault
                     IsHyperlink = NotDefault
@@ -484,23 +483,28 @@ End Sub
 '
 Private Sub txtDiff_Click()
     
-    Dim strTemp As String
-    Dim strFile As String
+    Dim strTempFile As String
+    Dim strSourceFile As String
+    Dim strFileName As String
     Dim cCont As IDbComponent
     Dim dItems As Dictionary
     Dim cItem As IDbComponent
     
+    ' Move focus back to resolution control
+    cboResolution.SetFocus
+    DoEvents
+    
     ' Make sure we have a file name to compare
-    strFile = Nz(txtFileName)
-    If strFile = vbNullString Then
+    strFileName = Nz(txtFileName)
+    If strFileName = vbNullString Then
         MsgBox2 "File name not found", "A file name is required to compare source files.", , vbExclamation
     Else
         ' Build full path to source file
-        strFile = Options.GetExportFolder & strFile
+        strSourceFile = Options.GetExportFolder & strFileName
     
         ' Check for existing temp file
-        strTemp = VCSIndex.GetTempExportFolder & strFile
-        If Not FSO.FileExists(strTemp) Then
+        strTempFile = VCSIndex.GetTempExportFolder & strFileName
+        If Not FSO.FileExists(strTempFile) Then
             
             ' Has not already been exported. Export a copy that we can use for the compare.
             ' Try to find matching category and file
@@ -510,31 +514,31 @@ Private Sub txtDiff_Click()
                     If cCont.SingleFile Then
                         Set cItem = cCont
                     Else
-                        If dItems.Exists(strFile) Then
-                            Set cItem = dItems(strFile)
+                        If dItems.Exists(strFileName) Then
+                            Set cItem = dItems(strFileName)
                         End If
                     End If
                     ' Build new export file name and export
-                    If Not cItem Is Nothing Then cItem.Export strTemp
+                    If Not cItem Is Nothing Then cItem.Export strTempFile
                     Exit For
                 End If
             Next cCont
         End If
     
         ' Show comparison if we were able to export a temp file
-        If Not FSO.FileExists(strTemp) Then
+        If Not FSO.FileExists(strTempFile) Then
             MsgBox2 "Unable to Diff Object", "Unable to produce a temporary diff file with the current database object.", , vbExclamation
         Else
-            If Not FSO.FileExists(strFile) Then
-                MsgBox2 "Source File Not Found", "Could not find the source file needed to diff this object:", strFile, vbExclamation
+            If Not FSO.FileExists(strSourceFile) Then
+                MsgBox2 "Source File Not Found", "Could not find the source file needed to diff this object:", strSourceFile, vbExclamation
             Else
                 ' Now that we have both files, diff the files for the user
                 If Log.OperationType = eotBuild Then
                     ' Show the source file as the modified version
-                    modObjects.Diff.Files strTemp, strFile
+                    modObjects.Diff.Files strTempFile, strSourceFile
                 Else
                     ' Show the database object as the modified version
-                    modObjects.Diff.Files strFile, strTemp
+                    modObjects.Diff.Files strSourceFile, strTempFile
                 End If
             End If
         End If
