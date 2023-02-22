@@ -69,6 +69,26 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ExportSelected
+' Author    : Adam Waller
+' Date      : 2/21/2023
+' Purpose   : Export the selected object
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportSelected()
+    Dim objSelected As AccessObject
+    Set objSelected = GetSelectedNavPaneObject
+    If objSelected Is Nothing Then
+        MsgBox2 "Please Select an Object First", _
+            "Select a single object in the Navigation Pane to export.", _
+            "(This item must have the keyboard focus.)", vbInformation
+    Else
+        ' Export the item
+        MsgBox2 "Coming Soon...", "You selected " & objSelected.Name, , vbInformation
+    End If
+End Sub
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RunExport
 ' Author    : Adam Waller
 ' Date      : 4/1/2022
@@ -96,6 +116,39 @@ End Sub
 Public Sub Build()
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     Form_frmVCSMain.cmdBuild_Click
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeBuild
+' Author    : Adam Waller
+' Date      : 2/21/2023
+' Purpose   : Merge source files into the existing database.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeBuild()
+    MsgBox2 "Coming Soon!", "Sorry, this isn't quite available yet.", , vbInformation
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadSelected
+' Author    : Adam Waller
+' Date      : 2/21/2023
+' Purpose   : Load the selected item from source files
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadSelected()
+    Dim objSelected As AccessObject
+    Set objSelected = GetSelectedNavPaneObject
+    If objSelected Is Nothing Then
+        MsgBox2 "Please Select an Object First", _
+            "Select a single object in the Navigation Pane to reload from source.", _
+            "(This item must have the keyboard focus.)", vbInformation
+    Else
+        ' Import the item
+        MsgBox2 "Coming Soon...", "You selected " & objSelected.Name, , vbInformation
+    End If
 End Sub
 
 
