@@ -14,12 +14,12 @@ Begin Form
     DatasheetGridlinesBehavior =3
     GridX =24
     GridY =24
-    Width =12240
+    Width =12960
     DatasheetFontHeight =11
-    ItemSuffix =46
+    ItemSuffix =47
     Left =3225
     Top =2430
-    Right =28545
+    Right =22695
     Bottom =16815
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -144,7 +144,7 @@ Begin Form
         End
         Begin Section
             CanGrow = NotDefault
-            Height =7920
+            Height =8640
             BackColor =15130848
             Name ="Detail"
             AlternateBackColor =15130848
@@ -153,12 +153,12 @@ Begin Form
                     BorderWidth =5
                     OverlapFlags =85
                     Top =1440
-                    Width =12240
+                    Width =12960
                     BorderColor =15321539
                     Name ="Line10"
                     HorizontalAnchor =2
                     LayoutCachedTop =1440
-                    LayoutCachedWidth =12240
+                    LayoutCachedWidth =12960
                     LayoutCachedHeight =1440
                     BorderThemeColorIndex =-1
                 End
@@ -167,12 +167,12 @@ Begin Form
                     BackStyle =1
                     OldBorderStyle =0
                     OverlapFlags =93
-                    Width =12240
+                    Width =12960
                     Height =1380
                     BackColor =5324600
                     Name ="Box1"
                     HorizontalAnchor =2
-                    LayoutCachedWidth =12240
+                    LayoutCachedWidth =12960
                     LayoutCachedHeight =1380
                     BackThemeColorIndex =-1
                 End
@@ -196,8 +196,8 @@ Begin Form
                 Begin CommandButton
                     TabStop = NotDefault
                     OverlapFlags =85
-                    Left =9600
-                    Top =7080
+                    Left =10320
+                    Top =7740
                     Width =2100
                     Height =540
                     Name ="cmdContinue"
@@ -242,10 +242,10 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =9600
-                    LayoutCachedTop =7080
-                    LayoutCachedWidth =11700
-                    LayoutCachedHeight =7620
+                    LayoutCachedLeft =10320
+                    LayoutCachedTop =7740
+                    LayoutCachedWidth =12420
+                    LayoutCachedHeight =8280
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -282,7 +282,7 @@ Begin Form
                     ForeTint =100.0
                 End
                 Begin Image
-                    Left =10920
+                    Left =11520
                     Top =240
                     Width =840
                     Height =900
@@ -643,26 +643,26 @@ Begin Form
                         0x046aa9574b0000000049454e44ae426082
                     End
 
-                    LayoutCachedLeft =10920
+                    LayoutCachedLeft =11520
                     LayoutCachedTop =240
-                    LayoutCachedWidth =11760
+                    LayoutCachedWidth =12360
                     LayoutCachedHeight =1140
                     TabIndex =3
                 End
                 Begin Label
                     OverlapFlags =215
-                    Left =6420
+                    Left =7140
                     Top =360
                     Width =3960
                     Height =720
                     FontSize =10
                     Name ="lblHeaderExplain"
-                    Caption ="WARNING: The following changes may be overwritten. Please select how you would l"
-                        "ike to proceed."
+                    Caption ="WARNING: The following changes may be overwritten. Please select how you would \015"
+                        "\012like to proceed."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =6420
+                    LayoutCachedLeft =7140
                     LayoutCachedTop =360
-                    LayoutCachedWidth =10380
+                    LayoutCachedWidth =11100
                     LayoutCachedHeight =1080
                     ForeThemeColorIndex =1
                     ForeTint =100.0
@@ -671,8 +671,8 @@ Begin Form
                     Cancel = NotDefault
                     TabStop = NotDefault
                     OverlapFlags =85
-                    Left =7200
-                    Top =7080
+                    Left =7920
+                    Top =7740
                     Width =2100
                     Height =540
                     TabIndex =1
@@ -718,10 +718,10 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =7200
-                    LayoutCachedTop =7080
-                    LayoutCachedWidth =9300
-                    LayoutCachedHeight =7620
+                    LayoutCachedLeft =7920
+                    LayoutCachedTop =7740
+                    LayoutCachedWidth =10020
+                    LayoutCachedHeight =8280
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -745,8 +745,8 @@ Begin Form
                     OverlapFlags =85
                     Left =540
                     Top =2400
-                    Width =11160
-                    Height =4380
+                    Width =11880
+                    Height =5100
                     TabIndex =2
                     Name ="sfrmConflictList"
                     SourceObject ="Form.frmVCSConflictList"
@@ -755,8 +755,8 @@ Begin Form
 
                     LayoutCachedLeft =540
                     LayoutCachedTop =2400
-                    LayoutCachedWidth =11700
-                    LayoutCachedHeight =6780
+                    LayoutCachedWidth =12420
+                    LayoutCachedHeight =7500
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -783,7 +783,7 @@ Begin Form
                     OverlapFlags =85
                     TextAlign =2
                     Left =960
-                    Top =6960
+                    Top =7680
                     Width =1080
                     Height =300
                     Name ="lblSkipAll"
@@ -792,9 +792,9 @@ Begin Form
                     HyperlinkAddress ="#"
                     VerticalAnchor =1
                     LayoutCachedLeft =960
-                    LayoutCachedTop =6960
+                    LayoutCachedTop =7680
                     LayoutCachedWidth =2040
-                    LayoutCachedHeight =7260
+                    LayoutCachedHeight =7980
                     ForeThemeColorIndex =10
                     ForeTint =100.0
                 End
@@ -803,7 +803,7 @@ Begin Form
                     OverlapFlags =85
                     TextAlign =2
                     Left =2280
-                    Top =6960
+                    Top =7680
                     Width =1620
                     Height =300
                     Name ="lblOverwriteAll"
@@ -812,9 +812,9 @@ Begin Form
                     HyperlinkAddress ="#"
                     VerticalAnchor =1
                     LayoutCachedLeft =2280
-                    LayoutCachedTop =6960
+                    LayoutCachedTop =7680
                     LayoutCachedWidth =3900
-                    LayoutCachedHeight =7260
+                    LayoutCachedHeight =7980
                     ForeThemeColorIndex =10
                     ForeTint =100.0
                 End
