@@ -20,7 +20,6 @@ Option Explicit
 Private Const ModuleName As String = "clsDbModule"
 
 Private m_Module As AccessObject
-Private m_Component As VBComponent
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 

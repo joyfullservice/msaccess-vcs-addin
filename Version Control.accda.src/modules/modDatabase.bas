@@ -536,10 +536,32 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
+
+    Dim proj As VBProject
+    Dim cmpItem As VBComponent
+    
+    ' Delete the database object
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     DoCmd.DeleteObject intType, strName
-    Catch 7874 ' Object not found
+    If Not Catch(7874) Then DoEvents  ' Object not found
+    
+    ' Delete any associated VBE object
+    Select Case intType
+        Case acForm, acReport, acModule
+            Set proj = GetVBProjectForCurrentDB
+            With proj
+                Set cmpItem = .VBComponents(strName)
+                If Not Catch(9) Then
+                    .VBComponents.Remove cmpItem
+                    Set cmpItem = Nothing
+                    DoEvents
+                End If
+            End With
+    End Select
+    
+    ' Trap another other unexpected errors
     CatchAny eelError, "Deleting object " & strName
+    
 End Sub
 
 
