@@ -633,6 +633,102 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CheckImportConflicts
+' Author    : Adam Waller
+' Date      : 2/24/2023
+' Purpose   : Check for potential conflicts when merging into this database.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CheckImportConflicts(cComponent As IDbComponent, dFiles As Dictionary)
+    
+    Dim varKey As Variant
+    Dim cItem As IDbComponent
+    Dim sngStart As Single
+    Dim strFile As String
+    
+    ' Capture start time so we can display some progress if this
+    ' scan takes a while.
+    sngStart = Timer
+    
+    ' Loop through the list of source files
+    ' (Each key is a full path to a source file)
+    For Each varKey In dFiles.Keys
+        strFile = varKey
+        If IsImportConflict(cComponent, strFile) Then
+            ' Get database item
+            Set cItem = cComponent.GetAllFromDB.Item(strFile)
+            ' Add to list of conflicts
+            Me.Conflicts.Add cItem, _
+                strFile, _
+                cItem.DateModified, _
+                GetLastModifiedDate(strFile), _
+                ercOverwrite
+        End If
+        ' Increment the progress bar
+        Log.Increment
+        ' Exit loop if single source file
+        If cComponent.SingleFile Then Exit For
+        ' Display more detail if export runs more than 1 second.
+        If sngStart > 0 And (Timer - sngStart > 1) Then
+            Log.Add " - Checking " & dFiles.Count & " " & LCase(cComponent.Category) & "...", , , , , True
+            sngStart = 0
+        End If
+    Next varKey
+    
+End Sub
+
+
+' Returns true if we are about to overwrite changes in the database that don't match
+' the current source file
+Private Function IsImportConflict(cItemClass As IDbComponent, strSourceFile As String) As Boolean
+
+    Dim blnConflict As Boolean
+    Dim cItem As IDbComponent
+    Dim strName As String
+    Dim strHash As String
+    Dim strTempFile As String
+    Dim blnCompareTemp As Boolean
+    
+    ' Check for special cases based on component type
+    If cItemClass.ComponentType = edbTableData Then
+        ' Table data is not considered an import conflict, and should
+        ' always be overwritten.
+        IsImportConflict = False
+        Exit Function
+    End If
+    
+    ' See if the database object even exists before we worry about conflicts.
+    strName = GetObjectNameFromFileName(strSourceFile)
+    If cItemClass.GetAllFromDB.Exists(strSourceFile) Then
+    
+        ' Get class instance for database item
+        Set cItem = cItemClass.GetAllFromDB.Item(strSourceFile)
+        
+        ' See if this object appears to be modified since the last import/export
+        If cItem.IsModified Then
+            ' Just because the modification date is different doesn't always
+            ' mean the object definition has actually changed. By comparing
+            ' a fresh export of the object, we can determine for sure if the
+            ' source files match.
+            strTempFile = Replace(strSourceFile, Options.GetExportFolder, GetTempExportFolder)
+            Log.Add "  Exporting " & cItem.Name, False
+            cItem.Export strTempFile
+            blnConflict = Not FileContentsMatch(strSourceFile, strTempFile)
+        Else
+            ' Based on the index, it does not appear that this item
+            ' has changed since the last export or import operation.
+            ' We should be good to overwrite (or skip importing) this
+            ' object in a merge operation.
+        End If
+    End If
+    
+    ' Return result
+    IsImportConflict = blnConflict
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : FileContentsMatch
 ' Author    : Adam Waller
 ' Date      : 9/15/2021
@@ -651,18 +747,6 @@ Private Function FileContentsMatch(strFile1 As String, strFile2 As String) As Bo
         End If
     End If
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : CheckImportConflicts
-' Author    : Adam Waller
-' Date      : 5/27/2021
-' Purpose   : Check for potential conflicts when merging this object.
-'---------------------------------------------------------------------------------------
-'
-Public Sub CheckImportConflicts(cComponent As IDbComponent, dFiles As Dictionary)
-
-End Sub
 
 
 '---------------------------------------------------------------------------------------
