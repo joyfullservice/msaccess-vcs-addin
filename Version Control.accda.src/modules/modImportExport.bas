@@ -269,7 +269,6 @@ Public Sub ExportSingleObject(objItem As AccessObject)
     ' Use inline error handling functions to trap and log errors.
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     
-    
     ' Make sure the object is currently closed
     With objItem
         Select Case .Type
@@ -473,7 +472,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     
     ' Launch the GUI form
     DoCmd.OpenForm "frmVCSMain"
-    Form_frmVCSMain.StartBuild
+    Form_frmVCSMain.StartBuild blnFullBuild
 
     ' Display the build header.
     DoCmd.Hourglass True
@@ -579,7 +578,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     End With
  
 
-    
     ' Loop through all categories
     Log.Spacer
     For Each varCategory In dCategories.Keys
@@ -706,6 +704,133 @@ CleanUp:
     End If
     
     ' Release object references
+    Log.Flush
+    Log.ReleaseConsole
+    Log.Clear
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadSingleObject
+' Author    : Adam Waller
+' Date      : 2/23/2023
+' Purpose   : Reload a single object from source files.
+'           : NOTE: Be very careful to release all references to the object you
+'           : are attempting to import.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, strSourceFilePath As String)
+
+    Dim dCategories As Dictionary
+    Dim dCategory As Dictionary
+    Dim dSourceFiles As Dictionary
+    Dim strTempFile As String
+    
+    ' Guard clauses
+    If cComponentClass Is Nothing Then Exit Sub
+    If Not FSO.FileExists(strSourceFilePath) Then Exit Sub
+    
+    ' Use inline error handling functions to trap and log errors.
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
+    ' Make sure the object is currently closed. (This is really important, since we
+    ' will be deleting the object before adding it from source.)
+    With cComponentClass
+        Select Case .ComponentType
+            Case acForm, acMacro, acModule, acQuery, acReport, acTable
+                If SysCmd(acSysCmdGetObjectState, .ComponentType, strName) <> adStateClosed Then
+                    DoCmd.Close .ComponentType, strName, acSavePrompt
+                End If
+        End Select
+    End With
+    
+    ' Reload the project options and reset the logs
+    Set VCSIndex = Nothing
+    Set Options = Nothing
+    Options.LoadProjectOptions
+    Log.Clear
+    Log.OperationType = eotBuild
+    Log.Active = True
+    Perf.StartTiming
+
+    ' Display heading
+    With Log
+        .Spacer
+        .Add "Beginning Import of Single Object", False
+        .Add CurrentProject.Name
+        .Add "VCS Version " & GetVCSVersion
+        .Add "Full Path: " & CurrentProject.FullName, False
+        .Add "Export Folder: " & Options.GetExportFolder, False
+        .Add Now
+        .Spacer
+        .Add "Importing " & strName & "..."
+        .Flush
+    End With
+
+    ' Check for conflicts
+    Set dSourceFiles = New Dictionary
+    Set dCategory = New Dictionary
+    Set dCategories = New Dictionary
+    dSourceFiles.Add strSourceFilePath, vbNullString
+    dCategory.Add "Class", cComponentClass
+    dCategory.Add "Files", dSourceFiles
+    dCategories.Add cComponentClass, dCategory
+    VCSIndex.Conflicts.Initialize dCategories
+    VCSIndex.CheckImportConflicts cComponentClass, dSourceFiles
+
+    ' Resolve any outstanding conflict, or allow user to cancel.
+    With VCSIndex.Conflicts
+        If .Count > 0 Then
+            ' Show the conflicts resolution dialog
+            .ShowDialog
+            If .ApproveResolutions Then
+                Log.Add "Resolving source conflicts", False
+                .Resolve dCategories
+            Else
+                ' Cancel export
+                Log.Spacer
+                Log.Add "Import Canceled", , , "Red", True
+                Log.ErrorLevel = eelCritical
+                GoTo CleanUp
+            End If
+        End If
+    End With
+
+    ' Check to see if we still have an item to import.
+    If dCategories.Count = 0 Then
+        Log.Add "Skipped after conflict resolution.", , , "blue", True
+    Else
+        ' TODO: Maybe copy the existing object to the recycle bin, just in case
+        ' the user makes a mistake. (Similar to how GitHub Desktop works)
+        
+        ' Replace the existing object with the source file
+        cComponentClass.Merge strSourceFilePath
+    End If
+    
+    ' Show final output and save log
+    Log.Spacer
+    Log.Add "Done. (" & Round(Perf.TotalTime, 2) & " seconds)", , False, "green", True
+        
+CleanUp:
+    
+    ' Run any cleanup routines
+    VCSIndex.ClearTempExportFolder
+
+    ' Add performance data to log file and save file
+    Perf.EndTiming
+    With Log
+        .Add vbCrLf & Perf.GetReports, False
+        .SaveFile FSO.BuildPath(Options.GetExportFolder, "Merge.log")
+        .Active = False
+    End With
+    
+    ' Save index file (don't change export date for single item export)
+    VCSIndex.Save
+
+    ' Clear references to FileSystemObject and other objects
+    Set FSO = Nothing
+    Set VCSIndex = Nothing
     Log.Flush
     Log.ReleaseConsole
     Log.Clear

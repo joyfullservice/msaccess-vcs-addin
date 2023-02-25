@@ -144,16 +144,34 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadSelected()
+    
     Dim objSelected As AccessObject
+    Dim cComponentClass As IDbComponent
+    Dim strObjectName As String
+    Dim strSourceFilePath As String
+    
     Set objSelected = GetSelectedNavPaneObject
     If objSelected Is Nothing Then
         MsgBox2 "Please Select an Object First", _
             "Select a single object in the Navigation Pane to reload from source.", _
             "(This item must have the keyboard focus.)", vbInformation
     Else
-        ' Import the item
-        MsgBox2 "Coming Soon...", "You selected " & objSelected.Name, , vbInformation
+        ' Remove all object references to selected item
+        Set cComponentClass = GetClassFromObject(objSelected)
+        With cComponentClass
+            strObjectName = .Name
+            strSourceFilePath = .SourceFile
+            Set .DbObject = Nothing
+        End With
+        Set objSelected = Nothing
+        
+        ' Import the object from source files
+        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+        Form_frmVCSMain.StartBuild False
+        LoadSingleObject cComponentClass, strObjectName, strSourceFilePath
+        Form_frmVCSMain.FinishBuild False
     End If
+    
 End Sub
 
 

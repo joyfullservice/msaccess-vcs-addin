@@ -549,6 +549,8 @@ Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
     Select Case intType
         Case acForm, acReport, acModule
             Set proj = GetVBProjectForCurrentDB
+            ' Make sure we are on the correct VBProject before removing anything
+            If Not proj Is VBE.ActiveVBProject Then Set VBE.ActiveVBProject = proj
             With proj
                 Set cmpItem = .VBComponents(strName)
                 If Not Catch(9) Then

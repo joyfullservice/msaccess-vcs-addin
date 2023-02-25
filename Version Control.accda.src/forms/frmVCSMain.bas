@@ -16,10 +16,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =32
-    Left =-25575
-    Top =1500
-    Right =-255
-    Bottom =14085
+    Left =3225
+    Top =2430
+    Right =28545
+    Bottom =16815
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1830,8 +1830,10 @@ End Sub
 ' Purpose   : Show the GUI for building the database from source.
 '---------------------------------------------------------------------------------------
 '
-Public Sub StartBuild()
+Public Sub StartBuild(blnFullBuild As Boolean)
 
+    Dim strType As String
+    
     cmdClose.SetFocus
     HideActionButtons
     DoEvents
@@ -1844,7 +1846,9 @@ Public Sub StartBuild()
     Me.Visible = True
     
     ' Show the status
-    SetStatusText "Running...", "Building From Source", "A summary of the build progress can be seen on this screen, and additional details are included in the log file."
+    strType = IIf(blnFullBuild, "Building", "Merging")
+    SetStatusText "Running...", strType & " From Source", _
+        "A summary of the build progress can be seen on this screen, and additional details are included in the log file."
     
 End Sub
 
@@ -1866,7 +1870,8 @@ Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "B
     ' Display final UI messages.
     Log.Flush
     strType = IIf(blnFullBuild, "Build", "Merge")
-    SetStatusText "Finished", strType & " Complete", "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
+    SetStatusText "Finished", strType & " Complete", _
+        "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
     lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     
 End Sub
