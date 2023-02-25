@@ -79,6 +79,8 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strTempFile As String
     Dim udtFile As udtVbaFileContent
     
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
     ' Only import files with the correct extension.
     If Not (strFile Like "*.bas" Or strFile Like "*.cls") Then Exit Sub
     
@@ -98,11 +100,16 @@ Private Sub IDbComponent_Import(strFile As String)
     DoCmd.Save acModule, strName
     
     ' Set reference to object
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     Set m_Module = CurrentProject.AllModules(strName)
+    If Catch(2467) Then Log.Error eelCritical, _
+        "Imported module not found after import: " & strName, ModuleName & ".Import"
         
     ' Save hash, update the index, and remove the temp file
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
     DeleteFile strTempFile
+    
+    CatchAny eelError, "Error importing module: " & strName, ModuleName & ".Import"
     
 End Sub
 
