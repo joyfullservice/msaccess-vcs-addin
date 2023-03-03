@@ -73,6 +73,19 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : WorkerCallback
+' Author    : Adam Waller
+' Date      : 3/2/2023
+' Purpose   : A public callback endpoint for worker script operations to check back in
+'           : after completion.
+'---------------------------------------------------------------------------------------
+'
+Public Function WorkerCallback(strKey As String, Optional varParams As Variant)
+    Worker.ReturnWorker strKey, varParams
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RunningOnLocal
 ' Author    : Adam Waller
 ' Date      : 5/18/2022

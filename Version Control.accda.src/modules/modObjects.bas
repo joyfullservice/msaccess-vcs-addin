@@ -17,6 +17,7 @@ Private m_Perf As clsPerformance
 Private m_Log As clsLog
 Private m_Options As clsOptions
 Private m_VCSIndex As clsVCSIndex
+Private m_Worker As clsWorker
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -35,6 +36,7 @@ Public Sub ReleaseObjects()
     Set m_Log = Nothing
     Set m_Options = Nothing
     Set m_VCSIndex = Nothing
+    Set m_Worker = Nothing
     Set m_FSO = Nothing
 End Sub
 
@@ -137,6 +139,19 @@ Public Property Get VCSIndex() As clsVCSIndex
 End Property
 Public Property Set VCSIndex(cIndex As clsVCSIndex)
     Set m_VCSIndex = cIndex
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Worker
+' Author    : Adam Waller
+' Date      : 3/2/2023
+' Purpose   : Expose worker class
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Worker() As clsWorker
+    If m_Worker Is Nothing Then Set m_Worker = New clsWorker
+    Set Worker = m_Worker
 End Property
 
 
