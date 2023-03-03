@@ -18,8 +18,8 @@ Begin Form
     ItemSuffix =32
     Left =3225
     Top =2430
-    Right =28545
-    Bottom =16815
+    Right =18945
+    Bottom =14175
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1818,7 +1818,7 @@ Public Sub cmdBuild_Click()
     ' Build project using the selected source folder
     ' (Use a timer so we can release the reference to this form before beginning the
     '  build process, just in case we need to import a form with the same name.)
-    If strFolder <> vbNullString Then SetTimer roBuildFromSource, strFolder, chkFullBuild
+    If strFolder <> vbNullString Then SetTimer "Build", strFolder, chkFullBuild
     
 End Sub
 
