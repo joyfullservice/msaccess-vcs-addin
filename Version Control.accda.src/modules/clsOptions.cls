@@ -18,7 +18,6 @@ Option Explicit
 Private Const cstrOptionsFilename As String = "vcs-options.json"
 Private Const cstrSourcePathProperty As String = "VCS Source Path"
 Private Const cstrBuildPathProperty As String = "VCS Build Path"
-Private Const ModuleName As String = "clsOptions"
 
 ' Options
 Public ExportFolder As String
@@ -251,7 +250,7 @@ Public Sub LoadOptionsFromFile(strFile As String)
     ' Set the build path property when loading options
     SetBuildPath
     
-    CatchAny eelError, "Loading options from " & strFile, ModuleName & ".LoadOptionsFromFile"
+    CatchAny eelError, "Loading options from " & strFile, ModuleName(Me) & ".LoadOptionsFromFile"
     
 End Sub
 
@@ -441,7 +440,7 @@ Private Function SerializeOptions() As Dictionary
     Set dWrapper("Options") = dOptions
     Set SerializeOptions = dWrapper
 
-    CatchAny eelError, "Serializing options", ModuleName & ".SerializeOptions"
+    CatchAny eelError, "Serializing options", ModuleName(Me) & ".SerializeOptions"
 
 End Function
 

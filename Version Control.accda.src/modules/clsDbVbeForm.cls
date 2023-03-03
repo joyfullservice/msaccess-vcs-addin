@@ -17,8 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName As String = "clsDbVbeForm"
-
 Private m_Form As VBIDE.VBComponent
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
@@ -97,7 +95,7 @@ Private Sub IDbComponent_Import(strFile As String)
         End With
     End With
     
-    CatchAny eelError, "Error importing " & strFile, ModuleName & ".Import"
+    CatchAny eelError, "Error importing " & strFile, ModuleName(Me) & ".Import"
  
 End Sub
 

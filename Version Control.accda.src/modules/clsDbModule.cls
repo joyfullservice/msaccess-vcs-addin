@@ -17,8 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName As String = "clsDbModule"
-
 Private m_Module As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
@@ -103,13 +101,13 @@ Private Sub IDbComponent_Import(strFile As String)
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     Set m_Module = CurrentProject.AllModules(strName)
     If Catch(2467) Then Log.Error eelCritical, _
-        "Imported module not found after import: " & strName, ModuleName & ".Import"
+        "Imported module not found after import: " & strName, ModuleName(Me) & ".Import"
         
     ' Save hash, update the index, and remove the temp file
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
     DeleteFile strTempFile
     
-    CatchAny eelError, "Error importing module: " & strName, ModuleName & ".Import"
+    CatchAny eelError, "Error importing module: " & strName, ModuleName(Me) & ".Import"
     
 End Sub
 
@@ -220,7 +218,7 @@ Private Sub LoadVbeModuleFromFile(strFile As String, strName As String)
     End With
     Perf.OperationEnd
    
-    CatchAny eelError, "Error importing VBA code for " & strName, ModuleName & ".LoadVbeModuleFromFile"
+    CatchAny eelError, "Error importing VBA code for " & strName, ModuleName(Me) & ".LoadVbeModuleFromFile"
     
 End Sub
 

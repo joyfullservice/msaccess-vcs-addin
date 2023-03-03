@@ -16,7 +16,6 @@ Attribute VB_Exposed = False
 '           : implemented into the classes defined for each object type to be exported
 '           : and imported as a part of the database source code.
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Explicit
 

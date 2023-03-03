@@ -17,8 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName As String = "clsDbVbeProject"
-
 Private m_Project As VBIDE.VBProject
 Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
@@ -82,7 +80,7 @@ Private Sub IDbComponent_Import(strFile As String)
         '.Type = dNZ(dProject, "Items\Type")
     End With
     
-    CatchAny eelError, "Importing VBE Project", ModuleName & ".Import"
+    CatchAny eelError, "Importing VBE Project", ModuleName(Me) & ".Import"
     
     ' Save to index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
@@ -122,11 +120,11 @@ Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue 
     If varCurrent <> varValue Then
         ' We might have thrown an actual error.
         If Not CatchAny(eelError, "Failed to set " & strProperty & " to '" & _
-            CStr(varValue) & "'", ModuleName & ".SafeSetProperty") Then
+            CStr(varValue) & "'", ModuleName(Me) & ".SafeSetProperty") Then
             ' No error, but property not set correctly.
             Log.Error eelError, "Failed to set " & strProperty & ". Set value to '" & _
                 varValue & "' but afterwards it returned '" & varCurrent & "'.", _
-                ModuleName & ".SafeSetProperty"
+                ModuleName(Me) & ".SafeSetProperty"
         End If
     Else
         ' Clear any errors that may have been thrown, even if the change was successful.
@@ -134,7 +132,7 @@ Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue 
     End If
     
     ' Log any uncaught errors
-    CatchAny eelError, "Setting Property '" & strProperty & "' to value '" & CStr(varValue) & "'", ModuleName & ".SafeSetProperty"
+    CatchAny eelError, "Setting Property '" & strProperty & "' to value '" & CStr(varValue) & "'", ModuleName(Me) & ".SafeSetProperty"
     
 End Sub
 
@@ -151,7 +149,7 @@ Private Function ValidHelpContextId(strHelpID As String) As Long
         ValidHelpContextId = 0
     ElseIf Not IsNumeric(strHelpID) Then
         Log.Error eelWarning, "HelpContextID should be a number. " & _
-            "Found '" & strHelpID & "' instead.", ModuleName & ".ValidHelpContextId"
+            "Found '" & strHelpID & "' instead.", ModuleName(Me) & ".ValidHelpContextId"
         ValidHelpContextId = 0
     Else
         ValidHelpContextId = CLng(strHelpID)
@@ -193,12 +191,12 @@ Private Function ValidHelpFile(strHelpFile As String) As String
             ' Make sure this is a valid help file
             If strValid Like "*.hlp" Or strValid Like "*.chm" Then
                 If Not FSO.FileExists(strValid) Then
-                    Log.Error eelWarning, "Help file not found: " & strValid, ModuleName & ".ValidHelpFile"
+                    Log.Error eelWarning, "Help file not found: " & strValid, ModuleName(Me) & ".ValidHelpFile"
                 End If
             Else
                 ' Does not appear to be a help file extension
                 Log.Error eelWarning, "'" & strValid & "' is not a valid help file name. " & _
-                    "(Expecting *.hlp or *.chm)", ModuleName & ".ValidHelpFile"
+                    "(Expecting *.hlp or *.chm)", ModuleName(Me) & ".ValidHelpFile"
                 strValid = vbNullString
             End If
         

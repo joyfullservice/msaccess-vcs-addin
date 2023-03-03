@@ -17,8 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName As String = "clsDbTheme"
-
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 Private m_Dbs As DAO.Database
@@ -69,7 +67,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' If we get multiple records back we don't know which to use
     If rst.RecordCount > 1 Then
         Log.Error eelCritical, "Multiple records in MSysResources table were found that matched this name. " & _
-            "Compact and repair database and try again. Theme Name: " & LCase(m_Name) & "." & m_Extension, ModuleName & ".Export"
+            "Compact and repair database and try again. Theme Name: " & LCase(m_Name) & "." & m_Extension, ModuleName(Me) & ".Export"
         Exit Sub
     End If
 
@@ -91,7 +89,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     rst.Close
     Set rst = Nothing
 
-    CatchAny eelError, "Error exporting theme file: " & strFile, ModuleName & ".Export", True, True
+    CatchAny eelError, "Error exporting theme file: " & strFile, ModuleName(Me) & ".Export", True, True
     
     ' Get hash before extracting the theme
     strHash = GetFileHash(strFile)
@@ -112,7 +110,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         ' Rather than holding up the export while we extract the file,
         ' use a cleanup sub to do this after the export.
         Perf.OperationEnd
-        CatchAny eelError, "Error extracting theme. Folder: " & strFolder, ModuleName & ".Export", True, True
+        CatchAny eelError, "Error extracting theme. Folder: " & strFolder, ModuleName(Me) & ".Export", True, True
     End If
     
     ' Update index after exporting theme
@@ -172,7 +170,7 @@ Private Sub IDbComponent_Import(strFile As String)
     End If
 
     ' Log any errors encountered.
-    CatchAny eelError, "Error getting theme file. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName & ".Import", True, True
+    CatchAny eelError, "Error getting theme file. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName(Me) & ".Import", True, True
 
     ' Create/edit record in resources table.
     strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strFile))
@@ -225,7 +223,7 @@ Private Sub IDbComponent_Import(strFile As String)
     VCSIndex.Update Me, eatImport, GetSignatureHash
     
     ' Log any errors
-    CatchAny eelError, "Error importing theme. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName & ".Import", True, True
+    CatchAny eelError, "Error importing theme. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName(Me) & ".Import", True, True
 
     ' Clear object (Important with DAO/ADO)
     Set rstAttachment = Nothing
@@ -382,7 +380,7 @@ Public Function VerifyResourcesTable() As Boolean
     VerifyResourcesTable = blnExists
 
     ' Log any errors
-    CatchAny eelError, "Error verifying MSysResources table", ModuleName & ".VerifyResourcesTable"
+    CatchAny eelError, "Error verifying MSysResources table", ModuleName(Me) & ".VerifyResourcesTable"
     
 End Function
 
@@ -416,7 +414,7 @@ Private Sub CreateResourcesTable()
     DeleteFile strTempFile
     
     ' Log any errors
-    CatchAny eelError, "Error creating MSysResources table", ModuleName & ".CreateResourcesTable"
+    CatchAny eelError, "Error creating MSysResources table", ModuleName(Me) & ".CreateResourcesTable"
     Perf.OperationEnd
     
 End Sub

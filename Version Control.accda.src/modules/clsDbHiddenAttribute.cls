@@ -17,8 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName As String = "clsDbHiddenAttribute"
-
 Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
 
@@ -75,7 +73,7 @@ Private Sub IDbComponent_Import(strFile As String)
                 For Each varDoc In dItems(varCont)
                     ' Set object to hidden
                     Application.SetHiddenAttribute objType, varDoc, True
-                    CatchAny eelError, "Error setting hidden attribute for " & varDoc, ModuleName
+                    CatchAny eelError, "Error setting hidden attribute for " & varDoc, ModuleName(Me)
                 Next varDoc
             End If
         Next varCont

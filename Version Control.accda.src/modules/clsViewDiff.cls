@@ -13,11 +13,8 @@ Attribute VB_Exposed = False
 ' Date      : 2/23/2022
 ' Purpose   : Tools for comparing files using 3rd party diff applications
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Explicit
-
-Private Const ModuleName As String = "clsViewDiff"
 
 ' Set this to true to keep the temp files instead
 ' of automatically cleaning them up at the completion
@@ -194,8 +191,8 @@ Private Sub RunCompare(strFile1 As String, strFile2 As String)
             .Run strCmd
         End With
     End If
-    If Catch(-2147024894) Then Log.Error eelError, "Unable to run '" & Me.ToolName & "' to compare files", ModuleName & ".RunCompare"
-    CatchAny eelError, "Unable to compare files: " & strCmd, ModuleName & ".RunCompare"
+    If Catch(-2147024894) Then Log.Error eelError, "Unable to run '" & Me.ToolName & "' to compare files", ModuleName(Me) & ".RunCompare"
+    CatchAny eelError, "Unable to compare files: " & strCmd, ModuleName(Me) & ".RunCompare"
     
 End Sub
 

@@ -779,3 +779,16 @@ Public Function DeDupString(strText As String, strDuplicated As String) As Strin
     DeDupString = strNew
     
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ModuleName
+' Author    : Adam Waller
+' Date      : 3/2/2023
+' Purpose   : Dynamically return the class name from a class object.
+'           : (This way we don't have to maintain name constants in class modules.)
+'---------------------------------------------------------------------------------------
+'
+Public Function ModuleName(clsMe As Object) As String
+    ModuleName = TypeName(clsMe)
+End Function

@@ -17,8 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName As String = "clsDbDocument"
-
 Private m_Items(True To False) As Dictionary
 Public m_dItems As Dictionary
 
@@ -79,7 +77,7 @@ Private Sub IDbComponent_Import(strFile As String)
                 For Each varProp In dDoc.Keys
                     ' Attempt to add or update the property value on the object.
                     SetDAOProperty dbs.Containers(varCont).Documents(varDoc), dbText, CStr(varProp), dDoc(varProp)
-                    CatchAny eelError, "Error setting document property " & varCont & "." & varDoc & "." & varProp, ModuleName
+                    CatchAny eelError, "Error setting document property " & varCont & "." & varDoc & "." & varProp, ModuleName(Me)
                 Next varProp
             Next varDoc
         Next varCont

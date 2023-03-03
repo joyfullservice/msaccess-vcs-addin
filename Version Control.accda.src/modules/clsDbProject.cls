@@ -17,8 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName As String = "clsDbProject"
-
 Private m_Project As CurrentProject
 Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
@@ -75,7 +73,7 @@ Private Sub IDbComponent_Import(strFile As String)
         End If
     End With
     
-    CatchAny eelError, "Importing Project", ModuleName & ".Import"
+    CatchAny eelError, "Importing Project", ModuleName(Me) & ".Import"
     
     ' Save to index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)

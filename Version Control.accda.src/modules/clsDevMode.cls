@@ -15,7 +15,6 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
-Private Const ModuleName As String = "clsDevMode"
 
 ' See the following links for additional technical details regarding the DEVMODE strcture:
 ' https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
@@ -317,7 +316,7 @@ Public Sub LoadFromExportFile(strFile As String)
     Perf.OperationEnd
 
     CatchAny eelError, "Error loading printer settings from file: " & strFile, _
-        ModuleName & ".LoadFromExportFile", True, True
+        ModuleName(Me) & ".LoadFromExportFile", True, True
 
 End Sub
 
@@ -362,7 +361,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
     ' Open a handle to read the default printer
     lngReturn = OpenPrinter(strPrinter, hPrinter, ByVal 0&)
 
-    CatchAny eelError, "Error getting printer pointer " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
+    CatchAny eelError, "Error getting printer pointer " & strPrinter, ModuleName(Me) & ".LoadFromPrinter", True, True
     If lngReturn <> 0 And hPrinter <> 0 Then
 
         ' Check size of DevMode structure to make sure it fits in our buffer.
@@ -380,11 +379,11 @@ Public Sub LoadFromPrinter(strPrinter As String)
             End If
         Else
             Log.Error eelWarning, "There has been an error with loading DevMode structure. lngReturn:'" & lngReturn & "'", _
-                ModuleName & ".LoadFromPrinter"
+                ModuleName(Me) & ".LoadFromPrinter"
         End If
     End If
 
-    CatchAny eelError, "Error getting printer devMode " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
+    CatchAny eelError, "Error getting printer devMode " & strPrinter, ModuleName(Me) & ".LoadFromPrinter", True, True
     ' Close printer handle
     If hPrinter <> 0 Then ClosePrinter hPrinter
     
@@ -393,7 +392,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
 
     If objPrinter Is Nothing Then
         Log.Error eelWarning, "Could not find printer '" & strPrinter & "' on this system.", _
-            ModuleName & ".LoadFromPrinter"
+            ModuleName(Me) & ".LoadFromPrinter"
     Else
         ' Load in the DevNames structure
         If Options.ShowDebug Then Log.Add "Loading Printer info for: '" & strPrinter & "'."
@@ -404,7 +403,7 @@ Public Sub LoadFromPrinter(strPrinter As String)
     End If
 
     CatchAny eelError, "Error with printer devMode " & strPrinter, _
-        ModuleName & ".LoadFromPrinter", True, True
+        ModuleName(Me) & ".LoadFromPrinter", True, True
 
 End Sub
 
@@ -774,7 +773,7 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
         intType = acForm
     Else
         Log.Error eelCritical, "Can only set printer options for a form or report object: " & _
-            objFormOrReport.Name, ModuleName & ".SetPrinterOptions"
+            objFormOrReport.Name, ModuleName(Me) & ".SetPrinterOptions"
         Exit Sub
     End If
     
@@ -783,7 +782,7 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
         Set oPrinter = GetPrinterByName(dSettings("DeviceName"))
         If oPrinter Is Nothing Then
             Log.Error eelWarning, "Printer " & dSettings("DeviceName") & " not found for " & objFormOrReport.Name, _
-                ModuleName & ":SetPrinterOptions"
+                ModuleName(Me) & ":SetPrinterOptions"
             Exit Sub
         End If
         ' Set as printer for this report or form.
@@ -868,7 +867,7 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
         .Caption = .Caption
     End With
     CatchAny eelError, "Error setting print settings for: " & objFormOrReport.Name, _
-        ModuleName & ".SetPrinterOptions", True, True
+        ModuleName(Me) & ".SetPrinterOptions", True, True
 End Sub
 
 
@@ -999,13 +998,13 @@ Public Sub ApplySettings(dSettings As Dictionary)
                     Case Else
                         ' Could not find that property.
                         Log.Error eelWarning, "Margin property " & CStr(varKey) & " not found.", _
-                            ModuleName & ":ApplySettings"
+                            ModuleName(Me) & ":ApplySettings"
                 End Select
             Next varKey
         End With
     End If
     CatchAny eelError, "Error applying print settings for: " & strPrinter, _
-        ModuleName & ".ApplySettings", True, True
+        ModuleName(Me) & ".ApplySettings", True, True
 End Sub
 
 
@@ -1099,7 +1098,7 @@ Public Function AddToExportFile(strFile As String) As String
     ' Return path to temp file
     AddToExportFile = strTempFile
     CatchAny eelError, "Error adding to export file: " & strFile, _
-        ModuleName & ".AddToExportFile", True, True
+        ModuleName(Me) & ".AddToExportFile", True, True
 End Function
 
 

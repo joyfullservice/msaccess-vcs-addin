@@ -17,8 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName As String = "clsDbSharedImage"
-
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 Private m_Dbs As DAO.Database
@@ -140,7 +138,7 @@ Private Sub IDbComponent_Import(strFile As String)
         If LoadItem(dItem("Name")) Then
             VCSIndex.Update Me, eatExport, GetDictionaryHash(dItem)
         Else
-            Log.Error eelError, "Unable to find shared image '" & dItem("Name") & "' after importing.", ModuleName & ".Import"
+            Log.Error eelError, "Unable to find shared image '" & dItem("Name") & "' after importing.", ModuleName(Me) & ".Import"
         End If
     End If
 

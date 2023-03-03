@@ -19,7 +19,6 @@ Option Explicit
 
 ' File name for index
 Private Const cstrFileName As String = "vcs-index.json"
-Private Const ModuleName As String = "clsVCSIndex"
 
 ' General properties
 Public MergeBuildDate As Date
@@ -784,7 +783,7 @@ Public Sub ClearTempExportFolder()
             ' Use FSO to delete the folder and contents
             FSO.DeleteFolder m_strTempExportFolderPath, True
             CatchAny eelWarning, "Unable to delete temp folder: '" & m_strTempExportFolderPath & _
-                "' You will need to manually remove this folder.", ModuleName & ".ClearTempExportFolder"
+                "' You will need to manually remove this folder.", ModuleName(Me) & ".ClearTempExportFolder"
         End If
         m_strTempExportFolderPath = vbNullString
     End If

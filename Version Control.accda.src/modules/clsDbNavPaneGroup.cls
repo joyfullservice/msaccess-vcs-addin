@@ -17,7 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName As String = "clsDbNavPaneGroup"
 Private Const FormatVersion As Double = 1.1
 
 Private m_Items(True To False) As Dictionary
@@ -102,7 +101,7 @@ Private Sub IDbComponent_Import(strFile As String)
                 If lngCategoryID = 0 Then
                     Log.Error eelError, _
                         "Could not create custom category record for " & dCategory("Name") & " in MSysNavPaneGroupCategories.", _
-                        ModuleName & ".Import"
+                        ModuleName(Me) & ".Import"
                     Exit Sub
                 End If
         
@@ -174,7 +173,7 @@ Private Sub ClearExistingNavGroups()
         .Close
     End With
 
-    CatchAny eelError, "Error clearing existing navigation pane groups.", ModuleName & ".ClearExisting"
+    CatchAny eelError, "Error clearing existing navigation pane groups.", ModuleName(Me) & ".ClearExisting"
     
 End Sub
 
@@ -281,12 +280,12 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
             End If
 
             ' Add any item listed in this group
-            If Nz(!ObjectName) = vbNullString Then
+            If Nz(!objectName) = vbNullString Then
                 ' Saved group with no items.
             Else
                 Set dObject = New Dictionary
-                dObject.Add "Name", Nz(!ObjectName)
-                dObject.Add "Type", Nz(!ObjectType, 0)
+                dObject.Add "Name", Nz(!objectName)
+                dObject.Add "Type", Nz(!objectType, 0)
                 dObject.Add "Flags", Nz(!ObjectFlags, 0)
                 dObject.Add "Icon", Nz(!ObjectIcon, 0)
                 dObject.Add "Position", Nz(!ObjectPosition, 0)
@@ -622,11 +621,11 @@ Private Sub IDbComponent_Upgrade()
     If dblVersion > FormatVersion Then
         Log.Error eelError, "Format " & dblVersion & " of " & IDbComponent_SourceFile & _
             " not supported by this version of the add-in. Please update the add-in to import this file.", _
-            ModuleName & ".Upgrade"
+            ModuleName(Me) & ".Upgrade"
     End If
     
     ' Report any errors during upgrade process
-    CatchAny eelError, "Error upgrading navigation pane groups.", ModuleName & ".Export", True, True
+    CatchAny eelError, "Error upgrading navigation pane groups.", ModuleName(Me) & ".Export", True, True
 
 End Sub
 

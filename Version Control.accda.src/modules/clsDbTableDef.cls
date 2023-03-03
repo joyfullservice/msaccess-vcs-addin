@@ -17,8 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Const ModuleName As String = "clsDbTableDef"
-
 Private m_Table As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
@@ -446,10 +444,10 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
         dbs.TableDefs.Append tdf
         If Catch(3011) Then
             Log.Error eelError, "Could not link table '" & dItem("SourceTableName") & "'", _
-            ModuleName & ".ImportLinkedTable"
+            ModuleName(Me) & ".ImportLinkedTable"
             Log.Add "Linked table object not found in " & strFile, False
             Log.Add "Connection String: " & strConnect, False
-        ElseIf CatchAny(eelError, vbNullString, ModuleName & ".ImportLinkedTable") Then
+        ElseIf CatchAny(eelError, vbNullString, ModuleName(Me) & ".ImportLinkedTable") Then
             ' May have encountered other issue like a missing link specification.
         Else
             ' Verify that the connection matches the source file. (Issue #192)
