@@ -376,6 +376,60 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ObjectExists
+' Author    : Adam Waller
+' Date      : 3/3/2023
+' Purpose   : See if the object exists in the current database/project
+'---------------------------------------------------------------------------------------
+'
+Public Function ObjectExists(intType As AcObjectType, strName As String) As Boolean
+
+    Dim objTest As Object
+    Dim objContainer As Object
+    
+    Set objContainer = GetParentContainer(intType)
+    If objContainer Is Nothing Then
+        Log.Error eelError, "Parent container not supported for this object type: " & intType, ModuleName & ".ObjectExists"
+    Else
+        ' Attempt to reference the object by name
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        Set objTest = objContainer(strName)
+        ObjectExists = Not Catch(2467)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetParentContainer
+' Author    : Adam Waller
+' Date      : 3/3/2023
+' Purpose   : Get the parent container collection for the object type. (Not all types
+'           : are supported.)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetParentContainer(intType As AcObjectType) As Object
+    Select Case intType
+        ' ADP Specific
+        Case acDiagram:             Set GetParentContainer = CurrentData.AllDatabaseDiagrams
+        Case acFunction:            Set GetParentContainer = CurrentData.AllFunctions
+        Case acServerView:          Set GetParentContainer = CurrentData.AllViews
+        Case acStoredProcedure:     Set GetParentContainer = CurrentData.AllStoredProcedures
+        ' Database objects
+        Case acDatabaseProperties:  Set GetParentContainer = CurrentDb.Properties   'DAO?
+        Case acForm:                Set GetParentContainer = CurrentProject.AllForms
+        Case acMacro:               Set GetParentContainer = CurrentProject.AllMacros
+        Case acModule:              Set GetParentContainer = CurrentProject.AllModules
+        Case acQuery:               Set GetParentContainer = CurrentData.AllQueries
+        Case acReport:              Set GetParentContainer = CurrentProject.AllReports
+        Case acTable:               Set GetParentContainer = CurrentData.AllTables
+        Case acTableDataMacro       ' Unsupported
+        Case Else
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ProjectIsSelected
 ' Author    : Adam Waller
 ' Date      : 5/15/2015
@@ -440,12 +494,12 @@ Private Function GetProjectByName(ByVal strPath As String) As VBProject
     Set GetProjectByName = VBE.ActiveVBProject
     
     ' VBProject filenames are UNC paths
-    strUncPath = GetUncPath(strPath)
+    strUncPath = UCase(GetUncPath(strPath))
     
-    If VBE.ActiveVBProject.FileName <> strUncPath Then
+    If UCase(VBE.ActiveVBProject.FileName) <> strUncPath Then
         ' Search for project with matching filename.
         For Each objProj In VBE.VBProjects
-            If objProj.FileName = strUncPath Then
+            If UCase(objProj.FileName) = strUncPath Then
                 Set GetProjectByName = objProj
                 Exit For
             End If
@@ -529,41 +583,15 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : DeleteObject
+' Procedure : DeleteObjectIfExists
 ' Author    : Adam Waller
-' Date      : 11/23/2020
-' Purpose   : Deletes the object if it exists. (Surpresses error)
+' Date      : 3/3/2023
+' Purpose   : Deletes the object if it exists. (Uses worker to ensure that the object
+'           : is deleted from the current database, not the add-in.)
 '---------------------------------------------------------------------------------------
 '
 Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
-
-    Dim proj As VBProject
-    Dim cmpItem As VBComponent
-    
-    ' Delete the database object
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    DoCmd.DeleteObject intType, strName
-    If Not Catch(7874) Then DoEvents  ' Object not found
-    
-    ' Delete any associated VBE object
-    Select Case intType
-        Case acForm, acReport, acModule
-            Set proj = GetVBProjectForCurrentDB
-            ' Make sure we are on the correct VBProject before removing anything
-            If Not proj Is VBE.ActiveVBProject Then Set VBE.ActiveVBProject = proj
-            With proj
-                Set cmpItem = .VBComponents(strName)
-                If Not Catch(9) Then
-                    .VBComponents.Remove cmpItem
-                    Set cmpItem = Nothing
-                    DoEvents
-                End If
-            End With
-    End Select
-    
-    ' Trap another other unexpected errors
-    CatchAny eelError, "Deleting object " & strName
-    
+    If ObjectExists(intType, strName) Then Worker.DeleteDatabaseObject intType, strName
 End Sub
 
 

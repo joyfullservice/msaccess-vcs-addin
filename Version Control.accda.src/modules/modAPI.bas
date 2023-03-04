@@ -84,7 +84,11 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function WorkerCallback(strKey As String, Optional varParams As Variant)
-    Worker.ReturnWorker strKey, varParams
+    If RunningOnLocal Then
+        RunInAddIn "WorkerCallback", False, strKey, varParams
+    Else
+        Worker.ReturnWorker strKey, varParams
+    End If
 End Function
 
 

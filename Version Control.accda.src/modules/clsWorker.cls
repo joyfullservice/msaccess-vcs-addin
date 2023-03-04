@@ -44,14 +44,28 @@ Private WScript As Object
 '           : add-in file to be currupted, and the operation will fail.)
 '---------------------------------------------------------------------------------------
 '
-Public Function DeleteDatabaseObject(intType As AcObjectType, strName As String)
+Public Function DeleteDatabaseObject(intType As AcObjectType, strName As String, Optional blnWaitForQueue As Boolean = True)
 
     ' Don't use the following method from the add-in! Instead, we need to call
     ' it from an external process so it deletes from the current database first.
     'DoCmd.DeleteObject acModule, "basModule"
-    
     CallWorker strName, 5, "DeleteDatabaseObject", intType, strName
+    If blnWaitForQueue Then Me.WaitForQueue 5, "DeleteDatabaseObject", 0.25
     
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RenameDatabaseObject
+' Author    : Adam Waller
+' Date      : 3/3/2023
+' Purpose   : Rename the specified database object
+'---------------------------------------------------------------------------------------
+'
+Public Function RenameDatabaseObject(strNewName As String, intType As AcObjectType, _
+    strOldName As String, Optional blnWaitForQueue As Boolean = True)
+    CallWorker strNewName, 3, "RenameDatabaseObject", strNewName, intType, strOldName
+    If blnWaitForQueue Then Me.WaitForQueue 3, "RenameDatabaseObject", 0.1
 End Function
 
 
@@ -70,7 +84,9 @@ Public Sub WaitForQueue(dblTimeout As Double, Optional strAction As String = "Al
     Dim varKey As Variant
     Dim blnFound As Boolean
     Dim dblStart As Double
+    Dim dblPollStart As Double
     Dim colRemove As Collection
+    Dim varJob As Variant
     
     ' No need to wait if there is nothing in the queue
     If Me.Queue.Count = 0 Then Exit Sub
@@ -85,7 +101,13 @@ Public Sub WaitForQueue(dblTimeout As Double, Optional strAction As String = "Al
     ' Loop while periodically checking the queue
     Do
         ' Pause for the poll interval
-        Pause sngPollSeconds
+        dblPollStart = Perf.MicroTimer
+        Do While dblPollStart + sngPollSeconds > Perf.MicroTimer
+            ' Normally we don't want to stay on a constant loop
+            ' of doevents, but in this case it is necessary to allow
+            ' the worker callbacks to process.
+            DoEvents
+        Loop
         DoEvents
         
         ' We can exit early if there is nothing in the queue
@@ -96,7 +118,7 @@ Public Sub WaitForQueue(dblTimeout As Double, Optional strAction As String = "Al
         
         ' Loop through queue of jobs
         For Each varKey In Me.Queue.Keys
-            Set cJob = Me.Queue.Item(varKey)
+            Set cJob = Me.Queue(varKey)
             
             ' Check for job timeout (all jobs)
             If Perf.MicroTimer > cJob.Timeout Then
@@ -110,15 +132,24 @@ Public Sub WaitForQueue(dblTimeout As Double, Optional strAction As String = "Al
                 End If
             End If
         Next varKey
+        Set cJob = Nothing
         
         ' Log and remove any individual jobs that have timed out
-        
+        For Each varJob In colRemove
+            Set cJob = Me.Queue(varJob)
+            With cJob
+                Log.Error eelError, "Job " & .KeyHash & " (" & .Action & ") timed out after " & _
+                    Round(Perf.MicroTimer - .Start, 0) & " seconds.", ModuleName(Me) & ".WaitForQueue"
+            End With
+            Set cJob = Nothing
+            If Me.Queue.Exists(varJob) Then Me.Queue.Remove varJob
+        Next varJob
         
         ' If nothing found of a specified action, we can exit the loop
         If (strAction <> "All") And (Not blnFound) Then Exit Do
         
         ' Check the overall timeout before we start another iteration
-        If dblStart + dblTimeout > Perf.MicroTimer Then
+        If dblStart + dblTimeout < Perf.MicroTimer Then
             Log.Error eelError, "Timed out waiting for job queue", ModuleName(Me) & ".WaitForQueue"
             Log.Add " (" & Me.Queue.Count & " jobs still in the queue.)", False
             Exit Do
@@ -268,15 +299,8 @@ Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
         For intParam = 0 To UBound(varParams)
             .Add " ", CStr(varParams(intParam))
         Next intParam
-        
-        ' Use the Shell command to launch the worker as an external asynchrous
-        ' process, and return the process ID to the caller.
-        lngHandle = Shell(.GetStr, vbHide)
-        
-    End With
-    
-    ' Add to job queue
-    If lngHandle <> 0 Then
+
+        ' Add to job queue (before launching, just in case it runs very fast)
         Set cJob = New clsJob
         With cJob
             .KeyHash = strHash
@@ -284,7 +308,13 @@ Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
             .Start = Perf.MicroTimer
             .Timeout = .Start + dblTimeoutSeconds
         End With
-    End If
+        Me.Queue.Add strHash, cJob
+
+        ' Use the Shell command to launch the worker as an external asynchrous
+        ' process, and return the process ID to the caller.
+        lngHandle = Shell(.GetStr, vbHide)
+        
+    End With
     
     ' Return process handle
     CallWorker = lngHandle
@@ -357,6 +387,7 @@ Sub Main()
 
     Dim objFSO
     Dim objApp
+    Dim objProj
     Dim strKey
     Dim strValue
     Dim varReturn
@@ -377,6 +408,8 @@ Sub Main()
     Else
         ' Get a reference to the database application
         Set objApp = GetObject(strValue)
+        'Set objApp.VBE.ActiveVBProject = GetAddInVBProject(objApp)
+        Set objApp.VBE.ActiveVBProject = GetVBProjectForCurrentDB(objApp)
     End If
     
     ' The second argument should be the key
@@ -387,19 +420,124 @@ Sub Main()
         
         Case "DeleteDatabaseObject"
             ' Type, Name
-            objApp.DoCmd.DeleteObject WScript.Arguments(2), WScript.Arguments(3)
+            objApp.DoCmd.DeleteObject WScript.Arguments(3), WScript.Arguments(4)
     
         Case "RenameDatabaseObject"
             ' New name, Type, Old Name
-            objApp.DoCmd.DeleteObject WScript.Arguments(2), WScript.Arguments(3), WScript.Arguments(3)
+            objApp.DoCmd.Rename WScript.Arguments(3), WScript.Arguments(4), WScript.Arguments(5)
         
         Case Else
             MsgBox "Unknown Action: " & WScript.Arguments(1), vbExclamation
             
     End Select
 
-    ' Return key to caller to signal job completion
-    objApp.Run "MSAccessVCS.WorkerCallback", strKey, varReturn
+    ' Check the project name, just in case we are editing the VCS project
+    If objApp.CurrentProject.Name = "Version Control.accda" Then
+        ' Rename project so we can run the callback directly on the add-in
+        ' even if the local project does not currently compile. (Such as
+        ' after removing a class module during a merge operation.)
+        Set objProj = GetAddInVBProject(objApp)
+        objProj.Name = "MSAccessVCS-Lib"
+        objApp.Run "MSAccessVCS-Lib.WorkerCallback", strKey, varReturn
+        objProj.Name = "MSAccessVCS"
+    Else
+        ' Return key to caller to signal job completion
+        objApp.Run "MSAccessVCS.WorkerCallback", strKey, varReturn
+    End If
     
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetVBProjectForCurrentDB
+' Author    : Adam Waller
+' Date      : 3/3/2023
+' Purpose   : Get a reference to the VB Project associated with the current database.
+'           : (Look for a matching file name between the VB Projects and the database.)
+'---------------------------------------------------------------------------------------
+'
+Function GetVBProjectForCurrentDB(objApp)
+
+    Dim objProj
+    Dim strUncPath
+    
+    ' Use currently active project by default
+    Set GetVBProjectForCurrentDB = objApp.VBE.ActiveVBProject
+    
+    ' VBProject filenames are UNC paths
+    strUncPath = GetUncPath(objApp.CurrentProject.FullName)
+    
+    If StrComp(objApp.VBE.ActiveVBProject.FileName, strUncPath, vbTextCompare) <> 0 Then
+        ' Search for project with matching filename.
+        For Each objProj In objApp.VBE.VBProjects
+            If StrComp(objProj.FileName, strUncPath, vbTextCompare) = 0 Then
+                Set GetVBProjectForCurrentDB = objProj
+                Exit For
+            End If
+        Next
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAddInVBProject
+' Author    : Adam Waller
+' Date      : 3/3/2023
+' Purpose   : Get a reference to the add-in project, even if it has the same name as
+'           : the current project.
+'---------------------------------------------------------------------------------------
+'
+Function GetAddInVBProject(objApp)
+
+    Dim objProj
+    Dim strUncPath
+    Dim objFSO
+    
+    Set objFSO = CreateObject("Scripting.FileSystemObject")
+    
+    ' VBProject filenames are UNC paths
+    strUncPath = GetUncPath(objApp.CurrentProject.FullName)
+    
+    ' Search for project with matching filename.
+    For Each objProj In objApp.VBE.VBProjects
+        If StrComp(objFSO.GetFileName(objProj.FileName), "Version Control.accda", vbTextCompare) = 0 Then
+            ' Check for different file path
+            If StrComp(objProj.FileName, strUncPath, vbTextCompare) <> 0 Then
+                Set GetAddInVBProject = objProj
+                Exit For
+            End If
+        End If
+    Next
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetUncPath
+' Author    : Adam Waller
+' Date      : 7/14/2020
+' Purpose   : Returns the UNC path for a network location (if applicable)
+'---------------------------------------------------------------------------------------
+'
+Function GetUncPath(strPath)
+
+    Dim strDrive
+    Dim strUNC
+    Dim objFSO
+    
+    Set objFSO = CreateObject("Scripting.FileSystemObject")
+    
+    strUNC = strPath
+    strDrive = objFSO.GetDriveName(strPath)
+    If strDrive <> vbNullString Then
+        With objFSO.GetDrive(strDrive)
+            If .DriveType = 3 Then  ' Remote
+                strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
+            End If
+        End With
+    End If
+    GetUncPath = strUNC
+    
+End Function
 
