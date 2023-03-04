@@ -382,12 +382,12 @@ End Function
 ' Purpose   : See if the object exists in the current database/project
 '---------------------------------------------------------------------------------------
 '
-Public Function ObjectExists(intType As AcObjectType, strName As String) As Boolean
+Public Function ObjectExists(intType As AcObjectType, strName As String, Optional blnInCodeDb As Boolean = False) As Boolean
 
     Dim objTest As Object
     Dim objContainer As Object
     
-    Set objContainer = GetParentContainer(intType)
+    Set objContainer = GetParentContainer(intType, blnInCodeDb)
     If objContainer Is Nothing Then
         Log.Error eelError, "Parent container not supported for this object type: " & intType, ModuleName & ".ObjectExists"
     Else
@@ -406,26 +406,46 @@ End Function
 ' Date      : 3/3/2023
 ' Purpose   : Get the parent container collection for the object type. (Not all types
 '           : are supported.)
+'           : Also allows you to specify whether to use the CodeDb or CurrentDb
 '---------------------------------------------------------------------------------------
 '
-Public Function GetParentContainer(intType As AcObjectType) As Object
+Public Function GetParentContainer(intType As AcObjectType, Optional blnInCodeDb As Boolean = False) As Object
+    
+    Dim objHostData As CurrentData
+    Dim objHostProject As CurrentProject
+    
+    ' Set the host objects
+    If blnInCodeDb Then
+        Set objHostData = CurrentData
+        Set objHostProject = CurrentProject
+    Else
+        Set objHostData = CodeData
+        Set objHostProject = CodeProject
+    End If
+    
+    ' Return the associated parent container
     Select Case intType
+    
         ' ADP Specific
-        Case acDiagram:             Set GetParentContainer = CurrentData.AllDatabaseDiagrams
-        Case acFunction:            Set GetParentContainer = CurrentData.AllFunctions
-        Case acServerView:          Set GetParentContainer = CurrentData.AllViews
-        Case acStoredProcedure:     Set GetParentContainer = CurrentData.AllStoredProcedures
+        Case acDiagram:             Set GetParentContainer = objHostData.AllDatabaseDiagrams
+        Case acFunction:            Set GetParentContainer = objHostData.AllFunctions
+        Case acServerView:          Set GetParentContainer = objHostData.AllViews
+        Case acStoredProcedure:     Set GetParentContainer = objHostData.AllStoredProcedures
+        
         ' Database objects
-        Case acDatabaseProperties:  Set GetParentContainer = CurrentDb.Properties   'DAO?
-        Case acForm:                Set GetParentContainer = CurrentProject.AllForms
-        Case acMacro:               Set GetParentContainer = CurrentProject.AllMacros
-        Case acModule:              Set GetParentContainer = CurrentProject.AllModules
-        Case acQuery:               Set GetParentContainer = CurrentData.AllQueries
-        Case acReport:              Set GetParentContainer = CurrentProject.AllReports
-        Case acTable:               Set GetParentContainer = CurrentData.AllTables
-        Case acTableDataMacro       ' Unsupported
+        Case acForm:                Set GetParentContainer = objHostProject.AllForms
+        Case acMacro:               Set GetParentContainer = objHostProject.AllMacros
+        Case acModule:              Set GetParentContainer = objHostProject.AllModules
+        Case acQuery:               Set GetParentContainer = objHostData.AllQueries
+        Case acReport:              Set GetParentContainer = objHostProject.AllReports
+        Case acTable:               Set GetParentContainer = objHostData.AllTables
+        
+        ' Unsupported
+        Case acTableDataMacro, acDatabaseProperties
         Case Else
+    
     End Select
+    
 End Function
 
 
@@ -574,7 +594,7 @@ End Function
 ' Procedure : TableExists
 ' Author    : Adam Waller
 ' Date      : 5/7/2020
-' Purpose   : Returns true if the table object is found in the dabase.
+' Purpose   : Returns true if the table object is found in the dabase. (SQL version)
 '---------------------------------------------------------------------------------------
 '
 Public Function TableExists(strName As String) As Boolean
@@ -586,12 +606,80 @@ End Function
 ' Procedure : DeleteObjectIfExists
 ' Author    : Adam Waller
 ' Date      : 3/3/2023
-' Purpose   : Deletes the object if it exists. (Uses worker to ensure that the object
-'           : is deleted from the current database, not the add-in.)
+' Purpose   : Deletes the object if it exists. This gets really tricky if the object
+'           : exists in both the add-in database and the current database. Thankfully
+'           : we have a way to work around this for most objects by renaming to a
+'           : unique name that doesn't exist in the add-in, and deleting the renamed
+'           : object.
 '---------------------------------------------------------------------------------------
 '
 Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
-    If ObjectExists(intType, strName) Then Worker.DeleteDatabaseObject intType, strName
+
+    Dim blnExistsInAddIn As Boolean
+    Dim strTempName As String
+    
+    ' If object does not exist in the current database, no need to go further
+    If Not ObjectExists(intType, strName) Then Exit Sub
+    
+    ' Check to see if the object exists in the add-in database. (See note above)
+    Select Case intType
+        ' Objec types used in the add-in
+        Case acForm, acMacro, acModule, acQuery, acReport, acTable
+            blnExistsInAddIn = ObjectExists(intType, strName, True)
+    End Select
+
+    ' Attempt to delete the object
+    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    
+    If Not blnExistsInAddIn Then
+        ' Nice! We can use a simple call to delete the object
+        DoCmd.DeleteObject intType, strName
+    Else
+        ' This is where it gets fun... If you attempt to delete an object from the
+        ' VBA code in the add-in, it will default to operating on the add-in object
+        ' first, before looking in the current database. This can cause corruption
+        ' in the add-in, in addition to failing to delete the object from the
+        ' current database. To work around this, we will rename the object to something
+        ' random first, then delete it based on the randomized (non-matching) name.
+        
+        ' Build a random temp name that will not collide with the add-in or any existing
+        ' object in the current database. (But leave a meaningful clue in the name, in
+        ' case something goes wrong and it ends up staying in the database.)
+        strTempName = strName & "_DELETE_" & GetStringHash(Perf.MicroTimer)
+        
+        ' We need to avoid using DoCmd.Rename for the same reasons
+        Select Case intType
+            Case acForm, acReport
+                ' Unfortunately we don't have a way to effectively rename this object.
+                Log.Error eelError, "Unable to delete " & strName & _
+                    " because an object with the same name exists in the add-in database."
+                strTempName = vbNullString
+            Case acMacro
+                ' The rename command seems to work on this object type... (At least
+                ' in Access 2010)
+                DoCmd.Rename strTempName, acMacro, strName
+            Case acModule
+                ' Rename the VBE object
+                GetVBProjectForCurrentDB.VBComponents(strName).Name = strTempName
+            Case acQuery
+                ' Rename the Query Definition object
+                CurrentDb.QueryDefs(strName).Name = strTempName
+            Case acTable
+                ' Rename the Table Definition object
+                CurrentDb.TableDefs(strName).Name = strTempName
+        End Select
+        
+        ' Trap any errors involved in renaming the object
+        If Not CatchAny(eelError, "Error renaming object: " & strName, ModuleName & ".DeleteObjectIfExists") Then
+            
+            ' Rename object using the temp name
+            If strTempName <> vbNullString Then DoCmd.DeleteObject intType, strTempName
+        End If
+    End If
+
+    ' Catch any errors with deleting the object
+    CatchAny eelError, "Error deleting object: " & strName, ModuleName & ".DeleteObjectIfExists"
+    
 End Sub
 
 
