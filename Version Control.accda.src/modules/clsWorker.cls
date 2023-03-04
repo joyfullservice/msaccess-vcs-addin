@@ -44,7 +44,7 @@ Private WScript As Object
 '           : add-in file to be currupted, and the operation will fail.)
 '---------------------------------------------------------------------------------------
 '
-Public Function DeleteDatabaseObject(intType As AcObjectType, strName As String, Optional blnWaitForQueue As Boolean = True)
+Public Function WIP_DeleteDatabaseObject(intType As AcObjectType, strName As String, Optional blnWaitForQueue As Boolean = True)
 
     ' Don't use the following method from the add-in! Instead, we need to call
     ' it from an external process so it deletes from the current database first.
@@ -62,7 +62,7 @@ End Function
 ' Purpose   : Rename the specified database object
 '---------------------------------------------------------------------------------------
 '
-Public Function RenameDatabaseObject(strNewName As String, intType As AcObjectType, _
+Public Function WIP_RenameDatabaseObject(strNewName As String, intType As AcObjectType, _
     strOldName As String, Optional blnWaitForQueue As Boolean = True)
     CallWorker strNewName, 3, "RenameDatabaseObject", strNewName, intType, strOldName
     If blnWaitForQueue Then Me.WaitForQueue 3, "RenameDatabaseObject", 0.1
