@@ -613,22 +613,22 @@ End Function
 '           : object.
 '---------------------------------------------------------------------------------------
 '
-Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
+Public Function DeleteObjectIfExists(intType As AcObjectType, strName As String) As Boolean
 
     Dim blnExistsInAddIn As Boolean
     Dim strTempName As String
     
     ' If object does not exist in the current database, no need to go further
-    If Not ObjectExists(intType, strName) Then Exit Sub
+    If Not ObjectExists(intType, strName) Then Exit Function
     
     ' Check to see if the object exists in the add-in database. (See note above)
     Select Case intType
-        ' Objec types used in the add-in
-        Case acForm, acMacro, acModule, acQuery, acReport, acTable
+        ' Object types used in the add-in
+        Case acForm, acMacro, acModule, acQuery, acTable
             blnExistsInAddIn = ObjectExists(intType, strName, True)
     End Select
 
-    ' Attempt to delete the object
+    ' Trap errors when attempting to delete the object
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     
     If Not blnExistsInAddIn Then
@@ -649,15 +649,14 @@ Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
         
         ' We need to avoid using DoCmd.Rename for the same reasons
         Select Case intType
-            Case acForm, acReport
-                ' Unfortunately we don't have a way to effectively rename this object.
-                Log.Error eelError, "Unable to delete " & strName & _
-                    " because an object with the same name exists in the add-in database."
-                strTempName = vbNullString
+            Case acForm
+                Log.Error eelError, "Cannot delete a form with the same name as an add-in form.", _
+                    ModuleName & ".DeleteObjectIfExists"
+                    Exit Function   ' (Returns False)
             Case acMacro
                 ' The rename command seems to work on this object type... (At least
                 ' in Access 2010)
-                DoCmd.Rename strTempName, acMacro, strName
+                DoCmd.Rename strTempName, intType, strName
             Case acModule
                 ' Rename the VBE object
                 GetVBProjectForCurrentDB.VBComponents(strName).Name = strTempName
@@ -671,16 +670,18 @@ Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
         
         ' Trap any errors involved in renaming the object
         If Not CatchAny(eelError, "Error renaming object: " & strName, ModuleName & ".DeleteObjectIfExists") Then
-            
-            ' Rename object using the temp name
-            If strTempName <> vbNullString Then DoCmd.DeleteObject intType, strTempName
+            ' Delete object using the temp name
+            DoCmd.DeleteObject intType, strTempName
         End If
     End If
 
     ' Catch any errors with deleting the object
     CatchAny eelError, "Error deleting object: " & strName, ModuleName & ".DeleteObjectIfExists"
     
-End Sub
+    ' Return success if the object no longer exists
+    DeleteObjectIfExists = Not ObjectExists(intType, strName)
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------

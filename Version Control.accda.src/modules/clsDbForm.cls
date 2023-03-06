@@ -89,12 +89,28 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-    DeleteObjectIfExists acForm, GetObjectNameFromFileName(strFile)
+
+    Dim strName As String
+    
+    ' Get object name
+    strName = GetObjectNameFromFileName(strFile)
+    
+    ' Don't attempt to merge forms with same names as add-in forms.
+    If ObjectExists(acForm, strName, True) Then
+        Log.Error eelError, "Merging not supported for add-in forms. Use full build instead.", _
+            ModuleName(Me) & ".Merge"
+        Exit Sub
+    End If
+    
+    ' Import the form if the source file exists.
     If FSO.FileExists(strFile) Then
+        ' Importing the form will replace the existing object
         IDbComponent_Import strFile
     Else
+        DeleteObjectIfExists acForm, strName
         VCSIndex.Remove Me, strFile
     End If
+    
 End Sub
 
 
