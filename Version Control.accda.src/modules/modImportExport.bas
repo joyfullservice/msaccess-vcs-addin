@@ -552,10 +552,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
             dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory)
         End If
         dCategories.Add cCategory, dCategory
-        ' Record any conflicts for later review
-        VCSIndex.CheckImportConflicts cCategory, dCategory("Files")
-        ' Clear orphaned database objects (With no corresponding source file)
-        If Not blnFullBuild Then cCategory.ClearOrphanedDatabaseObjects
+        If Not blnFullBuild Then
+            ' Record any conflicts for later review
+            VCSIndex.CheckImportConflicts cCategory, dCategory("Files")
+            ' Clear orphaned database objects (With no corresponding source file)
+            cCategory.ClearOrphanedDatabaseObjects
+        End If
     Next cCategory
     Perf.OperationEnd
     
@@ -577,7 +579,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
         End If
     End With
  
-
     ' Loop through all categories
     Log.Spacer
     For Each varCategory In dCategories.Keys
