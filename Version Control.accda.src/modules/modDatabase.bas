@@ -540,6 +540,13 @@ Public Sub RunSubInCurrentProject(strSubName As String)
         Exit Sub
     End If
 
+    ' Make sure procedure exists in current database
+    If Not GlobalProcExists(strSubName) Then
+        Log.Error eelError, "The procedure """ & strSubName & """ not found.", ModuleName & ".RunSubInCurrentProject"
+        Log.Add "The procedure must be declared as public in a standard module.", False
+        Exit Sub
+    End If
+    
     ' Add project name so we can run it from the current datbase
     strCmd = "[" & CurrentVBProject.Name & "]." & strCmd
 

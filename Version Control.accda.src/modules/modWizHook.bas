@@ -41,6 +41,19 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GlobalProcExists
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Returns true if the procedure exists (Public proc in standard module)
+'---------------------------------------------------------------------------------------
+'
+Public Function GlobalProcExists(strName) As Boolean
+    CheckKey
+    GlobalProcExists = WizHook.GlobalProcExists(strName)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CheckKey
 ' Author    : Adam Waller
 ' Date      : 5/4/2022
