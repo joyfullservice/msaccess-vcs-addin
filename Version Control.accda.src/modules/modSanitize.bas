@@ -40,7 +40,7 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
     Dim curStart As Currency
     Dim strTempFile As String
     Dim strContent As String
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Read text from file, and split into lines
@@ -64,10 +64,10 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
             End If
         End If
     End If
-    
+
     Perf.OperationStart "Sanitize File"
     varLines = Split(strFile, vbCrLf)
-    
+
     If Options.SanitizeLevel = eslNone Then GoTo Build_Output
 
     ' Set up index of lines to skip
@@ -82,11 +82,11 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
     ' Using a do loop since we may adjust the line counter
     ' during a loop iteration.
     Do While lngLine <= UBound(varLines)
-        
+
         ' Get unmodified and trimmed line
         strLine = varLines(lngLine)
         strTLine = Trim$(strLine)
-        
+
         ' Improve performance by reducing comparisons
         If Len(strTLine) > 3 And blnInsideIgnoredBlock Then
             SkipLine lngLine
@@ -95,13 +95,13 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
         Else
             ' Run the rest of the tests
             Select Case strTLine
-            
+
                 ' File version
                 Case "Version =21"
                     ' Change version down to 20 to allow import into Access 2010.
                     ' (Haven't seen any significant issues with this.)
                     varLines(lngLine) = "Version =20"
-                
+
                 ' Print settings blocks to ignore
                 Case "PrtMip = Begin", _
                     "PrtDevMode = Begin", _
@@ -111,7 +111,7 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                     ' Set flag to ignore lines inside this block.
                     blnInsideIgnoredBlock = True
                     SkipLine lngLine
-        
+
                 ' Aggressive sanitize blocks
                 Case "GUID = Begin", _
                     "NameMap = Begin", _
@@ -121,18 +121,18 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                         blnInsideIgnoredBlock = True
                         SkipLine lngLine
                     End If
-                    
+
                 ' Single lines to ignore (#249)
                 Case "NoSaveCTIWhenDisabled =1", _
                     "AllowPivotTableView =0", _
                     "AllowPivotChartView =0"
                     SkipLine lngLine
-        
+
                 ' Publish option (used in Queries)
                 Case "dbByte ""PublishToWeb"" =""1""", _
                     "PublishOption =1"
                     If Options.StripPublishOption Then SkipLine lngLine
-                
+
                 ' End of block section
                 Case "End"
                     If blnInsideIgnoredBlock Then
@@ -143,13 +143,13 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                         ' Check for theme color index
                         CloseBlock
                     End If
-                
+
                 ' See if this file is from a report object
                 Case "Begin Report"
                     ' Turn flag on to ignore Right and Bottom lines
                     blnIsReport = True
                     BeginBlock
-                
+
                 ' Beginning of main section
                 Case "Begin"
                     BeginBlock
@@ -161,12 +161,12 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                         Loop
                         Exit Do
                     End If
-                
+
                 ' Code section behind form or report object
                 Case "CodeBehindForm"
                     ' Keep everything from this point on
                     Exit Do
-                
+
                 Case Else
                     If blnInsideIgnoredBlock Then
                         ' Skip content inside ignored blocks.
@@ -201,10 +201,10 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                         BeginBlock
                     Else
                         ' All other lines will be added.
-                        
+
                         ' Check for color properties
                         If InStr(1, strTLine, " =") > 1 Then CheckColorProperties strTLine, lngLine
-                        
+
                         ' Check for pass-through query connection string
                         If StartsWith(strLine, "dbMemo ""Connect"" =""") Then
                             ' Not just an empty value (See issue #337)
@@ -213,25 +213,25 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                             End If
                         End If
                     End If
-            
+
             End Select
         End If
-    
+
         ' Increment counter to next line
         lngLine = lngLine + 1
     Loop
-    
+
     ' Ensure that we correctly processed the nested block sequence.
     If m_colBlocks.Count > 0 Then Log.Error eelWarning, Replace(Replace( _
         "Found ${BlockCount} unclosed blocks after sanitizing ${File}.", _
         "${BlockCount}", m_colBlocks.Count), _
         "${File}", strPath), ModuleName & ".SanitizeFile"
-    
+
 Build_Output:
     ' Build the final output
     strContent = BuildOutput(varLines)
     WriteFile strContent, strPath
-    
+
     ' Return hash of content
     If blnReturnHash Then SanitizeFile = GetStringHash(strContent, True)
 
@@ -239,10 +239,10 @@ Build_Output:
     Set m_colBlocks = Nothing
     Perf.OperationEnd
     Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
-    
+
     ' Log any errors
     CatchAny eelError, "Error sanitizing file " & FSO.GetFileName(strPath), ModuleName & ".SanitizeFile"
-    
+
 End Function
 
 
@@ -258,7 +258,7 @@ Private Function BuildOutput(varLines As Variant) As String
     Dim cData As clsConcat
     Dim lngSkip As Long
     Dim lngLine As Long
-    
+
     ' Check index of skipped lines
     If m_lngSkipIndex = 0 Then
         ' No lines to skip
@@ -269,29 +269,29 @@ Private Function BuildOutput(varLines As Variant) As String
         ReDim Preserve m_SkipLines(0 To m_lngSkipIndex - 1)
         QuickSort m_SkipLines
     End If
-    
+
     ' Use concatenation class to maximize performance
     Set cData = New clsConcat
     With cData
         .AppendOnAdd = vbCrLf
-        
+
         ' Loop through array of lines in source file
         For lngLine = 0 To UBound(varLines)
-            
+
             ' Iterate the sorted skipped lines index to keep up with main loop
             ' (Using parallel loops to optimize performance)
             If m_SkipLines(lngSkip) < lngLine Then
                 If lngSkip < UBound(m_SkipLines) Then lngSkip = lngSkip + 1
             End If
-            
+
             ' Add content, unless the line is flagged to skip
             If m_SkipLines(lngSkip) <> lngLine Then .Add CStr(varLines(lngLine))
-        
+
         Next lngLine
-        
+
         ' Remove last vbcrlf
         cData.Remove Len(vbCrLf)
-    
+
         ' Return assembled output
         BuildOutput = .GetStr
     End With
@@ -337,29 +337,29 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub CloseBlock()
-    
+
     Dim varBase As Variant
     Dim intCnt As Integer
     Dim dBlock As Dictionary
     Dim strKey As String
-        
+
     ' Skip if we are not using aggressive color sanitize
     If Options.SanitizeColors <= eslNone Then Exit Sub
-    
+
     ' Bail out if we don't have a block to review
     If m_colBlocks.Count = 0 Then Exit Sub
     Set dBlock = m_colBlocks(m_colBlocks.Count)
-    
+
     ' Skip if we are not using themes for this control (UseTheme=0)
     ' (Applies to "CommandButton", "Tab", "ToggleButton")
     If dBlock.Exists("UseTheme") Then Exit Sub
-    
+
     ' Build array of base properties
     varBase = Array("Back", "AlternateBack", "Border", _
             "Fore", "Gridline", "HoverFore", _
             "Hover", "PressedFore", "Pressed", _
             "DatasheetFore", "DatasheetBack", "DatasheetGridlines")
-    
+
     ' Loop through properties, checking for index
     For intCnt = 0 To UBound(varBase)
         strKey = varBase(intCnt) & "ThemeColorIndex"
@@ -393,10 +393,10 @@ Private Sub CloseBlock()
             End Select
         End If
     Next intCnt
-    
+
     ' Remove this block
     m_colBlocks.Remove m_colBlocks.Count
-    
+
 End Sub
 
 
@@ -417,19 +417,19 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     Dim strID As String
     Dim lngValue As Long
     Dim lngColor As Long
-    
+
     ' Skip if not using this option
     If Options.SanitizeColors <= eslNone Then Exit Sub
-    
+
     ' Exit if we are not inside a block
     If Not m_colBlocks Is Nothing Then lngCnt = m_colBlocks.Count
     If lngCnt = 0 Then Exit Sub
     Set dBlock = m_colBlocks(m_colBlocks.Count)
-    
+
     ' Split on property/value
     varParts = Split(strTLine, " =")
     Select Case varParts(0)
-        
+
         ' Theme color index properties
         Case "BackThemeColorIndex", "AlternateBackThemeColorIndex", "BorderThemeColorIndex", _
             "ForeThemeColorIndex", "GridlineThemeColorIndex", "HoverForeThemeColorIndex", _
@@ -437,13 +437,13 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
             "DatasheetBackThemeColorIndex", "DatasheetForeThemeColorIndex", "DatasheetGridlinesThemeColorIndex"
             ' Save to dictionary if using a theme index color
             dBlock.Add varParts(0), varParts(1)
-    
+
         ' Matching color properties
         Case "BackColor", "AlternateBackColor", "BorderColor", _
             "ForeColor", "GridlineColor", "HoverForeColor", _
             "HoverColor", "PressedForeColor", "PressedColor", _
             "DatasheetBackColor", "DatasheetForeColor", "DatasheetGridlinesColor"
-            
+
             ' Check for system color constants
             If IsNumeric(varParts(1)) Then lngColor = varParts(1)
             If lngColor < 0 Then
@@ -454,11 +454,11 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
                 ' Save line of color property
                 dBlock.Add varParts(0), lngLine
             End If
-        
+
         Case "UseTheme"
             ' You can tell certain controls to not use the theme. (Buttons, Tabs, Toggles)
             If varParts(1) = 0 Then dBlock.Add varParts(0), 0
-        
+
         Case Else
             ' Check for other related dynamic color properties/indexes
             If StartsWith(strTLine, "DatasheetGridlinesColor") Then
@@ -466,9 +466,9 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
                 ' Convert to a more consistent identifier, using the index suffix as the value.
                 dBlock.Add "DatasheetGridlinesThemeColorIndex", Mid$(varParts(0), 24)
             End If
-    
+
     End Select
-    
+
 End Sub
 
 
@@ -496,9 +496,9 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
     Dim rxLine As VBScript_RegExp_55.RegExp
     Dim objMatches As VBScript_RegExp_55.MatchCollection
     Dim varLines As Variant
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     Set cData = New clsConcat
     cData.AppendOnAdd = vbCrLf
     Set rxLine = New VBScript_RegExp_55.RegExp
@@ -512,7 +512,7 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
     End If
     Perf.OperationStart "Sanitize XML"
     curStart = Perf.MicroTimer
-    
+
     ' Exporting Table Def as XML does not properly encode ampersand character (See #314)
     ' Most likely if any ampersands are encoded correctly, all of them will be.
     With New VBScript_RegExp_55.RegExp
@@ -525,7 +525,7 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
             strFile = Replace(strFile, "&", "&amp;")
         End If
     End With
-    
+
     ' When exporting table data, the schema is only required when the table contains
     ' a calculated field. See if we are working with a table data file, and if it
     ' contains a calculated field.
@@ -542,24 +542,24 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
             strFile = Mid(strFile, lngData, lngLen)
         End If
     End If
-    
+
     ' Split into array of lines
     varLines = Split(FormatXML(strFile), vbCrLf)
 
     ' Using a do loop since we may adjust the line counter
     ' during a loop iteration.
     Do While lngLine <= UBound(varLines)
-    
+
         ' Get unmodified and trimmed line
         strLine = varLines(lngLine)
         strTLine = TrimTabs(Trim$(strLine))
-        
+
         ' Look for specific lines
         Select Case True
-            
+
             ' Discard blank lines
             Case strTLine = vbNullString
-            
+
             ' Remove generated timestamp in header
             Case StartsWith(strTLine, "<dataroot ")
                 '<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" generated="2020-04-27T10:28:32">
@@ -576,11 +576,11 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
                         cData.Add strLine
                     End If
                 End With
-            
+
             ' Remove non-critical single lines that are not consistent between systems
             'Case StartsWith(strTLine, "<od:tableProperty name=""NameMap""")
             '    If Not Options.AggressiveSanitize Then cData.Add strLine
-                
+
             ' Remove multi-line sections
             Case StartsWith(strTLine, "<od:tableProperty name=""NameMap"""), _
                 StartsWith(strTLine, "<od:tableProperty name=""GUID"""), _
@@ -594,29 +594,29 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
                     ' Keep line and continue
                     cData.Add strLine
                 End If
-            
+
             ' Publish to web sections
             Case StartsWith(strTLine, "<od:tableProperty name=""PublishToWeb""")
                 If Not Options.StripPublishOption Then cData.Add strLine
-            
+
             ' Keep everything else
             Case Else
                 cData.Add strLine
-            
+
         End Select
-        
+
         ' Move to next line
         lngLine = lngLine + 1
     Loop
-    
+
     Perf.OperationEnd
-    
+
     ' Write out sanitized XML file
     WriteFile cData.GetStr, strPath
 
     ' Return hash, if requested
     If blnReturnHash Then SanitizeXML = GetStringHash(cData.GetStr, True)
-    
+
     ' Show stats if debug turned on.
     Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
 
@@ -638,7 +638,7 @@ Public Function TrimTabs(strText As String) As String
     Dim dblStart As Double
     Dim dblEnd As Double
     Dim dblPos As Double
-    
+
     ' Look for leading tabs
     dblStart = 1
     For dblPos = 1 To Len(strText)
@@ -647,7 +647,7 @@ Public Function TrimTabs(strText As String) As String
             Exit For
         End If
     Next dblPos
-    
+
     ' Look for trailing tabs
     dblEnd = 1
     If Right$(strText, 1) = vbTab Then
@@ -661,10 +661,10 @@ Public Function TrimTabs(strText As String) As String
         ' No trailing tabs
         dblEnd = Len(strText) + 1
     End If
-    
+
     ' Return string
     TrimTabs = Mid$(strText, dblStart, dblEnd - dblStart)
-    
+
 End Function
 
 
@@ -723,22 +723,22 @@ Private Function FormatXML(strSourceXML As String, _
 
     ' Skip processing if no content to format
     If strSourceXML = vbNullString Then Exit Function
-    
+
     Perf.OperationStart "Format XML"
-    
+
     ' Trap any errors with parsing or formatting the XML
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     Set objWriter = New MXHTMLWriter60
     Set objReader = New SAXXMLReader60
-    
+
     ' Set up writer
     With objWriter
         .indent = True
         .omitXMLDeclaration = Not blnOmitDeclaration
         Set objReader.contentHandler = objWriter
     End With
-    
+
     ' Prepare reader
     With objReader
         Set .contentHandler = objWriter
@@ -747,7 +747,7 @@ Private Function FormatXML(strSourceXML As String, _
 
     ' Apply custom indent to output
     strOutput = CustomIndent(objWriter.output)
-    
+
     ' Check for any errors parsing the XML
     If CatchAny(eelError, "Error parsing XML content", ModuleName & ".FormatXML") Then
         ' Fall back to input XML
@@ -757,11 +757,11 @@ Private Function FormatXML(strSourceXML As String, _
         Log.Add strSourceXML, False
         Log.Spacer False
     End If
-    
+
     ' Return formatted output
     Perf.OperationEnd
     FormatXML = strOutput
-    
+
 End Function
 
 
@@ -778,14 +778,14 @@ Private Function CustomIndent(strText As String, Optional intSpaces As Integer =
     Dim varLines As Variant
     Dim strLine As String
     Dim lngPos As Long
-    
+
     ' Split content into lines
     varLines = Split(strText, vbCrLf)
-    
+
     ' Rebuild while converting tabs to
     With New clsConcat
         .AppendOnAdd = vbCrLf
-        
+
         ' Loop through lines
         For lngLine = 0 To UBound(varLines)
             strLine = varLines(lngLine)
@@ -797,11 +797,11 @@ Private Function CustomIndent(strText As String, Optional intSpaces As Integer =
                 End If
             Next lngPos
         Next lngLine
-        
+
         ' Return result after trimming off last return
         If lngLine > 0 Then .Remove 2
         CustomIndent = .GetStr
     End With
-    
+
 End Function
 

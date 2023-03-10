@@ -66,10 +66,10 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
     Optional strColor As String = vbNullString, _
     Optional blnBold As Boolean = False, _
     Optional blnItalic As Boolean = False)
-    
+
     ' Add to log file output
     m_Log.Add strText, vbCrLf
-    
+
     ' See if we want to print the output of this message.
     If blnPrint Then
         ' Remove existing progress indicator if in use.
@@ -77,29 +77,29 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             m_blnProgressActive = False
             m_Prog.Hide
         End If
-    
+
         ' Build HTML output for console
         With m_Console
-        
+
             ' Opening tags
             If blnBold Then .Add "<strong>"
             If blnItalic Then .Add "<i>"
             If strColor <> vbNullString Then .Add "<font color=", strColor, ">"
-            
+
             ' Content
             .Add MultiReplace(strText, _
                 " ", "&nbsp;", _
                 vbCrLf, "<br>")
-            
+
             ' Closing tags
             If strColor <> vbNullString Then .Add "</font>"
             If blnItalic Then .Add "</i>"
             If blnBold Then .Add "</strong>"
-            
+
             ' Add line break for HTML
             If blnNextOutputOnNewLine Then m_Console.Add "<br>"
         End With
-        
+
         ' Run debug output
         If m_RichText Is Nothing Then
             ' Only print debug output if not running from the GUI.
@@ -111,7 +111,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
                 Debug.Print strText;
             End If
         End If
-        
+
         ' Allow an update to the screen every second.
         ' (This keeps the aplication from an apparent hang while
         '  running intensive export processes.)
@@ -120,7 +120,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             m_sngLastUpdate = Timer
         End If
     End If
- 
+
 End Sub
 
 
@@ -155,7 +155,7 @@ Public Sub Flush()
         DoEvents
     End If
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -171,23 +171,23 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
 
     Dim strPrefix As String
     Dim strDisplay As String
-    
+
     Select Case eLevel
         Case eelWarning:    strPrefix = "WARNING: "
         Case eelError:      strPrefix = "ERROR: "
         Case eelCritical:   strPrefix = "CRITICAL: "
     End Select
-    
+
     ' Build the error message string.
     With New clsConcat
-    
+
         ' Sometimes the error description is sufficient for the description
         If strDescription = vbNullString And Err.Number <> 0 Then
             strDisplay = strPrefix & Err.Description
         Else
             strDisplay = strPrefix & strDescription
         End If
-        
+
         ' Display on the output screen anything higher than a warning
         If eLevel > eelWarning Then
             Me.Add vbNullString
@@ -195,12 +195,12 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
             Me.Add strDisplay, , , "red"
             Me.Spacer
         End If
-        
+
         ' Log the full detail to the log file
         If Err Then .Add "Error ", Err.Number, ": ", Err.Description, " "
         If strSource <> vbNullString Then .Add "Source: ", strSource
         Me.Add .GetStr, False
-        
+
         ' See if we are actively logging an operation
         If Log.Active Then
             ' Show message box for fatal error.
@@ -218,10 +218,10 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
             End Select
         End If
     End With
-    
+
     ' Update error level if higher.
     If Me.ErrorLevel < eLevel Then Me.ErrorLevel = eLevel
-    
+
 End Sub
 
 
@@ -363,5 +363,5 @@ Public Sub Increment()
     ' Status is now active
     m_blnProgressActive = True
     Perf.OperationEnd
-    
+
 End Sub

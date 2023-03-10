@@ -65,7 +65,7 @@ Private Const ModuleName As String = "modHash"
 
 
 Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgorithm As String = DefaultHashAlgorithm) As Byte()
-    
+
     'Erik A, 2019, adapted by Adam Waller
     'Hash data by using the Next Generation Cryptography API
     'Loosely based on https://docs.microsoft.com/en-us/windows/desktop/SecCNG/creating-a-hash-with-cng
@@ -120,7 +120,7 @@ VBErrHandler:
 ErrHandler:
     CatchAny eelCritical, "Error hashing! " & errorMessage & ". Algorithm: " & HashingAlgorithm, ModuleName & ".NGHash", True, True
     GoTo ExitHandler
-    
+
 End Function
 
 
@@ -203,30 +203,30 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetHash(bteContent() As Byte) As String
-    
+
     Dim objEnc As Object
     Dim bteHash As Variant
     Dim strHash As String
     Dim intPos As Integer
     Dim intLength As Integer
     Dim strAlgorithm As String
-    
+
     ' Get hashing options
     strAlgorithm = Nz2(Options.HashAlgorithm, DefaultHashAlgorithm)
     If Options.UseShortHash Then intLength = 7
-    
+
     ' Start performance timer and compute the hash
     Perf.OperationStart "Compute " & strAlgorithm
     bteHash = HashBytes(bteContent, strAlgorithm)
-    
+
     ' Create string buffer to avoid concatenation
     strHash = Space(LenB(bteHash) * 2)
-    
+
     ' Convert full hash to hexidecimal string
     For intPos = 1 To LenB(bteHash)
         Mid$(strHash, (intPos * 2) - 1, 2) = LCase(Right("0" & Hex(AscB(MidB(bteHash, intPos, 1))), 2))
     Next
-    
+
     ' Return hash, truncating if needed.
     If intLength > 0 And intLength < Len(strHash) Then
         GetHash = Left$(strHash, intLength)
@@ -234,7 +234,7 @@ Private Function GetHash(bteContent() As Byte) As String
         GetHash = strHash
     End If
     Perf.OperationEnd
-    
+
 End Function
 
 
@@ -252,7 +252,7 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
     Dim strPrefix As String
     Dim proj As VBProject
     Dim blnNoCode As Boolean
-    
+
     Perf.OperationStart "Get VBA Hash"
     Select Case intType
         Case edbForm:   strPrefix = "Form_"
@@ -262,33 +262,33 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
             ' No code module
             blnNoCode = True
     End Select
-        
+
     ' Get the hash from the VBA code module content.
     If Not blnNoCode Then
-        
+
         ' Get a reference for the VBProject in the current (not code) database.
         Set proj = GetVBProjectForCurrentDB
-        
+
         ' Attempt to locate the object in the VBComponents collection
         If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
         Set cmpItem = proj.VBComponents(strPrefix & strName)
         Catch 9 ' Component not found. (Could be an object with no code module)
         CatchAny eelError, "Error accessing VBComponent for '" & strPrefix & strName & "'", ModuleName & ".GetCodeModuleHash"
         If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-                
+
         ' Output the hash
         If Not cmpItem Is Nothing Then
             With cmpItem.CodeModule
                 strHash = GetStringHash(.Lines(1, 999999))
             End With
         End If
-    
+
     End If
-    
+
     ' Return hash (if any)
     GetCodeModuleHash = strHash
     Perf.OperationEnd
-    
+
 End Function
 
 
@@ -303,19 +303,19 @@ End Function
 Private Function GetUTF8Bytes(strText As String, Optional blnWithBom As Boolean = False) As Byte()
 
     Dim stmBinary As ADODB.Stream
-    
+
     ' Check for empty string
     If (Len(strText) = 0) And Not blnWithBom Then
         GetUTF8Bytes = vbNullString
         Exit Function
     End If
-    
+
     ' Set up binary stream
     Set stmBinary = New ADODB.Stream
     stmBinary.Open
     stmBinary.Charset = "utf-8"
     stmBinary.Type = adTypeBinary
-    
+
     ' Load text into text stream
     With New ADODB.Stream
         .Open
@@ -335,6 +335,6 @@ Private Function GetUTF8Bytes(strText As String, Optional blnWithBom As Boolean 
         ' Return binary stream
         GetUTF8Bytes = stmBinary.Read(adReadAll)
     End With
-    
+
 End Function
 

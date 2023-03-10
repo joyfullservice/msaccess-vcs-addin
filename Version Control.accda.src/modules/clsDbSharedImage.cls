@@ -53,24 +53,24 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strFile As String
     Dim dItem As Dictionary
     Dim strHash As String
-    
+
     ' Build header file
     Set dItem = GetDictionary
-    
+
     ' Save json file with header details
     strContent = GetSource
     WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
-    
+
     ' Save image file using extension from embedded file.
     strFile = IDbComponent_BaseFolder & FSO.GetBaseName(IDbComponent_SourceFile) & "." & FSO.GetExtensionName(m_FileName)
-       
+
     ' Write binary content to file
     WriteBinaryFile strFile, StripOLEHeader(m_Extension, m_FileData)
-    
+
     ' Update index after export
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
         GetStringHash(strContent, True), GetSignatureHash
-    
+
 End Sub
 
 
@@ -91,7 +91,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strBase As String
     Dim lngIndex As Long
     Dim proj As CurrentProject
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
@@ -133,7 +133,7 @@ Private Sub IDbComponent_Import(strFile As String)
             ' Restore image file name if needed.
             If strOriginalName <> strImageFile Then Name strOriginalName As strImageFile
         End If
-        
+
         ' Update index after import
         If LoadItem(dItem("Name")) Then
             VCSIndex.Update Me, eatExport, GetDictionaryHash(dItem)
@@ -156,16 +156,16 @@ End Sub
 Private Sub IDbComponent_Merge(strFile As String)
 
     Dim strName As String
-        
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
-    
+
     ' Parse name from file name
     strName = GetObjectNameFromFileName(strFile)
-    
+
     ' Remove the existing shared image, if it exists.
     RemoveIfExists strName
-        
+
     ' Import if source file exists
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
@@ -184,9 +184,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function RemoveIfExists(strName As String)
-    
+
     Dim resImage As SharedResource
-    
+
     Perf.OperationStart "Check/Remove Shared Resource"
     For Each resImage In CurrentProject.Resources
         If resImage.Type = acResourceImage Then
@@ -197,7 +197,7 @@ Private Function RemoveIfExists(strName As String)
         End If
     Next resImage
     Perf.OperationEnd
-    
+
 End Function
 
 
@@ -213,10 +213,10 @@ Private Function LoadItem(strName As String) As Boolean
 
     Dim rst As DAO.Recordset
     Dim strSql As String
-    
+
     ' This system table should exist, but just in case...
     If TableExists("MSysResources") Then
-        
+
         If m_Dbs Is Nothing Then Set m_Dbs = CurrentDb
         strSql = "SELECT * FROM MSysResources WHERE Type='img'"
         Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
@@ -246,14 +246,14 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetSignatureHash() As String
-    
+
     Dim dblCnt As Double
     Dim dblLen As Double
     Dim strData As String
-        
+
     ' Get length (bytes) of file data
     If StrPtr(m_FileData) <> 0 Then dblLen = UBound(m_FileData)
-    
+
     With New clsConcat
         ' Compile string with file information
         .Add m_Name, m_FileName, m_Extension, CStr(dblLen)
@@ -272,7 +272,7 @@ Private Function GetSignatureHash() As String
         ' Return hash of this string
         GetSignatureHash = GetStringHash(.GetStr)
     End With
-    
+
 End Function
 
 
@@ -321,7 +321,7 @@ Private Function GetResourceIndexByName(strName As String) As Long
 
     Dim lngIndex As Long
     Dim resShared As SharedResources
-    
+
     Set resShared = CurrentProject.Resources
     For lngIndex = 0 To resShared.Count - 1
         If resShared(lngIndex).Name = strName Then
@@ -329,7 +329,7 @@ Private Function GetResourceIndexByName(strName As String) As Long
             Exit For
         End If
     Next lngIndex
-    
+
 End Function
 
 
@@ -347,12 +347,12 @@ Private Function GetUnusedResourceName(strName As String) As String
     Dim strTest As String
     Dim lngCnt As Long
     Dim rst As DAO.Recordset
-    
+
     Perf.OperationStart "Get Unused Resource Name"
-    
+
     ' Use a dictionary to easily test if a name is in use.
     With New Dictionary
-            
+
         ' Build dictionary of existing items
         ' (Reading directly from the table is MUCH faster than iterating through
         '  the CurrentProject.Resources object model.)
@@ -369,7 +369,7 @@ Private Function GetUnusedResourceName(strName As String) As String
 
         ' Start with the initial name
         strTest = strName
-        
+
         ' Loop through name alternatives to find an unused one.
         ' (Typically we would only have to do one or two iterations)
         For lngCnt = 1 To 100
@@ -383,10 +383,10 @@ Private Function GetUnusedResourceName(strName As String) As String
     End With
 
     Perf.OperationEnd
-    
+
     ' Return the tested and available name
     GetUnusedResourceName = strTest
-    
+
 End Function
 
 
@@ -402,13 +402,13 @@ End Function
 Private Function StripOLEHeader(strExt As String, bteData() As Byte) As Byte()
 
     Dim strData As String
-    
+
     ' Convert to string
     strData = bteData
-    
+
     ' Strip off header, and convert back to byte array
     StripOLEHeader = Mid$(strData, 8 + Len(strExt))
-    
+
 End Function
 
 
@@ -444,10 +444,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
-        
+
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
-            
+
             Set m_Dbs = CurrentDb
             strSql = "SELECT * FROM MSysResources WHERE Type='img'"
             Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
@@ -530,7 +530,7 @@ Public Function IDbComponent_IsModified() As Boolean
             IDbComponent_IsModified = (.OtherHash <> GetSignatureHash)
         End If
     End With
-    
+
 End Function
 
 
@@ -689,9 +689,9 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     ' releases of Microsoft Access. (See issue #341)
     Dim fld2 As DAO.Field       ' Field2
     Dim rst2 As DAO.Recordset   ' Recordset2
-    
+
     Set m_Rst = RHS
-    
+
     ' Load in the object details.
     m_Name = m_Rst!Name
     m_Extension = m_Rst!Extension
@@ -700,7 +700,7 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     Set rst2 = fld2.Value
     m_FileName = rst2.Fields("FileName")
     m_FileData = rst2.Fields("FileData")
-    
+
     ' Clear the object references
     Set rst2 = Nothing
     Set fld2 = Nothing

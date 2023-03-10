@@ -15,14 +15,14 @@ Private Const ModuleName As String = "modFileAccess"
 Private Declare PtrSafe Function getTempPath Lib "kernel32" Alias "GetTempPathA" ( _
     ByVal nBufferLength As Long, _
     ByVal lpBuffer As String) As Long
-    
+
 Private Declare PtrSafe Function getTempFileName Lib "kernel32" Alias "GetTempFileNameA" ( _
     ByVal lpszPath As String, _
     ByVal lpPrefixString As String, _
     ByVal wUnique As Long, _
     ByVal lpTempFileName As String) As Long
-    
-    
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTempFile
 ' Author    : Adapted by Adam Waller
@@ -35,11 +35,11 @@ Public Function GetTempFile(Optional strPrefix As String = "VBA") As String
     Dim strPath As String * 512
     Dim strName As String * 576
     Dim lngReturn As Long
-    
+
     lngReturn = getTempPath(512, strPath)
     lngReturn = getTempFileName(strPath, strPrefix, 0, strName)
     If lngReturn <> 0 Then GetTempFile = Left$(strName, InStr(strName, vbNullChar) - 1)
-    
+
 End Function
 
 
@@ -55,11 +55,11 @@ Public Function GetTempFolder(Optional strPrefix As String = "VBA") As String
     Dim strPath As String
     Dim strFile As String
     Dim strFolder As String
-    
+
     ' Generate a random temporary file name, and delete the temp file
     strPath = GetTempFile(strPrefix)
     DeleteFile strPath
-    
+
     ' Change path to use underscore instead of period.
     strFile = PathSep & FSO.GetFileName(strPath)
     strFolder = Replace(strFile, ".", "_")
@@ -73,7 +73,7 @@ Public Function GetTempFolder(Optional strPrefix As String = "VBA") As String
         FSO.CreateFolder strPath
         GetTempFolder = strPath
     End If
-    
+
 End Function
 
 
@@ -88,9 +88,9 @@ End Function
 Public Function ReadFile(strPath As String, Optional strCharset As String = "utf-8") As String
 
     Dim cData As clsConcat
-    
+
     Set cData = New clsConcat
-    
+
     If FSO.FileExists(strPath) Then
         Perf.OperationStart "Read File"
         With New ADODB.Stream
@@ -107,10 +107,10 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "utf
         End With
         Perf.OperationEnd
     End If
-    
+
     ' Return text contents of file.
     ReadFile = cData.GetStr
-    
+
 End Function
 
 
@@ -127,9 +127,9 @@ Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding 
 
     Dim strContent As String
     Dim dblPos As Double
-    
+
     Perf.OperationStart "Write File"
-    
+
     ' Write to a UTF-8 eoncoded file
     With New ADODB.Stream
         .Type = adTypeText
@@ -153,9 +153,9 @@ Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding 
         CatchAny eelError, "Error writing file: " & strPath, ModuleName & ".WriteFile"
         .Close
     End With
-    
+
     Perf.OperationEnd
-        
+
 End Sub
 
 
@@ -283,7 +283,7 @@ Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
 
     Dim oFile As Scripting.File
     Dim strFolderNoSlash As String
-    
+
     ' While the Dir() function would be simpler, it does not support Unicode.
     strFolderNoSlash = StripSlash(strFolder)
     If FSO.FolderExists(strFolderNoSlash) Then
@@ -295,7 +295,7 @@ Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
             End If
         Next
     End If
-    
+
 End Sub
 
 
@@ -308,16 +308,16 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub VerifyPath(strPath As String)
-    
+
     Dim strFolder As String
     Dim varParts As Variant
     Dim intPart As Integer
     Dim strVerified As String
-    
+
     If strPath = vbNullString Then Exit Sub
-    
+
     Perf.OperationStart "Verify Path"
-    
+
     ' Determine if the path is a file or folder
     If Right$(strPath, 1) = PathSep Then
         ' Folder name. (Folder names can contain periods)
@@ -326,7 +326,7 @@ Public Sub VerifyPath(strPath As String)
         ' File name
         strFolder = FSO.GetParentFolderName(strPath)
     End If
-    
+
     ' Check if full path exists.
     If Not FSO.FolderExists(strFolder) Then
         ' Start from the root, and build out full path, creating folders as needed.
@@ -339,7 +339,7 @@ Public Sub VerifyPath(strPath As String)
         varParts = Split(strFolder, PathSep)
         ' Get the slashes back
         varParts(0) = Replace(varParts(0), "@", PathSep, 1, 3)
-                
+
         ' Make sure the root folder exists. If it doesn't we probably have some other issue.
         If Not FSO.FolderExists(varParts(0)) Then
             MsgBox2 "Path Not Found", "Could not find the path '" & varParts(0) & "' on this system.", _
@@ -354,10 +354,10 @@ Public Sub VerifyPath(strPath As String)
             Next intPart
         End If
     End If
-    
+
     ' End timing of operation
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -386,13 +386,13 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetFilePathsInFolder(strFolder As String, Optional strFilePattern As String = "*.*") As Dictionary
-    
+
     Dim oFile As Scripting.File
     Dim strBaseFolder As String
-    
+
     strBaseFolder = StripSlash(strFolder)
     Set GetFilePathsInFolder = New Dictionary
-    
+
     Perf.OperationStart "Get File List"
     If FSO.FolderExists(strBaseFolder) Then
         For Each oFile In FSO.GetFolder(strBaseFolder).Files
@@ -401,7 +401,7 @@ Public Function GetFilePathsInFolder(strFolder As String, Optional strFilePatter
         Next oFile
     End If
     Perf.OperationEnd
-    
+
 End Function
 
 
@@ -416,16 +416,16 @@ Public Function GetSubfolderPaths(strPath As String) As Dictionary
 
     Dim strBase As String
     Dim oFolder As Scripting.Folder
-    
+
     Set GetSubfolderPaths = New Dictionary
-    
+
     strBase = StripSlash(strPath)
     If FSO.FolderExists(strBase) Then
         For Each oFolder In FSO.GetFolder(strBase).SubFolders
             GetSubfolderPaths.Add oFolder.Path, vbNullString
         Next oFolder
     End If
-    
+
 End Function
 
 
@@ -437,15 +437,15 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function ReadJsonFile(strPath As String) As Dictionary
-    
+
     Dim strText As String
     strText = ReadFile(strPath)
-    
+
     ' If it looks like json content, then parse into a dictionary object.
     If Left$(strText, 1) = "{" Then
         Set ReadJsonFile = ParseJson(strText)
     End If
-    
+
 End Function
 
 
@@ -458,18 +458,18 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetRelativePath(strPath As String) As String
-    
+
     Dim strFolder As String
     Dim strUncPath As String
     Dim strUncTest As String
     Dim strRelative As String
-    
+
     ' Check for matching parent folder as relative to the project path.
     strFolder = GetUncPath(CurrentProject.Path) & PathSep
-    
+
     ' Default to original path if no relative path could be resolved.
     strRelative = strPath
-    
+
     ' Compare strPath to the current project path
     If InStr(1, strPath, strFolder, vbTextCompare) = 1 Then
         ' In export folder or subfolder. Simple replacement
@@ -489,7 +489,7 @@ Public Function GetRelativePath(strPath As String) As String
             End If
         End If
     End If
-    
+
     ' Return relative (or original) path
     GetRelativePath = strRelative
 
@@ -536,7 +536,7 @@ Public Function GetUncPath(strPath As String)
 
     Dim strDrive As String
     Dim strUNC As String
-    
+
     strUNC = strPath
     strDrive = FSO.GetDriveName(strPath)
     If strDrive <> vbNullString Then
@@ -547,7 +547,7 @@ Public Function GetUncPath(strPath As String)
         End With
     End If
     GetUncPath = strUNC
-    
+
 End Function
 
 
@@ -559,10 +559,10 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetLastModifiedDate(strPath As String) As Date
-    
+
     Dim oFile As Scripting.File
     Dim oFolder As Scripting.Folder
-    
+
     Perf.OperationStart "Get Modified Date"
     If FSO.FileExists(strPath) Then
         Set oFile = FSO.GetFile(strPath)
@@ -572,7 +572,7 @@ Public Function GetLastModifiedDate(strPath As String) As Date
         GetLastModifiedDate = oFolder.DateLastModified
     End If
     Perf.OperationEnd
-        
+
 End Function
 
 

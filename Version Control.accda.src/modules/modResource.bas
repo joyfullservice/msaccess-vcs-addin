@@ -20,16 +20,16 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Public Sub VerifyResources()
-    
+
     ' Ribbon XML and COM add-in for the ribbon
     VerifyResource "Ribbon XML", "\Ribbon\Ribbon.xml"
     VerifyResource "COM Addin x32", "\Ribbon\Build\MSAccessVCSLib_win32.dll"
     VerifyResource "COM Addin x64", "\Ribbon\Build\MSAccessVCSLib_win64.dll"
-    
+
     ' Template .gitignore and .gitattributes files
     VerifyResource "Default .gitignore", "\.gitignore.default"
     VerifyResource "Default .gitattributes", "\.gitattributes.default"
-    
+
 End Sub
 
 
@@ -73,14 +73,14 @@ Public Sub ExtractResource(strKey As String, strFolder As String)
     Dim blnSuccess As Boolean
     Dim strPath As String
     Dim strName As String
-    
+
     Set dbs = CodeDb
     Set rst = dbs.OpenRecordset( _
         "select * from tblResources where ResourceName='" & strKey & "'", dbOpenDynaset)
-    
+
     ' Check for requested key
     If Not rst.EOF Then
-    
+
         ' Get embedded recordset of files
         Set rstFiles = rst.Fields("Content").Value
         With rstFiles
@@ -91,7 +91,7 @@ Public Sub ExtractResource(strKey As String, strFolder As String)
             End If
         End With
     End If
-    
+
 End Sub
 
 
@@ -107,13 +107,13 @@ Private Sub VerifyResource(strKey As String, strFile As String)
     Dim strPath As String
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset2
-    
+
     ' Build full path to file using system path separator
     strPath = Replace(CodeProject.Path & strFile, "\", PathSep)
-    
+
     ' First check to make sure the file exists
     If FSO.FileExists(strPath) Then
-    
+
         ' Look for specified record in resources table
         Set dbs = CodeDb
         Set rst = dbs.OpenRecordset( _
@@ -137,7 +137,7 @@ Private Sub VerifyResource(strKey As String, strFile As String)
         ' Source file does not exist. No need to go any further. (Might be running
         ' on a client computer during the installation process.)
     End If
-    
+
 End Sub
 
 
@@ -171,11 +171,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetRstResourceHash(rst As DAO.Recordset2)
-    
+
     Dim rstFiles As Recordset2
     Dim bteContent() As Byte
     Dim strExt As String
-    
+
     Set rstFiles = rst.Fields("Content").Value
     With rstFiles
         If Not .EOF Then
@@ -184,7 +184,7 @@ Private Function GetRstResourceHash(rst As DAO.Recordset2)
             GetRstResourceHash = GetBytesHash(StripOLEHeader(strExt, bteContent))
         End If
     End With
-    
+
 End Function
 
 
@@ -199,11 +199,11 @@ End Function
 Private Function StripOLEHeader(strExt As String, bteData() As Byte) As Byte()
 
     Dim strData As String
-    
+
     ' Convert to string
     strData = bteData
-    
+
     ' Strip off header, and convert back to byte array
     StripOLEHeader = Mid$(strData, 8 + Len(strExt))
-    
+
 End Function

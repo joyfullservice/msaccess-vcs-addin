@@ -34,16 +34,16 @@ Public Sub StageMainForm()
 
     Dim blnLogActive As Boolean
     Dim frm As Form_frmVCSMain
-    
+
     ' Get reference to form instance
     Set frm = Form_frmVCSMain
-    
+
     With this
         ' Get headings and content
         .strHeading = frm.lblHeading.Caption
         .strSubHeading = frm.lblSubheading.Caption
         .strLogHtml = Nz(frm.txtLog.Value)
-    
+
         ' Disconnect from logging class
         If Not Log.ProgressBar Is Nothing Then
             .blnProgVisible = frm.lblProgFront.Visible
@@ -52,18 +52,18 @@ Public Sub StageMainForm()
         End If
         Log.ReleaseConsole
     End With
-    
+
     ' Temporarily deactivate the log so we don't trigger warnings when closing the form.
     blnLogActive = Log.Active
     Log.Active = False
-    
+
     ' Close the form, if it is open
     DoCmd.Close acForm, frm.Name
     Set frm = Nothing
-    
+
     ' Restore active property to original value
     Log.Active = blnLogActive
-    
+
 End Sub
 
 
@@ -77,11 +77,11 @@ End Sub
 Public Sub RestoreMainForm()
 
     Dim frm As Form_frmVCSMain
-    
+
     ' Open form in hidden mode, and get reference to instance
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     Set frm = Form_frmVCSMain
-    
+
     ' Restore settings on form
     With this
         ' Get headings and content
@@ -89,7 +89,7 @@ Public Sub RestoreMainForm()
         frm.lblSubheading.Caption = .strSubHeading
         frm.txtLog.Value = .strLogHtml
         frm.txtLog.Visible = True
-    
+
         ' Reconnect to logging class
         Log.SetConsole frm.txtLog, frm.GetProgressBar
         If .blnProgVisible Then
@@ -98,12 +98,12 @@ Public Sub RestoreMainForm()
         Else
             Log.ProgressBar.Hide
         End If
-        
+
         ' Assume that the action buttons should be hidden
         frm.cmdClose.SetFocus
         frm.HideActionButtons
         frm.Visible = True
         DoEvents
     End With
-    
+
 End Sub

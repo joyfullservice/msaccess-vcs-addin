@@ -38,20 +38,20 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    
+
     Dim strContent As String
-    
+
     ' This is the serialized output file in JSON format to track changes in version control
     strContent = GetSource
     WriteFile strContent, Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json")
-    
+
     ' Only export binary on regular export
     If strAlternatePath = vbNullString Then
-    
+
         ' This is the binary export file used when building from source
         m_Form.Export IDbComponent_SourceFile
     End If
-    
+
     ' Update index with a hash of the serialized content. (Since the binary content changes frequently)
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 
@@ -66,21 +66,21 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    
+
     Dim strLine As String
     Dim proj As VBProject
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.frm" Then Exit Sub
 
     Set proj = GetVBProjectForCurrentDB
     With proj.VBComponents
-        
+
         ' Import the source file
         .Import strFile
-    
+
         ' Check for extra blank line that may get added during import (VBE bug?)
         With .Item(GetObjectNameFromFileName(strFile))
             If Not .CodeModule Is Nothing Then
@@ -94,9 +94,9 @@ Private Sub IDbComponent_Import(strFile As String)
             End If
         End With
     End With
-    
+
     CatchAny eelError, "Error importing " & strFile, ModuleName(Me) & ".Import"
- 
+
 End Sub
 
 
@@ -161,7 +161,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim frm As VBComponent
     Dim cForm As IDbComponent
     Dim blnAdd As Boolean
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary

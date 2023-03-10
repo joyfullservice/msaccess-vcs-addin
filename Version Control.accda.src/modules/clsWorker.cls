@@ -51,7 +51,7 @@ Public Function WIP_DeleteDatabaseObject(intType As AcObjectType, strName As Str
     'DoCmd.DeleteObject acModule, "basModule"
     CallWorker strName, 5, "DeleteDatabaseObject", intType, strName
     If blnWaitForQueue Then Me.WaitForQueue 5, "DeleteDatabaseObject", 0.25
-    
+
 End Function
 
 
@@ -87,17 +87,17 @@ Public Sub WaitForQueue(dblTimeout As Double, Optional strAction As String = "Al
     Dim dblPollStart As Double
     Dim colRemove As Collection
     Dim varJob As Variant
-    
+
     ' No need to wait if there is nothing in the queue
     If Me.Queue.Count = 0 Then Exit Sub
-    
+
     ' Get start time so we can monitor the timeout
     dblStart = Perf.MicroTimer
     Set colRemove = New Collection
-    
+
     ' Monitor performance of waiting for the job queue to clear
     Perf.OperationStart "Wait for Job Queue"
-    
+
     ' Loop while periodically checking the queue
     Do
         ' Pause for the poll interval
@@ -109,17 +109,17 @@ Public Sub WaitForQueue(dblTimeout As Double, Optional strAction As String = "Al
             DoEvents
         Loop
         DoEvents
-        
+
         ' We can exit early if there is nothing in the queue
         If Me.Queue.Count = 0 Then Exit Do
-            
+
         ' Reset flag for this iteration
         blnFound = False
-        
+
         ' Loop through queue of jobs
         For Each varKey In Me.Queue.Keys
             Set cJob = Me.Queue(varKey)
-            
+
             ' Check for job timeout (all jobs)
             If Perf.MicroTimer > cJob.Timeout Then
                 ' Add to list of items to remove
@@ -133,7 +133,7 @@ Public Sub WaitForQueue(dblTimeout As Double, Optional strAction As String = "Al
             End If
         Next varKey
         Set cJob = Nothing
-        
+
         ' Log and remove any individual jobs that have timed out
         For Each varJob In colRemove
             Set cJob = Me.Queue(varJob)
@@ -144,10 +144,10 @@ Public Sub WaitForQueue(dblTimeout As Double, Optional strAction As String = "Al
             Set cJob = Nothing
             If Me.Queue.Exists(varJob) Then Me.Queue.Remove varJob
         Next varJob
-        
+
         ' If nothing found of a specified action, we can exit the loop
         If (strAction <> "All") And (Not blnFound) Then Exit Do
-        
+
         ' Check the overall timeout before we start another iteration
         If dblStart + dblTimeout < Perf.MicroTimer Then
             Log.Error eelError, "Timed out waiting for job queue", ModuleName(Me) & ".WaitForQueue"
@@ -156,7 +156,7 @@ Public Sub WaitForQueue(dblTimeout As Double, Optional strAction As String = "Al
         End If
     Loop
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -170,16 +170,16 @@ End Sub
 Private Function VerifyWorker() As Boolean
 
     Static blnVerified As Boolean
-    
+
     Dim strContent As String
     Dim strFilePath As String
-    
+
     ' Only need to verify this once per session.
     If blnVerified Then
         VerifyWorker = True
         Exit Function
     End If
-    
+
     ' Compare hash of file with hash of content
     strContent = GetWorkerScriptContent
     strFilePath = WorkerFilePath
@@ -189,14 +189,14 @@ Private Function VerifyWorker() As Boolean
             blnVerified = True
         End If
     End If
-    
+
     ' Update the file if needed.
     If Not blnVerified Then
         WriteFile strContent, strFilePath, "Windows-1252"
         blnVerified = True
     End If
     VerifyWorker = True
-    
+
 End Function
 
 
@@ -208,19 +208,19 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetWorkerScriptContent() As String
-    
+
     Dim strContent As String
     Dim varLines As Variant
     Dim strLine As String
     Dim blnSave As Boolean
     Dim lngLine As Long
-    
+
     ' Get VBA code from this class
     strContent = GetCodeVBProject.VBComponents(TypeName(Me)).CodeModule.Lines(1, 99999)
-    
+
     ' Split into lines
     varLines = Split(strContent, vbCrLf)
-    
+
     ' Look for the marker where the placeholder starts, and keep everything after that.
     With New clsConcat
         For lngLine = 0 To UBound(varLines) - 1
@@ -236,7 +236,7 @@ Private Function GetWorkerScriptContent() As String
         ' Return script content
         GetWorkerScriptContent = .GetStr
     End With
-    
+
 End Function
 
 
@@ -268,7 +268,7 @@ Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
     Dim strHash As String
     Dim lngHandle As Long
     Dim cJob As clsJob
-    
+
     ' Make sure this key/action is not already running
     strHash = GetStringHash(strKey & strAction)
     If Me.Queue.Exists(strHash) Then
@@ -276,25 +276,25 @@ Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
             ModuleName(Me) & ".CallWorker"
         Exit Function
     End If
-    
+
     ' Verify that the work script is installed and current
     VerifyWorker
-    
+
     ' Build command with parameters
     With New clsConcat
-    
+
         ' Build base command to launch worker
         .Add "wscript """, WorkerFilePath, """"
-    
+
         ' Add database file as first parameter
         .Add " """, CurrentProject.FullName, """"
-        
+
         ' Add unique key as second parameter
         .Add " ", strHash
-        
+
         ' Add specified action
         .Add " ", strAction
-        
+
         ' Add any parameters
         For intParam = 0 To UBound(varParams)
             .Add " ", CStr(varParams(intParam))
@@ -313,12 +313,12 @@ Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
         ' Use the Shell command to launch the worker as an external asynchrous
         ' process, and return the process ID to the caller.
         lngHandle = Shell(.GetStr, vbHide)
-        
+
     End With
-    
+
     ' Return process handle
     CallWorker = lngHandle
-    
+
 End Function
 
 
@@ -344,10 +344,10 @@ End Sub
 Public Function ReturnWorker(strKey As String, varParams As Variant)
 
     Dim cJob As clsJob
-    
+
     ' Guard clause in case the code is stopped while workers are running.
     If Me.Queue Is Nothing Then Exit Function
-    
+
     ' Make sure this job exists in the queue
     If Not Me.Queue.Exists(strKey) Then
         Log.Error eelError, "Returned worker not found in job queue: " & strKey, _
@@ -362,7 +362,7 @@ Public Function ReturnWorker(strKey As String, varParams As Variant)
         Case Else
             ' No special processing
     End Select
-    
+
     ' Log and remove from job queue
     With cJob
         Log.Add "Worker job " & .Action & " (" & .KeyHash & ") completed in " & _
@@ -370,7 +370,7 @@ Public Function ReturnWorker(strKey As String, varParams As Variant)
     End With
     Set cJob = Nothing
     Me.Queue.Remove strKey
-    
+
 End Function
 
 
@@ -391,7 +391,7 @@ Sub Main()
     Dim strKey
     Dim strValue
     Dim varReturn
-    
+
     Set objFSO = CreateObject("Scripting.FileSystemObject")
 
     ' We are expecting some very specific command line arguments in this worker script.
@@ -411,24 +411,24 @@ Sub Main()
         'Set objApp.VBE.ActiveVBProject = GetAddInVBProject(objApp)
         Set objApp.VBE.ActiveVBProject = GetVBProjectForCurrentDB(objApp)
     End If
-    
+
     ' The second argument should be the key
     strKey = WScript.Arguments(1)
-    
+
     ' Determine specified action (More complex actions can be split out into subs)
     Select Case WScript.Arguments(2)
-        
+
         Case "DeleteDatabaseObject"
             ' Type, Name
             objApp.DoCmd.DeleteObject WScript.Arguments(3), WScript.Arguments(4)
-    
+
         Case "RenameDatabaseObject"
             ' New name, Type, Old Name
             objApp.DoCmd.Rename WScript.Arguments(3), WScript.Arguments(4), WScript.Arguments(5)
-        
+
         Case Else
             MsgBox "Unknown Action: " & WScript.Arguments(1), vbExclamation
-            
+
     End Select
 
     ' Check the project name, just in case we are editing the VCS project
@@ -444,7 +444,7 @@ Sub Main()
         ' Return key to caller to signal job completion
         objApp.Run "MSAccessVCS.WorkerCallback", strKey, varReturn
     End If
-    
+
 End Sub
 
 
@@ -460,13 +460,13 @@ Function GetVBProjectForCurrentDB(objApp)
 
     Dim objProj
     Dim strUncPath
-    
+
     ' Use currently active project by default
     Set GetVBProjectForCurrentDB = objApp.VBE.ActiveVBProject
-    
+
     ' VBProject filenames are UNC paths
     strUncPath = GetUncPath(objApp.CurrentProject.FullName)
-    
+
     If StrComp(objApp.VBE.ActiveVBProject.FileName, strUncPath, vbTextCompare) <> 0 Then
         ' Search for project with matching filename.
         For Each objProj In objApp.VBE.VBProjects
@@ -493,12 +493,12 @@ Function GetAddInVBProject(objApp)
     Dim objProj
     Dim strUncPath
     Dim objFSO
-    
+
     Set objFSO = CreateObject("Scripting.FileSystemObject")
-    
+
     ' VBProject filenames are UNC paths
     strUncPath = GetUncPath(objApp.CurrentProject.FullName)
-    
+
     ' Search for project with matching filename.
     For Each objProj In objApp.VBE.VBProjects
         If StrComp(objFSO.GetFileName(objProj.FileName), "Version Control.accda", vbTextCompare) = 0 Then
@@ -525,9 +525,9 @@ Function GetUncPath(strPath)
     Dim strDrive
     Dim strUNC
     Dim objFSO
-    
+
     Set objFSO = CreateObject("Scripting.FileSystemObject")
-    
+
     strUNC = strPath
     strDrive = objFSO.GetDriveName(strPath)
     If strDrive <> vbNullString Then
@@ -538,6 +538,6 @@ Function GetUncPath(strPath)
         End With
     End If
     GetUncPath = strUNC
-    
+
 End Function
 

@@ -62,7 +62,7 @@ Private Sub IDbComponent_Import(strFile As String)
     If Not strFile Like "*.json" Then Exit Sub
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
         Set dbs = CurrentDb
@@ -96,23 +96,23 @@ End Sub
 Private Sub IDbComponent_Merge(strFile As String)
 
     Dim dFile As Dictionary
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
-    
+
     ' Remove any document properties that don't exist in the incoming file,
     ' then import the file.
     Set dFile = ReadJsonFile(strFile)
     If dFile Is Nothing Then Set dFile = New Dictionary
     RemoveMissing dFile("Items"), GetDictionary
-    
+
     ' Import if file exists
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
     Else
         VCSIndex.Remove Me, strFile
     End If
-    
+
 End Sub
 
 
@@ -136,7 +136,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim cDoc As IDbComponent
     Dim colCont As Collection
     Dim dbs As Database
@@ -144,16 +144,16 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim varDoc As Variant
     Dim blnNoChanges As Boolean
     Dim strKey As String
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
 
         Set m_Items(blnModifiedOnly) = New Dictionary
         Set m_dItems = GetDictionary
-        
+
         ' Return no objects if we match the hash from the cache
         If (Not blnModifiedOnly) Or IDbComponent_IsModified Then
-            
+
             ' Loop through all the containers, documents, and check hidden property
             Set dbs = CurrentDb
             For Each varCont In m_dItems.Keys
@@ -170,7 +170,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-        
+
 End Function
 
 
@@ -202,7 +202,7 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
     Dim dbs As Database
     Dim contType As AcObjectType
     Dim colItems As Collection
-        
+
     ' Check cache parameter
     If blnUseCache And Not m_dItems Is Nothing Then
         ' Return cached dictionary
@@ -233,10 +233,10 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
         Next doc
         If colItems.Count > 0 Then dItems.Add cont.Name, SortCollectionByValue(colItems)
     Next cont
-    
+
     ' Return assembled dictionary
     Set GetDictionary = dItems
-    
+
 End Function
 
 
@@ -256,7 +256,7 @@ Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
     Dim varCont As Variant
     Dim varDoc As Variant
     Dim strDoc As String
-    
+
     ' Go through target dictionary, removing the flag that doesn't exist
     ' in the master dictionary.
     Set dbs = CurrentDb

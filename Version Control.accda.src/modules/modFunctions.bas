@@ -109,7 +109,7 @@ Public Function GetSafeFileName(strName As String) As String
 
     ' Return the sanitized file name.
     GetSafeFileName = strSafe
-    
+
 End Function
 
 
@@ -124,7 +124,7 @@ End Function
 Public Function GetObjectNameFromFileName(strFile As String) As String
 
     Dim strName As String
-    
+
     strName = FSO.GetBaseName(strFile)
     ' Make sure the following list matches the one above.
     strName = Replace(strName, "%3C", "<")
@@ -137,10 +137,10 @@ Public Function GetObjectNameFromFileName(strFile As String) As String
     strName = Replace(strName, "%3F", "?")
     strName = Replace(strName, "%2A", "*")
     strName = Replace(strName, "%25", "%")  ' This should be done last.
-    
+
     ' Return the object name
     GetObjectNameFromFileName = strName
-    
+
 End Function
 
 
@@ -195,30 +195,30 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional strLine2 As String, Optional intButtons As VbMsgBoxStyle = vbOKOnly, Optional strTitle As String) As VbMsgBoxResult
-    
+
     Dim strMsg As String
     Dim varLines(0 To 3) As String
     Dim intCursor As Integer
-    
+
     ' Turn off any hourglass
     intCursor = Screen.MousePointer
     If intCursor > 0 Then Screen.MousePointer = 0
-    
+
     ' Escape single quotes by doubling them.
     varLines(0) = Replace(strBold, "'", "''")
     varLines(1) = Replace(strLine1, "'", "''")
     varLines(2) = Replace(strLine2, "'", "''")
     varLines(3) = Replace(strTitle, "'", "''")
-    
+
     If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
     strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
     Perf.PauseTiming
     MsgBox2 = Eval(strMsg)
     Perf.ResumeTiming
-    
+
     ' Restore MousePointer (if needed)
     If intCursor > 0 Then Screen.MousePointer = intCursor
-    
+
 End Function
 
 
@@ -236,7 +236,7 @@ Public Function dNZ(dObject As Dictionary, strPath As String, Optional strDelimi
     Dim dblVal As Double
     Dim strKey As String
     Dim varSegment As Variant
-        
+
     ' Split path into parts
     varPath = Split(strPath, strDelimiter)
     Set varSegment = dObject
@@ -310,17 +310,17 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function KeyExists(dDictionary As Dictionary, ParamArray varSegmentKeys()) As Boolean
-    
+
     Dim intSegment As Integer
     Dim dBase As Dictionary
-    
+
     ' Bail out if no valid dictionary passed
     If dDictionary Is Nothing Then Exit Function
-    
+
     ' Start with based dictionary
     Set dBase = dDictionary
     KeyExists = True
-    
+
     ' Loop through segments, confirming that each one exists
     For intSegment = 0 To UBound(varSegmentKeys)
         If dBase.Exists(varSegmentKeys(intSegment)) Then
@@ -332,7 +332,7 @@ Public Function KeyExists(dDictionary As Dictionary, ParamArray varSegmentKeys()
             Exit For
         End If
     Next intSegment
-    
+
 End Function
 
 
@@ -348,27 +348,27 @@ Public Function SortCollectionByValue(colSource As Collection) As Collection
     Dim colSorted As Collection
     Dim varItems() As Variant
     Dim lngCnt As Long
-    
+
     ' Don't need to sort empty collection or single item
     If colSource.Count < 2 Then
         Set SortCollectionByValue = colSource
         Exit Function
     End If
-    
+
     ' Build and sort array of keys
     ReDim varItems(0 To colSource.Count - 1)
     For lngCnt = 0 To UBound(varItems)
         varItems(lngCnt) = colSource(lngCnt + 1)
     Next lngCnt
     QuickSort varItems
-    
+
     ' Build and return new collection using sorted values
     Set colSorted = New Collection
     For lngCnt = 0 To UBound(varItems)
         colSorted.Add varItems(lngCnt)
     Next lngCnt
     Set SortCollectionByValue = colSorted
-    
+
 End Function
 
 
@@ -386,31 +386,31 @@ Public Function SortDictionaryByKeys(dSource As Dictionary) As Dictionary
     Dim varKeys() As Variant
     Dim varKey As Variant
     Dim lngCnt As Long
-    
+
     ' Don't need to sort empty dictionary or single item
     If dSource.Count < 2 Then
         Set SortDictionaryByKeys = dSource
         Exit Function
     End If
-    
+
     ' Build and sort array of keys
     ReDim varKeys(0 To dSource.Count - 1)
     For Each varKey In dSource.Keys
         varKeys(lngCnt) = varKey
         lngCnt = lngCnt + 1
     Next varKey
-    
+
     QuickSort varKeys
-    
+
     ' Build and return new dictionary using sorted keys
     Set dSorted = New Dictionary
     dSorted.CompareMode = dSource.CompareMode
     For lngCnt = 0 To dSource.Count - 1
         dSorted.Add varKeys(lngCnt), dSource(varKeys(lngCnt))
     Next lngCnt
-    
+
     Set SortDictionaryByKeys = dSorted
-    
+
 End Function
 
 
@@ -428,24 +428,24 @@ Public Sub QuickSort(ByRef vArray As Variant, Optional ByVal inLow, Optional ByV
     Dim tmpSwap As Variant
     Dim tmpLow  As Long
     Dim tmpHi   As Long
-    
+
     If IsMissing(inLow) Then inLow = LBound(vArray)
     If IsMissing(inHi) Then inHi = UBound(vArray)
-    
+
     tmpLow = inLow
     tmpHi = inHi
-    
+
     pivot = vArray((inLow + inHi) \ 2)
-    
+
     While (tmpLow <= tmpHi)
         While (vArray(tmpLow) < pivot And tmpLow < inHi)
             tmpLow = tmpLow + 1
         Wend
-        
+
         While (pivot < vArray(tmpHi) And tmpHi > inLow)
             tmpHi = tmpHi - 1
         Wend
-        
+
         If (tmpLow <= tmpHi) Then
             tmpSwap = vArray(tmpLow)
             vArray(tmpLow) = vArray(tmpHi)
@@ -454,10 +454,10 @@ Public Sub QuickSort(ByRef vArray As Variant, Optional ByVal inLow, Optional ByV
             tmpHi = tmpHi - 1
         End If
     Wend
-    
+
     If (inLow < tmpHi) Then QuickSort vArray, inLow, tmpHi
     If (tmpLow < inHi) Then QuickSort vArray, tmpLow, inHi
-  
+
 End Sub
 
 
@@ -475,7 +475,7 @@ Public Function DictionaryEqual(dOne As Dictionary, dTwo As Dictionary) As Boole
     Dim strOne As String
     Dim strTwo As String
     Dim blnEqual As Boolean
-    
+
     Perf.OperationStart "Compare Dictionary"
     If dOne Is Nothing And dTwo Is Nothing Then
         ' Neither object set.
@@ -493,10 +493,10 @@ Public Function DictionaryEqual(dOne As Dictionary, dTwo As Dictionary) As Boole
         End If
     End If
     Perf.OperationEnd
-    
+
     ' Return comparison result
     DictionaryEqual = blnEqual
-    
+
 End Function
 
 
@@ -528,7 +528,7 @@ Public Function CloneDictionary(dSource As Dictionary, _
     Else
         dNew.CompareMode = Compare
     End If
-    
+
     ' Loop through keys
     For Each varKey In dSource.Keys
         If TypeOf varKey Is Dictionary Then
@@ -540,10 +540,10 @@ Public Function CloneDictionary(dSource As Dictionary, _
             dNew.Add varKey, dSource(varKey)
         End If
     Next varKey
-    
+
     ' Return new dictionary
     Set CloneDictionary = dNew
-    
+
 End Function
 
 
@@ -609,7 +609,7 @@ Public Function Largest(ParamArray varValues()) As Variant
 
     Dim varLargest As Variant
     Dim intCnt As Integer
-    
+
     For intCnt = LBound(varValues) To UBound(varValues)
         If varLargest < varValues(intCnt) Then varLargest = varValues(intCnt)
     Next intCnt
@@ -765,19 +765,19 @@ Public Function DeDupString(strText As String, strDuplicated As String) As Strin
 
     Dim lngCnt As Long
     Dim strNew As String
-    
+
     strNew = strText
-    
+
     ' See if the searched string exists before attempting to replace
     If InStr(1, strText, strDuplicated) > 0 Then
         For lngCnt = 10 To 2 Step -1
             strNew = Replace(strNew, Repeat(strDuplicated, lngCnt), strDuplicated)
         Next lngCnt
     End If
-    
+
     ' Return deduplicated string
     DeDupString = strNew
-    
+
 End Function
 
 

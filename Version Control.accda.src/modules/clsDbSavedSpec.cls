@@ -55,7 +55,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim proj As CurrentProject
     Dim dSpec As Dictionary
     Dim dItem As Dictionary
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
@@ -68,7 +68,7 @@ Private Sub IDbComponent_Import(strFile As String)
             If Nz(dItem("Description")) <> vbNullString Then .Description = dItem("Description")
         End With
     End If
-    
+
 End Sub
 
 
@@ -105,11 +105,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim spec As ImportExportSpecification
     Dim cSpec As IDbComponent
     Dim blnAdd As Boolean
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
@@ -124,7 +124,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-    
+
 End Function
 
 
@@ -139,9 +139,9 @@ Private Function GetSource() As String
 
     Dim dSpec As Dictionary
     Dim strContent As String
-    
+
     Set dSpec = New Dictionary
-    
+
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     ' For some reason it throws an error if there is no
     ' description in the specification.
@@ -154,10 +154,10 @@ Private Function GetSource() As String
         .Add "XML", DeDupString(m_Spec.XML, vbCr)
     End With
     CatchAny eelNoError, vbNullString, , False
-    
+
     ' Return source file content
     GetSource = BuildJsonFile(TypeName(Me), dSpec, "Saved Import/Export Specification")
-    
+
 End Function
 
 

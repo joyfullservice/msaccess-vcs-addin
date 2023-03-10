@@ -40,7 +40,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    
+
     Dim strFile As String
     Dim intFormat As eTableDataExportFormat
 
@@ -65,7 +65,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             End Select
         End If
     Next intFormat
-    
+
 End Sub
 
 
@@ -87,9 +87,9 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
     Dim strText As String
     Dim lngProgMax As Long
     Dim lngProgValue As Long
-    
+
     Perf.OperationStart "Export Table Data as TDF"
-    
+
     ' Open table in fast read-only view
     Set dbs = CurrentDb
     Set rst = dbs.OpenRecordset(GetTableExportSql(strTable), dbOpenSnapshot, dbReadOnly)
@@ -102,10 +102,10 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
         If intCnt < intFields Then cData.Add vbTab
     Next fld
     cData.Add vbCrLf
-    
+
     ' Make sure we actually have records
     If Not rst.EOF Then
-        
+
         ' Stash current progress bar values so we can reuse the
         ' progress bar to show the progress through the rows.
         With Log.ProgressBar
@@ -117,7 +117,7 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
             .Value = 1
             rst.MoveFirst
         End With
-        
+
         ' Add data rows
         Do While Not rst.EOF
             intCnt = 0
@@ -136,20 +136,20 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
             rst.MoveNext
             Log.Increment ' Increment log, in case this takes a while
         Loop
-        
+
         ' Restore progress bar values for object iteration
         With Log.ProgressBar
              .Max = lngProgMax
              .Value = lngProgValue
         End With
     End If
-    
+
     ' Close database objects
     rst.Close
     Set rst = Nothing
-    
+
     Perf.OperationEnd
-    
+
     ' Save output file
     WriteFile cData.GetStr, strFile
 
@@ -176,9 +176,9 @@ Private Sub ImportTableDataTDF(strFile As String)
     Dim varHeader As Variant
     Dim intCol As Integer
     Dim strValue As String
-    
+
     Perf.OperationStart "Import TDF Data"
-    
+
     ' Build a dictionary of column names so we can load the data
     ' into the matching columns.
     strTable = GetObjectNameFromFileName(strFile)
@@ -187,11 +187,11 @@ Private Sub ImportTableDataTDF(strFile As String)
     For Each fld In dbs.TableDefs(strTable).Fields
         dCols.Add fld.Name, fld.Name
     Next fld
-    
+
     ' Clear any existing records before importing this data.
     dbs.Execute "delete from [" & strTable & "]", dbFailOnError
     Set rst = dbs.OpenRecordset(strTable)
-    
+
     ' Read file line by line
     Set stm = New ADODB.Stream
     With stm
@@ -199,7 +199,7 @@ Private Sub ImportTableDataTDF(strFile As String)
         .Open
         .LoadFromFile strFile
     End With
-    
+
     ' Loop through lines in file
     Do While Not stm.EOS
         strLine = stm.ReadText(adReadLine)
@@ -253,9 +253,9 @@ Private Sub ImportTableDataTDF(strFile As String)
     Set stm = Nothing
     rst.Close
     Set rst = Nothing
-    
+
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -326,7 +326,7 @@ Private Function GetTableExportSql(strTable As String) As String
             If Not IsBinaryType(fld) Then cSortList.Add "[", fld.Name, "], "
         Next fld
     End With
-    
+
     ' Remove any trailing commas
     cFieldList.Remove 2
     cSortList.Remove 2
@@ -420,18 +420,18 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim tbl As AccessObject
     Dim cTable As clsDbTableData
     Dim blnAdd As Boolean
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
-        
+
         ' No need to go any further if we don't have any saved tables defined
         If Options.TablesToExportData.Count > 0 Then
-            
+
             ' We have at least one table defined. Loop through the tables looking
             ' for a matching name.
             With Options
@@ -451,7 +451,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-        
+
 End Function
 
 

@@ -93,7 +93,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim cTrigger As clsAdpTrigger
     Dim cComponent As IDbComponent
     Dim rst As ADODB.Recordset
@@ -102,7 +102,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-    
+
         ' Use parameter options if provided.
         Set m_Items(blnModifiedOnly) = New Dictionary
 
@@ -133,7 +133,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-    
+
 End Function
 
 

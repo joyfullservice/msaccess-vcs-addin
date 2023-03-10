@@ -144,12 +144,12 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadSelected()
-    
+
     Dim objSelected As AccessObject
     Dim cComponentClass As IDbComponent
     Dim strObjectName As String
     Dim strSourceFilePath As String
-    
+
     Set objSelected = GetSelectedNavPaneObject
     If objSelected Is Nothing Then
         MsgBox2 "Please Select an Object First", _
@@ -164,14 +164,14 @@ Public Sub LoadSelected()
             Set .DbObject = Nothing
         End With
         Set objSelected = Nothing
-        
+
         ' Import the object from source files
         DoCmd.OpenForm "frmVCSMain", , , , , acHidden
         Form_frmVCSMain.StartBuild False
         LoadSingleObject cComponentClass, strObjectName, strSourceFilePath
         Form_frmVCSMain.FinishBuild False
     End If
-    
+
 End Sub
 
 
@@ -231,10 +231,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub OpenLog(strName As String)
-    
+
     Dim strPath As String
     Dim objShell As Object
-    
+
     strPath = Options.GetExportFolder & strName
     If FSO.FileExists(strPath) Then
         ' Note that the parentheses around the path are required for this to work.
@@ -242,7 +242,7 @@ Private Sub OpenLog(strName As String)
     Else
         MsgBox2 "Log File Not Found", "Could not find the following file in the export location:", strPath, vbExclamation
     End If
-    
+
 End Sub
 
 
@@ -353,23 +353,23 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub SaveState()
-    
+
     Dim strValue As String
-    
+
     ' Just in case the user terminated the code before the settings could be restored,
     ' check for any existing user settings that might need to be restored.
     If ReadSetting("Save Time") <> vbNullString Then RestoreState
-    
+
     ' Save a value so we can delete this section later
     PreserveSetting "Save Time", Now()
-    
+
     ' Error trapping setting. (We need this to "Break in Class Modules" for this add-in)
     strValue = Application.GetOption("Error Trapping")
     If strValue <> "1" Then
         PreserveSetting "Error Trapping", strValue
         Application.SetOption "Error Trapping", 1
     End If
-    
+
 End Sub
 
 
@@ -381,19 +381,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub RestoreState()
-    
+
     Dim strValue As String
-    
+
     strValue = ReadSetting("Error Trapping")
     If strValue <> vbNullString Then
         If Application.GetOption("Error Trapping") <> strValue Then
             Application.SetOption "Error Trapping", CLng(strValue)
         End If
     End If
-    
+
     ' Remove temporary registry section
     DeleteSetting PROJECT_NAME, "State"
-    
+
 End Sub
 
 

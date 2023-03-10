@@ -36,20 +36,20 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    
+
     Dim strHash As String
-    
+
     ' We THINK that this table probably contains a table macro, but just in case it
     ' doesn't, we have some error handling built into the export function below.
-    
+
     ' Save structure in XML format
     strHash = SaveComponentAsText(acTableDataMacro, m_Table.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
-    
+
     ' Save index if we found an item to export
     If strHash <> vbNullString Then
         VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
     End If
-    
+
 End Sub
 
 
@@ -61,19 +61,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    
+
     Dim strName As String
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.xml" Then Exit Sub
 
     strName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acTableDataMacro, strName, strFile
-    
+
     ' Update index
     Set m_Table = CurrentData.AllTables(strName)
     VCSIndex.Update Me, eatImport
-    
+
 End Sub
 
 
@@ -98,7 +98,7 @@ Private Sub IDbComponent_Merge(strFile As String)
         strTemp = GetTempFile   ' Create an empty temporary file.
         LoadFromText acTableDataMacro, GetObjectNameFromFileName(strFile), strTemp
         DeleteFile strTemp
-        
+
         ' Remove entry from index
         VCSIndex.Remove Me, strFile
     End If
@@ -128,7 +128,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim dbs As Database
     Dim tdf As TableDef
     Dim cTable As IDbComponent
@@ -157,15 +157,15 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 End If
             End If
         Next tdf
-        
+
         Set tdf = Nothing
         Set dbs = Nothing
-        
+
     End If
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-        
+
 End Function
 
 

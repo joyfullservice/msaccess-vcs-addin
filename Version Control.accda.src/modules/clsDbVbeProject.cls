@@ -60,28 +60,28 @@ Private Sub IDbComponent_Import(strFile As String)
     If Not strFile Like "*.json" Then Exit Sub
     Set dProject = ReadJsonFile(strFile)
     Set m_Project = GetVBProjectForCurrentDB
-    
+
     ' Update project properties
     With m_Project
         .Name = dNZ(dProject, "Items\Name")
         .Description = dNZ(dProject, "Items\Description")
-        
+
         ' Setting the HelpContextId can throw random automation errors.
         SafeSetProperty m_Project, "HelpContextId", ValidHelpContextId(dNZ(dProject, "Items\HelpContextId"))
         SafeSetProperty m_Project, "HelpFile", ValidHelpFile(dNZ(dProject, "Items\HelpFile"))
-        
+
         ' This property is not exposed through the VBProject object model
         Application.SetOption "Conditional Compilation Arguments", dNZ(dProject, "Items\ConditionalCompilationArguments")
-        
+
         ' // Read-only properties
         '.FileName = dNZ(dProject, "Items\FileName")
         '.Mode = dNZ(dProject, "Items\Mode")
         '.Protection = dNZ(dProject, "Items\Protection")
         '.Type = dNZ(dProject, "Items\Type")
     End With
-    
+
     CatchAny eelError, "Importing VBE Project", ModuleName(Me) & ".Import"
-    
+
     ' Save to index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
 
@@ -100,22 +100,22 @@ End Sub
 Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue As Variant)
 
     Dim varCurrent As Variant
-    
+
     ' Get current property value
     varCurrent = CallByName(cProj, strProperty, VbGet)
-    
+
     ' No need to set if the current value already matches
     If varValue = varCurrent Then Exit Sub
-    
+
     ' Switch to on error resume next after checking for current errors
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    
+
     ' Attempt to set the property
     CallByName cProj, strProperty, VbLet, varValue
-    
+
     ' Read the value after setting it
     varCurrent = CallByName(cProj, strProperty, VbGet)
-    
+
     ' Verify that the property was set correctly
     If varCurrent <> varValue Then
         ' We might have thrown an actual error.
@@ -130,10 +130,10 @@ Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue 
         ' Clear any errors that may have been thrown, even if the change was successful.
         If Err Then Err.Clear
     End If
-    
+
     ' Log any uncaught errors
     CatchAny eelError, "Setting Property '" & strProperty & "' to value '" & CStr(varValue) & "'", ModuleName(Me) & ".SafeSetProperty"
-    
+
 End Sub
 
 
@@ -167,9 +167,9 @@ End Function
 Private Function ValidHelpFile(strHelpFile As String) As String
 
     Dim strValid As String
-    
+
     If strHelpFile <> vbNullString Then
-    
+
         ' Check for a Rubber Duck Identifier value
         If InStr(1, strHelpFile, ".") = 0 And IsNumeric(strHelpFile) Then
             If Options.PreserveRubberDuckID Then
@@ -178,16 +178,16 @@ Private Function ValidHelpFile(strHelpFile As String) As String
                 Log.Add "RubberDuck Identifier " & strHelpFile & " found in VBE Project HelpFile field. " & _
                     "If you don't want to save this to source, " & _
                     "set PreserveRubberDuckID = False in the options file.", False
-                    
+
                 strValid = strHelpFile
             End If
-            
+
         Else
             ' Might actually be a help file name/path
-        
+
             ' Build out any relative path
             strValid = GetPathFromRelative(strHelpFile)
-        
+
             ' Make sure this is a valid help file
             If strValid Like "*.hlp" Or strValid Like "*.chm" Then
                 If Not FSO.FileExists(strValid) Then
@@ -199,13 +199,13 @@ Private Function ValidHelpFile(strHelpFile As String) As String
                     "(Expecting *.hlp or *.chm)", ModuleName(Me) & ".ValidHelpFile"
                 strValid = vbNullString
             End If
-        
+
         End If
     End If
 
     ' Return validated help file string
     ValidHelpFile = strValid
-    
+
 End Function
 
 
@@ -239,7 +239,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
 
     ' Make sure we have a reference to the VB project
     If m_Project Is Nothing Then Set m_Project = GetVBProjectForCurrentDB
-    
+
     ' Read project properties
     Set GetDictionary = New Dictionary
     With GetDictionary
@@ -253,7 +253,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
         .Add "Protection", m_Project.Protection
         .Add "Type", m_Project.Type
     End With
-    
+
 End Function
 
 
@@ -291,10 +291,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim cProj As IDbComponent
     Dim blnAdd As Boolean
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         ' Load class details
@@ -309,7 +309,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-        
+
 End Function
 
 

@@ -51,7 +51,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    
+
     Dim dExisting As Dictionary
     Dim prp As DAO.Property
     Dim dImport As Dictionary
@@ -70,7 +70,7 @@ Private Sub IDbComponent_Import(strFile As String)
     If Not strFile Like "*.json" Then Exit Sub
 
     Set dbs = CurrentDb
-    
+
     ' Pull a list of the existing properties so we know whether
     ' to add or update the existing property.
     Set dExisting = New Dictionary
@@ -143,7 +143,7 @@ Private Sub IDbComponent_Import(strFile As String)
                         ' Add properties that don't exist.
                         blnAdd = True
                     End If
-                    
+
                     ' Can't add a text property with a null value. See issue #126
                     If dItems(varKey)("Type") = 10 Then
                         If varValue = vbNullChar Then blnAdd = False
@@ -158,17 +158,17 @@ Private Sub IDbComponent_Import(strFile As String)
                             ' Create property from array
                             Set prp = dbs.CreateProperty(varKey, dItems(varKey)("Type"), bArray)
                         End If
-                        
+
                         ' Append property to collection
                         dbs.Properties.Append prp
                     End If
             End Select
         Next varKey
     End If
-    
+
     ' Update index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
-    
+
 End Sub
 
 
@@ -183,23 +183,23 @@ End Sub
 Private Sub IDbComponent_Merge(strFile As String)
 
     Dim dFile As Dictionary
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
-    
+
     ' Remove any document properties that don't exist in the incoming file,
     ' then import the file.
     Set dFile = ReadJsonFile(strFile)
     If dFile Is Nothing Then Set dFile = New Dictionary
     RemoveMissing dFile("Items"), GetDictionary
-    
+
     ' Import if file exists
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
     Else
         VCSIndex.Remove Me, strFile
     End If
-    
+
 End Sub
 
 
@@ -228,16 +228,16 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
     Dim dCollection As Dictionary
     Dim dItem As Dictionary
     Dim varValue As Variant
-    
+
     ' Check cache parameter
     If blnUseCache And Not m_dItems Is Nothing Then
         ' Return cached dictionary
         Set GetDictionary = m_dItems
         Exit Function
     End If
-    
+
     Set dCollection = New Dictionary
-    
+
     ' Loop through all properties
     For Each prp In CurrentDb.Properties
         Select Case prp.Name
@@ -259,10 +259,10 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                 dCollection.Add prp.Name, dItem
         End Select
     Next prp
-    
+
     ' Return sorted dictionary
     Set GetDictionary = SortDictionaryByKeys(dCollection)
-    
+
 End Function
 
 
@@ -277,7 +277,7 @@ Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
 
     Dim dbs As Database
     Dim varProp As Variant
-    
+
     ' Go through target dictionary, removing properties that don't exist
     ' in the master dictionary. (Note that this is only checking the
     ' properties we are actually interested in tracking.)
@@ -313,7 +313,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim prp As DAO.Property
     Dim cProp As IDbComponent
 
@@ -333,7 +333,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-        
+
 End Function
 
 

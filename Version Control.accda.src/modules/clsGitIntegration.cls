@@ -51,7 +51,7 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
 
     Dim strCmd As String
     Dim strResult As String
-    
+
     ' Translate enum to command
     Select Case intCmd
         Case egcGetHeadCommitDate:      strCmd = "git show -s --format=%ci HEAD"
@@ -72,11 +72,11 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
     Perf.OperationStart "Git Command (id:" & intCmd & ")"
     strResult = ShellRun(strCmd)
     Perf.OperationEnd
-    
+
     ' Trim any trailing vbLf
     If Right$(strResult, 1) = vbLf Then strResult = Left$(strResult, Len(strResult) - 1)
     RunGitCommand = strResult
-    
+
 End Function
 
 
@@ -86,10 +86,10 @@ Public Function GetHeadCommitDate() As Date
 
     Dim strDate As String
     Dim varParts As Variant
-    
+
     ' Returns something like "2020-11-23 16:08:47 -0600"
     strDate = RunGitCommand(egcGetHeadCommitDate)
-    
+
     ' convert the result from ISO 8601 to Access,
     ' trimming off the timezone at the end (should be local)
     ' see StackOverflow #38751429
@@ -134,21 +134,21 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function ShellRun(strCmd As String) As String
-    
+
     Dim oShell As WshShell
     Dim strFile As String
     Dim strWorking As String
-    
+
     ' Get working path for command. (Prefer repository root, if available)
     If m_strRepositoryRoot = vbNullString Then
         strWorking = Options.GetExportFolder
     Else
         strWorking = m_strRepositoryRoot
     End If
-    
+
     ' Get path to temp file
     strFile = GetTempFile
-    
+
     ' Build command line string
     With New clsConcat
         ' Open command prompt in export folder
@@ -162,10 +162,10 @@ Private Function ShellRun(strCmd As String) As String
         oShell.Run .GetStr, WshHide, True
         'Debug.Print .GetStr    ' To debug
     End With
-    
+
     ' Read from temp file
     ShellRun = ReadFile(strFile)
-    
+
     ' Remove temp file
     FSO.DeleteFile strFile
 
@@ -278,10 +278,10 @@ End Function
 Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
 
     Dim varKey As Variant
-    
+
     ' Make sure the changes are loaded from Git
     If m_dChangedItems Is Nothing Then Set m_dChangedItems = GetChangedFileIndex(Me.FromRevision)
-    
+
     ' Check for any matching changes.
     Set GetModifiedSourceFiles = New Collection
     With m_dChangedItems
@@ -292,7 +292,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
             Next varKey
         End If
     End With
-    
+
 End Function
 
 
@@ -424,7 +424,7 @@ Public Function GetChangedFileIndex(strFromCommit As String) As Dictionary
 
     ' Return dictionary of file paths.
     Set GetChangedFileIndex = dIndex
-    
+
 End Function
 
 

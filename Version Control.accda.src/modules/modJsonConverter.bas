@@ -53,26 +53,26 @@ Option Private Module
 #If VBA7 Then
 
 ' 64-bit Mac (2016)
-Private Declare PtrSafe Function utc_popen Lib "/usr/lib/libc.dylib" Alias "popen" _
-    (ByVal utc_Command As String, ByVal utc_Mode As String) As LongPtr
-Private Declare PtrSafe Function utc_pclose Lib "/usr/lib/libc.dylib" Alias "pclose" _
-    (ByVal utc_File As LongPtr) As LongPtr
-Private Declare PtrSafe Function utc_fread Lib "/usr/lib/libc.dylib" Alias "fread" _
-    (ByVal utc_Buffer As String, ByVal utc_Size As LongPtr, ByVal utc_Number As LongPtr, ByVal utc_File As LongPtr) As LongPtr
-Private Declare PtrSafe Function utc_feof Lib "/usr/lib/libc.dylib" Alias "feof" _
-    (ByVal utc_File As LongPtr) As LongPtr
+Private Declare PtrSafe Function utc_popen Lib "/usr/lib/libc.dylib" Alias "popen" ( _
+    ByVal utc_Command As String, ByVal utc_Mode As String) As LongPtr
+Private Declare PtrSafe Function utc_pclose Lib "/usr/lib/libc.dylib" Alias "pclose" ( _
+    ByVal utc_File As LongPtr) As LongPtr
+Private Declare PtrSafe Function utc_fread Lib "/usr/lib/libc.dylib" Alias "fread" ( _
+    ByVal utc_Buffer As String, ByVal utc_Size As LongPtr, ByVal utc_Number As LongPtr, ByVal utc_File As LongPtr) As LongPtr
+Private Declare PtrSafe Function utc_feof Lib "/usr/lib/libc.dylib" Alias "feof" ( _
+    ByVal utc_File As LongPtr) As LongPtr
 
 #Else
 
 ' 32-bit Mac
-Private Declare Function utc_popen Lib "libc.dylib" Alias "popen" _
-    (ByVal utc_Command As String, ByVal utc_Mode As String) As Long
-Private Declare Function utc_pclose Lib "libc.dylib" Alias "pclose" _
-    (ByVal utc_File As Long) As Long
-Private Declare Function utc_fread Lib "libc.dylib" Alias "fread" _
-    (ByVal utc_Buffer As String, ByVal utc_Size As Long, ByVal utc_Number As Long, ByVal utc_File As Long) As Long
-Private Declare Function utc_feof Lib "libc.dylib" Alias "feof" _
-    (ByVal utc_File As Long) As Long
+Private Declare Function utc_popen Lib "libc.dylib" Alias "popen" ( _
+    ByVal utc_Command As String, ByVal utc_Mode As String) As Long
+Private Declare Function utc_pclose Lib "libc.dylib" Alias "pclose" ( _
+    ByVal utc_File As Long) As Long
+Private Declare Function utc_fread Lib "libc.dylib" Alias "fread" ( _
+    ByVal utc_Buffer As String, ByVal utc_Size As Long, ByVal utc_Number As Long, ByVal utc_File As Long) As Long
+Private Declare Function utc_feof Lib "libc.dylib" Alias "feof" ( _
+    ByVal utc_File As Long) As Long
 
 #End If
 
@@ -81,21 +81,21 @@ Private Declare Function utc_feof Lib "libc.dylib" Alias "feof" _
 ' http://msdn.microsoft.com/en-us/library/windows/desktop/ms724421.aspx
 ' http://msdn.microsoft.com/en-us/library/windows/desktop/ms724949.aspx
 ' http://msdn.microsoft.com/en-us/library/windows/desktop/ms725485.aspx
-Private Declare PtrSafe Function utc_GetTimeZoneInformation Lib "kernel32" Alias "GetTimeZoneInformation" _
-    (utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION) As Long
-Private Declare PtrSafe Function utc_SystemTimeToTzSpecificLocalTime Lib "kernel32" Alias "SystemTimeToTzSpecificLocalTime" _
-    (utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpUniversalTime As utc_SYSTEMTIME, utc_lpLocalTime As utc_SYSTEMTIME) As Long
-Private Declare PtrSafe Function utc_TzSpecificLocalTimeToSystemTime Lib "kernel32" Alias "TzSpecificLocalTimeToSystemTime" _
-    (utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpLocalTime As utc_SYSTEMTIME, utc_lpUniversalTime As utc_SYSTEMTIME) As Long
+Private Declare PtrSafe Function utc_GetTimeZoneInformation Lib "kernel32" Alias "GetTimeZoneInformation" ( _
+    utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION) As Long
+Private Declare PtrSafe Function utc_SystemTimeToTzSpecificLocalTime Lib "kernel32" Alias "SystemTimeToTzSpecificLocalTime" ( _
+    utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpUniversalTime As utc_SYSTEMTIME, utc_lpLocalTime As utc_SYSTEMTIME) As Long
+Private Declare PtrSafe Function utc_TzSpecificLocalTimeToSystemTime Lib "kernel32" Alias "TzSpecificLocalTimeToSystemTime" ( _
+    utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpLocalTime As utc_SYSTEMTIME, utc_lpUniversalTime As utc_SYSTEMTIME) As Long
 
 #Else
 
-Private Declare Function utc_GetTimeZoneInformation Lib "kernel32" Alias "GetTimeZoneInformation" _
-    (utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION) As Long
-Private Declare Function utc_SystemTimeToTzSpecificLocalTime Lib "kernel32" Alias "SystemTimeToTzSpecificLocalTime" _
-    (utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpUniversalTime As utc_SYSTEMTIME, utc_lpLocalTime As utc_SYSTEMTIME) As Long
-Private Declare Function utc_TzSpecificLocalTimeToSystemTime Lib "kernel32" Alias "TzSpecificLocalTimeToSystemTime" _
-    (utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpLocalTime As utc_SYSTEMTIME, utc_lpUniversalTime As utc_SYSTEMTIME) As Long
+Private Declare Function utc_GetTimeZoneInformation Lib "kernel32" Alias "GetTimeZoneInformation" ( _
+    utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION) As Long
+Private Declare Function utc_SystemTimeToTzSpecificLocalTime Lib "kernel32" Alias "SystemTimeToTzSpecificLocalTime" ( _
+    utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpUniversalTime As utc_SYSTEMTIME, utc_lpLocalTime As utc_SYSTEMTIME) As Long
+Private Declare Function utc_TzSpecificLocalTimeToSystemTime Lib "kernel32" Alias "TzSpecificLocalTimeToSystemTime" ( _
+    utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpLocalTime As utc_SYSTEMTIME, utc_lpUniversalTime As utc_SYSTEMTIME) As Long
 
 #End If
 
@@ -156,7 +156,7 @@ Private Type json_Options
 
     ' The solidus (/) is not required to be escaped, use this option to escape them as \/ in ConvertToJson
     EscapeSolidus As Boolean
-    
+
     ' Allow Unicode characters in JSON text. Set to True to use native Unicode or false for escaped values.
     AllowUnicodeChars As Boolean
 End Type
@@ -179,7 +179,7 @@ Public Function ParseJson(ByVal JsonString As String) As Object
     json_Index = 1
 
     Perf.OperationStart "Parse JSON"
-    
+
     ' Remove vbCr, vbLf, and vbTab from json_String
     JsonString = VBA.Replace(VBA.Replace(VBA.Replace(JsonString, VBA.vbCr, vbNullString), VBA.vbLf, vbNullString), VBA.vbTab, vbNullString)
 
@@ -193,9 +193,9 @@ Public Function ParseJson(ByVal JsonString As String) As Object
         ' Error: Invalid JSON string
         Err.Raise 10001, "JSONConverter", json_ParseErrorMessage(JsonString, json_Index, "Expecting '{' or '['")
     End Select
-    
+
     Perf.OperationEnd
-    
+
 End Function
 
 ''
@@ -228,7 +228,7 @@ Public Function ConvertToJson(ByVal JsonValue As Variant, Optional ByVal Whitesp
     Dim json_InnerIndentation As String
 
     Perf.OperationStart "Convert to JSON"
-    
+
     json_LBound = -1
     json_UBound = -1
     json_IsFirstItem = True
@@ -464,9 +464,9 @@ Public Function ConvertToJson(ByVal JsonValue As Variant, Optional ByVal Whitesp
         ConvertToJson = JsonValue
         On Error GoTo 0
     End Select
-    
+
     Perf.OperationEnd
-    
+
 End Function
 
 ' ============================================= '
@@ -1141,5 +1141,4 @@ Private Function utc_SystemTimeToDate(utc_Value As utc_SYSTEMTIME) As Date
 End Function
 
 #End If
-
 

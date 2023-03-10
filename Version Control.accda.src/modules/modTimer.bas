@@ -28,30 +28,30 @@ Public Sub WinAPITimerCallback()
     Dim strParam1 As String
     Dim strParam2 As String
     Dim strCommand As String
-    
+
     ' First, make sure we kill the timer!
     KillTimer
-    
+
     ' Read in parameter values
     strCommand = GetSetting(PROJECT_NAME, "Timer", "Operation")
     strParam1 = GetSetting(PROJECT_NAME, "Timer", "Param1")
     strParam2 = GetSetting(PROJECT_NAME, "Timer", "Param2")
-    
+
     ' Clear values from registry (In case an operation sets another timer)
     SaveSetting PROJECT_NAME, "Timer", "Operation", vbNullString
     SaveSetting PROJECT_NAME, "Timer", "Param1", vbNullString
     SaveSetting PROJECT_NAME, "Timer", "Param2", vbNullString
-    
+
     ' Now, run the desired operation
     Select Case strCommand
-    
+
         Case "HandleRibbonCommand"
             HandleRibbonCommand strParam1
-                
+
         Case "Build"
             ' Build from source (full or merge build)
             Build strParam1, CBool(strParam2)
-        
+
         Case Else
             ' Use the Run command to execute the specified operation with supplied parameters
             If strParam2 <> vbNullString Then
@@ -61,9 +61,9 @@ Public Sub WinAPITimerCallback()
             Else
                 Application.Run strCommand
             End If
-            
+
     End Select
-    
+
 End Sub
 
 
@@ -77,7 +77,7 @@ End Sub
 Public Sub SetTimer(strOperation As String, _
     Optional strParam1 As String, Optional strParam2 As String, _
     Optional sngSeconds As Single = 0.5)
-    
+
     ' Make sure we are not trying to stack timer operations
     If m_lngTimerID <> 0 Then
         MsgBox2 "Failed to Set Callback Timer", _
@@ -94,7 +94,7 @@ Public Sub SetTimer(strOperation As String, _
     SaveSetting PROJECT_NAME, "Timer", "Operation", strOperation
     SaveSetting PROJECT_NAME, "Timer", "TimerID", m_lngTimerID
     m_lngTimerID = ApiSetTimer(0, 0, 1000 * sngSeconds, AddressOf WinAPITimerCallback)
-    
+
 End Sub
 
 

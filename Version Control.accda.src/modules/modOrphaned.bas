@@ -22,7 +22,7 @@ Private Const ModuleName = "modOrphaned"
 '---------------------------------------------------------------------------------------
 '
 Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
-    
+
     Dim dItems As Dictionary
     Dim varKey As Variant
     Dim colNames As Collection
@@ -30,10 +30,10 @@ Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
     Dim oFolder As Scripting.Folder
     Dim oSubFolder As Scripting.Folder
     Dim strSubFolderName As String
-    
+
     ' No orphaned files if the folder doesn't exist.
     If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
-    
+
     ' Cache a list of source file names for actual database objects
     Perf.OperationStart "Clear Orphaned Folders"
     Set colNames = New Collection
@@ -42,10 +42,10 @@ Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
         Set cItem = dItems(varKey)
         colNames.Add FSO.GetFileName(cItem.SourceFile)
     Next varKey
-    
+
     Set oFolder = FSO.GetFolder(cType.BaseFolder)
     For Each oSubFolder In oFolder.SubFolders
-            
+
         strSubFolderName = oSubFolder.Name
         ' Remove any subfolder that doesn't have a matching name.
         If Not InCollection(colNames, strSubFolderName) Then
@@ -53,9 +53,9 @@ Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
             oSubFolder.Delete True
             Log.Add "  Removing orphaned folder: " & strSubFolderName, Options.ShowDebug
         End If
-        
+
     Next oSubFolder
-    
+
     ' Remove base folder if we don't have any subfolders or files in it
     With oFolder
         If .SubFolders.Count = 0 Then
@@ -63,7 +63,7 @@ Public Sub ClearOrphanedSourceFolders(cType As IDbComponent)
         End If
     End With
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -78,7 +78,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensions())
-    
+
     Dim oFolder As Scripting.Folder
     Dim oFile As Scripting.File
     Dim dBaseNames As Dictionary
@@ -94,16 +94,16 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     Dim strHash As String
     Dim cXItem As clsVCSIndexItem
     Dim dteModified As Date
-    
+
     ' No orphaned files if the folder doesn't exist.
     If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
-    
+
     ' Set up dictionary objects for case-insensitive comparison
     Set dBaseNames = New Dictionary
     dBaseNames.CompareMode = TextCompare
     Set dExtensions = New Dictionary
     dExtensions.CompareMode = TextCompare
-    
+
     ' Cache a list of base source file names for actual database objects
     Perf.OperationStart "Clear Orphaned Files"
     Set dItems = cType.GetAllFromDB(False)
@@ -111,37 +111,37 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
         Set cItem = dItems(varKey)
         dBaseNames.Add FSO.GetBaseName(cItem.SourceFile), vbNullString
     Next varKey
-    
+
     ' Build dictionary of allowed extensions
     For Each varExt In StrExtensions
         dExtensions.Add varExt, vbNullString
     Next varExt
-        
+
     ' Loop through files in folder
     Set oFolder = FSO.GetFolder(cType.BaseFolder)
     For Each oFile In oFolder.Files
-    
+
         ' Get base name and file extension
         ' (For performance reasons, minimize property access on oFile)
         strFileName = oFile.Name
         strFile = cType.BaseFolder & strFileName
         strBaseName = FSO.GetBaseName(strFileName)
         strExt = Mid$(strFileName, Len(strBaseName) + 2)
-        
+
         ' See if extension exists in cached list
         If dExtensions.Exists(strExt) Then
-            
+
             ' See if base file name exists in list of database objects
             If Not dBaseNames.Exists(strBaseName) Then
-                
+
                 ' Object not found in database. Check the index
                 If VCSIndex.Exists(cType, strFileName) Then
-                    
+
                     ' If file is unchanged from the index, we can go ahead and delete it.
                     ' (The source file matches the last version imported or exported)
                     strHash = VCSIndex.GetFilePropertyHash(strFile)
                     If VCSIndex.Item(cType, strFileName).FilePropertiesHash = strHash Then
-                    
+
                         ' Remove file and index entry
                         Log.Add "  Removing orphaned file: " & cType.BaseFolder & strFileName, Options.ShowDebug
                         DeleteFile strFile, True
@@ -153,7 +153,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
                         Log.Add "  Orphaned source file does not match last export: " & strFile, Options.ShowDebug
                         VCSIndex.Conflicts.Add cType, strFile, 0, GetLastModifiedDate(strFile), ercDelete, strFile, ercDelete
                     End If
-                    
+
                 Else
                     ' Object does not exist in the index. It might be a new file added
                     ' by another developer. Don't delete it, as it may need to be merged
@@ -166,11 +166,11 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
         ' Increment the progress bar as we scan through the files
         Log.Increment
     Next oFile
-    
+
     ' Remove base folder if we don't have any files in it
     If oFolder.Files.Count = 0 Then oFolder.Delete True
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -183,19 +183,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function GetObjectNameListFromFileList(dFileList As Dictionary) As Dictionary
-    
+
     Dim varKey As Variant
     Dim dNames As Dictionary
     Dim strName As String
-    
+
     Set dNames = New Dictionary
     For Each varKey In dFileList.Keys
         strName = GetObjectNameFromFileName(CStr(varKey))
         If Not dNames.Exists(strName) Then dNames.Add strName, vbNullString
     Next varKey
-    
+
     Set GetObjectNameListFromFileList = dNames
-    
+
 End Function
 
 
@@ -207,27 +207,27 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetDbObjectNameList(cComponent As IDbComponent) As Dictionary
-    
+
     Dim dAllItems As Dictionary
     Dim cItem As IDbComponent
     Dim varKey As Variant
     Dim strName As String
     Dim dNames As Dictionary
-    
+
     ' Return dictionary of all items
     Set dAllItems = cComponent.GetAllFromDB(False)
     Set dNames = New Dictionary
-    
+
     ' Get name for each item
     For Each varKey In dAllItems.Keys
         Set cItem = dAllItems(varKey)
         strName = cItem.DbObject.Name
         If Not dNames.Exists(strName) Then dNames.Add strName, cItem
     Next varKey
-    
+
     ' Return list of object names
     Set GetDbObjectNameList = dNames
-    
+
 End Function
 
 
@@ -246,15 +246,15 @@ Public Sub RemoveOrphanedDatabaseObjects(cCategory As IDbComponent)
     Dim dSource As Dictionary
     Dim strName As String
     Dim cItem As IDbComponent
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Get list of source file object names
     Set dSource = GetObjectNameListFromFileList(cCategory.GetFileList)
-    
+
     ' Get list of current database objects
     Set dObjects = GetDbObjectNameList(cCategory)
-    
+
     ' Loop through objects, getting list
     For Each varKey In dObjects.Keys
         strName = CStr(varKey)
@@ -280,5 +280,5 @@ Public Sub RemoveOrphanedDatabaseObjects(cCategory As IDbComponent)
             End If
         End If
     Next varKey
-    
+
 End Sub

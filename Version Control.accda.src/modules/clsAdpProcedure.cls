@@ -88,7 +88,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim sproc As AccessObject
     Dim cSproc As IDbComponent
     Dim blnAdd As Boolean

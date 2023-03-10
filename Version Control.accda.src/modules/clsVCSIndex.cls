@@ -65,7 +65,7 @@ Public Sub LoadFromFile(Optional strFile As String)
 
     ' Reset class to blank values
     Call Class_Initialize
-        
+
     ' Load properties
     m_strFile = strFile
     If m_strFile = vbNullString Then m_strFile = DefaultFilePath
@@ -143,7 +143,7 @@ Public Sub Save(Optional strInFolder As String)
     If m_strFile <> vbNullString Then
         WriteFile BuildJsonFile(TypeName(Me), m_dIndex, "Version Control System Index"), strFile
     End If
-    
+
 End Sub
 
 
@@ -158,18 +158,18 @@ Private Sub SortComponentSection(ByRef dIndex As Dictionary, strSection As Strin
 
     Dim dComponents As Dictionary
     Dim varCat As Variant
-    
+
     If dIndex.Exists(strSection) Then
         Set dComponents = dIndex(strSection)
         For Each varCat In dComponents.Keys
             ' Sort list of files in each category
             Set dComponents(varCat) = SortDictionaryByKeys(dComponents(varCat))
         Next varCat
-        
+
         ' Sort list of categories
         Set dIndex(strSection) = SortDictionaryByKeys(dComponents)
     End If
-    
+
 End Sub
 
 
@@ -182,26 +182,26 @@ End Sub
 '
 Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, _
     Optional strFileHash As String, Optional strOtherHash As String, Optional dteDateTime As Date) As Dictionary
-    
+
     Dim dItem As Dictionary
     Dim strSection As String
-    
+
     ' Exit if we have disabled the index functionality
     If Me.Disabled Then Exit Function
-    
+
     ' Determine section
     If intAction = eatAltExport Then
         strSection = "AlternateExport"
     Else
         strSection = "Components"
     End If
-    
+
     ' Look up dictionary item, creating if needed.
     Set dItem = Me.Item(cItem, , strSection).dParent
-    
+
     ' Update dictionary values
     With dItem
-    
+
         ' Update hash
         If strFileHash = vbNullString Then
             ' Remove hash if not used.
@@ -209,7 +209,7 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         Else
             .Item("FileHash") = strFileHash
         End If
-        
+
         ' Code module hash (Detects changes to VBA code that are not reflected in modified date)
         If strOtherHash = vbNullString Then
             ' Remove hash if not used.
@@ -217,7 +217,7 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         Else
             .Item("OtherHash") = strOtherHash
         End If
-        
+
         ' Add timestamp, defaulting to now
         If dteDateTime = 0 Then dteDateTime = Now
         Select Case intAction
@@ -226,20 +226,20 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
             Case eatImport
                 .Item("ImportDate") = CStr(dteDateTime)
         End Select
-        
+
         ' Save timestamp of exported source file.
         dteDateTime = GetLastModifiedDate(cItem.SourceFile)
         .Item("SourceModified") = ZNDate(CStr(dteDateTime))
-        
+
         ' Save hash of file properties
         .Item("FilePropertiesHash") = GetFilePropertyHash(cItem.SourceFile)
-    
+
     End With
-    
+
     ' Return dictionary object in case the caller wants to
     ' manipulate additional values.
     Set Update = dItem
-    
+
 End Function
 
 
@@ -258,13 +258,13 @@ Public Sub UpdateFromAltExport(cItem As IDbComponent)
     Dim strFile As String
     Dim dAltItem As Dictionary
     Dim varKey As Variant
-    
+
     ' Exit if we have disabled the index functionality
     If Me.Disabled Then Exit Sub
-    
+
     ' Get file name from component
     strFile = FSO.GetFileName(cItem.SourceFile)
-    
+
     ' Look for entry in AlternateExport section
     With m_dIndex("AlternateExport")
         If .Exists(cItem.Category) Then
@@ -274,7 +274,7 @@ Public Sub UpdateFromAltExport(cItem As IDbComponent)
             End If
         End If
     End With
-    
+
     ' Update entry in main component section with values
     ' from the alternate export section.
     If Not dAltItem Is Nothing Then
@@ -284,7 +284,7 @@ Public Sub UpdateFromAltExport(cItem As IDbComponent)
             Next varKey
         End With
     End If
-    
+
 End Sub
 
 
@@ -296,7 +296,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Remove(cItem As IDbComponent, Optional strSourceFile As String)
-    
+
     Dim strFile As String
 
     ' Exit if we have disabled the index functionality
@@ -304,7 +304,7 @@ Public Sub Remove(cItem As IDbComponent, Optional strSourceFile As String)
 
     ' Get just the file name from the path.
     strFile = FSO.GetFileName(Nz2(strSourceFile, cItem.SourceFile))
-    
+
     ' Remove dictionary objects.
     With m_dIndex("Components")
         If .Exists(cItem.Category) Then
@@ -317,7 +317,7 @@ Public Sub Remove(cItem As IDbComponent, Optional strSourceFile As String)
             End If
         End If
     End With
-    
+
 End Sub
 
 
@@ -332,14 +332,14 @@ Public Function Item(cItem As IDbComponent, Optional strSourceFile As String, _
     Optional strSection As String = "Components") As clsVCSIndexItem
 
     Dim strFile As String
-    
+
     ' Exit if we have disabled the index functionality
     If Me.Disabled Then Exit Function
 
     ' Get just the file name from the path.
     strFile = FSO.GetFileName(Nz2(strSourceFile, cItem.SourceFile))
     Set Item = LoadItem(cItem, strFile, strSection)
-    
+
 End Function
 
 
@@ -353,7 +353,7 @@ End Function
 Private Function LoadItem(cItem As IDbComponent, strSourceFile As String, strSection As String) As clsVCSIndexItem
 
     Dim dItem As Dictionary
-    
+
     ' Get or create dictionary objects.
     With m_dIndex(strSection)
         If Not .Exists(cItem.Category) Then Set .Item(cItem.Category) = New Dictionary
@@ -386,20 +386,20 @@ Public Function Exists(cCategory As IDbComponent, strSourceFilePath As String) A
 
     Dim strFile As String
     Dim blnExists
-    
+
     ' Get just the file name from the path.
     strFile = FSO.GetFileName(strSourceFilePath)
-    
+
     ' See if the entry exists in the index
     With m_dIndex("Components")
         If .Exists(cCategory.Category) Then
             blnExists = .Item(cCategory.Category).Exists(strFile)
         End If
     End With
-    
+
     ' Return result
     Exists = blnExists
-    
+
 End Function
 
 
@@ -416,17 +416,17 @@ Public Property Get DefaultDevModeHash() As String
 
     ' Cache the result for future calls
     Static strHash As String
-    
+
     If strHash = vbNullString Then
         With New clsDevMode
             .LoadFromDefaultPrinter
             strHash = .GetHash
         End With
     End If
-    
+
     ' Return hash
     DefaultDevModeHash = strHash
-    
+
 End Property
 
 
@@ -440,11 +440,11 @@ End Property
 Public Function GetFilePropertyHash(strFile As String) As String
 
     Dim oFile As Scripting.File
-    
+
     If FSO.FileExists(strFile) Then
         Perf.OperationStart "Get File Property Hash"
         Set oFile = FSO.GetFile(strFile)
-        
+
         With New clsConcat
             .Add oFile.DateLastModified, oFile.Size
             GetFilePropertyHash = GetStringHash(.GetStr)
@@ -475,7 +475,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
     Dim strPath As String
     Dim dItem As Dictionary
     Dim blnModified As Boolean
-    
+
     Set GetModifiedSourceFiles = New Collection
     With GetModifiedSourceFiles
         ' Make sure we have a previous commit to reference.
@@ -527,15 +527,15 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub CheckExportConflicts(dDbComponents As Dictionary)
-    
+
     Dim varKey As Variant
     Dim cItem As IDbComponent
     Dim sngStart As Single
-    
+
     ' Capture start time so we can display some progress if this
     ' scan takes a while.
     sngStart = Timer
-    
+
     ' Loop through all components
     For Each varKey In dDbComponents.Keys
         Set cItem = dDbComponents(varKey)
@@ -557,7 +557,7 @@ Public Sub CheckExportConflicts(dDbComponents As Dictionary)
             sngStart = 0
         End If
     Next varKey
-    
+
 End Sub
 
 
@@ -576,7 +576,7 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
     Dim strFile As String
     Dim strTempFile As String
     Dim blnCompareTemp As Boolean
-    
+
     ' Check for special cases based on component type
     If cItem.ComponentType = edbTableData Then
         ' Table data is not considered an export conflict, and should
@@ -584,18 +584,18 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
         IsExportConflict = False
         Exit Function
     End If
-    
+
     ' See if the export file even exists before we worry about conflicts.
     strFile = cItem.SourceFile
     If FSO.FileExists(strFile) Then
-    
+
         ' Get a hash of the file properties
         strHash = Me.GetFilePropertyHash(strFile)
-    
+
         ' Check to see if this object is in the index
         ' (Has been exported/imported before.)
         If Me.Exists(cItem, strFile) Then
-        
+
             ' Item found in index.
             ' Check to see if it matches the property hash in the index.
             If Me.Item(cItem).FilePropertiesHash = strHash Then
@@ -616,7 +616,7 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
             blnCompareTemp = True
         End If
     End If
-    
+
     ' Compare the content hash of a fresh export to see if it matches the existing file.
     If blnCompareTemp Then
         strTempFile = Replace(strFile, Options.GetExportFolder, GetTempExportFolder)
@@ -624,10 +624,10 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
         cItem.Export strTempFile
         blnConflict = Not FileContentsMatch(strFile, strTempFile)
     End If
-    
+
     ' Return result
     IsExportConflict = blnConflict
-    
+
 End Function
 
 
@@ -639,16 +639,16 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub CheckImportConflicts(cComponent As IDbComponent, dFiles As Dictionary)
-    
+
     Dim varKey As Variant
     Dim cItem As IDbComponent
     Dim sngStart As Single
     Dim strFile As String
-    
+
     ' Capture start time so we can display some progress if this
     ' scan takes a while.
     sngStart = Timer
-    
+
     ' Loop through the list of source files
     ' (Each key is a full path to a source file)
     For Each varKey In dFiles.Keys
@@ -673,7 +673,7 @@ Public Sub CheckImportConflicts(cComponent As IDbComponent, dFiles As Dictionary
             sngStart = 0
         End If
     Next varKey
-    
+
 End Sub
 
 
@@ -687,7 +687,7 @@ Private Function IsImportConflict(cItemClass As IDbComponent, strSourceFile As S
     Dim strHash As String
     Dim strTempFile As String
     Dim blnCompareTemp As Boolean
-    
+
     ' Check for special cases based on component type
     If cItemClass.ComponentType = edbTableData Then
         ' Table data is not considered an import conflict, and should
@@ -695,14 +695,14 @@ Private Function IsImportConflict(cItemClass As IDbComponent, strSourceFile As S
         IsImportConflict = False
         Exit Function
     End If
-    
+
     ' See if the database object even exists before we worry about conflicts.
     strName = GetObjectNameFromFileName(strSourceFile)
     If cItemClass.GetAllFromDB.Exists(strSourceFile) Then
-    
+
         ' Get class instance for database item
         Set cItem = cItemClass.GetAllFromDB.Item(strSourceFile)
-        
+
         ' See if this object appears to be modified since the last import/export
         If cItem.IsModified Then
             ' Just because the modification date is different doesn't always
@@ -720,7 +720,7 @@ Private Function IsImportConflict(cItemClass As IDbComponent, strSourceFile As S
             ' object in a merge operation.
         End If
     End If
-    
+
     ' Return result
     IsImportConflict = blnConflict
 
@@ -835,9 +835,9 @@ Private Sub Class_Initialize()
         Set .Item("Components") = New Dictionary
         Set .Item("AlternateExport") = New Dictionary
     End With
-    
+
     ' Load Git integration
     Set m_dGitIndex = Nothing
-    
+
 End Sub
 

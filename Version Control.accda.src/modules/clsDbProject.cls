@@ -62,7 +62,7 @@ Private Sub IDbComponent_Import(strFile As String)
     If Not strFile Like "*.json" Then Exit Sub
     Set dProject = ReadJsonFile(strFile)
     Set proj = CurrentProject
-    
+
     ' Update project properties (Only a couple we can really change)
     With proj
         .RemovePersonalInformation = Nz2(dNZ(dProject, "Items\RemovePersonalInformation"), False)
@@ -72,9 +72,9 @@ Private Sub IDbComponent_Import(strFile As String)
             If strConnect <> vbNullString Then CurrentProject.OpenConnection strConnect
         End If
     End With
-    
+
     CatchAny eelError, "Importing Project", ModuleName(Me) & ".Import"
-    
+
     ' Save to index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
 
@@ -110,7 +110,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
 
     ' Make sure we have a reference to the VB project
     If m_Project Is Nothing Then Set m_Project = CurrentProject
-    
+
     ' Read project properties
     Set GetDictionary = New Dictionary
     With GetDictionary
@@ -121,7 +121,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
         .Add "FileFormat", m_Project.FileFormat
         .Add "RemovePersonalInformation", m_Project.RemovePersonalInformation
     End With
-    
+
 End Function
 
 
@@ -163,7 +163,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim cProj As IDbComponent
     Dim blnAdd As Boolean
 
@@ -182,7 +182,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-        
+
 End Function
 
 

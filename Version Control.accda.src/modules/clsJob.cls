@@ -14,5 +14,3 @@ Public KeyHash As String
 Public Action As String
 Public Start As Double
 Public Timeout As Double
-
-

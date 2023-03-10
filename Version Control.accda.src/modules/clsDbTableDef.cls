@@ -37,7 +37,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    
+
     Dim strFile As String
     Dim dbs As Database
     Dim tbl As DAO.TableDef
@@ -45,24 +45,24 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim dItem As Dictionary
     Dim strHash As String
     Dim strContent As String
-    
+
     Set dbs = CurrentDb
     Set tbl = dbs.TableDefs(m_Table.Name)
     strFile = Nz2(strAlternatePath, IDbComponent_SourceFile)
-    
+
     ' For internal tables, we can export them as XML.
     If tbl.Connect = vbNullString Then
-    
+
         ' Save structure in XML format
         VerifyPath strFile
         Perf.OperationStart "App.ExportXML()"
         ' Note that the additional properties are important to accurately reconstruct the table.
         Application.ExportXML acExportTable, m_Table.Name, , strFile, , , , acExportAllTableAndFieldProperties
         Perf.OperationEnd
-        
+
         ' Rewrite sanitized XML as formatted UTF-8 content
         strHash = SanitizeXML(strFile, True)
-    
+
     Else
         ' Linked table - Save as JSON
         Set dItem = New Dictionary
@@ -82,30 +82,30 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                 Next idx
             End If
         End With
-        
+
         ' Write export file.
         strContent = BuildJsonFile(TypeName(Me), dItem, "Linked Table")
         strHash = GetStringHash(strContent, True)
         WriteFile strContent, strFile
-        
+
     End If
-    
+
     ' Additional processing when exporting to source folder
     If strAlternatePath = vbNullString Then
-        
+
         ' Remove any alternate source file in case we have switched formats
         RemoveAlternateFormatSourceFile
-      
+
         ' Optionally save in SQL format
         If Options.SaveTableSQL Then
             Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
             SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder
         End If
     End If
-    
+
     ' Update index
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
-    
+
 End Sub
 
 
@@ -121,13 +121,13 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim blnUseTemp As Boolean
     Dim strTempFile As String
     Dim strName As String
-    
+
     ' Determine import type from extension
     Select Case LCase$(FSO.GetExtensionName(strFile))
-    
+
         Case "json"
             If Not ImportLinkedTable(strFile) Then Exit Sub
-        
+
         Case "xml"
             ' The ImportXML function does not properly handle UrlEncoded paths
             blnUseTemp = (InStr(1, strFile, "%") > 0)
@@ -140,18 +140,18 @@ Private Sub IDbComponent_Import(strFile As String)
             Else
                 Application.ImportXML strFile, acStructureOnly
             End If
-        
+
         Case Else
             ' Unsupported file
             Exit Sub
-            
+
     End Select
-    
+
     ' Update index
     strName = GetObjectNameFromFileName(strFile)
     Set m_Table = CurrentData.AllTables(strName)
     VCSIndex.Update Me, eatImport
-    
+
 End Sub
 
 
@@ -270,7 +270,7 @@ Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As
         strFile = strFolder & GetSafeFileName(strTable) & ".sql"
         WriteFile .GetStr, strFile
         Perf.OperationEnd
-        
+
     End With
 
 End Sub
@@ -395,7 +395,7 @@ End Function
 Private Function IndexAvailable(tdf As TableDef) As Boolean
 
     Dim lngTest As Long
-    
+
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
     lngTest = tdf.Indexes.Count
     If Err Then
@@ -404,7 +404,7 @@ Private Function IndexAvailable(tdf As TableDef) As Boolean
         IndexAvailable = True
     End If
     CatchAny eelNoError, vbNullString, , False
-    
+
 End Function
 
 
@@ -424,13 +424,13 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
     Dim tdf As DAO.TableDef
     Dim strSql As String
     Dim strConnect As String
-    
+
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    
+
     ' Read json file
     Set dTable = ReadJsonFile(strFile)
     If Not dTable Is Nothing Then
-    
+
         ' Link the table
         Set dItem = dTable("Items")
         Set dbs = CurrentDb
@@ -456,7 +456,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
                 tdf.RefreshLink
             End If
             dbs.TableDefs.Refresh
-            
+
             ' Set index on linked table.
             If InStr(1, tdf.Connect, ";DATABASE=", vbTextCompare) = 1 Then
                 ' Can't create a key on a linked Access database table.
@@ -473,10 +473,10 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
             ImportLinkedTable = (Err.Number = 0)
         End If
     End If
-    
+
     ' Report any unhandled errors
     CatchAny eelError, "Error importing " & strFile, ".ImportLinkedTable"
-    
+
 End Function
 
 
@@ -492,7 +492,7 @@ Private Function SafeAttributes(lngAttributes As Long) As Long
     Dim colAtts As Collection
     Dim varAtt As Variant
     Dim lngNew As Long
-    
+
     Set colAtts = New Collection
     With colAtts
         '.Add dbAttachedODBC
@@ -502,7 +502,7 @@ Private Function SafeAttributes(lngAttributes As Long) As Long
         .Add dbHiddenObject
         .Add dbSystemObject
     End With
-    
+
     For Each varAtt In colAtts
         ' Use boolean logic to check for bit flag
         If CBool((lngAttributes And varAtt) = varAtt) Then
@@ -510,10 +510,10 @@ Private Function SafeAttributes(lngAttributes As Long) As Long
             lngNew = lngNew + varAtt
         End If
     Next varAtt
-    
+
     ' Return attributes value after rebuilding from scratch.
     SafeAttributes = lngNew
-    
+
 End Function
 
 
@@ -528,7 +528,7 @@ End Function
 Private Function HasUniqueIndex(tdf As TableDef) As Boolean
 
     Dim idx As DAO.Index
-    
+
     If IndexAvailable(tdf) Then
         For Each idx In tdf.Indexes
             If idx.Unique Then
@@ -537,7 +537,7 @@ Private Function HasUniqueIndex(tdf As TableDef) As Boolean
             End If
         Next idx
     End If
-    
+
 End Function
 
 
@@ -562,11 +562,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim tdf As TableDef
     Dim cTable As IDbComponent
     Dim blnAdd As Boolean
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
@@ -586,7 +586,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-        
+
 End Function
 
 

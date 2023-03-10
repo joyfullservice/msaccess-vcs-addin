@@ -31,10 +31,10 @@ Public Sub VerifyComAddIn()
     Dim strHash As String
     Dim blnUpdateRibbon As Boolean
     Dim blnInstall As Boolean
-    
+
     ' Build path to ribbon folder
     strPath = GetAddInPath
-    
+
     ' Ribbon XML file
     strFile = strPath & "Ribbon.xml"
     strKey = "Ribbon XML"
@@ -55,7 +55,7 @@ Public Sub VerifyComAddIn()
     ' COM Add-in
     strFile = strPath & GetAddInFileName
     strKey = "COM Addin x" & GetOfficeBitness
-    
+
     ' Verify add-in file
     If Not FSO.FileExists(strFile) Then
         blnInstall = True
@@ -67,10 +67,10 @@ Public Sub VerifyComAddIn()
             If strHash <> GetFileHash(strFile) Then blnInstall = True
         End If
     End If
-    
+
     ' Verify COM registration
     If Not blnInstall Then blnInstall = Not DllIsRegistered
-    
+
     ' Install/reinstall if needed
     If blnInstall Then
         ' Unload the add-in, so we don't try to overwrite a file that is in use
@@ -89,7 +89,7 @@ Public Sub VerifyComAddIn()
             LoadAddIn
         End If
     End If
-    
+
 End Sub
 
 
@@ -118,23 +118,23 @@ Public Sub UninstallComAddIn()
 
     Dim strPath As String
     Dim strTemp As String
-    
+
     ' Unload the add-in ribbon
     UnloadAddIn
-    
+
     ' Unregister the DLL from the registry
     DllUnregisterServer
-    
+
     ' Remove DLL file
     RemoveComDll
-    
+
     ' Remove ribbon XML file
     strPath = GetAddInPath & "Ribbon.xml"
     If FSO.FileExists(strPath) Then DeleteFile strPath
-    
+
     ' Update the list of COM add-ins
     Application.COMAddIns.Update
-        
+
 End Sub
 
 
@@ -152,11 +152,11 @@ Private Sub RemoveComDll()
 
     Dim strPath As String
     Dim strTemp As String
-    
+
     ' Build expected path for DLL
     strPath = GetAddInPath & GetAddInFileName
     If FSO.FileExists(strPath) Then
-    
+
         ' Attempt to delete it first
         If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
         DeleteFile strPath
@@ -167,7 +167,7 @@ Private Sub RemoveComDll()
             FSO.MoveFile strPath, strTemp
         End If
     End If
-    
+
 End Sub
 
 
@@ -225,13 +225,13 @@ Private Function RegisterCOMAddIn() As Boolean
 
     ' Register with list of Access add-ins
     DllRegisterServer
-    
+
     ' Refresh the list of add-ins from the registry
     Application.COMAddIns.Update
 
     ' Return true if we can find the loaded object
     RegisterCOMAddIn = Not (GetCOMAddIn Is Nothing)
-    
+
 End Function
 
 
@@ -258,9 +258,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub LoadAddIn()
-    
+
     Dim addVCS As COMAddIn
-    
+
     Set addVCS = GetCOMAddIn
     If addVCS Is Nothing Then
         ' Add-in not found. May need to be registered
@@ -319,7 +319,7 @@ Private Function DllIsRegistered() As Boolean
             End If
         End If
     End With
-    
+
 End Function
 
 

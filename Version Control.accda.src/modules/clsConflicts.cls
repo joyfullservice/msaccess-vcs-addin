@@ -75,9 +75,9 @@ End Sub
 '
 Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Date, dteFileDate As Date, intActionType As eResolveConflict, _
     Optional strSourceFile As String, Optional intSuggestedResolution As eResolveConflict)
-    
+
     Dim cItem As clsConflictItem
-    
+
     Set cItem = New clsConflictItem
     With cItem
         .CategoryName = cComponent.Category
@@ -91,7 +91,7 @@ Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Dat
         Set .CategoryList = m_dCategories
         m_dItems.Add .FileName, cItem
     End With
-    
+
 End Sub
 
 
@@ -108,11 +108,11 @@ Private Sub SaveToTable()
     Dim rst As Recordset
     Dim varKey As Variant
     Dim cItem As clsConflictItem
-    
+
     ' Clear any existing records first
     ClearTable
     If m_dItems.Count = 0 Then Exit Sub
-    
+
     ' Open table to add items
     Set dbs = CodeDb
     Set rst = dbs.OpenRecordset("tblConflicts")
@@ -143,7 +143,7 @@ Private Sub SaveToTable()
         Next varKey
         .Close
     End With
-    
+
 End Sub
 
 
@@ -161,7 +161,7 @@ Private Sub UpdateResolutionsFromTable()
     Dim rst As DAO.Recordset
 
     If m_dItems.Count = 0 Then Exit Sub
-    
+
     ' Open table to read records
     Set dbs = CodeDb
     Set rst = dbs.OpenRecordset("tblConflicts")
@@ -174,7 +174,7 @@ Private Sub UpdateResolutionsFromTable()
             .MoveNext
         Loop
     End With
-    
+
 End Sub
 
 

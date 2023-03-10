@@ -59,12 +59,12 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim varCont As Variant
     Dim varDoc As Variant
     Dim varProp As Variant
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
         ClearDatabaseSummaryProperties
@@ -85,7 +85,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     ' Update index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
-    
+
 End Sub
 
 
@@ -100,7 +100,7 @@ End Sub
 Private Sub IDbComponent_Merge(strFile As String)
 
     Dim dFile As Dictionary
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
@@ -109,7 +109,7 @@ Private Sub IDbComponent_Merge(strFile As String)
     Set dFile = ReadJsonFile(strFile)
     If dFile Is Nothing Then Set dFile = New Dictionary
     RemoveMissing dFile("Items"), GetDictionary
-    
+
     ' Import if file exists
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
@@ -137,7 +137,7 @@ Private Sub ClearDatabaseSummaryProperties()
     Dim prp As DAO.Property
     Dim dbs As DAO.Database
     Dim intProp As Integer
-    
+
     Set dbs = CurrentDb
     Set doc = dbs.Containers("Databases").Documents("SummaryInfo")
     ' Loop backwards through the collection since we may be removing items.
@@ -155,7 +155,7 @@ Private Sub ClearDatabaseSummaryProperties()
                 End Select
         End Select
     Next intProp
-    
+
 End Sub
 
 
@@ -189,18 +189,18 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
     Dim dbs As Database
     Dim doc As DAO.Document
     Dim blnSave As Boolean
-    
+
     ' Check cache parameter
     If blnUseCache And Not m_dItems Is Nothing Then
         ' Return cached dictionary
         Set GetDictionary = m_dItems
         Exit Function
     End If
-    
+
     ' Create dictionary object to hold all the items
     Set dItems = New Dictionary
     Set dbs = CurrentDb
-            
+
     ' Loop through all the containers, documents, and properties.
     ' Note, we don't want to collect everything here. We are taking
     ' a whitelist approach to specify the ones we want to save and
@@ -239,7 +239,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
 
     ' Return assembled dictionary
     Set GetDictionary = dItems
-    
+
 End Function
 
 
@@ -258,7 +258,7 @@ Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
     Dim varCont As Variant
     Dim varDoc As Variant
     Dim varProp As Variant
-    
+
     ' Go through target dictionary, removing properties that don't exist
     ' in the master dictionary. (Note that this is only checking the
     ' properties we are actually interested in tracking.)
@@ -300,7 +300,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim cDoc As IDbComponent
     Dim dCont As Dictionary
     Dim dDoc As Dictionary
@@ -309,17 +309,17 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim varDoc As Variant
     Dim varProp As Variant
     Dim strKey As String
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
 
         Set m_Items(blnModifiedOnly) = New Dictionary
-        
+
         ' Check index hash of properties to determine if they have been changed.
         If Not blnModifiedOnly Or IDbComponent_IsModified Then
             Set m_dItems = GetDictionary
             Set dbs = CurrentDb
-            
+
             ' Loop through all the containers, documents, and properties.
             For Each varCont In m_dItems.Keys
                 Set dCont = m_dItems(varCont)
@@ -341,7 +341,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-        
+
 End Function
 
 

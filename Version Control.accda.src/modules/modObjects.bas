@@ -177,16 +177,16 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
-    
+
     Static blnInError As Boolean
     Dim blnBreak As Boolean
-    
+
     ' Don't reference the property this till we have loaded the options.
     If Not m_Options Is Nothing Then blnBreak = m_Options.BreakOnError
-    
+
     ' Check for any unhandled errors
     If (Err.Number <> 0) And blnTrapUnhandledErrors And Not blnInError Then
-    
+
         ' Check current BreakOnError mode
         If blnBreak Then
             ' Stop the code here so we can investigate the source of the error.
@@ -224,11 +224,11 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
                 blnInError = False
             End If
         End If
-    
+
     End If
-    
+
     ' Return debug mode
     DebugMode = blnBreak
-    
+
 End Function
 

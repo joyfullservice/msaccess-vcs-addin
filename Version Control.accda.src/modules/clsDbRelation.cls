@@ -64,7 +64,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    
+
     Dim dItem As Dictionary
     Dim dFile As Dictionary
     Dim dField As Dictionary
@@ -78,20 +78,20 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Parse json file
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
-        
+
         ' Create new relation
         Set dbs = CurrentDb
         Set dItem = dFile("Items")
         Set rel = dbs.CreateRelation(dItem("Name"), dItem("Table"), dItem("ForeignTable"))
         rel.Attributes = dItem("Attributes")
-        
+
         ' Add fields, and append to relation
         For Each dField In dItem("Fields")
             Set fld = rel.CreateField(dField("Name"))
             fld.ForeignName = dField("ForeignName")
             rel.Fields.Append fld
         Next dField
-        
+
         ' Relationships create indexes, so we need to make sure an index
         ' with this name doesn't already exist. (Also check to be sure that
         ' we don't already have a relationship with this name.
@@ -102,11 +102,11 @@ Private Sub IDbComponent_Import(strFile As String)
             .Relations.Delete rel.Name
         End With
         CatchAny eelNoError, vbNullString, , False
-        
+
         ' Add relationship to database
         dbs.Relations.Append rel
     End If
-    
+
 End Sub
 
 
@@ -149,19 +149,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim rel As Relation
     Dim cRelation As IDbComponent
     Dim blnAdd As Boolean
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-    
+
         ' Maintain persistent reference to database object so we don't
         ' lose the reference to the relation object with this procedure
         ' goes out of scope. (Make sure we release this on termination)
         Set m_Dbs = CurrentDb
-        
+
         Set m_Items(blnModifiedOnly) = New Dictionary
         For Each rel In m_Dbs.Relations
             ' Navigation pane groups are handled separately
@@ -179,7 +179,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-    
+
 End Function
 
 
@@ -208,9 +208,9 @@ End Function
 Public Function GetRelationFileName(objRelation As Relation) As String
 
     Dim strName As String
-    
+
     strName = objRelation.Name
-    
+
     If InStr(1, strName, "].") > 0 Then
         ' Need to remove path to linked file
         GetRelationFileName = GetSafeFileName(CStr(Split(strName, "].")(1)))
@@ -234,7 +234,7 @@ Private Function GetSource() As String
     Dim dField As Dictionary
     Dim colItems As Collection
     Dim fld As DAO.Field
-    
+
     ' Relation properties
     Set dItem = New Dictionary
     With dItem
@@ -243,7 +243,7 @@ Private Function GetSource() As String
         .Add "Table", m_Relation.Table
         .Add "ForeignTable", m_Relation.ForeignTable
     End With
-    
+
     ' Fields
     Set colItems = New Collection
     For Each fld In m_Relation.Fields
@@ -258,7 +258,7 @@ Private Function GetSource() As String
 
     ' Return source file content
     GetSource = BuildJsonFile(TypeName(Me), dItem, "Database relationship")
-    
+
 End Function
 
 

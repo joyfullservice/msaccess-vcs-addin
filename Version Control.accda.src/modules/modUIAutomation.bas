@@ -66,16 +66,16 @@ Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElem
     Dim strName As String
     Dim strImage As String
     Dim objItem As AccessObject
-    
+
     ' Read name from button name
     strName = oElement.CurrentName
-    
+
     ' Get the object type from the image name
     strImage = GetImageName(oClient, oElement)
-    
+
     ' Just in case something doesn't work right...
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    
+
     ' There are multiple icons for some objects
     If strImage Like "Table*" Then
         Set objItem = CurrentData.AllTables(strName)
@@ -92,7 +92,7 @@ Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElem
                 Set objItem = CurrentProject.AllMacros(strName)
             Case "Class Module", "Module"
                 Set objItem = CurrentProject.AllModules(strName)
-                
+
             ' Some ADP specific project items
             Case "Function"
                 Set objItem = CurrentData.AllFunctions(strName)
@@ -100,25 +100,25 @@ Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElem
                 Set objItem = CurrentData.AllStoredProcedures(strName)
             Case "Diagram"
                 Set objItem = CurrentData.AllDatabaseDiagrams(strName)
-                
+
             ' Check for no image name returned
             Case vbNullString
                 ' No image name found
-            
+
             ' Unrecognized name
             Case Else
                 Debug.Print "Navigation pane item image name not recognized: " _
                     & strImage & " (for " & strName & ")"
         End Select
     End If
-    
+
     ' Report any errors retrieving underlying object
     CatchAny eelError, "Error getting underlying object for " & strName, _
         ModuleName & ".GetUnderlyingDbObjectFromButton"
-    
+
     ' Return database object if we found a matching one
     If Not objItem Is Nothing Then Set GetUnderlyingDbObjectFromButton = objItem
-    
+
 End Function
 
 
@@ -141,8 +141,8 @@ Private Function GetImageName(oClient As CUIAutomation, oElement As IUIAutomatio
 
     ' Attempt to find the selected item (looking for keyboard focus)
     Set oImage = oElement.FindFirst(TreeScope_Descendants, oCondition)
-    
+
     ' Return name of image, if found
     If Not oImage Is Nothing Then GetImageName = oImage.CurrentName
-    
+
 End Function

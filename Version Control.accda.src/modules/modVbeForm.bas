@@ -209,7 +209,7 @@ Private Function GetPropertyList(strType As String) As Collection
 
     Set GetPropertyList = New Collection
     With GetPropertyList
-    
+
         ' Generic control level properties
         .Add "Class"
         .Add "Name"
@@ -229,7 +229,7 @@ Private Function GetPropertyList(strType As String) As Collection
         .Add "Top"
         .Add "Visible"
         .Add "Width"
-    
+
         ' Specific properties based on control type
         Select Case strType
             Case "CheckBox"
@@ -253,7 +253,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "TripleState"
                 .Add "Value"
                 .Add "WordWrap"
-            
+
             Case "ComboBox", "RefEdit"  ' (Also used for Excel Reference control)
                 .Add "AutoSize"
                 .Add "AutoTab"
@@ -293,7 +293,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "TextColumn"
                 .Add "TopIndex"
                 .Add "Value"
-            
+
             Case "CommandButton"
                 .Add "Accelerator"
                 .Add "AutoSize"
@@ -310,7 +310,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "PicturePosition"
                 .Add "TakeFocusOnClick"
                 .Add "WordWrap"
-                
+
             Case "Frame"
                 .Add "BackColor"
                 .Add "BorderColor"
@@ -341,7 +341,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "SpecialEffect"
                 .Add "VerticalScrollBarSide"
                 .Add "Zoom"
-        
+
             Case "Image"
                 .Add "AutoSize"
                 .Add "BackColor"
@@ -356,7 +356,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "PictureSizeMode"
                 .Add "PictureTiling"
                 .Add "SpecialEffect"
-            
+
             Case "Label"
                 .Add "Accelerator"
                 .Add "AutoSize"
@@ -375,7 +375,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "SpecialEffect"
                 .Add "TextAlign"
                 .Add "WordWrap"
-            
+
             Case "ListBox"
                 .Add "BackColor"
                 .Add "BorderColor"
@@ -402,7 +402,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "TextColumn"
                 .Add "TopIndex"
                 .Add "Value"
-        
+
             Case "MultiPage"
                 .Add "BackColor"
                 .Add "Enabled"
@@ -415,7 +415,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "TabFixedWidth"
                 .Add "TabOrientation"
                 .Add "Value"
-        
+
             Case "OptionButton"
                 .Add "Accelerator"
                 .Add "Alignment"
@@ -437,7 +437,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "TripleState"
                 .Add "Value"
                 .Add "WordWrap"
-        
+
             Case "Page"
                 .Add "Accelerator"
                 '.Add "CanPaste"
@@ -468,7 +468,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "VerticalScrollBarSide"
                 .Add "Visible"
                 .Add "Zoom"
-        
+
             Case "ScrollBar"
                 .Add "BackColor"
                 .Add "Delay"
@@ -483,7 +483,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "ProportionalThumb"
                 .Add "SmallChange"
                 .Add "Value"
-        
+
             Case "SpinButton"
                 .Add "BackColor"
                 .Add "Delay"
@@ -496,7 +496,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "Orientation"
                 .Add "SmallChange"
                 .Add "Value"
-        
+
             Case "Tab"
                 .Add "Accelerator"
                 .Add "Caption"
@@ -506,7 +506,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "Name"
                 .Add "Tag"
                 .Add "Visible"
-        
+
             Case "TabStrip"
                 .Add "BackColor"
                 .Add "ClientHeight"
@@ -525,7 +525,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "TabOrientation"
                 .Add "Tabs"
                 .Add "Value"
-        
+
             Case "TextBox"
                 .Add "AutoSize"
                 .Add "AutoTab"
@@ -559,7 +559,7 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "TextAlign"
                 .Add "Value"
                 .Add "WordWrap"
-        
+
             Case "ToggleButton"
                 .Add "Accelerator"
                 .Add "Alignment"
@@ -580,12 +580,12 @@ Private Function GetPropertyList(strType As String) As Collection
                 .Add "TripleState"
                 .Add "Value"
                 .Add "WordWrap"
-            
+
             Case Else
                 Debug.Print "Warning: Unknown ActiveX Control Type Name : " & strType
-    
+
         End Select
     End With
-    
+
 End Function
 

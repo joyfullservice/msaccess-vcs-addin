@@ -56,14 +56,14 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim rstAtc As Recordset2
     Dim strSql As String
     Dim strHash As String
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Query theme file details
     strSql = "SELECT [Data] FROM MSysResources WHERE [Name]='" & m_Name & "' AND Extension='" & m_Extension & "'"
     Set m_Dbs = CurrentDb
     Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
-    
+
     ' If we get multiple records back we don't know which to use
     If rst.RecordCount > 1 Then
         Log.Error eelCritical, "Multiple records in MSysResources table were found that matched this name. " & _
@@ -73,7 +73,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     ' Get full name of theme file. (*.thmx)
     strFile = IDbComponent_SourceFile
-    
+
     ' Save as file
     If Not rst.EOF Then
         Set rstAtc = rst!Data.Value
@@ -90,7 +90,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Set rst = Nothing
 
     CatchAny eelError, "Error exporting theme file: " & strFile, ModuleName(Me) & ".Export", True, True
-    
+
     ' Get hash before extracting the theme
     strHash = GetFileHash(strFile)
 
@@ -112,7 +112,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         Perf.OperationEnd
         CatchAny eelError, "Error extracting theme. Folder: " & strFolder, ModuleName(Me) & ".Export", True, True
     End If
-    
+
     ' Update index after exporting theme
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash, GetSignatureHash
 
@@ -134,15 +134,15 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim rstResources As DAO.Recordset   ' Recordset2
     Dim rstAttachment As DAO.Recordset  ' Recordset2
     Dim fldFile As DAO.Field            ' Field2
-    
+
     Dim strZip As String
     Dim strThemeFile As String
     Dim strThemeName As String
     Dim strSql As String
     Dim blnIsFolder As Boolean
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Are we dealing with a folder, or a file?
     blnIsFolder = (Right$(strFile, 5) <> ".thmx")
 
@@ -193,7 +193,7 @@ Private Sub IDbComponent_Import(strFile As String)
                 Set rstAttachment = .Fields("Data").Value
                 If Not rstAttachment.EOF Then rstAttachment.Delete
             End If
-            
+
             ' Upload theme file into OLE field
             DoEvents
             With rstAttachment
@@ -204,24 +204,24 @@ Private Sub IDbComponent_Import(strFile As String)
                 .Update
                 .Close
             End With
-            
+
             ' Update class variables so we can recalculate the index hash
             m_Name = strThemeName
             m_FileName = strThemeName & ".thmx"
             m_Extension = "thmx"
-            
+
             ' Save and close record
             .Update
             .Close
         End With
     End If
-    
+
     ' Remove compressed theme file if we are using a folder.
     If blnIsFolder Then DeleteFile strThemeFile, True
-    
+
     ' Update index
     VCSIndex.Update Me, eatImport, GetSignatureHash
-    
+
     ' Log any errors
     CatchAny eelError, "Error importing theme. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName(Me) & ".Import", True, True
 
@@ -261,13 +261,13 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetSignatureHash() As String
-    
+
     Dim intCnt As Integer
     Dim lngLen As Long
-        
+
     ' Get length (bytes) of file data
     If StrPtr(m_FileData) <> 0 Then lngLen = UBound(m_FileData)
-    
+
     With New clsConcat
         ' Compile string with file information
         .Add m_Name, m_FileName, m_Extension, CStr(lngLen)
@@ -282,7 +282,7 @@ Private Function GetSignatureHash() As String
         ' Return hash of this string
         GetSignatureHash = GetStringHash(.GetStr)
     End With
-    
+
 End Function
 
 
@@ -308,22 +308,22 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim cTheme As IDbComponent
     Dim rst As DAO.Recordset
     Dim strSql As String
     Dim strKey As String
     Dim dItems As Dictionary
     Dim blnAdd As Boolean
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
-        
+
         ' Use dictionary to make sure we don't add duplicate records if we have
         ' both a folder and a theme file for the same theme.
         Set dItems = New Dictionary
-        
+
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
 
@@ -366,22 +366,22 @@ Public Function VerifyResourcesTable() As Boolean
 
     Dim blnExists As Boolean
     Dim strName As String
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Make sure we actually have a resources table.
     blnExists = TableExists("MSysResources")
     If Not blnExists Then
         CreateResourcesTable
         blnExists = TableExists("MSysResources")
     End If
-     
+
     ' Return true if the table exists
     VerifyResourcesTable = blnExists
 
     ' Log any errors
     CatchAny eelError, "Error verifying MSysResources table", ModuleName(Me) & ".VerifyResourcesTable"
-    
+
 End Function
 
 
@@ -397,14 +397,14 @@ Private Sub CreateResourcesTable()
 
     Dim strTempFile As String
     Dim strName As String
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     Perf.OperationStart "Create MSysResources Table"
-    
+
     ' Create a temporary image file
     strTempFile = GetTempFile("IMG")
     Create1x1pxImage strTempFile
-    
+
     ' Add to database as shared image
     strName = FSO.GetBaseName(strTempFile)
     CurrentProject.AddSharedImage strName, strTempFile
@@ -412,11 +412,11 @@ Private Sub CreateResourcesTable()
     ' Now that we have the table, remove temporary shared image record and temp file.
     CurrentDb.Execute "DELETE * FROM MSysResources WHERE Name='" & strName & "'", dbFailOnError
     DeleteFile strTempFile
-    
+
     ' Log any errors
     CatchAny eelError, "Error creating MSysResources table", ModuleName(Me) & ".CreateResourcesTable"
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -432,7 +432,7 @@ Private Sub Create1x1pxImage(strPath As String)
     Dim intCnt As Integer
     Dim varBytes As Variant
     Dim bteImg() As Byte
-    
+
     ' Byte array for binary 1x1 pixel png file.
     varBytes = Array((137), (80), (78), (71), (13), (10), (26), (10), (0), (0), (0), (13), (73), (72), (68), _
         (82), (0), (0), (0), (1), (0), (0), (0), (1), (1), (3), (0), (0), (0), (37), (219), (86), (202), (0), _
@@ -440,16 +440,16 @@ Private Sub Create1x1pxImage(strPath As String)
         (116), (82), (78), (83), (0), (64), (230), (216), (102), (0), (0), (0), (10), (73), (68), (65), (84), _
         (8), (215), (99), (96), (0), (0), (0), (2), (0), (1), (226), (33), (188), (51), (0), (0), (0), (0), _
         (73), (69), (78), (68), (174), (66), (96), (130))
-    
+
     ' Convert to byte array
     ReDim bteImg(0 To UBound(varBytes)) As Byte
     For intCnt = 0 To UBound(varBytes)
         bteImg(intCnt) = varBytes(intCnt)
     Next intCnt
-    
+
     ' Write to file
     WriteBinaryFile strPath, bteImg
-    
+
 End Sub
 
 

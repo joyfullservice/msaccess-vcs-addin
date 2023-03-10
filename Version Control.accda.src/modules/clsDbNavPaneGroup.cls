@@ -70,23 +70,23 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim lngCategory As Long
     Dim lngObjectID As Long
     Dim lngLinkID As Long
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
-    
+
         ' Upgrade from any previous formats
         Set m_dItems = dFile
         IDbComponent_Upgrade
-        
+
         ' Remove any existing custom groups (Some may be automatically created with a new database)
         ClearExistingNavGroups
-    
+
         ' Import custom navigation categories/groups
         If m_dItems("Items").Exists("Categories") Then
-            
+
             ' Loop through custom categories
             For intCategory = 1 To m_dItems("Items")("Categories").Count
                 Set dCategory = m_dItems("Items")("Categories")(intCategory)
@@ -104,7 +104,7 @@ Private Sub IDbComponent_Import(strFile As String)
                         ModuleName(Me) & ".Import"
                     Exit Sub
                 End If
-        
+
                 ' Loop through groups in category
                 For intGroup = 1 To m_dItems("Items")("Categories")(intCategory)("Groups").Count
                     Set dGroup = m_dItems("Items")("Categories")(intCategory)("Groups")(intGroup)
@@ -132,7 +132,7 @@ Private Sub IDbComponent_Import(strFile As String)
             Next intCategory
         End If
     End If
-    
+
     ' Update index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
 
@@ -151,17 +151,17 @@ Private Sub ClearExistingNavGroups()
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     Dim strSql As String
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Get SQL for query of NavPaneGroup objects
     Set dbs = CodeDb
     strSql = dbs.QueryDefs("qryNavPaneGroups").SQL
-        
+
     ' Look up list of custom categories
     Set dbs = CurrentDb
     Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot)
-    
+
     With rst
         Do While Not .EOF
             ' Remove records from three tables
@@ -174,7 +174,7 @@ Private Sub ClearExistingNavGroups()
     End With
 
     CatchAny eelError, "Error clearing existing navigation pane groups.", ModuleName(Me) & ".ClearExisting"
-    
+
 End Sub
 
 
@@ -224,28 +224,28 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
     Dim colObjects As Collection
     Dim dObject As Dictionary
     Dim dItems As Dictionary
-    
+
     ' Check cache parameter
     If blnUseCache And Not m_dItems Is Nothing Then
         ' Return cached dictionary
         Set GetDictionary = m_dItems
         Exit Function
     End If
-    
+
     ' Load query SQL from saved query in add-in database
     Set dbs = CodeDb
     strSql = dbs.QueryDefs("qryNavPaneGroups").SQL
-    
+
     ' Open query in the current db
     Set dbs = CurrentDb
     Set rst = dbs.OpenRecordset(strSql)
     Set dItems = New Dictionary
     Set colCategories = New Collection
-    
+
     ' Loop through records
     With rst
         Do While Not .EOF
-        
+
             ' Check for change in category name
             If Nz(!CategoryName) <> strCategory Then
                 ' Finish recording any previous category
@@ -262,7 +262,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                 dCategory.Add "Flags", Nz(!CategoryFlags, 0)
                 dCategory.Add "Position", Nz(!CategoryPosition, 0)
             End If
-                               
+
             ' Check for change in group name.
             If Nz(!GroupName) <> strGroup Then
                 ' Finish recording any previous group
@@ -292,7 +292,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                 dObject.Add "NameInGroup", Nz(!NameInGroup)
                 colObjects.Add dObject
             End If
-            
+
             ' Move to next record.
             .MoveNext
         Loop
@@ -309,10 +309,10 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
             dItems.Add "Categories", colCategories
         End If
     End With
-        
+
     ' Return dictionary
     Set GetDictionary = dItems
-    
+
 End Function
 
 
@@ -328,7 +328,7 @@ Private Function LoadRecord(strTable As String, dCols As Dictionary) As Long
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     Dim fld As DAO.Field
-    
+
     Set dbs = CurrentDb
     Set rst = dbs.OpenRecordset(strTable)
     With rst
@@ -343,10 +343,10 @@ Private Function LoadRecord(strTable As String, dCols As Dictionary) As Long
         LoadRecord = Nz(!ID, 0)
         .Close
     End With
-    
+
     Set rst = Nothing
     Set dbs = Nothing
-    
+
 End Function
 
 
@@ -379,16 +379,16 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim colObjects As Collection
     Dim varObject As Variant
     Dim strKey As String
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-    
+
         Set m_Items(blnModifiedOnly) = New Dictionary
         Set m_dItems = GetDictionary
-        
+
         ' Only need to iterate through the groups if we need to get a count.
         If Not blnModifiedOnly Or IDbComponent_IsModified Then
-            
+
             ' Loop through items to build count of custom groups
             ' (Not counting individual objects within groups)
             If m_dItems.Exists("Categories") Then
@@ -586,21 +586,21 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Upgrade()
-    
+
     Dim dNew As Dictionary
     Dim dNew2 As Dictionary
     Dim colNew As Collection
     Dim dblVersion As Double
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Get version
     If Not m_dItems Is Nothing Then
         If m_dItems("Info").Exists("Export File Format") Then
             dblVersion = CDbl(m_dItems("Info")("Export File Format"))
         End If
     End If
-    
+
     ' Add Category section (2/22/2021)
     If dblVersion < 1.1 Then
         Set dNew = New Dictionary
@@ -616,14 +616,14 @@ Private Sub IDbComponent_Upgrade()
         Set m_dItems = New Dictionary
         m_dItems.Add "Items", dNew2
     End If
-    
+
     ' Check for newer export file that this add-in version doesn't support
     If dblVersion > FormatVersion Then
         Log.Error eelError, "Format " & dblVersion & " of " & IDbComponent_SourceFile & _
             " not supported by this version of the add-in. Please update the add-in to import this file.", _
             ModuleName(Me) & ".Upgrade"
     End If
-    
+
     ' Report any errors during upgrade process
     CatchAny eelError, "Error upgrading navigation pane groups.", ModuleName(Me) & ".Export", True, True
 

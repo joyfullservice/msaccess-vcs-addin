@@ -69,12 +69,12 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Read data from JSON file
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
-    
+
         ' Create IMEX tables if needed
         VerifyImexTables
         Set dSpec = dFile("Items")
         Set dbs = CurrentDb
-        
+
         ' Add header record
         Set rst = dbs.OpenRecordset("MSysIMEXSpecs")
         With rst
@@ -89,7 +89,7 @@ Private Sub IDbComponent_Import(strFile As String)
             .Bookmark = .LastModified
             lngID = !SpecID
         End With
-    
+
         ' Add columns records
         Set rst = dbs.OpenRecordset("MSysIMEXColumns")
         With rst
@@ -106,9 +106,9 @@ Private Sub IDbComponent_Import(strFile As String)
                 .Update
             Next varKey
         End With
-    
+
     End If
-    
+
 End Sub
 
 
@@ -145,19 +145,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim cSpec As clsDbImexSpec
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     Dim strName As String
     Dim blnAdd As Boolean
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        
+
         ' Set up new collection
         Set m_Items(blnModifiedOnly) = New Dictionary
-        
+
         ' This table may not (yet) exist.
         If TableExists("MSysIMEXSpecs") Then
             ' Look up specs from table
@@ -184,7 +184,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-    
+
 End Function
 
 
@@ -205,7 +205,7 @@ Private Function GetSource() As String
     Dim strSql As String
     Dim fld As DAO.Field
     Dim strContent As String
-    
+
     Set dSpec = New Dictionary
     Set dCols = New Dictionary
     Set dbs = CurrentDb
@@ -222,7 +222,7 @@ Private Function GetSource() As String
         Next fld
         .Close
     End With
-    
+
     ' Build list of columns
     strSql = "SELECT * FROM MSysIMEXColumns WHERE SpecID=" & Me.ID
     Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
@@ -242,13 +242,13 @@ Private Function GetSource() As String
         Loop
         .Close
     End With
-    
+
     ' Add columns to spec
     dSpec.Add "Columns", dCols
-    
+
     ' Return source file content
     GetSource = BuildJsonFile(TypeName(Me), dSpec, "Import/Export Specification from MSysIMEXSpecs")
-    
+
 End Function
 
 
