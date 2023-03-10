@@ -474,19 +474,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetVBProjectForCurrentDB
-' Author    : Adam Waller
-' Date      : 7/25/2017
-' Purpose   : Get the actual VBE project for the current top-level database.
-'           : (This is harder than you would think!)
-'---------------------------------------------------------------------------------------
-'
-Public Function GetVBProjectForCurrentDB() As VBProject
-    Set GetVBProjectForCurrentDB = GetProjectByName(CurrentProject.FullName)
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetCodeVBProject
 ' Author    : Adam Waller
 ' Date      : 4/24/2020
@@ -554,7 +541,7 @@ Public Sub RunSubInCurrentProject(strSubName As String)
     End If
 
     ' Add project name so we can run it from the current datbase
-    strCmd = "[" & GetVBProjectForCurrentDB.Name & "]." & strCmd
+    strCmd = "[" & CurrentVBProject.Name & "]." & strCmd
 
     ' Run the sub
     Application.Run strCmd
@@ -659,7 +646,7 @@ Public Function DeleteObjectIfExists(intType As AcObjectType, strName As String)
                 DoCmd.Rename strTempName, intType, strName
             Case acModule
                 ' Rename the VBE object
-                GetVBProjectForCurrentDB.VBComponents(strName).Name = strTempName
+                CurrentVBProject.VBComponents(strName).Name = strTempName
             Case acQuery
                 ' Rename the Query Definition object
                 CurrentDb.QueryDefs(strName).Name = strTempName

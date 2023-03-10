@@ -409,7 +409,7 @@ Sub Main()
         ' Get a reference to the database application
         Set objApp = GetObject(strValue)
         'Set objApp.VBE.ActiveVBProject = GetAddInVBProject(objApp)
-        Set objApp.VBE.ActiveVBProject = GetVBProjectForCurrentDB(objApp)
+        Set objApp.VBE.ActiveVBProject = CurrentVBProject(objApp)
     End If
 
     ' The second argument should be the key
@@ -449,20 +449,20 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetVBProjectForCurrentDB
+' Procedure : currentvbproject
 ' Author    : Adam Waller
 ' Date      : 3/3/2023
 ' Purpose   : Get a reference to the VB Project associated with the current database.
 '           : (Look for a matching file name between the VB Projects and the database.)
 '---------------------------------------------------------------------------------------
 '
-Function GetVBProjectForCurrentDB(objApp)
+Function CurrentVBProject(objApp)
 
     Dim objProj
     Dim strUncPath
 
     ' Use currently active project by default
-    Set GetVBProjectForCurrentDB = objApp.VBE.ActiveVBProject
+    Set CurrentVBProject = objApp.VBE.ActiveVBProject
 
     ' VBProject filenames are UNC paths
     strUncPath = GetUncPath(objApp.CurrentProject.FullName)
@@ -471,7 +471,7 @@ Function GetVBProjectForCurrentDB(objApp)
         ' Search for project with matching filename.
         For Each objProj In objApp.VBE.VBProjects
             If StrComp(objProj.FileName, strUncPath, vbTextCompare) = 0 Then
-                Set GetVBProjectForCurrentDB = objProj
+                Set CurrentVBProject = objProj
                 Exit For
             End If
         Next

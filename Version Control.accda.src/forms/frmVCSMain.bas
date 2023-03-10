@@ -1769,7 +1769,7 @@ Public Sub cmdBuild_Click()
     ' Close the current database if it is currently open.
     If DatabaseFileOpen Then
         If FolderHasVcsOptionsFile(Options.GetExportFolder) Then
-            strMsg(0) = "Build " & GetVBProjectForCurrentDB.Name & " (" & CurrentProject.Name & ") from source?"
+            strMsg(0) = "Build " & CurrentVBProject.Name & " (" & CurrentProject.Name & ") from source?"
             strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
                 "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)"
             strMsg(2) = "Click 'No' to select another project, or 'Cancel' to go back to the previous screen."

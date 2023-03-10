@@ -59,7 +59,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
     Set dProject = ReadJsonFile(strFile)
-    Set m_Project = GetVBProjectForCurrentDB
+    Set m_Project = CurrentVBProject
 
     ' Update project properties
     With m_Project
@@ -238,7 +238,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
     End If
 
     ' Make sure we have a reference to the VB project
-    If m_Project Is Nothing Then Set m_Project = GetVBProjectForCurrentDB
+    If m_Project Is Nothing Then Set m_Project = CurrentVBProject
 
     ' Read project properties
     Set GetDictionary = New Dictionary
@@ -298,7 +298,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         ' Load class details
-        Set m_Project = GetVBProjectForCurrentDB
+        Set m_Project = CurrentVBProject
         Set m_Items(blnModifiedOnly) = New Dictionary
         Set cProj = New clsDbVbeProject
         Set cProj.DbObject = m_Project

@@ -28,6 +28,19 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CurrentVBProject
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Get a reference to the VB Project for the current database
+'---------------------------------------------------------------------------------------
+'
+Public Function CurrentVBProject() As VBProject
+    CheckKey
+    Set CurrentVBProject = WizHook.DbcVbProject
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CheckKey
 ' Author    : Adam Waller
 ' Date      : 5/4/2022

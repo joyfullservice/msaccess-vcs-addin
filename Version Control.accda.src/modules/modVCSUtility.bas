@@ -558,7 +558,7 @@ End Function
 Public Sub CompileAndSaveAllModules()
     Perf.OperationStart "Compile/Save Modules"
     ' Make sure we are running this in the CurrentDB, not the CodeDB
-    Set VBE.ActiveVBProject = GetVBProjectForCurrentDB
+    Set VBE.ActiveVBProject = CurrentVBProject
     DoCmd.RunCommand acCmdCompileAndSaveAllModules
     DoEvents
     Perf.OperationEnd

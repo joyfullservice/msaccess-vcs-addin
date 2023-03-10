@@ -267,7 +267,7 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
     If Not blnNoCode Then
 
         ' Get a reference for the VBProject in the current (not code) database.
-        Set proj = GetVBProjectForCurrentDB
+        Set proj = CurrentVBProject
 
         ' Attempt to locate the object in the VBComponents collection
         If DebugMode(True) Then On Error Resume Next Else On Error Resume Next

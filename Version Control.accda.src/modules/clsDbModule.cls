@@ -94,7 +94,7 @@ Private Sub IDbComponent_Import(strFile As String)
     LoadVbeModuleFromFile strTempFile, strName
 
     ' Make sure the correct project is active before saving.
-    Set VBE.ActiveVBProject = GetVBProjectForCurrentDB
+    Set VBE.ActiveVBProject = CurrentVBProject
     DoCmd.Save acModule, strName
 
     ' Set reference to object
@@ -204,7 +204,7 @@ Private Sub LoadVbeModuleFromFile(strFile As String, strName As String)
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    Set proj = GetVBProjectForCurrentDB
+    Set proj = CurrentVBProject
     Perf.OperationStart "Import VBE Module"
     With proj.VBComponents
 
@@ -250,7 +250,7 @@ End Sub
 '
 Private Sub ExportVbComponent(strFile As String)
     Perf.OperationStart "Export VBE Module"
-    GetVBProjectForCurrentDB.VBComponents(m_Module.Name).Export strFile
+    CurrentVBProject.VBComponents(m_Module.Name).Export strFile
     Perf.OperationEnd
 End Sub
 
@@ -284,7 +284,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
-        Set proj = GetVBProjectForCurrentDB
+        Set proj = CurrentVBProject
         For Each oMod In CurrentProject.AllModules
             Set cModule = New clsDbModule
             Set cModule.DbObject = oMod
@@ -446,7 +446,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Function GetExtension() As String
-    If GetVBProjectForCurrentDB.VBComponents(m_Module.Name).Type = vbext_ct_StdModule Then
+    If CurrentVBProject.VBComponents(m_Module.Name).Type = vbext_ct_StdModule Then
         GetExtension = ".bas"
     Else
         GetExtension = ".cls"

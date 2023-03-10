@@ -75,7 +75,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Only import files with the correct extension.
     If Not strFile Like "*.frm" Then Exit Sub
 
-    Set proj = GetVBProjectForCurrentDB
+    Set proj = CurrentVBProject
     With proj.VBComponents
 
         ' Import the source file
@@ -127,7 +127,7 @@ End Sub
 '
 Private Sub DeleteVbeFormIfExists(strName)
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    With GetVBProjectForCurrentDB.VBComponents
+    With CurrentVBProject.VBComponents
         .Remove .Item(strName)
     End With
     Catch 9 ' Subscript out of range (name not found)
@@ -165,7 +165,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
-        For Each frm In GetVBProjectForCurrentDB.VBComponents
+        For Each frm In CurrentVBProject.VBComponents
             If frm.Type = vbext_ct_MSForm Then
                 Set cForm = New clsDbVbeForm
                 Set cForm.DbObject = frm

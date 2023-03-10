@@ -93,7 +93,7 @@ Public Sub ImportReferences(strFile As String, Optional blnGuidOnly As Boolean =
     If Not dFile Is Nothing Then
 
         ' Build list of current references so we can avoid conflicts
-        Set proj = GetVBProjectForCurrentDB
+        Set proj = CurrentVBProject
         Set dExisting = New Dictionary
         For Each ref In proj.References
             dExisting.Add ref.Name, ref.Guid
@@ -164,7 +164,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
         Exit Function
     End If
 
-    Set proj = GetVBProjectForCurrentDB
+    Set proj = CurrentVBProject
     Set dNames = New Dictionary
     Set GetDictionary = New Dictionary
     With GetDictionary
@@ -310,7 +310,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' If ANY changes are detected in ANY of the references, the whole list of
         ' references will be returned as changed.
         If (Not blnModifiedOnly) Or IDbComponent_IsModified Then
-            For Each ref In GetVBProjectForCurrentDB.References
+            For Each ref In CurrentVBProject.References
                 If Not ref.BuiltIn Then
                     If Not dNames.Exists(ref.Name) Then
                         Set cRef = New clsDbVbeReference

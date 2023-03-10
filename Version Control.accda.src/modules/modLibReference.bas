@@ -151,7 +151,7 @@ Public Function GetReferencesDictionary() As Dictionary
     dProjects("RefCount") = 0
 
     ' Activate the VB Project for the current database
-    Set proj = GetVBProjectForCurrentDB
+    Set proj = CurrentVBProject
     strFolder = FSO.GetParentFolderName(proj.FileName) & PathSep
 
     ' Loop through all projects
@@ -225,7 +225,7 @@ Private Sub FixReferences(dProject As Dictionary)
     Dim ref As VBIDE.Reference
 
     Set colExisting = New Collection
-    Set proj = GetVBProjectForCurrentDB
+    Set proj = CurrentVBProject
 
     ' Build a collection of the existing library references
     ' (We can't change the order, other than by removing and adding
