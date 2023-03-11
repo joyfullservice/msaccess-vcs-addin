@@ -7,11 +7,20 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
+'---------------------------------------------------------------------------------------
+' Module    : clsGitIntegration
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Commands and functions relating specifically to Git repositories.
+'---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
 
 ' Hash for revision we are diffing from.
 Public FromRevision As String
+
+' Set this to true to output git commands and return to debug window
+Public ShowDebug As Boolean
 
 ' Enum for commands we can run with Git.
 Private Enum eGitCommand
@@ -24,6 +33,11 @@ Private Enum eGitCommand
     egcSetTaggedCommit
     egcGetReproPath
     egcGetRevision
+    egcGetStatusPorcelain
+    ' Action commands
+    egcCommit
+    egcResetHard
+    egcMerge
 End Enum
 
 
@@ -63,6 +77,13 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
         Case egcGetHeadCommit:          strCmd = "git show -s --format=%h HEAD"
         Case egcGetReproPath:           strCmd = "git rev-parse --show-toplevel"
         Case egcGetRevision:            strCmd = "git rev-parse --verify {MyArg}"
+        Case egcGetStatusPorcelain:     strCmd = "git status --porcelain"
+        Case egcCommit:                 strCmd = "git commit --all --message ""{MyArg}"""
+        Case egcResetHard:              strCmd = "git reset --hard HEAD^"
+        Case egcMerge:                  strCmd = "git merge {MyArg}"
+        Case Else
+            Log.Error eelError, "Unrecognized Git Command Enum: " & intCmd
+            Stop
     End Select
 
     ' Add argument, if supplied
@@ -76,6 +97,15 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
     ' Trim any trailing vbLf
     If Right$(strResult, 1) = vbLf Then strResult = Left$(strResult, Len(strResult) - 1)
     RunGitCommand = strResult
+    
+    ' Show debug info, if flag is on
+    If Me.ShowDebug Then
+        Debug.Print "Send Git Command: " & strCmd
+        If strResult <> vbNullString Then
+            Debug.Print "Received:"
+            Debug.Print strResult
+        End If
+    End If
 
 End Function
 
@@ -124,6 +154,114 @@ Public Function GetRepositoryPath() As String
     End If
     GetRepositoryPath = m_strRepositoryRoot
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Version
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Return git version
+'---------------------------------------------------------------------------------------
+'
+Public Function Version() As String
+    Version = Replace(RunGitCommand(egcGetVersion), "git version ", vbNullString)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsCleanBranch
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Returns true if the branch has no changes or untracked files.
+'           : See discussion on StackOverflow on pros and cons of different approaches
+'           : for this. I went with simple for our purposes.
+'           : See: https://stackoverflow.com/questions/2657935
+'---------------------------------------------------------------------------------------
+'
+Public Function IsCleanBranch() As Boolean
+    IsCleanBranch = (RunGitCommand(egcGetStatusPorcelain) = vbNullString)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SplitFilesWithHistory
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Accepts two arrays of file paths. The first array represents the existing
+'           : files, and the second represents the new files that will take on the
+'           : content and history of the first files.
+'           : Based on https://stackoverflow.com/a/44036771/4121863
+'---------------------------------------------------------------------------------------
+'
+Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As String, strCommitMessage As String)
+    
+    Dim lngCnt As Long
+    Dim strOrig As String
+    Dim strNew As String
+    Dim strAlt As String
+    Dim strHead As String
+    
+    ' We should be starting with a clean slate (no uncommitted changes)
+    If Not Me.IsCleanBranch Then
+        Log.Error eelCritical, "Cannot split files in Git when changes are present in the branch", _
+            ModuleName(Me) & ".SplitFilesWithHistory"
+        Exit Sub
+    End If
+    
+    ' We could use git to move the files individually, but this would be much slower.
+    ' For our purposes, the files should be pretty unique in content, so we should be
+    ' fine to move them in batches. (As passed to this function)
+    For lngCnt = 0 To UBound(strFilePathsArray)
+        strOrig = strFilePathsArray(lngCnt)
+        strNew = strNewPaths(lngCnt)
+        If FSO.FileExists(strOrig) Then
+            If FSO.FileExists(strNew) Then DeleteFile strNew
+            FSO.MoveFile strOrig, strNew
+        End If
+    Next lngCnt
+    
+    ' Commit the move
+    RunGitCommand egcCommit
+    
+    ' Save the head commit so we can merge it later
+    strHead = RunGitCommand(egcGetHeadCommit)
+    
+    ' Reset (undo) the move
+    RunGitCommand egcResetHard
+    
+    ' Now, move to a different (temp) file name that we can use for the merge
+    For lngCnt = 0 To UBound(strFilePathsArray)
+        strOrig = strFilePathsArray(lngCnt)
+        strAlt = strNewPaths(lngCnt) & ".tmp"
+        If FSO.FileExists(strOrig) Then
+            If FSO.FileExists(strAlt) Then DeleteFile strAlt
+            FSO.MoveFile strOrig, strAlt
+        End If
+    Next lngCnt
+    
+    ' Commit the move
+    RunGitCommand egcCommit
+    
+    ' Merge the two commits
+    RunGitCommand egcMerge, strHead
+    
+    ' Commit the (resolved) conflicts
+    RunGitCommand egcCommit
+    
+    ' Move temp file back to original location
+    For lngCnt = 0 To UBound(strFilePathsArray)
+        strOrig = strFilePathsArray(lngCnt)
+        strAlt = strNewPaths(lngCnt) & ".tmp"
+        If FSO.FileExists(strAlt) Then
+            If FSO.FileExists(strOrig) Then DeleteFile strOrig
+            FSO.MoveFile strAlt, strOrig
+        End If
+    Next lngCnt
+    
+    ' Commit final move
+    RunGitCommand egcCommit
+    
+End Sub
 
 
 '---------------------------------------------------------------------------------------

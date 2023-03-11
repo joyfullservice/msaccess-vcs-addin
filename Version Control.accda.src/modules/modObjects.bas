@@ -9,7 +9,6 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
-
 Private Const ModuleName = "modObjects"
 
 ' Logging and options classes
@@ -18,6 +17,7 @@ Private m_Log As clsLog
 Private m_Options As clsOptions
 Private m_VCSIndex As clsVCSIndex
 Private m_Worker As clsWorker
+Private m_Git As clsGitIntegration
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -166,6 +166,19 @@ Public Property Get Diff() As clsViewDiff
     Static cDiff As clsViewDiff
     If cDiff Is Nothing Then Set cDiff = New clsViewDiff
     Set Diff = cDiff
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Git
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Return Git integration class
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Git() As clsGitIntegration
+    If m_Git Is Nothing Then Set m_Git = New clsGitIntegration
+    Set Git = m_Git
 End Property
 
 
