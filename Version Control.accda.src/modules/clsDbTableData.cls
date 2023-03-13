@@ -59,7 +59,13 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                     ' Export data rows as XML (encoding default is UTF-8)
                     VerifyPath strFile
                     Perf.OperationStart "App.ExportXML()"
-                    Application.ExportXML acExportTable, m_Table.Name, strFile, , , , , acEmbedSchema
+                    If IsLocalTable(m_Table.Name) Then
+                        ' Embedded schema for local tables to support calculated fields
+                        Application.ExportXML acExportTable, m_Table.Name, strFile, , , , , acEmbedSchema
+                    Else
+                        ' Export data only for linked tables
+                        Application.ExportXML acExportTable, m_Table.Name, strFile
+                    End If
                     Perf.OperationEnd
                     SanitizeXML strFile, False
             End Select
