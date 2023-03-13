@@ -34,21 +34,19 @@ Public Function GetSelectedNavPaneObject() As AccessObject
     ' Get currently selected element
     Set oSelected = oClient.GetFocusedElement
 
-    ' Drill down to selected item name
-    If oSelected.CurrentControlType = UIA_PaneControlTypeId Then
+    ' Build condition for navigation pane item with keyboard focus
+    Set oCondition = oClient.CreateAndCondition( _
+        oClient.CreatePropertyCondition(UIA_HasKeyboardFocusPropertyId, True), _
+        oClient.CreatePropertyCondition(UIA_ClassNamePropertyId, "NetUINavPaneItem"))
 
-        ' Build condition for navigation pane item with keyboard focus
-        Set oCondition = oClient.CreateAndCondition( _
-            oClient.CreatePropertyCondition(UIA_HasKeyboardFocusPropertyId, True), _
-            oClient.CreatePropertyCondition(UIA_ClassNamePropertyId, "NetUINavPaneItem"))
+    ' Attempt to find the selected item (looking for keyboard focus)
+    ' In Access 2010, this will be several layers below. In newer versions of Access
+    ' the focused element may already be the desired navigation pane item.
+    Set oElement = oSelected.FindFirst(TreeScope_Subtree, oCondition)
 
-        ' Attempt to find the selected item (looking for keyboard focus)
-        Set oElement = oSelected.FindFirst(TreeScope_Descendants, oCondition)
-
-        ' If an item was found, the continue to drill down to get the name and type
-        If Not oElement Is Nothing Then
-            Set GetSelectedNavPaneObject = GetUnderlyingDbObjectFromButton(oClient, oElement)
-        End If
+    ' If an item was found, the continue to drill down to get the name and type
+    If Not oElement Is Nothing Then
+        Set GetSelectedNavPaneObject = GetUnderlyingDbObjectFromButton(oClient, oElement)
     End If
 
 End Function
@@ -109,6 +107,8 @@ Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElem
             Case Else
                 Debug.Print "Navigation pane item image name not recognized: " _
                     & strImage & " (for " & strName & ")"
+                Debug.Print "If you are using a non-English version of Access, " & _
+                    "please open an issue on GitHub to add support for your language."
         End Select
     End If
 
