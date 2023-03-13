@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =240
     Left =3225
     Top =2430
-    Right =28545
+    Right =22695
     Bottom =16815
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -3434,7 +3434,7 @@ Private Sub LoadTableList()
             ' Read table attributes
             blnHidden = Application.GetHiddenAttribute(acTable, tbl.Name)
             blnSystem = (tbl.Attributes And dbSystemObject)
-            blnLocal = isLocalTable(tbl.Name)
+            blnLocal = IsLocalTable(tbl.Name)
             blnOther = False    ' Other represents tables not in this database.
             ' Add array record to represent table.
             AddUpdateTableInList tbl.Name, vbNullString, blnHidden, blnSystem, blnOther, blnLocal
@@ -3453,20 +3453,6 @@ Private Sub LoadTableList()
     End If
     
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : isLocalTable
-' Author    : Adam Waller & Indigo744
-' Date      : 11/11/2020
-' Purpose   : Check wether a table is a local table (= not a linked table)
-'---------------------------------------------------------------------------------------
-'
-Private Function isLocalTable(ByVal tblName As String)
-On Error Resume Next
-    isLocalTable = False
-    isLocalTable = Len(CurrentDb.TableDefs(tblName).Connect) = 0
-End Function
 
 
 '---------------------------------------------------------------------------------------

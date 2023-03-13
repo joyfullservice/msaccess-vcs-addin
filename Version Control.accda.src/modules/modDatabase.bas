@@ -587,12 +587,26 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : TableExists
 ' Author    : Adam Waller
-' Date      : 5/7/2020
+' Date      : 3/13/2023
 ' Purpose   : Returns true if the table object is found in the dabase. (SQL version)
+'           : (Includes both local and linked tables, including system tables.)
 '---------------------------------------------------------------------------------------
 '
 Public Function TableExists(strName As String) As Boolean
-    TableExists = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type=1") = 0)
+    TableExists = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type in (1,4,6)") = 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsLocalTable
+' Author    : Adam Waller
+' Date      : 3/13/2023
+' Purpose   : Returns true if the table exists as a local (not linked) table in the
+'           : current database.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsLocalTable(strName As String) As Boolean
+    IsLocalTable = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type = 1") = 0)
 End Function
 
 

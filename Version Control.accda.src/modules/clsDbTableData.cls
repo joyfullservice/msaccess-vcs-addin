@@ -356,34 +356,45 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strTempFile As String
     Dim strTable As String
 
-    ' Import from different formats (XML is preferred for data integrity)
-    Select Case GetFormatByExt(strFile)
-        Case etdXML
-            strTable = GetObjectNameFromFileName(strFile)
-            ' Make sure table exists before importing data to it.
-            If TableExists(strTable) Then
-                ' The ImportXML function does not properly handle UrlEncoded paths
-                blnUseTemp = (InStr(1, strFile, "%") > 0)
-                If blnUseTemp Then
-                    ' Import from (safe) temporary file name.
-                    strTempFile = GetTempFile
-                    FSO.CopyFile strFile, strTempFile
-                    Application.ImportXML strTempFile, acAppendData
-                    DeleteFile strTempFile
-                Else
-                    Application.ImportXML strFile, acAppendData
-                End If
-            Else
-                ' Warn user that table does not exist.
-                MsgBox2 "Table structure not found for '" & strTable & "'", _
-                    "The structure of a table should be created before importing data into it.", _
-                    "Please ensure that the table definition file exists in \tbldefs.", vbExclamation
-                Log.Add "WARNING: Table definition does not exist for '" & strTable & "'. This must be created before importing table data."
-            End If
-        Case etdTabDelimited
-            ImportTableDataTDF strFile
-    End Select
+    ' Make sure table exists before importing data to it.
+    strTable = GetObjectNameFromFileName(strFile)
 
+    ' Only allow import into local tables (not linked tables)
+    If IsLocalTable(strTable) Then
+        
+        ' Import from different formats (XML is preferred for data integrity)
+        Select Case GetFormatByExt(strFile)
+            Case etdXML
+                    
+                    ' The ImportXML function does not properly handle UrlEncoded paths
+                    blnUseTemp = (InStr(1, strFile, "%") > 0)
+                    If blnUseTemp Then
+                        ' Import from (safe) temporary file name.
+                        strTempFile = GetTempFile
+                        FSO.CopyFile strFile, strTempFile
+                        Application.ImportXML strTempFile, acAppendData
+                        DeleteFile strTempFile
+                    Else
+                        Application.ImportXML strFile, acAppendData
+                    End If
+    
+            Case etdTabDelimited
+                ImportTableDataTDF strFile
+        End Select
+    
+    Else
+        ' Either not a local table, or it doesn't exist
+        If TableExists(strTable) Then
+            Log.Error eelWarning, "Table data may only be imported into local tables", "clsDbTableData.Import"
+        Else
+            ' Warn user that table does not exist.
+            Log.Error eelError, "Table structure not found for '" & strTable & "'.", "clsDbTableData.Import"
+            Log.Add "Table definition does not exist for '" & strTable & _
+                "'. This must be created before importing table data.", False
+        End If
+        Log.Add "Table data from '" & strTable & "' was not imported.", False
+    End If
+    
 End Sub
 
 
@@ -396,7 +407,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-
+    Log.Error eelWarning, "Merge not supported for table data. (" & _
+        GetObjectNameFromFileName(strFile) & ")", "clsDbTableData.Merge"
 End Sub
 
 
