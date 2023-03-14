@@ -188,18 +188,16 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
             strDisplay = strPrefix & strDescription
         End If
 
-        ' Display on the output screen anything higher than a warning
-        If eLevel > eelWarning Then
-            Me.Add vbNullString
-            Me.Spacer
-            Me.Add strDisplay, , , "red"
-            Me.Spacer
-        End If
+        ' Log all errors, and display on the output screen anything higher than a warning
+        Me.Add vbNullString, (eLevel > eelWarning)
+        Me.Spacer (eLevel > eelWarning)
+        Me.Add strDisplay, (eLevel > eelWarning), , "red"
 
-        ' Log the full detail to the log file
+        ' Log the additional error and source details to the log file
         If Err Then .Add "Error ", Err.Number, ": ", Err.Description, " "
         If strSource <> vbNullString Then .Add "Source: ", strSource
         Me.Add .GetStr, False
+        Me.Spacer (eLevel > eelWarning)
 
         ' See if we are actively logging an operation
         If Log.Active Then
