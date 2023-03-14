@@ -44,6 +44,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strFile As String
     Dim intFormat As eTableDataExportFormat
 
+    ' Use error handling in case we encouter errors during export
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
     ' Save as selected format, and remove other formats if they exist.
     For intFormat = 1 To eTableDataExportFormat.[_Last]
         ' Build file name for this format
@@ -72,6 +75,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         End If
     Next intFormat
 
+    ' Trap any errors while exporting table data.
+    CatchAny eelError, "Error exporting table data for " & m_Table.Name, ModuleName(Me) & ".Export"
+    
 End Sub
 
 
