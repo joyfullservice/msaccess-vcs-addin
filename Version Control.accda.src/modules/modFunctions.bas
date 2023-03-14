@@ -782,6 +782,25 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : LikeAny
+' Author    : Adam Waller
+' Date      : 3/14/2023
+' Purpose   : Returns true if strTest is LIKE any of the array of expressions.
+'           : (Short ciruits to first matching expression)
+'---------------------------------------------------------------------------------------
+'
+Public Function LikeAny(strTest As String, ParamArray varLikeThis()) As Boolean
+    Dim lngCnt As Long
+    For lngCnt = 0 To UBound(varLikeThis)
+        If strTest Like varLikeThis(lngCnt) Then
+            LikeAny = True
+            Exit For
+        End If
+    Next lngCnt
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ModuleName
 ' Author    : Adam Waller
 ' Date      : 3/2/2023

@@ -57,6 +57,7 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 2/21/2023
 ' Purpose   : Return the database object from the UI button
+'           : Supported languages: English, German
 '---------------------------------------------------------------------------------------
 '
 Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElement As IUIAutomationElement) As AccessObject
@@ -75,20 +76,22 @@ Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElem
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
 
     ' There are multiple icons for some objects
-    If strImage Like "Table*" Then
+    If LikeAny(strImage, "Table*", "*Tabelle") Then
         Set objItem = CurrentData.AllTables(strName)
-    ElseIf strImage Like "*Query" Then
+    ElseIf LikeAny(strImage, "*Query", "*Abfrage") Then
         Set objItem = CurrentData.AllQueries(strName)
     Else
         ' These objects have a single representative icon
         Select Case strImage
-            Case "Form"
+            Case "Form", "Formular"
                 Set objItem = CurrentProject.AllForms(strName)
-            Case "Report"
+            Case "Report", "Bericht"
                 Set objItem = CurrentProject.AllReports(strName)
-            Case "Macro"
+            Case "Macro", "Makro"
                 Set objItem = CurrentProject.AllMacros(strName)
-            Case "Class Module", "Module"
+            Case "Module", "Modul"
+                Set objItem = CurrentProject.AllModules(strName)
+            Case "Class Module", "Klassenmodul"
                 Set objItem = CurrentProject.AllModules(strName)
 
             ' Some ADP specific project items
