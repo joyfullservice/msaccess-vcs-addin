@@ -21,6 +21,7 @@ Public FromRevision As String
 
 ' Set this to true to output git commands and return to debug window
 Public ShowDebug As Boolean
+Public LogCommands As Boolean
 
 ' Enum for commands we can run with Git.
 Private Enum eGitCommand
@@ -30,14 +31,22 @@ Private Enum eGitCommand
     egcGetAllChangedFiles
     egcGetUntrackedFiles
     egcGetHeadCommit
+    egcGetBranchName
     egcSetTaggedCommit
     egcGetReproPath
     egcGetRevision
     egcGetStatusPorcelain
     ' Action commands
+    egcInitialize
+    egcAddAll
     egcCommit
     egcResetHard
     egcMerge
+    egcMergeNoFastFwd
+    egcCheckoutBranch
+    egcCheckoutNewBranch
+    egcCheckoutHeadToCurrent
+    egcDeleteBranch
 End Enum
 
 
@@ -74,13 +83,21 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
         Case egcGetVersion:             strCmd = "git version"
         Case egcSetTaggedCommit:        strCmd = "git tag {MyArg} HEAD -f"
         Case egcGetAllChangedFiles:     strCmd = "git diff --name-status {MyArg}"
+        Case egcGetBranchName:          strCmd = "git rev-parse --abbrev-ref HEAD"
         Case egcGetHeadCommit:          strCmd = "git show -s --format=%h HEAD"
         Case egcGetReproPath:           strCmd = "git rev-parse --show-toplevel"
         Case egcGetRevision:            strCmd = "git rev-parse --verify {MyArg}"
         Case egcGetStatusPorcelain:     strCmd = "git status --porcelain"
+        Case egcInitialize:             strCmd = "git init"
+        Case egcAddAll:                 strCmd = "git add --all"
         Case egcCommit:                 strCmd = "git commit --all --message ""{MyArg}"""
         Case egcResetHard:              strCmd = "git reset --hard HEAD^"
         Case egcMerge:                  strCmd = "git merge {MyArg}"
+        Case egcMergeNoFastFwd:         strCmd = "git merge --no-ff {MyArg}"
+        Case egcCheckoutBranch:         strCmd = "git checkout {MyArg}"
+        Case egcCheckoutNewBranch:      strCmd = "git checkout -b {MyArg}"
+        Case egcCheckoutHeadToCurrent:  strCmd = "git checkout HEAD~ ."
+        Case egcDeleteBranch:           strCmd = "git branch --delete {MyArg}"
         Case Else
             Log.Error eelError, "Unrecognized Git Command Enum: " & intCmd
             Stop
@@ -99,13 +116,15 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
     RunGitCommand = strResult
     
     ' Show debug info, if flag is on
-    If Me.ShowDebug Then
-        Debug.Print "Send Git Command: " & strCmd
+    With New clsConcat
+        .Add "Sent Git Command: ", strCmd
         If strResult <> vbNullString Then
-            Debug.Print "Received:"
-            Debug.Print strResult
+            .Add "Returned:"
+            .Add strResult
         End If
-    End If
+        If Me.LogCommands Then Log.Add .GetStr, False
+        If Me.ShowDebug Then Debug.Print .GetStr
+    End With
 
 End Function
 
@@ -184,13 +203,25 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : BranchName
+' Author    : Adam Waller
+' Date      : 3/21/2023
+' Purpose   : Return the name of the current branch
+'---------------------------------------------------------------------------------------
+'
+Public Function BranchName() As String
+    BranchName = RunGitCommand(egcGetBranchName)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SplitFilesWithHistory
 ' Author    : Adam Waller
 ' Date      : 3/10/2023
 ' Purpose   : Accepts two arrays of file paths. The first array represents the existing
 '           : files, and the second represents the new files that will take on the
 '           : content and history of the first files.
-'           : Based on https://stackoverflow.com/a/44036771/4121863
+'           : Based on https://devblogs.microsoft.com/oldnewthing/20190919-00/?p=102904
 '---------------------------------------------------------------------------------------
 '
 Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As String, strCommitMessage As String)
@@ -200,6 +231,12 @@ Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As
     Dim strNew As String
     Dim strAlt As String
     Dim strHead As String
+    Dim strBranch As String
+    Dim blnLog As Boolean
+    
+    ' Save current value and turn on logging.
+    blnLog = Me.LogCommands
+    Me.LogCommands = True
     
     ' We should be starting with a clean slate (no uncommitted changes)
     If Not Me.IsCleanBranch Then
@@ -207,6 +244,15 @@ Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As
             ModuleName(Me) & ".SplitFilesWithHistory"
         Exit Sub
     End If
+    
+    ' Initialize the repository just to make sure everthing is in order
+    RunGitCommand egcInitialize
+    
+    ' Get the current branch name, so we can switch back to it later
+    strBranch = Me.BranchName
+    
+    ' Create a new branch to use when splitting the files
+    RunGitCommand egcCheckoutNewBranch, "split-files"
     
     ' We could use git to move the files individually, but this would be much slower.
     ' For our purposes, the files should be pretty unique in content, so we should be
@@ -220,46 +266,28 @@ Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As
         End If
     Next lngCnt
     
-    ' Commit the move
-    RunGitCommand egcCommit
+    ' Update the index, and commit the move
+    RunGitCommand egcAddAll
+    RunGitCommand egcCommit, "Rename as new files"
     
-    ' Save the head commit so we can merge it later
-    strHead = RunGitCommand(egcGetHeadCommit)
+    ' Restore the original files
+    ' (TODO: see if we can do this from a named branch)
+    RunGitCommand egcCheckoutHeadToCurrent
     
-    ' Reset (undo) the move
-    RunGitCommand egcResetHard
+    ' Commit these files (with history) to the temporary branch
+    RunGitCommand egcCommit, "Restore original files"
     
-    ' Now, move to a different (temp) file name that we can use for the merge
-    For lngCnt = 0 To UBound(strFilePathsArray)
-        strOrig = strFilePathsArray(lngCnt)
-        strAlt = strNewPaths(lngCnt) & ".tmp"
-        If FSO.FileExists(strOrig) Then
-            If FSO.FileExists(strAlt) Then DeleteFile strAlt
-            FSO.MoveFile strOrig, strAlt
-        End If
-    Next lngCnt
+    ' Move back to original branch
+    RunGitCommand egcCheckoutBranch, strBranch
     
-    ' Commit the move
-    RunGitCommand egcCommit
+    ' Merge the temporary branch into the original branch
+    RunGitCommand egcMergeNoFastFwd, "split-files" & " -m """ & strCommitMessage & """"
     
-    ' Merge the two commits
-    RunGitCommand egcMerge, strHead
+    ' Delete the temporary branch now that we are finished using it
+    RunGitCommand egcDeleteBranch, "split-files"
     
-    ' Commit the (resolved) conflicts
-    RunGitCommand egcCommit
-    
-    ' Move temp file back to original location
-    For lngCnt = 0 To UBound(strFilePathsArray)
-        strOrig = strFilePathsArray(lngCnt)
-        strAlt = strNewPaths(lngCnt) & ".tmp"
-        If FSO.FileExists(strAlt) Then
-            If FSO.FileExists(strOrig) Then DeleteFile strOrig
-            FSO.MoveFile strAlt, strOrig
-        End If
-    Next lngCnt
-    
-    ' Commit final move
-    RunGitCommand egcCommit
+    ' Restore original logging
+    Me.LogCommands = blnLog
     
 End Sub
 
