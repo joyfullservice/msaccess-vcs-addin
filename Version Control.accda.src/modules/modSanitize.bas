@@ -532,9 +532,22 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
     lngData = InStr(1, strFile, "<dataroot xmlns:xsi=")
     If lngData > 0 Then
         ' Looks like a table data export file
-        lngPos = InStr(1, strFile, """ od:expression=""")
+        Dim expr As Variant
+        Dim exprs As Variant
+
+        ' Search for any field data types such as calculated, complex (e.g. attachments or
+        ' multi-valued fields, binary fields that might require the schema to be retained
+        ' to ensure that the import work correctly)
+        exprs = Array(""" od:expression=""", """ od:jetType=""complex""", """ od:jetType=""oleobject""")
+        For Each expr In exprs
+            lngPos = InStr(1, strFile, expr)
+            If lngPos > 0 And lngPos < lngData Then
+                Exit For
+            End If
+        Next
+
         If lngPos > 0 And lngPos < lngData Then
-            ' Contains a calculated field. Include the schema in the export file.
+            ' Keep the schema in the export file
         Else
             ' Trim off the schema, and just include the data.
             ' Also remove the closing root tag from the end of the file.
@@ -717,8 +730,13 @@ End Function
 Private Function FormatXML(strSourceXML As String, _
     Optional blnOmitDeclaration As Boolean) As String
 
-    Dim objReader As SAXXMLReader60
-    Dim objWriter As MXHTMLWriter60
+    ' XSLT stylesheet that allow us to control indenting and also get a better indent result.
+    Const strIndentXslt As String = "<xsl:stylesheet xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" version=""1.0""><xsl:output method=""xml""/><xsl:template match=""@*""><xsl:copy/></xsl:template><xsl:template match=""text()""><xsl:value-of select=""normalize-space(.)"" /></xsl:template><xsl:template match=""*""><xsl:param name=""indent"" select=""''""/><xsl:text>&#xa;</xsl:text><xsl:value-of select=""$indent"" /><xsl:copy><xsl:apply-templates select=""@*|*|text()""><xsl:with-param name=""indent"" select=""concat($indent, '  ')""/></xsl:apply-templates></xsl:copy><xsl:if test=""count(../*)>0 and ../*[last()]=.""><xsl:text>&#xa;</xsl:text><xsl:value-of select=""substring($indent,3)"" /></xsl:if></xsl:template></xsl:stylesheet>"
+    
+    Dim objInput As MSXML2.DOMDocument60
+    Dim objTransform As MSXML2.DOMDocument60
+    Dim objOutput As MSXML2.DOMDocument60
+    
     Dim strOutput As String
 
     ' Skip processing if no content to format
@@ -729,24 +747,45 @@ Private Function FormatXML(strSourceXML As String, _
     ' Trap any errors with parsing or formatting the XML
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    Set objWriter = New MXHTMLWriter60
-    Set objReader = New SAXXMLReader60
+    Set objInput = New MSXML2.DOMDocument60
+    Set objTransform = New MSXML2.DOMDocument60
+    Set objOutput = New MSXML2.DOMDocument60
 
-    ' Set up writer
-    With objWriter
-        .indent = True
-        .omitXMLDeclaration = Not blnOmitDeclaration
-        Set objReader.contentHandler = objWriter
-    End With
+    ' Set up transform
+    objTransform.LoadXML strIndentXslt
 
-    ' Prepare reader
-    With objReader
-        Set .contentHandler = objWriter
-        .parse strSourceXML
-    End With
+    ' Set up DOM documents
+    objInput.LoadXML strSourceXML
 
-    ' Apply custom indent to output
-    strOutput = CustomIndent(objWriter.output)
+    objOutput.preserveWhiteSpace = True
+
+    ' Transform the input
+    strOutput = objInput.transformNode(objTransform)
+
+    If blnOmitDeclaration Then
+        Dim lngPos As Long
+        If Left$(strOutput, 2) = "<?" Then
+            lngPos = InStr(1, strOutput, "?>")
+            If lngPos Then
+                Dim strPeekAhead As String
+
+                strPeekAhead = Mid$(strOutput, lngPos + 2, 2)
+                If strPeekAhead = vbCrLf Then
+                    lngPos = lngPos + 4
+                Else
+                    strPeekAhead = Left$(strPeekAhead, 1)
+                    If strPeekAhead = vbCr Then
+                        lngPos = lngPos + 3
+                    ElseIf strPeekAhead = vbLf Then
+                        lngPos = lngPos + 3
+                    Else
+                        lngPos = lngPos + 2
+                    End If
+                End If
+                strOutput = Mid$(strOutput, lngPos)
+            End If
+        End If
+    End If
 
     ' Check for any errors parsing the XML
     If CatchAny(eelError, "Error parsing XML content", ModuleName & ".FormatXML") Then
