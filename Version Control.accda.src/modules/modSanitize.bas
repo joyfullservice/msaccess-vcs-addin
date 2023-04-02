@@ -601,7 +601,12 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
                 If Options.AggressiveSanitize Then
                     Do While Not EndsWith(strTLine, "/>")
                         lngLine = lngLine + 1
-                        strTLine = TrimTabs(Trim$(varLines(lngLine)))
+                        If lngLine <= UBound(varLines) Then
+                            strTLine = TrimTabs(Trim$(varLines(lngLine)))
+                        Else
+                            strTLine = vbNullString
+                            Exit Do
+                        End If
                     Loop
                 Else
                     ' Keep line and continue
