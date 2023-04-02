@@ -22,7 +22,7 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Type typData
+Private Type udtData
     ' 2.2 Generic keys
     Driver As String
     DSN As String
@@ -46,7 +46,7 @@ Private Type typData
     
     KeyValues As Scripting.Dictionary
 End Type
-Private This As typData
+Private this As udtData
 
 
 '---------------------------------------------------------------------------------------
@@ -57,7 +57,7 @@ Private This As typData
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Driver() As String
-    Driver = This.Driver
+    Driver = this.Driver
 End Property
 
 
@@ -69,7 +69,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get DSN() As String
-    DSN = This.DSN
+    DSN = this.DSN
 End Property
 
 
@@ -81,7 +81,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get FileDSN() As String
-    FileDSN = This.FileDSN
+    FileDSN = this.FileDSN
 End Property
 
 
@@ -93,7 +93,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get UID() As String
-    UID = This.UID
+    UID = this.UID
 End Property
     
 
@@ -105,7 +105,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get PWD() As String
-    PWD = This.PWD
+    PWD = this.PWD
 End Property
     
 
@@ -117,7 +117,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get SaveFile() As String
-    SaveFile = This.SaveFile
+    SaveFile = this.SaveFile
 End Property
 
 
@@ -130,7 +130,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Server() As String
-    Server = This.Server
+    Server = this.Server
 End Property
 
 
@@ -143,7 +143,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Port() As String
-    Port = This.Port
+    Port = this.Port
 End Property
 
 
@@ -156,7 +156,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Database() As String
-    Database = This.Database
+    Database = this.Database
 End Property
 
 
@@ -169,7 +169,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get OriginalConnectionString() As String
-    OriginalConnectionString = This.OriginalConnectionString
+    OriginalConnectionString = this.OriginalConnectionString
 End Property
 
 
@@ -183,7 +183,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get SanitizedConnectionString() As String
-    SanitizedConnectionString = This.SanitizedConnectionString
+    SanitizedConnectionString = this.SanitizedConnectionString
 End Property
 
 
@@ -201,8 +201,8 @@ Public Function GetKeyValues() As Scripting.Dictionary
     GetKeyValues.CompareMode = TextCompare
     
     Dim varKey As Variant
-    For Each varKey In This.KeyValues
-        GetKeyValues.Add varKey, This.KeyValues(varKey)
+    For Each varKey In this.KeyValues
+        GetKeyValues.Add varKey, this.KeyValues(varKey)
     Next
 End Function
 
@@ -261,9 +261,9 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
         Set objMatches = .Execute(Mid$(strConnect, 6))
     End With
     
-    This.OriginalConnectionString = strConnect
-    Set This.KeyValues = New Scripting.Dictionary
-    This.KeyValues.CompareMode = TextCompare
+    this.OriginalConnectionString = strConnect
+    Set this.KeyValues = New Scripting.Dictionary
+    this.KeyValues.CompareMode = TextCompare
     
     For Each objMatch In objMatches
         With objMatch
@@ -276,7 +276,7 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
                 strValue = vbNullString ' No matches; assume empty string
             End If
             
-            If This.KeyValues.Exists(strKey) Then
+            If this.KeyValues.Exists(strKey) Then
                 ' 2.2.3 indicates generic key takes the last value. Driver specific
                 ' key however is driver-defined. We'll use vbNullChar as delimiter
                 ' to support weird oddball drivers that likes having multiple values.
@@ -284,41 +284,41 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
                 ' NOTE: according to 3.10, SQL Server drivers will take the first value
                 ' and ignore subsequent values.
                 If IsGenericKey(strKey) Then
-                    This.KeyValues(strKey) = strValue
+                    this.KeyValues(strKey) = strValue
                 Else
-                    This.KeyValues(strKey) = This.KeyValues(strKey) & vbNullChar & strValue
+                    this.KeyValues(strKey) = this.KeyValues(strKey) & vbNullChar & strValue
                 End If
             Else
-                This.KeyValues.Add strKey, strValue
+                this.KeyValues.Add strKey, strValue
             End If
             
             Select Case strKey
                 Case "Driver"
-                    This.Driver = strValue
+                    this.Driver = strValue
                 Case "DSN"
-                    This.DSN = strValue
+                    this.DSN = strValue
                 Case "FileDSN"
-                    This.FileDSN = strValue
+                    this.FileDSN = strValue
                 Case "SaveFile"
-                    This.SaveFile = strValue
+                    this.SaveFile = strValue
                 Case "UID"
-                    This.UID = strValue
+                    this.UID = strValue
                 Case "PWD"
-                    This.PWD = strValue
+                    this.PWD = strValue
                     
                 ' The following keys are non-generic so take the first value
                 ' for the purpose of sanitized connection string comparison
                 Case "Server"
-                    If Len(This.Server) = 0 Then
-                        This.Server = strValue
+                    If Len(this.Server) = 0 Then
+                        this.Server = strValue
                     End If
                 Case "Database"
-                    If Len(This.Database) = 0 Then
-                        This.Database = strValue
+                    If Len(this.Database) = 0 Then
+                        this.Database = strValue
                     End If
                 Case "Port"
-                    If Len(This.Port) = 0 Then
-                        This.Port = strValue
+                    If Len(this.Port) = 0 Then
+                        this.Port = strValue
                     End If
             End Select
         End With
@@ -349,41 +349,41 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
     Dim objConcat As clsConcat
     Set objConcat = New clsConcat
     
-    If Len(This.Driver) Then
-        objConcat.Add ";Driver=", This.Driver
-    ElseIf Len(This.DSN) Then
-        objConcat.Add ";DSN=", This.DSN
-    ElseIf Len(This.FileDSN) Then
-        objConcat.Add ";FileDSN=", This.FileDSN
+    If Len(this.Driver) Then
+        objConcat.Add ";Driver=", this.Driver
+    ElseIf Len(this.DSN) Then
+        objConcat.Add ";DSN=", this.DSN
+    ElseIf Len(this.FileDSN) Then
+        objConcat.Add ";FileDSN=", this.FileDSN
     Else
         ' Apparently this is an incomplete ODBC connection string. Access would always prompt to fill in.... Masochistic?
     End If
     
-    If Len(This.SaveFile) Then
-        objConcat.Add ";SaveFile=", This.SaveFile
+    If Len(this.SaveFile) Then
+        objConcat.Add ";SaveFile=", this.SaveFile
     End If
     
-    If Len(This.Server) Then
-        objConcat.Add ";SERVER=", This.Server
+    If Len(this.Server) Then
+        objConcat.Add ";SERVER=", this.Server
     End If
     
-    If Len(This.Port) Then
-        objConcat.Add ";PORT=", This.Port
+    If Len(this.Port) Then
+        objConcat.Add ";PORT=", this.Port
     End If
     
-    If Len(This.Database) Then
-        objConcat.Add ";DATABASE=", This.Database
+    If Len(this.Database) Then
+        objConcat.Add ";DATABASE=", this.Database
     End If
     
-    If Len(This.UID) Then
-        objConcat.Add ";UID=", This.UID
+    If Len(this.UID) Then
+        objConcat.Add ";UID=", this.UID
     End If
     
-    If Len(This.PWD) Then
-        objConcat.Add ";PWD=", This.PWD
+    If Len(this.PWD) Then
+        objConcat.Add ";PWD=", this.PWD
     End If
     
-    This.SanitizedConnectionString = "ODBC" & objConcat.GetStr
+    this.SanitizedConnectionString = "ODBC" & objConcat.GetStr
 End Sub
 
 
@@ -416,11 +416,11 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub ResetData()
-    Dim Blank As typData
+    Dim blank As udtData
     
     ' Not necessary but best to ensure proper de-referencing
-    Set This.KeyValues = Nothing
+    Set this.KeyValues = Nothing
     
-    LSet This = Blank
+    LSet this = blank
 End Sub
 
