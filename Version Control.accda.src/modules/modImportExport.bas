@@ -407,6 +407,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
+    ' Close the previous cached connections, if any
+    CloseCachedConnections
+
     ' The type of build will be used in various messages and log entries.
     strType = IIf(blnFullBuild, "Build", "Merge")
 
@@ -629,7 +632,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     ' Reopen the database so the themes are loaded
     StageMainForm
     CloseCurrentDatabase2
-    OpenCurrentDatabase strPath
+    ShiftOpenDatabase strPath, False, Form_frmVCSMain
     RestoreMainForm
 
     ' Now we can initialize the form objects
@@ -652,6 +655,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
         '    Perf.OperationEnd
         'End If
     End If
+
+    ' Close the cached connections, if any
+    CloseCachedConnections
+
     ' Log any errors after build/merge
     CatchAny eelError, "Error running " & CallByName(Options, "RunAfter" & strType, VbGet), ModuleName & ".Build", True, True
 

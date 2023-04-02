@@ -10,6 +10,7 @@ Option Private Module
 Option Explicit
 
 Private Const ModuleName = "modConnect"
+Private m_dCachedConnections As Scripting.Dictionary
 
 
 '---------------------------------------------------------------------------------------
@@ -158,4 +159,82 @@ Private Function GetConnectPath(strConnect As String) As String
     GetConnectPath = strPath
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CacheConnection
+' Author    : bclothier
+' Date      : 3/31/2023
+' Purpose   : Open an ODBC database to allow us to leverage Access' built-in caching
+'             and hopefully reduce the numbers of ODBC prompts. Because the connection
+'             may be incomplete, we will force a prompt for the user to then fill in
+'---------------------------------------------------------------------------------------
+'
+Public Function CacheConnection(strConnect As String) As Boolean
+    If Not (Left$(strConnect, 5) = "ODBC;") Then
+        Exit Function
+    End If
+
+    Dim qdf As DAO.QueryDef
+    Dim bolCached As Boolean
+
+    If m_dCachedConnections Is Nothing Then
+        Set m_dCachedConnections = New Scripting.Dictionary
+    End If
+
+    If m_dCachedConnections.Exists(strConnect) Then
+        CacheConnection = True
+    Else
+        ' We need to use the CurrentDb because it's the one that'll get stuff imported into. Otherwise,
+        ' we will get unwanted prompts during the import.
+        Set qdf = CurrentDb.CreateQueryDef
+
+        ' There is a bug where if Name property is left uninitialized or has a null string passed into it
+        ' the query will not behave correctly and gives strange error. Setting it to an initialized empty
+        ' string will avoid the bug.
+        qdf.Name = ""
+
+        ' We must provide a SQL statement. Every database engine understand this, right?
+        qdf.SQL = "SELECT 1;"
+        qdf.Connect = strConnect
+
+        On Error Resume Next
+        qdf.OpenRecordset
+        If Err.Number Then
+            Set qdf = Nothing
+        End If
+        On Error GoTo 0
+
+        If Not qdf Is Nothing Then
+            m_dCachedConnections.Add strConnect, qdf
+            CacheConnection = True
+        End If
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CacheConnection
+' Author    : bclothier
+' Date      : 3/31/2023
+' Purpose   : Closes all cached connections
+'---------------------------------------------------------------------------------------
+'
+Public Sub CloseCachedConnections()
+    If m_dCachedConnections Is Nothing Then
+        Exit Sub
+    End If
+
+    If m_dCachedConnections.Count Then
+        Dim qdf As DAO.QueryDef
+        Dim varKey As Variant
+
+        For Each varKey In m_dCachedConnections.Keys
+            Set qdf = m_dCachedConnections.Item(varKey)
+            qdf.Close
+            Set qdf = Nothing
+            m_dCachedConnections.Remove varKey
+        Next
+    End If
+End Sub
 
