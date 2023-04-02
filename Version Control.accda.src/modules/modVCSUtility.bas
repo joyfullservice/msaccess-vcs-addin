@@ -706,7 +706,12 @@ Public Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain
 
     ' Open the database
     OpenCurrentDatabase strPath, blnExclusive
-
+    DoEvents
+    
+    ' Very important! Make sure the shift key is held while processing the open operation.
+    Pause 0.5
+    DoEvents
+    
     ' Restore the shift key
     keybd_event VK_SHIFT, &H45, KEYEVENTF_EXTENDEDKEY Or KEYEVENTF_KEYUP, 0
     DoEvents
