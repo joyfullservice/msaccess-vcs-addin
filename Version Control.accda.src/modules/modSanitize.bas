@@ -731,7 +731,10 @@ Private Function FormatXML(strSourceXML As String, _
     Optional blnOmitDeclaration As Boolean) As String
 
     ' XSLT stylesheet that allow us to control indenting and also get a better indent result.
+    ' For testing and adjusting, you can use https://www.online-toolz.com/tools/xslt-validator-tester-online.php
     Const strIndentXslt As String = "<xsl:stylesheet xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" version=""1.0""><xsl:output method=""xml""/><xsl:template match=""@*""><xsl:copy/></xsl:template><xsl:template match=""text()""><xsl:value-of select=""normalize-space(.)"" /></xsl:template><xsl:template match=""*""><xsl:param name=""indent"" select=""''""/><xsl:text>&#xa;</xsl:text><xsl:value-of select=""$indent"" /><xsl:copy><xsl:apply-templates select=""@*|*|text()""><xsl:with-param name=""indent"" select=""concat($indent, '  ')""/></xsl:apply-templates></xsl:copy><xsl:if test=""count(../*)>0 and ../*[last()]=.""><xsl:text>&#xa;</xsl:text><xsl:value-of select=""substring($indent,3)"" /></xsl:if></xsl:template></xsl:stylesheet>"
+    ' This constant has the `omit-xml-declaration="yes"` added to remove XML declarations.
+    Const strIndentXsltNoDeclarations As String = "<xsl:stylesheet xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" version=""1.0""><xsl:output method=""xml"" omit-xml-declaration=""yes""/><xsl:template match=""@*""><xsl:copy/></xsl:template><xsl:template match=""text()""><xsl:value-of select=""normalize-space(.)"" /></xsl:template><xsl:template match=""*""><xsl:param name=""indent"" select=""''""/><xsl:text>&#xa;</xsl:text><xsl:value-of select=""$indent"" /><xsl:copy><xsl:apply-templates select=""@*|*|text()""><xsl:with-param name=""indent"" select=""concat($indent, '  ')""/></xsl:apply-templates></xsl:copy><xsl:if test=""count(../*)>0 and ../*[last()]=.""><xsl:text>&#xa;</xsl:text><xsl:value-of select=""substring($indent,3)"" /></xsl:if></xsl:template></xsl:stylesheet>"
     
     Dim objInput As MSXML2.DOMDocument60
     Dim objTransform As MSXML2.DOMDocument60
@@ -750,43 +753,21 @@ Private Function FormatXML(strSourceXML As String, _
     Set objInput = New MSXML2.DOMDocument60
     Set objTransform = New MSXML2.DOMDocument60
     Set objOutput = New MSXML2.DOMDocument60
-
+    
     ' Set up transform
-    objTransform.LoadXML strIndentXslt
-
+    If blnOmitDeclaration Then
+        objTransform.LoadXML strIndentXsltNoDeclarations
+    Else
+        objTransform.LoadXML strIndentXslt
+    End If
+    
     ' Set up DOM documents
     objInput.LoadXML strSourceXML
 
-    objOutput.preserveWhiteSpace = True
-
     ' Transform the input
-    strOutput = objInput.transformNode(objTransform)
-
-    If blnOmitDeclaration Then
-        Dim lngPos As Long
-        If Left$(strOutput, 2) = "<?" Then
-            lngPos = InStr(1, strOutput, "?>")
-            If lngPos Then
-                Dim strPeekAhead As String
-
-                strPeekAhead = Mid$(strOutput, lngPos + 2, 2)
-                If strPeekAhead = vbCrLf Then
-                    lngPos = lngPos + 4
-                Else
-                    strPeekAhead = Left$(strPeekAhead, 1)
-                    If strPeekAhead = vbCr Then
-                        lngPos = lngPos + 3
-                    ElseIf strPeekAhead = vbLf Then
-                        lngPos = lngPos + 3
-                    Else
-                        lngPos = lngPos + 2
-                    End If
-                End If
-                strOutput = Mid$(strOutput, lngPos)
-            End If
-        End If
-    End If
-
+    objInput.transformNodeToObject objTransform, objOutput
+    strOutput = objOutput.XML
+    
     ' Check for any errors parsing the XML
     If CatchAny(eelError, "Error parsing XML content", ModuleName & ".FormatXML") Then
         ' Fall back to input XML
