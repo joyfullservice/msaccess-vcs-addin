@@ -9,12 +9,42 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
-' API call to press shift key while opening the database to disable startup code
-' Need to use the keybd event call, not SetKeyboardState in order to support modern OS versions.
 Private Const KEYEVENTF_EXTENDEDKEY = &H1
 Private Const KEYEVENTF_KEYUP = &H2
 Private Const VK_SHIFT = &H10
-Private Declare PtrSafe Sub keybd_event Lib "user32" (ByVal bteVK As Byte, ByVal bteScan As Byte, ByVal dwFlags As Long, ByVal dwExtraInfo As Long)
+
+Private Declare PtrSafe Function SetFocus _
+Lib "user32" ( _
+    ByVal hwnd As LongPtr _
+) As LongPtr
+
+Private Declare PtrSafe Function SetKeyboardState _
+Lib "user32" ( _
+    lppbKeyState As Any _
+) As Long
+    
+Private Declare PtrSafe Function GetKeyboardState _
+Lib "user32" ( _
+    pbKeyState As Any _
+) As Long
+
+Private Declare PtrSafe Function GetWindowThreadProcessId _
+Lib "user32" ( _
+    ByVal hwnd As LongPtr, _
+    ByRef lpdwProcessId As LongPtr _
+) As Long
+
+Private Declare PtrSafe Function AttachThreadInput _
+Lib "user32" ( _
+    ByVal idAttach As Long, _
+    ByVal idAttachTo As Long, _
+    ByVal fAttach As Long _
+) As Long
+
+Private Declare PtrSafe Function SetForegroundWindow _
+Lib "user32" ( _
+    ByVal hwnd As LongPtr _
+) As Long
 
 Private Const ModuleName = "modVCSUtility"
 
@@ -698,23 +728,41 @@ Public Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain
         RestoreMainForm
     End If
 
-    ' Hold shift key down to bypass startup macro/form.
-    keybd_event VK_SHIFT, &H45, KEYEVENTF_EXTENDEDKEY Or 0, 0
-
-    ' Very important! Make sure the shift key actually goes down before opening the file.
-    Pause 0.5
-
-    ' Open the database
-    OpenCurrentDatabase strPath, blnExclusive
-    DoEvents
+    On Error GoTo Error_Handler
     
-    ' Very important! Make sure the shift key is held while processing the open operation.
-    Pause 0.5
-    DoEvents
-    
-    ' Restore the shift key
-    keybd_event VK_SHIFT, &H45, KEYEVENTF_EXTENDEDKEY Or KEYEVENTF_KEYUP, 0
-    DoEvents
+    Dim abytCodesSrc(0 To 255) As Byte
+    Dim abytCodesDest(0 To 255) As Byte
 
+    If (FSO.FileExists(strPath) = False) Then
+        Err.Raise 53
+    End If
+
+    SetForegroundWindow Application.hWndAccessApp
+    SetFocus Application.hWndAccessApp
+    
+    ' Set Shift state
+    GetKeyboardState abytCodesSrc(0)
+    GetKeyboardState abytCodesDest(0)
+    abytCodesDest(VK_SHIFT) = 128
+    SetKeyboardState abytCodesDest(0)
+
+    ' Open the database with shift key down
+    Application.OpenCurrentDatabase strPath, blnExclusive
+    
+    ' Revert back keyboard state and restore focus
+    SetKeyboardState abytCodesSrc(0)
+    SetForegroundWindow Application.hWndAccessApp
+    SetFocus Application.hWndAccessApp
+    
+    Exit Sub
+
+Error_Handler:
+    SetForegroundWindow Application.hWndAccessApp
+    
+    With Err
+        .Raise .Number, .Source, .Description, .HelpFile, .HelpContext
+    End With
 End Sub
+
+
 
