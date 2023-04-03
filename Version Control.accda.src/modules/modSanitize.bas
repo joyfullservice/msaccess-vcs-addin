@@ -599,15 +599,19 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
                 StartsWith(strTLine, "<od:tableProperty name=""GUID"""), _
                 StartsWith(strTLine, "<od:fieldProperty name=""GUID""")
                 If Options.AggressiveSanitize Then
-                    Do While Not EndsWith(strTLine, "/>")
+                    If EndsWith(strTLine, "></od:tableProperty>") Then
                         lngLine = lngLine + 1
-                        If lngLine <= UBound(varLines) Then
-                            strTLine = TrimTabs(Trim$(varLines(lngLine)))
-                        Else
-                            strTLine = vbNullString
-                            Exit Do
-                        End If
-                    Loop
+                    Else
+                        Do While Not EndsWith(strTLine, "/>")
+                            lngLine = lngLine + 1
+                            If lngLine <= UBound(varLines) Then
+                                strTLine = TrimTabs(Trim$(varLines(lngLine)))
+                            Else
+                                strTLine = vbNullString
+                                Exit Do
+                            End If
+                        Loop
+                    End If
                 Else
                     ' Keep line and continue
                     cData.Add strLine
