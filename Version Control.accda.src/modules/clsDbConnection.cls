@@ -24,7 +24,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private m_dItems As Dictionary
+Private m_Items(True To False) As Dictionary   ' Instances of this class
+Private m_dItems As Dictionary  ' Connection items for JSON output in GetDictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -206,16 +207,26 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    If blnModifiedOnly = False Or m_dItems Is Nothing Then
-        Set m_dItems = GetDictionary
+
+    Dim varKey As Variant
+    
+    ' Build a dictionary of component class objects if not already cached.
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
+        If Not blnModifiedOnly Or IDbComponent_IsModified Then
+            ' Return all the items since we are not concerned about which ones changed.
+            For Each varKey In GetDictionary.Keys
+                ' Since we are only processing one of these instances, we can
+                ' just reference the existing instance and avoid rescanning the
+                ' tables and queries.
+                m_Items(blnModifiedOnly).Add varKey, Me
+            Next varKey
+        End If
     End If
     
-    Dim dCollection As Scripting.Dictionary
-    Set dCollection = New Scripting.Dictionary
-    dCollection.Add "DbConnection", Me
+    ' Return cached dictionary
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
     
-    ' Return cached collection
-    Set IDbComponent_GetAllFromDB = dCollection
 End Function
 
 
