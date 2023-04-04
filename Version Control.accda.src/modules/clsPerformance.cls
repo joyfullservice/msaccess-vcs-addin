@@ -392,6 +392,7 @@ Public Function GetReports() As String
 
         ' Table for object types
         If Not this.Categories Is Nothing Then
+            Set this.Categories = SortItemsByTime(this.Categories)
             .Add strSpacer
             .Add ListResult("Category", "Count", "Seconds", lngCol), vbCrLf, strSpacer
             For Each varKey In this.Categories.Keys
@@ -410,6 +411,7 @@ Public Function GetReports() As String
 
         ' Table for operations
         If Not this.Operations Is Nothing Then
+            Set this.Operations = SortItemsByTime(this.Operations)
             curTotal = 0
             .Add strSpacer
             .Add ListResult("Operations", "Count", "Seconds", lngCol), vbCrLf, strSpacer
@@ -484,6 +486,64 @@ Private Function PadRight(strText As String, lngLen As Long, Optional lngMinTrai
     ' Use mid function to write over existing string of spaces.
     Mid$(strResult, 1, Len(strTrimmed)) = strTrimmed
     PadRight = strResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SortItemsByTime
+' Author    : Adam Waller
+' Date      : 4/4/2023
+' Purpose   : Sort the items by total time in descending order to put the slowest
+'           : items at the top of the list.
+'---------------------------------------------------------------------------------------
+'
+Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
+
+    Dim varItems() As Variant
+    Dim varKey As Variant
+    Dim lngCnt As Long
+    Dim strRecord As String
+    Dim cItem As clsPerformanceItem
+    Dim dSorted As Dictionary
+    
+    ' Create an array to build our items
+    ReDim varItems(0 To dItems.Count - 1)
+    
+    ' The idea here is that we want to build a fixed width record with the time on
+    ' the left, and the key on the right. We will then sort this list of "records"
+    ' to get them sorted by time. However, since the sorting is in ascending order,
+    ' we will loop backwards through the resulting array to rebuild a dictionary
+    ' of items in descending order. We will split out the key and use this to get
+    ' a reference back to the original item in the source dictionary.
+    
+    ' Build our list of records
+    For Each varKey In dItems.Keys
+        ' Create a record like this: "00062840.170000|Export Form Objects       ..."
+        strRecord = Format(dItems(varKey).Total, "00000000.000000") & "|" & PadRight(CStr(varKey), 100)
+        ' Add to array.
+        varItems(lngCnt) = strRecord
+        ' Increment counter for array
+        lngCnt = lngCnt + 1
+    Next varKey
+    
+    ' Sort the array in ascending order
+    QuickSort varItems
+    
+    ' Now, build a new dictionary with the sorted items
+    ' (We are walking backwards through the array to flip the sort to descending)
+    Set dSorted = New Dictionary
+    For lngCnt = dItems.Count - 1 To 0 Step -1
+        ' Parse key from record
+        varKey = Trim(Split(varItems(lngCnt), "|")(1))
+        ' Reference performance item class
+        Set cItem = dItems(varKey)
+        ' Add to dictionary of resorted items
+        dSorted.Add varKey, cItem
+    Next lngCnt
+    
+    ' Return the sorted dictionary
+    Set SortItemsByTime = dSorted
 
 End Function
 
