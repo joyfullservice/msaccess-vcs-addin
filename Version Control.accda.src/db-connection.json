@@ -1,8 +1,0 @@
-﻿{
-  "Info": {
-    "Class": "clsDbConnection",
-    "Description": "Database connections used within the project used to prime Access' internal cache during import."
-  },
-  "Items": {
-  }
-}

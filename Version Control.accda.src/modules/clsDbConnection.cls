@@ -251,6 +251,10 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
+    If FSO.FileExists(IDbComponent_SourceFile) Then
+        ' Delete the source file when we no longer have any connection strings
+        If IDbComponent_GetAllFromDB.Count = 0 Then DeleteFile IDbComponent_SourceFile
+    End If
 End Sub
 
 
