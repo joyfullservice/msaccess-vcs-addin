@@ -103,6 +103,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     VCSIndex.Conflicts.Initialize dCategories
     Perf.OperationStart "Scan DB Objects"
     For Each cCategory In colCategories
+        Perf.CategoryStart cCategory.Category
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
         ' Get collection of database objects (IDbComponent classes)
@@ -116,6 +117,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         VCSIndex.CheckExportConflicts dObjects
         ' Clear any orphaned files in this category
         cCategory.ClearOrphanedSourceFiles
+        Perf.CategoryEnd 0
     Next cCategory
     Perf.OperationEnd
     Log.ProgressBar.Reset
