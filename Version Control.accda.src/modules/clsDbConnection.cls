@@ -78,7 +78,7 @@ Private Sub IDbComponent_Import(strFile As String)
         Next
     Next
     
-    CatchAny eelError, "Importing Project", ModuleName(Me) & ".Import"
+    CatchAny eelError, "Importing Connection", ModuleName(Me) & ".Import"
 
     ' Save to index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
@@ -94,7 +94,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetSource() As String
-    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Database connections used within the project used to prime Access' internal cache during import.")
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, _
+        "Database connections used within the project used to prime Access' internal cache during import.")
 End Function
 
 
@@ -113,7 +114,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
         Exit Function
     End If
 
-    ' Read project properties
+    ' Read project connections
     Set GetDictionary = New Dictionary
 
     Dim tdf As DAO.TableDef
@@ -136,6 +137,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
             End If
         Next
     End With
+    
 End Function
 
 
@@ -164,6 +166,7 @@ Private Function AddOdbcConnectionString(dSanitizedConnections As Scripting.Dict
         dConnections.Add cConnection.OriginalConnectionString, strObjectName
     End If
 End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Merge
