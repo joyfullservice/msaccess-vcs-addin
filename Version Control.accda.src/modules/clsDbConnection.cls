@@ -301,7 +301,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "Database Connections"
+    IDbComponent_Category = "DB Connections"
 End Property
 
 
