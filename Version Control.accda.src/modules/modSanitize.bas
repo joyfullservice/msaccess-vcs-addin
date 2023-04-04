@@ -526,10 +526,13 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
         End If
     End With
 
-    Dim objXml As MSXML2.DOMDocument60
+    Static objXml As MSXML2.DOMDocument60
     Dim objNode As MSXML2.IXMLDOMNode
     
-    Set objXml = New MSXML2.DOMDocument60
+    If objXml Is Nothing Then
+        Set objXml = New MSXML2.DOMDocument60
+    End If
+    
     objXml.LoadXML strFile
     
     ' Determine if it's a table data with schema
@@ -681,7 +684,8 @@ Private Function FormatXML( _
     ' This constant has the `omit-xml-declaration="yes"` added to remove XML declarations.
     Const strIndentXsltNoDeclarations As String = "<xsl:stylesheet xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" version=""1.0""><xsl:output method=""xml"" omit-xml-declaration=""yes""/><xsl:template match=""@*""><xsl:copy/></xsl:template><xsl:template match=""text()""><xsl:value-of select=""normalize-space(.)""/></xsl:template><xsl:template match=""*""><xsl:param name=""indent"" select=""''""/><xsl:text>&#xA;</xsl:text><xsl:value-of select=""$indent""/><xsl:copy><xsl:apply-templates select=""@*|*|text()""><xsl:with-param name=""indent"" select=""concat($indent, '  ')""/></xsl:apply-templates></xsl:copy><xsl:if test=""count(../*)&gt;0 and ../*[last()]=. and not(following-sibling::*)""><xsl:text>&#xA;</xsl:text><xsl:value-of select=""substring($indent,3)""/></xsl:if></xsl:template></xsl:stylesheet>"
     
-    Dim objTransform As MSXML2.DOMDocument60
+    Static objTransform As MSXML2.DOMDocument60
+    Static objTransformNoDeclaration As MSXML2.DOMDocument60
     
     Dim strOutput As String
 
@@ -693,19 +697,23 @@ Private Function FormatXML( _
     ' Trap any errors with parsing or formatting the XML
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    Set objTransform = New MSXML2.DOMDocument60
-    
-    ' Set up transform
-    If blnOmitDeclaration Then
-        objTransform.LoadXML strIndentXsltNoDeclarations
-    Else
-        objTransform.LoadXML strIndentXslt
-    End If
-    
     ' Transform the input; we don't want to use transformNodeToObject
     ' because that would be defeated by MSXML reformatting when reading
-    ' from the XML property.
-    strOutput = objInput.transformNode(objTransform)
+    ' from the XML property. We also cache the MSXML2.DOMDocument to
+    ' avoid paying the cost of loading the XSLT repeatedly.
+    If blnOmitDeclaration Then
+        If objTransformNoDeclaration Is Nothing Then
+            Set objTransformNoDeclaration = New MSXML2.DOMDocument60
+            objTransformNoDeclaration.LoadXML strIndentXsltNoDeclarations
+        End If
+        strOutput = objInput.transformNode(objTransformNoDeclaration)
+    Else
+        If objTransform Is Nothing Then
+            Set objTransform = New MSXML2.DOMDocument60
+            objTransform.LoadXML strIndentXslt
+        End If
+        strOutput = objInput.transformNode(objTransform)
+    End If
     
     ' Check for any errors parsing the XML
     If CatchAny(eelError, "Error parsing XML content", ModuleName & ".FormatXML") Then
@@ -722,6 +730,4 @@ Private Function FormatXML( _
     FormatXML = strOutput
 
 End Function
-
-
 
