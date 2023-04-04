@@ -526,115 +526,159 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
         End If
     End With
 
-    ' When exporting table data, the schema is only required when the table contains
-    ' a calculated field. See if we are working with a table data file, and if it
-    ' contains a calculated field.
-    lngData = InStr(1, strFile, "<dataroot xmlns:xsi=")
-    If lngData > 0 Then
-        ' Looks like a table data export file
-        Dim expr As Variant
-        Dim exprs As Variant
-
-        ' Search for any field data types such as calculated, complex (e.g. attachments or
-        ' multi-valued fields, binary fields that might require the schema to be retained
-        ' to ensure that the import work correctly)
-        exprs = Array(""" od:expression=""", """ od:jetType=""complex""", """ od:jetType=""oleobject""")
-        For Each expr In exprs
-            lngPos = InStr(1, strFile, expr)
-            If lngPos > 0 And lngPos < lngData Then
-                Exit For
-            End If
-        Next
-
-        If lngPos > 0 And lngPos < lngData Then
-            ' Keep the schema in the export file
-        Else
-            ' Trim off the schema, and just include the data.
-            ' Also remove the closing root tag from the end of the file.
-            lngLen = (Len(strFile) - lngData) - Len("</root>" & vbCrLf)
-            strFile = Mid(strFile, lngData, lngLen)
+    Dim objXml As MSXML2.DOMDocument60
+    Dim objNode As MSXML2.IXMLDOMNode
+    
+    Set objXml = New MSXML2.DOMDocument60
+    objXml.LoadXML strFile
+    
+    ' Determine if it's a table data with schema
+    For Each objNode In objXml.SelectNodes("/root/dataroot")
+        ' Remove the generated timestamp attribute to reduce noise
+        '   <dataroot xmlns:od="urn:schemas-microsoft-com:officedata" generated="2020-04-27T10:28:32">
+        '   <dataroot generated="2021-04-29T17:27:33" xmlns:od="urn:schemas-microsoft-com:officedata">
+        objNode.Attributes.removeNamedItem "generated"
+        
+        ' Determine whether the schema is required for import. If the schema contains elements:
+        '   <xsd:element od:expression ...>
+        '   <xsd:element od:jetType="complex" ...>
+        '   <xsd:element od:jetType="oleobject" ...>
+        ' Then the schema must be retained. Otherwise, discard the schema and retain only the data.
+        If objXml.SelectNodes("//*[(namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='element' and @*[namespace-uri()='urn:schemas-microsoft-com:officedata' and ((local-name()='jetType' and (string()='complex' or string()='oleobject')) or (local-name()='expression'))])]").Length = 0 Then
+            objXml.replaceChild objXml.SelectSingleNode("/root/dataroot"), objXml.SelectSingleNode("/root")
         End If
+    Next
+    
+    ' Remove all nodes that are meaningless noise:
+    '   <od:tableProperty name="NameMap" ...>
+    '   <od:tableProperty name="GUID" ...>
+    '   <od:fieldProperty name="GUID" ...>
+    For Each objNode In objXml.SelectNodes("//*[(namespace-uri()='urn:schemas-microsoft-com:officedata' and local-name()='tableProperty' and (@name='NameMap' or @name='GUID')) or (namespace-uri()='urn:schemas-microsoft-com:officedata' and local-name()='fieldProperty' and @name='GUID')]")
+        objNode.ParentNode.RemoveChild objNode
+    Next
+    
+    If Options.StripPublishOption Then
+        ' Remove all web publish options:
+        '   <od:tableProperty name="PublishToWeb" ...>
+        For Each objNode In objXml.SelectNodes("//*[(namespace-uri()='urn:schemas-microsoft-com:officedata' and local-name()='tableProperty' and @name='PublishToWeb')]")
+            objNode.ParentNode.RemoveChild objNode
+        Next
     End If
-
-    ' Split into array of lines
-    varLines = Split(FormatXML(strFile), vbCrLf)
-
-    ' Using a do loop since we may adjust the line counter
-    ' during a loop iteration.
-    Do While lngLine <= UBound(varLines)
-
-        ' Get unmodified and trimmed line
-        strLine = varLines(lngLine)
-        strTLine = TrimTabs(Trim$(strLine))
-
-        ' Look for specific lines
-        Select Case True
-
-            ' Discard blank lines
-            Case strTLine = vbNullString
-
-            ' Remove generated timestamp in header
-            Case StartsWith(strTLine, "<dataroot ")
-                '<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" generated="2020-04-27T10:28:32">
-                '<dataroot generated="2021-04-29T17:27:33" xmlns:od="urn:schemas-microsoft-com:officedata">
-                With rxLine
-                    .Pattern = "( generated="".+?"")"
-                    If .Test(strLine) Then
-                        ' Replace timestamp with empty string.
-                        Set objMatches = .Execute(strLine)
-                        strText = Replace(strLine, objMatches(0).SubMatches(0), vbNullString, , 1)
-                        cData.Add strText
-                    Else
-                        ' Did not contain a timestamp. Keep the whole line
-                        cData.Add strLine
-                    End If
-                End With
-
-            ' Remove non-critical single lines that are not consistent between systems
-            'Case StartsWith(strTLine, "<od:tableProperty name=""NameMap""")
-            '    If Not Options.AggressiveSanitize Then cData.Add strLine
-
-            ' Remove multi-line sections
-            Case StartsWith(strTLine, "<od:tableProperty name=""NameMap"""), _
-                StartsWith(strTLine, "<od:tableProperty name=""GUID"""), _
-                StartsWith(strTLine, "<od:fieldProperty name=""GUID""")
-                If Options.AggressiveSanitize Then
-                    If EndsWith(strTLine, "></od:tableProperty>") Then
-                        lngLine = lngLine + 1
-                    Else
-                        Do While Not EndsWith(strTLine, "/>")
-                            lngLine = lngLine + 1
-                            If lngLine <= UBound(varLines) Then
-                                strTLine = TrimTabs(Trim$(varLines(lngLine)))
-                            Else
-                                strTLine = vbNullString
-                                Exit Do
-                            End If
-                        Loop
-                    End If
-                Else
-                    ' Keep line and continue
-                    cData.Add strLine
-                End If
-
-            ' Publish to web sections
-            Case StartsWith(strTLine, "<od:tableProperty name=""PublishToWeb""")
-                If Not Options.StripPublishOption Then cData.Add strLine
-
-            ' Keep everything else
-            Case Else
-                cData.Add strLine
-
-        End Select
-
-        ' Move to next line
-        lngLine = lngLine + 1
-    Loop
-
+    
     Perf.OperationEnd
 
     ' Write out sanitized XML file
-    WriteFile cData.GetStr, strPath
+    WriteFile FormatXML(objXml), strPath
+    
+'''    ' When exporting table data, the schema is only required when the table contains
+'''    ' a calculated field. See if we are working with a table data file, and if it
+'''    ' contains a calculated field.
+'''    lngData = InStr(1, strFile, "<dataroot xmlns:xsi=")
+'''    If lngData > 0 Then
+'''        ' Looks like a table data export file
+'''        Dim expr As Variant
+'''        Dim exprs As Variant
+'''
+'''        ' Search for any field data types such as calculated, complex (e.g. attachments or
+'''        ' multi-valued fields, binary fields that might require the schema to be retained
+'''        ' to ensure that the import work correctly)
+'''        exprs = Array(""" od:expression=""", """ od:jetType=""complex""", """ od:jetType=""oleobject""")
+'''        For Each expr In exprs
+'''            lngPos = InStr(1, strFile, expr)
+'''            If lngPos > 0 And lngPos < lngData Then
+'''                Exit For
+'''            End If
+'''        Next
+'''
+'''        If lngPos > 0 And lngPos < lngData Then
+'''            ' Keep the schema in the export file
+'''        Else
+'''            ' Trim off the schema, and just include the data.
+'''            ' Also remove the closing root tag from the end of the file.
+'''            lngLen = (Len(strFile) - lngData) - Len("</root>" & vbCrLf)
+'''            strFile = Mid(strFile, lngData, lngLen)
+'''        End If
+'''    End If
+'''
+'''    ' Split into array of lines
+'''    varLines = Split(FormatXML(strFile), vbCrLf)
+'''
+'''    ' Using a do loop since we may adjust the line counter
+'''    ' during a loop iteration.
+'''    Do While lngLine <= UBound(varLines)
+'''
+'''        ' Get unmodified and trimmed line
+'''        strLine = varLines(lngLine)
+'''        strTLine = TrimTabs(Trim$(strLine))
+'''
+'''        ' Look for specific lines
+'''        Select Case True
+'''
+'''            ' Discard blank lines
+'''            Case strTLine = vbNullString
+'''
+'''            ' Remove generated timestamp in header
+'''            Case StartsWith(strTLine, "<dataroot ")
+'''                '<dataroot xmlns:od="urn:schemas-microsoft-com:officedata" generated="2020-04-27T10:28:32">
+'''                '<dataroot generated="2021-04-29T17:27:33" xmlns:od="urn:schemas-microsoft-com:officedata">
+'''                With rxLine
+'''                    .Pattern = "( generated="".+?"")"
+'''                    If .Test(strLine) Then
+'''                        ' Replace timestamp with empty string.
+'''                        Set objMatches = .Execute(strLine)
+'''                        strText = Replace(strLine, objMatches(0).SubMatches(0), vbNullString, , 1)
+'''                        cData.Add strText
+'''                    Else
+'''                        ' Did not contain a timestamp. Keep the whole line
+'''                        cData.Add strLine
+'''                    End If
+'''                End With
+'''
+'''            ' Remove non-critical single lines that are not consistent between systems
+'''            'Case StartsWith(strTLine, "<od:tableProperty name=""NameMap""")
+'''            '    If Not Options.AggressiveSanitize Then cData.Add strLine
+'''
+'''            ' Remove multi-line sections
+'''            Case StartsWith(strTLine, "<od:tableProperty name=""NameMap"""), _
+'''                StartsWith(strTLine, "<od:tableProperty name=""GUID"""), _
+'''                StartsWith(strTLine, "<od:fieldProperty name=""GUID""")
+'''                If Options.AggressiveSanitize Then
+'''                    If EndsWith(strTLine, "></od:tableProperty>") Then
+'''                        lngLine = lngLine + 1
+'''                    Else
+'''                        Do While Not EndsWith(strTLine, "/>")
+'''                            lngLine = lngLine + 1
+'''                            If lngLine <= UBound(varLines) Then
+'''                                strTLine = TrimTabs(Trim$(varLines(lngLine)))
+'''                            Else
+'''                                strTLine = vbNullString
+'''                                Exit Do
+'''                            End If
+'''                        Loop
+'''                    End If
+'''                Else
+'''                    ' Keep line and continue
+'''                    cData.Add strLine
+'''                End If
+'''
+'''            ' Publish to web sections
+'''            Case StartsWith(strTLine, "<od:tableProperty name=""PublishToWeb""")
+'''                If Not Options.StripPublishOption Then cData.Add strLine
+'''
+'''            ' Keep everything else
+'''            Case Else
+'''                cData.Add strLine
+'''
+'''        End Select
+'''
+'''        ' Move to next line
+'''        lngLine = lngLine + 1
+'''    Loop
+'''
+'''    Perf.OperationEnd
+'''
+'''    ' Write out sanitized XML file
+'''    WriteFile cData.GetStr, strPath
 
     ' Return hash, if requested
     If blnReturnHash Then SanitizeXML = GetStringHash(cData.GetStr, True)
@@ -736,32 +780,30 @@ End Function
 ' Purpose   : Format XML content for consistent and readable output.
 '---------------------------------------------------------------------------------------
 '
-Private Function FormatXML(strSourceXML As String, _
-    Optional blnOmitDeclaration As Boolean) As String
+Private Function FormatXML( _
+    objInput As MSXML2.DOMDocument60, _
+    Optional blnOmitDeclaration As Boolean _
+) As String
 
     ' XSLT stylesheet that allow us to control indenting and also get a better indent result.
     ' For testing and adjusting, you can use https://www.online-toolz.com/tools/xslt-validator-tester-online.php
-    Const strIndentXslt As String = "<xsl:stylesheet xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" version=""1.0""><xsl:output method=""xml""/><xsl:template match=""@*""><xsl:copy/></xsl:template><xsl:template match=""text()""><xsl:value-of select=""normalize-space(.)"" /></xsl:template><xsl:template match=""*""><xsl:param name=""indent"" select=""''""/><xsl:text>&#xa;</xsl:text><xsl:value-of select=""$indent"" /><xsl:copy><xsl:apply-templates select=""@*|*|text()""><xsl:with-param name=""indent"" select=""concat($indent, '  ')""/></xsl:apply-templates></xsl:copy><xsl:if test=""count(../*)>0 and ../*[last()]=.""><xsl:text>&#xa;</xsl:text><xsl:value-of select=""substring($indent,3)"" /></xsl:if></xsl:template></xsl:stylesheet>"
+    Const strIndentXslt As String = "<xsl:stylesheet xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" version=""1.0""><xsl:output method=""xml""/><xsl:template match=""@*""><xsl:copy/></xsl:template><xsl:template match=""text()""><xsl:value-of select=""normalize-space(.)""/></xsl:template><xsl:template match=""*""><xsl:param name=""indent"" select=""''""/><xsl:text>&#xA;</xsl:text><xsl:value-of select=""$indent""/><xsl:copy><xsl:apply-templates select=""@*|*|text()""><xsl:with-param name=""indent"" select=""concat($indent, '  ')""/></xsl:apply-templates></xsl:copy><xsl:if test=""count(../*)&gt;0 and ../*[last()]=. and not(following-sibling::*)""><xsl:text>&#xA;</xsl:text><xsl:value-of select=""substring($indent,3)""/></xsl:if></xsl:template></xsl:stylesheet>"
     ' This constant has the `omit-xml-declaration="yes"` added to remove XML declarations.
-    Const strIndentXsltNoDeclarations As String = "<xsl:stylesheet xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" version=""1.0""><xsl:output method=""xml"" omit-xml-declaration=""yes""/><xsl:template match=""@*""><xsl:copy/></xsl:template><xsl:template match=""text()""><xsl:value-of select=""normalize-space(.)"" /></xsl:template><xsl:template match=""*""><xsl:param name=""indent"" select=""''""/><xsl:text>&#xa;</xsl:text><xsl:value-of select=""$indent"" /><xsl:copy><xsl:apply-templates select=""@*|*|text()""><xsl:with-param name=""indent"" select=""concat($indent, '  ')""/></xsl:apply-templates></xsl:copy><xsl:if test=""count(../*)>0 and ../*[last()]=.""><xsl:text>&#xa;</xsl:text><xsl:value-of select=""substring($indent,3)"" /></xsl:if></xsl:template></xsl:stylesheet>"
+    Const strIndentXsltNoDeclarations As String = "<xsl:stylesheet xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" version=""1.0""><xsl:output method=""xml"" omit-xml-declaration=""yes""/><xsl:template match=""@*""><xsl:copy/></xsl:template><xsl:template match=""text()""><xsl:value-of select=""normalize-space(.)""/></xsl:template><xsl:template match=""*""><xsl:param name=""indent"" select=""''""/><xsl:text>&#xA;</xsl:text><xsl:value-of select=""$indent""/><xsl:copy><xsl:apply-templates select=""@*|*|text()""><xsl:with-param name=""indent"" select=""concat($indent, '  ')""/></xsl:apply-templates></xsl:copy><xsl:if test=""count(../*)&gt;0 and ../*[last()]=. and not(following-sibling::*)""><xsl:text>&#xA;</xsl:text><xsl:value-of select=""substring($indent,3)""/></xsl:if></xsl:template></xsl:stylesheet>"
     
-    Dim objInput As MSXML2.DOMDocument60
     Dim objTransform As MSXML2.DOMDocument60
-    Dim objOutput As MSXML2.DOMDocument60
     
     Dim strOutput As String
 
     ' Skip processing if no content to format
-    If strSourceXML = vbNullString Then Exit Function
+    If objInput.ChildNodes.Length = 0 Then Exit Function
 
     Perf.OperationStart "Format XML"
 
     ' Trap any errors with parsing or formatting the XML
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    Set objInput = New MSXML2.DOMDocument60
     Set objTransform = New MSXML2.DOMDocument60
-    Set objOutput = New MSXML2.DOMDocument60
     
     ' Set up transform
     If blnOmitDeclaration Then
@@ -770,20 +812,18 @@ Private Function FormatXML(strSourceXML As String, _
         objTransform.LoadXML strIndentXslt
     End If
     
-    ' Set up DOM documents
-    objInput.LoadXML strSourceXML
-
-    ' Transform the input
-    objInput.transformNodeToObject objTransform, objOutput
-    strOutput = objOutput.XML
+    ' Transform the input; we don't want to use transformNodeToObject
+    ' because that would be defeated by MSXML reformatting when reading
+    ' from the XML property.
+    strOutput = objInput.transformNode(objTransform)
     
     ' Check for any errors parsing the XML
     If CatchAny(eelError, "Error parsing XML content", ModuleName & ".FormatXML") Then
         ' Fall back to input XML
-        strOutput = strSourceXML
+        strOutput = objInput.XML
         ' Output XML to log file
         Log.Spacer False
-        Log.Add strSourceXML, False
+        Log.Add objInput.XML, False
         Log.Spacer False
     End If
 
@@ -794,43 +834,4 @@ Private Function FormatXML(strSourceXML As String, _
 End Function
 
 
-'---------------------------------------------------------------------------------------
-' Procedure : CustomIndent
-' Author    : Adam Waller
-' Date      : 2/16/2022
-' Purpose   : Convert tabbed indents to two spaces for more compact display
-'---------------------------------------------------------------------------------------
-'
-Private Function CustomIndent(strText As String, Optional intSpaces As Integer = 2) As String
-
-    Dim lngLine As Long
-    Dim varLines As Variant
-    Dim strLine As String
-    Dim lngPos As Long
-
-    ' Split content into lines
-    varLines = Split(strText, vbCrLf)
-
-    ' Rebuild while converting tabs to
-    With New clsConcat
-        .AppendOnAdd = vbCrLf
-
-        ' Loop through lines
-        For lngLine = 0 To UBound(varLines)
-            strLine = varLines(lngLine)
-            For lngPos = 1 To Len(strLine)
-                If Mid$(strLine, lngPos, 1) <> vbTab Then
-                    ' Replace any leading tabs with space indent
-                    .Add Space$(intSpaces * (lngPos - 1)), Mid$(strLine, lngPos)
-                    Exit For
-                End If
-            Next lngPos
-        Next lngLine
-
-        ' Return result after trimming off last return
-        If lngLine > 0 Then .Remove 2
-        CustomIndent = .GetStr
-    End With
-
-End Function
 
