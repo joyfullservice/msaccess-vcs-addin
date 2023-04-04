@@ -9,6 +9,43 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+Private Const KEYEVENTF_EXTENDEDKEY = &H1
+Private Const KEYEVENTF_KEYUP = &H2
+Private Const VK_SHIFT = &H10
+
+Private Declare PtrSafe Function SetFocus _
+Lib "user32" ( _
+    ByVal hwnd As LongPtr _
+) As LongPtr
+
+Private Declare PtrSafe Function SetKeyboardState _
+Lib "user32" ( _
+    lppbKeyState As Any _
+) As Long
+    
+Private Declare PtrSafe Function GetKeyboardState _
+Lib "user32" ( _
+    pbKeyState As Any _
+) As Long
+
+Private Declare PtrSafe Function GetWindowThreadProcessId _
+Lib "user32" ( _
+    ByVal hwnd As LongPtr, _
+    ByRef lpdwProcessId As LongPtr _
+) As Long
+
+Private Declare PtrSafe Function AttachThreadInput _
+Lib "user32" ( _
+    ByVal idAttach As Long, _
+    ByVal idAttachTo As Long, _
+    ByVal fAttach As Long _
+) As Long
+
+Private Declare PtrSafe Function SetForegroundWindow _
+Lib "user32" ( _
+    ByVal hwnd As LongPtr _
+) As Long
+
 Private Const ModuleName = "modVCSUtility"
 
 
@@ -35,6 +72,10 @@ Public Function GetContainers(Optional intFilter As eContainerFilter = ecfAllObj
 
             ' Primary case for processing all objects
             Case ecfAllObjects
+                If blnMDB Then
+                    ' Handle the connections early as possible but only for MDB formats
+                    .Add New clsDbConnection
+                End If
 
                 ' Shared objects in both MDB and ADP formats
                 .Add New clsDbProject
@@ -663,3 +704,65 @@ Public Sub CheckGitFiles()
     End If
 
 End Sub
+
+'---------------------------------------------------------------------------------------
+' Procedure : ShiftOpenDatabase
+' Author    : Adam Waller
+' Date      : 2/25/2022
+' Purpose   : Open a database with the shift key held down so we can (hopefully)
+'           : bypass the startup code.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain As Form_frmVCSMain)
+
+    ' Skip open if we are already on the correct database
+    If CurrentProject.FullName = strPath And Not blnExclusive Then Exit Sub
+
+    ' Close any open database before we try to open another one.
+    If DatabaseFileOpen Then
+        StageMainForm
+        Set frmMain = Nothing
+        CloseCurrentDatabase2
+        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+        Set frmMain = Form_frmVCSMain
+        RestoreMainForm
+    End If
+
+    On Error GoTo Error_Handler
+    
+    Dim abytCodesSrc(0 To 255) As Byte
+    Dim abytCodesDest(0 To 255) As Byte
+
+    If (FSO.FileExists(strPath) = False) Then
+        Err.Raise 53
+    End If
+
+    SetForegroundWindow Application.hWndAccessApp
+    SetFocus Application.hWndAccessApp
+    
+    ' Set Shift state
+    GetKeyboardState abytCodesSrc(0)
+    GetKeyboardState abytCodesDest(0)
+    abytCodesDest(VK_SHIFT) = 128
+    SetKeyboardState abytCodesDest(0)
+
+    ' Open the database with shift key down
+    Application.OpenCurrentDatabase strPath, blnExclusive
+    
+    ' Revert back keyboard state and restore focus
+    SetKeyboardState abytCodesSrc(0)
+    SetForegroundWindow Application.hWndAccessApp
+    SetFocus Application.hWndAccessApp
+    
+    Exit Sub
+
+Error_Handler:
+    SetForegroundWindow Application.hWndAccessApp
+    
+    With Err
+        .Raise .Number, .Source, .Description, .HelpFile, .HelpContext
+    End With
+End Sub
+
+
+

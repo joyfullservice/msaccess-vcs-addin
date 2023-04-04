@@ -9,15 +9,6 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
-
-' API call to press shift key while opening the database to disable startup code
-' Need to use the keybd event call, not SetKeyboardState in order to support modern OS versions.
-Private Const KEYEVENTF_EXTENDEDKEY = &H1
-Private Const KEYEVENTF_KEYUP = &H2
-Private Const VK_SHIFT = &H10
-Private Declare PtrSafe Sub keybd_event Lib "user32" (ByVal bteVK As Byte, ByVal bteScan As Byte, ByVal dwFlags As Long, ByVal dwExtraInfo As Long)
-
-
 '---------------------------------------------------------------------------------------
 ' Procedure : LocalizeLibraryReferences
 ' Author    : Adam Waller
@@ -260,44 +251,4 @@ Private Sub FixReferences(dProject As Dictionary)
     Next varItem
 
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ShiftOpenDatabase
-' Author    : Adam Waller
-' Date      : 2/25/2022
-' Purpose   : Open a database with the shift key held down so we can (hopefully)
-'           : bypass the startup code.
-'---------------------------------------------------------------------------------------
-'
-Private Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain As Form_frmVCSMain)
-
-    ' Skip open if we are already on the correct database
-    If CurrentProject.FullName = strPath And Not blnExclusive Then Exit Sub
-
-    ' Close any open database before we try to open another one.
-    If DatabaseFileOpen Then
-        StageMainForm
-        Set frmMain = Nothing
-        CloseCurrentDatabase2
-        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-        Set frmMain = Form_frmVCSMain
-        RestoreMainForm
-    End If
-
-    ' Hold shift key down to bypass startup macro/form.
-    keybd_event VK_SHIFT, &H45, KEYEVENTF_EXTENDEDKEY Or 0, 0
-
-    ' Very important! Make sure the shift key actually goes down before opening the file.
-    Pause 0.5
-
-    ' Open the database
-    OpenCurrentDatabase strPath, blnExclusive
-
-    ' Restore the shift key
-    keybd_event VK_SHIFT, &H45, KEYEVENTF_EXTENDEDKEY Or KEYEVENTF_KEYUP, 0
-    DoEvents
-
-End Sub
-
 

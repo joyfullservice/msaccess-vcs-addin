@@ -76,6 +76,7 @@ Public Enum eDatabaseComponentType
     edbVbeProject
     edbVbeReference
     edbProject
+    edbConnection
 End Enum
 
 ' Error levels used for logging and monitoring the status
