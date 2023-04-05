@@ -40,18 +40,17 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strFile As String
     Dim dbs As Database
-    Dim tbl As DAO.TableDef
+    Dim tdf As DAO.TableDef
     Dim idx As DAO.Index
     Dim dItem As Dictionary
     Dim strHash As String
     Dim strContent As String
 
-    Set dbs = CurrentDb
-    Set tbl = dbs.TableDefs(m_Table.Name)
+    ' Get the export file name
     strFile = Nz2(strAlternatePath, IDbComponent_SourceFile)
 
     ' For internal tables, we can export them as XML.
-    If tbl.Connect = vbNullString Then
+    If Not IsLinkedTable Then
 
         ' Save structure in XML format
         VerifyPath strFile
@@ -65,15 +64,18 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Else
         ' Linked table - Save as JSON
+        Set dbs = CurrentDb
+        Set tdf = dbs.TableDefs(m_Table.Name)
+        
         Set dItem = New Dictionary
         With dItem
-            .Add "Name", tbl.Name
-            .Add "Connect", SanitizeConnectionString(tbl.Connect)
-            .Add "SourceTableName", tbl.SourceTableName
-            .Add "Attributes", tbl.Attributes
+            .Add "Name", m_Table.Name
+            .Add "Connect", SanitizeConnectionString(tdf.Connect)
+            .Add "SourceTableName", tdf.SourceTableName
+            .Add "Attributes", tdf.Attributes
             ' indexes (Find primary key)
-            If IndexAvailable(tbl) Then
-                For Each idx In tbl.Indexes
+            If IndexAvailable(tdf) Then
+                For Each idx In tdf.Indexes
                     If idx.Primary Then
                         ' Add the primary key columns, using brackets just in case the field names have spaces.
                         .Add "PrimaryKey", "[" & MultiReplace(CStr(idx.Fields), "+", vbNullString, ";", "], [") & "]"
@@ -183,7 +185,7 @@ End Sub
 '
 Private Sub RemoveAlternateFormatSourceFile()
     Dim strAltFile As String
-    strAltFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, Not IsLinked)
+    strAltFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, Not IsLinkedTable)
     If FSO.FileExists(strAltFile) Then DeleteFile strAltFile
 End Sub
 
@@ -517,7 +519,6 @@ Private Function SafeAttributes(lngAttributes As Long) As Long
 End Function
 
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : HasUniqueIndex
 ' Author    : Adam Waller
@@ -563,20 +564,19 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
 
-    Dim tdf As TableDef
+    Dim tdf As AccessObject
     Dim cTable As IDbComponent
     Dim blnAdd As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
-        Set m_Dbs = CurrentDb
-        For Each tdf In m_Dbs.TableDefs
+        For Each tdf In CurrentData.AllTables
             If tdf.Name Like "MSys*" Or tdf.Name Like "~*" Then
                 ' Skip system and temporary tables
             Else
                 Set cTable = New clsDbTableDef
-                Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
+                Set cTable.DbObject = tdf
                 blnAdd = True
                 If blnModifiedOnly Then blnAdd = cTable.IsModified
                 If blnAdd Then m_Items(blnModifiedOnly).Add cTable.SourceFile, cTable
@@ -719,20 +719,58 @@ End Property
 '
 Private Property Get IDbComponent_SourceFile() As String
     If m_Table Is Nothing Then Exit Property
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, IsLinked)
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, IsLinkedTable)
 End Property
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : IsLinked
+' Procedure : IsLinkedTable
 ' Author    : Adam Waller
 ' Date      : 2/12/2022
 ' Purpose   : Returns true if this table is a linked table
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IsLinked() As Boolean
+Private Property Get IsLinkedTable() As Boolean
+    
+    ' Cache the value to save lookups
+    Static lngType As Long
+    
+    Dim dbs As Database
+    Dim rst As Recordset
+    
+    ' Nothing to check if we don't have a table name
     If m_Table Is Nothing Then Exit Property
-    IsLinked = CurrentDb.TableDefs(m_Table.Name).Connect <> vbNullString
+    
+    ' Use cached value if possible
+    If lngType > 0 Then
+        IsLinkedTable = (lngType <> 1)
+        Exit Property
+    End If
+    
+    Perf.OperationStart "Check for linked table"
+    
+    ' This is the simple way to check for a linked table, but it is not very performant
+    ' when called hundreds of times while scanning tables for changes.
+    'IsLinkedTable = CurrentDb.TableDefs(m_Table.Name).Connect <> vbNullString
+    
+    ' A faster way is to read the object type from MSysObjects
+    Set dbs = CurrentDb
+    Set rst = dbs.OpenRecordset( _
+        "select Type from MSysObjects" & _
+        " where name =""" & m_Table.Name & """" & _
+        " and Type in(1,4,6)", _
+        dbOpenDynaset, dbReadOnly)
+    ' Read the table type from the system objects record.
+    lngType = Nz(rst!Type, 1)
+    rst.Close
+    Set rst = Nothing
+    Set dbs = Nothing
+    
+    ' A value of 1 means a local Access table. Any other value
+    ' is almost certainly a linked table of some type. (ODBC, Excel, etc)
+    IsLinkedTable = (lngType <> 1)
+    Perf.OperationEnd
+    
 End Property
 
 
@@ -844,4 +882,3 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-
