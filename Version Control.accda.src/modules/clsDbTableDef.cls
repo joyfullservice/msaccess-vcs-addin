@@ -101,6 +101,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         ' Optionally save in SQL format
         If Options.SaveTableSQL Then
             Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
+            If dbs Is Nothing Then
+                Set dbs = CurrentDb
+            End If
             SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder
         End If
     End If
@@ -882,3 +885,5 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
+
