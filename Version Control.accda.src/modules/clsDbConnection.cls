@@ -132,8 +132,27 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
             End If
         Next
         For Each qdf In .QueryDefs
-            If StartsWith(qdf.Connect, "ODBC;", vbTextCompare) Then
-                cConnection.ParseOdbcConnectionString qdf.Connect
+            ' We have to handle two possible scenarios:
+            ' 1. Sometimes a certain querydef will throw an unrelated error when trying to load
+            '    querydef by accessing one of its properties for the first time. In this case,
+            '    we simply retry and we are usually able to read the properties of the querydef.
+            ' 2. Sometimes the querydef is simply unusable and will always throw errors when
+            '    trying to read the property. We should just skip over them and hope for the best.
+            Dim strQdfConnect As String
+            On Error Resume Next
+            strQdfConnect = qdf.Connect
+            If Err.Number Then
+                Err.Clear
+                strQdfConnect = qdf.Connect
+                If Err.Number Then
+                    ' Even though we cannot read the Connect property, Name property should be always available.
+                    CatchAny eelWarning, "Unable to read the Connect property for query '" & qdf.Name & "'. Error " & Err.Number & ": " & Err.Description, ModuleName(Me) & ".GetDictionary"
+                    strQdfConnect = vbNullString
+                End If
+            End If
+            On Error GoTo 0
+            If StartsWith(strQdfConnect, "ODBC;", vbTextCompare) Then
+                cConnection.ParseOdbcConnectionString strQdfConnect
                 AddOdbcConnectionString GetDictionary, cConnection, qdf.Name
             End If
         Next
@@ -460,5 +479,7 @@ End Sub
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
+
 
 
