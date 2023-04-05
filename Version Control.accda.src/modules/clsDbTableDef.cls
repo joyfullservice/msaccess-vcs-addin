@@ -20,7 +20,6 @@ Option Explicit
 Private m_Table As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
-Private m_Dbs As Database
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -101,7 +100,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         ' Optionally save in SQL format
         If Options.SaveTableSQL Then
             Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
-            SaveTableSqlDef dbs, m_Table.Name, IDbComponent_BaseFolder
+            SaveTableSqlDef m_Table.Name, IDbComponent_BaseFolder
         End If
     End If
 
@@ -198,16 +197,19 @@ End Sub
 '           : (Makes it easier to see table changes in version control systems.)
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveTableSqlDef(dbs As DAO.Database, strTable As String, strFolder As String)
+Public Sub SaveTableSqlDef(strTable As String, strFolder As String)
 
     Dim cData As New clsConcat
     Dim cAttr As New clsConcat
     Dim idx As DAO.Index
     Dim fld As DAO.Field
     Dim strFile As String
+    Dim dbs As DAO.Database
     Dim tdf As DAO.TableDef
 
     Perf.OperationStart "Save Table SQL"
+    
+    Set dbs = CurrentDb
     Set tdf = dbs.TableDefs(strTable)
 
     With cData
