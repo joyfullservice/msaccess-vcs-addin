@@ -51,7 +51,14 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             Perf.OperationStart "Save Query SQL"
             Set dbs = CurrentDb
             strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
+            On Error Resume Next
             WriteFile dbs.QueryDefs(m_Query.Name).SQL, strFile
+            If Catch(3258) Then
+                Log.Error eelWarning, "Unable to access SQL property of query '" & m_Query.Name & "'. SQL view may not be available for this query.", ModuleName(Me) & ".Export"
+            ElseIf Err.Number Then
+                Log.Error eelError, "Unexpected error accessing SQL property of query '" & m_Query.Name & "'. Error " & Err.Number & ": " & Err.Description, ModuleName(Me) & ".Export"
+            End If
+            On Error GoTo 0
             Perf.OperationEnd
             Log.Add "  " & m_Query.Name & " (SQL)", Options.ShowDebug
         End If
@@ -397,3 +404,4 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+

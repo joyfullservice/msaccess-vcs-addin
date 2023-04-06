@@ -152,7 +152,6 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
 
                 ' Beginning of main section
                 Case "Begin"
-                    BeginBlock
                     If blnIsPassThroughQuery And Options.AggressiveSanitize Then
                         ' Ignore remaining content. (See Issue #182)
                         Do While lngLine < UBound(varLines)
@@ -160,8 +159,10 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                             lngLine = lngLine + 1
                         Loop
                         Exit Do
+                    Else
+                        BeginBlock
                     End If
-
+                    
                 ' Code section behind form or report object
                 Case "CodeBehindForm"
                     ' Keep everything from this point on
@@ -222,11 +223,13 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
     Loop
 
     ' Ensure that we correctly processed the nested block sequence.
-    If m_colBlocks.Count > 0 Then Log.Error eelWarning, Replace(Replace( _
+    If m_colBlocks.Count > 0 Then
+        Log.Error eelWarning, Replace(Replace( _
         "Found ${BlockCount} unclosed blocks after sanitizing ${File}.", _
         "${BlockCount}", m_colBlocks.Count), _
         "${File}", strPath), ModuleName & ".SanitizeFile"
-
+    End If
+    
 Build_Output:
     ' Build the final output
     strContent = BuildOutput(varLines)
@@ -730,4 +733,6 @@ Private Function FormatXML( _
     FormatXML = strOutput
 
 End Function
+
+
 

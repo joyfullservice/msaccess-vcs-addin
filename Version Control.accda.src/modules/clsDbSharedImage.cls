@@ -449,7 +449,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         If TableExists("MSysResources") Then
 
             Set m_Dbs = CurrentDb
-            strSql = "SELECT * FROM MSysResources WHERE Type='img'"
+            ' We will use an explicit ordering because it can potentially contain duplicate entries due to the fact
+            ' that the Name column is not unique or a primary key. Any duplicate images are useless and will be
+            ' skipped but to ensure we provide a consistent result, we need to make sure we keep the image with the
+            ' lowest ID and discard any duplicate images with a higher Id.
+            strSql = "SELECT * FROM MSysResources WHERE Type='img' ORDER BY Id;"
             Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
             With rst
                 Do While Not .EOF
@@ -458,7 +462,14 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     Set cImg.DbObject = rst
                     blnAdd = True
                     If blnModifiedOnly Then blnAdd = cImg.IsModified
-                    If blnAdd Then m_Items(blnModifiedOnly).Add cImg.SourceFile, cImg
+                    If blnAdd Then
+                        If m_Items(blnModifiedOnly).Exists(cImg.SourceFile) Then
+                            ' This is a duplicate image. We won't add it to the list but we need to issue a warning in log.
+                            Log.Error eelWarning, "Duplicate record found for '" & cImg.Name & "' at ID " & rst.Fields("ID").Value & ". This record will not be exported as this is likely an error and not available for use via Access.", ModuleName(Me) & ".GetAllFromDB"
+                        Else
+                            m_Items(blnModifiedOnly).Add cImg.SourceFile, cImg
+                        End If
+                    End If
                     .MoveNext
                 Loop
                 .Close
@@ -746,4 +757,6 @@ End Property
 Private Sub Class_Terminate()
     Set m_Dbs = Nothing
 End Sub
+
+
 
