@@ -40,7 +40,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strFile As String
     Dim dbs As Database
     Dim tdf As DAO.TableDef
-    Dim idx As DAO.index
+    Dim idx As DAO.Index
     Dim dItem As Dictionary
     Dim strHash As String
     Dim strContent As String
@@ -201,7 +201,7 @@ Public Sub SaveTableSqlDef(strTable As String, strFolder As String)
 
     Dim cData As New clsConcat
     Dim cAttr As New clsConcat
-    Dim idx As DAO.index
+    Dim idx As DAO.Index
     Dim fld As DAO.Field
     Dim strFile As String
     Dim dbs As DAO.Database
@@ -530,7 +530,7 @@ End Function
 '
 Private Function HasUniqueIndex(tdf As TableDef) As Boolean
 
-    Dim idx As DAO.index
+    Dim idx As DAO.Index
 
     If IndexAvailable(tdf) Then
         For Each idx In tdf.Indexes
