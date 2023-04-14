@@ -185,11 +185,31 @@ End Property
 '---------------------------------------------------------------------------------------
 ' Procedure : DebugMode
 ' Author    : Adam Waller
-' Date      : 3/9/2021
+' Date      : 4/14/2023
 ' Purpose   : Wrapper for use in error handling.
 '---------------------------------------------------------------------------------------
 '
 Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
+
+    ' Log any unhandled errors
+    If blnTrapUnhandledErrors Then LogUnhandledErrors
+    
+    ' Don't reference the property this till we have loaded the options.
+    If Not m_Options Is Nothing Then DebugMode = m_Options.BreakOnError
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogUnhandledErrors
+' Author    : Adam Waller
+' Date      : 4/14/2023
+' Purpose   : Log any unhandled error condition, also breaking code execution if that
+'           : option is currently set. (Run this before any ON ERROR directive which
+'           : will siently reset any current VBA error condition.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub LogUnhandledErrors()
 
     Static blnInError As Boolean
     Dim blnBreak As Boolean
@@ -198,7 +218,7 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
     If Not m_Options Is Nothing Then blnBreak = m_Options.BreakOnError
 
     ' Check for any unhandled errors
-    If (Err.Number <> 0) And blnTrapUnhandledErrors And Not blnInError Then
+    If (Err.Number <> 0) And Not blnInError Then
 
         ' Check current BreakOnError mode
         If blnBreak Then
@@ -233,15 +253,11 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
                 blnInError = True
                 ' We don't know the procedure that it originated from, but we should at least
                 ' log that the error occurred. A review of the log file may help identify the source.
-                Log.Error eelError, "Unhandled error found before `On Error` directive", "Unknown"
+                Log.Error eelError, "Unhandled error, likely before `On Error` directive", "Unknown"
                 blnInError = False
             End If
         End If
-
     End If
-
-    ' Return debug mode
-    DebugMode = blnBreak
-
-End Function
+    
+End Sub
 
