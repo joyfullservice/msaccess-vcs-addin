@@ -137,6 +137,8 @@ Public Function InstallVCSAddin() As Boolean
         RegisterMenuItem "&VCS Export All Source", "=AddInMenuItemExport()"
         ' Update installed version number
         InstalledVersion = AppVersion
+        ' Warn the user if ActiveX is disabled
+        VerifyActivexNotDisabled
         ' Return success
         InstallVCSAddin = True
     End If
@@ -204,7 +206,6 @@ Public Function UninstallVCSAddin() As Boolean
     End If
 
 End Function
-
 
 
 '---------------------------------------------------------------------------------------
@@ -793,6 +794,79 @@ Public Sub OpenAddinFile(strAddinFileName As String, _
     Shell strScriptFile, vbNormalFocus
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyActivexNotDisabled
+' Author    : Adam Waller
+' Date      : 4/14/2023
+' Purpose   : Verify that ActiveX has not been disabled in the registry, and warn the
+'           : user that the add-in may not be able to build from source without this.
+'---------------------------------------------------------------------------------------
+'
+Public Sub VerifyActivexNotDisabled()
+    If IsActivexDisabled Then
+        MsgBox2 "ActiveX Disabled", "WARNING: ActiveX appears to be disabled in the " & _
+            "Microsoft Office Trust Center settings, or by a Group Policy setting. " & _
+            "Microsoft Access uses ActiveX when importing content from XML, so some features " & _
+            "of this add-in, such as building from source may not work " & _
+            "correctly without enabling ActiveX.", _
+            "You may need to review the ActiveX security settings  with your IT Department " & _
+            "or system administrator to determine the appropriate setting for your system.", vbExclamation
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsActivexDisabled
+' Author    : Adam Waller
+' Date      : 4/14/2023
+' Purpose   : Returns true if ActiveX appears to be enabled on the current system.
+'           : (ActiveX is required to import XML files, such as table definitions when
+'           :  building a database from source.) See issue #396
+'---------------------------------------------------------------------------------------
+'
+Private Function IsActivexDisabled() As Boolean
+    IsActivexDisabled = Not ( _
+        CheckRegKey("HKCU\SOFTWARE\Policies\Microsoft\Office\common\security\disableallactivex", 0, Null) And _
+        CheckRegKey("HKCU\SOFTWARE\Microsoft\Office\Common\Security\disableallactivex", 0, Null) And _
+        CheckRegKey("HKCU\SOFTWARE\Policies\Microsoft\Office\" & Application.Version & "\Common\com categories\checkofficeactivex", 0, 1, Null) And _
+        CheckRegKey("HKCU\SOFTWARE\Microsoft\Office\" & Application.Version & "\Common\com categories\checkofficeactivex", 0, 1, Null))
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckRegKey
+' Author    : Adam Waller
+' Date      : 4/14/2023
+' Purpose   : Check a registry key for specific allowed values, (including null)
+'---------------------------------------------------------------------------------------
+'
+Private Function CheckRegKey(strPath As String, ParamArray AllowedValues() As Variant) As Boolean
+    
+    Dim varValue As Variant
+    Dim intCnt As Integer
+    
+    LogUnhandledErrors
+    On Error Resume Next
+    
+    ' Attempt to read registry key
+    With New IWshRuntimeLibrary.WshShell
+        varValue = .RegRead(strPath)
+        ' A file not found error means the key did not exist.
+        If Catch(-2147024894) Then varValue = Null
+    End With
+    
+    ' Compare to array of allowed values
+    For intCnt = 0 To UBound(AllowedValues)
+        If varValue = AllowedValues(intCnt) Or _
+            (IsNull(varValue) And IsNull(AllowedValues(intCnt))) Then
+            CheckRegKey = True
+            Exit For
+        End If
+    Next intCnt
+        
+End Function
 
 
 '---------------------------------------------------------------------------------------

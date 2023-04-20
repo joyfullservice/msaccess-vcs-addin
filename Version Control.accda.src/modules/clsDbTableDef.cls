@@ -130,6 +130,10 @@ Private Sub IDbComponent_Import(strFile As String)
             If Not ImportLinkedTable(strFile) Then Exit Sub
 
         Case "xml"
+            ' Watch out for errors when importing XML
+            LogUnhandledErrors
+            On Error Resume Next
+            
             ' The ImportXML function does not properly handle UrlEncoded paths
             blnUseTemp = (InStr(1, strFile, "%") > 0)
             If blnUseTemp Then
@@ -141,7 +145,17 @@ Private Sub IDbComponent_Import(strFile As String)
             Else
                 Application.ImportXML strFile, acStructureOnly
             End If
-
+            
+            ' Importing XML can throw an error if ActiveX security is too restrictive.
+            If Catch(31521) Then
+                Log.Error eelError, "ActiveX security settings blocked the import of " & _
+                "table definition XML file: " & FSO.GetFileName(strFile) & ".", ModuleName(Me) & ".Import"
+                Log.Add "Importing XML files requires ActiveX to be enabled."
+            Else
+                ' Log any other error.
+                CatchAny eelError, "Unable to import XML for " & FSO.GetFileName(strFile), ModuleName(Me) & ".Import"
+            End If
+            
         Case Else
             ' Unsupported file
             Exit Sub

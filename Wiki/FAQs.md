@@ -6,7 +6,7 @@
 On this page you will find answers and guidance relating to common questions that come up when using this add-in.
 
 ## Is there a way to use a ribbon with this add-in?
-We would love to use a custom ribbon to make the controls and features of this add-in more intuitive, but thus far I have been unable to create a working com add-in for Microsoft Access. See [issue #34](https://github.com/joyfullservice/msaccess-vcs-integration/issues/34) for more details.
+Yes! Version 4.x includes a ribbon toolbar created through a twinBASIC COM add-in. The source code for the ribbon, as well as the XML definition file is included in this project. The ribbon and related files are currently on the `dev` branch until the official release of version 4.
 
 ## Why are some issues/ideas considered out of scope for this project?
 This is described in more detail on [Project-Scope](Project-Scope).
