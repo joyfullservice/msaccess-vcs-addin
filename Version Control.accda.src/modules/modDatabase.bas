@@ -416,11 +416,11 @@ Public Function GetParentContainer(intType As AcObjectType, Optional blnInCodeDb
 
     ' Set the host objects
     If blnInCodeDb Then
-        Set objHostData = CurrentData
-        Set objHostProject = CurrentProject
-    Else
         Set objHostData = CodeData
         Set objHostProject = CodeProject
+    Else
+        Set objHostData = CurrentData
+        Set objHostProject = CurrentProject
     End If
 
     ' Return the associated parent container
