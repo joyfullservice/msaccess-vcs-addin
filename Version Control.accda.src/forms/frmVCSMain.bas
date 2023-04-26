@@ -16,10 +16,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =32
-    Left =-25575
-    Top =1500
-    Right =-255
-    Bottom =14085
+    Left =3225
+    Top =2430
+    Right =18945
+    Bottom =14175
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1738,6 +1738,9 @@ Option Explicit
 ' This property can be set to export or merge a specific subset of containers
 Public intContainerFilter As eContainerFilter
 
+' Used for exporting or loading a single object
+Public objSingleObject As AccessObject
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdBuild_Click
@@ -1766,7 +1769,7 @@ Public Sub cmdBuild_Click()
     ' Close the current database if it is currently open.
     If DatabaseFileOpen Then
         If FolderHasVcsOptionsFile(Options.GetExportFolder) Then
-            strMsg(0) = "Build " & GetVBProjectForCurrentDB.Name & " (" & CurrentProject.Name & ") from source?"
+            strMsg(0) = "Build " & CurrentVBProject.Name & " (" & CurrentProject.Name & ") from source?"
             strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
                 "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)"
             strMsg(2) = "Click 'No' to select another project, or 'Cancel' to go back to the previous screen."
@@ -1815,7 +1818,7 @@ Public Sub cmdBuild_Click()
     ' Build project using the selected source folder
     ' (Use a timer so we can release the reference to this form before beginning the
     '  build process, just in case we need to import a form with the same name.)
-    If strFolder <> vbNullString Then SetTimer roBuildFromSource, strFolder, chkFullBuild
+    If strFolder <> vbNullString Then SetTimer "Build", strFolder, chkFullBuild
     
 End Sub
 
@@ -1827,8 +1830,10 @@ End Sub
 ' Purpose   : Show the GUI for building the database from source.
 '---------------------------------------------------------------------------------------
 '
-Public Sub StartBuild()
+Public Sub StartBuild(blnFullBuild As Boolean)
 
+    Dim strType As String
+    
     cmdClose.SetFocus
     HideActionButtons
     DoEvents
@@ -1841,7 +1846,9 @@ Public Sub StartBuild()
     Me.Visible = True
     
     ' Show the status
-    SetStatusText "Running...", "Building From Source", "A summary of the build progress can be seen on this screen, and additional details are included in the log file."
+    strType = IIf(blnFullBuild, "Building", "Merging")
+    SetStatusText "Running...", strType & " From Source", _
+        "A summary of the build progress can be seen on this screen, and additional details are included in the log file."
     
 End Sub
 
@@ -1863,7 +1870,8 @@ Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "B
     ' Display final UI messages.
     Log.Flush
     strType = IIf(blnFullBuild, "Build", "Merge")
-    SetStatusText "Finished", strType & " Complete", "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
+    SetStatusText "Finished", strType & " Complete", _
+        "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
     lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     
 End Sub
@@ -1921,8 +1929,14 @@ Public Sub cmdExport_Click()
     ' Show the status
     SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
     
-    ' Export the source code using the specified filter.
-    modImportExport.ExportSource chkFullExport, Me.intContainerFilter
+    ' See if we are exporting a single object, or everything.
+    If Me.objSingleObject Is Nothing Then
+        ' Export the source code using the specified filter.
+        modImportExport.ExportSource chkFullExport, Me.intContainerFilter
+    Else
+        modImportExport.ExportSingleObject Me.objSingleObject
+    End If
+    
     ' Turn on scroll bars in case the user wants to scroll back through the log.
     txtLog.ScrollBars = 2
     Log.Flush

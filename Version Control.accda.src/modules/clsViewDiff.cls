@@ -13,11 +13,8 @@ Attribute VB_Exposed = False
 ' Date      : 2/23/2022
 ' Purpose   : Tools for comparing files using 3rd party diff applications
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Explicit
-
-Private Const ModuleName As String = "clsViewDiff"
 
 ' Set this to true to keep the temp files instead
 ' of automatically cleaning them up at the completion
@@ -88,7 +85,7 @@ End Sub
 Private Function WriteTemp(strContent As String) As String
 
     Dim strFile As String
-    
+
     ' Just in case...
     If m_colTempFiles Is Nothing Then Set m_colTempFiles = New Collection
 
@@ -96,7 +93,7 @@ Private Function WriteTemp(strContent As String) As String
     strFile = GetTempFile
     WriteFile strContent, strFile
     m_colTempFiles.Add strFile
-    
+
     ' Return path of temp file
     WriteTemp = strFile
 
@@ -141,7 +138,7 @@ End Property
 Public Sub ClearTempFiles()
 
     Dim varFile As Variant
-    
+
     If Not m_colTempFiles Is Nothing Then
         If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
         For Each varFile In m_colTempFiles
@@ -149,7 +146,7 @@ Public Sub ClearTempFiles()
         Next varFile
         CatchAny eelNoError, vbNullString
     End If
-    
+
 End Sub
 
 
@@ -161,26 +158,30 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub RunCompare(strFile1 As String, strFile2 As String)
-    
+
     Dim strCmd As String
 
     Select Case Me.ToolName
-    
+
         Case vbNullString
             ' No tool defined
-            
+            MsgBox2 "No Diff Tool Specified", _
+                "Please specify a diff tool to use for file comparison.", _
+                "This setting may be changed in the add-in options.", vbExclamation
+            Exit Sub
+
         Case "WinMerge"
             strCmd = "WinMerge """ & strFile1 & """ """ & strFile2 & """"
-        
+
         Case "VSCode"
             strCmd = VSCodePath
             If strCmd = vbNullString Then strCmd = "code"
             strCmd = strCmd & " --diff """ & strFile1 & """ """ & strFile2 & """"
-        
+
         Case Else
             ' Assume they have a custom path defined
             strCmd = Me.ToolName & " """ & strFile1 & """ """ & strFile2 & """"
-        
+
     End Select
 
     ' Run command to launch compare
@@ -190,9 +191,9 @@ Private Sub RunCompare(strFile1 As String, strFile2 As String)
             .Run strCmd
         End With
     End If
-    If Catch(-2147024894) Then Log.Error eelError, "Unable to run '" & Me.ToolName & "' to compare files", ModuleName & ".RunCompare"
-    CatchAny eelError, "Unable to compare files: " & strCmd, ModuleName & ".RunCompare"
-    
+    If Catch(-2147024894) Then Log.Error eelError, "Unable to run '" & Me.ToolName & "' to compare files", ModuleName(Me) & ".RunCompare"
+    CatchAny eelError, "Unable to compare files: " & strCmd, ModuleName(Me) & ".RunCompare"
+
 End Sub
 
 
@@ -222,11 +223,11 @@ Private Function HasValidCompareTool() As Boolean
 
     ' Check the current option for compare tool.
     Select Case Me.ToolName
-    
+
         Case "WinMerge", "VSCode"
             ' These tools probably exist in the environment path
             HasValidCompareTool = True
-            
+
         Case Else
             ' No tool selected.
     End Select

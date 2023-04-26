@@ -20,7 +20,6 @@ Attribute VB_Exposed = False
 '           : microsecond level. For additional details, see the following link:
 '           : http://www.mendipdatasystems.co.uk/timer-comparison-tests/4594552971
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Explicit
 
@@ -89,7 +88,7 @@ Public Property Get CallStack() As String
         If .Length > 0 Then .Remove 1 ' Remove trailing delimiter only if there's something to remove.
         CallStack = .GetStr
     End With
-    
+
 End Property
 
 
@@ -133,13 +132,13 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub OperationStart(strName As String)
-    
+
     ' Ensure that we have created the operations dictionary
     If this.Operations Is Nothing Then Set this.Operations = New Dictionary
-    
+
     ' See if we are already timing something
     If this.OperationName <> vbNullString Then
-    
+
         ' We are already timing something else right now.
         ' Save the current process to the call stack before switching
         ' to the new operation.
@@ -150,11 +149,11 @@ Public Sub OperationStart(strName As String)
             If .Count < 100 Then .Add this.OperationName
         End With
     End If
-    
+
     ' Start the timer for this operation.
     StartTimer this.Operations, strName
     this.OperationName = strName
-    
+
 End Sub
 
 
@@ -174,7 +173,7 @@ Public Sub OperationEnd(Optional lngCount As Long = 1)
 
         ' Record the elapsed time.
         LapTimer this.Operations(this.OperationName), lngCount
-        
+
         ' Check the call stack to see if we need to move back to the previous process.
         If Not this.CallStackItems Is Nothing Then
             With this.CallStackItems
@@ -192,7 +191,7 @@ Public Sub OperationEnd(Optional lngCount As Long = 1)
             End With
         End If
     End If
-    
+
 End Sub
 
 
@@ -230,15 +229,15 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function MicroTimer() As Currency
-    
+
     Dim curTime As Currency
-    
+
     ' Call API to get current time
     GetTimeAPI curTime
-    
+
     ' Convert to seconds
     MicroTimer = (curTime / this.Frequency)
-    
+
 End Function
 
 
@@ -290,12 +289,12 @@ Public Sub PauseTiming()
 
     ' Lap overall time
     LapTimer this.Overall, 0
-    
+
     ' Lap any active timing operation without incrementing
     If this.OperationName <> vbNullString And Not this.Operations Is Nothing Then
         LapTimer this.Operations(this.OperationName), 0
     End If
-    
+
     If this.CategoryName <> vbNullString And Not this.Categories Is Nothing Then
         LapTimer this.Categories(this.CategoryName), 0
     End If
@@ -313,10 +312,10 @@ Public Sub ResumeTiming()
 
     ' Resume overall time
     If Not this.Overall Is Nothing Then this.Overall.Start = MicroTimer
-    
+
     ' Resume current operation
     If this.OperationName <> vbNullString Then StartTimer this.Operations, this.OperationName
-    
+
 End Sub
 
 
@@ -330,7 +329,7 @@ End Sub
 Private Function GetElapsed(curStart As Currency) As Currency
 
     Dim curNow As Currency
-    
+
     ' Only return a value if we have a starting time.
     If curStart > 0 Then
         curNow = MicroTimer
@@ -341,7 +340,7 @@ Private Function GetElapsed(curStart As Currency) As Currency
             GetElapsed = curStart + ((24# * 60 * 60) - curStart)
         End If
     End If
-    
+
 End Function
 
 
@@ -370,9 +369,9 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Function GetReports() As String
-    
+
     Const cstrTitle As String = "PERFORMANCE REPORTS"
-    
+
     Dim varKey As Variant
     Dim curTotal As Currency
     Dim dblCount As Double
@@ -385,7 +384,7 @@ Public Function GetReports() As String
     lngCol(2) = 10
     strSpacer = Space(lngCol(0) + lngCol(1) + lngCol(2))
     strSpacer = Replace(strSpacer, " ", "-")
-    
+
     With New clsConcat
         .AppendOnAdd = vbCrLf
         .Add strSpacer
@@ -393,6 +392,7 @@ Public Function GetReports() As String
 
         ' Table for object types
         If Not this.Categories Is Nothing Then
+            Set this.Categories = SortItemsByTime(this.Categories)
             .Add strSpacer
             .Add ListResult("Category", "Count", "Seconds", lngCol), vbCrLf, strSpacer
             For Each varKey In this.Categories.Keys
@@ -408,9 +408,10 @@ Public Function GetReports() As String
             .Add strSpacer
             .Add vbNullString
         End If
-        
+
         ' Table for operations
         If Not this.Operations Is Nothing Then
+            Set this.Operations = SortItemsByTime(this.Operations)
             curTotal = 0
             .Add strSpacer
             .Add ListResult("Operations", "Count", "Seconds", lngCol), vbCrLf, strSpacer
@@ -427,7 +428,7 @@ Public Function GetReports() As String
             End If
             .Add vbNullString
         End If
-        
+
         ' Check for unfinished operations
         If Not this.CallStackItems Is Nothing Then
             If this.CallStackItems.Count > 0 Then
@@ -442,11 +443,11 @@ Public Function GetReports() As String
                 Next varKey
             End If
         End If
-        
+
         ' Return report section
         GetReports = .GetStr
     End With
-    
+
 End Function
 
 
@@ -478,14 +479,72 @@ Private Function PadRight(strText As String, lngLen As Long, Optional lngMinTrai
 
     Dim strResult As String
     Dim strTrimmed As String
-    
+
     strResult = Space$(lngLen)
     strTrimmed = Left$(strText, lngLen - lngMinTrailingSpaces)
-    
+
     ' Use mid function to write over existing string of spaces.
     Mid$(strResult, 1, Len(strTrimmed)) = strTrimmed
     PadRight = strResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SortItemsByTime
+' Author    : Adam Waller
+' Date      : 4/4/2023
+' Purpose   : Sort the items by total time in descending order to put the slowest
+'           : items at the top of the list.
+'---------------------------------------------------------------------------------------
+'
+Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
+
+    Dim varItems() As Variant
+    Dim varKey As Variant
+    Dim lngCnt As Long
+    Dim strRecord As String
+    Dim cItem As clsPerformanceItem
+    Dim dSorted As Dictionary
     
+    ' Create an array to build our items
+    ReDim varItems(0 To dItems.Count - 1)
+    
+    ' The idea here is that we want to build a fixed width record with the time on
+    ' the left, and the key on the right. We will then sort this list of "records"
+    ' to get them sorted by time. However, since the sorting is in ascending order,
+    ' we will loop backwards through the resulting array to rebuild a dictionary
+    ' of items in descending order. We will split out the key and use this to get
+    ' a reference back to the original item in the source dictionary.
+    
+    ' Build our list of records
+    For Each varKey In dItems.Keys
+        ' Create a record like this: "00062840.170000|Export Form Objects       ..."
+        strRecord = Format(dItems(varKey).Total, "00000000.000000") & "|" & PadRight(CStr(varKey), 100)
+        ' Add to array.
+        varItems(lngCnt) = strRecord
+        ' Increment counter for array
+        lngCnt = lngCnt + 1
+    Next varKey
+    
+    ' Sort the array in ascending order
+    QuickSort varItems
+    
+    ' Now, build a new dictionary with the sorted items
+    ' (We are walking backwards through the array to flip the sort to descending)
+    Set dSorted = New Dictionary
+    For lngCnt = dItems.Count - 1 To 0 Step -1
+        ' Parse key from record
+        varKey = Trim(Split(varItems(lngCnt), "|")(1))
+        ' Reference performance item class
+        Set cItem = dItems(varKey)
+        ' Add to dictionary of resorted items
+        dSorted.Add varKey, cItem
+    Next lngCnt
+    
+    ' Return the sorted dictionary
+    Set SortItemsByTime = dSorted
+
 End Function
 
 

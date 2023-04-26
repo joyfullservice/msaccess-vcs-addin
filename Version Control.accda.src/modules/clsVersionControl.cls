@@ -69,16 +69,41 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ExportSelected
+' Author    : Adam Waller
+' Date      : 2/21/2023
+' Purpose   : Export the selected object
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportSelected()
+    Dim objSelected As AccessObject
+    Set objSelected = GetSelectedNavPaneObject
+    If objSelected Is Nothing Then
+        MsgBox2 "Please Select an Object First", _
+            "Select a single object in the Navigation Pane to export.", _
+            "(This item must have the keyboard focus.)", vbInformation
+    Else
+        ' Export the item
+        RunExport , objSelected
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RunExport
 ' Author    : Adam Waller
 ' Date      : 4/1/2022
 ' Purpose   : Handle different kinds of exports based on filter
 '---------------------------------------------------------------------------------------
 '
-Private Sub RunExport(intFilter As eContainerFilter)
+Private Sub RunExport(Optional intFilter As eContainerFilter = ecfAllObjects, Optional objItem As AccessObject)
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     With Form_frmVCSMain
-        .intContainerFilter = intFilter
+        If objItem Is Nothing Then
+            .intContainerFilter = intFilter
+        Else
+            Set .objSingleObject = objItem
+        End If
         .Visible = True
         .cmdExport_Click
         If Log.ErrorLevel = eelNoError Then .AutoClose
@@ -96,6 +121,57 @@ End Sub
 Public Sub Build()
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     Form_frmVCSMain.cmdBuild_Click
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeBuild
+' Author    : Adam Waller
+' Date      : 2/21/2023
+' Purpose   : Merge source files into the existing database.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeBuild()
+    MsgBox2 "Coming Soon!", "Sorry, this isn't quite available yet.", , vbInformation
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadSelected
+' Author    : Adam Waller
+' Date      : 2/21/2023
+' Purpose   : Load the selected item from source files
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadSelected()
+
+    Dim objSelected As AccessObject
+    Dim cComponentClass As IDbComponent
+    Dim strObjectName As String
+    Dim strSourceFilePath As String
+
+    Set objSelected = GetSelectedNavPaneObject
+    If objSelected Is Nothing Then
+        MsgBox2 "Please Select an Object First", _
+            "Select a single object in the Navigation Pane to reload from source.", _
+            "(This item must have the keyboard focus.)", vbInformation
+    Else
+        ' Remove all object references to selected item
+        Set cComponentClass = GetClassFromObject(objSelected)
+        With cComponentClass
+            strObjectName = .Name
+            strSourceFilePath = .SourceFile
+            Set .DbObject = Nothing
+        End With
+        Set objSelected = Nothing
+
+        ' Import the object from source files
+        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+        Form_frmVCSMain.StartBuild False
+        LoadSingleObject cComponentClass, strObjectName, strSourceFilePath
+        Form_frmVCSMain.FinishBuild False
+    End If
+
 End Sub
 
 
@@ -155,10 +231,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub OpenLog(strName As String)
-    
+
     Dim strPath As String
     Dim objShell As Object
-    
+
     strPath = Options.GetExportFolder & strName
     If FSO.FileExists(strPath) Then
         ' Note that the parentheses around the path are required for this to work.
@@ -166,7 +242,7 @@ Private Sub OpenLog(strName As String)
     Else
         MsgBox2 "Log File Not Found", "Could not find the following file in the export location:", strPath, vbExclamation
     End If
-    
+
 End Sub
 
 
@@ -277,23 +353,23 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub SaveState()
-    
+
     Dim strValue As String
-    
+
     ' Just in case the user terminated the code before the settings could be restored,
     ' check for any existing user settings that might need to be restored.
     If ReadSetting("Save Time") <> vbNullString Then RestoreState
-    
+
     ' Save a value so we can delete this section later
     PreserveSetting "Save Time", Now()
-    
+
     ' Error trapping setting. (We need this to "Break in Class Modules" for this add-in)
     strValue = Application.GetOption("Error Trapping")
     If strValue <> "1" Then
         PreserveSetting "Error Trapping", strValue
         Application.SetOption "Error Trapping", 1
     End If
-    
+
 End Sub
 
 
@@ -305,19 +381,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub RestoreState()
-    
+
     Dim strValue As String
-    
+
     strValue = ReadSetting("Error Trapping")
     If strValue <> vbNullString Then
         If Application.GetOption("Error Trapping") <> strValue Then
             Application.SetOption "Error Trapping", CLng(strValue)
         End If
     End If
-    
+
     ' Remove temporary registry section
     DeleteSetting PROJECT_NAME, "State"
-    
+
 End Sub
 
 

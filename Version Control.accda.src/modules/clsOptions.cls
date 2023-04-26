@@ -18,7 +18,6 @@ Option Explicit
 Private Const cstrOptionsFilename As String = "vcs-options.json"
 Private Const cstrSourcePathProperty As String = "VCS Source Path"
 Private Const cstrBuildPathProperty As String = "VCS Build Path"
-Private Const ModuleName As String = "clsOptions"
 
 ' Options
 Public ExportFolder As String
@@ -217,7 +216,7 @@ Public Sub LoadOptionsFromFile(strFile As String)
     Dim strKey As String
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Save file path, in case we need to use it to determine
     ' the export folder location with no database open.
     m_strOptionsFilePath = strFile
@@ -250,9 +249,9 @@ Public Sub LoadOptionsFromFile(strFile As String)
 
     ' Set the build path property when loading options
     SetBuildPath
-    
-    CatchAny eelError, "Loading options from " & strFile, ModuleName & ".LoadOptionsFromFile"
-    
+
+    CatchAny eelError, "Loading options from " & strFile, ModuleName(Me) & ".LoadOptionsFromFile"
+
 End Sub
 
 
@@ -295,14 +294,14 @@ Public Sub LoadProjectOptions()
     ' We can only load the options for the current project if we
     ' have a database file open.
     If Not DatabaseFileOpen Then Exit Sub
-    
+
     ' Get saved path from database (if defined)
     strSaved = SavedSourcePath
 
     ' Attempt to load the project options file.
     If strSaved <> vbNullString Then Me.ExportFolder = strSaved
     LoadOptionsFromFile Me.GetExportFolder & cstrOptionsFilename
-    
+
 End Sub
 
 
@@ -432,8 +431,8 @@ Private Function SerializeOptions() As Dictionary
             Case Else
                 dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
         End Select
-            
-        
+
+
     Next varOption
 
     'Set SerializeOptions = new Dictionary
@@ -441,7 +440,7 @@ Private Function SerializeOptions() As Dictionary
     Set dWrapper("Options") = dOptions
     Set SerializeOptions = dWrapper
 
-    CatchAny eelError, "Serializing options", ModuleName & ".SerializeOptions"
+    CatchAny eelError, "Serializing options", ModuleName(Me) & ".SerializeOptions"
 
 End Function
 
@@ -619,7 +618,7 @@ Private Sub Class_Initialize()
 
     ' Load default values
     Me.LoadDefaults
-    
+
     ' Load saved defaults
     LoadDefaultOptions
 
@@ -641,7 +640,7 @@ Private Sub SetBuildPath()
 
     Dim prp As AccessObjectProperty
     Dim proj As CurrentProject
-    
+
     Set proj = CurrentProject
     Set prp = GetPropertyByName(cstrBuildPathProperty)
 
@@ -663,7 +662,7 @@ Private Sub SetBuildPath()
             End If
         End If
     End If
-    
+
 End Sub
 
 
@@ -722,10 +721,10 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Function GetPropertyByName(strName As String) As AccessObjectProperty
-    
+
     Dim prp As AccessObjectProperty
     Dim proj As CurrentProject
-    
+
     If DatabaseFileOpen Then
         Set proj = CurrentProject
         For Each prp In proj.Properties
@@ -735,7 +734,7 @@ Private Function GetPropertyByName(strName As String) As AccessObjectProperty
             End If
         Next prp
     End If
-    
+
 End Function
 
 

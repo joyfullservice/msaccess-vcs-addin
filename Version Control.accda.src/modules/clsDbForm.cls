@@ -54,12 +54,12 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim strName As String
     Dim blnStage As Boolean
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
 
     strName = GetObjectNameFromFileName(strFile)
-    
+
     ' We can't import a form with the same name as a running form, even though
     ' it is technically in a different database.
     If strName = "frmVCSMain" Then
@@ -68,15 +68,15 @@ Private Sub IDbComponent_Import(strFile As String)
             blnStage = True
         End If
     End If
-    
+
     ' Load the form from the source file
     LoadComponentFromText acForm, strName, strFile, Me
     Set m_Form = CurrentProject.AllForms(strName)
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
-    
+
     ' Restore main form if staged
     If blnStage Then RestoreMainForm
-    
+
 End Sub
 
 
@@ -89,12 +89,28 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-    DeleteObjectIfExists acForm, GetObjectNameFromFileName(strFile)
+
+    Dim strName As String
+
+    ' Get object name
+    strName = GetObjectNameFromFileName(strFile)
+
+    ' Don't attempt to merge forms with same names as add-in forms.
+    If ObjectExists(acForm, strName, True) Then
+        Log.Error eelError, "Merging not supported for add-in forms. Use full build instead.", _
+            ModuleName(Me) & ".Merge"
+        Exit Sub
+    End If
+
+    ' Import the form if the source file exists.
     If FSO.FileExists(strFile) Then
+        ' Importing the form will replace the existing object
         IDbComponent_Import strFile
     Else
+        DeleteObjectIfExists acForm, strName
         VCSIndex.Remove Me, strFile
     End If
+
 End Sub
 
 
@@ -119,11 +135,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim frm As AccessObject
     Dim cForm As IDbComponent
     Dim blnAdd As Boolean
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
@@ -140,11 +156,6 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
 
 End Function
-
-
-Private Sub InitializeForm(strName As String)
-
-End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -196,14 +207,14 @@ End Sub
 Public Function IDbComponent_IsModified() As Boolean
 
     Dim dteDate As Date
-    
+
     ' Item is considered modified unless proven otherwise.
     IDbComponent_IsModified = True
-    
+
     ' Check the modified date first.
     ' (This may not reflect some code changes)
     If m_Form.DateModified <= VCSIndex.Item(Me).ExportDate Then
-            
+
         ' Date is okay, check hash
         IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
     End If

@@ -1,7 +1,7 @@
 ﻿{
   "Info": {
-    "AddinVersion": "4.0.4",
-    "AccessVersion": "14.0 32-bit"
+    "AddinVersion": "4.0.10",
+    "AccessVersion": "16.0 64-bit"
   },
   "Options": {
     "ExportFolder": "",

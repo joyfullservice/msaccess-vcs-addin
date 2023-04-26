@@ -17,8 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName As String = "clsDbSharedImage"
-
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 Private m_Dbs As DAO.Database
@@ -55,47 +53,25 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strFile As String
     Dim dItem As Dictionary
     Dim strHash As String
-    
+
     ' Build header file
     Set dItem = GetDictionary
-    
+
     ' Save json file with header details
     strContent = GetSource
     WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
-    
+
     ' Save image file using extension from embedded file.
     strFile = IDbComponent_BaseFolder & FSO.GetBaseName(IDbComponent_SourceFile) & "." & FSO.GetExtensionName(m_FileName)
-       
+
     ' Write binary content to file
     WriteBinaryFile strFile, StripOLEHeader(m_Extension, m_FileData)
-    
+
     ' Update index after export
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
         GetStringHash(strContent, True), GetSignatureHash
-    
+
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : StripOLEHeader
-' Author    : Adam Waller
-' Date      : 5/12/2020
-' Purpose   : Strip out the OLE header so we can save the raw binary image as a
-'           : readable file. (First 20 bytes (10 chars) of the data)
-'           : Tested with jpg, gif, png, tiff
-'---------------------------------------------------------------------------------------
-'
-Private Function StripOLEHeader(strExt As String, bteData() As Byte) As Byte()
-
-    Dim strData As String
-    
-    ' Convert to string
-    strData = bteData
-    
-    ' Strip off header, and convert back to byte array
-    StripOLEHeader = Mid$(strData, 8 + Len(strExt))
-    
-End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -115,7 +91,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strBase As String
     Dim lngIndex As Long
     Dim proj As CurrentProject
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
@@ -140,8 +116,8 @@ Private Sub IDbComponent_Import(strFile As String)
         With proj
             lngIndex = .Resources.Count
             ' Import using the original file name as the resource name so the
-            ' embedded file has the correct name.
-            strBase = FSO.GetBaseName(strOriginalName)
+            ' embedded file has the correct name. (Ensuring that we are using a unique name)
+            strBase = GetUnusedResourceName(FSO.GetBaseName(strOriginalName))
             .AddSharedImage strBase, strOriginalName
             If .Resources.Count = lngIndex + 1 Then
                 ' Rename shared resource to saved name if different.
@@ -157,12 +133,12 @@ Private Sub IDbComponent_Import(strFile As String)
             ' Restore image file name if needed.
             If strOriginalName <> strImageFile Then Name strOriginalName As strImageFile
         End If
-        
+
         ' Update index after import
         If LoadItem(dItem("Name")) Then
             VCSIndex.Update Me, eatExport, GetDictionaryHash(dItem)
         Else
-            Log.Error eelError, "Unable to find shared image '" & dItem("Name") & "' after importing.", ModuleName & ".Import"
+            Log.Error eelError, "Unable to find shared image '" & dItem("Name") & "' after importing.", ModuleName(Me) & ".Import"
         End If
     End If
 
@@ -179,7 +155,50 @@ End Sub
 '
 Private Sub IDbComponent_Merge(strFile As String)
 
+    Dim strName As String
+
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+
+    ' Parse name from file name
+    strName = GetObjectNameFromFileName(strFile)
+
+    ' Remove the existing shared image, if it exists.
+    RemoveIfExists strName
+
+    ' Import if source file exists
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveIfExists
+' Author    : Adam Waller
+' Date      : 2/7/2023
+' Purpose   : Removes a shared resource if it exists
+'---------------------------------------------------------------------------------------
+'
+Private Function RemoveIfExists(strName As String)
+
+    Dim resImage As SharedResource
+
+    Perf.OperationStart "Check/Remove Shared Resource"
+    For Each resImage In CurrentProject.Resources
+        If resImage.Type = acResourceImage Then
+            If resImage.Name = strName Then
+                resImage.Delete
+                Exit For
+            End If
+        End If
+    Next resImage
+    Perf.OperationEnd
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -194,10 +213,10 @@ Private Function LoadItem(strName As String) As Boolean
 
     Dim rst As DAO.Recordset
     Dim strSql As String
-    
+
     ' This system table should exist, but just in case...
     If TableExists("MSysResources") Then
-        
+
         If m_Dbs Is Nothing Then Set m_Dbs = CurrentDb
         strSql = "SELECT * FROM MSysResources WHERE Type='img'"
         Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
@@ -227,14 +246,14 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetSignatureHash() As String
-    
+
     Dim dblCnt As Double
     Dim dblLen As Double
     Dim strData As String
-        
+
     ' Get length (bytes) of file data
     If StrPtr(m_FileData) <> 0 Then dblLen = UBound(m_FileData)
-    
+
     With New clsConcat
         ' Compile string with file information
         .Add m_Name, m_FileName, m_Extension, CStr(dblLen)
@@ -253,7 +272,7 @@ Private Function GetSignatureHash() As String
         ' Return hash of this string
         GetSignatureHash = GetStringHash(.GetStr)
     End With
-    
+
 End Function
 
 
@@ -302,7 +321,7 @@ Private Function GetResourceIndexByName(strName As String) As Long
 
     Dim lngIndex As Long
     Dim resShared As SharedResources
-    
+
     Set resShared = CurrentProject.Resources
     For lngIndex = 0 To resShared.Count - 1
         If resShared(lngIndex).Name = strName Then
@@ -310,7 +329,86 @@ Private Function GetResourceIndexByName(strName As String) As Long
             Exit For
         End If
     Next lngIndex
-    
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetUnusedResourceName
+' Author    : Adam Waller
+' Date      : 2/7/2023
+' Purpose   : Return the original name if possible, or a similar name that does not
+'           : conflict with any existing resource names.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetUnusedResourceName(strName As String) As String
+
+    Dim strSql As String
+    Dim strTest As String
+    Dim lngCnt As Long
+    Dim rst As DAO.Recordset
+
+    Perf.OperationStart "Get Unused Resource Name"
+
+    ' Use a dictionary to easily test if a name is in use.
+    With New Dictionary
+
+        ' Build dictionary of existing items
+        ' (Reading directly from the table is MUCH faster than iterating through
+        '  the CurrentProject.Resources object model.)
+        If TableExists("MSysResources") Then
+            If m_Dbs Is Nothing Then Set m_Dbs = CurrentDb
+            strSql = "SELECT * FROM MSysResources WHERE Type='img'"
+            Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
+            Do While Not rst.EOF
+                If Not .Exists(Nz(rst!Name)) Then .Add Nz(rst!Name), vbNullString
+                rst.MoveNext
+            Loop
+            rst.Close
+        End If
+
+        ' Start with the initial name
+        strTest = strName
+
+        ' Loop through name alternatives to find an unused one.
+        ' (Typically we would only have to do one or two iterations)
+        For lngCnt = 1 To 100
+            If Not .Exists(strTest) Then
+                ' Found an unused name
+                Exit For
+            End If
+            ' Build an alternate name with a numerical prefix for the next test.
+            strTest = lngCnt & "_" & strName
+        Next lngCnt
+    End With
+
+    Perf.OperationEnd
+
+    ' Return the tested and available name
+    GetUnusedResourceName = strTest
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StripOLEHeader
+' Author    : Adam Waller
+' Date      : 5/12/2020
+' Purpose   : Strip out the OLE header so we can save the raw binary image as a
+'           : readable file. (First 20 bytes (10 chars) of the data)
+'           : Tested with jpg, gif, png, tiff
+'---------------------------------------------------------------------------------------
+'
+Private Function StripOLEHeader(strExt As String, bteData() As Byte) As Byte()
+
+    Dim strData As String
+
+    ' Convert to string
+    strData = bteData
+
+    ' Strip off header, and convert back to byte array
+    StripOLEHeader = Mid$(strData, 8 + Len(strExt))
+
 End Function
 
 
@@ -346,12 +444,16 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
-        
+
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
-            
+
             Set m_Dbs = CurrentDb
-            strSql = "SELECT * FROM MSysResources WHERE Type='img'"
+            ' We will use an explicit ordering because it can potentially contain duplicate entries due to the fact
+            ' that the Name column is not unique or a primary key. Any duplicate images are useless and will be
+            ' skipped but to ensure we provide a consistent result, we need to make sure we keep the image with the
+            ' lowest ID and discard any duplicate images with a higher Id.
+            strSql = "SELECT * FROM MSysResources WHERE Type='img' ORDER BY Id;"
             Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
             With rst
                 Do While Not .EOF
@@ -360,7 +462,14 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     Set cImg.DbObject = rst
                     blnAdd = True
                     If blnModifiedOnly Then blnAdd = cImg.IsModified
-                    If blnAdd Then m_Items(blnModifiedOnly).Add cImg.SourceFile, cImg
+                    If blnAdd Then
+                        If m_Items(blnModifiedOnly).Exists(cImg.SourceFile) Then
+                            ' This is a duplicate image. We won't add it to the list but we need to issue a warning in log.
+                            Log.Error eelWarning, "Duplicate record found for '" & cImg.Name & "' at ID " & rst.Fields("ID").Value & ". This record will not be exported as this is likely an error and not available for use via Access.", ModuleName(Me) & ".GetAllFromDB"
+                        Else
+                            m_Items(blnModifiedOnly).Add cImg.SourceFile, cImg
+                        End If
+                    End If
                     .MoveNext
                 Loop
                 .Close
@@ -432,7 +541,7 @@ Public Function IDbComponent_IsModified() As Boolean
             IDbComponent_IsModified = (.OtherHash <> GetSignatureHash)
         End If
     End With
-    
+
 End Function
 
 
@@ -591,9 +700,9 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     ' releases of Microsoft Access. (See issue #341)
     Dim fld2 As DAO.Field       ' Field2
     Dim rst2 As DAO.Recordset   ' Recordset2
-    
+
     Set m_Rst = RHS
-    
+
     ' Load in the object details.
     m_Name = m_Rst!Name
     m_Extension = m_Rst!Extension
@@ -602,7 +711,7 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     Set rst2 = fld2.Value
     m_FileName = rst2.Fields("FileName")
     m_FileData = rst2.Fields("FileData")
-    
+
     ' Clear the object references
     Set rst2 = Nothing
     Set fld2 = Nothing
@@ -648,4 +757,6 @@ End Property
 Private Sub Class_Terminate()
     Set m_Dbs = Nothing
 End Sub
+
+
 

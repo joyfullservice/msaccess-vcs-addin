@@ -59,7 +59,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim projCurrent As CurrentProject
     Dim varKey As Variant
     Dim varValue As Variant
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
@@ -98,10 +98,10 @@ Private Sub IDbComponent_Import(strFile As String)
             End Select
         Next varKey
     End If
-    
+
     ' Update index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
-    
+
 End Sub
 
 
@@ -116,23 +116,23 @@ End Sub
 Private Sub IDbComponent_Merge(strFile As String)
 
     Dim dFile As Dictionary
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
-    
+
     ' Remove any document properties that don't exist in the incoming file,
     ' then import the file.
     Set dFile = ReadJsonFile(strFile)
     If dFile Is Nothing Then Set dFile = New Dictionary
     RemoveMissing dFile("Items"), GetDictionary
-    
+
     ' Import if file exists
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
     Else
         VCSIndex.Remove Me, strFile
     End If
-    
+
 End Sub
 
 
@@ -161,16 +161,16 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
     Dim dCollection As Dictionary
     Dim dItem As Dictionary
     Dim varValue As Variant
-    
+
     ' Check cache parameter
     If blnUseCache And Not m_dItems Is Nothing Then
         ' Return cached dictionary
         Set GetDictionary = m_dItems
         Exit Function
     End If
-    
+
     Set dCollection = New Dictionary
-    
+
     ' Loop through all properties
     For Each prp In CurrentProject.Properties
         Select Case prp.Name
@@ -185,10 +185,10 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                 dCollection.Add prp.Name, prp.Value
         End Select
     Next prp
-    
+
     ' Return sorted dictionary
     Set GetDictionary = SortDictionaryByKeys(dCollection)
-    
+
 End Function
 
 
@@ -203,7 +203,7 @@ Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
 
     Dim proj As CurrentProject
     Dim varProp As Variant
-    
+
     ' Go through target dictionary, removing properties that don't exist
     ' in the master dictionary. (Note that this is only checking the
     ' properties we are actually interested in tracking.)
@@ -239,7 +239,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim prp As AccessObjectProperty
     Dim cProp As IDbComponent
 
@@ -259,7 +259,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-        
+
 End Function
 
 

@@ -9,7 +9,6 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
-
 Private Const ModuleName = "modObjects"
 
 ' Logging and options classes
@@ -17,6 +16,8 @@ Private m_Perf As clsPerformance
 Private m_Log As clsLog
 Private m_Options As clsOptions
 Private m_VCSIndex As clsVCSIndex
+Private m_Worker As clsWorker
+Private m_Git As clsGitIntegration
 
 ' Keep a persistent reference to file system object after initializing version control.
 ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -35,6 +36,7 @@ Public Sub ReleaseObjects()
     Set m_Log = Nothing
     Set m_Options = Nothing
     Set m_VCSIndex = Nothing
+    Set m_Worker = Nothing
     Set m_FSO = Nothing
 End Sub
 
@@ -141,6 +143,19 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Worker
+' Author    : Adam Waller
+' Date      : 3/2/2023
+' Purpose   : Expose worker class
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Worker() As clsWorker
+    If m_Worker Is Nothing Then Set m_Worker = New clsWorker
+    Set Worker = m_Worker
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Diff
 ' Author    : Adam Waller
 ' Date      : 2/23/2022
@@ -155,23 +170,56 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Git
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Return Git integration class
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Git() As clsGitIntegration
+    If m_Git Is Nothing Then Set m_Git = New clsGitIntegration
+    Set Git = m_Git
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DebugMode
 ' Author    : Adam Waller
-' Date      : 3/9/2021
+' Date      : 4/14/2023
 ' Purpose   : Wrapper for use in error handling.
 '---------------------------------------------------------------------------------------
 '
 Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
-    
-    Static blnInError As Boolean
-    Dim blnBreak As Boolean
+
+    ' Log any unhandled errors
+    If blnTrapUnhandledErrors Then LogUnhandledErrors
     
     ' Don't reference the property this till we have loaded the options.
+    If Not m_Options Is Nothing Then DebugMode = m_Options.BreakOnError
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogUnhandledErrors
+' Author    : Adam Waller
+' Date      : 4/14/2023
+' Purpose   : Log any unhandled error condition, also breaking code execution if that
+'           : option is currently set. (Run this before any ON ERROR directive which
+'           : will siently reset any current VBA error condition.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub LogUnhandledErrors()
+
+    Static blnInError As Boolean
+    Dim blnBreak As Boolean
+
+    ' Don't reference the property this till we have loaded the options.
     If Not m_Options Is Nothing Then blnBreak = m_Options.BreakOnError
-    
+
     ' Check for any unhandled errors
-    If (Err.Number <> 0) And blnTrapUnhandledErrors And Not blnInError Then
-    
+    If (Err.Number <> 0) And Not blnInError Then
+
         ' Check current BreakOnError mode
         If blnBreak Then
             ' Stop the code here so we can investigate the source of the error.
@@ -205,15 +253,11 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
                 blnInError = True
                 ' We don't know the procedure that it originated from, but we should at least
                 ' log that the error occurred. A review of the log file may help identify the source.
-                Log.Error eelError, "Unhandled error found before `On Error` directive", "Unknown"
+                Log.Error eelError, "Unhandled error, likely before `On Error` directive", "Unknown"
                 blnInError = False
             End If
         End If
-    
     End If
     
-    ' Return debug mode
-    DebugMode = blnBreak
-    
-End Function
+End Sub
 

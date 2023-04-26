@@ -53,7 +53,7 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
 
     Dim strName As String
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
 
@@ -108,7 +108,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim rpt As AccessObject
     Dim cReport As IDbComponent
     Dim blnAdd As Boolean
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
@@ -175,18 +175,18 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    
+
     ' Item is considered modified unless proven otherwise.
     IDbComponent_IsModified = True
-    
+
     ' Check the modified date first.
     ' (This may not reflect some code changes)
     If m_Report.DateModified <= VCSIndex.Item(Me).ExportDate Then
-            
+
         ' Date is okay, check hash
         IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
     End If
-    
+
 End Function
 
 

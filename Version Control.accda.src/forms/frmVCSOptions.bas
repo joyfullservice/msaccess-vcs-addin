@@ -521,33 +521,71 @@ Begin Form
                                         End
                                     End
                                 End
+                                Begin ComboBox
+                                    RowSourceTypeInt =1
+                                    OverlapFlags =215
+                                    IMESentenceMode =3
+                                    ListWidth =1440
+                                    Left =2040
+                                    Top =5220
+                                    Width =1740
+                                    Height =315
+                                    TabIndex =6
+                                    Name ="cboDiffTool"
+                                    RowSourceType ="Value List"
+                                    RowSource ="\"WinMerge\";\"VSCode\""
+                                    AllowValueListEdits =0
+
+                                    LayoutCachedLeft =2040
+                                    LayoutCachedTop =5220
+                                    LayoutCachedWidth =3780
+                                    LayoutCachedHeight =5535
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =1020
+                                            Top =5220
+                                            Width =960
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label239"
+                                            Caption ="Diff Tool:"
+                                            LayoutCachedLeft =1020
+                                            LayoutCachedTop =5220
+                                            LayoutCachedWidth =1980
+                                            LayoutCachedHeight =5535
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
                                 Begin CheckBox
                                     Visible = NotDefault
                                     OverlapFlags =215
-                                    Left =1020
-                                    Top =5280
+                                    Left =2880
+                                    Top =5640
                                     TabIndex =3
                                     Name ="chkUseGitIntegration"
                                     OnClick ="[Event Procedure]"
 
-                                    LayoutCachedLeft =1020
-                                    LayoutCachedTop =5280
-                                    LayoutCachedWidth =1280
-                                    LayoutCachedHeight =5520
+                                    LayoutCachedLeft =2880
+                                    LayoutCachedTop =5640
+                                    LayoutCachedWidth =3140
+                                    LayoutCachedHeight =5880
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
-                                            Left =1320
-                                            Top =5220
+                                            Left =3180
+                                            Top =5580
                                             Width =2640
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label163"
                                             Caption ="Use Git Integration"
-                                            LayoutCachedLeft =1320
-                                            LayoutCachedTop =5220
-                                            LayoutCachedWidth =3960
-                                            LayoutCachedHeight =5535
+                                            LayoutCachedLeft =3180
+                                            LayoutCachedTop =5580
+                                            LayoutCachedWidth =5820
+                                            LayoutCachedHeight =5895
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -1172,13 +1210,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4260
+                            Height =4185
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6240
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -3487,7 +3525,7 @@ Private Sub LoadTableList()
             ' Read table attributes
             blnHidden = Application.GetHiddenAttribute(acTable, tbl.Name)
             blnSystem = (tbl.Attributes And dbSystemObject)
-            blnLocal = isLocalTable(tbl.Name)
+            blnLocal = IsLocalTable(tbl.Name)
             blnOther = False    ' Other represents tables not in this database.
             ' Add array record to represent table.
             AddUpdateTableInList tbl.Name, vbNullString, blnHidden, blnSystem, blnOther, blnLocal
@@ -3506,20 +3544,6 @@ Private Sub LoadTableList()
     End If
     
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : isLocalTable
-' Author    : Adam Waller & Indigo744
-' Date      : 11/11/2020
-' Purpose   : Check wether a table is a local table (= not a linked table)
-'---------------------------------------------------------------------------------------
-'
-Private Function isLocalTable(ByVal tblName As String)
-On Error Resume Next
-    isLocalTable = False
-    isLocalTable = Len(CurrentDb.TableDefs(tblName).Connect) = 0
-End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -3866,6 +3890,13 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                             Case "chkTableShowHidden", "chkTableShowSystem", "chkTableShowOther", _
                                 "cboTableDataSaveType", "txtTableName"
                                 ' Skip these exceptions.
+                            Case "cboDiffTool"
+                                ' This is saved on the computer profile (registry)
+                                If eAction = emaClassToForm Then
+                                    ctl = Diff.ToolName
+                                Else
+                                    Diff.ToolName = Nz(ctl)
+                                End If
                             Case Else
                                 ' Get option name from control name following prefix.
                                 If eAction = emaClassToForm Then

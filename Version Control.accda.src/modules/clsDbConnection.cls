@@ -2,24 +2,30 @@
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "clsDbVbeForm"
+Attribute VB_Name = "clsDbConnection"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
-' Author    : Adam Waller
-' Date      : 4/23/2020
+' Author    : bclothier
+' Date      : 4/1/2023
 ' Purpose   : This class extends the IDbComponent class to perform the specific
 '           : operations required by this particular object type.
 '           : (I.e. The specific way you export or import this component.)
+'           :
+'           : This class actually doesn't import or export anything but provides
+'           : useful metadata about the connections that the database project has.
+'           : During "export", all possible connections are harvested while "import"
+'           : will prime Access' internal cache, which helps reduce the numbers of
+'           : ODBC login dialogs that may pop open during the imports of associated
+'           : database objects.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
 
-Private m_Form As VBIDE.VBComponent
-Private m_Items(True To False) As Dictionary
-Private m_FileList As Dictionary
+Private m_Items(True To False) As Dictionary   ' Instances of this class
+Private m_dItems As Dictionary  ' Connection items for JSON output in GetDictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -31,107 +37,172 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 ' Procedure : Export
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : Export the individual database component (table, form, query, etc...)
-'           : NOTE: This has been expanded to include an export (for reference only) of
-'           : a serialized representation of the form properties, controls, and layout.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-
     Dim strContent As String
-
-    ' This is the serialized output file in JSON format to track changes in version control
     strContent = GetSource
-    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json")
-
-    ' Only export binary on regular export
-    If strAlternatePath = vbNullString Then
-
-        ' This is the binary export file used when building from source
-        m_Form.Export IDbComponent_SourceFile
-    End If
-
-    ' Update index with a hash of the serialized content. (Since the binary content changes frequently)
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
-
 End Sub
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Import
 ' Author    : Adam Waller
-' Date      : 4/30/2021
+' Date      : 5/17/2021
 ' Purpose   : Import the individual database component from a file.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim strLine As String
-    Dim proj As VBProject
+    Dim dConnections As Scripting.Dictionary
+    Dim varConnect As Variant
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Only import files with the correct extension.
-    If Not strFile Like "*.frm" Then Exit Sub
+    If Not strFile Like "*.json" Then Exit Sub
+    Set dConnections = ReadJsonFile(strFile).Item("Items")
+    
+    ' Prime Access' internal cache. If the connection string is incomplete, it will
+    ' pop open a dialog from the driver for the user to then fill in.
+    For Each varConnect In dConnections
+        ' We only need to process the sanitized connection strings, rather than possible
+        ' connection strings which help reduce number of logins user may need to
+        ' complete.
+        Dim x As Variant
+        For Each x In dConnections(varConnect)
+            CacheConnection CStr(x)
+        Next
+    Next
+    
+    CatchAny eelError, "Importing Connection", ModuleName(Me) & ".Import"
 
-    Set proj = CurrentVBProject
-    With proj.VBComponents
-
-        ' Import the source file
-        .Import strFile
-
-        ' Check for extra blank line that may get added during import (VBE bug?)
-        With .Item(GetObjectNameFromFileName(strFile))
-            If Not .CodeModule Is Nothing Then
-                If .CodeModule.Lines(1, 1) = vbNullString Then
-                    ' Remove blank line added during import (Known VBA Bug)
-                    .CodeModule.DeleteLines 1
-                    ' Note, this change is not saved at this time. It will be saved during
-                    ' the next compile/save operation.
-                    Log.Add "Removed blank line from the top of the code module for " & .Name, False
-                End If
-            End If
-        End With
-    End With
-
-    CatchAny eelError, "Error importing " & strFile, ModuleName(Me) & ".Import"
+    ' Save to index
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, _
+        "Database connections used within the project used to prime Access' internal cache during import.")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 5/17/2021
+' Purpose   : Return a dictionary object of project connections.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictionary
+
+    ' Check cache first
+    If blnUseCache And Not m_dItems Is Nothing Then
+        Set GetDictionary = m_dItems
+        Exit Function
+    End If
+
+    ' Read project connections
+    Set GetDictionary = New Dictionary
+
+    Dim tdf As DAO.TableDef
+    Dim qdf As DAO.QueryDef
+    Dim cConnection As clsConnectionODBC
+    Dim dConnections As Scripting.Dictionary
+    
+    Set cConnection = New clsConnectionODBC
+    With CurrentDb
+        For Each tdf In .TableDefs
+            If StartsWith(tdf.Connect, "ODBC;", vbTextCompare) Then
+                cConnection.ParseOdbcConnectionString tdf.Connect
+                AddOdbcConnectionString GetDictionary, cConnection, tdf.Name
+            End If
+        Next
+        For Each qdf In .QueryDefs
+            ' We have to handle two possible scenarios:
+            ' 1. Sometimes a certain querydef will throw an unrelated error when trying to load
+            '    querydef by accessing one of its properties for the first time. In this case,
+            '    we simply retry and we are usually able to read the properties of the querydef.
+            ' 2. Sometimes the querydef is simply unusable and will always throw errors when
+            '    trying to read the property. We should just skip over them and hope for the best.
+            Dim strQdfConnect As String
+            On Error Resume Next
+            strQdfConnect = qdf.Connect
+            If Err.Number Then
+                Err.Clear
+                strQdfConnect = qdf.Connect
+                If Err.Number Then
+                    ' Even though we cannot read the Connect property, Name property should be always available.
+                    CatchAny eelWarning, "Unable to read the Connect property for query '" & qdf.Name & "'. Error " & Err.Number & ": " & Err.Description, ModuleName(Me) & ".GetDictionary"
+                    strQdfConnect = vbNullString
+                End If
+            End If
+            On Error GoTo 0
+            If StartsWith(strQdfConnect, "ODBC;", vbTextCompare) Then
+                cConnection.ParseOdbcConnectionString strQdfConnect
+                AddOdbcConnectionString GetDictionary, cConnection, qdf.Name
+            End If
+        Next
+    End With
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddOdbcConnectionString
+' Author    : bclothier
+' Date      : 4/1/2023
+' Purpose   : The values of the GetDictionary are themselves a dictionary of the original
+'           : ODBC connection strings. This procedure helps handle creating a new
+'           : dictionary if there's not an entry for the sanitized connection string
+'           : already and then adds the original connection string under the key of
+'           : sanitized connection string.
+'---------------------------------------------------------------------------------------
+'
+Private Function AddOdbcConnectionString(dSanitizedConnections As Scripting.Dictionary, cConnection As clsConnectionODBC, strObjectName As String)
+    Dim dConnections As Scripting.Dictionary
+    
+    If dSanitizedConnections.Exists(cConnection.SanitizedConnectionString) Then
+        Set dConnections = dSanitizedConnections(cConnection.SanitizedConnectionString)
+    Else
+        Set dConnections = New Scripting.Dictionary
+        dConnections.CompareMode = TextCompare
+        dSanitizedConnections.Add cConnection.SanitizedConnectionString, dConnections
+    End If
+    If dConnections.Exists(cConnection.OriginalConnectionString) = False Then
+        dConnections.Add cConnection.OriginalConnectionString, strObjectName
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Merge
 ' Author    : Adam Waller
-' Date      : 11/21/2020
-' Purpose   : Merge the source file into the existing database, replacing or removing
+' Date      : 5/17/2021
+' Purpose   : Merge the source file into the existing database, updating or replacing
 '           : any existing object.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-    DeleteVbeFormIfExists GetObjectNameFromFileName(strFile)
+    ' Import if file exists
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
     Else
         VCSIndex.Remove Me, strFile
     End If
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : DeleteVbeFormIfExists
-' Author    : Adam Waller
-' Date      : 2/5/2022
-' Purpose   : Remove any existing VBE form
-'---------------------------------------------------------------------------------------
-'
-Private Sub DeleteVbeFormIfExists(strName)
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    With CurrentVBProject.VBComponents
-        .Remove .Item(strName)
-    End With
-    Catch 9 ' Subscript out of range (name not found)
-    CatchAny eelError, "Deleting VBE Form " & strName
 End Sub
 
 
@@ -144,78 +215,65 @@ End Sub
 '
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
     MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".frx", strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
 End Sub
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
 
-    Dim frm As VBComponent
-    Dim cForm As IDbComponent
-    Dim blnAdd As Boolean
-
-    ' Build collection if not already cached
+    Dim varKey As Variant
+    
+    ' Build a dictionary of component class objects if not already cached.
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
-        For Each frm In CurrentVBProject.VBComponents
-            If frm.Type = vbext_ct_MSForm Then
-                Set cForm = New clsDbVbeForm
-                Set cForm.DbObject = frm
-                blnAdd = True
-                If blnModifiedOnly Then blnAdd = cForm.IsModified
-                If blnAdd Then m_Items(blnModifiedOnly).Add cForm.SourceFile, cForm
-            End If
-        Next frm
+        If Not blnModifiedOnly Or IDbComponent_IsModified Then
+            ' Return all the items since we are not concerned about which ones changed.
+            For Each varKey In GetDictionary.Keys
+                ' Since we are only processing one of these instances, we can
+                ' just reference the existing instance and avoid rescanning the
+                ' tables and queries.
+                m_Items(blnModifiedOnly).Add varKey, Me
+            Next varKey
+        End If
     End If
-
-    ' Return cached collection
+    
+    ' Return cached dictionary
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetSource
-' Author    : Adam Waller
-' Date      : 2/14/2022
-' Purpose   : Return the full content that will be saved to the source file.
-'---------------------------------------------------------------------------------------
-'
-Private Function GetSource() As String
-    GetSource = BuildJsonFile(TypeName(Me), SerializeMSForm(m_Form), "Serialized VBE Form")
+    
 End Function
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetFileList
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.frm")
-    Set IDbComponent_GetFileList = m_FileList
+    Set IDbComponent_GetFileList = New Dictionary
+    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile, vbNullString
 End Function
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ClearOrphanedSourceFiles
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : Remove any source files for objects not in the current database.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFiles Me, "frm", "frx", "json"
+    If FSO.FileExists(IDbComponent_SourceFile) Then
+        ' Delete the source file when we no longer have any connection strings
+        If IDbComponent_GetAllFromDB.Count = 0 Then DeleteFile IDbComponent_SourceFile
+    End If
 End Sub
 
 
@@ -233,14 +291,12 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
-' Date      : 11/21/2020
+' Date      : 5/17/2021
 ' Purpose   : Returns true if the object in the database has been modified since
 '           : the last export of the object.
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    ' Compare the hash of the serialized JSON output, not the ever-changing binary source file.
-    ' NOTE: This will not detect changes in unserialized objects such as ActiveX controls.
     IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
@@ -248,7 +304,7 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : DateModified
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : The date/time the object was modified. (If possible to retrieve)
 '           : If the modified date cannot be determined (such as application
 '           : properties) then this function will return 0.
@@ -262,7 +318,7 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : SourceModified
 ' Author    : Adam Waller
-' Date      : 4/27/2020
+' Date      : 5/17/2021
 ' Purpose   : The date/time the source object was modified. In most cases, this would
 '           : be the date/time of the source file, but it some cases like SQL objects
 '           : the date can be determined through other means, so this function
@@ -277,56 +333,54 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : Category
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : Return a category name for this type. (I.e. forms, queries, macros)
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Category() As String
-    IDbComponent_Category = "VBE Forms"
+    IDbComponent_Category = "DB Connections"
 End Property
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : BaseFolder
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : Return the base folder for import/export of this component.
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
-    IDbComponent_BaseFolder = Options.GetExportFolder & "vbeforms" & PathSep
+    IDbComponent_BaseFolder = Options.GetExportFolder
 End Property
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Name
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : Return a name to reference the object for use in logs and screen output.
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
-    If m_Form Is Nothing Then Exit Property
-    IDbComponent_Name = m_Form.Name
+    IDbComponent_Name = "Database Connection"
 End Property
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SourceFile
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : Return the full path of the source file for the current object.
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    If m_Form Is Nothing Then Exit Property
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".frm"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & "db-connection.json"
 End Property
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Count
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : Return a count of how many items are in this category.
 '---------------------------------------------------------------------------------------
 '
@@ -345,7 +399,6 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_QuickCount() As Long
-    ' No simple way to pull a quick count of these
     IDbComponent_QuickCount = 1
 End Property
 
@@ -353,19 +406,19 @@ End Property
 '---------------------------------------------------------------------------------------
 ' Procedure : ComponentType
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : The type of component represented by this class.
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
-    IDbComponent_ComponentType = edbVbeForm
+    IDbComponent_ComponentType = edbConnection
 End Property
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Upgrade
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : Run any version specific upgrade processes before importing.
 '---------------------------------------------------------------------------------------
 '
@@ -377,29 +430,41 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : DbObject
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2021
 ' Purpose   : This represents the database object we are dealing with.
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_DbObject() As Object
-    Set IDbComponent_DbObject = m_Form
+    'Not applicable
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
-    Set m_Form = RHS
+    'Not applicable
 End Property
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SingleFile
 ' Author    : Adam Waller
-' Date      : 4/24/2020
+' Date      : 5/17/2021
 ' Purpose   : Returns true if the export of all items is done as a single file instead
 '           : of individual files for each component. (I.e. properties, references)
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SingleFile() As Boolean
-    IDbComponent_SingleFile = False
+    IDbComponent_SingleFile = True
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Initialize
+' Author    : Adam Waller
+' Date      : 5/17/2021
+' Purpose   : Helps us know whether we have already counted the objects.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Initialize()
+    'm_Count = -1
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -414,3 +479,7 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
+
+
+

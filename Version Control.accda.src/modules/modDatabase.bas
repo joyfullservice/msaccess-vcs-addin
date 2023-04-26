@@ -37,7 +37,7 @@ Public Function GetDBProperty(strName As String, Optional dbs As DAO.Database) A
 
     Dim prp As Object ' DAO.Property
     Dim oParent As Object
-    
+
     ' Check for database reference
     If Not dbs Is Nothing Then
         Set oParent = dbs.Properties
@@ -56,7 +56,7 @@ Public Function GetDBProperty(strName As String, Optional dbs As DAO.Database) A
             Exit Function
         End If
     End If
-    
+
     ' Look for property by name
     For Each prp In oParent
         If prp.Name = strName Then
@@ -65,7 +65,7 @@ Public Function GetDBProperty(strName As String, Optional dbs As DAO.Database) A
         End If
     Next prp
     Set prp = Nothing
-    
+
 End Function
 
 
@@ -81,7 +81,7 @@ Public Sub SetDBProperty(ByVal strName As String, ByVal varValue As Variant, Opt
     Dim prp As Object ' DAO.Property
     Dim blnFound As Boolean
     Dim oParent As Object
-    
+
     ' Properties set differently for databases and ADP projects
     If CurrentProject.ProjectType = acADP Then
         Set oParent = CurrentProject.Properties
@@ -89,7 +89,7 @@ Public Sub SetDBProperty(ByVal strName As String, ByVal varValue As Variant, Opt
         If dbs Is Nothing Then Set dbs = CurrentDb
         Set oParent = dbs.Properties
     End If
-    
+
     ' Look for property in collection
     For Each prp In oParent
         If prp.Name = strName Then
@@ -112,7 +112,7 @@ Public Sub SetDBProperty(ByVal strName As String, ByVal varValue As Variant, Opt
             Exit Sub
         End If
     Next prp
-    
+
     ' Add new property
     If Not blnFound Then
         If CurrentProject.ProjectType = acADP Then
@@ -123,7 +123,7 @@ Public Sub SetDBProperty(ByVal strName As String, ByVal varValue As Variant, Opt
             Set dbs = Nothing
         End If
     End If
-    
+
 End Sub
 
 
@@ -138,7 +138,7 @@ Public Sub SetDAOProperty(objParent As Object, intType As Integer, strName As St
 
     Dim prp As DAO.Property
     Dim blnFound As Boolean
-    
+
     ' Look through existing properties.
     For Each prp In objParent.Properties
         If prp.Name = strName Then
@@ -158,7 +158,7 @@ Public Sub SetDAOProperty(objParent As Object, intType As Integer, strName As St
             End If
         End If
     End If
-        
+
     ' Add new property if needed
     If Not blnFound Then
         ' Create property, then append to collection
@@ -222,7 +222,7 @@ Public Function IsLoaded(intType As AcObjectType, strName As String, Optional bl
     Dim frm As Form
     Dim rpt As Report
     Dim ctl As Control
-    
+
     If SysCmd(acSysCmdGetObjectState, intType, strName) <> adStateClosed Then
         If blnAllowDesignView Then
             IsLoaded = True
@@ -270,7 +270,7 @@ Public Function IsLoaded(intType As AcObjectType, strName As String, Optional bl
             Next frm
         End If
     End If
-    
+
 End Function
 
 
@@ -287,46 +287,46 @@ Public Function CloseDatabaseObjects() As Boolean
 
     Dim blnSuccess As Boolean
     Dim objItem As AccessObject
-    
+
     If DebugMode(True) Then On Error GoTo ErrHandler Else On Error GoTo ErrHandler
-    
+
     Perf.OperationStart "Close Open Objects"
-    
+
     ' Check forms and reports
     blnSuccess = CloseAllFormsReports
-    
+
     ' If all forms and reports are closed, proceed with other object types.
     If blnSuccess Then
-        
+
         ' Macros
         For Each objItem In CurrentProject.AllMacros
             If IsLoaded(acMacro, objItem.Name) Then DoCmd.Close acMacro, objItem.Name
         Next objItem
-        
+
         ' Tables
         For Each objItem In CurrentData.AllTables
             If IsLoaded(acTable, objItem.Name) Then DoCmd.Close acTable, objItem.Name
         Next objItem
-        
+
         ' Queries
         For Each objItem In CurrentData.AllQueries
             If IsLoaded(acQuery, objItem.Name) Then DoCmd.Close acQuery, objItem.Name
         Next objItem
-        
+
     End If
 
     Perf.OperationEnd
     CloseDatabaseObjects = blnSuccess
-    
+
     Exit Function
-    
+
 ErrHandler:
-    
+
     blnSuccess = False
-    
+
     ' Handle any error message in calling function
     CatchAny eelNoError, "Unable to close database object", ModuleName & ".CloseDatabaseObjects", False
-    
+
 End Function
 
 
@@ -342,7 +342,7 @@ Private Function CloseAllFormsReports() As Boolean
     Dim strName As String
     Dim intOpened As Integer
     Dim intItem As Integer
-    
+
     ' Get count of opened objects
     intOpened = Forms.Count + Reports.Count
     If intOpened > 0 Then
@@ -367,11 +367,85 @@ Private Function CloseAllFormsReports() As Boolean
         ' No forms or reports currently open.
         CloseAllFormsReports = True
     End If
-    
+
     Exit Function
 
 ErrorHandler:
     Debug.Print "Error closing " & strName & ": " & Err.Number & vbCrLf & Err.Description
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ObjectExists
+' Author    : Adam Waller
+' Date      : 3/3/2023
+' Purpose   : See if the object exists in the current database/project
+'---------------------------------------------------------------------------------------
+'
+Public Function ObjectExists(intType As AcObjectType, strName As String, Optional blnInCodeDb As Boolean = False) As Boolean
+
+    Dim objTest As Object
+    Dim objContainer As Object
+
+    Set objContainer = GetParentContainer(intType, blnInCodeDb)
+    If objContainer Is Nothing Then
+        Log.Error eelError, "Parent container not supported for this object type: " & intType, ModuleName & ".ObjectExists"
+    Else
+        ' Attempt to reference the object by name
+        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        Set objTest = objContainer(strName)
+        ObjectExists = Not Catch(2467)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetParentContainer
+' Author    : Adam Waller
+' Date      : 3/3/2023
+' Purpose   : Get the parent container collection for the object type. (Not all types
+'           : are supported.)
+'           : Also allows you to specify whether to use the CodeDb or CurrentDb
+'---------------------------------------------------------------------------------------
+'
+Public Function GetParentContainer(intType As AcObjectType, Optional blnInCodeDb As Boolean = False) As Object
+
+    Dim objHostData As CurrentData
+    Dim objHostProject As CurrentProject
+
+    ' Set the host objects
+    If blnInCodeDb Then
+        Set objHostData = CodeData
+        Set objHostProject = CodeProject
+    Else
+        Set objHostData = CurrentData
+        Set objHostProject = CurrentProject
+    End If
+
+    ' Return the associated parent container
+    Select Case intType
+
+        ' ADP Specific
+        Case acDiagram:             Set GetParentContainer = objHostData.AllDatabaseDiagrams
+        Case acFunction:            Set GetParentContainer = objHostData.AllFunctions
+        Case acServerView:          Set GetParentContainer = objHostData.AllViews
+        Case acStoredProcedure:     Set GetParentContainer = objHostData.AllStoredProcedures
+
+        ' Database objects
+        Case acForm:                Set GetParentContainer = objHostProject.AllForms
+        Case acMacro:               Set GetParentContainer = objHostProject.AllMacros
+        Case acModule:              Set GetParentContainer = objHostProject.AllModules
+        Case acQuery:               Set GetParentContainer = objHostData.AllQueries
+        Case acReport:              Set GetParentContainer = objHostProject.AllReports
+        Case acTable:               Set GetParentContainer = objHostData.AllTables
+
+        ' Unsupported
+        Case acTableDataMacro, acDatabaseProperties
+        Case Else
+
+    End Select
+
 End Function
 
 
@@ -400,19 +474,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetVBProjectForCurrentDB
-' Author    : Adam Waller
-' Date      : 7/25/2017
-' Purpose   : Get the actual VBE project for the current top-level database.
-'           : (This is harder than you would think!)
-'---------------------------------------------------------------------------------------
-'
-Public Function GetVBProjectForCurrentDB() As VBProject
-    Set GetVBProjectForCurrentDB = GetProjectByName(CurrentProject.FullName)
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetCodeVBProject
 ' Author    : Adam Waller
 ' Date      : 4/24/2020
@@ -435,23 +496,23 @@ Private Function GetProjectByName(ByVal strPath As String) As VBProject
 
     Dim objProj As VBIDE.VBProject
     Dim strUncPath As String
-    
+
     ' Use currently active project by default
     Set GetProjectByName = VBE.ActiveVBProject
-    
+
     ' VBProject filenames are UNC paths
-    strUncPath = GetUncPath(strPath)
-    
-    If VBE.ActiveVBProject.FileName <> strUncPath Then
+    strUncPath = UCase(GetUncPath(strPath))
+
+    If UCase(VBE.ActiveVBProject.FileName) <> strUncPath Then
         ' Search for project with matching filename.
         For Each objProj In VBE.VBProjects
-            If objProj.FileName = strUncPath Then
+            If UCase(objProj.FileName) = strUncPath Then
                 Set GetProjectByName = objProj
                 Exit For
             End If
         Next objProj
     End If
-    
+
 End Function
 
 
@@ -466,10 +527,10 @@ End Function
 Public Sub RunSubInCurrentProject(strSubName As String)
 
     Dim strCmd As String
-    
+
     ' Don't need the parentheses after the sub name
     strCmd = Replace(strSubName, "()", vbNullString)
-    
+
     ' Make sure we are not trying to run a function with arguments
     If InStr(strCmd, "(") > 0 Then
         MsgBox2 "Unable to Run Command", _
@@ -478,10 +539,17 @@ Public Sub RunSubInCurrentProject(strSubName As String)
             "no parameters that you can call instead of " & strSubName & ".", vbExclamation
         Exit Sub
     End If
+
+    ' Make sure procedure exists in current database
+    If Not GlobalProcExists(strSubName) Then
+        Log.Error eelError, "The procedure """ & strSubName & """ not found.", ModuleName & ".RunSubInCurrentProject"
+        Log.Add "The procedure must be declared as public in a standard module.", False
+        Exit Sub
+    End If
     
     ' Add project name so we can run it from the current datbase
-    strCmd = "[" & GetVBProjectForCurrentDB.Name & "]." & strCmd
-    
+    strCmd = "[" & CurrentVBProject.Name & "]." & strCmd
+
     ' Run the sub
     Application.Run strCmd
 
@@ -498,7 +566,7 @@ End Sub
 Public Function DatabaseFileOpen() As Boolean
 
     Dim strTest As String
-    
+
     ' See if we have a reference to a CurrentProject object
     If CurrentProject Is Nothing Then
         DatabaseFileOpen = False
@@ -510,37 +578,118 @@ Public Function DatabaseFileOpen() As Boolean
         CatchAny eelNoError, vbNullString
         DatabaseFileOpen = (strTest <> vbNullString)
     End If
-    
+
     'DatabaseOpen = Workspaces(0).Databases.Count > 0   ' Another approach (Not ADP compatible)
-    
+
 End Function
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : TableExists
 ' Author    : Adam Waller
-' Date      : 5/7/2020
-' Purpose   : Returns true if the table object is found in the dabase.
+' Date      : 3/13/2023
+' Purpose   : Returns true if the table object is found in the dabase. (SQL version)
+'           : (Includes both local and linked tables, including system tables.)
 '---------------------------------------------------------------------------------------
 '
 Public Function TableExists(strName As String) As Boolean
-    TableExists = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type=1") = 0)
+    TableExists = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type in (1,4,6)") = 0)
 End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : DeleteObject
+' Procedure : IsLocalTable
 ' Author    : Adam Waller
-' Date      : 11/23/2020
-' Purpose   : Deletes the object if it exists. (Surpresses error)
+' Date      : 3/13/2023
+' Purpose   : Returns true if the table exists as a local (not linked) table in the
+'           : current database.
 '---------------------------------------------------------------------------------------
 '
-Public Sub DeleteObjectIfExists(intType As AcObjectType, strName As String)
+Public Function IsLocalTable(strName As String) As Boolean
+    IsLocalTable = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type = 1") = 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeleteObjectIfExists
+' Author    : Adam Waller
+' Date      : 3/3/2023
+' Purpose   : Deletes the object if it exists. This gets really tricky if the object
+'           : exists in both the add-in database and the current database. Thankfully
+'           : we have a way to work around this for most objects by renaming to a
+'           : unique name that doesn't exist in the add-in, and deleting the renamed
+'           : object.
+'---------------------------------------------------------------------------------------
+'
+Public Function DeleteObjectIfExists(intType As AcObjectType, strName As String) As Boolean
+
+    Dim blnExistsInAddIn As Boolean
+    Dim strTempName As String
+
+    ' If object does not exist in the current database, no need to go further
+    If Not ObjectExists(intType, strName) Then Exit Function
+
+    ' Check to see if the object exists in the add-in database. (See note above)
+    Select Case intType
+        ' Object types used in the add-in
+        Case acForm, acMacro, acModule, acQuery, acTable
+            blnExistsInAddIn = ObjectExists(intType, strName, True)
+    End Select
+
+    ' Trap errors when attempting to delete the object
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    DoCmd.DeleteObject intType, strName
-    Catch 7874 ' Object not found
-    CatchAny eelError, "Deleting object " & strName
-End Sub
+
+    If Not blnExistsInAddIn Then
+        ' Nice! We can use a simple call to delete the object
+        DoCmd.DeleteObject intType, strName
+    Else
+        ' This is where it gets fun... If you attempt to delete an object from the
+        ' VBA code in the add-in, it will default to operating on the add-in object
+        ' first, before looking in the current database. This can cause corruption
+        ' in the add-in, in addition to failing to delete the object from the
+        ' current database. To work around this, we will rename the object to something
+        ' random first, then delete it based on the randomized (non-matching) name.
+
+        ' Build a random temp name that will not collide with the add-in or any existing
+        ' object in the current database. (But leave a meaningful clue in the name, in
+        ' case something goes wrong and it ends up staying in the database.)
+        strTempName = strName & "_DELETE_" & GetStringHash(Perf.MicroTimer)
+
+        ' We need to avoid using DoCmd.Rename for the same reasons
+        Select Case intType
+            Case acForm
+                Log.Error eelError, "Cannot delete a form with the same name as an add-in form.", _
+                    ModuleName & ".DeleteObjectIfExists"
+                    Exit Function   ' (Returns False)
+            Case acMacro
+                ' The rename command seems to work on this object type... (At least
+                ' in Access 2010)
+                DoCmd.Rename strTempName, intType, strName
+            Case acModule
+                ' Rename the VBE object
+                CurrentVBProject.VBComponents(strName).Name = strTempName
+            Case acQuery
+                ' Rename the Query Definition object
+                CurrentDb.QueryDefs(strName).Name = strTempName
+            Case acTable
+                ' Rename the Table Definition object
+                CurrentDb.TableDefs(strName).Name = strTempName
+        End Select
+
+        ' Trap any errors involved in renaming the object
+        If Not CatchAny(eelError, "Error renaming object: " & strName, ModuleName & ".DeleteObjectIfExists") Then
+            ' Delete object using the temp name
+            DoCmd.DeleteObject intType, strTempName
+        End If
+    End If
+
+    ' Catch any errors with deleting the object
+    CatchAny eelError, "Error deleting object: " & strName, ModuleName & ".DeleteObjectIfExists"
+
+    ' Return success if the object no longer exists
+    DeleteObjectIfExists = Not ObjectExists(intType, strName)
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -589,17 +738,17 @@ Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
     Dim frmParent As Form
     Dim objParent As Object
     Dim ctlCurrentFocus As Control
-    
+
     ' Determine parent form for control
     Set objParent = ctlWithFocus
     Do While Not TypeOf objParent Is Form
         Set objParent = objParent.Parent
     Loop
     Set frmParent = objParent
-    
+
     ' Ignore any errors with Screen.* functions
     If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    
+
     ' Verify focus of parent form
     Set frmParent = Screen.ActiveForm
     If Not frmParent Is objParent Then
@@ -607,20 +756,20 @@ Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
         frmParent.SetFocus
         DoEvents
     End If
-    
+
     ' Verify focus of control on form
     Set ctlCurrentFocus = frmParent.ActiveControl
     If Not ctlCurrentFocus Is ctlWithFocus Then
         ctlWithFocus.SetFocus
         DoEvents
     End If
-    
+
     ' Return true if the control currently has the focus
     VerifyFocus = frmParent.ActiveControl Is ctlWithFocus
-    
+
     ' Discard any errors
     CatchAny eelNoError, vbNullString, , False
-    
+
 End Function
 
 
@@ -638,9 +787,9 @@ Public Function GetAvailableConnectionCount()
     Dim colDbs As Collection
     Dim dbs As DAO.Database
     Dim intCnt As Integer
-    
+
     Set colDbs = New Collection
-    
+
     On Error Resume Next
     For intCnt = 1 To 300
         Set dbs = CurrentDb
@@ -651,11 +800,11 @@ Public Function GetAvailableConnectionCount()
         End If
         colDbs.Add dbs
     Next intCnt
-    
+
     Set dbs = Nothing
 
     ' Return count of how many connections we were
     ' able to create before hitting an error
     GetAvailableConnectionCount = intCnt
-    
+
 End Function

@@ -9,15 +9,6 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
-
-' API call to press shift key while opening the database to disable startup code
-' Need to use the keybd event call, not SetKeyboardState in order to support modern OS versions.
-Private Const KEYEVENTF_EXTENDEDKEY = &H1
-Private Const KEYEVENTF_KEYUP = &H2
-Private Const VK_SHIFT = &H10
-Private Declare PtrSafe Sub keybd_event Lib "user32" (ByVal bteVK As Byte, ByVal bteScan As Byte, ByVal dwFlags As Long, ByVal dwExtraInfo As Long)
-
-
 '---------------------------------------------------------------------------------------
 ' Procedure : LocalizeLibraryReferences
 ' Author    : Adam Waller
@@ -42,19 +33,19 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
     Dim varKey As Variant
     Dim frm As Form_frmVCSMain
     Dim oApp As Access.Application
-    
+
     ' Look up the references from the current database
     Perf.StartTiming
     Perf.OperationStart "Scan references"
     Set dRefs = GetReferencesDictionary
     Perf.OperationEnd
-    
+
     ' We may not need to show the GUI if no problems are found.
     If dRefs("ProjCount") = 0 And Not blnAlwaysShowGUI Then
         Debug.Print "Verified local library references"
         Exit Sub
     End If
-    
+
     ' Reset the log file
     Log.Clear
     strPath = CurrentProject.FullName
@@ -64,7 +55,7 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     Set frm = Form_frmVCSMain   ' Connect to hidden instance
     With frm
-    
+
         ' Prepare the UI screen
         .cmdClose.SetFocus
         .HideActionButtons
@@ -84,7 +75,7 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
         Log.Spacer
         .Visible = True
     End With
-    
+
     ' Loop through databases
     For Each varKey In dRefs.Keys
         Select Case varKey
@@ -104,10 +95,10 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
         ShiftOpenDatabase strPath, False, frm
         DoEvents
     End If
-    
+
     Log.Spacer
     Log.Add "Operation Complete", , , , True
-    
+
     ' Save the log file
     Perf.EndTiming
     With Log
@@ -117,7 +108,7 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
         .Active = False
         .Clear
     End With
-    
+
 End Sub
 
 
@@ -143,29 +134,29 @@ Public Function GetReferencesDictionary() As Dictionary
     Dim varKey As Variant
     Dim blnAdd As Boolean
     Dim strRefPath As String
-    
+
     ' Create dictionary and header info
     Set dProjects = New Dictionary
     dProjects.CompareMode = TextCompare
     dProjects("ProjCount") = 0
     dProjects("RefCount") = 0
-    
+
     ' Activate the VB Project for the current database
-    Set proj = GetVBProjectForCurrentDB
+    Set proj = CurrentVBProject
     strFolder = FSO.GetParentFolderName(proj.FileName) & PathSep
 
     ' Loop through all projects
     For Each proj In VBE.VBProjects
-        
+
         ' Get name of project file, and see if it exists in the parent folder
         'Debug.Print proj.Name & " (" & proj.FileName & ")"
         strFile = FSO.GetFileName(proj.FileName)
         strPath = strFolder & strFile
         If FSO.FileExists(strPath) Then
-            
+
             ' Set up dictionary of refs for this file
             Set dRefs = New Dictionary
-            
+
             ' Loop through references, looking for projects (libraries)
             For Each ref In proj.References
                 If ref.Type = vbext_rk_Project Then
@@ -180,10 +171,10 @@ Public Function GetReferencesDictionary() As Dictionary
                     End If
                 End If
             Next ref
-            
+
             ' Add to list of databases if we found at least one reference to fix
             If dRefs.Count > 0 Then
-                
+
                 ' We might have multiple VB projects with the same name, but
                 ' pointing to different locations. Add ALL broken references
                 ' since we don't know which file has the broken reference.
@@ -206,7 +197,7 @@ Public Function GetReferencesDictionary() As Dictionary
 
     ' Return dictionary
     Set GetReferencesDictionary = dProjects
-    
+
 End Function
 
 
@@ -223,10 +214,10 @@ Private Sub FixReferences(dProject As Dictionary)
     Dim colExisting As Collection
     Dim varItem As Variant
     Dim ref As VBIDE.Reference
-    
+
     Set colExisting = New Collection
-    Set proj = GetVBProjectForCurrentDB
-    
+    Set proj = CurrentVBProject
+
     ' Build a collection of the existing library references
     ' (We can't change the order, other than by removing and adding
     '  back in, so we need to work from this list to preserve the
@@ -246,7 +237,7 @@ Private Sub FixReferences(dProject As Dictionary)
         End If
     Next ref
     Set ref = Nothing
-    
+
     ' Now go through the list of saved references, and remove and add them back in.
     For Each varItem In colExisting
         proj.References.Remove proj.References(varItem(0))
@@ -258,46 +249,6 @@ Private Sub FixReferences(dProject As Dictionary)
             proj.References.AddFromFile varItem(1)
         End If
     Next varItem
-    
+
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ShiftOpenDatabase
-' Author    : Adam Waller
-' Date      : 2/25/2022
-' Purpose   : Open a database with the shift key held down so we can (hopefully)
-'           : bypass the startup code.
-'---------------------------------------------------------------------------------------
-'
-Private Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain As Form_frmVCSMain)
-
-    ' Skip open if we are already on the correct database
-    If CurrentProject.FullName = strPath And Not blnExclusive Then Exit Sub
-
-    ' Close any open database before we try to open another one.
-    If DatabaseFileOpen Then
-        StageMainForm
-        Set frmMain = Nothing
-        CloseCurrentDatabase2
-        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-        Set frmMain = Form_frmVCSMain
-        RestoreMainForm
-    End If
-
-    ' Hold shift key down to bypass startup macro/form.
-    keybd_event VK_SHIFT, &H45, KEYEVENTF_EXTENDEDKEY Or 0, 0
-    
-    ' Very important! Make sure the shift key actually goes down before opening the file.
-    Pause 0.5
-    
-    ' Open the database
-    OpenCurrentDatabase strPath, blnExclusive
-    
-    ' Restore the shift key
-    keybd_event VK_SHIFT, &H45, KEYEVENTF_EXTENDEDKEY Or KEYEVENTF_KEYUP, 0
-    DoEvents
-    
-End Sub
-
 

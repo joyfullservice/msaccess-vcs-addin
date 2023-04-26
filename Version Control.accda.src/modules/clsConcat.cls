@@ -41,16 +41,16 @@ Const clngInitialPages As Long = 100
 
 ' Prepares the initial buffer page
 Private Sub Class_Initialize()
-    
+
     If lngPageSize = 0 Then lngPageSize = clngPageSize
     If lngInitialPages = 0 Then lngInitialPages = clngInitialPages
-    
+
     ' Set up the initial array of pages.
     ReDim astrPages(0 To lngInitialPages - 1) As String
-    
+
     ' Prepare first page
     astrPages(0) = Space$(lngPageSize)
-    
+
 End Sub
 
 
@@ -78,18 +78,18 @@ Private Sub AddString(strAddString As String)
     Dim lngRemaining    As Long
     Dim lngAddStrPos    As Long
     Dim lngAddLen       As Long
-    
+
     ' Get length of new string
     lngLen = Len(strAddString)
-    
+
     ' No need to process a zero-length string
     If lngLen > 0 Then
         ' Set starting position for string we are adding
         lngAddStrPos = 1
-        
+
         ' Continue filling pages till we reach the end of the new string
         Do While lngAddStrPos <= lngLen
-            
+
             ' Check to see if we need a new page
             If lngCurrentPos = lngPageSize Then
                 ' See if we already have a new page available in the array
@@ -102,7 +102,7 @@ Private Sub AddString(strAddString As String)
                 astrPages(lngCurrentPage) = Space$(lngPageSize)
                 lngCurrentPos = 0
             End If
-            
+
             ' See if it fits on the current page
             lngRemaining = lngPageSize - lngCurrentPos
             If (lngLen - (lngAddStrPos - 1)) <= lngRemaining Then
@@ -118,25 +118,25 @@ Private Sub AddString(strAddString As String)
                 lngCurrentPos = lngPageSize
                 lngAddStrPos = lngAddStrPos + lngRemaining
             End If
-        
+
         ' Move to next page, if needed
         Loop
-    
+
     End If
-    
+
 End Sub
 
 
 ' Removes the specified number of chacters from the string.
 ' (Technically just moves the position back)
 Public Sub Remove(lngChars As Long)
-    
+
     Dim lngTotalLen As Long
     Dim lngNewPosition As Long
-    
+
     ' Get total length of current string including all pages
     lngTotalLen = lngCurrentPos + (lngCurrentPage * lngPageSize)
-    
+
     ' We can't remove more characters than we put in the string to start with.
     If lngChars > lngTotalLen Then
         ' Go to beginning
@@ -150,21 +150,19 @@ Public Sub Remove(lngChars As Long)
         ' Set position on partial page
         lngCurrentPos = lngNewPosition - (lngCurrentPage * lngPageSize)
     End If
-    
+
 End Sub
 
 
 ' Returns the accumulated string
 Public Function GetStr() As String
-Attribute GetStr.VB_Description = "Returns the concatenated string."
-Attribute GetStr.VB_UserMemId = 0
 
     Dim lngCnt As Long
-    
+
     ' Prepare return string. This should be the filled pages plus the last
     ' partial page, divided by 2 to get the string length instead of byte length.
     GetStr = Space$((lngCurrentPage * lngPageSize) + lngCurrentPos)
-    
+
     ' Loop through filled pages, overlaying on return string.
     ' (Last partial page is automatically trimmed based on returned string size.)
     ' (If lngCurrentPos=0 then skip last page)
@@ -173,7 +171,7 @@ Attribute GetStr.VB_UserMemId = 0
             Mid$(GetStr, (lngCnt * lngPageSize) + 1, lngPageSize) = astrPages(lngCnt)
         Next lngCnt
     End If
-    
+
 End Function
 
 
@@ -184,7 +182,7 @@ Public Function MidStr(lngStart As Long, Optional lngLength As Long = -1) As Str
     Dim lngPos As Long
     Dim lngStartPage As Long
     Dim lngStartPos As Long
-    
+
     ' Prepare return string length.
     If lngLength = -1 Then
         ' Return remaining string after lngStart
@@ -194,11 +192,11 @@ Public Function MidStr(lngStart As Long, Optional lngLength As Long = -1) As Str
         ' Return a specified number of characters
         MidStr = Space$(lngLength)
     End If
-    
+
     ' Determine start page and position for return string
     lngStartPage = (lngStart - 1) \ lngPageSize ' Zero based page
     lngStartPos = lngStart - (lngStartPage * lngPageSize)
-    
+
     ' Loop through filled pages, overlaying on return string.
     ' (Last partial page is automatically trimmed based on returned string size.)
     If Len(MidStr) > 0 Then
@@ -246,9 +244,9 @@ End Function
 
 ' Reset the buffer without changing the page size
 Public Sub Clear()
-    
+
     Class_Initialize
-    
+
     ' Reset positions
     lngCurrentPage = 0
     lngCurrentPos = 0
@@ -273,7 +271,7 @@ End Sub
 Public Sub SelfTest()
 
     SetPageSize 10, 5
-    
+
     Debug.Assert UBound(astrPages) = 4
     Add "abcdefghij"
     Add "k"
@@ -294,7 +292,7 @@ Public Sub SelfTest()
     Debug.Assert MidStr(10, 1) = "j"
     Debug.Assert RightStr(1) = "k"
     Debug.Assert RightStr(100) = "abcdefghijk"
-    
+
     ' Verify paging
     With Me
         .Clear

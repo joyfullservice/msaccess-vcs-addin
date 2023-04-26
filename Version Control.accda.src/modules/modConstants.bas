@@ -14,6 +14,7 @@ Option Explicit
 Public Const PROJECT_NAME As String = "MSAccessVCS"
 Public Const PROJECT_INSTALL_FOLDER As String = "MSAccessVCS" '"MSAccessVCS" ' Change this if your environment requires a different location. Default: "MSAccessVCS"
 Public Const DESIRED_APPDATA_FOLDER As String = "AppData" ' Options: "AppData" (default), "LocalAppData" (some environments may need to be elsewhere)
+
 ' Read/write chunks of text, rather than the whole thing at once for massive
 ' performance gains when reading large files.
 ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
@@ -24,7 +25,6 @@ Public Const JSON_WHITESPACE As Integer = 2
 
 ' BOM characters for UTF-8/UTF-16 files
 Public Const UTF8_BOM As String = "ï»¿"
-Public Const UCS2_BOM As String = "ÿþ"
 
 ' Default hashing algorithm
 Public Const DefaultHashAlgorithm As String = "SHA256"
@@ -78,6 +78,7 @@ Public Enum eDatabaseComponentType
     edbVbeProject
     edbVbeReference
     edbProject
+    edbConnection
 End Enum
 
 ' Error levels used for logging and monitoring the status
@@ -107,6 +108,7 @@ End Enum
 
 ' Options for resolving file conflicts
 Public Enum eResolveConflict
+    ercNone
     ercSkip
     ercOverwrite
     ercDelete

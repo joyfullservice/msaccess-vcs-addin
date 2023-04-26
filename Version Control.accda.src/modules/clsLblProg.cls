@@ -122,7 +122,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         this.lblBack.BackStyle = 1
         this.lblBack.BackColor = lngColorGrey
     End If
-    
+
     ' Properties for back label
     SetVisibility this.lblBack, True
 
@@ -156,7 +156,7 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
 
     ' Set default repaint interval to once every second
     this.sngRepaintInterval = 1
-    
+
     ' Update the display immediately
     UpdateDisplay True
 
@@ -408,7 +408,7 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
             intPercent = .dblValue * (100 / Me.Max)
             dblWidth = .dblValue * (.dblFullWidth / Me.Max)
         End If
-        
+
         ' See if we have a label assigned
         If .lblFront Is Nothing Then
             #If APPLICATION_NAME = "Microsoft Access" Then
@@ -466,12 +466,12 @@ Private Function GetParentFormName(ctlControl As Control) As String
     ' returns the name of the parent form
     Dim objParent As Object
     Dim lngRunCount As Long
-    
+
     ' This is only used in other VBA applications, not Microsoft Access
     #If APPLICATION_NAME = "Microsoft Access" Then
         Exit Function
     #End If
-    
+
     ' Walk up parent controls to find parent form.
     Set objParent = ctlControl
     Do While Not TypeName(objParent) = "UserForm" And lngRunCount < 100
@@ -540,9 +540,9 @@ Private Sub Class_Terminate()
     Set this.lblFront = Nothing
     Set this.lblCaption = Nothing
     Set this.objParent = Nothing
-    
+
     ' Clear any VBA errors
     If Err.Number <> 0 Then Err.Clear
-    
+
 End Sub
 

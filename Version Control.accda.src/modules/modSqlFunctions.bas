@@ -36,7 +36,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
     Dim strSchema As String
     Dim varItem As Variant
     Dim strType As String
-    
+
     ' Shortcut to clear the cached variable
     If strName = vbNullString And strType = vbNullString Then
         Set colCache = Nothing
@@ -44,13 +44,13 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
         dteCacheDate = 0
         Exit Function
     End If
-    
+
     ' Only try this on ADP projects
     If CurrentProject.ProjectType <> acADP Then Exit Function
-    
+
     ' Simple validation on object name
     strObject = Replace(strName, ";", vbNullString)
-    
+
     ' Build schema filter if required
     intPos = InStr(1, strObject, ".")
     If intPos > 0 Then
@@ -60,7 +60,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
     Else
         strSchema = "dbo"
     End If
-    
+
     ' Build type filter
     Select Case eType
         Case estView: strType = "V"
@@ -69,7 +69,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
         Case estTrigger: strType = "TR"
     End Select
     If strType <> vbNullString Then strTypeFilter = " AND [type]='" & strType & "'"
-    
+
     ' Check to see if we have already cached the results
     If strType = strLastType And (DateDiff("s", dteCacheDate, Now) < 5) And Not colCache Is Nothing Then
         ' Look through cache to find matching date
@@ -84,7 +84,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
         Set colCache = New Collection
         dteCacheDate = Now
         strLastType = strType
-        
+
         ' Build SQL query to find object
         strSql = "SELECT [name], schema_name([schema_id]) as [schema], modify_date FROM sys.objects WHERE 1=1 " & strTypeFilter
         Set rst = New ADODB.Recordset
@@ -105,7 +105,7 @@ Public Function GetSQLObjectModifiedDate(strName As String, eType As eSqlObjectT
         End With
         Set rst = Nothing
     End If
-    
+
 End Function
 
 
@@ -121,17 +121,17 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetSQLObjectDefinitionForADP(strName As String) As String
-    
+
     Dim rst As ADODB.Recordset
     Dim strSql As String
     Dim strObject As String
-    
+
     ' Only try this on ADP projects
     If CurrentProject.ProjectType <> acADP Then Exit Function
-    
+
     ' Simple validation on object name
     strObject = Replace(strName, ";", vbNullString)
-    
+
     strSql = "SELECT object_definition (OBJECT_ID(N'" & strObject & "'))"
     '@Ignore SetAssignmentWithIncompatibleObjectType
     Set rst = CurrentProject.Connection.Execute(strSql)
@@ -139,9 +139,9 @@ Public Function GetSQLObjectDefinitionForADP(strName As String) As String
         ' Get SQL definition
         GetSQLObjectDefinitionForADP = Nz(rst(0).Value)
     End If
-    
+
     Set rst = Nothing
-    
+
 End Function
 
 

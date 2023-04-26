@@ -17,8 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Const ModuleName = "clsDbVbeReference"
-
 Private m_Ref As VBIDE.Reference
 Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
@@ -56,12 +54,12 @@ Private Sub IDbComponent_Import(strFile As String)
 
     ' Import the references
     ImportReferences strFile
-    
+
     ' Update index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
-    
-    CatchAny eelError, "Importing VBE references", ModuleName & ".Import"
-    
+
+    CatchAny eelError, "Importing VBE references", ModuleName(Me) & ".Import"
+
 End Sub
 
 
@@ -84,23 +82,23 @@ Public Sub ImportReferences(strFile As String, Optional blnGuidOnly As Boolean =
     Dim varVersion As Variant
     Dim strPath As String
     Dim dExisting As Dictionary
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Read in references from file
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
-        
+
         ' Build list of current references so we can avoid conflicts
-        Set proj = GetVBProjectForCurrentDB
+        Set proj = CurrentVBProject
         Set dExisting = New Dictionary
         For Each ref In proj.References
             dExisting.Add ref.Name, ref.Guid
         Next ref
-        
+
         ' Add any references from file that don't already exist
         Set dItems = dFile("Items")
         For Each varKey In dItems.Keys
@@ -114,12 +112,12 @@ Public Sub ImportReferences(strFile As String, Optional blnGuidOnly As Boolean =
                         strPath = GetPathFromRelative(dRef("FullPath"))
                         If Not FSO.FileExists(strPath) Then
                             Log.Error eelError, "File not found. Unable to add reference to " & strPath, _
-                                ModuleName & ".ImportReferences"
+                                ModuleName(Me) & ".ImportReferences"
                         Else
                             Perf.OperationStart "Add Library References"
                             proj.References.AddFromFile strPath
                             Perf.OperationEnd
-                            CatchAny eelError, "Adding VBE reference from " & strPath, ModuleName & ".ImportReferences"
+                            CatchAny eelError, "Adding VBE reference from " & strPath, ModuleName(Me) & ".ImportReferences"
                         End If
                     End If
                 End If
@@ -158,7 +156,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
     Dim ref As VBIDE.Reference
     Dim strPath As String
     Dim dNames As Dictionary
-    
+
     ' Check cache parameter
     If blnUseCache And Not m_dItems Is Nothing Then
         ' Return cached dictionary
@@ -166,7 +164,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
         Exit Function
     End If
 
-    Set proj = GetVBProjectForCurrentDB
+    Set proj = CurrentVBProject
     Set dNames = New Dictionary
     Set GetDictionary = New Dictionary
     With GetDictionary
@@ -192,7 +190,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
             End If
         Next ref
     End With
-    
+
 End Function
 
 
@@ -211,7 +209,7 @@ Private Sub AddFromGuid(proj As VBIDE.VBProject, strName As String, strGuid As S
     Perf.OperationStart "Add GUID References"
     proj.References.AddFromGuid strGuid, lngMajor, lngMinor
     Perf.OperationEnd
-    
+
     ' Normal exit
     On Error GoTo 0
     Exit Sub
@@ -221,7 +219,7 @@ ErrHandlerWithVersion:
     ' We might still encounter a reference that is still not available
     On Error GoTo ErrHandler
     proj.References.AddFromGuid strGuid, 0, 0
-    
+
     ' Resume on next line
     Err.Clear
     Resume Next
@@ -230,7 +228,7 @@ ErrHandler:
 
     ' Log error
     Log.Add "ERROR: Could not add VBE reference to " & strName
-    
+
     If Err.Number = -2147319779 Then
         ' Object library not registered
         Log.Add "Encountered error " & Err.Number & ": '" & Err.Description & _
@@ -238,14 +236,14 @@ ErrHandler:
             " to this project. This may occur when the library does not exist on the build machine," & _
             " or when the version on the build machine is lower than the source file reference version." & _
             " See GitHub issue #96 for an example of how to resolve this problem.", Options.ShowDebug
-        
+
     Else
         ' Other error
         Log.Add "Encountered error " & Err.Number & ": '" & Err.Description & _
             "' while attempting to add GUID " & strGuid & " version " & lngMajor & "." & lngMinor & _
             " to this project.", Options.ShowDebug
     End If
-    
+
     ' Resume on next line
     Err.Clear
     Resume Next
@@ -265,7 +263,7 @@ Private Sub IDbComponent_Merge(strFile As String)
 
     ' Remove existing references first.
     RemoveNonBuiltInReferences
-    
+
     ' Import the references if the file exists
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
@@ -296,7 +294,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim ref As VBIDE.Reference
     Dim cRef As IDbComponent
     Dim dNames As Dictionary
@@ -307,12 +305,12 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         Set m_Items(blnModifiedOnly) = New Dictionary
         Set dNames = New Dictionary
         Set dItems = GetDictionary
-        
+
         ' This is where references work a little differently than most other objects.
         ' If ANY changes are detected in ANY of the references, the whole list of
         ' references will be returned as changed.
         If (Not blnModifiedOnly) Or IDbComponent_IsModified Then
-            For Each ref In GetVBProjectForCurrentDB.References
+            For Each ref In CurrentVBProject.References
                 If Not ref.BuiltIn Then
                     If Not dNames.Exists(ref.Name) Then
                         Set cRef = New clsDbVbeReference
@@ -324,13 +322,13 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     End If
                 End If
             Next ref
-            
+
         End If
     End If
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-        
+
 End Function
 
 

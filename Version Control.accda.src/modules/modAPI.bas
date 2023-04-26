@@ -45,13 +45,16 @@ Public Function HandleRibbonCommand(strCommand As String) As Boolean
 
     ' Make sure we are not attempting to run this from the current database when making
     ' changes to the add-in itself. (It will re-run the command through the add-in.)
-    If RunningOnLocal(strCommand) Then Exit Function
-    
+    If RunningOnLocal() Then
+        RunInAddIn "HandleRibbonCommand", True, strCommand
+        Exit Function
+    End If
+
     ' If a function is not found, this will throw an error. It is up to the ribbon
     ' designer to ensure that the control IDs match public procedures in the VCS
     ' (clsVersionControl) class module. Additional parameters are not supported.
     ' For example, to run VCS.Export, the ribbon button ID should be named "btnExport"
-    
+
     ' Trim off control ID prefix when calling command
     CallByName VCS, Mid(strCommand, 4), VbMethod
 
@@ -73,6 +76,23 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : WorkerCallback
+' Author    : Adam Waller
+' Date      : 3/2/2023
+' Purpose   : A public callback endpoint for worker script operations to check back in
+'           : after completion.
+'---------------------------------------------------------------------------------------
+'
+Public Function WorkerCallback(strKey As String, Optional varParams As Variant)
+    If RunningOnLocal Then
+        RunInAddIn "WorkerCallback", False, strKey, varParams
+    Else
+        Worker.ReturnWorker strKey, varParams
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RunningOnLocal
 ' Author    : Adam Waller
 ' Date      : 5/18/2022
@@ -80,10 +100,23 @@ End Function
 '           : the add-in database.
 '---------------------------------------------------------------------------------------
 '
-Private Function RunningOnLocal(strCommand As String) As Boolean
-    
+Private Function RunningOnLocal() As Boolean
+    RunningOnLocal = (StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunInAddIn
+' Author    : Adam Waller
+' Date      : 3/3/2023
+' Purpose   : Run a proceedure with optional parameters in the VCS add-in database.
+'---------------------------------------------------------------------------------------
+'
+Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optional varArg1 As Variant, Optional varArg2 As Variant)
+
     Dim projAddIn As VBProject
-    
+    Dim strRunCmd As String
+
     ' Make sure the add-in is loaded.
     If Not AddinLoaded Then LoadVCSAddIn
 
@@ -94,30 +127,38 @@ Private Function RunningOnLocal(strCommand As String) As Boolean
     ' change the project name of the add-in so we can call it as distinct from the
     ' current project.
     Set projAddIn = GetAddInProject
-    If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
+    If RunningOnLocal Then
         ' When this is run from the CurrentDB, we should rename the add-in project,
         ' then call it again using the renamed project to ensure we are running it
         ' from the add-in.
         projAddIn.Name = "MSAccessVCS-Lib"
-        RunningOnLocal = True
-        Run "MSAccessVCS-Lib.HandleRibbonCommand", strCommand
     Else
+        ' Running from the add-in project
         ' Reset project name if needed
-        With projAddIn
-            ' Technically, changes in the add-in will not be saved anyway, so this
-            ' may not be needed, but just in case we refer to this project by name
-            ' anywhere else in the code, we will restore the original name before
-            ' passing in the
-            If .Name = "MSAccessVCS-Lib" Then
-                .Name = PROJECT_NAME
-                ' User a timer to initiate the command again in the add-in database,
-                ' giving the calling code a moment to close and release references.
-                RunningOnLocal = True
-                SetTimer roRibbonCommand, strCommand
-            End If
-        End With
+        If projAddIn.Name = "MSAccessVCS-Lib" Then projAddIn.Name = PROJECT_NAME
     End If
-    
+
+    ' See if we should run the command directly, or with an API timer callback.
+    ' (The API timer is helpful when you need to clear the call stack on the
+    '  current database before running the add-in code.)
+    If blnUseTimer And Not RunningOnLocal Then
+        SetTimer strProcedure, CStr(varArg1), CStr(varArg2)
+    Else
+        ' Build the command to execute using Application.Run
+        strRunCmd = projAddIn.Name & "." & strProcedure
+        ' Call based on arguments
+        If Not IsMissing(varArg2) Then
+            Run strRunCmd, varArg1, varArg2
+        ElseIf Not IsMissing(varArg1) Then
+            Run strRunCmd, varArg1
+        Else
+            Run strRunCmd
+        End If
+    End If
+
+    ' Restore project name after run (if needed)
+    If projAddIn.Name = "MSAccessVCS-Lib" Then projAddIn.Name = PROJECT_NAME
+
 End Function
 
 
@@ -137,27 +178,27 @@ Public Function ExampleLoadAddInAndRunExport()
     Dim strAddInPath As String
     Dim proj As Object      ' VBProject
     Dim objAddIn As Object  ' VBProject
-    
+
     ' Build default add-in path
     strAddInPath = GetAddInFileName
-    
+
     ' See if add-in project is already loaded.
     For Each proj In VBE.VBProjects
         If StrComp(proj.FileName, strAddInPath, vbTextCompare) = 0 Then
             Set objAddIn = proj
         End If
     Next proj
-    
+
     ' If not loaded, then attempt to load the add-in.
     If objAddIn Is Nothing Then
-        
+
         ' The following lines will load the add-in at the application level,
         ' but will not actually call the function. Ignore the error of function not found.
         ' https://stackoverflow.com/questions/62270088/how-can-i-launch-an-access-add-in-not-com-add-in-from-vba-code
         On Error Resume Next
         Application.Run strAddInPath & "!DummyFunction"
         On Error GoTo 0
-    
+
         ' See if it is loaded now...
         For Each proj In VBE.VBProjects
             If StrComp(proj.FileName, strAddInPath, vbTextCompare) = 0 Then
@@ -173,7 +214,6 @@ Public Function ExampleLoadAddInAndRunExport()
         ' Launch add-in export for current database.
         Application.Run "MSAccessVCS.ExportSource", True
     End If
-    
-End Function
 
+End Function
 

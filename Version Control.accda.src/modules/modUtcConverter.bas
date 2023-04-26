@@ -36,25 +36,25 @@ Private Const ISO8601UTCTimeZone As String = "Z"
 #If Mac Then
 #If VBA7 Then
 ' 64-bit Mac (2016)
-Private Declare PtrSafe Function utc_popen Lib "/usr/lib/libc.dylib" Alias "popen" _
-    (ByVal utc_Command As String, ByVal utc_Mode As String) As LongPtr
-Private Declare PtrSafe Function utc_pclose Lib "/usr/lib/libc.dylib" Alias "pclose" _
-    (ByVal utc_File As LongPtr) As LongPtr
-Private Declare PtrSafe Function utc_fread Lib "/usr/lib/libc.dylib" Alias "fread" _
-    (ByVal utc_Buffer As String, ByVal utc_Size As LongPtr, ByVal utc_Number As LongPtr, ByVal utc_File As LongPtr) As LongPtr
-Private Declare PtrSafe Function utc_feof Lib "/usr/lib/libc.dylib" Alias "feof" _
-    (ByVal utc_File As LongPtr) As LongPtr
+Private Declare PtrSafe Function utc_popen Lib "/usr/lib/libc.dylib" Alias "popen" ( _
+    ByVal utc_Command As String, ByVal utc_Mode As String) As LongPtr
+Private Declare PtrSafe Function utc_pclose Lib "/usr/lib/libc.dylib" Alias "pclose" ( _
+    ByVal utc_File As LongPtr) As LongPtr
+Private Declare PtrSafe Function utc_fread Lib "/usr/lib/libc.dylib" Alias "fread" ( _
+    ByVal utc_Buffer As String, ByVal utc_Size As LongPtr, ByVal utc_Number As LongPtr, ByVal utc_File As LongPtr) As LongPtr
+Private Declare PtrSafe Function utc_feof Lib "/usr/lib/libc.dylib" Alias "feof" ( _
+    ByVal utc_File As LongPtr) As LongPtr
 
 #Else
 ' 32-bit Mac
-Private Declare Function utc_popen Lib "libc.dylib" Alias "popen" _
-    (ByVal utc_Command As String, ByVal utc_Mode As String) As Long
-Private Declare Function utc_pclose Lib "libc.dylib" Alias "pclose" _
-    (ByVal utc_File As Long) As Long
-Private Declare Function utc_fread Lib "libc.dylib" Alias "fread" _
-    (ByVal utc_Buffer As String, ByVal utc_Size As Long, ByVal utc_Number As Long, ByVal utc_File As Long) As Long
-Private Declare Function utc_feof Lib "libc.dylib" Alias "feof" _
-    (ByVal utc_File As Long) As Long
+Private Declare Function utc_popen Lib "libc.dylib" Alias "popen" ( _
+    ByVal utc_Command As String, ByVal utc_Mode As String) As Long
+Private Declare Function utc_pclose Lib "libc.dylib" Alias "pclose" ( _
+    ByVal utc_File As Long) As Long
+Private Declare Function utc_fread Lib "libc.dylib" Alias "fread" ( _
+    ByVal utc_Buffer As String, ByVal utc_Size As Long, ByVal utc_Number As Long, ByVal utc_File As Long) As Long
+Private Declare Function utc_feof Lib "libc.dylib" Alias "feof" ( _
+    ByVal utc_File As Long) As Long
 
 #End If
 ' End of Mac
@@ -67,13 +67,13 @@ Private Declare PtrSafe Sub GetLocalTime Lib "kernel32" (lpSystemTime As utc_SYS
 ' http://msdn.microsoft.com/en-us/library/windows/desktop/ms724421.aspx
 ' http://msdn.microsoft.com/en-us/library/windows/desktop/ms724949.aspx
 ' http://msdn.microsoft.com/en-us/library/windows/desktop/ms725485.aspx
-Private Declare PtrSafe Function utc_GetTimeZoneInformation Lib "kernel32" Alias "GetTimeZoneInformation" _
-    (utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION) As Long
-    
-Private Declare PtrSafe Function utc_SystemTimeToTzSpecificLocalTime Lib "kernel32" Alias "SystemTimeToTzSpecificLocalTime" _
-    (utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpUniversalTime As utc_SYSTEMTIME, utc_lpLocalTime As utc_SYSTEMTIME) As Long
-Private Declare PtrSafe Function utc_TzSpecificLocalTimeToSystemTime Lib "kernel32" Alias "TzSpecificLocalTimeToSystemTime" _
-    (utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpLocalTime As utc_SYSTEMTIME, utc_lpUniversalTime As utc_SYSTEMTIME) As Long
+Private Declare PtrSafe Function utc_GetTimeZoneInformation Lib "kernel32" Alias "GetTimeZoneInformation" ( _
+    utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION) As Long
+
+Private Declare PtrSafe Function utc_SystemTimeToTzSpecificLocalTime Lib "kernel32" Alias "SystemTimeToTzSpecificLocalTime" ( _
+    utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpUniversalTime As utc_SYSTEMTIME, utc_lpLocalTime As utc_SYSTEMTIME) As Long
+Private Declare PtrSafe Function utc_TzSpecificLocalTimeToSystemTime Lib "kernel32" Alias "TzSpecificLocalTimeToSystemTime" ( _
+    utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpLocalTime As utc_SYSTEMTIME, utc_lpUniversalTime As utc_SYSTEMTIME) As Long
 
 ' Dynamic Functions allow for past Time Zones to be accounted for. Above will work for "now".
 ' https://docs.microsoft.com/en-us/windows/win32/api/timezoneapi/nf-timezoneapi-gettimezoneinformationforyear
@@ -97,7 +97,7 @@ Private Declare PtrSafe Function TzSpecificLocalTimeToSystemTimeEx Lib "kernel32
     ByRef lpDynamicTimeZoneInformation As DYNAMIC_TIME_ZONE_INFORMATION _
     , ByRef lpLocalTime As utc_SYSTEMTIME _
     , ByRef lpUniversalTime As utc_SYSTEMTIME) As Long
-    
+
 #Else
 ' VBA 6 or less.
 
@@ -124,12 +124,12 @@ Private Declare Function TzSpecificLocalTimeToSystemTimeEx Lib "kernel32" ( _
 Private Declare Sub GetSystemTime Lib "kernel32" (lpSystemTime As utc_SYSTEMTIME)
 Private Declare Sub GetLocalTime Lib "kernel32" (lpSystemTime As utc_SYSTEMTIME)
 
-Private Declare Function utc_GetTimeZoneInformation Lib "kernel32" Alias "GetTimeZoneInformation" _
-    (utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION) As Long
-Private Declare Function utc_SystemTimeToTzSpecificLocalTime Lib "kernel32" Alias "SystemTimeToTzSpecificLocalTime" _
-    (utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpUniversalTime As utc_SYSTEMTIME, utc_lpLocalTime As utc_SYSTEMTIME) As Long
-Private Declare Function utc_TzSpecificLocalTimeToSystemTime Lib "kernel32" Alias "TzSpecificLocalTimeToSystemTime" _
-    (utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpLocalTime As utc_SYSTEMTIME, utc_lpUniversalTime As utc_SYSTEMTIME) As Long
+Private Declare Function utc_GetTimeZoneInformation Lib "kernel32" Alias "GetTimeZoneInformation" ( _
+    utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION) As Long
+Private Declare Function utc_SystemTimeToTzSpecificLocalTime Lib "kernel32" Alias "SystemTimeToTzSpecificLocalTime" ( _
+    utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpUniversalTime As utc_SYSTEMTIME, utc_lpLocalTime As utc_SYSTEMTIME) As Long
+Private Declare Function utc_TzSpecificLocalTimeToSystemTime Lib "kernel32" Alias "TzSpecificLocalTimeToSystemTime" ( _
+    utc_lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION, utc_lpLocalTime As utc_SYSTEMTIME, utc_lpUniversalTime As utc_SYSTEMTIME) As Long
 #End If
 
 
@@ -229,15 +229,15 @@ Public Function ConvertToLocalDate(ByVal utc_UtcDate As Date) As Date
 #Else
     Dim utc_DynamicTimeZoneInfo As DYNAMIC_TIME_ZONE_INFORMATION
     Dim UTCDateYear As Integer ' The year of UTC date.
-    
+
     Dim utc_UtcDateSysTime As utc_SYSTEMTIME ' Gets the year and month to compare.
     Dim utc_TimeZoneInfo As utc_TIME_ZONE_INFORMATION
-    
+
     Dim utc_LocalDateSysTime As utc_SYSTEMTIME
 
     ' Convert to SystemTime to facilitate more accurate date checking.
     utc_UtcDateSysTime = utc_DateToSystemTime(utc_UtcDate)
-    
+
     UTCDateYear = utc_UtcDateSysTime.utc_wYear
 
 Recheck_Year:
@@ -245,15 +245,15 @@ Recheck_Year:
     GetDynamicTimeZoneInformation utc_DynamicTimeZoneInfo
     GetTimeZoneInformationForYear UTCDateYear, utc_DynamicTimeZoneInfo, utc_TimeZoneInfo
     SystemTimeToTzSpecificLocalTimeEx utc_DynamicTimeZoneInfo, utc_UtcDateSysTime, utc_LocalDateSysTime
-    
+
     If UTCDateYear <> utc_LocalDateSysTime.utc_wYear Then
         UTCDateYear = utc_LocalDateSysTime.utc_wYear
         GoTo Recheck_Year
     End If
-    
+
     ConvertToLocalDate = utc_SystemTimeToDate(utc_LocalDateSysTime)
 #End If
- 
+
     Exit Function
 
 utc_ErrorHandling:
@@ -274,7 +274,7 @@ End Function
 
 Public Function ConvertToUtc(utc_LocalDate As Date) As Date
     On Error GoTo utc_ErrorHandling
-    
+
 #If Mac Then
     ConvertToUtc = utc_ConvertDate(utc_LocalDate, utc_ConvertToUtc:=True)
 #Else
@@ -282,7 +282,7 @@ Public Function ConvertToUtc(utc_LocalDate As Date) As Date
     Dim utc_TimeZoneInfo As utc_TIME_ZONE_INFORMATION
     Dim utc_UtcDate As utc_SYSTEMTIME
     Dim utc_LocalSystemTime As utc_SYSTEMTIME
-    
+
     utc_LocalSystemTime = utc_DateToSystemTime(utc_LocalDate)
     GetDynamicTimeZoneInformation utc_DynamicTimeZoneInfo
     GetTimeZoneInformationForYear utc_LocalSystemTime.utc_wYear, utc_DynamicTimeZoneInfo, utc_TimeZoneInfo
@@ -303,7 +303,7 @@ End Function
 Public Function ISO8601TimeStamp(Optional IncludeMilliseconds As Boolean = True _
                                 , Optional LocalTimeStamp As Boolean = False) As String
     Dim CurrentTimeVB As Date
-    
+
     Dim tString_Buffer As StringBufferCache
 ' Note: This varies slightly from ConvertToISO8601Time because it's faster to do on Windows if you have SYSTEMTIME
 #If Mac Then
@@ -350,7 +350,7 @@ End Function
 Public Function ParseISOTimeStampToISO8601TimeStamp(ByRef InVal As String _
                                                 , Optional LocalOut As Boolean = False) As String
     Dim tDateTime As Date
-    
+
     tDateTime = ParseIso(InVal, True)
     ParseISOTimeStampToISO8601TimeStamp = ConvertToISO8601Time(tDateTime, True, LocalOut, True)
 End Function
@@ -470,7 +470,7 @@ End Function
 ''
 Public Function ConvertToIsoTime(utc_LocalDate As Date _
                             , Optional OutputAsLocalDate As Boolean = False) As String
-                            
+
     On Error GoTo utc_ErrorHandling
     ConvertToIsoTime = ConvertToISO8601Time(utc_LocalDate, False, False, True)
     Exit Function
@@ -496,7 +496,7 @@ Public Function ConvertToISO8601Time(ByVal DateIn As Date _
                                     , Optional IncludeMilliseconds As Boolean = True) As String
 
     Dim fStringBuffer As StringBufferCache
-  
+
     Dim tBias As Long
     Dim OutputDate As Date
     Dim MSCount As Long
@@ -517,16 +517,16 @@ Public Function ConvertToISO8601Time(ByVal DateIn As Date _
         OutputDate = ConvertToUtc(DateIn)
         tBias = GetBiasForGivenLocalDate(OutputDate)
     End If
-    
+
     Dim tString_Buffer As StringBufferCache
 
     String_BufferAppend tString_Buffer, VBA.Format(OutputDate, ISOTimeFormatStr)
-    
+
     If IncludeMilliseconds Then
         MSCount = GetMilliseconds(OutputDate)
         String_BufferAppend tString_Buffer, "." & VBA.Format(MSCount, "000")
     End If
-    
+
     If OutputLocalString Then
         String_BufferAppend tString_Buffer, ISOTimezoneOffset(tBias)
     Else
@@ -552,10 +552,10 @@ End Function
 Private Function RoundUp(ByVal Value As Double) As Long
     Dim lngVal As Long
     Dim deltaValue As Double
-    
+
     lngVal = VBA.CLng(Value)
     deltaValue = lngVal - Value
-        
+
     If deltaValue < 0 Then
         RoundUp = lngVal + 1
     Else
@@ -565,10 +565,10 @@ End Function
 Private Function RoundDown(ByVal Value As Double) As Long
     Dim lngVal As Long
     Dim deltaValue As Double
-    
+
     lngVal = VBA.CLng(Value)
     deltaValue = lngVal - Value
-        
+
     If deltaValue <= 0 Then
         RoundDown = lngVal
     Else
@@ -679,7 +679,7 @@ End Function
 
 Private Function ConvDateUTC(ByVal InVal As String) As Date
     Dim RetVal As Variant
-    
+
 '    Dim RegEx As Object
 '    Set RegEx = CreateObject("VBScript.RegExp")
     Dim RegEx As New RegExp
@@ -688,11 +688,11 @@ Private Function ConvDateUTC(ByVal InVal As String) As Date
         .Multiline = True
         .IgnoreCase = False
     End With
-    
+
     RegEx.Pattern = "^(\d{4})-?(\d{2})?-?(\d{1,2})?$|^(\d{4})-?W(\d{2})?-?(\d)?$|^(\d{4})-?(\d{3})$"
     Dim Match As Object
     Set Match = RegEx.Execute(InVal)
-    
+
     If Match.Count <> 1 Then Exit Function
     With Match(0)
         If Not IsEmpty(.SubMatches(0)) Then
@@ -709,7 +709,7 @@ Private Function ConvDateUTC(ByVal InVal As String) As Date
             RetVal = DateSerial(CInt(.SubMatches(3)), 1, 4) '4th of jan is always week 1
             RetVal = RetVal - Weekday(RetVal, 2) 'subtract the weekday number of 4th of jan
             RetVal = RetVal + 7 * (CInt(.SubMatches(4)) - 1) 'add 7 times the (weeknumber - 1)
-            
+
             If IsEmpty(.SubMatches(5)) Then 'YYYY-Www
                 RetVal = RetVal + 1 'choose monday of that week
             Else 'YYYY-Www-D
@@ -720,7 +720,7 @@ Private Function ConvDateUTC(ByVal InVal As String) As Date
             RetVal = DateSerial(CInt(.SubMatches(6)), 1, 1) + CInt(.SubMatches(7)) - 1
         End If
     End With
-    
+
     ConvDateUTC = RetVal
 End Function
 
@@ -730,10 +730,10 @@ Private Function ConvTimeUTC(ByRef InVal As String) As Date
     Dim dblMinutes As Double
     Dim dblSeconds As Double
     Dim dblMilliseconds As Double
-        
+
     Dim RegEx As New RegExp ' Object
     'Set RegEx = CreateObject("VBScript.RegExp")
-    
+
     With RegEx
         .Global = True
         .Multiline = False
@@ -745,7 +745,7 @@ Private Function ConvTimeUTC(ByRef InVal As String) As Date
 
     Dim Match As Object
     Set Match = RegEx.Execute(InVal)
-    
+
     If Match.Count <> 1 Then Exit Function
 
     With Match(0)
@@ -755,15 +755,15 @@ Private Function ConvTimeUTC(ByRef InVal As String) As Date
 
         If Not (IsEmpty(.SubMatches(3)) Or IsEmpty(.SubMatches(4)) Or NzEmpty(.SubMatches(3), ISO8601UTCTimeZone) = ISO8601UTCTimeZone) Then _
             dblHours = dblHours - CDbl(NzEmpty(.SubMatches(3) & .SubMatches(4), vbNullString))
-        
+
         dblMinutes = CDbl(NzEmpty(.SubMatches(1), vbNullString))
-        
+
         If Not (IsEmpty(.SubMatches(3)) Or IsEmpty(.SubMatches(5)) Or NzEmpty(.SubMatches(3), ISO8601UTCTimeZone) = ISO8601UTCTimeZone) Then _
             dblMinutes = dblMinutes - CDbl(NzEmpty(.SubMatches(3), vbNullString) & NzEmpty(.SubMatches(5), vbNullString))
-        
+
         dblSeconds = CDbl(NzEmpty(.SubMatches(2), vbNullString))
     End With
-    
+
     ConvTimeUTC = TimeSerialDbl(dblHours, dblMinutes, dblSeconds)
 
 End Function
@@ -811,17 +811,17 @@ Private Function GetMilliseconds(ByVal TimeIn As Double) As Variant
     Dim DblTimePart As Double
     Dim LngSeconds As Long ' Used to remove whole seconds.
     Dim DblSecondsPart As Double
-    
+
     Dim DblMS As Double
     Dim MSCount As Double
-        
+
     ' Get rid of the date portion
     ' There is an annoying bug where VBA rounds up in certain cases when
     ' using the \ operator and dividing by 1. So, divide by 2 and double it.
     ' this side steps the bug and ensures it always rounds down.
     IntDatePart = RoundDown(TimeIn)
     DblTimePart = TimeIn - IntDatePart
-    
+
     LngSeconds = RoundDown(TotalSecondsInDay * DblTimePart)
     DblSecondsPart = LngSeconds / TotalSecondsInDay
     DblMS = DblTimePart - DblSecondsPart
@@ -855,7 +855,7 @@ Public Function CurrentLocalBiasFromUTC(Optional ByVal OutputAsHours As Boolean 
     Else
         tBias = TZI.utc_Bias + TZI.utc_StandardBias
     End If
-    
+
     If OutputAsHours Then tBias = tBias / 60 ' This is already done in GetBiasForGivenLocalDate for Mac.
 #End If
 
@@ -871,7 +871,7 @@ End Function
 Public Function GetBiasForGivenLocalDate(ByVal LocalDateIn As Date _
                                         , Optional ByVal OutputAsHours As Boolean = False) As Long
     Dim DateUTCNow As Date
-    
+
     DateUTCNow = ConvertToUtc(LocalDateIn)
 
     ' I tried to get fancy here and retrieve the bias from the OS, but that turned into a huge amount of work.
@@ -899,13 +899,13 @@ Private Function ISOTimezoneOffset(Optional TimeBias As Long = 0) As String
     Dim OffsetLong As Long
     Dim hourOffset As Long
     Dim minOffset As Long
-    
+
     ' Counterintuitively, the Bias is postive (time ahead), the offset is the negative value of bias.
     OffsetLong = TimeBias * -1
-    
+
     hourOffset = OffsetLong \ 60
     minOffset = OffsetLong Mod 60
-    
+
     If OffsetLong = 0 Then
         ISOTimezoneOffset = ISO8601UTCTimeZone
     Else
@@ -913,7 +913,7 @@ Private Function ISOTimezoneOffset(Optional TimeBias As Long = 0) As String
         String_BufferAppend tString_Buffer, VBA.CStr(VBA.Format(hourOffset, "00"))
         String_BufferAppend tString_Buffer, ISO8601TimeDelimiter
         String_BufferAppend tString_Buffer, VBA.CStr(VBA.Format(minOffset, "00"))
-        
+
         ISOTimezoneOffset = String_BufferToString(tString_Buffer)
     End If
 End Function

@@ -9,6 +9,43 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+Private Const KEYEVENTF_EXTENDEDKEY = &H1
+Private Const KEYEVENTF_KEYUP = &H2
+Private Const VK_SHIFT = &H10
+
+Private Declare PtrSafe Function SetFocus _
+Lib "user32" ( _
+    ByVal hwnd As LongPtr _
+) As LongPtr
+
+Private Declare PtrSafe Function SetKeyboardState _
+Lib "user32" ( _
+    lppbKeyState As Any _
+) As Long
+    
+Private Declare PtrSafe Function GetKeyboardState _
+Lib "user32" ( _
+    pbKeyState As Any _
+) As Long
+
+Private Declare PtrSafe Function GetWindowThreadProcessId _
+Lib "user32" ( _
+    ByVal hwnd As LongPtr, _
+    ByRef lpdwProcessId As LongPtr _
+) As Long
+
+Private Declare PtrSafe Function AttachThreadInput _
+Lib "user32" ( _
+    ByVal idAttach As Long, _
+    ByVal idAttachTo As Long, _
+    ByVal fAttach As Long _
+) As Long
+
+Private Declare PtrSafe Function SetForegroundWindow _
+Lib "user32" ( _
+    ByVal hwnd As LongPtr _
+) As Long
+
 Private Const ModuleName = "modVCSUtility"
 
 
@@ -22,20 +59,24 @@ Private Const ModuleName = "modVCSUtility"
 '---------------------------------------------------------------------------------------
 '
 Public Function GetContainers(Optional intFilter As eContainerFilter = ecfAllObjects) As Collection
-    
+
     Dim blnADP As Boolean
     Dim blnMDB As Boolean
-    
+
     blnADP = (CurrentProject.ProjectType = acADP)
     blnMDB = (CurrentProject.ProjectType = acMDB)
-    
+
     Set GetContainers = New Collection
     With GetContainers
         Select Case intFilter
-            
+
             ' Primary case for processing all objects
             Case ecfAllObjects
-            
+                If blnMDB Then
+                    ' Handle the connections early as possible but only for MDB formats
+                    .Add New clsDbConnection
+                End If
+
                 ' Shared objects in both MDB and ADP formats
                 .Add New clsDbProject
                 .Add New clsDbVbeProject
@@ -72,17 +113,51 @@ Public Function GetContainers(Optional intFilter As eContainerFilter = ecfAllObj
                     .Add New clsDbNavPaneGroup
                     .Add New clsDbHiddenAttribute
                 End If
-            
+
             ' Process only items that may contain VBA code
             Case ecfVBAItems
-            
+
                 .Add New clsDbForm
                 .Add New clsDbReport
                 .Add New clsDbModule
-        
+
         End Select
     End With
-    
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetClassFromObject
+' Author    : Adam Waller
+' Date      : 2/22/2023
+' Purpose   : Returns a database component class from a database object. (Used when
+'           : exporting a single object.)
+'           : Note that not all component types are supported.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetClassFromObject(objItem As AccessObject) As IDbComponent
+
+    Dim cItem As IDbComponent
+
+    ' Map to correct component class
+    Select Case objItem.Type
+        Case acForm:    Set cItem = New clsDbForm
+        Case acMacro:   Set cItem = New clsDbMacro
+        Case acModule:  Set cItem = New clsDbModule
+        Case acQuery:   Set cItem = New clsDbQuery
+        Case acReport:  Set cItem = New clsDbReport
+        Case acTable:   Set cItem = New clsDbTableDef
+        Case Else
+            ' Not currently supported
+    End Select
+
+    ' Set database item and return class instance
+    If Not cItem Is Nothing Then
+        Set cItem.DbObject = objItem
+        Set GetClassFromObject = cItem
+    End If
+
 End Function
 
 
@@ -98,15 +173,15 @@ Public Function GetQuickObjectCount(colContainers As Collection) As Long
 
     Dim lngTotal As Long
     Dim cCont As IDbComponent
-    
+
     Perf.OperationStart "Quick Count Objects"
     For Each cCont In colContainers
         lngTotal = lngTotal + cCont.QuickCount
     Next cCont
     Perf.OperationEnd
-    
+
     GetQuickObjectCount = lngTotal
-    
+
 End Function
 
 
@@ -124,11 +199,11 @@ Public Function GetQuickFileCount(colContainers As Collection) As Long
     Dim strBase As String
     Dim strFolder As String
     Dim cCont As IDbComponent
-    
+
     ' Get base folder path
     Perf.OperationStart "Quick Count Files"
     strBase = Options.GetExportFolder
-    
+
     For Each cCont In colContainers
         strFolder = cCont.BaseFolder
         If StrComp(strBase, strFolder, vbTextCompare) = 0 Then
@@ -143,10 +218,10 @@ Public Function GetQuickFileCount(colContainers As Collection) As Long
         End If
     Next cCont
     Perf.OperationEnd
-    
+
     ' Return total number of files in all source folders
     GetQuickFileCount = lngTotal
-    
+
 End Function
 
 
@@ -210,21 +285,21 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
                                 strName As String, _
                                 strFile As String, _
                                 Optional cDbObjectClass As IDbComponent = Nothing) As String
-    
+
     Dim strTempFile As String
     Dim strPrintSettingsFile As String
     Dim strContent As String
     Dim strHash As String
-    
+
     On Error GoTo ErrHandler
-    
+
     ' Export to temporary file
     strTempFile = GetTempFile
     Perf.OperationStart "App.SaveAsText()"
     Application.SaveAsText intType, strName, strTempFile
     Perf.OperationEnd
     VerifyPath strFile
-    
+
     ' Sanitize certain object types
     Select Case intType
         Case acForm, acReport
@@ -253,15 +328,15 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
             If FSO.FileExists(strFile) Then DeleteFile strFile
             strHash = SanitizeFile(strTempFile, True)
             FSO.MoveFile strTempFile, strFile
-    
+
         Case acQuery, acMacro
             ' Sanitizing converts to UTF-8
             If FSO.FileExists(strFile) Then DeleteFile strFile
             strHash = SanitizeFile(strTempFile, True)
             FSO.MoveFile strTempFile, strFile
-            
+
         ' Case acModule - Use VBE export instead.
-        
+
         Case acTableDataMacro
             ' Table data macros are stored in XML format
             If FSO.FileExists(strTempFile) Then
@@ -269,20 +344,20 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
                 If FSO.FileExists(strFile) Then DeleteFile strFile
                 FSO.MoveFile strTempFile, strFile
             End If
-            
+
         Case Else
             ' Handle UCS conversion if needed
             ConvertUcs2Utf8 strTempFile, strFile
-        
+
     End Select
-    
+
     ' Normal exit
     On Error GoTo 0
-    
+
     ' Return content hash
     SaveComponentAsText = strHash
     Exit Function
-    
+
 ErrHandler:
     If Err.Number = 2950 And intType = acTableDataMacro Then
         ' This table apparently didn't have a Table Data Macro.
@@ -291,7 +366,7 @@ ErrHandler:
         ' Some other error.
         Err.Raise Err.Number
     End If
-    
+
 End Function
 
 
@@ -312,10 +387,10 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
     Dim strSourceFile As String
     Dim blnConvert As Boolean
     Dim dFile As Dictionary
-    
+
     ' The path to the source file may change if we add print settings.
     strSourceFile = strFile
-    
+
     ' Add DevMode structures back into forms/reports
     Select Case intType
         Case acForm, acReport
@@ -338,7 +413,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
                 End With
             End If
     End Select
-    
+
     ' Check UCS-2-LE requirement for the current database.
     ' (Cached after first call)
     Select Case intType
@@ -349,7 +424,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
             ' UTF-8 encoded characters but does not have a BOM.
             blnConvert = True
     End Select
-    
+
     ' Only run conversion if needed.
     If blnConvert Then
         ' Perform file conversion, and import from temp file.
@@ -371,10 +446,10 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
         Application.LoadFromText intType, strName, strSourceFile
         Perf.OperationEnd
     End If
-    
+
     ' Remove any temporary combined source file
     If strSourceFile <> strFile Then DeleteFile strSourceFile
-    
+
 End Sub
 
 
@@ -392,7 +467,7 @@ Public Sub RemoveNonBuiltInReferences()
     Dim intCnt As Integer
     Dim strName As String
     Dim ref As Access.Reference
-    
+
     Perf.OperationStart "Clear References"
     For intCnt = Application.References.Count To 1 Step -1
         Set ref = Application.References(intCnt)
@@ -404,7 +479,7 @@ Public Sub RemoveNonBuiltInReferences()
         Set ref = Nothing
     Next intCnt
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -417,13 +492,13 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
-    
+
     Dim strPath As String
     Dim dContents As Dictionary
     Dim strFile As String
     Dim strExportFolder As String
     Dim lngLevel As Long
-    
+
     strPath = FSO.BuildPath(strFolder, "vbe-project.json")
     If Not FSO.FileExists(strPath) Then
         Log.Error eelCritical, "Unable to find source file: " & strPath, "GetOriginalDbFullPathFromSource"
@@ -432,13 +507,13 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
         ' Look up file name from VBE project file name
         Set dContents = ReadJsonFile(strPath)
         strFile = dNZ(dContents, "Items\FileName")
-        
+
         ' Convert legacy relative path
         If Left$(strFile, 4) = "rel:" Then strFile = Mid$(strFile, 5)
-            
+
         ' Trim off any tailing slash
         strExportFolder = StripSlash(strFolder)
-        
+
         ' Check export folder settings
         If Options.ExportFolder = vbNullString Then
             ' Default setting, using parent folder of source directory
@@ -465,7 +540,7 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
             End If
         End If
     End If
-    
+
 End Function
 
 
@@ -494,23 +569,23 @@ End Function
 '
 Public Function BuildJsonFile(strClassName As String, dItems As Dictionary, strDescription As String, _
     Optional dblExportFormatVersion As Double) As String
-    
+
     Dim dContents As Dictionary
     Dim dHeader As Dictionary
-    
+
     Set dContents = New Dictionary
     Set dHeader = New Dictionary
-    
+
     ' Build dictionary structure
     dHeader.Add "Class", strClassName
     dHeader.Add "Description", strDescription
     If dblExportFormatVersion <> 0 Then dHeader.Add "Export File Format", dblExportFormatVersion
     dContents.Add "Info", dHeader
     dContents.Add "Items", dItems
-    
+
     ' Return assembled content in Json format
     BuildJsonFile = ConvertToJson(dContents, JSON_WHITESPACE)
-    
+
 End Function
 
 
@@ -524,7 +599,7 @@ End Function
 Public Sub CompileAndSaveAllModules()
     Perf.OperationStart "Compile/Save Modules"
     ' Make sure we are running this in the CurrentDB, not the CodeDB
-    Set VBE.ActiveVBProject = GetVBProjectForCurrentDB
+    Set VBE.ActiveVBProject = CurrentVBProject
     DoCmd.RunCommand acCmdCompileAndSaveAllModules
     DoEvents
     Perf.OperationEnd
@@ -597,10 +672,10 @@ Public Sub CheckGitFiles()
     Dim strPath As String
     Dim strFile As String
     Dim blnAdded As Boolean
-    
+
     strPath = CurrentProject.Path & PathSep
     If FSO.FolderExists(strPath & ".git") Then
-    
+
         ' gitignore file
         strFile = strPath & ".gitignore"
         If Not FSO.FileExists(strFile) Then
@@ -609,7 +684,7 @@ Public Sub CheckGitFiles()
             Log.Add "Added default .gitignore file", , , "blue"
             blnAdded = True
         End If
-        
+
         ' gitattributes file
         strFile = strPath & ".gitattributes"
         If Not FSO.FileExists(strFile) Then
@@ -618,14 +693,76 @@ Public Sub CheckGitFiles()
             Log.Add "Added default .gitattributes file", , , "blue"
             blnAdded = True
         End If
-        
+
         ' Notify user
         If blnAdded Then MsgBox2 "Added Default Git File(s)", _
             "Added a default .gitignore and/or .gitattributes file to your project.", _
             "By default these files exclude the binary database files from version control," & vbCrLf & _
             "allowing you to track changes at the source file level." & vbCrLf & vbCrLf & _
             "You may wish to customize these further for your environment.", vbInformation
-            
+
     End If
-    
+
 End Sub
+
+'---------------------------------------------------------------------------------------
+' Procedure : ShiftOpenDatabase
+' Author    : Adam Waller
+' Date      : 2/25/2022
+' Purpose   : Open a database with the shift key held down so we can (hopefully)
+'           : bypass the startup code.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain As Form_frmVCSMain)
+
+    ' Skip open if we are already on the correct database
+    If CurrentProject.FullName = strPath And Not blnExclusive Then Exit Sub
+
+    ' Close any open database before we try to open another one.
+    If DatabaseFileOpen Then
+        StageMainForm
+        Set frmMain = Nothing
+        CloseCurrentDatabase2
+        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+        Set frmMain = Form_frmVCSMain
+        RestoreMainForm
+    End If
+
+    On Error GoTo Error_Handler
+    
+    Dim abytCodesSrc(0 To 255) As Byte
+    Dim abytCodesDest(0 To 255) As Byte
+
+    If (FSO.FileExists(strPath) = False) Then
+        Err.Raise 53
+    End If
+
+    SetForegroundWindow Application.hWndAccessApp
+    SetFocus Application.hWndAccessApp
+    
+    ' Set Shift state
+    GetKeyboardState abytCodesSrc(0)
+    GetKeyboardState abytCodesDest(0)
+    abytCodesDest(VK_SHIFT) = 128
+    SetKeyboardState abytCodesDest(0)
+
+    ' Open the database with shift key down
+    Application.OpenCurrentDatabase strPath, blnExclusive
+    
+    ' Revert back keyboard state and restore focus
+    SetKeyboardState abytCodesSrc(0)
+    SetForegroundWindow Application.hWndAccessApp
+    SetFocus Application.hWndAccessApp
+    
+    Exit Sub
+
+Error_Handler:
+    SetForegroundWindow Application.hWndAccessApp
+    
+    With Err
+        .Raise .Number, .Source, .Description, .HelpFile, .HelpContext
+    End With
+End Sub
+
+
+

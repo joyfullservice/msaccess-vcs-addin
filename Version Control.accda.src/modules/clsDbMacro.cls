@@ -52,7 +52,7 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
 
     Dim strName As String
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
 
@@ -102,11 +102,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim oMac As AccessObject
     Dim cMac As IDbComponent
     Dim blnAdd As Boolean
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary

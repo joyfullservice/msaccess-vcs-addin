@@ -45,7 +45,7 @@ Public Function Resolve(dCategories As Dictionary)
             RemoveFromItemList
             Log.Add "  " & FSO.GetFileName(FileName) & " (Skip)", False
     End Select
-    
+
 End Function
 
 
@@ -79,5 +79,4 @@ Private Function RemoveFromItemList()
         End If
     End If
 End Function
-
 

@@ -40,10 +40,13 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    
+
     Dim strFile As String
     Dim intFormat As eTableDataExportFormat
 
+    ' Use error handling in case we encouter errors during export
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
     ' Save as selected format, and remove other formats if they exist.
     For intFormat = 1 To eTableDataExportFormat.[_Last]
         ' Build file name for this format
@@ -59,12 +62,21 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                     ' Export data rows as XML (encoding default is UTF-8)
                     VerifyPath strFile
                     Perf.OperationStart "App.ExportXML()"
-                    Application.ExportXML acExportTable, m_Table.Name, strFile
+                    If IsLocalTable(m_Table.Name) Then
+                        ' Embedded schema for local tables to support calculated fields
+                        Application.ExportXML acExportTable, m_Table.Name, strFile, , , , , acEmbedSchema
+                    Else
+                        ' Export data only for linked tables
+                        Application.ExportXML acExportTable, m_Table.Name, strFile
+                    End If
                     Perf.OperationEnd
                     SanitizeXML strFile, False
             End Select
         End If
     Next intFormat
+
+    ' Trap any errors while exporting table data.
+    CatchAny eelError, "Error exporting table data for " & m_Table.Name, ModuleName(Me) & ".Export"
     
 End Sub
 
@@ -87,9 +99,9 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
     Dim strText As String
     Dim lngProgMax As Long
     Dim lngProgValue As Long
-    
+
     Perf.OperationStart "Export Table Data as TDF"
-    
+
     ' Open table in fast read-only view
     Set dbs = CurrentDb
     Set rst = dbs.OpenRecordset(GetTableExportSql(strTable), dbOpenSnapshot, dbReadOnly)
@@ -102,10 +114,10 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
         If intCnt < intFields Then cData.Add vbTab
     Next fld
     cData.Add vbCrLf
-    
+
     ' Make sure we actually have records
     If Not rst.EOF Then
-        
+
         ' Stash current progress bar values so we can reuse the
         ' progress bar to show the progress through the rows.
         With Log.ProgressBar
@@ -117,7 +129,7 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
             .Value = 1
             rst.MoveFirst
         End With
-        
+
         ' Add data rows
         Do While Not rst.EOF
             intCnt = 0
@@ -136,20 +148,20 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
             rst.MoveNext
             Log.Increment ' Increment log, in case this takes a while
         Loop
-        
+
         ' Restore progress bar values for object iteration
         With Log.ProgressBar
              .Max = lngProgMax
              .Value = lngProgValue
         End With
     End If
-    
+
     ' Close database objects
     rst.Close
     Set rst = Nothing
-    
+
     Perf.OperationEnd
-    
+
     ' Save output file
     WriteFile cData.GetStr, strFile
 
@@ -176,9 +188,9 @@ Private Sub ImportTableDataTDF(strFile As String)
     Dim varHeader As Variant
     Dim intCol As Integer
     Dim strValue As String
-    
+
     Perf.OperationStart "Import TDF Data"
-    
+
     ' Build a dictionary of column names so we can load the data
     ' into the matching columns.
     strTable = GetObjectNameFromFileName(strFile)
@@ -187,11 +199,11 @@ Private Sub ImportTableDataTDF(strFile As String)
     For Each fld In dbs.TableDefs(strTable).Fields
         dCols.Add fld.Name, fld.Name
     Next fld
-    
+
     ' Clear any existing records before importing this data.
     dbs.Execute "delete from [" & strTable & "]", dbFailOnError
     Set rst = dbs.OpenRecordset(strTable)
-    
+
     ' Read file line by line
     Set stm = New ADODB.Stream
     With stm
@@ -199,7 +211,7 @@ Private Sub ImportTableDataTDF(strFile As String)
         .Open
         .LoadFromFile strFile
     End With
-    
+
     ' Loop through lines in file
     Do While Not stm.EOS
         strLine = stm.ReadText(adReadLine)
@@ -253,9 +265,9 @@ Private Sub ImportTableDataTDF(strFile As String)
     Set stm = Nothing
     rst.Close
     Set rst = Nothing
-    
+
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -326,7 +338,7 @@ Private Function GetTableExportSql(strTable As String) As String
             If Not IsBinaryType(fld) Then cSortList.Add "[", fld.Name, "], "
         Next fld
     End With
-    
+
     ' Remove any trailing commas
     cFieldList.Remove 2
     cSortList.Remove 2
@@ -356,34 +368,45 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strTempFile As String
     Dim strTable As String
 
-    ' Import from different formats (XML is preferred for data integrity)
-    Select Case GetFormatByExt(strFile)
-        Case etdXML
-            strTable = GetObjectNameFromFileName(strFile)
-            ' Make sure table exists before importing data to it.
-            If TableExists(strTable) Then
-                ' The ImportXML function does not properly handle UrlEncoded paths
-                blnUseTemp = (InStr(1, strFile, "%") > 0)
-                If blnUseTemp Then
-                    ' Import from (safe) temporary file name.
-                    strTempFile = GetTempFile
-                    FSO.CopyFile strFile, strTempFile
-                    Application.ImportXML strTempFile, acAppendData
-                    DeleteFile strTempFile
-                Else
-                    Application.ImportXML strFile, acAppendData
-                End If
-            Else
-                ' Warn user that table does not exist.
-                MsgBox2 "Table structure not found for '" & strTable & "'", _
-                    "The structure of a table should be created before importing data into it.", _
-                    "Please ensure that the table definition file exists in \tbldefs.", vbExclamation
-                Log.Add "WARNING: Table definition does not exist for '" & strTable & "'. This must be created before importing table data."
-            End If
-        Case etdTabDelimited
-            ImportTableDataTDF strFile
-    End Select
+    ' Make sure table exists before importing data to it.
+    strTable = GetObjectNameFromFileName(strFile)
 
+    ' Only allow import into local tables (not linked tables)
+    If IsLocalTable(strTable) Then
+        
+        ' Import from different formats (XML is preferred for data integrity)
+        Select Case GetFormatByExt(strFile)
+            Case etdXML
+                    
+                    ' The ImportXML function does not properly handle UrlEncoded paths
+                    blnUseTemp = (InStr(1, strFile, "%") > 0)
+                    If blnUseTemp Then
+                        ' Import from (safe) temporary file name.
+                        strTempFile = GetTempFile
+                        FSO.CopyFile strFile, strTempFile
+                        Application.ImportXML strTempFile, acAppendData
+                        DeleteFile strTempFile
+                    Else
+                        Application.ImportXML strFile, acAppendData
+                    End If
+    
+            Case etdTabDelimited
+                ImportTableDataTDF strFile
+        End Select
+    
+    Else
+        ' Either not a local table, or it doesn't exist
+        If TableExists(strTable) Then
+            Log.Error eelWarning, "Table data may only be imported into local tables", "clsDbTableData.Import"
+        Else
+            ' Warn user that table does not exist.
+            Log.Error eelError, "Table structure not found for '" & strTable & "'.", "clsDbTableData.Import"
+            Log.Add "Table definition does not exist for '" & strTable & _
+                "'. This must be created before importing table data.", False
+        End If
+        Log.Add "Table data from '" & strTable & "' was not imported.", False
+    End If
+    
 End Sub
 
 
@@ -396,7 +419,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-
+    Log.Error eelWarning, "Merge not supported for table data. (" & _
+        GetObjectNameFromFileName(strFile) & ")", "clsDbTableData.Merge"
 End Sub
 
 
@@ -420,18 +444,18 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim tbl As AccessObject
     Dim cTable As clsDbTableData
     Dim blnAdd As Boolean
-    
+
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
-        
+
         ' No need to go any further if we don't have any saved tables defined
         If Options.TablesToExportData.Count > 0 Then
-            
+
             ' We have at least one table defined. Loop through the tables looking
             ' for a matching name.
             With Options
@@ -451,7 +475,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-        
+
 End Function
 
 

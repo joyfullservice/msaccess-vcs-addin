@@ -41,7 +41,7 @@
       "Type": 10
     },
     "AppVersion": {
-      "Value": "4.0.5",
+      "Value": "4.0.10",
       "Type": 10
     },
     "Auto Compact": {
@@ -71,6 +71,10 @@
     "Connect": {
       "Value": "",
       "Type": 12
+    },
+    "Continuous Form Navigation Keys": {
+      "Value": 0,
+      "Type": 4
     },
     "DesignMasterID": {
       "Value": "",
@@ -117,7 +121,7 @@
       "Type": 4
     },
     "ProjVer": {
-      "Value": 119,
+      "Value": 142,
       "Type": 3
     },
     "QueryTimeout": {
@@ -183,6 +187,14 @@
     "Updatable": {
       "Value": true,
       "Type": 1
+    },
+    "Use BigInt for linking and importing data": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Use DateTime2 for linking and importing data": {
+      "Value": 0,
+      "Type": 4
     },
     "Use Microsoft Access 2007 compatible cache": {
       "Value": 0,

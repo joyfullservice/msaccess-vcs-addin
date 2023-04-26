@@ -86,7 +86,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim tbl As AccessObject
     Dim cTable As IDbComponent
     Dim blnAdd As Boolean
@@ -123,10 +123,10 @@ Private Function GetSource() As String
     Dim intRst As Integer
     Dim fld As ADODB.Field
     Dim colText As New clsConcat
-    
+
     ' Initialize counter
     intRst = 2
-    
+
     ' Get initial table information
     strSql = "exec sp_help N'" & m_Table.Name & "'"
     '@Ignore SetAssignmentWithIncompatibleObjectType
@@ -138,13 +138,13 @@ Private Function GetSource() As String
     Next fld
     colText.Add vbCrLf
     colText.Add rst.GetString(, , vbTab, vbCrLf)
-    
+
     ' Loop through additional recordsets for columns, keys and other data
     Do
         Set rst = rst.NextRecordset
         If rst Is Nothing Then Exit Do
         If rst.State = adStateClosed Then Exit Do
-        
+
         colText.Add vbCrLf & vbCrLf & "-- sp_help Recordset " & intRst & vbCrLf & vbCrLf
         For Each fld In rst.Fields
             colText.Add fld.Name
@@ -154,17 +154,17 @@ Private Function GetSource() As String
             colText.Add vbCrLf
             colText.Add rst.GetString(, , vbTab, vbCrLf)
         End If
-        
+
         intRst = intRst + 1
     Loop
-    
+
     ' Clear references
     Set fld = Nothing
     Set rst = Nothing
-    
+
     ' Return SQL content
     GetSource = colText.GetStr
-    
+
 End Function
 
 

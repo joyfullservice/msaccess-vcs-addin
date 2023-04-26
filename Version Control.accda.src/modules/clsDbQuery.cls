@@ -36,14 +36,14 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
-    
+
     Dim strFile As String
     Dim strHash As String
     Dim dbs As DAO.Database
 
     ' Save and sanitize file
     strHash = SaveComponentAsText(acQuery, m_Query.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
-    
+
     ' If saving in source folder, check SQL option
     If strAlternatePath = vbNullString Then
         ' Export as SQL (if using that option)
@@ -51,15 +51,22 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             Perf.OperationStart "Save Query SQL"
             Set dbs = CurrentDb
             strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
+            On Error Resume Next
             WriteFile dbs.QueryDefs(m_Query.Name).SQL, strFile
+            If Catch(3258) Then
+                Log.Error eelWarning, "Unable to access SQL property of query '" & m_Query.Name & "'. SQL view may not be available for this query.", ModuleName(Me) & ".Export"
+            ElseIf Err.Number Then
+                Log.Error eelError, "Unexpected error accessing SQL property of query '" & m_Query.Name & "'. Error " & Err.Number & ": " & Err.Description, ModuleName(Me) & ".Export"
+            End If
+            On Error GoTo 0
             Perf.OperationEnd
             Log.Add "  " & m_Query.Name & " (SQL)", Options.ShowDebug
         End If
     End If
-    
+
     ' Update the index
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
-    
+
 End Sub
 
 
@@ -76,28 +83,28 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strQueryName As String
     Dim strFileSql As String
     Dim strSql As String
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
-    
+
     ' Import query from file
     strQueryName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acQuery, strQueryName, strFile
     Set m_Query = CurrentData.AllQueries(strQueryName)
     VCSIndex.Update Me, eatImport
-    
+
     ' In some cases, such as when a query contains a subquery, AND has been modified in the
     ' visual query designer, it may be imported incorrectly and unable to run. For these
     ' cases we have added an option to overwrite the .SQL property with the SQL that we
     ' saved separately during the export. See the following link for further details:
     ' https://github.com/joyfullservice/msaccess-vcs-integration/issues/76
-    
+
     ' Check option to import exact query from SQL
     If Options.ForceImportOriginalQuerySQL Then
-    
+
         ' Replace .bas extension with .sql to get file content
         strFileSql = Left$(strFile, Len(strFile) - 4) & ".sql"
-        
+
         ' Tries to get SQL content from the SQL file previously exported
         strSql = ReadFile(strFileSql)
 
@@ -110,7 +117,7 @@ Private Sub IDbComponent_Import(strFile As String)
             Log.Add "  Couldn't get original SQL query for " & strQueryName
         End If
     End If
-    
+
 End Sub
 
 
@@ -153,7 +160,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
-    
+
     Dim qry As AccessObject
     Dim cQuery As IDbComponent
     Dim blnAdd As Boolean
@@ -172,7 +179,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     ' Return cached collection
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-            
+
 End Function
 
 
@@ -397,3 +404,4 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+
