@@ -172,18 +172,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetAddInPath
-' Author    : Adam Waller
-' Date      : 3/11/2022
-' Purpose   : Return path to add-in installation folder
-'---------------------------------------------------------------------------------------
-'
-Private Function GetAddInPath() As String
-    GetAddInPath = Environ$("AppData") & PathSep & PROJECT_NAME & PathSep
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetAddInFileName
 ' Author    : Adam Waller
 ' Date      : 3/5/2022
@@ -192,25 +180,6 @@ End Function
 '
 Private Function GetAddInFileName() As String
     GetAddInFileName = Replace("MSAccessVCSLib_winXX.dll", "XX", GetOfficeBitness)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetOfficeBitness
-' Author    : Adam Waller
-' Date      : 3/5/2022
-' Purpose   : Returns "32" or "64" as the bitness of Microsoft Office (not Windows)
-'---------------------------------------------------------------------------------------
-'
-Private Function GetOfficeBitness() As String
-    ' COM Add-in
-    #If Win64 Then
-        ' 64-bit add-in (Office x64)
-        GetOfficeBitness = "64"
-    #Else
-        ' 32-bit add-in
-        GetOfficeBitness = "32"
-    #End If
 End Function
 
 

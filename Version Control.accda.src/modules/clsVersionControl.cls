@@ -318,7 +318,11 @@ End Sub
 Public Sub GoToLinkDownload()
     FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration/releases"
 End Sub
-
+Public Sub ActivateHook()
+    If modExportOnSaveHook.ActivateHook = False Then
+        MsgBox "Error activating the hook", vbCritical, "Unable to activate hook"
+    End If
+End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Class_Initialize
@@ -410,3 +414,4 @@ End Sub
 Private Function ReadSetting(strName As String, Optional strDefault As String) As String
     ReadSetting = GetSetting(PROJECT_NAME, "State", strName, strDefault)
 End Function
+

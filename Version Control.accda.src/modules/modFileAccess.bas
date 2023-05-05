@@ -591,3 +591,14 @@ Public Function StripSlash(strText As String) As String
     End If
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAddInPath
+' Author    : Adam Waller
+' Date      : 3/11/2022
+' Purpose   : Return path to add-in installation folder
+'---------------------------------------------------------------------------------------
+'
+Public Function GetAddInPath() As String
+    GetAddInPath = Environ$("AppData") & PathSep & PROJECT_NAME & PathSep
+End Function
