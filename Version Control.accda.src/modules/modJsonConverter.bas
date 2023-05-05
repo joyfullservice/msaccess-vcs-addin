@@ -372,9 +372,8 @@ Public Function ConvertToJson(ByVal JsonValue As Variant, Optional ByVal Whitesp
             End If
         End If
 
-        Select Case VBA.TypeName(JsonValue)
         ' Dictionary
-        Case "Dictionary"
+        If VBA.TypeName(JsonValue) = "Dictionary" Then
             json_BufferAppend json_Buffer, "{", json_BufferPosition, json_BufferLength
             For Each json_Key In JsonValue.Keys
                 ' For Objects, undefined (Empty/Nothing) is not added to object
@@ -414,143 +413,8 @@ Public Function ConvertToJson(ByVal JsonValue As Variant, Optional ByVal Whitesp
 
             json_BufferAppend json_Buffer, json_Indentation & "}", json_BufferPosition, json_BufferLength
 
-        ' Recordset (handles ADODB.Recordset, DAO.Recordset and DAO.Recordset2)
-        ' To avoid having to depend on a specific reference, late-binding has to be used.
-        Case "Recordset", "Recordset2"
-            Dim isAdo As Boolean
-            Dim qualifiedRecordsetType As String
-            Dim recordsetSource As String
-            
-            ' Determine the specific type of Recordset; ADODB.Reocrdset has Source property but not
-            ' Name property. DAO.Recordset/DAO.Recordset2 doesn't have Source property but has
-            ' Name property.
-            On Error Resume Next
-            recordsetSource = JsonValue.Source
-            If Err.Number Then
-                Err.Clear
-                isAdo = False
-                recordsetSource = JsonValue.Name
-            End If
-            If Err.Number Then
-                recordsetSource = vbNullString
-            End If
-            On Error GoTo 0
-            
-            If Len(recordsetSource) Then
-                If isAdo Then
-                    qualifiedRecordsetType = "ADODB." & TypeName(JsonValue)
-                Else
-                    qualifiedRecordsetType = "DAO." & TypeName(JsonValue)
-                End If
-            End If
-            
-            If json_PrettyPrint Then
-                json_Converted = "{" & vbNewLine & json_Indentation & """Recordset"": {"
-            Else
-                json_Converted = "{""Recordset"":{" & json_Converted
-            End If
-            json_BufferAppend json_Buffer, json_Converted, json_BufferPosition, json_BufferLength
-            
-            ' If we are able to determine the qualified type and source of the recordset, we include the information
-            ' as a simplistic way to describe the structure of the recordset.
-            If Len(qualifiedRecordsetType) Then
-                If json_PrettyPrint Then
-                    json_Converted = vbNewLine & VBA.Space$((json_CurrentIndentation + 2) * Whitespace) & """Type"": " & ConvertToJson(qualifiedRecordsetType) & "," & _
-                                     vbNewLine & VBA.Space$((json_CurrentIndentation + 2) * Whitespace) & """Source"": " & ConvertToJson(recordsetSource) & "," & _
-                                     vbNewLine & VBA.Space$((json_CurrentIndentation + 2) * Whitespace) & """Rows"": ["
-                Else
-                    json_Converted = """Type"":" & ConvertToJson(qualifiedRecordsetType) & ",""Source"":" & ConvertToJson(recordsetSource) & ",""Rows"":["
-                End If
-                json_BufferAppend json_Buffer, json_Converted, json_BufferPosition, json_BufferLength
-            End If
-                            
-            Dim fieldUpper As Long
-            Dim fieldIndex As Long
-            Dim fieldNames() As String
-            Dim rowIsFirst As Boolean
-            rowIsFirst = True
-            
-            ' Accessing the Fields collection and respective Field element is an expensive operation.
-            ' Cache the field names by the ordinal index and use Collect method on the recordset object
-            ' to quickly retrieve the field name and value.
-            fieldUpper = JsonValue.Fields.Count - 1
-            ReDim fieldNames(0 To fieldUpper)
-            For fieldIndex = 0 To fieldUpper
-                fieldNames(fieldIndex) = JsonValue.Fields(fieldIndex).Name
-            Next
-            
-            Do Until JsonValue.EOF
-                If rowIsFirst Then
-                    rowIsFirst = False
-                Else
-                    json_BufferAppend json_Buffer, ",", json_BufferPosition, json_BufferLength
-                End If
-                
-                If json_PrettyPrint Then
-                    json_BufferAppend json_Buffer, vbNewLine & VBA.Space$((json_CurrentIndentation + 3) * Whitespace) & "{", json_BufferPosition, json_BufferLength
-                Else
-                    json_BufferAppend json_Buffer, "{", json_BufferPosition, json_BufferLength
-                End If
-                
-                For fieldIndex = 0 To fieldUpper
-                    json_Converted = ConvertToJson(JsonValue.Collect(fieldIndex), Whitespace, json_CurrentIndentation + 4)
-                    If json_Converted = vbNullString Then
-                        json_SkipItem = json_IsUndefined(JsonValue.Collect(fieldIndex))
-                    Else
-                        json_SkipItem = False
-                    End If
-    
-                    If Not json_SkipItem Then
-                        If json_IsFirstItem Then
-                            json_IsFirstItem = False
-                        Else
-                            json_BufferAppend json_Buffer, ",", json_BufferPosition, json_BufferLength
-                        End If
-    
-                        If json_PrettyPrint Then
-                            json_Converted = vbNewLine & VBA.Space$((json_CurrentIndentation + 4) * Whitespace) & """" & json_Encode(fieldNames(fieldIndex)) & """: " & json_Converted
-                        Else
-                            json_Converted = """" & json_Encode(fieldNames(fieldIndex)) & """:" & json_Converted
-                        End If
-    
-                        json_BufferAppend json_Buffer, json_Converted, json_BufferPosition, json_BufferLength
-                    End If
-                Next
-                If json_PrettyPrint Then
-                    json_BufferAppend json_Buffer, vbNewLine & VBA.Space$((json_CurrentIndentation + 3) * Whitespace) & "}", json_BufferPosition, json_BufferLength
-                Else
-                    json_BufferAppend json_Buffer, "}", json_BufferPosition, json_BufferLength
-                End If
-                json_IsFirstItem = True
-                JsonValue.MoveNext
-            Loop
-            
-            If json_PrettyPrint Then
-                json_BufferAppend json_Buffer, vbNewLine & VBA.Space$((json_CurrentIndentation + 2) * Whitespace) & "]", json_BufferPosition, json_BufferLength
-            Else
-                json_BufferAppend json_Buffer, "]", json_BufferPosition, json_BufferLength
-            End If
-            
-            If json_PrettyPrint Then
-                json_BufferAppend json_Buffer, vbNewLine & VBA.Space$((json_CurrentIndentation + 1) * Whitespace) & "}", json_BufferPosition, json_BufferLength
-            Else
-                json_BufferAppend json_Buffer, "}", json_BufferPosition, json_BufferLength
-            End If
-            
-            If json_PrettyPrint Then
-                json_BufferAppend json_Buffer, vbNewLine, json_BufferPosition, json_BufferLength
-
-                If VBA.VarType(Whitespace) = VBA.vbString Then
-                    json_Indentation = VBA.String$(json_CurrentIndentation, Whitespace)
-                Else
-                    json_Indentation = VBA.Space$(json_CurrentIndentation * Whitespace)
-                End If
-            End If
-
-            json_BufferAppend json_Buffer, json_Indentation & "}", json_BufferPosition, json_BufferLength
-
         ' Collection
-        Case "Collection"
+        ElseIf VBA.TypeName(JsonValue) = "Collection" Then
             json_BufferAppend json_Buffer, "[", json_BufferPosition, json_BufferLength
             For Each json_Value In JsonValue
                 If json_IsFirstItem Then
@@ -587,7 +451,7 @@ Public Function ConvertToJson(ByVal JsonValue As Variant, Optional ByVal Whitesp
             End If
 
             json_BufferAppend json_Buffer, json_Indentation & "]", json_BufferPosition, json_BufferLength
-        End Select
+        End If
 
         ConvertToJson = json_BufferToString(json_Buffer, json_BufferPosition)
     Case VBA.vbInteger, VBA.vbLong, VBA.vbSingle, VBA.vbDouble, VBA.vbCurrency, VBA.vbDecimal
@@ -1277,6 +1141,4 @@ Private Function utc_SystemTimeToDate(utc_Value As utc_SYSTEMTIME) As Date
 End Function
 
 #End If
-
-
 
