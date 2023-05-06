@@ -124,6 +124,11 @@ Private Sub IDbComponent_Merge(strFile As String)
         ' Existing relationships will be removed during import
         IDbComponent_Import strFile
     Else
+        ' If the source file was deleted, remove any existing relationship by this
+        ' name during a merge operation.
+        LogUnhandledErrors
+        On Error Resume Next
+        CurrentDb.Relations.Delete FSO.GetBaseName(strFile)
         VCSIndex.Remove Me, strFile
     End If
 End Sub
