@@ -384,6 +384,203 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ExportMultipleObjects
+' Author    : bclothier
+' Date      : 4/1/2023
+' Purpose   : Export multiple objects, passing a dictionary containing AccessObject.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportMultipleObjects(objItems As Scripting.Dictionary, Optional bolForceClose As Boolean = True)
+
+    Dim frm As Form_frmVCSMain
+    
+    Dim dCategories As Scripting.Dictionary
+    Dim dCategory As Scripting.Dictionary
+    Dim dObjects As Scripting.Dictionary
+    Dim cDbObject As IDbComponent
+    Dim objItem As Access.AccessObject
+    Dim strTempFile As String
+    Dim varKey As Variant
+    Dim varCategory As Variant
+    Dim varObject As Variant
+        
+    ' Guard clause
+    If objItems Is Nothing Then Exit Sub
+    If objItems.Count = 0 Then Exit Sub
+    
+    ' Use inline error handling functions to trap and log errors.
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Reset the log file
+    Log.Clear
+
+    ' Use the main form to display progress
+    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+    Set frm = Form_frmVCSMain   ' Connect to hidden instance
+    With frm
+
+        ' Prepare the UI screen
+        .cmdClose.SetFocus
+        .HideActionButtons
+        DoEvents
+        With .txtLog
+            .ScrollBars = 0
+            .Visible = True
+            .SetFocus
+        End With
+        Log.SetConsole .txtLog, .GetProgressBar
+
+        ' Show the status
+        .SetStatusText "Running...", "Automatically exporting the saved source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
+        .Visible = True
+    End With
+    
+    ' Make sure the object is currently closed
+    If bolForceClose Then
+        For Each varKey In objItems.Keys
+            With objItems.Item(varKey)
+                Select Case .Type
+                    Case acForm, acMacro, acModule, acQuery, acReport, acTable
+                        If SysCmd(acSysCmdGetObjectState, .Type, .Name) <> adStateClosed Then
+                            DoCmd.Close .Type, .Name, acSavePrompt
+                        End If
+                End Select
+            End With
+        Next
+    End If
+
+    ' Reload the project options and reset the logs
+    Set VCSIndex = Nothing
+    Set Options = Nothing
+    Options.LoadProjectOptions
+    Log.Clear
+    Log.OperationType = eotExport
+    Log.Active = True
+    Perf.StartTiming
+
+    ' Display heading
+    With Log
+        .Spacer
+        .Add "Beginning Export of Multiple Objects", False
+        .Add CurrentProject.Name
+        .Add "VCS Version " & GetVCSVersion
+        .Add "Full Path: " & CurrentProject.FullName, False
+        .Add "Export Folder: " & Options.GetExportFolder, False
+        .Add Now
+        .Spacer
+        .Flush
+    End With
+
+    Set dCategories = New Dictionary
+        
+    For Each varKey In objItems.Keys
+        Set objItem = objItems.Item(varKey)
+        Log.Add "Exporting " & objItem.Name & "..."
+        Log.Flush
+        
+        ' FIXME: Hackish, need to figure a clean way of communicating types instead of encoding the key
+        Dim lngObjectType As Access.AcObjectType
+        On Error Resume Next
+        lngObjectType = CLng(Split(varKey, "|")(0))
+        On Error GoTo 0
+        If lngObjectType = acTableDataMacro Then
+            Set cDbObject = New clsDbTableDataMacro
+        Else
+            ' Get a database component class from the item
+            Set cDbObject = GetClassFromObject(objItem)
+        End If
+        
+        ' Check for conflicts
+        If Not dCategories.Exists(cDbObject.Category) Then
+            Set dObjects = New Dictionary
+            Set dCategory = New Dictionary
+            
+            dObjects.Add cDbObject.SourceFile, cDbObject
+            dCategory.Add "Class", cDbObject
+            dCategory.Add "Objects", dObjects
+            dCategories.Add cDbObject.Category, dCategory
+        Else
+            dCategories.Item(cDbObject.Category).Item("Objects").Add cDbObject.SourceFile, cDbObject
+        End If
+        
+        VCSIndex.Conflicts.Initialize dCategories
+        VCSIndex.CheckExportConflicts dObjects
+    Next
+        
+    ' Resolve any outstanding conflict, or allow user to cancel.
+    With VCSIndex.Conflicts
+        If .Count > 0 Then
+            ' Show the conflicts resolution dialog
+            .ShowDialog
+            If .ApproveResolutions Then
+                Log.Add "Resolving source conflicts", False
+                .Resolve dCategories
+            Else
+                ' Cancel export
+                Log.Spacer
+                Log.Add "Export Canceled", , , "Red", True
+                Log.ErrorLevel = eelCritical
+                GoTo CleanUp
+            End If
+        End If
+    End With
+
+    ' Check to see if we still have an item to export.
+    If dCategories.Count = 0 Then
+        Log.Add "Skipped after conflict resolution.", , , "blue", True
+    Else
+        For Each varCategory In dCategories.Keys
+            Set dCategory = dCategories.Item(varCategory)
+            Set dObjects = dCategory.Item("Objects")
+            For Each varObject In dObjects.Keys
+                Set cDbObject = dObjects.Item(varObject)
+                
+                ' If we have already exported this object while scanning for changes, use that copy.
+                strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
+                If FSO.FileExists(strTempFile) Then
+                    ' Move the temp file(s) over to the source export folder.
+                    cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, cDbObject.BaseFolder
+                    ' Update the index with the values from the alternate export
+                    VCSIndex.UpdateFromAltExport cDbObject
+                Else
+                    ' Export a fresh copy
+                    cDbObject.Export
+                End If
+            Next
+        Next
+    End If
+
+    ' Show final output and save log
+    Log.Spacer
+    Log.Add "Done. (" & Round(Perf.TotalTime, 2) & " seconds)", , False, "green", True
+
+CleanUp:
+
+    ' Run any cleanup routines
+    VCSIndex.ClearTempExportFolder
+
+    ' Add performance data to log file and save file
+    Perf.EndTiming
+    With Log
+        .Add vbCrLf & Perf.GetReports, False
+        .SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+        .Active = False
+    End With
+
+    ' Save index file (don't change export date for multiple items export)
+    VCSIndex.Save
+
+    ' Clear references to FileSystemObject and other objects
+    Set FSO = Nothing
+    Set VCSIndex = Nothing
+    Log.Flush
+    Log.ReleaseConsole
+    Log.Clear
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Build (Full build or Merge Build)
 ' Author    : Adam Waller
 ' Date      : 5/4/2020
