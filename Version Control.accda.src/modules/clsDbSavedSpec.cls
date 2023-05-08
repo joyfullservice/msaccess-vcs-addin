@@ -59,6 +59,8 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
     Set dSpec = ReadJsonFile(strFile)
     If Not dSpec Is Nothing Then
         Set dItem = dSpec("Items")
@@ -72,6 +74,9 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Update index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
 
+    CatchAny eelError, "Error importing saved specification: " & _
+        GetObjectNameFromFileName(strFile), ModuleName(Me) & ".Import"
+    
 End Sub
 
 
