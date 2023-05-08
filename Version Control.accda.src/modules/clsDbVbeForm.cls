@@ -94,6 +94,9 @@ Private Sub IDbComponent_Import(strFile As String)
             End If
         End With
     End With
+    
+    ' Update index (based on serialized representation)
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
 
     CatchAny eelError, "Error importing " & strFile, ModuleName(Me) & ".Import"
 
@@ -190,7 +193,19 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetSource() As String
-    GetSource = BuildJsonFile(TypeName(Me), SerializeMSForm(m_Form), "Serialized VBE Form")
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Serialized VBE Form")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 5/8/2023
+' Purpose   : Return a dictionary of the serialized form structure
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary() As Dictionary
+    Set GetDictionary = SerializeMSForm(m_Form)
 End Function
 
 
