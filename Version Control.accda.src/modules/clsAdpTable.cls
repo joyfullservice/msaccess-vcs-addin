@@ -51,6 +51,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
+    ' Not supported
 End Sub
 
 
@@ -63,6 +64,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
+    ' Not supported
 End Sub
 
 
