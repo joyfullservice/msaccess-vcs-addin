@@ -184,10 +184,22 @@ End Sub
 ' Date      : 11/21/2020
 ' Purpose   : Merge the source file into the existing database, updating or replacing
 '           : any existing object.
+'           : NOTE: This REPLACES any existing pane groups, it does not attempt to
+'           : merge changes between the source file and the existing groups.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
 
+    ' Clear any existing customizations
+    ClearExistingNavGroups
+    
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import (strFile)
+    Else
+        ' Remove from index when source file is removed
+        VCSIndex.Remove Me, strFile
+    End If
+    
 End Sub
 
 
