@@ -280,12 +280,12 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
             End If
 
             ' Add any item listed in this group
-            If Nz(!objectName) = vbNullString Then
+            If Nz(!ObjectName) = vbNullString Then
                 ' Saved group with no items.
             Else
                 Set dObject = New Dictionary
-                dObject.Add "Name", Nz(!objectName)
-                dObject.Add "Type", Nz(!objectType, 0)
+                dObject.Add "Name", Nz(!ObjectName)
+                dObject.Add "Type", Nz(!ObjectType, 0)
                 dObject.Add "Flags", Nz(!ObjectFlags, 0)
                 dObject.Add "Icon", Nz(!ObjectIcon, 0)
                 dObject.Add "Position", Nz(!ObjectPosition, 0)
