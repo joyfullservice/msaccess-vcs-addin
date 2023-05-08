@@ -106,8 +106,10 @@ Private Sub IDbComponent_Import(strFile As String)
                 .Update
             Next varKey
         End With
-
     End If
+
+    ' Update index
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
 
 End Sub
 
@@ -121,7 +123,17 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-
+    
+    ' Remove any existing spec by this name
+    DeleteSpecByName GetObjectNameFromFileName(strFile)
+    
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        ' Remove from index if the source file doesn't exist.
+        VCSIndex.Remove Me, strFile
+    End If
+    
 End Sub
 
 
@@ -196,7 +208,18 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Import/Export Specification from MSysIMEXSpecs")
+End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 5/8/2023
+' Purpose   : Return a dictionary object with the specification definition.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary() As Dictionary
     Dim dSpec As Dictionary
     Dim dCol As Dictionary
     Dim dCols As Dictionary
@@ -246,10 +269,35 @@ Private Function GetSource() As String
     ' Add columns to spec
     dSpec.Add "Columns", dCols
 
-    ' Return source file content
-    GetSource = BuildJsonFile(TypeName(Me), dSpec, "Import/Export Specification from MSysIMEXSpecs")
-
+    ' Return dictionary
+    Set GetDictionary = dSpec
+    
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeleteSpecByName
+' Author    : Adam Waller
+' Date      : 5/8/2023
+' Purpose   : Delete a saved import specification by name.
+'---------------------------------------------------------------------------------------
+'
+Private Sub DeleteSpecByName(strName As String)
+
+    Dim lngID As Long
+    
+    ' Skip lookup if we don't even have the corresponding system table.
+    If Not TableExists("MSysIMEXSpecs") Then Exit Sub
+    
+    ' Attempt to look up spec by name
+    lngID = Nz(DLookup("SpecID", "MSysIMEXSpecs", "SpecName=""" & DblQ(strName) & """"))
+    If lngID > 0 Then
+        ' Remove related records
+        CurrentDb.Execute "delete from MSysIMEXColumns where SpecID=" & lngID, dbFailOnError
+        CurrentDb.Execute "delete from MSysIMEXSpecs where SpecID=" & lngID, dbFailOnError
+    End If
+    
+End Sub
 
 
 '---------------------------------------------------------------------------------------
