@@ -41,7 +41,11 @@ Interested in adding a feature or fixing a bug? [Issues](https://github.com/joyf
 
 Development Roadmap
 -------------------
-Since there are several forks of this project on GitHub, I thought it might be helpful to give some insight into the long-term direction I am taking with this fork. Below are some of the changes I am looking to implement in the future:
+In addition to fixing bugs and adding features here and there, here are some of the long-term goals I want to implement in the future:
+
+* Release Version 4 (planned for 2023). This version includes a number of substantial updates including a ribbon toolbar interface, support for merging changes into an existing database (instead of having to build entirely from source) and numerous other enhancements.
+
+* Add support for translations in the user interface. After version 4 rolls out, I am hoping to finishing out some functionality to translate the user interface for other languages. While most International developers are at least somewhat familiar with English, I feel like this would make the tool even more comfortable for everyday use.
 
 * Finish an automated testing process where a complex sample database can be exported, reconstructed, exported again, and compared with the original export to ensure that the build process is fully constructing the database from the exported source files.
 
