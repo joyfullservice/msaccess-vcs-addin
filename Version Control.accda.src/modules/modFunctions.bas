@@ -712,6 +712,19 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : AddToArray
+' Author    : Adam Waller
+' Date      : 5/8/2023
+' Purpose   : Extends the array by one, and adds the new element to the last segment.
+'---------------------------------------------------------------------------------------
+'
+Public Function AddToArray(ByRef varArray As Variant, varNewElement As Variant)
+    ReDim Preserve varArray(LBound(varArray) To UBound(varArray) + 1)
+    varArray(UBound(varArray)) = varNewElement
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Repeat
 ' Author    : Adam Waller
 ' Date      : 4/29/2021
