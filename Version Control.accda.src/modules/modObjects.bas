@@ -77,6 +77,20 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : OptionsLoaded
+' Author    : Adam Waller
+' Date      : 5/13/2023
+' Purpose   : Return true if the options object has been loaded. (It is loaded on first
+'           : access, but in some cases we might want to avoid loading the options if
+'           : they are not already loaded.)
+'---------------------------------------------------------------------------------------
+'
+Public Property Get OptionsLoaded() As Boolean
+    OptionsLoaded = (Not m_Options Is Nothing)
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Perf
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
@@ -195,7 +209,7 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
     If blnTrapUnhandledErrors Then LogUnhandledErrors
     
     ' Don't reference the property this till we have loaded the options.
-    If Not m_Options Is Nothing Then DebugMode = m_Options.BreakOnError
+    If OptionsLoaded Then DebugMode = Options.BreakOnError
 
 End Function
 
@@ -214,11 +228,11 @@ Public Sub LogUnhandledErrors()
     Static blnInError As Boolean
     Dim blnBreak As Boolean
 
-    ' Don't reference the property this till we have loaded the options.
-    If Not m_Options Is Nothing Then blnBreak = m_Options.BreakOnError
-
     ' Check for any unhandled errors
     If (Err.Number <> 0) And Not blnInError Then
+
+        ' Don't reference the property this till we have loaded the options.
+        If OptionsLoaded Then blnBreak = Options.BreakOnError
 
         ' Check current BreakOnError mode
         If blnBreak Then
