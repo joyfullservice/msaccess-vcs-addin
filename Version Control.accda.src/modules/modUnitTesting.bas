@@ -323,3 +323,32 @@ Public Sub TestMeterProgressBar()
 
 End Sub
 
+
+'@TestMethod("clsGitIntegration.GetRepositoryRoot")
+Public Sub TestGitRepositoryRoot()
+
+    With New clsGitIntegration
+    
+        ' Verify repository root for this project
+        Debug.Assert .GetRepositoryRoot = CurrentProject.Path & PathSep
+        
+        ' Resolve from subfolder
+        .WorkingFolder = CurrentProject.Path & "\Version Control.accda.src\modules\"
+        Debug.Assert .GetRepositoryRoot = CurrentProject.Path & PathSep
+    
+        ' Return working folder when not in a git repository
+        ' (Also tests returning final path separator)
+        .WorkingFolder = "c:\windows"
+        Debug.Assert .GetRepositoryRoot = "c:\windows\"
+        
+        ' Reflect change in working folder
+        .WorkingFolder = vbNullString
+         Debug.Assert .GetRepositoryRoot = CurrentProject.Path & PathSep
+       
+        ' Return specified working folder, even if it doesn't exist
+        .WorkingFolder = "c:\Some Path that Doesn't Exist"
+         Debug.Assert .GetRepositoryRoot = "c:\Some Path that Doesn't Exist\"
+        
+    End With
+    
+End Sub
