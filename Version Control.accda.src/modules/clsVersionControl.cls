@@ -304,19 +304,19 @@ End Property
 '
 Public Sub GoToLinkAdvancedTools()
     ' TODO: Create page describing advanced tools.
-    FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration/wiki"
+    FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/wiki"
 End Sub
 Public Sub GoToLinkHome()
-    FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration"
+    FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin"
 End Sub
 Public Sub GoToLinkDocumentation()
-    FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration/wiki"
+    FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/wiki"
 End Sub
 Public Sub GoToLinkSupport()
-    FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration/issues"
+    FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/issues"
 End Sub
 Public Sub GoToLinkDownload()
-    FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration/releases"
+    FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/releases"
 End Sub
 Public Sub ActivateHook()
     If modExportOnSaveHook.ActivateHook = False Then

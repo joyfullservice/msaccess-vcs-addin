@@ -97,7 +97,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' visual query designer, it may be imported incorrectly and unable to run. For these
     ' cases we have added an option to overwrite the .SQL property with the SQL that we
     ' saved separately during the export. See the following link for further details:
-    ' https://github.com/joyfullservice/msaccess-vcs-integration/issues/76
+    ' https://github.com/joyfullservice/msaccess-vcs-addin/issues/76
 
     ' Check option to import exact query from SQL
     If Options.ForceImportOriginalQuerySQL Then

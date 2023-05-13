@@ -14,7 +14,7 @@
 '           : References: https://docs.microsoft.com/en-us/windows/win32/seccng/cng-algorithm-identifiers
 '           : https://docs.microsoft.com/en-us/windows/win32/seccng/cng-portal
 '           :
-'           : See also: https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Encryption
+'           : See also: https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Encryption
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Private Module

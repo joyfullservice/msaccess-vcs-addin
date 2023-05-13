@@ -16,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =240
-    Left =3225
-    Top =2430
-    Right =22695
-    Bottom =16815
+    Left =20761
+    Top =2250
+    Right =31261
+    Bottom =13995
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -1098,8 +1098,7 @@ Begin Form
                                     TabIndex =11
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
-                                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation#op"
-                                        "tions"
+                                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Documentation#options"
                                     ImageData = Begin
                                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                                         0x000000000000000000000000000000000000000000000000e0e8e000e0c8b000 ,
@@ -3162,7 +3161,7 @@ Begin Form
                     TabIndex =3
                     Name ="cmdSeeDocs"
                     Caption ="See Docs..."
-                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation"
+                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Documentation"
                     HorizontalAnchor =1
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
@@ -3237,7 +3236,7 @@ Begin Form
                     Height =240
                     FontSize =10
                     Name ="Label32"
-                    Caption ="joyfullservice/msaccess-vcs-integration"
+                    Caption ="joyfullservice/msaccess-vcs-addin"
                     VerticalAnchor =1
                     LayoutCachedLeft =240
                     LayoutCachedTop =6660

@@ -1433,7 +1433,7 @@ Begin Form
                     Height =240
                     FontSize =10
                     Name ="Label32"
-                    Caption ="joyfullservice/msaccess-vcs-integration"
+                    Caption ="joyfullservice/msaccess-vcs-addin"
                     VerticalAnchor =1
                     LayoutCachedLeft =300
                     LayoutCachedTop =5940
@@ -1978,7 +1978,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdHelp_Click()
-    Application.FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation"
+    Application.FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Documentation"
 End Sub
 
 

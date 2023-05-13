@@ -72,7 +72,7 @@ Public Sub LogUnhandledErrors()
             '   You can use standard VBA debugging techniques to inspect variables and
             '   step through code to pinpoint the source and cause of the error.
             '   For additional information, please see the add-in wiki on GitHub at:
-            '   https://github.com/joyfullservice/msaccess-vcs-integration/wiki
+            '   https://github.com/joyfullservice/msaccess-vcs-addin/wiki
             '===========================================================================
         Else
             ' Log otherwise unhandled error

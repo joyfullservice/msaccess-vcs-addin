@@ -17,10 +17,10 @@ Begin Form
     GridY =24
     DatasheetFontHeight =11
     ItemSuffix =39
-    Left =3225
-    Top =2430
-    Right =22695
-    Bottom =15015
+    Left =20761
+    Top =2250
+    Right =31261
+    Bottom =13995
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -758,7 +758,7 @@ Begin Form
                     Height =240
                     FontSize =10
                     Name ="Label32"
-                    Caption ="joyfullservice/msaccess-vcs-integration"
+                    Caption ="joyfullservice/msaccess-vcs-addin"
                     VerticalAnchor =1
                     LayoutCachedLeft =300
                     LayoutCachedTop =4260
@@ -1387,7 +1387,7 @@ Begin Form
                     TabIndex =4
                     Name ="cmdExplainOptions"
                     Caption ="Explain options..."
-                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Installation"
+                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Installation"
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x000000000000000000000000000000000000000000000000e0e8e000e0c8b000 ,
@@ -1530,7 +1530,7 @@ Private Sub cmdInstall_Click()
         If MsgBox2("IMPORTANT: Encryption Feature Removed", _
             "Prior versions of this add-in supported a reversible ""encryption"" of certain potentially sensitive items such as file paths. " & _
             "This feature has been removed in this version of the add-in. More information can be found on GitHub issue #193 " & _
-            "of the joyfullservice/msaccess-vcs-integration project." & vbCrLf & vbCrLf & _
+            "of the joyfullservice/msaccess-vcs-addin project." & vbCrLf & vbCrLf & _
             "For security reasons, this upgrade will REMOVE all existing encryption keys used by this add-in. " & _
             "If you have source files for any projects that use these keys, " & _
             "and do NOT have a working copy of the built database, please build the project(s) from source BEFORE upgrading the add-in. ", _
