@@ -562,43 +562,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Catch
-' Author    : Adam Waller
-' Date      : 11/23/2020
-' Purpose   : Returns true if the last error matches any of the passed error numbers,
-'           : and clears the error object.
-'---------------------------------------------------------------------------------------
-'
-Public Function Catch(ParamArray lngErrorNumbers()) As Boolean
-    Dim intCnt As Integer
-    For intCnt = LBound(lngErrorNumbers) To UBound(lngErrorNumbers)
-        If lngErrorNumbers(intCnt) = Err.Number Then
-            Err.Clear
-            Catch = True
-            Exit For
-        End If
-    Next intCnt
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : CatchAny
-' Author    : Adam Waller
-' Date      : 12/3/2020
-' Purpose   : Generic error handler with logging.
-'---------------------------------------------------------------------------------------
-'
-Public Function CatchAny(eLevel As eErrorLevel, strDescription As String, Optional strSource As String, _
-    Optional blnLogError As Boolean = True, Optional blnClearError As Boolean = True) As Boolean
-    If Err Then
-        If blnLogError Then Log.Error eLevel, strDescription, strSource
-        If blnClearError Then Err.Clear
-        CatchAny = True
-    End If
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : Largest
 ' Author    : Adam Waller
 ' Date      : 12/2/2020
