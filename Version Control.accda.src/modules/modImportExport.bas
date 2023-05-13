@@ -659,7 +659,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
 
     ' Start log and performance timers
     Log.Clear
-    Log.OperationType = eotBuild
+    Log.OperationType = IIf(blnFullBuild, eotBuild, eotMerge)
     Log.Active = True
     Perf.StartTiming
 
@@ -947,7 +947,7 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Log.OperationType = eotBuild
+    Log.OperationType = eotMerge
     Log.Active = True
     Perf.StartTiming
 
