@@ -719,8 +719,47 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AddToArray(ByRef varArray As Variant, varNewElement As Variant)
-    ReDim Preserve varArray(LBound(varArray) To UBound(varArray) + 1)
+    ' See if we have defined an index yet
+    If IsEmptyArray(varArray) Then
+        ' Add first index to array
+        ReDim varArray(0)
+    Else
+        ' Expand array by one element while preserving existing values
+        ReDim Preserve varArray(LBound(varArray) To UBound(varArray) + 1)
+    End If
     varArray(UBound(varArray)) = varNewElement
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsEmptyArray
+' Author    : Adam Waller
+' Date      : 5/13/2023
+' Purpose   : Return true if the passed array is empty, meaning it does not have any
+'           : indexes defined. (Unfortunately we have to use on error resume next to
+'           : trap the error when accessing the index.)
+'---------------------------------------------------------------------------------------
+'
+Public Function IsEmptyArray(varArray As Variant) As Boolean
+
+    ' Use an arbitrary number extremly unlikely to collide with an existing index
+    Const clngTest As Long = -2147483646
+    
+    Dim lngLowBound As Long
+    
+    ' Exit (returning False) if we are not dealing with an array variable
+    If Not IsArray(varArray) Then Exit Function
+    
+    LogUnhandledErrors
+    On Error Resume Next
+    
+    ' Attempt to read the lower bound of the array
+    lngLowBound = clngTest
+    lngLowBound = LBound(varArray)
+    
+    ' If the above assignment fails, we have an empty array
+    IsEmptyArray = (lngLowBound = clngTest)
+    
 End Function
 
 
