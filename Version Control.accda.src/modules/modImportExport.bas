@@ -224,6 +224,7 @@ CleanUp:
         .Add vbCrLf & Perf.GetReports, False
         .SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
         .Active = False
+        .Flush
     End With
 
     ' Check for VCS_ImportExport.bas (Used with other forks)
@@ -240,13 +241,9 @@ CleanUp:
         .Save
     End With
 
-    ' Clear references to FileSystemObject and other objects
-    Set FSO = Nothing
-    Set VCSIndex = Nothing
-    Log.Flush
-    Log.ReleaseConsole
-    Log.Clear
-
+    ' Clear object references
+    modObjects.ReleaseObjects
+    
 End Sub
 
 
@@ -368,17 +365,14 @@ CleanUp:
         .Add vbCrLf & Perf.GetReports, False
         .SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
         .Active = False
+        .Flush
     End With
 
     ' Save index file (don't change export date for single item export)
     VCSIndex.Save
 
-    ' Clear references to FileSystemObject and other objects
-    Set FSO = Nothing
-    Set VCSIndex = Nothing
-    Log.Flush
-    Log.ReleaseConsole
-    Log.Clear
+    ' Clear object references
+    modObjects.ReleaseObjects
 
 End Sub
 
@@ -431,7 +425,8 @@ Public Sub ExportMultipleObjects(objItems As Scripting.Dictionary, Optional bolF
         Log.SetConsole .txtLog, .GetProgressBar
 
         ' Show the status
-        .SetStatusText "Running...", "Automatically exporting the saved source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
+        .SetStatusText "Running...", "Automatically exporting the saved source code", _
+            "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
         .Visible = True
     End With
     
@@ -570,12 +565,8 @@ CleanUp:
     ' Save index file (don't change export date for multiple items export)
     VCSIndex.Save
 
-    ' Clear references to FileSystemObject and other objects
-    Set FSO = Nothing
-    Set VCSIndex = Nothing
-    Log.Flush
-    Log.ReleaseConsole
-    Log.Clear
+    ' Clear object references
+    modObjects.ReleaseObjects
 
 End Sub
 
@@ -880,6 +871,7 @@ CleanUp:
     If Log.ErrorLevel = eelCritical Or Not blnSuccess Then
         Log.Spacer
         Log.Add "Build Failed.", , , "red", True
+        Log.Flush
     End If
 
     ' Wrap up build.
@@ -910,10 +902,8 @@ CleanUp:
             "A backup of the previous build was saved as '" & FSO.GetFileName(strBackup) & "'.", vbInformation
     End If
 
-    ' Release object references
-    Log.Flush
-    Log.ReleaseConsole
-    Log.Clear
+    ' Clear object references
+    modObjects.ReleaseObjects
 
 End Sub
 
@@ -1030,17 +1020,14 @@ CleanUp:
         .Add vbCrLf & Perf.GetReports, False
         .SaveFile FSO.BuildPath(Options.GetExportFolder, "Merge.log")
         .Active = False
+        .Flush
     End With
 
     ' Save index file (don't change export date for single item export)
     VCSIndex.Save
 
-    ' Clear references to FileSystemObject and other objects
-    Set FSO = Nothing
-    Set VCSIndex = Nothing
-    Log.Flush
-    Log.ReleaseConsole
-    Log.Clear
+    ' Clear object references
+    modObjects.ReleaseObjects
 
 End Sub
 

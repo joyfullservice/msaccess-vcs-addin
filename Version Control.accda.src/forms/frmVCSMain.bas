@@ -16,10 +16,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =32
-    Left =3225
-    Top =2430
-    Right =18945
-    Bottom =14175
+    Left =20761
+    Top =2250
+    Right =31261
+    Bottom =13995
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1927,7 +1927,8 @@ Public Sub cmdExport_Click()
     Log.SetConsole Me.txtLog, GetProgressBar
     
     ' Show the status
-    SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
+    SetStatusText "Running...", "Exporting source code", _
+        "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
     
     ' See if we are exporting a single object, or everything.
     If Me.objSingleObject Is Nothing Then
@@ -1943,7 +1944,8 @@ Public Sub cmdExport_Click()
     
     ' Don't attempt to access controls if we are in the process of closing the form.
     If FormLoaded(Me) Then
-        SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
+        SetStatusText "Finished", "Export Complete", _
+            "Additional details can be found in the project export log file.<br><br>You may now close this window."
         lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
         DoEvents
     End If
@@ -2123,6 +2125,9 @@ Private Sub Form_Unload(Cancel As Integer)
         Cancel = True
         intAttempt = intAttempt + 1
     End If
+    
+    ' Release the log console if we are closing the form
+    If Not Cancel Then Log.ReleaseConsole
     
 End Sub
 

@@ -11,17 +11,20 @@ Option Explicit
 
 Private Const ModuleName = "modObjects"
 
-' Logging and options classes
-Private m_Perf As clsPerformance
-Private m_Log As clsLog
-Private m_Options As clsOptions
-Private m_VCSIndex As clsVCSIndex
-Private m_Worker As clsWorker
-Private m_Git As clsGitIntegration
-
-' Keep a persistent reference to file system object after initializing version control.
-' This way we don't have to recreate this object dozens of times while using VCS.
-Private m_FSO As Scripting.FileSystemObject
+' Use a private type to manage instances of object classes
+Private Type udtObjects
+    Perf As clsPerformance
+    Log As clsLog
+    Options As clsOptions
+    VCSIndex As clsVCSIndex
+    Worker As clsWorker
+    Git As clsGitIntegration
+    
+    ' Keep a persistent reference to file system object after initializing version control.
+    ' This way we don't have to recreate this object dozens of times while using VCS.
+    FSO As Scripting.FileSystemObject
+End Type
+Private this As udtObjects
 
 
 '---------------------------------------------------------------------------------------
@@ -32,12 +35,9 @@ Private m_FSO As Scripting.FileSystemObject
 '---------------------------------------------------------------------------------------
 '
 Public Sub ReleaseObjects()
-    Set m_Perf = Nothing
-    Set m_Log = Nothing
-    Set m_Options = Nothing
-    Set m_VCSIndex = Nothing
-    Set m_Worker = Nothing
-    Set m_FSO = Nothing
+    Dim udtEmpty As udtObjects
+    ' Reassign "this" to blank, clearing object references.
+    this = udtEmpty
 End Sub
 
 
@@ -68,11 +68,11 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Options() As clsOptions
-    If m_Options Is Nothing Then Set m_Options = LoadOptions
-    Set Options = m_Options
+    If this.Options Is Nothing Then Set this.Options = LoadOptions
+    Set Options = this.Options
 End Property
 Public Property Set Options(cNewOptions As clsOptions)
-    Set m_Options = cNewOptions
+    Set this.Options = cNewOptions
 End Property
 
 
@@ -86,7 +86,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get OptionsLoaded() As Boolean
-    OptionsLoaded = (Not m_Options Is Nothing)
+    OptionsLoaded = (Not this.Options Is Nothing)
 End Property
 
 
@@ -98,8 +98,8 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Function Perf() As clsPerformance
-    If m_Perf Is Nothing Then Set m_Perf = New clsPerformance
-    Set Perf = m_Perf
+    If this.Perf Is Nothing Then Set this.Perf = New clsPerformance
+    Set Perf = this.Perf
 End Function
 
 
@@ -111,8 +111,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function Log(Optional blnCreateInstance As Boolean = True) As clsLog
-    If m_Log Is Nothing Then If blnCreateInstance Then Set m_Log = New clsLog
-    Set Log = m_Log
+    If this.Log Is Nothing Then If blnCreateInstance Then Set this.Log = New clsLog
+    Set Log = this.Log
 End Function
 
 
@@ -125,15 +125,12 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get FSO() As Scripting.FileSystemObject
-    If m_FSO Is Nothing Then
+    If this.FSO Is Nothing Then
         If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-        Set m_FSO = New Scripting.FileSystemObject
+        Set this.FSO = New Scripting.FileSystemObject
         CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", ModuleName & ".FSO"
     End If
-    Set FSO = m_FSO
-End Property
-Public Property Set FSO(ByVal RHS As Scripting.FileSystemObject)
-    Set m_FSO = RHS
+    Set FSO = this.FSO
 End Property
 
 
@@ -145,14 +142,14 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get VCSIndex() As clsVCSIndex
-    If m_VCSIndex Is Nothing Then
-        Set m_VCSIndex = New clsVCSIndex
-        m_VCSIndex.LoadFromFile
+    If this.VCSIndex Is Nothing Then
+        Set this.VCSIndex = New clsVCSIndex
+        this.VCSIndex.LoadFromFile
     End If
-    Set VCSIndex = m_VCSIndex
+    Set VCSIndex = this.VCSIndex
 End Property
 Public Property Set VCSIndex(cIndex As clsVCSIndex)
-    Set m_VCSIndex = cIndex
+    Set this.VCSIndex = cIndex
 End Property
 
 
@@ -164,8 +161,8 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Worker() As clsWorker
-    If m_Worker Is Nothing Then Set m_Worker = New clsWorker
-    Set Worker = m_Worker
+    If this.Worker Is Nothing Then Set this.Worker = New clsWorker
+    Set Worker = this.Worker
 End Property
 
 
@@ -191,7 +188,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Git() As clsGitIntegration
-    If m_Git Is Nothing Then Set m_Git = New clsGitIntegration
-    Set Git = m_Git
+    If this.Git Is Nothing Then Set this.Git = New clsGitIntegration
+    Set Git = this.Git
 End Property
 
