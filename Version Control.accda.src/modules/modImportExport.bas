@@ -19,7 +19,7 @@ Private Const ModuleName As String = "modImportExport"
 ' Purpose   : Export source files from the currently open database.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContainerFilter = ecfAllObjects)
+Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContainerFilter = ecfAllObjects, Optional frmMain As Form_frmVCSMain)
 
     Dim dCategories As Dictionary
     Dim colCategories As Collection
@@ -77,6 +77,8 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         .Add "Export Folder: " & Options.GetExportFolder, False
         .Add IIf(blnFullExport, "Performing Full Export", "Using Fast Save")
         .Add Now
+        ' Save the log file path
+        If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
     End With
 
     ' Run any custom sub before export
@@ -222,7 +224,7 @@ CleanUp:
     Perf.EndTiming
     With Log
         .Add vbCrLf & Perf.GetReports, False
-        .SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+        .SaveFile
         .Active = False
         .Flush
     End With
@@ -254,7 +256,7 @@ End Sub
 ' Purpose   : Export a single object (such as a selected item)
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportSingleObject(objItem As AccessObject)
+Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_frmVCSMain)
 
     Dim dCategories As Dictionary
     Dim dCategory As Dictionary
@@ -299,6 +301,8 @@ Public Sub ExportSingleObject(objItem As AccessObject)
         .Spacer
         .Add "Exporting " & objItem.Name & "..."
         .Flush
+        ' Save export log file path
+        If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
     End With
 
     ' Get a database component class from the item
@@ -363,7 +367,7 @@ CleanUp:
     Perf.EndTiming
     With Log
         .Add vbCrLf & Perf.GetReports, False
-        .SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+        .SaveFile
         .Active = False
         .Flush
     End With
@@ -423,6 +427,7 @@ Public Sub ExportMultipleObjects(objItems As Scripting.Dictionary, Optional bolF
             .SetFocus
         End With
         Log.SetConsole .txtLog, .GetProgressBar
+        .strLastLogFilePath = Log.LogFilePath
 
         ' Show the status
         .SetStatusText "Running...", "Automatically exporting the saved source code", _
@@ -558,7 +563,7 @@ CleanUp:
     Perf.EndTiming
     With Log
         .Add vbCrLf & Perf.GetReports, False
-        .SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+        .SaveFile
         .Active = False
     End With
 
@@ -863,7 +868,7 @@ CleanUp:
     Perf.EndTiming
     With Log
         .Add vbCrLf & Perf.GetReports, False
-        .SaveFile StripSlash(strSourceFolder) & PathSep & strType & ".log"
+        .SaveFile
         .Active = False
     End With
 
@@ -1018,7 +1023,7 @@ CleanUp:
     Perf.EndTiming
     With Log
         .Add vbCrLf & Perf.GetReports, False
-        .SaveFile FSO.BuildPath(Options.GetExportFolder, "Merge.log")
+        .SaveFile
         .Active = False
         .Flush
     End With

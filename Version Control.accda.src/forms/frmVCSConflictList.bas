@@ -16,8 +16,10 @@ Begin Form
     Width =5040
     DatasheetFontHeight =11
     ItemSuffix =31
-    Right =19725
-    Bottom =14640
+    Left =885
+    Top =3030
+    Right =12495
+    Bottom =7860
     RecSrcDt = Begin
         0x9bf1b7f2f3a6e540
     End
@@ -535,12 +537,12 @@ Private Sub txtDiff_Click()
                 MsgBox2 "Source File Not Found", "Could not find the source file needed to diff this object:", strSourceFile, vbExclamation
             Else
                 ' Now that we have both files, diff the files for the user
-                If Log.OperationType = eotBuild Then
-                    ' Show the source file as the modified version
-                    modObjects.Diff.Files strTempFile, strSourceFile
-                Else
+                If Log.OperationType = eotExport Then
                     ' Show the database object as the modified version
                     modObjects.Diff.Files strSourceFile, strTempFile
+                Else
+                    ' Show the source file as the modified version
+                    modObjects.Diff.Files strTempFile, strSourceFile
                 End If
             End If
         End If

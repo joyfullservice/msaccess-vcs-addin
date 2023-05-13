@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =32
     Left =20761
     Top =2250
-    Right =31261
+    Right =-29055
     Bottom =13995
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
@@ -1741,6 +1741,10 @@ Public intContainerFilter As eContainerFilter
 ' Used for exporting or loading a single object
 Public objSingleObject As AccessObject
 
+' Path to the last log file, in case the user wants to view the log after the operation.
+' (The Log object has already been reset at this point, so we can't use Log.LogFilePath.)
+Public strLastLogFilePath As String
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdBuild_Click
@@ -1873,6 +1877,7 @@ Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "B
     SetStatusText "Finished", strType & " Complete", _
         "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
     lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+    Me.strLastLogFilePath = Log.LogFilePath
     
 End Sub
 
@@ -1933,9 +1938,9 @@ Public Sub cmdExport_Click()
     ' See if we are exporting a single object, or everything.
     If Me.objSingleObject Is Nothing Then
         ' Export the source code using the specified filter.
-        modImportExport.ExportSource chkFullExport, Me.intContainerFilter
+        modImportExport.ExportSource chkFullExport, Me.intContainerFilter, Me
     Else
-        modImportExport.ExportSingleObject Me.objSingleObject
+        modImportExport.ExportSingleObject Me.objSingleObject, Me
     End If
     
     ' Turn on scroll bars in case the user wants to scroll back through the log.
@@ -1946,7 +1951,8 @@ Public Sub cmdExport_Click()
     If FormLoaded(Me) Then
         SetStatusText "Finished", "Export Complete", _
             "Additional details can be found in the project export log file.<br><br>You may now close this window."
-        lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+        lblOpenLogFile.Visible = (Me.strLastLogFilePath <> vbNullString)
+        Me.strLastLogFilePath = Me.strLastLogFilePath
         DoEvents
     End If
     
@@ -2140,7 +2146,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub lblOpenLogFile_Click()
-    If FSO.FileExists(Log.LogFilePath) Then
-        CreateObject("Shell.Application").Open (Log.LogFilePath)
+    If FSO.FileExists(strLastLogFilePath) Then
+        ' (Note, parentheses are required for the path argument)
+        CreateObject("Shell.Application").Open (strLastLogFilePath)
     End If
 End Sub

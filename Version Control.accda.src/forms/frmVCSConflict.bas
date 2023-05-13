@@ -17,10 +17,10 @@ Begin Form
     Width =12960
     DatasheetFontHeight =11
     ItemSuffix =47
-    Left =3225
-    Top =2430
-    Right =22695
-    Bottom =16815
+    Left =20761
+    Top =2250
+    Right =-29055
+    Bottom =13995
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -881,10 +881,10 @@ Private Sub Form_Load()
     lblVersion.Caption = Replace(lblVersion.Caption, "${version}", GetVCSVersion())
     
     ' Update heading caption
-    If Log.OperationType = eotBuild Then
-        lblHeading.Caption = "These database objects have changed since the last export"
-    Else
+    If Log.OperationType = eotExport Then
         lblHeading.Caption = "These source files have changed since the last export"
+    Else
+        lblHeading.Caption = "These database objects have changed since the last export"
     End If
     
 End Sub

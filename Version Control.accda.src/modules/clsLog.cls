@@ -11,7 +11,6 @@ Option Compare Database
 Option Explicit
 
 Public PadLength As Integer
-Public LogFilePath As String
 Public ErrorLevel As eErrorLevel
 Public OperationType As eOperationType
 
@@ -285,14 +284,32 @@ End Property
 ' Procedure : SaveFile
 ' Author    : Adam Waller
 ' Date      : 1/18/2019
-' Purpose   : Saves the log data to a file, and resets the log buffer.
+' Purpose   : Saves the current log data to a file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveFile(strPath As String)
-    WriteFile m_Log.GetStr, strPath
-    Set m_Log = New clsConcat
-    LogFilePath = strPath
+Public Sub SaveFile(Optional strAlternatePath As String)
+    If Len(strAlternatePath) Then VerifyPath strAlternatePath
+    WriteFile m_Log.GetStr, Nz2(strAlternatePath, Me.LogFilePath)
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogFilePath
+' Author    : Adam Waller
+' Date      : 5/13/2023
+' Purpose   : Return the (default) full path to the current log file.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get LogFilePath() As String
+    Dim strFile As String
+    Select Case Me.OperationType
+        Case eotExport: strFile = "Export.log"
+        Case eotBuild:  strFile = "Build.log"
+        Case eotMerge:  strFile = "Merge.log"
+        Case Else:      strFile = "Other.log"
+    End Select
+    LogFilePath = FSO.BuildPath(Options.GetExportFolder, strFile)
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -310,7 +327,6 @@ Private Sub Class_Initialize()
     Me.PadLength = 30
     Me.ErrorLevel = eelNoError
     Me.Active = False
-    Me.LogFilePath = vbNullString
 End Sub
 
 
