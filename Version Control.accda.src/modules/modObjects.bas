@@ -35,9 +35,17 @@ Private this As udtObjects
 '---------------------------------------------------------------------------------------
 '
 Public Sub ReleaseObjects()
+    Set this.Perf = Nothing
+    Set this.Log = Nothing
+    Set this.Options = Nothing
+    Set this.VCSIndex = Nothing
+    Set this.Worker = Nothing
+    Set this.Git = Nothing
+    Set this.FSO = Nothing
+        
     Dim udtEmpty As udtObjects
-    ' Reassign "this" to blank, clearing object references.
-    this = udtEmpty
+    ' Reassign "this" to blank, clearing any saved data.
+    LSet this = udtEmpty
 End Sub
 
 
