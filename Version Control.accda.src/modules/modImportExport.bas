@@ -565,6 +565,7 @@ CleanUp:
         .Add vbCrLf & Perf.GetReports, False
         .SaveFile
         .Active = False
+        .Flush
     End With
 
     ' Save index file (don't change export date for multiple items export)
