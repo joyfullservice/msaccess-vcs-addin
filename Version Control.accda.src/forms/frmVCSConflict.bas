@@ -830,7 +830,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdCancel_Click
 ' Author    : Adam Waller
@@ -876,15 +875,25 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Form_Load()
-
     ' Display version (better performance than bound control)
     lblVersion.Caption = Replace(lblVersion.Caption, "${version}", GetVCSVersion())
     
+    Dim frmList As Form_frmVCSConflictList
+    Set frmList = Me.sfrmConflictList.Form
+        
     ' Update heading caption
     If Log.OperationType = eotExport Then
         lblHeading.Caption = "These source files have changed since the last export"
+        With frmList.cboResolution
+            .AddItem eResolveConflict.ercSkip & ";" & "Skip"
+            .AddItem eResolveConflict.ercOverwrite & ";" & "Overwrite source file"
+        End With
     Else
         lblHeading.Caption = "These database objects have changed since the last export"
+        With frmList.cboResolution
+            .AddItem eResolveConflict.ercSkip & ";" & "Skip"
+            .AddItem eResolveConflict.ercOverwrite & ";" & "Overwrite database object"
+        End With
     End If
     
 End Sub
