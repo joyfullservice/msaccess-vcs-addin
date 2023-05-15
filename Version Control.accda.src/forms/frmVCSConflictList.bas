@@ -25,7 +25,6 @@ Begin Form
     End
     RecordSource ="tblConflicts"
     DatasheetFontName ="Calibri"
-    OnLoad ="[Event Procedure]"
     AllowFormView =0
     FilterOnLoad =0
     ShowPageMargins =0
@@ -461,22 +460,6 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Form_Load
-' Author    : Adam Waller
-' Date      : 5/27/2021
-' Purpose   : Load list of conflict resolutions
-'---------------------------------------------------------------------------------------
-'
-Private Sub Form_Load()
-    With cboResolution
-        .AddItem eResolveConflict.ercSkip & ";" & "Skip"
-        .AddItem eResolveConflict.ercOverwrite & ";" & "Overwrite"
-    End With
-End Sub
-
 
 '---------------------------------------------------------------------------------------
 ' Procedure : txtDiff_Click
