@@ -24,7 +24,8 @@ Private Type HookConfiguration
     App As Access.Application
     CallbackProject As VBIDE.VBProject
     AfterSaveRequestDelayMilliseconds As Long
-    AfterSaveCallbackProcedureName As String
+    AfterSaveCallbackProcedureName As LongPtr
+    LogFilePath As LongPtr
 End Type
 
 ' Must match the ObjectData definition used in hook's ObjectTracker module
@@ -158,8 +159,9 @@ Public Function ActivateHook(Optional ExportRequestDelayMilliseconds As Long = 5
                     Set Config.CallbackProject = .DbcVbProject
                 End With
             End If
-            Config.AfterSaveCallbackProcedureName = "HandleExportCallback"
+            Config.AfterSaveCallbackProcedureName = StrPtr("HandleExportCallback")
             Config.AfterSaveRequestDelayMilliseconds = ExportRequestDelayMilliseconds
+            Config.LogFilePath = StrPtr(CodeProject.Path & "\MSAccessVCSHook.log")
             If StartHook(Config) = False Then
                 FreeLibrary (ptrLibraryHandle)
                 ptrLibraryHandle = 0
@@ -200,6 +202,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub HandleExportCallback(UpperBound As Long, ObjectDataArray() As ObjectData)
+    On Error GoTo ErrHandler
+    
     Dim dAccessObjects As Scripting.Dictionary
     Dim oAccessObject As Access.AccessObject
     Dim tObjectData As ObjectData
@@ -241,4 +245,14 @@ Public Sub HandleExportCallback(UpperBound As Long, ObjectDataArray() As ObjectD
     Next
     
     modImportExport.ExportMultipleObjects dAccessObjects, False
+    
+ExitProc:
+    Exit Sub
+
+ErrHandler:
+    If DebugMode(True) Then
+        Stop ' Use the unreachable Resume to return to the original line that caused error.
+    End If
+    Resume ExitProc
+    Resume ' Use for debugging only
 End Sub
