@@ -19,13 +19,14 @@ Begin Form
     ItemSuffix =47
     Left =20761
     Top =2250
-    Right =31261
+    Right =-29055
     Bottom =13995
     RecSrcDt = Begin
         0x79e78b777268e540
     End
     Caption ="MSAccessVCS"
     DatasheetFontName ="Calibri"
+    OnResize ="[Event Procedure]"
     OnLoad ="[Event Procedure]"
     AllowDatasheetView =0
     FilterOnLoad =0
@@ -830,6 +831,7 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdCancel_Click
 ' Author    : Adam Waller
@@ -899,6 +901,22 @@ Private Sub Form_Load()
     ' Change to resizable form
     MakeDialogResizable Me
     
+    ' Set initial column size
+    Form_Resize
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Form_Resize
+' Author    : Adam Waller
+' Date      : 5/16/2023
+' Purpose   : Adjust column widths on subform.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Resize()
+    ScaleColumns Me.sfrmConflictList.Form, , _
+        Array("txtObjectDate", "txtFileDate", "txtDiff")
 End Sub
 
 

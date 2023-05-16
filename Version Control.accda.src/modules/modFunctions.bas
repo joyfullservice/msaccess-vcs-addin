@@ -689,6 +689,43 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : InArray
+' Author    : Adam Waller
+' Date      : 5/16/2023
+' Purpose   : Returns true if the matching value is found in the array.
+'---------------------------------------------------------------------------------------
+'
+Public Function InArray(varArray, varValue, Optional intCompare As VbCompareMethod = vbBinaryCompare) As Boolean
+    
+    Dim varItem As Variant
+    Dim lngCnt As Long
+    
+    ' Guard clauses
+    If Not IsArray(varArray) Then Exit Function
+    If IsEmptyArray(varArray) Then Exit Function
+    
+    ' Loop through array items, looking for a match
+    For lngCnt = LBound(varArray) To UBound(varArray)
+        If TypeName(varValue) = "String" Then
+            ' Use specified compare method
+            If StrComp(varArray(lngCnt), varValue, intCompare) = 0 Then
+                InArray = True
+                Exit For
+            End If
+        Else
+            ' Compare non-string value
+            If varValue = varArray(lngCnt) Then
+                ' Found exact match
+                InArray = True
+                Exit For
+            End If
+        End If
+    Next lngCnt
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : AddToArray
 ' Author    : Adam Waller
 ' Date      : 5/8/2023
@@ -890,3 +927,53 @@ Public Sub MakeDialogResizable(frmMe As Form)
     
 End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScaleColumns
+' Author    : Adam Waller
+' Date      : 5/16/2023
+' Purpose   : Size the datasheet columns evenly to fill the available width, minus an
+'           : allotment for the width of the vertical scroll bar.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ScaleColumns(frmDatasheet As Form, Optional lngScrollWidthTwips As Long = 600, _
+    Optional varFixedControlNameArray As Variant)
+
+    Dim lngTotal As Long
+    Dim lngCurrent As Long
+    Dim lngSizeable As Long
+    Dim lngFixed As Long
+    Dim dblRatio As Double
+    Dim ctl As Control
+    Dim colResize As Collection
+    
+    lngTotal = frmDatasheet.InsideWidth - lngScrollWidthTwips
+    Set colResize = New Collection
+    
+    ' Loop through the columns twice, once to get the current widths, then to set them.
+    For Each ctl In frmDatasheet.Controls
+        Select Case ctl.ControlType
+            Case acTextBox, acComboBox
+                If ctl.Visible Then
+                    lngCurrent = lngCurrent + ctl.ColumnWidth
+                    If Not InArray(varFixedControlNameArray, ctl.Name, vbTextCompare) Then
+                        lngSizeable = lngSizeable + ctl.ColumnWidth
+                        colResize.Add ctl
+                    End If
+                End If
+        End Select
+    Next ctl
+    
+    ' Exit if we have no sizable controls
+    If lngSizeable = 0 Then Exit Sub
+    
+    ' Get ratio for new sizes (Scales resizable controls proportionately)
+    lngFixed = lngCurrent - lngSizeable
+    dblRatio = (lngTotal - lngFixed) / lngSizeable
+    
+    ' Resize each control
+    For Each ctl In colResize
+        ctl.ColumnWidth = ctl.ColumnWidth * dblRatio
+    Next ctl
+    
+End Sub

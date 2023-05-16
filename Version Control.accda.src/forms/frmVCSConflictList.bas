@@ -16,10 +16,10 @@ Begin Form
     Width =5040
     DatasheetFontHeight =11
     ItemSuffix =31
-    Left =885
-    Top =3030
-    Right =12495
-    Bottom =7860
+    Left =435
+    Top =2250
+    Right =12315
+    Bottom =7335
     RecSrcDt = Begin
         0x9bf1b7f2f3a6e540
     End
@@ -108,7 +108,7 @@ Begin Form
                     Top =360
                     Width =2625
                     Height =360
-                    ColumnWidth =1710
+                    ColumnWidth =1729
                     LeftMargin =44
                     TopMargin =22
                     RightMargin =44
@@ -160,7 +160,7 @@ Begin Form
                     Top =900
                     Width =2625
                     Height =360
-                    ColumnWidth =2595
+                    ColumnWidth =2617
                     TabIndex =1
                     LeftMargin =44
                     TopMargin =22
@@ -396,7 +396,7 @@ Begin Form
                     Top =2520
                     Width =2625
                     Height =360
-                    ColumnWidth =1305
+                    ColumnWidth =1310
                     TabIndex =4
                     Name ="cboResolution"
                     ControlSource ="Resolution"

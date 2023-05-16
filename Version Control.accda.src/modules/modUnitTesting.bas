@@ -352,3 +352,18 @@ Public Sub TestGitRepositoryRoot()
     End With
     
 End Sub
+
+
+'@TestMethod("InArray")
+Public Sub TestInArray()
+    Dim varArray As Variant
+    varArray = Array("a", "b", "c", 1, 2, 3, #1/1/2000#)
+    Debug.Assert InArray(varArray, "b")
+    Debug.Assert Not InArray(varArray, "B")
+    Debug.Assert InArray(varArray, "B", vbTextCompare)
+    Debug.Assert InArray(varArray, 2)
+    Debug.Assert InArray(varArray, #1/1/2000#)
+    Debug.Assert Not InArray(varArray, Null)
+    Debug.Assert Not InArray(Null, "b")
+    Debug.Assert Not InArray(Array(), "b")
+End Sub
