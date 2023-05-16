@@ -1039,6 +1039,134 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MergeAllSource
+' Author    : Adam Waller
+' Date      : 5/16/2023
+' Purpose   : Forcibly merge all source files into the current database. This is used
+'           : in testing to confirm that we can successfully merge all types of source
+'           : files into the database. (Not something an end user would normally use.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeAllSource()
+
+    Dim dCategories As Dictionary
+    Dim dCategory As Dictionary
+    Dim cCategory As IDbComponent
+    Dim varCategory As Variant
+    Dim dFiles As Dictionary
+    Dim varFile As Variant
+    Dim dSourceFiles As Dictionary
+    Dim strTempFile As String
+
+
+    ' Use inline error handling functions to trap and log errors.
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Make sure all database objects are currently closed (This is really important,
+    ' since we will be deleting most objects before importing them from source.)
+    CloseDatabaseObjects
+
+    ' Reload the project options and reset the logs
+    Set VCSIndex = Nothing
+    Set Options = Nothing
+    Options.LoadProjectOptions
+    Log.Clear
+    Log.OperationType = eotMerge
+    Log.Active = True
+    Perf.StartTiming
+
+    ' Display heading
+    With Log
+        .Spacer
+        .Add "Beginning Merge of All Source Files", False
+        .Add CurrentProject.Name
+        .Add "VCS Version " & GetVCSVersion
+        .Add "Full Path: " & CurrentProject.FullName, False
+        .Add "Export Folder: " & Options.GetExportFolder, False
+        .Add Now
+        .Spacer
+        .Add "Scanning source files..."
+        .Flush
+    End With
+    
+    
+    ' Build collections of files to import/merge
+    Set dCategories = New Dictionary
+    Perf.OperationStart "Scan Source Files"
+    For Each cCategory In GetContainers
+        Set dCategory = New Dictionary
+        dCategory.Add "Class", cCategory
+        dCategory.Add "Files", cCategory.GetFileList
+        dCategories.Add cCategory, dCategory
+    Next cCategory
+    Perf.OperationEnd
+
+
+    ' Loop through all categories
+    Log.Spacer
+    For Each varCategory In dCategories.Keys
+
+        ' Set reference to object category class
+        Set cCategory = varCategory
+        Set dFiles = dCategories(varCategory)("Files")
+
+        ' Only show category details when source files are found
+        If dFiles.Count = 0 Then
+            Log.Spacer Options.ShowDebug
+            Log.Add "No " & LCase(cCategory.Category) & " source files found.", Options.ShowDebug
+        Else
+            ' Show category header
+            Log.Spacer Options.ShowDebug
+            Log.PadRight "Merging " & LCase(cCategory.Category) & "...", , Options.ShowDebug
+            Log.ProgMax = dFiles.Count
+            Perf.CategoryStart cCategory.Category
+
+            ' Loop through each file in this category.
+            For Each varFile In dFiles.Keys
+                ' Import/merge the file
+                Log.Increment
+                Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+                cCategory.Merge CStr(varFile)
+                CatchAny eelError, "Merge error in: " & varFile, ModuleName & ".Build", True, True
+
+                ' Bail out if we hit a critical error.
+                If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+            Next varFile
+
+            ' Show category wrap-up.
+            Log.Add "[" & dFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
+            Perf.CategoryEnd dFiles.Count
+        End If
+    Next varCategory
+
+    ' Show final output and save log
+    Log.Spacer
+    Log.Add "Done. (" & Round(Perf.TotalTime, 2) & " seconds)", , False, "green", True
+
+CleanUp:
+
+    ' Run any cleanup routines
+    VCSIndex.ClearTempExportFolder
+
+    ' Add performance data to log file and save file
+    Perf.EndTiming
+    With Log
+        .Add vbCrLf & Perf.GetReports, False
+        .SaveFile
+        .Active = False
+        .Flush
+    End With
+
+    ' Save index file (don't change export date for single item export)
+    VCSIndex.Save
+
+    ' Clear object references
+    modObjects.ReleaseObjects
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetBackupFileName
 ' Author    : Adam Waller
 ' Date      : 5/4/2020

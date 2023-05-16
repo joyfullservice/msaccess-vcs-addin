@@ -128,11 +128,24 @@ End Sub
 ' Procedure : MergeBuild
 ' Author    : Adam Waller
 ' Date      : 2/21/2023
-' Purpose   : Merge source files into the existing database.
+' Purpose   : Merge modified source files into the existing database.
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeBuild()
     MsgBox2 "Coming Soon!", "Sorry, this isn't quite available yet.", , vbInformation
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeAllSource
+' Author    : Adam Waller
+' Date      : 5/16/2023
+' Purpose   : Merge ALL source files into the current database, regardless of modified
+'           : status. (Used for testing and development purposes.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeAllSource()
+    modImportExport.MergeAllSource
 End Sub
 
 
