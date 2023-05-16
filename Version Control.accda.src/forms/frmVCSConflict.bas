@@ -19,7 +19,7 @@ Begin Form
     ItemSuffix =47
     Left =20761
     Top =2250
-    Right =-29055
+    Right =31261
     Bottom =13995
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -895,6 +895,9 @@ Private Sub Form_Load()
             .AddItem eResolveConflict.ercOverwrite & ";" & "Overwrite database object"
         End With
     End If
+    
+    ' Change to resizable form
+    MakeDialogResizable Me
     
 End Sub
 

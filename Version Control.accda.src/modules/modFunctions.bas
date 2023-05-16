@@ -13,6 +13,20 @@ Option Explicit
 ' API function to pause processing
 Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)
 
+' API calls to change window style
+Private Const GWL_STYLE = -16
+Private Const WS_SIZEBOX = &H40000
+Private Declare PtrSafe Function IsWindowUnicode Lib "user32" (ByVal hwnd As LongPtr) As Long
+#If Win64 Then
+    ' 64-bit versions of Access
+    Private Declare PtrSafe Function GetWindowLongPtr Lib "user32" Alias "GetWindowLongPtrW" (ByVal hwnd As LongPtr, ByVal nIndex As Long) As LongPtr
+    Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongPtrW" (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
+#Else
+    ' 32-bit versions of Access
+    Private Declare PtrSafe Function GetWindowLongPtr Lib "user32" Alias "GetWindowLongW" (ByVal hwnd As LongPtr, ByVal nIndex As Long) As LongPtr
+    Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongW" (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
+#End If
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : InCollection
@@ -844,3 +858,35 @@ Public Function GetOfficeBitness() As String
         GetOfficeBitness = "32"
     #End If
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MakeDialogResizable
+' Author    : Adam Waller
+' Date      : 5/16/2023
+' Purpose   : Change the window style of an existing dialog window to make it resizable.
+'           : (This allows you to use the acDialog argument when opening a form, but
+'           :  still have the form resizable by the user.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub MakeDialogResizable(frmMe As Form)
+    
+    Dim lngHwnd As Long
+    Dim lngFlags As Long
+    Dim lngResult As Long
+    
+    ' Get handle for form
+    lngHwnd = frmMe.hwnd
+    
+    ' Debug.Print IsWindowUnicode(lngHwnd) - Testing indicates that the windows are
+    ' Unicode, so we are using the Unicode versions of the GetWindowLong functions.
+    
+    ' Get the current window style
+    lngFlags = GetWindowLongPtr(lngHwnd, GWL_STYLE)
+    
+    ' Set resizable flag and apply updated style
+    lngFlags = lngFlags Or WS_SIZEBOX
+    lngResult = SetWindowLongPtr(lngHwnd, GWL_STYLE, lngFlags)
+    
+End Sub
+
