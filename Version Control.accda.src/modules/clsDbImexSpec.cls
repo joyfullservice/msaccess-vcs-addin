@@ -18,7 +18,7 @@ Option Compare Database
 Option Explicit
 
 Public Name As String
-Public ID As String
+Public ID As Long
 
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
@@ -88,6 +88,9 @@ Private Sub IDbComponent_Import(strFile As String)
             ' Save ID from header so we can use it for columns
             .Bookmark = .LastModified
             lngID = !SpecID
+            ' Update class with current ID and name
+            Me.ID = lngID
+            Me.Name = Nz(!SpecName, "Spec " & lngID)
         End With
 
         ' Add columns records
@@ -220,6 +223,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetDictionary() As Dictionary
+
     Dim dSpec As Dictionary
     Dim dCol As Dictionary
     Dim dCols As Dictionary
@@ -232,6 +236,9 @@ Private Function GetDictionary() As Dictionary
     Set dSpec = New Dictionary
     Set dCols = New Dictionary
     Set dbs = CurrentDb
+    
+    ' Make sure we have an object specified
+    If Me.ID = 0 Then Exit Function
 
     ' Build header info first
     strSql = "SELECT * FROM MSysIMEXSpecs WHERE SpecID=" & Me.ID
