@@ -908,9 +908,9 @@ End Function
 '
 Public Sub MakeDialogResizable(frmMe As Form)
     
-    Dim lngHwnd As Long
-    Dim lngFlags As Long
-    Dim lngResult As Long
+    Dim lngHwnd As LongPtr
+    Dim lngFlags As LongPtr
+    Dim lngResult As LongPtr
     
     ' Get handle for form
     lngHwnd = frmMe.hwnd
