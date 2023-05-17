@@ -80,9 +80,12 @@ Private Sub IDbComponent_Import(strFile As String)
 
         ' Import the source file
         .Import strFile
+        
+        ' Set reference to form after import
+        Set m_Form = .Item(GetObjectNameFromFileName(strFile))
 
         ' Check for extra blank line that may get added during import (VBE bug?)
-        With .Item(GetObjectNameFromFileName(strFile))
+        With m_Form
             If Not .CodeModule Is Nothing Then
                 If .CodeModule.Lines(1, 1) = vbNullString Then
                     ' Remove blank line added during import (Known VBA Bug)
@@ -129,7 +132,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub DeleteVbeFormIfExists(strName)
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
     With CurrentVBProject.VBComponents
         .Remove .Item(strName)
     End With
