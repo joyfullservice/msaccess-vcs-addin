@@ -555,6 +555,11 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
         End If
     Next
     
+    ' Remove generated timestamp from tables exported without schema (such as linked tables)
+    For Each objNode In objXml.SelectNodes("/dataroot")
+        objNode.Attributes.removeNamedItem "generated"
+    Next
+    
     ' Remove all nodes that are meaningless noise:
     '   <od:tableProperty name="NameMap" ...>
     '   <od:tableProperty name="GUID" ...>
