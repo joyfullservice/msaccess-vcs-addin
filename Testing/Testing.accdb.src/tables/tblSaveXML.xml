@@ -13,7 +13,10 @@
   <tblSaveXML>
     <ID>3</ID>
     <ObjectType>Query</ObjectType>
+    <Notes>Test Req'd</Notes>
     <UpdateDate>2020-05-07T17:03:19</UpdateDate>
+    <NotReq_x0027_d>Test data</NotReq_x0027_d>
+    <Please_x0022_don_x0027_t_x0022_use>S'more "tests"</Please_x0022_don_x0027_t_x0022_use>
   </tblSaveXML>
   <tblSaveXML>
     <ID>4</ID>

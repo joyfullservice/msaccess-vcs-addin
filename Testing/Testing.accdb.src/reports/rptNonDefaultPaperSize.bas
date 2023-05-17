@@ -4,7 +4,6 @@ Begin Report
     LayoutForPrint = NotDefault
     DividingLines = NotDefault
     AllowDesignChanges = NotDefault
-    TabularFamily =0
     DateGrouping =1
     GrpKeepTogether =1
     PictureAlignment =2
