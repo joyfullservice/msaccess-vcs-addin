@@ -3747,6 +3747,9 @@ Private Sub Form_Load()
         Next intSanitizeLevel
     End With
     
+    ' Make form resizable (helpful with table selection when many tables are listed)
+    MakeDialogResizable Me
+    
 End Sub
 
 
