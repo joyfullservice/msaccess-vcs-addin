@@ -16,11 +16,11 @@ Begin Form
     GridY =24
     Width =12960
     DatasheetFontHeight =11
-    ItemSuffix =47
-    Left =20761
-    Top =2250
-    Right =-29055
-    Bottom =13995
+    ItemSuffix =48
+    Left =-25575
+    Top =1500
+    Right =-5475
+    Bottom =14085
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -648,7 +648,7 @@ Begin Form
                     LayoutCachedTop =240
                     LayoutCachedWidth =12360
                     LayoutCachedHeight =1140
-                    TabIndex =3
+                    TabIndex =5
                 End
                 Begin Label
                     OverlapFlags =215
@@ -779,45 +779,97 @@ Begin Form
                         End
                     End
                 End
-                Begin Label
+                Begin CommandButton
                     FontUnderline = NotDefault
+                    TabStop = NotDefault
                     OverlapFlags =85
-                    TextAlign =2
-                    Left =960
-                    Top =7680
-                    Width =1080
-                    Height =300
-                    Name ="lblSkipAll"
-                    Caption ="Skip All"
-                    OnClick ="[Event Procedure]"
-                    HyperlinkAddress ="#"
-                    VerticalAnchor =1
-                    LayoutCachedLeft =960
-                    LayoutCachedTop =7680
-                    LayoutCachedWidth =2040
-                    LayoutCachedHeight =7980
-                    ForeThemeColorIndex =10
-                    ForeTint =100.0
-                End
-                Begin Label
-                    FontUnderline = NotDefault
-                    OverlapFlags =85
-                    TextAlign =2
                     Left =2280
                     Top =7680
                     Width =1620
-                    Height =300
-                    Name ="lblOverwriteAll"
+                    TabIndex =3
+                    Name ="cmdOverwriteAll"
                     Caption ="Overwrite All"
                     OnClick ="[Event Procedure]"
-                    HyperlinkAddress ="#"
-                    VerticalAnchor =1
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    HorizontalAnchor =1
+                    BackStyle =0
+
+                    CursorOnHover =1
                     LayoutCachedLeft =2280
                     LayoutCachedTop =7680
                     LayoutCachedWidth =3900
-                    LayoutCachedHeight =7980
+                    LayoutCachedHeight =8040
                     ForeThemeColorIndex =10
                     ForeTint =100.0
+                    Gradient =0
+                    BackColor =5324600
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    OldBorderStyle =0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverThemeColorIndex =10
+                    HoverTint =100.0
+                    PressedThemeColorIndex =10
+                    PressedShade =100.0
+                    HoverForeThemeColorIndex =10
+                    HoverForeTint =100.0
+                    PressedForeThemeColorIndex =10
+                    PressedForeTint =100.0
+                    WebImagePaddingLeft =9
+                    WebImagePaddingTop =9
+                    WebImagePaddingRight =10
+                    WebImagePaddingBottom =10
+                End
+                Begin CommandButton
+                    FontUnderline = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =960
+                    Top =7680
+                    Width =1080
+                    TabIndex =4
+                    Name ="cmdSkipAll"
+                    Caption ="Skip All"
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    HorizontalAnchor =1
+                    BackStyle =0
+
+                    CursorOnHover =1
+                    LayoutCachedLeft =960
+                    LayoutCachedTop =7680
+                    LayoutCachedWidth =2040
+                    LayoutCachedHeight =8040
+                    ForeThemeColorIndex =10
+                    ForeTint =100.0
+                    Gradient =0
+                    BackColor =5324600
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    OldBorderStyle =0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverThemeColorIndex =10
+                    HoverTint =100.0
+                    PressedThemeColorIndex =10
+                    PressedShade =100.0
+                    HoverForeThemeColorIndex =10
+                    HoverForeTint =100.0
+                    PressedForeThemeColorIndex =10
+                    PressedForeTint =100.0
+                    WebImagePaddingLeft =9
+                    WebImagePaddingTop =9
+                    WebImagePaddingRight =10
+                    WebImagePaddingBottom =10
                 End
             End
         End
@@ -921,26 +973,28 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : lblOverwriteAll_Click
+' Procedure : cmdOverwriteAll_Click
 ' Author    : Adam Waller
 ' Date      : 11/1/2021
 ' Purpose   : Overwrite all items in the list
 '---------------------------------------------------------------------------------------
 '
-Private Sub lblOverwriteAll_Click()
+Private Sub cmdOverwriteAll_Click()
+    sfrmConflictList.SetFocus
     CodeDb.Execute "update tblConflicts set Resolution=" & eResolveConflict.ercOverwrite, dbFailOnError
     sfrmConflictList.Requery
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : lblSkipAll_Click
+' Procedure : cmdSkipAll_Click
 ' Author    : Adam Waller
 ' Date      : 11/1/2021
 ' Purpose   : Skip all items in the list
 '---------------------------------------------------------------------------------------
 '
-Private Sub lblSkipAll_Click()
+Private Sub cmdSkipAll_Click()
+    sfrmConflictList.SetFocus
     CodeDb.Execute "update tblConflicts set Resolution=" & eResolveConflict.ercSkip, dbFailOnError
     sfrmConflictList.Requery
 End Sub

@@ -15,11 +15,11 @@ Begin Form
     GridY =24
     Width =10080
     DatasheetFontHeight =11
-    ItemSuffix =240
-    Left =20761
-    Top =2250
-    Right =31261
-    Bottom =13995
+    ItemSuffix =241
+    Left =-25575
+    Top =1500
+    Right =-5475
+    Bottom =14085
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -390,8 +390,8 @@ Begin Form
                     OverlapFlags =85
                     Left =540
                     Top =1500
-                    Width =9000
-                    Height =4740
+                    Width =9015
+                    Height =4755
                     TabIndex =2
                     Name ="tabOptions"
                     HorizontalAnchor =2
@@ -399,8 +399,8 @@ Begin Form
 
                     LayoutCachedLeft =540
                     LayoutCachedTop =1500
-                    LayoutCachedWidth =9540
-                    LayoutCachedHeight =6240
+                    LayoutCachedWidth =9555
+                    LayoutCachedHeight =6255
                     ThemeFontIndex =1
                     Shape =1
                     Gradient =12
@@ -419,14 +419,14 @@ Begin Form
                             OverlapFlags =87
                             Left =615
                             Top =1980
-                            Width =8850
-                            Height =4190
+                            Width =8865
+                            Height =4200
                             Name ="pgeGeneral"
                             Caption ="General"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6170
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -716,14 +716,14 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8850
-                            Height =4185
+                            Width =8865
+                            Height =4200
                             Name ="pgeExport"
                             Caption ="Export"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -836,7 +836,6 @@ Begin Form
                                     Name ="cboSanitizeLevel"
                                     RowSourceType ="Value List"
                                     ColumnWidths ="0"
-                                    HorizontalAnchor =1
                                     AllowValueListEdits =0
 
                                     LayoutCachedLeft =2760
@@ -853,7 +852,6 @@ Begin Form
                                             ForeColor =5324600
                                             Name ="Label235"
                                             Caption ="Sanitize Level"
-                                            HorizontalAnchor =1
                                             LayoutCachedLeft =1020
                                             LayoutCachedTop =3720
                                             LayoutCachedWidth =2580
@@ -876,7 +874,6 @@ Begin Form
                                     Name ="cboSanitizeColors"
                                     RowSourceType ="Value List"
                                     ColumnWidths ="0"
-                                    HorizontalAnchor =1
                                     AllowValueListEdits =0
 
                                     LayoutCachedLeft =2760
@@ -893,7 +890,6 @@ Begin Form
                                             ForeColor =5324600
                                             Name ="Label233"
                                             Caption ="Sanitize Colors"
-                                            HorizontalAnchor =1
                                             LayoutCachedLeft =1020
                                             LayoutCachedTop =4140
                                             LayoutCachedWidth =2580
@@ -1177,29 +1173,54 @@ Begin Form
                                     LayoutCachedWidth =8280
                                     LayoutCachedHeight =2640
                                 End
-                                Begin Label
+                                Begin CommandButton
                                     FontUnderline = NotDefault
+                                    TabStop = NotDefault
                                     OverlapFlags =247
                                     Left =8100
                                     Top =2880
-                                    Width =900
+                                    Width =1140
                                     Height =240
                                     FontSize =10
-                                    BackColor =14262935
-                                    BorderColor =15321539
-                                    Name ="lblPrintSettingsOptions"
+                                    TabIndex =12
+                                    Name ="cmdPrintSettingsOptions"
                                     Caption ="Options..."
                                     OnClick ="[Event Procedure]"
-                                    HyperlinkAddress ="#"
+                                    LeftPadding =135
+                                    TopPadding =135
+                                    RightPadding =150
+                                    BottomPadding =150
+                                    HorizontalAnchor =1
+                                    BackStyle =0
+
+                                    CursorOnHover =1
                                     LayoutCachedLeft =8100
                                     LayoutCachedTop =2880
-                                    LayoutCachedWidth =9000
+                                    LayoutCachedWidth =9240
                                     LayoutCachedHeight =3120
-                                    BackThemeColorIndex =-1
-                                    BorderThemeColorIndex =-1
-                                    BorderTint =100.0
+                                    Alignment =1
                                     ForeThemeColorIndex =10
                                     ForeTint =100.0
+                                    Gradient =0
+                                    BackColor =5324600
+                                    BackThemeColorIndex =-1
+                                    BackTint =100.0
+                                    OldBorderStyle =0
+                                    BorderColor =15321539
+                                    BorderThemeColorIndex =-1
+                                    BorderTint =100.0
+                                    HoverThemeColorIndex =10
+                                    HoverTint =100.0
+                                    PressedThemeColorIndex =10
+                                    PressedShade =100.0
+                                    HoverForeThemeColorIndex =10
+                                    HoverForeTint =100.0
+                                    PressedForeThemeColorIndex =10
+                                    PressedForeTint =100.0
+                                    WebImagePaddingLeft =9
+                                    WebImagePaddingTop =9
+                                    WebImagePaddingRight =10
+                                    WebImagePaddingBottom =10
                                 End
                             End
                         End
@@ -1208,14 +1229,14 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8850
-                            Height =4185
+                            Width =8865
+                            Height =4200
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1860,14 +1881,14 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8850
-                            Height =4185
+                            Width =8865
+                            Height =4200
                             Name ="pgeTable"
                             Caption ="Table Data"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1969,7 +1990,7 @@ Begin Form
                                     OverlapFlags =247
                                     Left =4860
                                     Top =5760
-                                    TabIndex =6
+                                    TabIndex =3
                                     Name ="chkTableShowOther"
                                     DefaultValue ="False"
                                     OnClick ="[Event Procedure]"
@@ -2007,7 +2028,7 @@ Begin Form
                                     Top =3540
                                     Width =2400
                                     Height =855
-                                    TabIndex =3
+                                    TabIndex =4
                                     Name ="txtTableName"
                                     HorizontalAnchor =1
 
@@ -2045,7 +2066,7 @@ Begin Form
                                     Top =4920
                                     Width =2400
                                     Height =315
-                                    TabIndex =4
+                                    TabIndex =5
                                     Name ="cboTableDataSaveType"
                                     RowSourceType ="Value List"
                                     HorizontalAnchor =1
@@ -2080,7 +2101,7 @@ Begin Form
                                     OverlapFlags =247
                                     Left =6960
                                     Top =5340
-                                    TabIndex =5
+                                    TabIndex =6
                                     Name ="cmdUpdateTableData"
                                     Caption =" Update"
                                     OnClick ="[Event Procedure]"
@@ -2167,30 +2188,54 @@ Begin Form
                                     ForeThemeColorIndex =-1
                                     ForeTint =100.0
                                 End
-                                Begin Label
+                                Begin CommandButton
                                     FontUnderline = NotDefault
+                                    TabStop = NotDefault
                                     OverlapFlags =247
                                     Left =8640
-                                    Top =3255
-                                    Width =720
+                                    Top =3240
+                                    Width =780
                                     Height =240
                                     FontSize =10
-                                    BackColor =14262935
-                                    BorderColor =15321539
-                                    Name ="lblAddOtherTable"
+                                    TabIndex =7
+                                    Name ="cmdAddOtherTable"
                                     Caption ="Other..."
                                     OnClick ="[Event Procedure]"
-                                    HyperlinkAddress ="#"
+                                    LeftPadding =135
+                                    TopPadding =135
+                                    RightPadding =150
+                                    BottomPadding =150
                                     HorizontalAnchor =1
+                                    BackStyle =0
+
+                                    CursorOnHover =1
                                     LayoutCachedLeft =8640
-                                    LayoutCachedTop =3255
-                                    LayoutCachedWidth =9360
-                                    LayoutCachedHeight =3495
-                                    BackThemeColorIndex =-1
-                                    BorderThemeColorIndex =-1
-                                    BorderTint =100.0
+                                    LayoutCachedTop =3240
+                                    LayoutCachedWidth =9420
+                                    LayoutCachedHeight =3480
+                                    Alignment =1
                                     ForeThemeColorIndex =10
                                     ForeTint =100.0
+                                    Gradient =0
+                                    BackColor =5324600
+                                    BackThemeColorIndex =-1
+                                    BackTint =100.0
+                                    OldBorderStyle =0
+                                    BorderColor =15321539
+                                    BorderThemeColorIndex =-1
+                                    BorderTint =100.0
+                                    HoverThemeColorIndex =10
+                                    HoverTint =100.0
+                                    PressedThemeColorIndex =10
+                                    PressedShade =100.0
+                                    HoverForeThemeColorIndex =10
+                                    HoverForeTint =100.0
+                                    PressedForeThemeColorIndex =10
+                                    PressedForeTint =100.0
+                                    WebImagePaddingLeft =9
+                                    WebImagePaddingTop =9
+                                    WebImagePaddingRight =10
+                                    WebImagePaddingBottom =10
                                 End
                             End
                         End
@@ -2198,14 +2243,14 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8850
-                            Height =4185
+                            Width =8865
+                            Height =4200
                             Name ="pgeBuild"
                             Caption ="Build"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2379,14 +2424,14 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8850
-                            Height =4185
+                            Width =8865
+                            Height =4200
                             Name ="pgeGitIntegration"
                             Caption ="Git Integration"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2700,14 +2745,14 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8850
-                            Height =4185
+                            Width =8865
+                            Height =4200
                             Name ="pgeSettings"
                             Caption ="Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6180
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -3848,14 +3893,15 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : lblAddOtherTable_Click
+' Procedure : cmdAddOtherTable_Click
 ' Author    : Adam Waller
 ' Date      : 4/16/2020
 ' Purpose   : Select another table not used in the current database
 '---------------------------------------------------------------------------------------
 '
-Private Sub lblAddOtherTable_Click()
+Private Sub cmdAddOtherTable_Click()
     Dim strTable As String
+    lstTables.SetFocus
     If Nz(cboTableDataSaveType, "No Data") = "No Data" Then
         MsgBox2 "Please select format", "Select the format to save table data before adding the table to the list.", , vbInformation
     Else
@@ -3871,13 +3917,13 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : lblPrintSettingsOptions_Click
+' Procedure : cmdPrintSettingsOptions_Click
 ' Author    : Adam Waller
 ' Date      : 11/9/2020
 ' Purpose   : View advanced options for saving print settings.
 '---------------------------------------------------------------------------------------
 '
-Private Sub lblPrintSettingsOptions_Click()
+Private Sub cmdPrintSettingsOptions_Click()
     With pgePrinterSettings
         .Visible = True
         .SetFocus

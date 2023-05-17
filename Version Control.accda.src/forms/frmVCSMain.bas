@@ -15,11 +15,11 @@ Begin Form
     GridY =24
     Width =9360
     DatasheetFontHeight =11
-    ItemSuffix =32
-    Left =20761
-    Top =2250
-    Right =-29055
-    Bottom =13995
+    ItemSuffix =33
+    Left =-25575
+    Top =1500
+    Right =-5475
+    Bottom =14085
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1583,29 +1583,6 @@ Begin Form
                     LayoutCachedWidth =6240
                     LayoutCachedHeight =6300
                 End
-                Begin Label
-                    Visible = NotDefault
-                    FontUnderline = NotDefault
-                    OverlapFlags =215
-                    Left =3120
-                    Top =5640
-                    Width =1320
-                    Height =240
-                    FontSize =10
-                    Name ="lblOpenLogFile"
-                    Caption ="Open Log File..."
-                    OnClick ="[Event Procedure]"
-                    HyperlinkAddress ="#"
-                    LayoutCachedLeft =3120
-                    LayoutCachedTop =5640
-                    LayoutCachedWidth =4440
-                    LayoutCachedHeight =5880
-                    BorderThemeColorIndex =1
-                    BorderTint =100.0
-                    BorderShade =65.0
-                    ForeThemeColorIndex =10
-                    ForeTint =100.0
-                End
                 Begin Line
                     Visible = NotDefault
                     OverlapFlags =95
@@ -1712,6 +1689,57 @@ Begin Form
                     LayoutCachedHeight =5580
                     ThemeFontIndex =-1
                     ForeTint =100.0
+                End
+                Begin CommandButton
+                    Visible = NotDefault
+                    FontUnderline = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =215
+                    Left =3120
+                    Top =5640
+                    Width =1860
+                    Height =240
+                    FontSize =10
+                    TabIndex =9
+                    Name ="cmdOpenLogFile"
+                    Caption ="Open Log File..."
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    HorizontalAnchor =1
+                    BackStyle =0
+
+                    CursorOnHover =1
+                    LayoutCachedLeft =3120
+                    LayoutCachedTop =5640
+                    LayoutCachedWidth =4980
+                    LayoutCachedHeight =5880
+                    Alignment =1
+                    ForeThemeColorIndex =10
+                    ForeTint =100.0
+                    Gradient =0
+                    BackColor =5324600
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    OldBorderStyle =0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverThemeColorIndex =10
+                    HoverTint =100.0
+                    PressedThemeColorIndex =10
+                    PressedShade =100.0
+                    HoverForeThemeColorIndex =10
+                    HoverForeTint =100.0
+                    PressedForeThemeColorIndex =10
+                    PressedForeTint =100.0
+                    WebImagePaddingLeft =9
+                    WebImagePaddingTop =9
+                    WebImagePaddingRight =10
+                    WebImagePaddingBottom =10
+                    Overlaps =1
                 End
             End
         End
@@ -1876,7 +1904,7 @@ Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "B
     strType = IIf(blnFullBuild, "Build", "Merge")
     SetStatusText "Finished", strType & " Complete", _
         "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
-    lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+    cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     Me.strLastLogFilePath = Log.LogFilePath
     
 End Sub
@@ -1951,7 +1979,7 @@ Public Sub cmdExport_Click()
     If FormLoaded(Me) Then
         SetStatusText "Finished", "Export Complete", _
             "Additional details can be found in the project export log file.<br><br>You may now close this window."
-        lblOpenLogFile.Visible = (Me.strLastLogFilePath <> vbNullString)
+        cmdOpenLogFile.Visible = (Me.strLastLogFilePath <> vbNullString)
         Me.strLastLogFilePath = Me.strLastLogFilePath
         DoEvents
     End If
@@ -2139,13 +2167,14 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : lblOpenLogFile_Click
+' Procedure : cmdOpenLogFile_Click
 ' Author    : Adam Waller
 ' Date      : 11/6/2020
 ' Purpose   : Open the log file
 '---------------------------------------------------------------------------------------
 '
-Private Sub lblOpenLogFile_Click()
+Private Sub cmdOpenLogFile_Click()
+    cmdClose.SetFocus
     If FSO.FileExists(strLastLogFilePath) Then
         ' (Note, parentheses are required for the path argument)
         CreateObject("Shell.Application").Open (strLastLogFilePath)
