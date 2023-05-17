@@ -367,3 +367,28 @@ Public Sub TestInArray()
     Debug.Assert Not InArray(Null, "b")
     Debug.Assert Not InArray(Array(), "b")
 End Sub
+
+
+'@TestMethod("GetFileHash")
+Public Sub TestStringFileHash()
+    
+    Const cstrText As String = "This is my text content."
+    Dim strTempFile As String
+    
+    ' Make sure we get the same result when hashing a string as hashing a file.
+    
+    ' Create a file, and write our content.
+    strTempFile = GetTempFile
+    WriteFile cstrText, strTempFile
+    
+    ' Compare to known hash (without BOM)
+    Debug.Assert GetStringHash(cstrText) = "f80a555"        ' Without BOM
+    Debug.Assert GetStringHash(cstrText, True) = "b628391"  ' With UTF-8 BOM and trailing vbCrLf
+    
+    ' Compare results of hashing file with hashing a string.
+    Debug.Assert GetFileHash(strTempFile) = GetStringHash(cstrText, True)
+    
+    ' Remove temp file.
+    FSO.DeleteFile strTempFile
+    
+End Sub

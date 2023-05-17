@@ -154,7 +154,12 @@ End Function
 '           : UTF-8 BOM. (Useful when comparing to a file hash)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetStringHash(strText As String, Optional blnWithBom As Boolean = False) As String
+Public Function GetStringHash(ByVal strText As String, Optional blnWithBom As Boolean = False) As String
+    If blnWithBom Then
+        ' Ensure that we are ending the content with a vbCrLf
+        ' (To match the behavior of the WriteFile function)
+        If Right(strText, 2) <> vbCrLf Then strText = strText & vbCrLf
+    End If
     GetStringHash = GetHash(GetUTF8Bytes(strText, blnWithBom))
 End Function
 
