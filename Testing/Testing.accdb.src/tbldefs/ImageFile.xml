@@ -3,25 +3,20 @@
   <xsd:element name="dataroot">
     <xsd:complexType>
       <xsd:sequence>
-        <xsd:element ref="tblSaveXML" minOccurs="0" maxOccurs="unbounded"></xsd:element>
+        <xsd:element ref="ImageFile" minOccurs="0" maxOccurs="unbounded"></xsd:element>
       </xsd:sequence>
       <xsd:attribute name="generated" type="xsd:dateTime"></xsd:attribute>
     </xsd:complexType>
   </xsd:element>
-  <xsd:element name="tblSaveXML">
+  <xsd:element name="ImageFile">
     <xsd:annotation>
       <xsd:appinfo>
-        <od:index index-name="ID" index-key="ID " primary="no" unique="no" clustered="no" order="asc"></od:index>
-        <od:index index-name="PrimaryKey" index-key="ID ObjectType " primary="yes" unique="yes" clustered="no" order="asc asc"></od:index>
-        <od:index index-name="tblSaveXMLObjectType" index-key="ObjectType " primary="no" unique="no" clustered="no" order="asc"></od:index>
         <od:tableProperty name="Orientation" type="2" value="0"></od:tableProperty>
-        <od:tableProperty name="Description" type="10" value="Saved description in XML table."></od:tableProperty>
       </xsd:appinfo>
     </xsd:annotation>
     <xsd:complexType>
       <xsd:sequence>
-        <xsd:element name="ID" minOccurs="1" od:jetType="autonumber" od:sqlSType="int" od:autoUnique="yes" od:nonNullable="yes" type="xsd:int"></xsd:element>
-        <xsd:element name="ObjectType" minOccurs="0" od:jetType="text" od:sqlSType="nvarchar">
+        <xsd:element name="FileData" minOccurs="0" od:jetType="text" od:sqlSType="nvarchar">
           <xsd:annotation>
             <xsd:appinfo>
               <od:fieldProperty name="Required" type="1" value="0"></od:fieldProperty>
@@ -33,7 +28,7 @@
             </xsd:restriction>
           </xsd:simpleType>
         </xsd:element>
-        <xsd:element name="Notes" minOccurs="0" od:jetType="text" od:sqlSType="nvarchar">
+        <xsd:element name="FileName" minOccurs="0" od:jetType="text" od:sqlSType="nvarchar">
           <xsd:annotation>
             <xsd:appinfo>
               <od:fieldProperty name="Required" type="1" value="0"></od:fieldProperty>
@@ -45,19 +40,17 @@
             </xsd:restriction>
           </xsd:simpleType>
         </xsd:element>
-        <xsd:element name="AddDate" minOccurs="0" od:jetType="datetime" od:sqlSType="datetime" type="xsd:dateTime">
+        <xsd:element name="FileType" minOccurs="0" od:jetType="text" od:sqlSType="nvarchar">
           <xsd:annotation>
             <xsd:appinfo>
               <od:fieldProperty name="Required" type="1" value="0"></od:fieldProperty>
             </xsd:appinfo>
           </xsd:annotation>
-        </xsd:element>
-        <xsd:element name="UpdateDate" minOccurs="0" od:jetType="datetime" od:sqlSType="datetime" type="xsd:dateTime">
-          <xsd:annotation>
-            <xsd:appinfo>
-              <od:fieldProperty name="Required" type="1" value="0"></od:fieldProperty>
-            </xsd:appinfo>
-          </xsd:annotation>
+          <xsd:simpleType>
+            <xsd:restriction base="xsd:string">
+              <xsd:maxLength value="255"></xsd:maxLength>
+            </xsd:restriction>
+          </xsd:simpleType>
         </xsd:element>
       </xsd:sequence>
     </xsd:complexType>

@@ -4,6 +4,7 @@ Begin Report
     LayoutForPrint = NotDefault
     DividingLines = NotDefault
     AllowDesignChanges = NotDefault
+    TabularFamily =0
     DateGrouping =1
     GrpKeepTogether =1
     PictureAlignment =2
@@ -18,7 +19,7 @@ Begin Report
     End
     RecordSource ="qryNavigationPaneGroups"
     Caption ="qryNavigationPaneGroups"
-    DatasheetFontName ="Calibri"
+    DatasheetFontName ="Franklin Gothic Book"
     FilterOnLoad =0
     FitToPage =1
     DisplayOnSharePointSite =1
@@ -81,6 +82,7 @@ Begin Report
             BackTint =20.0
             Begin
                 Begin Label
+                    TextFontFamily =0
                     Left =60
                     Top =60
                     Width =4350
@@ -90,6 +92,7 @@ Begin Report
                     ForeColor =8355711
                     Name ="Label4"
                     Caption ="qryNavigationPaneGroups"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =60
                     LayoutCachedTop =60
@@ -108,6 +111,7 @@ Begin Report
             Begin
                 Begin Label
                     TextAlign =1
+                    TextFontFamily =0
                     Left =360
                     Top =60
                     Width =3660
@@ -116,6 +120,7 @@ Begin Report
                     ForeColor =8355711
                     Name ="ObjectName_Label"
                     Caption ="ObjectName"
+                    FontName ="Franklin Gothic Book"
                     Tag ="DetachedLabel"
                     GridlineStyleBottom =1
                     GridlineColor =10921638
@@ -126,6 +131,7 @@ Begin Report
                 End
                 Begin Label
                     TextAlign =1
+                    TextFontFamily =0
                     Left =4380
                     Top =60
                     Width =7260
@@ -134,6 +140,7 @@ Begin Report
                     ForeColor =8355711
                     Name ="GroupName_Label"
                     Caption ="GroupName"
+                    FontName ="Franklin Gothic Book"
                     Tag ="DetachedLabel"
                     GridlineStyleBottom =1
                     GridlineColor =10921638
@@ -156,6 +163,7 @@ Begin Report
                 Begin TextBox
                     DecimalPlaces =0
                     OldBorderStyle =0
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =360
                     Width =3660
@@ -165,6 +173,7 @@ Begin Report
                     ForeColor =4210752
                     Name ="ObjectName"
                     ControlSource ="ObjectName"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =360
@@ -184,6 +193,7 @@ Begin Report
             Begin
                 Begin TextBox
                     OldBorderStyle =0
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =4380
                     Width =7260
@@ -193,6 +203,7 @@ Begin Report
                     ForeColor =4210752
                     Name ="GroupName"
                     ControlSource ="GroupName"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =4380
@@ -212,6 +223,7 @@ Begin Report
                 Begin TextBox
                     OldBorderStyle =0
                     TextAlign =1
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =60
                     Top =240
@@ -222,6 +234,7 @@ Begin Report
                     Name ="Text5"
                     ControlSource ="=Now()"
                     Format ="Long Date"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =60
@@ -232,6 +245,7 @@ Begin Report
                 Begin TextBox
                     OldBorderStyle =0
                     TextAlign =3
+                    TextFontFamily =0
                     IMESentenceMode =3
                     Left =6600
                     Top =240
@@ -242,6 +256,7 @@ Begin Report
                     ForeColor =4210752
                     Name ="Text6"
                     ControlSource ="=\"Page \" & [Page] & \" of \" & [Pages]"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
 
                     LayoutCachedLeft =6600

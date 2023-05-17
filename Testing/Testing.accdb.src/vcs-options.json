@@ -1,6 +1,6 @@
 ﻿{
   "Info": {
-    "AddinVersion": "4.0.3",
+    "AddinVersion": "4.0.11",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
@@ -41,6 +41,9 @@
     "TablesToExportData": {
       "tblInternal": {
         "Format": "Tab Delimited"
+      },
+      "tblLinkedAccess": {
+        "Format": "XML Format"
       },
       "tblSaveXML": {
         "Format": "XML Format"

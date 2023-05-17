@@ -45,13 +45,6 @@
             "Position": 2,
             "Objects": [
               {
-                "Name": "basUtility",
-                "Type": -32761,
-                "Flags": 0,
-                "Icon": 0,
-                "Position": 0
-              },
-              {
                 "Name": "Module1",
                 "Type": -32761,
                 "Flags": 0,
