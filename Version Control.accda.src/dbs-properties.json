@@ -121,7 +121,7 @@
       "Type": 4
     },
     "ProjVer": {
-      "Value": 142,
+      "Value": 119,
       "Type": 3
     },
     "QueryTimeout": {
@@ -187,14 +187,6 @@
     "Updatable": {
       "Value": true,
       "Type": 1
-    },
-    "Use BigInt for linking and importing data": {
-      "Value": 0,
-      "Type": 4
-    },
-    "Use DateTime2 for linking and importing data": {
-      "Value": 0,
-      "Type": 4
     },
     "Use Microsoft Access 2007 compatible cache": {
       "Value": 0,
