@@ -19,7 +19,7 @@ Private Const ModuleName As String = "modImportExport"
 ' Purpose   : Export source files from the currently open database.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContainerFilter = ecfAllObjects)
+Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContainerFilter = ecfAllObjects, Optional frmMain As Form_frmVCSMain)
 
     Dim dCategories As Dictionary
     Dim colCategories As Collection
@@ -77,6 +77,8 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         .Add "Export Folder: " & Options.GetExportFolder, False
         .Add IIf(blnFullExport, "Performing Full Export", "Using Fast Save")
         .Add Now
+        ' Save the log file path
+        If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
     End With
 
     ' Run any custom sub before export
@@ -222,8 +224,9 @@ CleanUp:
     Perf.EndTiming
     With Log
         .Add vbCrLf & Perf.GetReports, False
-        .SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+        .SaveFile
         .Active = False
+        .Flush
     End With
 
     ' Check for VCS_ImportExport.bas (Used with other forks)
@@ -240,13 +243,9 @@ CleanUp:
         .Save
     End With
 
-    ' Clear references to FileSystemObject and other objects
-    Set FSO = Nothing
-    Set VCSIndex = Nothing
-    Log.Flush
-    Log.ReleaseConsole
-    Log.Clear
-
+    ' Clear object references
+    modObjects.ReleaseObjects
+    
 End Sub
 
 
@@ -257,7 +256,7 @@ End Sub
 ' Purpose   : Export a single object (such as a selected item)
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportSingleObject(objItem As AccessObject)
+Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_frmVCSMain)
 
     Dim dCategories As Dictionary
     Dim dCategory As Dictionary
@@ -302,6 +301,8 @@ Public Sub ExportSingleObject(objItem As AccessObject)
         .Spacer
         .Add "Exporting " & objItem.Name & "..."
         .Flush
+        ' Save export log file path
+        If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
     End With
 
     ' Get a database component class from the item
@@ -366,19 +367,212 @@ CleanUp:
     Perf.EndTiming
     With Log
         .Add vbCrLf & Perf.GetReports, False
-        .SaveFile FSO.BuildPath(Options.GetExportFolder, "Export.log")
+        .SaveFile
         .Active = False
+        .Flush
     End With
 
     ' Save index file (don't change export date for single item export)
     VCSIndex.Save
 
-    ' Clear references to FileSystemObject and other objects
-    Set FSO = Nothing
-    Set VCSIndex = Nothing
-    Log.Flush
-    Log.ReleaseConsole
+    ' Clear object references
+    modObjects.ReleaseObjects
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportMultipleObjects
+' Author    : bclothier
+' Date      : 4/1/2023
+' Purpose   : Export multiple objects, passing a dictionary containing AccessObject.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportMultipleObjects(objItems As Scripting.Dictionary, Optional bolForceClose As Boolean = True)
+
+    Dim frm As Form_frmVCSMain
+    
+    Dim dCategories As Scripting.Dictionary
+    Dim dCategory As Scripting.Dictionary
+    Dim dObjects As Scripting.Dictionary
+    Dim cDbObject As IDbComponent
+    Dim objItem As Access.AccessObject
+    Dim strTempFile As String
+    Dim varKey As Variant
+    Dim varCategory As Variant
+    Dim varObject As Variant
+        
+    ' Guard clause
+    If objItems Is Nothing Then Exit Sub
+    If objItems.Count = 0 Then Exit Sub
+    
+    ' Use inline error handling functions to trap and log errors.
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Reset the log file
     Log.Clear
+
+    ' Use the main form to display progress
+    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+    Set frm = Form_frmVCSMain   ' Connect to hidden instance
+    With frm
+
+        ' Prepare the UI screen
+        .cmdClose.SetFocus
+        .HideActionButtons
+        DoEvents
+        With .txtLog
+            .ScrollBars = 0
+            .Visible = True
+            .SetFocus
+        End With
+        Log.SetConsole .txtLog, .GetProgressBar
+        .strLastLogFilePath = Log.LogFilePath
+
+        ' Show the status
+        .SetStatusText "Running...", "Automatically exporting the saved source code", _
+            "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
+        .Visible = True
+    End With
+    
+    ' Make sure the object is currently closed
+    If bolForceClose Then
+        For Each varKey In objItems.Keys
+            With objItems.Item(varKey)
+                Select Case .Type
+                    Case acForm, acMacro, acModule, acQuery, acReport, acTable
+                        If SysCmd(acSysCmdGetObjectState, .Type, .Name) <> adStateClosed Then
+                            DoCmd.Close .Type, .Name, acSavePrompt
+                        End If
+                End Select
+            End With
+        Next
+    End If
+
+    ' Reload the project options and reset the logs
+    Set VCSIndex = Nothing
+    Set Options = Nothing
+    Options.LoadProjectOptions
+    Log.Clear
+    Log.OperationType = eotExport
+    Log.Active = True
+    Perf.StartTiming
+
+    ' Display heading
+    With Log
+        .Spacer
+        .Add "Beginning Export of Multiple Objects", False
+        .Add CurrentProject.Name
+        .Add "VCS Version " & GetVCSVersion
+        .Add "Full Path: " & CurrentProject.FullName, False
+        .Add "Export Folder: " & Options.GetExportFolder, False
+        .Add Now
+        .Spacer
+        .Flush
+    End With
+
+    Set dCategories = New Dictionary
+        
+    For Each varKey In objItems.Keys
+        Set objItem = objItems.Item(varKey)
+        Log.Add "Exporting " & objItem.Name & "..."
+        Log.Flush
+        
+        ' FIXME: Hackish, need to figure a clean way of communicating types instead of encoding the key
+        Dim lngObjectType As Access.AcObjectType
+        On Error Resume Next
+        lngObjectType = CLng(Split(varKey, "|")(0))
+        On Error GoTo 0
+        If lngObjectType = acTableDataMacro Then
+            Set cDbObject = New clsDbTableDataMacro
+        Else
+            ' Get a database component class from the item
+            Set cDbObject = GetClassFromObject(objItem)
+        End If
+        
+        ' Check for conflicts
+        If Not dCategories.Exists(cDbObject.Category) Then
+            Set dObjects = New Dictionary
+            Set dCategory = New Dictionary
+            
+            dObjects.Add cDbObject.SourceFile, cDbObject
+            dCategory.Add "Class", cDbObject
+            dCategory.Add "Objects", dObjects
+            dCategories.Add cDbObject.Category, dCategory
+        Else
+            dCategories.Item(cDbObject.Category).Item("Objects").Add cDbObject.SourceFile, cDbObject
+        End If
+        
+        VCSIndex.Conflicts.Initialize dCategories
+        VCSIndex.CheckExportConflicts dObjects
+    Next
+        
+    ' Resolve any outstanding conflict, or allow user to cancel.
+    With VCSIndex.Conflicts
+        If .Count > 0 Then
+            ' Show the conflicts resolution dialog
+            .ShowDialog
+            If .ApproveResolutions Then
+                Log.Add "Resolving source conflicts", False
+                .Resolve dCategories
+            Else
+                ' Cancel export
+                Log.Spacer
+                Log.Add "Export Canceled", , , "Red", True
+                Log.ErrorLevel = eelCritical
+                GoTo CleanUp
+            End If
+        End If
+    End With
+
+    ' Check to see if we still have an item to export.
+    If dCategories.Count = 0 Then
+        Log.Add "Skipped after conflict resolution.", , , "blue", True
+    Else
+        For Each varCategory In dCategories.Keys
+            Set dCategory = dCategories.Item(varCategory)
+            Set dObjects = dCategory.Item("Objects")
+            For Each varObject In dObjects.Keys
+                Set cDbObject = dObjects.Item(varObject)
+                
+                ' If we have already exported this object while scanning for changes, use that copy.
+                strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
+                If FSO.FileExists(strTempFile) Then
+                    ' Move the temp file(s) over to the source export folder.
+                    cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, cDbObject.BaseFolder
+                    ' Update the index with the values from the alternate export
+                    VCSIndex.UpdateFromAltExport cDbObject
+                Else
+                    ' Export a fresh copy
+                    cDbObject.Export
+                End If
+            Next
+        Next
+    End If
+
+    ' Show final output and save log
+    Log.Spacer
+    Log.Add "Done. (" & Round(Perf.TotalTime, 2) & " seconds)", , False, "green", True
+
+CleanUp:
+
+    ' Run any cleanup routines
+    VCSIndex.ClearTempExportFolder
+
+    ' Add performance data to log file and save file
+    Perf.EndTiming
+    With Log
+        .Add vbCrLf & Perf.GetReports, False
+        .SaveFile
+        .Active = False
+        .Flush
+    End With
+
+    ' Save index file (don't change export date for multiple items export)
+    VCSIndex.Save
+
+    ' Clear object references
+    modObjects.ReleaseObjects
 
 End Sub
 
@@ -471,7 +665,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
 
     ' Start log and performance timers
     Log.Clear
-    Log.OperationType = eotBuild
+    Log.OperationType = IIf(blnFullBuild, eotBuild, eotMerge)
     Log.Active = True
     Perf.StartTiming
 
@@ -675,7 +869,7 @@ CleanUp:
     Perf.EndTiming
     With Log
         .Add vbCrLf & Perf.GetReports, False
-        .SaveFile StripSlash(strSourceFolder) & PathSep & strType & ".log"
+        .SaveFile
         .Active = False
     End With
 
@@ -683,6 +877,7 @@ CleanUp:
     If Log.ErrorLevel = eelCritical Or Not blnSuccess Then
         Log.Spacer
         Log.Add "Build Failed.", , , "red", True
+        Log.Flush
     End If
 
     ' Wrap up build.
@@ -713,10 +908,8 @@ CleanUp:
             "A backup of the previous build was saved as '" & FSO.GetFileName(strBackup) & "'.", vbInformation
     End If
 
-    ' Release object references
-    Log.Flush
-    Log.ReleaseConsole
-    Log.Clear
+    ' Clear object references
+    modObjects.ReleaseObjects
 
 End Sub
 
@@ -760,7 +953,7 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Log.OperationType = eotBuild
+    Log.OperationType = eotMerge
     Log.Active = True
     Perf.StartTiming
 
@@ -831,19 +1024,144 @@ CleanUp:
     Perf.EndTiming
     With Log
         .Add vbCrLf & Perf.GetReports, False
-        .SaveFile FSO.BuildPath(Options.GetExportFolder, "Merge.log")
+        .SaveFile
         .Active = False
+        .Flush
     End With
 
     ' Save index file (don't change export date for single item export)
     VCSIndex.Save
 
-    ' Clear references to FileSystemObject and other objects
-    Set FSO = Nothing
+    ' Clear object references
+    modObjects.ReleaseObjects
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeAllSource
+' Author    : Adam Waller
+' Date      : 5/16/2023
+' Purpose   : Forcibly merge all source files into the current database. This is used
+'           : in testing to confirm that we can successfully merge all types of source
+'           : files into the database. (Not something an end user would normally use.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeAllSource()
+
+    Dim dCategories As Dictionary
+    Dim dCategory As Dictionary
+    Dim cCategory As IDbComponent
+    Dim varCategory As Variant
+    Dim dFiles As Dictionary
+    Dim varFile As Variant
+    Dim dSourceFiles As Dictionary
+    Dim strTempFile As String
+
+
+    ' Use inline error handling functions to trap and log errors.
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Make sure all database objects are currently closed (This is really important,
+    ' since we will be deleting most objects before importing them from source.)
+    CloseDatabaseObjects
+
+    ' Reload the project options and reset the logs
     Set VCSIndex = Nothing
-    Log.Flush
-    Log.ReleaseConsole
+    Set Options = Nothing
+    Options.LoadProjectOptions
     Log.Clear
+    Log.OperationType = eotMerge
+    Log.Active = True
+    Perf.StartTiming
+
+    ' Display heading
+    With Log
+        .Spacer
+        .Add "Beginning Merge of All Source Files", False
+        .Add CurrentProject.Name
+        .Add "VCS Version " & GetVCSVersion
+        .Add "Full Path: " & CurrentProject.FullName, False
+        .Add "Export Folder: " & Options.GetExportFolder, False
+        .Add Now
+        .Spacer
+        .Add "Scanning source files..."
+        .Flush
+    End With
+    
+    
+    ' Build collections of files to import/merge
+    Set dCategories = New Dictionary
+    Perf.OperationStart "Scan Source Files"
+    For Each cCategory In GetContainers
+        Set dCategory = New Dictionary
+        dCategory.Add "Class", cCategory
+        dCategory.Add "Files", cCategory.GetFileList
+        dCategories.Add cCategory, dCategory
+    Next cCategory
+    Perf.OperationEnd
+
+
+    ' Loop through all categories
+    Log.Spacer
+    For Each varCategory In dCategories.Keys
+
+        ' Set reference to object category class
+        Set cCategory = varCategory
+        Set dFiles = dCategories(varCategory)("Files")
+
+        ' Only show category details when source files are found
+        If dFiles.Count = 0 Then
+            Log.Spacer Options.ShowDebug
+            Log.Add "No " & LCase(cCategory.Category) & " source files found.", Options.ShowDebug
+        Else
+            ' Show category header
+            Log.Spacer Options.ShowDebug
+            Log.PadRight "Merging " & LCase(cCategory.Category) & "...", , Options.ShowDebug
+            Log.ProgMax = dFiles.Count
+            Perf.CategoryStart cCategory.Category
+
+            ' Loop through each file in this category.
+            For Each varFile In dFiles.Keys
+                ' Import/merge the file
+                Log.Increment
+                Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+                cCategory.Merge CStr(varFile)
+                CatchAny eelError, "Merge error in: " & varFile, ModuleName & ".Build", True, True
+
+                ' Bail out if we hit a critical error.
+                If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+            Next varFile
+
+            ' Show category wrap-up.
+            Log.Add "[" & dFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
+            Perf.CategoryEnd dFiles.Count
+        End If
+    Next varCategory
+
+    ' Show final output and save log
+    Log.Spacer
+    Log.Add "Done. (" & Round(Perf.TotalTime, 2) & " seconds)", , False, "green", True
+
+CleanUp:
+
+    ' Run any cleanup routines
+    VCSIndex.ClearTempExportFolder
+
+    ' Add performance data to log file and save file
+    Perf.EndTiming
+    With Log
+        .Add vbCrLf & Perf.GetReports, False
+        .SaveFile
+        .Active = False
+        .Flush
+    End With
+
+    ' Save index file (don't change export date for single item export)
+    VCSIndex.Save
+
+    ' Clear object references
+    modObjects.ReleaseObjects
 
 End Sub
 

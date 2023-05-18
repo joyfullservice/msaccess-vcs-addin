@@ -69,7 +69,6 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim dFile As Dictionary
     Dim dField As Dictionary
     Dim fld As DAO.Field
-    Dim dbs As DAO.Database
     Dim rel As DAO.Relation
 
     ' Only import files with the correct extension.
@@ -80,9 +79,9 @@ Private Sub IDbComponent_Import(strFile As String)
     If Not dFile Is Nothing Then
 
         ' Create new relation
-        Set dbs = CurrentDb
+        Set m_Dbs = CurrentDb
         Set dItem = dFile("Items")
-        Set rel = dbs.CreateRelation(dItem("Name"), dItem("Table"), dItem("ForeignTable"))
+        Set rel = m_Dbs.CreateRelation(dItem("Name"), dItem("Table"), dItem("ForeignTable"))
         rel.Attributes = dItem("Attributes")
 
         ' Add fields, and append to relation
@@ -96,7 +95,7 @@ Private Sub IDbComponent_Import(strFile As String)
         ' with this name doesn't already exist. (Also check to be sure that
         ' we don't already have a relationship with this name.
         If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-        With dbs
+        With m_Dbs
             .TableDefs(rel.Table).Indexes.Delete rel.Name
             .TableDefs(rel.ForeignTable).Indexes.Delete rel.Name
             .Relations.Delete rel.Name
@@ -104,8 +103,12 @@ Private Sub IDbComponent_Import(strFile As String)
         CatchAny eelNoError, vbNullString, , False
 
         ' Add relationship to database
-        dbs.Relations.Append rel
+        m_Dbs.Relations.Append rel
+        Set m_Relation = rel
     End If
+
+    ' Update index
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
 
 End Sub
 
@@ -124,6 +127,11 @@ Private Sub IDbComponent_Merge(strFile As String)
         ' Existing relationships will be removed during import
         IDbComponent_Import strFile
     Else
+        ' If the source file was deleted, remove any existing relationship by this
+        ' name during a merge operation.
+        LogUnhandledErrors
+        On Error Resume Next
+        CurrentDb.Relations.Delete FSO.GetBaseName(strFile)
         VCSIndex.Remove Me, strFile
     End If
 End Sub
@@ -229,7 +237,19 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Database relationship")
+End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 5/6/2023
+' Purpose   : Return a dictionary object of relationship definition.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary() As Dictionary
+    
     Dim dItem As Dictionary
     Dim dField As Dictionary
     Dim colItems As Collection
@@ -256,9 +276,9 @@ Private Function GetSource() As String
     Next fld
     dItem.Add "Fields", colItems
 
-    ' Return source file content
-    GetSource = BuildJsonFile(TypeName(Me), dItem, "Database relationship")
-
+    ' Return dictionary object
+    Set GetDictionary = dItem
+    
 End Function
 
 

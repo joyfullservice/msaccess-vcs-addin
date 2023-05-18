@@ -6,7 +6,6 @@ Begin Form
     DividingLines = NotDefault
     AllowDesignChanges = NotDefault
     DefaultView =0
-    TabularFamily =0
     PictureAlignment =2
     DatasheetGridlinesBehavior =3
     GridX =24
@@ -147,7 +146,6 @@ Begin Form
             Begin
                 Begin Label
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =2880
                     Top =1620
@@ -179,7 +177,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =4320
                     Top =1620
@@ -199,7 +196,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =93
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =7200
                     Top =1620
@@ -219,7 +215,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =93
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =10080
                     Top =1620
@@ -239,7 +234,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =2880
                     Top =2280
@@ -259,7 +253,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =2880
                     Top =2820
@@ -279,7 +272,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =2880
                     Top =3300
@@ -299,7 +291,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =2880
                     Top =3780
@@ -319,7 +310,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =600
                     Top =2280
@@ -339,7 +329,6 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     IMESentenceMode =3
                     Left =4320
@@ -360,7 +349,6 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     IMESentenceMode =3
                     Left =7200
@@ -383,7 +371,6 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     IMESentenceMode =3
                     Left =8640
@@ -406,7 +393,6 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     IMESentenceMode =3
                     Left =11520
@@ -429,7 +415,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =11520
                     Top =1620
@@ -449,7 +434,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =87
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =8640
                     Top =1620
@@ -470,7 +454,6 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =4320
                     Top =2760
@@ -490,7 +473,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =10080
                     Top =2760
@@ -510,7 +492,6 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =7200
                     Top =2760
@@ -532,7 +513,6 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =8640
                     Top =2760
@@ -554,7 +534,6 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =11520
                     Top =2760
@@ -575,7 +554,6 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     IMESentenceMode =3
                     Left =10080
@@ -596,7 +574,6 @@ Begin Form
                 End
                 Begin TextBox
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     IMESentenceMode =3
                     Left =5760
@@ -619,7 +596,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =5760
                     Top =1620
@@ -640,7 +616,6 @@ Begin Form
                 Begin Label
                     BackStyle =1
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =5760
                     Top =2760
@@ -661,7 +636,6 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =4320
                     Top =3240
@@ -692,7 +666,6 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =5760
                     Top =3240
@@ -722,7 +695,6 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =7200
                     Top =3240
@@ -754,7 +726,6 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =8640
                     Top =3240
@@ -786,7 +757,6 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =10080
                     Top =3240
@@ -815,7 +785,6 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =11520
                     Top =3240
@@ -945,7 +914,6 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    TextFontCharSet =177
                     TextFontFamily =0
                     Left =600
                     Top =4860

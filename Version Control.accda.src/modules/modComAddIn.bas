@@ -196,25 +196,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetOfficeBitness
-' Author    : Adam Waller
-' Date      : 3/5/2022
-' Purpose   : Returns "32" or "64" as the bitness of Microsoft Office (not Windows)
-'---------------------------------------------------------------------------------------
-'
-Private Function GetOfficeBitness() As String
-    ' COM Add-in
-    #If Win64 Then
-        ' 64-bit add-in (Office x64)
-        GetOfficeBitness = "64"
-    #Else
-        ' 32-bit add-in
-        GetOfficeBitness = "32"
-    #End If
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : RegisterCOMAddIn
 ' Author    : Adam Waller
 ' Date      : 3/5/2022

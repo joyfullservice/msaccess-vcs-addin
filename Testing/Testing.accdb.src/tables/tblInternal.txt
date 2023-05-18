@@ -1,2 +1,5 @@
 ﻿ID	ObjectType	Notes	Index&Test	MyAttachment
-1	Form	Test note	O'Reiley Auto Parts	UNSUPPORTED DATA TYPE
+1	Table			UNSUPPORTED DATA TYPE
+2	Form			UNSUPPORTED DATA TYPE
+3	Query			UNSUPPORTED DATA TYPE
+4	Report			UNSUPPORTED DATA TYPE

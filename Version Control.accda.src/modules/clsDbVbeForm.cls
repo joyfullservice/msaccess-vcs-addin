@@ -31,23 +31,52 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 ' Procedure : Export
 ' Author    : Adam Waller
-' Date      : 4/23/2020
+' Date      : 5/17/2023
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '           : NOTE: This has been expanded to include an export (for reference only) of
 '           : a serialized representation of the form properties, controls, and layout.
+'           : ALSO NOTE: This behaves a little differently than other objects. Because
+'           : the binary *.frx file changes EVERY time you export it, we should avoid
+'           : actually exporting it if nothing has changed in the serialized file.
+'           : It is *technically* possible to make a change on the form that would not
+'           : be included in the serialized output (such as a property change on an
+'           : active-x control) but this is extremely unlikely in contrast to the noise
+'           : produced by the binary file showing changes on every full export.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strContent As String
+    Dim strJsonPath  As String
+    Dim strFormPath As String
+    Dim strBinaryPath As String
+    Dim blnUnchanged As Boolean
 
-    ' This is the serialized output file in JSON format to track changes in version control
+    ' Get the JSON representation of the current database object
     strContent = GetSource
+
+    ' Before exporting the file, let's see if the source files exist, just in case
+    ' the database object already matches the source file.
+    If strAlternatePath = vbNullString Then
+    
+        ' Build out all three source file paths.
+        strJsonPath = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json"
+        strBinaryPath = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".frx"
+        strFormPath = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".frm"
+        
+        ' See if all three files already exist.
+        If FSO.FileExists(strJsonPath) And FSO.FileExists(strBinaryPath) And FSO.FileExists(strFormPath) Then
+            ' If so, compare the hash of the json file to the database object.
+            blnUnchanged = (GetStringHash(strContent, True) = GetFileHash(strJsonPath))
+        End If
+    End If
+    
+    ' This is the serialized output file in JSON format to track changes in version control
     WriteFile strContent, Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json")
 
-    ' Only export binary on regular export
-    If strAlternatePath = vbNullString Then
-
+    ' Only export the VBE object (including binary source) if the form has changed.
+    If Not blnUnchanged Then
+    
         ' This is the binary export file used when building from source
         m_Form.Export IDbComponent_SourceFile
     End If
@@ -80,9 +109,12 @@ Private Sub IDbComponent_Import(strFile As String)
 
         ' Import the source file
         .Import strFile
+        
+        ' Set reference to form after import
+        Set m_Form = .Item(GetObjectNameFromFileName(strFile))
 
         ' Check for extra blank line that may get added during import (VBE bug?)
-        With .Item(GetObjectNameFromFileName(strFile))
+        With m_Form
             If Not .CodeModule Is Nothing Then
                 If .CodeModule.Lines(1, 1) = vbNullString Then
                     ' Remove blank line added during import (Known VBA Bug)
@@ -94,6 +126,9 @@ Private Sub IDbComponent_Import(strFile As String)
             End If
         End With
     End With
+    
+    ' Update index (based on serialized representation)
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
 
     CatchAny eelError, "Error importing " & strFile, ModuleName(Me) & ".Import"
 
@@ -126,7 +161,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub DeleteVbeFormIfExists(strName)
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
     With CurrentVBProject.VBComponents
         .Remove .Item(strName)
     End With
@@ -190,7 +226,19 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetSource() As String
-    GetSource = BuildJsonFile(TypeName(Me), SerializeMSForm(m_Form), "Serialized VBE Form")
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Serialized VBE Form")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 5/8/2023
+' Purpose   : Return a dictionary of the serialized form structure
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary() As Dictionary
+    Set GetDictionary = SerializeMSForm(m_Form)
 End Function
 
 
@@ -414,3 +462,4 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
+

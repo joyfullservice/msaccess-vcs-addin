@@ -16,14 +16,15 @@ Begin Form
     Width =5040
     DatasheetFontHeight =11
     ItemSuffix =31
-    Right =19725
-    Bottom =14640
+    Left =435
+    Top =2250
+    Right =12315
+    Bottom =7335
     RecSrcDt = Begin
         0x9bf1b7f2f3a6e540
     End
     RecordSource ="tblConflicts"
     DatasheetFontName ="Calibri"
-    OnLoad ="[Event Procedure]"
     AllowFormView =0
     FilterOnLoad =0
     ShowPageMargins =0
@@ -107,7 +108,7 @@ Begin Form
                     Top =360
                     Width =2625
                     Height =360
-                    ColumnWidth =1710
+                    ColumnWidth =1729
                     LeftMargin =44
                     TopMargin =22
                     RightMargin =44
@@ -159,7 +160,7 @@ Begin Form
                     Top =900
                     Width =2625
                     Height =360
-                    ColumnWidth =2595
+                    ColumnWidth =2617
                     TabIndex =1
                     LeftMargin =44
                     TopMargin =22
@@ -395,7 +396,7 @@ Begin Form
                     Top =2520
                     Width =2625
                     Height =360
-                    ColumnWidth =1305
+                    ColumnWidth =1310
                     TabIndex =4
                     Name ="cboResolution"
                     ControlSource ="Resolution"
@@ -460,22 +461,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-
-'---------------------------------------------------------------------------------------
-' Procedure : Form_Load
-' Author    : Adam Waller
-' Date      : 5/27/2021
-' Purpose   : Load list of conflict resolutions
-'---------------------------------------------------------------------------------------
-'
-Private Sub Form_Load()
-    With cboResolution
-        .AddItem eResolveConflict.ercSkip & ";" & "Skip"
-        .AddItem eResolveConflict.ercOverwrite & ";" & "Overwrite"
-    End With
-End Sub
-
-
 '---------------------------------------------------------------------------------------
 ' Procedure : txtDiff_Click
 ' Author    : Adam Waller
@@ -535,12 +520,12 @@ Private Sub txtDiff_Click()
                 MsgBox2 "Source File Not Found", "Could not find the source file needed to diff this object:", strSourceFile, vbExclamation
             Else
                 ' Now that we have both files, diff the files for the user
-                If Log.OperationType = eotBuild Then
-                    ' Show the source file as the modified version
-                    modObjects.Diff.Files strTempFile, strSourceFile
-                Else
+                If Log.OperationType = eotExport Then
                     ' Show the database object as the modified version
                     modObjects.Diff.Files strSourceFile, strTempFile
+                Else
+                    ' Show the source file as the modified version
+                    modObjects.Diff.Files strTempFile, strSourceFile
                 End If
             End If
         End If

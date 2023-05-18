@@ -104,6 +104,7 @@ End Enum
 Public Enum eOperationType
     eotExport = 1
     eotBuild = 2
+    eotMerge = 3
 End Enum
 
 ' Options for resolving file conflicts

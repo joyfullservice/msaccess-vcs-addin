@@ -1,0 +1,19 @@
+﻿<?xml version="1.0"?>
+<dataroot xmlns:od="urn:schemas-microsoft-com:officedata">
+  <tblLinkedAccess>
+    <ID>1</ID>
+    <ObjectType>Table</ObjectType>
+  </tblLinkedAccess>
+  <tblLinkedAccess>
+    <ID>2</ID>
+    <ObjectType>Form</ObjectType>
+  </tblLinkedAccess>
+  <tblLinkedAccess>
+    <ID>3</ID>
+    <ObjectType>Query</ObjectType>
+  </tblLinkedAccess>
+  <tblLinkedAccess>
+    <ID>4</ID>
+    <ObjectType>Report</ObjectType>
+  </tblLinkedAccess>
+</dataroot>

@@ -13,6 +13,20 @@ Option Explicit
 ' API function to pause processing
 Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)
 
+' API calls to change window style
+Private Const GWL_STYLE = -16
+Private Const WS_SIZEBOX = &H40000
+Private Declare PtrSafe Function IsWindowUnicode Lib "user32" (ByVal hwnd As LongPtr) As Long
+#If Win64 Then
+    ' 64-bit versions of Access
+    Private Declare PtrSafe Function GetWindowLongPtr Lib "user32" Alias "GetWindowLongPtrW" (ByVal hwnd As LongPtr, ByVal nIndex As Long) As LongPtr
+    Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongPtrW" (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
+#Else
+    ' 32-bit versions of Access
+    Private Declare PtrSafe Function GetWindowLongPtr Lib "user32" Alias "GetWindowLongW" (ByVal hwnd As LongPtr, ByVal nIndex As Long) As LongPtr
+    Private Declare PtrSafe Function SetWindowLongPtr Lib "user32" Alias "SetWindowLongW" (ByVal hwnd As LongPtr, ByVal nIndex As Long, ByVal dwNewLong As LongPtr) As LongPtr
+#End If
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : InCollection
@@ -562,43 +576,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Catch
-' Author    : Adam Waller
-' Date      : 11/23/2020
-' Purpose   : Returns true if the last error matches any of the passed error numbers,
-'           : and clears the error object.
-'---------------------------------------------------------------------------------------
-'
-Public Function Catch(ParamArray lngErrorNumbers()) As Boolean
-    Dim intCnt As Integer
-    For intCnt = LBound(lngErrorNumbers) To UBound(lngErrorNumbers)
-        If lngErrorNumbers(intCnt) = Err.Number Then
-            Err.Clear
-            Catch = True
-            Exit For
-        End If
-    Next intCnt
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : CatchAny
-' Author    : Adam Waller
-' Date      : 12/3/2020
-' Purpose   : Generic error handler with logging.
-'---------------------------------------------------------------------------------------
-'
-Public Function CatchAny(eLevel As eErrorLevel, strDescription As String, Optional strSource As String, _
-    Optional blnLogError As Boolean = True, Optional blnClearError As Boolean = True) As Boolean
-    If Err Then
-        If blnLogError Then Log.Error eLevel, strDescription, strSource
-        If blnClearError Then Err.Clear
-        CatchAny = True
-    End If
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : Largest
 ' Author    : Adam Waller
 ' Date      : 12/2/2020
@@ -712,6 +689,95 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : InArray
+' Author    : Adam Waller
+' Date      : 5/16/2023
+' Purpose   : Returns true if the matching value is found in the array.
+'---------------------------------------------------------------------------------------
+'
+Public Function InArray(varArray, varValue, Optional intCompare As VbCompareMethod = vbBinaryCompare) As Boolean
+    
+    Dim varItem As Variant
+    Dim lngCnt As Long
+    
+    ' Guard clauses
+    If Not IsArray(varArray) Then Exit Function
+    If IsEmptyArray(varArray) Then Exit Function
+    
+    ' Loop through array items, looking for a match
+    For lngCnt = LBound(varArray) To UBound(varArray)
+        If TypeName(varValue) = "String" Then
+            ' Use specified compare method
+            If StrComp(varArray(lngCnt), varValue, intCompare) = 0 Then
+                InArray = True
+                Exit For
+            End If
+        Else
+            ' Compare non-string value
+            If varValue = varArray(lngCnt) Then
+                ' Found exact match
+                InArray = True
+                Exit For
+            End If
+        End If
+    Next lngCnt
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddToArray
+' Author    : Adam Waller
+' Date      : 5/8/2023
+' Purpose   : Extends the array by one, and adds the new element to the last segment.
+'---------------------------------------------------------------------------------------
+'
+Public Function AddToArray(ByRef varArray As Variant, varNewElement As Variant)
+    ' See if we have defined an index yet
+    If IsEmptyArray(varArray) Then
+        ' Add first index to array
+        ReDim varArray(0)
+    Else
+        ' Expand array by one element while preserving existing values
+        ReDim Preserve varArray(LBound(varArray) To UBound(varArray) + 1)
+    End If
+    varArray(UBound(varArray)) = varNewElement
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsEmptyArray
+' Author    : Adam Waller
+' Date      : 5/13/2023
+' Purpose   : Return true if the passed array is empty, meaning it does not have any
+'           : indexes defined. (Unfortunately we have to use on error resume next to
+'           : trap the error when accessing the index.)
+'---------------------------------------------------------------------------------------
+'
+Public Function IsEmptyArray(varArray As Variant) As Boolean
+
+    ' Use an arbitrary number extremly unlikely to collide with an existing index
+    Const clngTest As Long = -2147483646
+    
+    Dim lngLowBound As Long
+    
+    ' Exit (returning False) if we are not dealing with an array variable
+    If Not IsArray(varArray) Then Exit Function
+    
+    LogUnhandledErrors
+    On Error Resume Next
+    
+    ' Attempt to read the lower bound of the array
+    lngLowBound = clngTest
+    lngLowBound = LBound(varArray)
+    
+    ' If the above assignment fails, we have an empty array
+    IsEmptyArray = (lngLowBound = clngTest)
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Repeat
 ' Author    : Adam Waller
 ' Date      : 4/29/2021
@@ -811,3 +877,103 @@ End Function
 Public Function ModuleName(clsMe As Object) As String
     ModuleName = TypeName(clsMe)
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetOfficeBitness
+' Author    : Adam Waller
+' Date      : 3/5/2022
+' Purpose   : Returns "32" or "64" as the bitness of Microsoft Office (not Windows)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetOfficeBitness() As String
+    #If Win64 Then
+        ' 64-bit add-in (Office x64)
+        GetOfficeBitness = "64"
+    #Else
+        ' 32-bit add-in
+        GetOfficeBitness = "32"
+    #End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MakeDialogResizable
+' Author    : Adam Waller
+' Date      : 5/16/2023
+' Purpose   : Change the window style of an existing dialog window to make it resizable.
+'           : (This allows you to use the acDialog argument when opening a form, but
+'           :  still have the form resizable by the user.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub MakeDialogResizable(frmMe As Form)
+    
+    Dim lngHwnd As LongPtr
+    Dim lngFlags As LongPtr
+    Dim lngResult As LongPtr
+    
+    ' Get handle for form
+    lngHwnd = frmMe.hwnd
+    
+    ' Debug.Print IsWindowUnicode(lngHwnd) - Testing indicates that the windows are
+    ' Unicode, so we are using the Unicode versions of the GetWindowLong functions.
+    
+    ' Get the current window style
+    lngFlags = GetWindowLongPtr(lngHwnd, GWL_STYLE)
+    
+    ' Set resizable flag and apply updated style
+    lngFlags = lngFlags Or WS_SIZEBOX
+    lngResult = SetWindowLongPtr(lngHwnd, GWL_STYLE, lngFlags)
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScaleColumns
+' Author    : Adam Waller
+' Date      : 5/16/2023
+' Purpose   : Size the datasheet columns evenly to fill the available width, minus an
+'           : allotment for the width of the vertical scroll bar.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ScaleColumns(frmDatasheet As Form, Optional lngScrollWidthTwips As Long = 600, _
+    Optional varFixedControlNameArray As Variant)
+
+    Dim lngTotal As Long
+    Dim lngCurrent As Long
+    Dim lngSizeable As Long
+    Dim lngFixed As Long
+    Dim dblRatio As Double
+    Dim ctl As Control
+    Dim colResize As Collection
+    
+    lngTotal = frmDatasheet.InsideWidth - lngScrollWidthTwips
+    Set colResize = New Collection
+    
+    ' Loop through the columns twice, once to get the current widths, then to set them.
+    For Each ctl In frmDatasheet.Controls
+        Select Case ctl.ControlType
+            Case acTextBox, acComboBox
+                If ctl.Visible Then
+                    lngCurrent = lngCurrent + ctl.ColumnWidth
+                    If Not InArray(varFixedControlNameArray, ctl.Name, vbTextCompare) Then
+                        lngSizeable = lngSizeable + ctl.ColumnWidth
+                        colResize.Add ctl
+                    End If
+                End If
+        End Select
+    Next ctl
+    
+    ' Exit if we have no sizable controls
+    If lngSizeable = 0 Then Exit Sub
+    
+    ' Get ratio for new sizes (Scales resizable controls proportionately)
+    lngFixed = lngCurrent - lngSizeable
+    dblRatio = (lngTotal - lngFixed) / lngSizeable
+    
+    ' Resize each control
+    For Each ctl In colResize
+        ctl.ColumnWidth = ctl.ColumnWidth * dblRatio
+    Next ctl
+    
+End Sub

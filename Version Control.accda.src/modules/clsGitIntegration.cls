@@ -23,6 +23,9 @@ Public FromRevision As String
 Public ShowDebug As Boolean
 Public LogCommands As Boolean
 
+' Working folder for git commands. (Used when operating outside the database project)
+Public WorkingFolder As String
+
 ' Enum for commands we can run with Git.
 Private Enum eGitCommand
     egcGetVersion
@@ -161,17 +164,64 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetRepositoryPath
+' Procedure : GetRepositoryRoot
 ' Author    : Adam Waller
-' Date      : 1/19/2021
+' Date      : 5/8/2023
 ' Purpose   : Returns the path to the root of the repository.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetRepositoryPath() As String
-    If m_strRepositoryRoot = vbNullString Then
-        m_strRepositoryRoot = Replace(RunGitCommand(egcGetReproPath), "/", PathSep) & PathSep
+Public Function GetRepositoryRoot() As String
+
+    Static strLastFolder As String  ' Working folder
+    Static strLastRoot As String    ' Repository Root
+    
+    Dim strWorking As String
+    
+    ' Determine the current working folder
+    strWorking = GetWorkingFolder
+    
+    ' On first call, we will attempt to get the repository root from the working
+    ' folder, or the export folder if a working folder is not specified.
+    If strLastRoot = vbNullString Or (strLastFolder <> strWorking) Then
+        ' Use working folder, if specified, otherwise go with export folder.
+        If strLastFolder <> strWorking Then
+            ' We will verify the repository path on the next call.
+            strLastFolder = strWorking
+            strLastRoot = vbNullString
+            ' Recursively call this function to verify the path with git
+            GetRepositoryRoot = GetRepositoryRoot()
+        Else
+            ' Run git command from last folder
+            strLastRoot = strLastFolder
+            ' Use Git to look up root folder in repository.
+            strLastRoot = Replace(RunGitCommand(egcGetReproPath), "/", PathSep) & PathSep
+            If strLastRoot = PathSep Then
+                ' Might not be in a git repository. Fall back to working folder.
+                GetRepositoryRoot = strWorking
+                strLastRoot = strWorking
+            Else
+                ' Found the root folder. Return to caller.
+                GetRepositoryRoot = strLastRoot
+            End If
+        End If
+    Else
+        ' Return cached root folder
+        GetRepositoryRoot = strLastRoot
     End If
-    GetRepositoryPath = m_strRepositoryRoot
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetWorkingFolder
+' Author    : Adam Waller
+' Date      : 5/8/2023
+' Purpose   : Return the working folder from either the specified folder, or fall back
+'           : to the export path.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetWorkingFolder() As String
+    GetWorkingFolder = StripSlash(Nz2(Me.WorkingFolder, Options.GetExportFolder)) & PathSep
 End Function
 
 
@@ -224,7 +274,8 @@ End Function
 '           : Based on https://devblogs.microsoft.com/oldnewthing/20190919-00/?p=102904
 '---------------------------------------------------------------------------------------
 '
-Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As String, strCommitMessage As String)
+Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As String, _
+    strCommitMessage As String, Optional strRunInFolder As String = vbNullString)
     
     Dim lngCnt As Long
     Dim strOrig As String
@@ -233,16 +284,19 @@ Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As
     Dim strHead As String
     Dim strBranch As String
     Dim blnLog As Boolean
+    Dim strBaseFolder As String
     
     ' Save current value and turn on logging.
     blnLog = Me.LogCommands
+    strBaseFolder = m_strRepositoryRoot
+    m_strRepositoryRoot = strRunInFolder
     Me.LogCommands = True
     
     ' We should be starting with a clean slate (no uncommitted changes)
     If Not Me.IsCleanBranch Then
         Log.Error eelCritical, "Cannot split files in Git when changes are present in the branch", _
             ModuleName(Me) & ".SplitFilesWithHistory"
-        Exit Sub
+        GoTo CleanUp
     End If
     
     ' Initialize the repository just to make sure everthing is in order
@@ -289,6 +343,11 @@ Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As
     ' Restore original logging
     Me.LogCommands = blnLog
     
+CleanUp:
+
+    ' Restore base folder
+    m_strRepositoryRoot = strBaseFolder
+    
 End Sub
 
 
@@ -303,22 +362,14 @@ Private Function ShellRun(strCmd As String) As String
 
     Dim oShell As WshShell
     Dim strFile As String
-    Dim strWorking As String
-
-    ' Get working path for command. (Prefer repository root, if available)
-    If m_strRepositoryRoot = vbNullString Then
-        strWorking = Options.GetExportFolder
-    Else
-        strWorking = m_strRepositoryRoot
-    End If
 
     ' Get path to temp file
     strFile = GetTempFile
 
     ' Build command line string
     With New clsConcat
-        ' Open command prompt in export folder
-        .Add "cmd.exe /c cd ", strWorking
+        ' Open command prompt in repository folder
+        .Add "cmd.exe /c cd ", GetRepositoryRoot
         ' Run git command
         .Add " & ", strCmd
         ' Output to temp file
@@ -504,7 +555,7 @@ Public Function GetChangedFileIndex(strFromCommit As String) As Dictionary
     strExportFolder = Options.GetExportFolder
     varParts = Split(strExportFolder, PathSep)
     strBasePath = varParts(UBound(varParts) - 1)
-    strRootPath = GetRepositoryPath
+    strRootPath = GetRepositoryRoot
 
     ' Get base folder list from component types.
     ' (Used to organize the changed files by type)
@@ -592,16 +643,4 @@ Public Function GetChangedFileIndex(strFromCommit As String) As Dictionary
     Set GetChangedFileIndex = dIndex
 
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Class_Initialize
-' Author    : Adam Waller
-' Date      : 1/19/2021
-' Purpose   : Load path to root repository
-'---------------------------------------------------------------------------------------
-'
-Private Sub Class_Initialize()
-    GetRepositoryPath
-End Sub
 

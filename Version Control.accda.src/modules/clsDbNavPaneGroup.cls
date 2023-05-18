@@ -184,10 +184,22 @@ End Sub
 ' Date      : 11/21/2020
 ' Purpose   : Merge the source file into the existing database, updating or replacing
 '           : any existing object.
+'           : NOTE: This REPLACES any existing pane groups, it does not attempt to
+'           : merge changes between the source file and the existing groups.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
 
+    ' Clear any existing customizations
+    ClearExistingNavGroups
+    
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import (strFile)
+    Else
+        ' Remove from index when source file is removed
+        VCSIndex.Remove Me, strFile
+    End If
+    
 End Sub
 
 
@@ -280,12 +292,12 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
             End If
 
             ' Add any item listed in this group
-            If Nz(!objectName) = vbNullString Then
+            If Nz(!ObjectName) = vbNullString Then
                 ' Saved group with no items.
             Else
                 Set dObject = New Dictionary
-                dObject.Add "Name", Nz(!objectName)
-                dObject.Add "Type", Nz(!objectType, 0)
+                dObject.Add "Name", Nz(!ObjectName)
+                dObject.Add "Type", Nz(!ObjectType, 0)
                 dObject.Add "Flags", Nz(!ObjectFlags, 0)
                 dObject.Add "Icon", Nz(!ObjectIcon, 0)
                 dObject.Add "Position", Nz(!ObjectPosition, 0)

@@ -15,11 +15,11 @@ Begin Form
     GridY =24
     Width =9360
     DatasheetFontHeight =11
-    ItemSuffix =32
-    Left =3225
-    Top =2430
-    Right =18945
-    Bottom =14175
+    ItemSuffix =33
+    Left =-25575
+    Top =1500
+    Right =-5475
+    Bottom =14085
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1433,7 +1433,7 @@ Begin Form
                     Height =240
                     FontSize =10
                     Name ="Label32"
-                    Caption ="joyfullservice/msaccess-vcs-integration"
+                    Caption ="joyfullservice/msaccess-vcs-addin"
                     VerticalAnchor =1
                     LayoutCachedLeft =300
                     LayoutCachedTop =5940
@@ -1583,29 +1583,6 @@ Begin Form
                     LayoutCachedWidth =6240
                     LayoutCachedHeight =6300
                 End
-                Begin Label
-                    Visible = NotDefault
-                    FontUnderline = NotDefault
-                    OverlapFlags =215
-                    Left =3120
-                    Top =5640
-                    Width =1320
-                    Height =240
-                    FontSize =10
-                    Name ="lblOpenLogFile"
-                    Caption ="Open Log File..."
-                    OnClick ="[Event Procedure]"
-                    HyperlinkAddress ="#"
-                    LayoutCachedLeft =3120
-                    LayoutCachedTop =5640
-                    LayoutCachedWidth =4440
-                    LayoutCachedHeight =5880
-                    BorderThemeColorIndex =1
-                    BorderTint =100.0
-                    BorderShade =65.0
-                    ForeThemeColorIndex =10
-                    ForeTint =100.0
-                End
                 Begin Line
                     Visible = NotDefault
                     OverlapFlags =95
@@ -1713,6 +1690,57 @@ Begin Form
                     ThemeFontIndex =-1
                     ForeTint =100.0
                 End
+                Begin CommandButton
+                    Visible = NotDefault
+                    FontUnderline = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =215
+                    Left =3120
+                    Top =5640
+                    Width =1860
+                    Height =240
+                    FontSize =10
+                    TabIndex =9
+                    Name ="cmdOpenLogFile"
+                    Caption ="Open Log File..."
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    HorizontalAnchor =1
+                    BackStyle =0
+
+                    CursorOnHover =1
+                    LayoutCachedLeft =3120
+                    LayoutCachedTop =5640
+                    LayoutCachedWidth =4980
+                    LayoutCachedHeight =5880
+                    Alignment =1
+                    ForeThemeColorIndex =10
+                    ForeTint =100.0
+                    Gradient =0
+                    BackColor =5324600
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    OldBorderStyle =0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverThemeColorIndex =10
+                    HoverTint =100.0
+                    PressedThemeColorIndex =10
+                    PressedShade =100.0
+                    HoverForeThemeColorIndex =10
+                    HoverForeTint =100.0
+                    PressedForeThemeColorIndex =10
+                    PressedForeTint =100.0
+                    WebImagePaddingLeft =9
+                    WebImagePaddingTop =9
+                    WebImagePaddingRight =10
+                    WebImagePaddingBottom =10
+                    Overlaps =1
+                End
             End
         End
     End
@@ -1740,6 +1768,10 @@ Public intContainerFilter As eContainerFilter
 
 ' Used for exporting or loading a single object
 Public objSingleObject As AccessObject
+
+' Path to the last log file, in case the user wants to view the log after the operation.
+' (The Log object has already been reset at this point, so we can't use Log.LogFilePath.)
+Public strLastLogFilePath As String
 
 
 '---------------------------------------------------------------------------------------
@@ -1872,7 +1904,8 @@ Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "B
     strType = IIf(blnFullBuild, "Build", "Merge")
     SetStatusText "Finished", strType & " Complete", _
         "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
-    lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+    cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+    Me.strLastLogFilePath = Log.LogFilePath
     
 End Sub
 
@@ -1927,14 +1960,15 @@ Public Sub cmdExport_Click()
     Log.SetConsole Me.txtLog, GetProgressBar
     
     ' Show the status
-    SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
+    SetStatusText "Running...", "Exporting source code", _
+        "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
     
     ' See if we are exporting a single object, or everything.
     If Me.objSingleObject Is Nothing Then
         ' Export the source code using the specified filter.
-        modImportExport.ExportSource chkFullExport, Me.intContainerFilter
+        modImportExport.ExportSource chkFullExport, Me.intContainerFilter, Me
     Else
-        modImportExport.ExportSingleObject Me.objSingleObject
+        modImportExport.ExportSingleObject Me.objSingleObject, Me
     End If
     
     ' Turn on scroll bars in case the user wants to scroll back through the log.
@@ -1943,8 +1977,10 @@ Public Sub cmdExport_Click()
     
     ' Don't attempt to access controls if we are in the process of closing the form.
     If FormLoaded(Me) Then
-        SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
-        lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+        SetStatusText "Finished", "Export Complete", _
+            "Additional details can be found in the project export log file.<br><br>You may now close this window."
+        cmdOpenLogFile.Visible = (Me.strLastLogFilePath <> vbNullString)
+        Me.strLastLogFilePath = Me.strLastLogFilePath
         DoEvents
     End If
     
@@ -1976,7 +2012,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdHelp_Click()
-    Application.FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation"
+    Application.FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Documentation"
 End Sub
 
 
@@ -2124,18 +2160,23 @@ Private Sub Form_Unload(Cancel As Integer)
         intAttempt = intAttempt + 1
     End If
     
+    ' Release the log console if we are closing the form
+    If Not Cancel Then Log.ReleaseConsole
+    
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : lblOpenLogFile_Click
+' Procedure : cmdOpenLogFile_Click
 ' Author    : Adam Waller
 ' Date      : 11/6/2020
 ' Purpose   : Open the log file
 '---------------------------------------------------------------------------------------
 '
-Private Sub lblOpenLogFile_Click()
-    If FSO.FileExists(Log.LogFilePath) Then
-        CreateObject("Shell.Application").Open (Log.LogFilePath)
+Private Sub cmdOpenLogFile_Click()
+    cmdClose.SetFocus
+    If FSO.FileExists(strLastLogFilePath) Then
+        ' (Note, parentheses are required for the path argument)
+        CreateObject("Shell.Application").Open (strLastLogFilePath)
     End If
 End Sub
