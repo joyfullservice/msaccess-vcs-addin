@@ -260,7 +260,9 @@ End Sub
 Private Sub LoadAddIn()
 
     Dim addVCS As COMAddIn
-
+    
+    If Not VCSUseRibbon Then Exit Sub
+    
     Set addVCS = GetCOMAddIn
     If addVCS Is Nothing Then
         ' Add-in not found. May need to be registered

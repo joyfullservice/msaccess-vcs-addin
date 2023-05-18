@@ -188,7 +188,7 @@ Begin Form
                     TabStop = NotDefault
                     OverlapFlags =85
                     Left =4260
-                    Top =1860
+                    Top =1500
                     Width =2400
                     Height =780
                     TabIndex =1
@@ -675,9 +675,9 @@ Begin Form
                     End
 
                     LayoutCachedLeft =4260
-                    LayoutCachedTop =1860
+                    LayoutCachedTop =1500
                     LayoutCachedWidth =6660
-                    LayoutCachedHeight =2640
+                    LayoutCachedHeight =2280
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -700,7 +700,7 @@ Begin Form
                 Begin Label
                     OverlapFlags =85
                     Left =540
-                    Top =1680
+                    Top =1500
                     Width =2100
                     Height =360
                     FontSize =14
@@ -709,16 +709,16 @@ Begin Form
                     Name ="lblHeading"
                     Caption ="Install Add-In"
                     LayoutCachedLeft =540
-                    LayoutCachedTop =1680
+                    LayoutCachedTop =1500
                     LayoutCachedWidth =2640
-                    LayoutCachedHeight =2040
+                    LayoutCachedHeight =1860
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =540
-                    Top =2160
+                    Top =1980
                     Width =3060
                     Height =1440
                     FontSize =10
@@ -728,9 +728,9 @@ Begin Form
                         " more secure environments, you may need to use one or both of the additional opt"
                         "ions."
                     LayoutCachedLeft =540
-                    LayoutCachedTop =2160
+                    LayoutCachedTop =1980
                     LayoutCachedWidth =3600
-                    LayoutCachedHeight =3600
+                    LayoutCachedHeight =3420
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -758,7 +758,7 @@ Begin Form
                     Height =240
                     FontSize =10
                     Name ="Label32"
-                    Caption ="joyfullservice/msaccess-vcs-integration"
+                    Caption ="joyfullservice/msaccess-vcs-addin"
                     VerticalAnchor =1
                     LayoutCachedLeft =300
                     LayoutCachedTop =4260
@@ -1308,26 +1308,26 @@ Begin Form
                     LayoutCachedTop =120
                     LayoutCachedWidth =6780
                     LayoutCachedHeight =1020
-                    TabIndex =6
+                    TabIndex =7
                 End
                 Begin CheckBox
                     TabStop = NotDefault
                     OverlapFlags =85
                     Left =4440
-                    Top =2970
+                    Top =2430
                     TabIndex =2
                     Name ="chkAddTrustedLocation"
                     DefaultValue ="True"
 
                     LayoutCachedLeft =4440
-                    LayoutCachedTop =2970
+                    LayoutCachedTop =2430
                     LayoutCachedWidth =4700
-                    LayoutCachedHeight =3210
+                    LayoutCachedHeight =2670
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =4725
-                            Top =2940
+                            Top =2400
                             Width =1935
                             Height =315
                             FontSize =10
@@ -1335,9 +1335,9 @@ Begin Form
                             Name ="Label34"
                             Caption ="Trust Add-In Folder"
                             LayoutCachedLeft =4725
-                            LayoutCachedTop =2940
+                            LayoutCachedTop =2400
                             LayoutCachedWidth =6660
-                            LayoutCachedHeight =3255
+                            LayoutCachedHeight =2715
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1347,20 +1347,20 @@ Begin Form
                     TabStop = NotDefault
                     OverlapFlags =85
                     Left =4440
-                    Top =3390
+                    Top =2850
                     TabIndex =3
                     Name ="chkOpenAfterInstall"
                     DefaultValue ="False"
 
                     LayoutCachedLeft =4440
-                    LayoutCachedTop =3390
+                    LayoutCachedTop =2850
                     LayoutCachedWidth =4700
-                    LayoutCachedHeight =3630
+                    LayoutCachedHeight =3090
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =4725
-                            Top =3360
+                            Top =2820
                             Width =1935
                             Height =465
                             FontSize =10
@@ -1368,9 +1368,9 @@ Begin Form
                             Name ="Label36"
                             Caption ="Open after install to \015\012trust add-in file"
                             LayoutCachedLeft =4725
-                            LayoutCachedTop =3360
+                            LayoutCachedTop =2820
                             LayoutCachedWidth =6660
-                            LayoutCachedHeight =3825
+                            LayoutCachedHeight =3285
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1387,7 +1387,7 @@ Begin Form
                     TabIndex =4
                     Name ="cmdExplainOptions"
                     Caption ="Explain options..."
-                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Installation"
+                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Installation"
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x000000000000000000000000000000000000000000000000e0e8e000e0c8b000 ,
@@ -1455,7 +1455,7 @@ Begin Form
                 Begin Label
                     OverlapFlags =85
                     Left =540
-                    Top =3720
+                    Top =3540
                     Width =3060
                     Height =300
                     FontSize =10
@@ -1463,9 +1463,9 @@ Begin Form
                     Name ="lblInstalled"
                     Caption ="Version x.x is currently installed."
                     LayoutCachedLeft =540
-                    LayoutCachedTop =3720
+                    LayoutCachedTop =3540
                     LayoutCachedWidth =3600
-                    LayoutCachedHeight =4020
+                    LayoutCachedHeight =3840
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -1564,6 +1564,39 @@ Begin Form
                     WebImagePaddingTop =2
                     WebImagePaddingRight =2
                     WebImagePaddingBottom =2
+                End
+                Begin CheckBox
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =4440
+                    Top =3390
+                    TabIndex =6
+                    Name ="chkUseRibbon"
+                    DefaultValue ="True"
+
+                    LayoutCachedLeft =4440
+                    LayoutCachedTop =3390
+                    LayoutCachedWidth =4700
+                    LayoutCachedHeight =3630
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =4725
+                            Top =3360
+                            Width =1935
+                            Height =465
+                            FontSize =10
+                            ForeColor =5324600
+                            Name ="Label40"
+                            Caption ="Use Ribbbon Addin"
+                            LayoutCachedLeft =4725
+                            LayoutCachedTop =3360
+                            LayoutCachedWidth =6660
+                            LayoutCachedHeight =3825
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
                 End
             End
         End

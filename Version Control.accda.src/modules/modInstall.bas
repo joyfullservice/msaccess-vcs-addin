@@ -37,6 +37,10 @@ Private Const mcstrTrustedLocationName = "MSAccessVCS Version Control"
 ' Store the VCSInstall Folder for faster caching (used quite a bit for install, and in some cases export)
 Private m_VCSInstallFolder As String
 
+'Store the VCSUseRibbon value for faster caching; this is checked every time the VCS runs.
+Private m_VCSUseRibbon As Long
+Private m_VCSUseRibbonValid As Long ' This is set to True when the value is queried the first time.
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : AutoRun
@@ -609,6 +613,27 @@ End Property
 Public Property Get VCSInstallFolder() As String
     If m_VCSInstallFolder = vbNullString Then m_VCSInstallFolder = GetSetting(PROJECT_NAME, "Install", "Install Folder", DefaultAddInFolderPath)
     VCSInstallFolder = m_VCSInstallFolder
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UseRibbon
+' Author    : hecon5
+' Date      : 2023-05-18
+' Purpose   : Saves the setting used on install; elimiminates need to save separate
+'           : fork. Defaults to TRUE (most users will want this).
+'---------------------------------------------------------------------------------------
+'
+Public Property Let VCSUseRibbon(NewUseRibbon As Integer)
+    SaveSetting PROJECT_NAME, "Install", "Use Ribbon", NewUseRibbon
+    m_VCSUseRibbon = NewUseRibbon
+End Property
+Public Property Get VCSUseRibbon() As Integer
+    If Not m_VCSUseRibbonValid Then
+        m_VCSUseRibbon = GetSetting(PROJECT_NAME, "Install", "Use Ribbon", True)
+        m_VCSUseRibbonValid = True
+    End If
+    VCSUseRibbon = m_VCSUseRibbon
 End Property
 
 '---------------------------------------------------------------------------------------
