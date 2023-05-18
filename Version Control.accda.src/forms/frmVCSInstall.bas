@@ -1658,6 +1658,7 @@ Private Sub cmdInstall_Click()
     ' Save the trusted location and open file settings.
     InstallSettingTrustedLocation = chkAddTrustedLocation.Value
     InstallSettingOpenFile = chkOpenAfterInstall.Value
+    VCSUseRibbon = chkUseRibbon.Value
 
     ' Check trusted location
     If chkAddTrustedLocation Then modInstall.VerifyTrustedLocation
