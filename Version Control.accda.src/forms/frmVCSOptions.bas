@@ -3177,6 +3177,7 @@ Begin Form
                     Caption ="See Docs..."
                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Documentation"
                     HorizontalAnchor =1
+                    VerticalAnchor =1
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x000000000000000000000000000000000000000000000000e0e8e000e0c8b000 ,
