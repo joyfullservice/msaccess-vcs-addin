@@ -32,7 +32,7 @@ Public Sub VerifyComAddIn()
     Dim blnUpdateRibbon As Boolean
     Dim blnInstall As Boolean
 
-    If Not VCSUseRibbon Then Exit Sub
+    If Not UseRibbon Then Exit Sub
 
     ' Build path to ribbon folder
     strPath = GetAddInPath
@@ -104,7 +104,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ReloadRibbon()
-    If Not VCSUseRibbon Then Exit Sub
+    If Not UseRibbon Then Exit Sub
     UnloadAddIn
     LoadAddIn
 End Sub
@@ -245,7 +245,7 @@ Private Sub LoadAddIn()
 
     Dim addVCS As COMAddIn
     
-    If Not VCSUseRibbon Then Exit Sub
+    If Not UseRibbon Then Exit Sub
     
     Set addVCS = GetCOMAddIn
     If addVCS Is Nothing Then

@@ -624,17 +624,18 @@ End Property
 '           : fork. Defaults to TRUE (most users will want this).
 '---------------------------------------------------------------------------------------
 '
-Public Property Let VCSUseRibbon(NewUseRibbon As Integer)
+Public Property Let UseRibbon(NewUseRibbon As Integer)
     SaveSetting PROJECT_NAME, "Install", "Use Ribbon", NewUseRibbon
     m_VCSUseRibbon = NewUseRibbon
 End Property
-Public Property Get VCSUseRibbon() As Integer
+Public Property Get UseRibbon() As Integer
     If Not m_VCSUseRibbonValid Then
         m_VCSUseRibbon = GetSetting(PROJECT_NAME, "Install", "Use Ribbon", True)
         m_VCSUseRibbonValid = True
     End If
-    VCSUseRibbon = m_VCSUseRibbon
+    UseRibbon = m_VCSUseRibbon
 End Property
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : InstallSettingTrustedLocation

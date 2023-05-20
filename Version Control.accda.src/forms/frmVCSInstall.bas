@@ -1658,7 +1658,7 @@ Private Sub cmdInstall_Click()
     ' Save the trusted location and open file settings.
     InstallSettingTrustedLocation = chkAddTrustedLocation.Value
     InstallSettingOpenFile = chkOpenAfterInstall.Value
-    VCSUseRibbon = chkUseRibbon.Value
+    UseRibbon = chkUseRibbon.Value
 
     ' Check trusted location
     If chkAddTrustedLocation Then modInstall.VerifyTrustedLocation
@@ -1682,6 +1682,7 @@ Private Sub cmdInstall_Click()
     
 End Sub
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdChangeInstallFolder_Click
 ' Author    : Ahecon5
@@ -1692,6 +1693,7 @@ End Sub
 Private Sub cmdChangeInstallFolder_Click()
     modInstall.SetVCSInstallFolder
 End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Form_Load
