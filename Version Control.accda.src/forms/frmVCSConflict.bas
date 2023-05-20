@@ -954,6 +954,7 @@ Private Sub Form_Load()
     MakeDialogResizable Me
     
     ' Set initial column size
+    DoEvents
     Form_Resize
     
 End Sub

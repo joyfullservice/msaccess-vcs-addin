@@ -111,7 +111,7 @@ Begin Form
                     Top =900
                     Width =2625
                     Height =360
-                    ColumnWidth =2505
+                    ColumnWidth =4545
                     ColumnOrder =1
                     TabIndex =1
                     LeftMargin =44
@@ -167,12 +167,12 @@ Begin Form
                     TextAlign =1
                     IMESentenceMode =3
                     ColumnCount =2
-                    ListWidth =2880
+                    ListWidth =2160
                     Left =1695
                     Top =1440
                     Width =2625
                     Height =360
-                    ColumnWidth =2505
+                    ColumnWidth =1815
                     ColumnOrder =2
                     TabIndex =2
                     Name ="cboFormatType"
@@ -294,8 +294,9 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Sub Form_Resize()
-    ScaleColumns Me, , Array(Me.txtTableIcon.Name)
+
+Public Sub Form_Resize()
+    ScaleColumns Me, , Array(Me.txtTableIcon.Name, Me.cboFormatType.Name)
     
     ' Size to fit; don't rely on Access' saved settings to get this right.
     Me.txtTableIcon.ColumnWidth = -2

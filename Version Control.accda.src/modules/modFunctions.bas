@@ -950,7 +950,6 @@ Public Sub ScaleColumns(frmDatasheet As Form, Optional lngScrollWidthTwips As Lo
     
     lngTotal = frmDatasheet.InsideWidth - lngScrollWidthTwips
     Set colResize = New Collection
-    Debug.Print frmDatasheet.InsideWidth
     
     ' Loop through the columns twice, once to get the current widths, then to set them.
     For Each ctl In frmDatasheet.Controls

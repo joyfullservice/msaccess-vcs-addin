@@ -3769,6 +3769,10 @@ Private Sub Form_Load()
     ' Make form resizable (helpful with table selection when many tables are listed)
     MakeDialogResizable Me
     
+    ' Set inital column sizing for table data
+    DoEvents
+    Form_frmVCSTableData.Form_Resize
+    
 End Sub
 
 
