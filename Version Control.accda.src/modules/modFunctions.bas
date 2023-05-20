@@ -936,28 +936,39 @@ End Sub
 '           : allotment for the width of the vertical scroll bar.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ScaleColumns(frmDatasheet As Form, Optional lngScrollWidthTwips As Long = 600, _
+Public Sub ScaleColumns(frmDatasheet As Form, Optional lngScrollWidthTwips As Long = 300, _
     Optional varFixedControlNameArray As Variant)
 
     Dim lngTotal As Long
     Dim lngCurrent As Long
     Dim lngSizeable As Long
     Dim lngFixed As Long
+    Dim lngWidth As Long
     Dim dblRatio As Double
     Dim ctl As Control
     Dim colResize As Collection
     
     lngTotal = frmDatasheet.InsideWidth - lngScrollWidthTwips
     Set colResize = New Collection
+    Debug.Print frmDatasheet.InsideWidth
     
     ' Loop through the columns twice, once to get the current widths, then to set them.
     For Each ctl In frmDatasheet.Controls
         Select Case ctl.ControlType
             Case acTextBox, acComboBox
                 If ctl.Visible Then
-                    lngCurrent = lngCurrent + ctl.ColumnWidth
+                    ' Get column width
+                    lngWidth = ctl.ColumnWidth
+                    If lngWidth < 0 Then
+                        ' Set to not hidden to get the actual width of the column
+                        ' -1 = Default Width
+                        ' -2 = Fit to Text
+                        ctl.ColumnHidden = False
+                        lngWidth = ctl.ColumnWidth
+                    End If
+                    lngCurrent = lngCurrent + lngWidth
                     If Not InArray(varFixedControlNameArray, ctl.Name, vbTextCompare) Then
-                        lngSizeable = lngSizeable + ctl.ColumnWidth
+                        lngSizeable = lngSizeable + lngWidth
                         colResize.Add ctl
                     End If
                 End If
