@@ -16,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =241
-    Left =-25575
-    Top =1500
-    Right =-5475
-    Bottom =14085
+    Left =3225
+    Top =2775
+    Right =23265
+    Bottom =14340
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -175,6 +175,14 @@ Begin Form
             GridlineThemeColorIndex =1
             GridlineShade =65.0
         End
+        Begin Subform
+            BorderLineStyle =0
+            BorderThemeColorIndex =1
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+            BorderShade =65.0
+            ShowPageHeaderAndPageFooter =1
+        End
         Begin Tab
             FontSize =11
             FontName ="Calibri"
@@ -203,7 +211,13 @@ Begin Form
             GridlineThemeColorIndex =1
             GridlineShade =65.0
         End
+        Begin EmptyCell
+            Height =240
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
         Begin Section
+            CanGrow = NotDefault
             Height =7200
             BackColor =15130848
             Name ="Detail"
@@ -1894,35 +1908,10 @@ Begin Form
                             WebImagePaddingRight =2
                             WebImagePaddingBottom =2
                             Begin
-                                Begin ListBox
-                                    ColumnHeads = NotDefault
-                                    RowSourceTypeInt =1
-                                    OverlapFlags =247
-                                    IMESentenceMode =3
-                                    ColumnCount =3
-                                    Left =735
-                                    Top =2280
-                                    Width =6045
-                                    Height =3240
-                                    Name ="lstTables"
-                                    RowSourceType ="Value List"
-                                    RowSource =";Table Name;Save Data"
-                                    ColumnWidths ="340;4320"
-                                    OnClick ="[Event Procedure]"
-                                    HorizontalAnchor =2
-                                    VerticalAnchor =2
-                                    AllowValueListEdits =0
-
-                                    LayoutCachedLeft =735
-                                    LayoutCachedTop =2280
-                                    LayoutCachedWidth =6780
-                                    LayoutCachedHeight =5520
-                                End
                                 Begin CheckBox
                                     OverlapFlags =247
                                     Left =1020
                                     Top =5760
-                                    TabIndex =1
                                     Name ="chkTableShowHidden"
                                     DefaultValue ="False"
                                     OnClick ="[Event Procedure]"
@@ -1937,15 +1926,15 @@ Begin Form
                                             OverlapFlags =247
                                             Left =1320
                                             Top =5700
-                                            Width =1380
+                                            Width =1680
                                             Height =315
                                             ForeColor =5324600
-                                            Name ="Label71"
+                                            Name ="lblTableShowHidden"
                                             Caption ="Show Hidden"
                                             VerticalAnchor =1
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =5700
-                                            LayoutCachedWidth =2700
+                                            LayoutCachedWidth =3000
                                             LayoutCachedHeight =6015
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
@@ -1954,32 +1943,32 @@ Begin Form
                                 End
                                 Begin CheckBox
                                     OverlapFlags =247
-                                    Left =2940
+                                    Left =3060
                                     Top =5760
-                                    TabIndex =2
+                                    TabIndex =1
                                     Name ="chkTableShowSystem"
                                     DefaultValue ="False"
                                     OnClick ="[Event Procedure]"
                                     VerticalAnchor =1
 
-                                    LayoutCachedLeft =2940
+                                    LayoutCachedLeft =3060
                                     LayoutCachedTop =5760
-                                    LayoutCachedWidth =3200
+                                    LayoutCachedWidth =3320
                                     LayoutCachedHeight =6000
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
-                                            Left =3240
+                                            Left =3360
                                             Top =5700
-                                            Width =1380
+                                            Width =1740
                                             Height =315
                                             ForeColor =5324600
-                                            Name ="Label73"
+                                            Name ="lblTableShowSystem"
                                             Caption ="Show System"
                                             VerticalAnchor =1
-                                            LayoutCachedLeft =3240
+                                            LayoutCachedLeft =3360
                                             LayoutCachedTop =5700
-                                            LayoutCachedWidth =4620
+                                            LayoutCachedWidth =5100
                                             LayoutCachedHeight =6015
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
@@ -1988,32 +1977,32 @@ Begin Form
                                 End
                                 Begin CheckBox
                                     OverlapFlags =247
-                                    Left =4860
+                                    Left =5160
                                     Top =5760
-                                    TabIndex =3
+                                    TabIndex =2
                                     Name ="chkTableShowOther"
                                     DefaultValue ="False"
                                     OnClick ="[Event Procedure]"
                                     VerticalAnchor =1
 
-                                    LayoutCachedLeft =4860
+                                    LayoutCachedLeft =5160
                                     LayoutCachedTop =5760
-                                    LayoutCachedWidth =5120
+                                    LayoutCachedWidth =5420
                                     LayoutCachedHeight =6000
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
-                                            Left =5160
+                                            Left =5460
                                             Top =5700
-                                            Width =1200
+                                            Width =1620
                                             Height =315
                                             ForeColor =5324600
-                                            Name ="Label85"
+                                            Name ="lblTableShowOther"
                                             Caption ="Show Other"
                                             VerticalAnchor =1
-                                            LayoutCachedLeft =5160
+                                            LayoutCachedLeft =5460
                                             LayoutCachedTop =5700
-                                            LayoutCachedWidth =6360
+                                            LayoutCachedWidth =7080
                                             LayoutCachedHeight =6015
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
@@ -2021,77 +2010,36 @@ Begin Form
                                     End
                                 End
                                 Begin TextBox
-                                    Locked = NotDefault
                                     OverlapFlags =247
                                     IMESentenceMode =3
                                     Left =6960
                                     Top =3540
                                     Width =2400
-                                    Height =855
-                                    TabIndex =4
-                                    Name ="txtTableName"
+                                    Height =360
+                                    TabIndex =3
+                                    Name ="txtOtherTableName"
                                     HorizontalAnchor =1
 
                                     LayoutCachedLeft =6960
                                     LayoutCachedTop =3540
                                     LayoutCachedWidth =9360
-                                    LayoutCachedHeight =4395
+                                    LayoutCachedHeight =3900
                                     BackShade =95.0
                                     Begin
                                         Begin Label
                                             OverlapFlags =255
                                             Left =6960
                                             Top =3240
-                                            Width =1500
-                                            Height =300
+                                            Width =1830
+                                            Height =315
                                             ForeColor =5324600
                                             Name ="Label79"
-                                            Caption ="Selected Table:"
+                                            Caption ="Other Table Name:"
                                             HorizontalAnchor =1
                                             LayoutCachedLeft =6960
                                             LayoutCachedTop =3240
-                                            LayoutCachedWidth =8460
-                                            LayoutCachedHeight =3540
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
-                                End
-                                Begin ComboBox
-                                    RowSourceTypeInt =1
-                                    OverlapFlags =247
-                                    IMESentenceMode =3
-                                    ListWidth =1695
-                                    Left =6960
-                                    Top =4920
-                                    Width =2400
-                                    Height =315
-                                    TabIndex =5
-                                    Name ="cboTableDataSaveType"
-                                    RowSourceType ="Value List"
-                                    HorizontalAnchor =1
-                                    AllowValueListEdits =0
-
-                                    LayoutCachedLeft =6960
-                                    LayoutCachedTop =4920
-                                    LayoutCachedWidth =9360
-                                    LayoutCachedHeight =5235
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =255
-                                            Left =6960
-                                            Top =4620
-                                            Width =1455
-                                            Height =305
-                                            ForeColor =5324600
-                                            Name ="Data to Export_Label"
-                                            Caption ="Data to Export"
-                                            EventProcPrefix ="Data_to_Export_Label"
-                                            HorizontalAnchor =1
-                                            LayoutCachedLeft =6960
-                                            LayoutCachedTop =4620
-                                            LayoutCachedWidth =8415
-                                            LayoutCachedHeight =4925
+                                            LayoutCachedWidth =8790
+                                            LayoutCachedHeight =3555
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -2099,11 +2047,12 @@ Begin Form
                                 End
                                 Begin CommandButton
                                     OverlapFlags =247
-                                    Left =6960
-                                    Top =5340
-                                    TabIndex =6
-                                    Name ="cmdUpdateTableData"
-                                    Caption =" Update"
+                                    Left =7440
+                                    Top =4860
+                                    Width =1920
+                                    TabIndex =4
+                                    Name ="cmdAddOtherTableData"
+                                    Caption =" Add Other"
                                     OnClick ="[Event Procedure]"
                                     LeftPadding =135
                                     TopPadding =135
@@ -2147,10 +2096,10 @@ Begin Form
                                         0x0000000000000000
                                     End
 
-                                    LayoutCachedLeft =6960
-                                    LayoutCachedTop =5340
-                                    LayoutCachedWidth =8400
-                                    LayoutCachedHeight =5700
+                                    LayoutCachedLeft =7440
+                                    LayoutCachedTop =4860
+                                    LayoutCachedWidth =9360
+                                    LayoutCachedHeight =5220
                                     PictureCaptionArrangement =5
                                     BackColor =14262935
                                     BackThemeColorIndex =-1
@@ -2188,54 +2137,74 @@ Begin Form
                                     ForeThemeColorIndex =-1
                                     ForeTint =100.0
                                 End
-                                Begin CommandButton
-                                    FontUnderline = NotDefault
-                                    TabStop = NotDefault
+                                Begin Subform
                                     OverlapFlags =247
-                                    Left =8640
-                                    Top =3240
-                                    Width =780
-                                    Height =240
-                                    FontSize =10
-                                    TabIndex =7
-                                    Name ="cmdAddOtherTable"
-                                    Caption ="Other..."
-                                    OnClick ="[Event Procedure]"
-                                    LeftPadding =135
-                                    TopPadding =135
-                                    RightPadding =150
+                                    Left =780
+                                    Top =2280
+                                    Width =6090
+                                    Height =3300
+                                    TabIndex =5
+                                    Name ="sfrmTableData"
+                                    SourceObject ="Form.frmVCSTableData"
+                                    HorizontalAnchor =2
+                                    VerticalAnchor =2
+
+                                    LayoutCachedLeft =780
+                                    LayoutCachedTop =2280
+                                    LayoutCachedWidth =6870
+                                    LayoutCachedHeight =5580
+                                End
+                                Begin ComboBox
+                                    LimitToList = NotDefault
+                                    RowSourceTypeInt =1
+                                    OverlapFlags =247
+                                    TextAlign =1
+                                    IMESentenceMode =3
+                                    ColumnCount =2
+                                    Left =6960
+                                    Top =4380
+                                    Width =2400
+                                    Height =360
+                                    TabIndex =6
+                                    Name ="cboFormatTypeForOther"
+                                    RowSourceType ="Value List"
+                                    ColumnWidths ="0"
                                     BottomPadding =150
                                     HorizontalAnchor =1
-                                    BackStyle =0
+                                    LeftMargin =44
+                                    TopMargin =22
+                                    RightMargin =44
+                                    BottomMargin =22
 
-                                    CursorOnHover =1
-                                    LayoutCachedLeft =8640
-                                    LayoutCachedTop =3240
-                                    LayoutCachedWidth =9420
-                                    LayoutCachedHeight =3480
-                                    Alignment =1
-                                    ForeThemeColorIndex =10
-                                    ForeTint =100.0
-                                    Gradient =0
-                                    BackColor =5324600
-                                    BackThemeColorIndex =-1
-                                    BackTint =100.0
-                                    OldBorderStyle =0
-                                    BorderColor =15321539
-                                    BorderThemeColorIndex =-1
-                                    BorderTint =100.0
-                                    HoverThemeColorIndex =10
-                                    HoverTint =100.0
-                                    PressedThemeColorIndex =10
-                                    PressedShade =100.0
-                                    HoverForeThemeColorIndex =10
-                                    HoverForeTint =100.0
-                                    PressedForeThemeColorIndex =10
-                                    PressedForeTint =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =10
-                                    WebImagePaddingBottom =10
+                                    LayoutCachedLeft =6960
+                                    LayoutCachedTop =4380
+                                    LayoutCachedWidth =9360
+                                    LayoutCachedHeight =4740
+                                    ForeThemeColorIndex =0
+                                    ForeTint =75.0
+                                    ForeShade =100.0
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =255
+                                            TextAlign =1
+                                            Left =6960
+                                            Top =4020
+                                            Width =1830
+                                            Height =360
+                                            LeftMargin =44
+                                            TopMargin =22
+                                            RightMargin =44
+                                            BottomMargin =22
+                                            Name ="Label15"
+                                            Caption ="Export As"
+                                            BottomPadding =150
+                                            HorizontalAnchor =1
+                                            LayoutCachedLeft =6960
+                                            LayoutCachedTop =4020
+                                            LayoutCachedWidth =8790
+                                            LayoutCachedHeight =4380
+                                        End
+                                    End
                                 End
                             End
                         End
@@ -3199,9 +3168,9 @@ Begin Form
                 End
                 Begin CommandButton
                     FontUnderline = NotDefault
-                    OverlapFlags =215
-                    Left =8280
-                    Top =1260
+                    OverlapFlags =85
+                    Left =3720
+                    Top =6600
                     Width =1560
                     TabIndex =3
                     Name ="cmdSeeDocs"
@@ -3246,10 +3215,10 @@ Begin Form
                     End
                     BackStyle =0
 
-                    LayoutCachedLeft =8280
-                    LayoutCachedTop =1260
-                    LayoutCachedWidth =9840
-                    LayoutCachedHeight =1620
+                    LayoutCachedLeft =3720
+                    LayoutCachedTop =6600
+                    LayoutCachedWidth =5280
+                    LayoutCachedHeight =6960
                     PictureCaptionArrangement =4
                     ForeThemeColorIndex =10
                     ForeTint =100.0
@@ -3367,11 +3336,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-' Use a collection to represent tables, since the user can filter which ones they
-' want to see while updating items in the list. We don't want to save till the very
-' end when we write this information back to the json options file.
-Private m_colTables As Collection
-
 Private Enum eTableCol
     etcName = 0
     etcType = 1
@@ -3459,43 +3423,111 @@ End Sub
 '
 Private Sub LoadTableList()
 
-    Dim tbl As AccessObject
-    Dim blnHidden As Boolean
-    Dim blnSystem As Boolean
-    Dim blnLocal As Boolean
-    Dim blnOther As Boolean
     Dim varKey As Variant
-    Dim intFormat As eTableDataExportFormat
     Dim strFormat As String
+    Dim intFormat As eTableDataExportFormat
     Dim strName As String
+    Dim lngColumn As eTableCol
     
     ' Reset list of tables
-    Set m_colTables = New Collection
-    
+    CodeDb.Execute "DELETE FROM tblTableData;", dbFailOnError
+        
     ' Get list of tables if we have a database file open.
     If DatabaseFileOpen Then
-        For Each tbl In CurrentData.AllTables
-            ' Read table attributes
-            blnHidden = Application.GetHiddenAttribute(acTable, tbl.Name)
-            blnSystem = (tbl.Attributes And dbSystemObject)
-            blnLocal = IsLocalTable(tbl.Name)
-            blnOther = False    ' Other represents tables not in this database.
-            ' Add array record to represent table.
-            AddUpdateTableInList tbl.Name, vbNullString, blnHidden, blnSystem, blnOther, blnLocal
-        Next tbl
+        Dim strSql As String
+        Dim rsSource As DAO.Recordset
+        Dim rsTableData As DAO.Recordset
+        Dim fld As DAO.Field
+        
+        strSql = _
+            "SELECT " & _
+            "  o.Name AS TableName, " & _
+            "  IIf(o.Flags And -2147483646 = -2147483646, 1, 0) AS IsSystem, " & _
+            "  IIf(o.Flags And 1 = 1, 1, 0) AS IsHidden, " & _
+            "  IIf(o.Type = 1, 1, 0) AS IsLocal, " & _
+            "  IIf(o.Type <> 1, 1, 0) AS IsOther " & _
+            "FROM MSysObjects AS o " & _
+            "WHERE o.Type IN (1, 4, 6) " & _
+            "ORDER BY o.Name;"
+        Set rsSource = CurrentDb.OpenRecordset(strSql, dbOpenSnapshot)
+        Set rsTableData = CodeDb.OpenRecordset("SELECT * FROM tblTableData;", dbOpenDynaset)
+        
+        Do Until rsSource.EOF
+            rsTableData.AddNew
+            For Each fld In rsSource.Fields
+                rsTableData.Fields(fld.Name).Value = fld.Value
+            Next
+            Select Case True
+                Case Nz(rsSource.Fields("IsSystem").Value, False)
+                    lngColumn = etcSystem
+                Case Nz(rsSource.Fields("IsLocal").Value, False)
+                    lngColumn = etcLocal
+                Case Nz(rsSource.Fields("IsOther").Value, False)
+                    lngColumn = etcOther
+                Case Else
+                    lngColumn = -1
+            End Select
+            rsTableData.Fields("TableIcon").Value = GetTableIcon(lngColumn)
+            rsTableData.Update
+            rsSource.MoveNext
+        Loop
+        
+        ' Add in the list of saved tables, adding into the sorted location
+        If Not Options.TablesToExportData Is Nothing Then
+            ' Loop through each table in the saved table list
+            For Each varKey In Options.TablesToExportData.Keys
+                strName = CStr(varKey)
+                strFormat = Options.TablesToExportData.Item(varKey)("Format")
+                intFormat = Options.GetTableExportFormat(strFormat)
+                
+                With rsTableData
+                    .FindFirst "[TableName]='" & Replace$(strName, "'", "''") & "'"
+                    If .EOF Then
+                        .AddNew
+                        .Fields("TableName").Value = strName
+                        .Fields("TableIcon").Value = GetTableIcon(etcOther)
+                        .Fields("FormatType").Value = intFormat
+                        .Fields("IsOther").Value = True
+                        .Update
+                    Else
+                        .Edit
+                        .Fields("FormatType").Value = intFormat
+                        .Update
+                    End If
+                End With
+            Next varKey
+        End If
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveTableList
+' Author    : Adam Waller
+' Date      : 4/14/2020
+' Purpose   : Save the list of tables that should have its data exported to options file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SaveTableList()
+    Dim rsTableData As DAO.Recordset
+    Dim dTables As Scripting.Dictionary
+    Dim dTable As Scripting.Dictionary
     
-    ' Add in the list of saved tables, adding into the sorted location
-    If Not Options.TablesToExportData Is Nothing Then
-        ' Loop through each table in the saved table list
-        For Each varKey In Options.TablesToExportData.Keys
-            strFormat = CStr(Options.TablesToExportData.Item(varKey)("Format"))
-            intFormat = Options.GetTableExportFormat(strFormat)
-            strName = CStr(varKey)
-            AddUpdateTableInList strName, strFormat, False, False, True, False
-        Next varKey
-    End If
+    ' Save list of tables to export data
+    Set dTables = New Scripting.Dictionary
+    dTables.CompareMode = TextCompare
     
+    Set rsTableData = CodeDb.OpenRecordset("SELECT TableName, FormatType FROM tblTableData WHERE FormatType <> 0 ORDER BY TableName;", dbOpenForwardOnly)
+    Do Until rsTableData.EOF
+        Set dTable = New Scripting.Dictionary
+        dTable.CompareMode = TextCompare
+        dTable("Format") = Options.GetTableExportFormatName(rsTableData.Fields("FormatType").Value)
+        dTables.Add rsTableData.Fields("TableName").Value, dTable
+        
+        rsTableData.MoveNext
+    Loop
+    
+    Set Options.TablesToExportData = dTables
 End Sub
 
 
@@ -3506,66 +3538,34 @@ End Sub
 ' Purpose   : Updates the a table in the collection, adding it if it does not exist.
 '---------------------------------------------------------------------------------------
 '
-Private Sub AddUpdateTableInList(strName As String, strFormat As String, blnHidden As Boolean, blnSystem As Boolean, blnOther As Boolean, blnLocal As Boolean)
-
-    Dim intIndex As Integer
-    Dim varTable As Variant
+Private Sub AddUpdateTableInList(strName As String, lngFormatType As eTableDataExportFormat, blnHidden As Boolean, blnSystem As Boolean, blnOther As Boolean, blnLocal As Boolean)
+    Dim rsClone As DAO.Recordset
+    Dim rsActive As DAO.Recordset
     
-    ' Now loop through the collection of tables, inserting it into the alphabetical position.
-    For intIndex = 1 To m_colTables.Count
-        ' First, see if the table name was already loaded into the collection.
-        varTable = m_colTables(intIndex)
-        If varTable(etcName) = strName Then
-            ' Found matching table name. Update the existing record
-            SetTableExportType strName, strFormat
-            Exit Sub
+    Set rsClone = Me.sfrmTableData.Form.RecordsetClone
+    Set rsActive = Me.sfrmTableData.Form.Recordset
+    
+    With rsActive
+        rsClone.FindFirst "TableName='" & Replace$(strName, "'", "''") & "'"
+    
+        If rsClone.NoMatch Then
+            Me.sfrmTableData.Form.AllowAdditions = True
+            .AddNew
+            .Fields("TableName").Value = strName
+            .Fields("TableIcon").Value = GetTableIcon(etcOther)
         Else
-            ' Check alphabetical position.
-            If (varTable(etcName) > strName) Then
-                ' Our saved table should be inserted before this record.
-                m_colTables.Add Array(strName, strFormat, blnHidden, blnSystem, blnOther, blnLocal), strName, intIndex
-                Exit Sub
-            End If
+            .Bookmark = rsClone.Bookmark
+            .Edit
         End If
-    Next intIndex
-    
-    ' The table might need to be added to the very end of the list.
-    m_colTables.Add Array(strName, strFormat, blnHidden, blnSystem, blnOther, blnLocal), strName
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SetTableExportType
-' Author    : Adam Waller
-' Date      : 4/17/2020
-' Purpose   : Set the export type for the table
-'---------------------------------------------------------------------------------------
-'
-Private Sub SetTableExportType(strTable As String, strFormat As String)
-
-    Dim varTable As Variant
-    Dim varNew As Variant
-    Dim strType As String
-    Dim intIndex As Integer
-    
-    For Each varTable In m_colTables
-        intIndex = intIndex + 1
-        If varTable(etcName) = strTable Then
-            ' Create new record
-            strType = Replace(strFormat, "No Data", vbNullString)
-            varNew = Array(strTable, strType, varTable(etcHidden), varTable(etcSystem), varTable(etcOther), varTable(etcLocal))
-            ' Replace with new record
-            m_colTables.Remove intIndex
-            If intIndex = 1 Then
-                m_colTables.Add varNew, strTable, intIndex
-            Else
-                m_colTables.Add varNew, strTable, , intIndex - 1
-            End If
-            Exit For
-        End If
-    Next varTable
-
+        
+        .Fields("FormatType").Value = lngFormatType
+        .Fields("IsHidden").Value = blnHidden
+        .Fields("IsSystem").Value = blnSystem
+        .Fields("IsOther").Value = blnOther
+        .Fields("IsLocal").Value = blnLocal
+        .Update
+        Me.sfrmTableData.Form.AllowAdditions = False
+    End With
 End Sub
 
 
@@ -3573,91 +3573,76 @@ End Sub
 ' Procedure : RefreshTableDisplay
 ' Author    : Adam Waller
 ' Date      : 4/17/2020
-' Purpose   : The master list of tables is stored in the m_colTables
+' Purpose   : Update the subform's display
 '---------------------------------------------------------------------------------------
 '
 Private Sub RefreshTableDisplay()
     
-    Dim varTable As Variant
+    Dim strFilter As String
+    Dim strJoin As String
+    Dim strOrderBy As String
     
-    ' Update the list box of table names from the collection.
-    With Me.lstTables
-
-        ' Add header row
-        .RowSource = vbNullString
-        .AddItem ";Table Name;Save Data"
-        
-        ' Get list of tables
-        If Not m_colTables Is Nothing Then
-            
-            If Me.chkTableShowOther Then
-                ' Display Other tables first (if requested)
-                ' Note: hidden attribute not taken into account here
-                For Each varTable In m_colTables
-                    If varTable(etcOther) Then .AddItem GetTableIcon(varTable) & ";" & varTable(etcName) & ";" & varTable(etcType)
-                Next varTable
-            End If
-            
-            If Me.chkTableShowSystem Then
-                ' Then display System tables (if requested)
-                ' Note: hidden attribute not taken into account here
-                For Each varTable In m_colTables
-                    If varTable(etcSystem) Then .AddItem GetTableIcon(varTable) & ";" & varTable(etcName) & ";" & varTable(etcType)
-                Next varTable
-            End If
-            
-            ' Then display Local tables
-            For Each varTable In m_colTables
-                If varTable(etcLocal) And Not varTable(etcSystem) And Not varTable(etcOther) And _
-                    (Not varTable(etcHidden) Or Me.chkTableShowHidden) _
-                Then
-                    .AddItem GetTableIcon(varTable) & ";" & varTable(etcName) & ";" & varTable(etcType)
-                End If
-            Next varTable
-            
-            ' Then display remaining tables not Other, System or Local
-            For Each varTable In m_colTables
-                If Not varTable(etcSystem) And Not varTable(etcLocal) And Not varTable(etcOther) And _
-                    (Not varTable(etcHidden) Or Me.chkTableShowHidden) _
-                Then
-                    .AddItem GetTableIcon(varTable) & ";" & varTable(etcName) & ";" & varTable(etcType)
-                End If
-            Next varTable
-        End If
-    End With
+    If Me.chkTableShowOther Then
+        strOrderBy = strOrderBy & ", IIf([IsOther], 0, 1)"
+    Else
+        strFilter = strFilter & " AND [IsOther] = 0"
+    End If
     
+    If Me.chkTableShowSystem Then
+        strOrderBy = strOrderBy & ", IIf([IsSystem], 0, 1)"
+    Else
+        strFilter = strFilter & " AND [IsSystem] = 0"
+    End If
+    
+    If Me.chkTableShowHidden Then
+        strOrderBy = strOrderBy & ", IIf([IsHidden], 0, 1)"
+    Else
+        strFilter = strFilter & " AND [IsHidden] = 0"
+    End If
+    
+    strOrderBy = strOrderBy & ", IIf([IsLocal], 0, 1), [TableName]"
+    
+    If Len(strFilter) Then
+        strFilter = " WHERE " & Mid$(strFilter, 6)
+    End If
+    
+    If Len(strOrderBy) Then
+        strOrderBy = " ORDER BY " & Mid$(strOrderBy, 3)
+    End If
+    
+    Dim strSql As String
+    strSql = _
+        "SELECT d.TableIcon, d.TableName, d.FormatType, d.IsHidden, d.IsSystem, d.IsOther, d.IsLocal " & _
+        "FROM tblTableData AS d " & _
+        strFilter & _
+        strOrderBy
+                
+    Me.sfrmTableData.Form.RecordSource = strSql
+    
+    Me.lblTableShowHidden.Caption = GetCaptionWithCount("Show Hidden", "SELECT COUNT(d.TableName) FROM tblTableData AS d WHERE d.IsHidden <> 0 AND d.FormatType <> 0;")
+    Me.lblTableShowSystem.Caption = GetCaptionWithCount("Show System", "SELECT COUNT(d.TableName) FROM tblTableData AS d WHERE d.IsSystem <> 0 AND d.FormatType <> 0;")
+    Me.lblTableShowOther.Caption = GetCaptionWithCount("Show Other", "SELECT COUNT(d.TableName) FROM tblTableData AS d WHERE d.IsOther <> 0 AND d.FormatType <> 0;")
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetTableIcon
-' Author    : Adam Waller & Indigo744
-' Date      : 11/11/2020
-' Purpose   : Get an icon depending on the type of table
+' Procedure : GetCaptionWithCount
+' Author    : bclothier
+' Date      : 5/15/2023
+' Purpose   : Provides caption with a count appended if non-zero.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetTableIcon(ByRef varTable As Variant)
-    If varTable(etcSystem) Then
-        ' System tables
-        ' Uses symbol DOTTED SQUARE
-        ' http://www.fileformat.info/info/unicode/char/2b1a/index.htm
-        GetTableIcon = ChrW(11034)
-    ElseIf varTable(etcLocal) Then
-        ' Local tables
-        ' Uses symbol SQUARED PLUS
-        ' http://www.fileformat.info/info/unicode/char/229e/index.htm
-        GetTableIcon = ChrW(8862)
-    ElseIf varTable(etcOther) Then
-        ' "Other" tables
-        ' Uses symbol RIGHTWARDS ARROW WITH HOOK
-        ' http://www.fileformat.info/info/unicode/char/21aa/index.htm
-        GetTableIcon = ChrW(8618)
-    Else
-        ' Everything else are linked table
-        ' Uses symbol EARTH GLOBE AMERICAS
-        ' https://www.fileformat.info/info/unicode/char/1f30e/index.htm
-        GetTableIcon = ChrW(55356) & ChrW(57102)
+Private Function GetCaptionWithCount(TemplateCaption As String, CountSQL As String) As String
+    Dim rs As DAO.Recordset
+    Set rs = CodeDb.OpenRecordset(CountSQL, dbOpenSnapshot)
+    If rs.EOF = False Then
+        If Nz(rs.Fields(0).Value, 0) Then
+            GetCaptionWithCount = TemplateCaption & " (" & rs.Fields(0).Value & ")"
+            Exit Function
+        End If
     End If
+    
+    GetCaptionWithCount = TemplateCaption
 End Function
 
 
@@ -3738,21 +3723,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : cmdUpdateTableData_Click
-' Author    : Adam Waller
-' Date      : 4/17/2020
-' Purpose   : Update the table in the list
-'---------------------------------------------------------------------------------------
-'
-Private Sub cmdUpdateTableData_Click()
-    If Nz(lstTables, 0) > 0 Then
-        SetTableExportType lstTables.Column(1), Nz(cboTableDataSaveType)
-        RefreshTableDisplay
-    End If
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : Form_Load
 ' Author    : Adam Waller
 ' Date      : 4/14/2020
@@ -3768,12 +3738,15 @@ Private Sub Form_Load()
     RefreshTableDisplay
     
     ' Load list of table data export formats
-    With cboTableDataSaveType
+    Dim frmTableData As Form_frmVCSTableData
+    Set frmTableData = Me.sfrmTableData.Form
+    With frmTableData.cboFormatType
         .RowSource = vbNullString
-        .AddItem "No Data"
-        For intFormat = 1 To eTableDataExportFormat.[_Last]
-            .AddItem Options.GetTableExportFormatName(intFormat)
+        For intFormat = eTableDataExportFormat.etdNoData To eTableDataExportFormat.[_Last]
+            .AddItem intFormat & ";""" & Options.GetTableExportFormatName(intFormat) & """", intFormat
         Next intFormat
+        Me.cboFormatTypeForOther.RowSource = .RowSource
+        Me.cboFormatTypeForOther.RemoveItem etdNoData
     End With
     
     ' Load general sanitize options
@@ -3808,18 +3781,15 @@ End Sub
 Private Sub MapControlsToOptions(eAction As eMapAction)
 
     Dim pge As Access.Page
-    Dim ctl As Control
+    Dim ctl As Access.Control
     Dim strKey As String
-    Dim varItem As Variant
-    Dim dTables As Dictionary
-    Dim dTable As Dictionary
-    Dim dSettings As Dictionary
+    Dim dSettings As Scripting.Dictionary
     
     ' Loop through each page
     For Each pge In tabOptions.Pages
         For Each ctl In pge.Controls
-            Select Case TypeName(ctl)
-                Case "CheckBox", "TextBox", "ComboBox"
+            Select Case ctl.ControlType
+                Case Access.acCheckBox, Access.acTextBox, Access.acComboBox
                     strKey = Mid$(ctl.Name, 4)
                     If pge Is pgePrinterSettings Then
                         ' Export print options
@@ -3839,10 +3809,10 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                         End If
                     Else
                         Select Case ctl.Name
-                            Case "chkTableShowHidden", "chkTableShowSystem", "chkTableShowOther", _
-                                "cboTableDataSaveType", "txtTableName"
+                            Case Me.chkTableShowHidden.Name, Me.chkTableShowSystem.Name, Me.chkTableShowOther.Name, _
+                                Me.cboFormatTypeForOther.Name, Me.txtOtherTableName.Name
                                 ' Skip these exceptions.
-                            Case "cboDiffTool"
+                            Case Me.cboDiffTool.Name
                                 ' This is saved on the computer profile (registry)
                                 If eAction = emaClassToForm Then
                                     ctl = Diff.ToolName
@@ -3858,7 +3828,7 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                                 End If
                         End Select
                     End If
-                Case "ListBox"
+                Case Access.acListBox
                     ' Special handling for lists
                 Case Else
                     ' Ignore other controls
@@ -3870,20 +3840,7 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
     If eAction = emaClassToForm Then
         LoadTableList
     ElseIf eAction = emaFormToClass Then
-        ' Save list of tables to export data
-        Set dTables = New Dictionary
-        dTables.CompareMode = TextCompare
-        For Each varItem In m_colTables
-            If varItem(etcType) <> vbNullString Then
-                Set dTable = New Dictionary
-                dTable("Format") = varItem(etcType)
-                'dTable("ObjectType") = "Table"  ' Could add queries later
-                dTables.Add varItem(etcName), dTable
-            End If
-        Next varItem
-        ' Make sure list is sorted correctly
-        SortDictionaryByKeys dTables
-        Set Options.TablesToExportData = dTables
+        SaveTableList
     End If
     
     ' Enable pages based on options.
@@ -3893,22 +3850,20 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : cmdAddOtherTable_Click
+' Procedure : cmdAddOtherTableData_Click
 ' Author    : Adam Waller
 ' Date      : 4/16/2020
 ' Purpose   : Select another table not used in the current database
 '---------------------------------------------------------------------------------------
 '
-Private Sub cmdAddOtherTable_Click()
+Private Sub cmdAddOtherTableData_Click()
     Dim strTable As String
-    lstTables.SetFocus
-    If Nz(cboTableDataSaveType, "No Data") = "No Data" Then
+    If Nz(Me.cboFormatTypeForOther.Value, "No Data") = "No Data" Then
         MsgBox2 "Please select format", "Select the format to save table data before adding the table to the list.", , vbInformation
     Else
-        strTable = InputBox("Enter the name of a table that doesn't exist in this database, " & _
-            "but from which you would like to export data if it is found.", "Enter Table Name")
+        strTable = Nz(Me.txtOtherTableName.Value, vbNullString)
         If strTable <> vbNullString Then
-            AddUpdateTableInList strTable, Nz(cboTableDataSaveType), False, False, True, False
+            AddUpdateTableInList strTable, Nz(Me.cboFormatTypeForOther.Value), False, False, True, False
             chkTableShowOther = True
             RefreshTableDisplay
         End If
@@ -3927,29 +3882,6 @@ Private Sub cmdPrintSettingsOptions_Click()
     With pgePrinterSettings
         .Visible = True
         .SetFocus
-    End With
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : lstTables_Click
-' Author    : Adam Waller
-' Date      : 4/21/2020
-' Purpose   : Update the data type selection to match the table row
-'---------------------------------------------------------------------------------------
-'
-Private Sub lstTables_Click()
-    Dim tbleName As String
-    
-    With lstTables
-        tbleName = Nz(.Column(1, .ListIndex + 1))
-        If tbleName = vbNullString Then
-            cboTableDataSaveType = vbNullString
-        Else
-            cboTableDataSaveType = .Column(2, .ListIndex + 1)
-        End If
-        If Nz(cboTableDataSaveType) = vbNullString Then cboTableDataSaveType = "No Data"
-        txtTableName = tbleName
     End With
 End Sub
 
@@ -3995,3 +3927,35 @@ Private Sub txtExportFolder_BeforeUpdate(Cancel As Integer)
     End If
     
 End Sub
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTableIcon
+' Author    : Adam Waller & Indigo744
+' Date      : 11/11/2020
+' Purpose   : Get an icon depending on the type of table
+'---------------------------------------------------------------------------------------
+'
+Private Function GetTableIcon(ByRef lngColumn As eTableCol) As String
+    Select Case lngColumn
+        Case etcSystem
+            ' System tables
+            ' Uses symbol DOTTED SQUARE
+            ' http://www.fileformat.info/info/unicode/char/2b1a/index.htm
+            GetTableIcon = ChrW$(11034)
+        Case etcLocal
+            ' Local tables
+            ' Uses symbol SQUARED PLUS
+            ' http://www.fileformat.info/info/unicode/char/229e/index.htm
+            GetTableIcon = ChrW$(8862)
+        Case etcOther
+            ' "Other" tables
+            ' Uses symbol RIGHTWARDS ARROW WITH HOOK
+            ' http://www.fileformat.info/info/unicode/char/21aa/index.htm
+            GetTableIcon = ChrW$(8618)
+        Case Else
+            ' Everything else are linked table
+            ' Uses symbol EARTH GLOBE AMERICAS
+            ' https://www.fileformat.info/info/unicode/char/1f30e/index.htm
+            GetTableIcon = ChrW$(55356) & ChrW$(57102)
+    End Select
+End Function
