@@ -16,7 +16,7 @@ Begin Form
     GridX =24
     GridY =24
     DatasheetFontHeight =11
-    ItemSuffix =64
+    ItemSuffix =67
     Left =-25575
     Top =1500
     Right =-5925
@@ -191,7 +191,7 @@ Begin Form
                     OverlapFlags =223
                     Left =420
                     Top =180
-                    Width =4575
+                    Width =5340
                     Height =540
                     FontSize =18
                     FontWeight =700
@@ -199,7 +199,7 @@ Begin Form
                     Caption ="Version Control System"
                     LayoutCachedLeft =420
                     LayoutCachedTop =180
-                    LayoutCachedWidth =4995
+                    LayoutCachedWidth =5760
                     LayoutCachedHeight =720
                     ForeThemeColorIndex =1
                     ForeTint =100.0
@@ -223,7 +223,7 @@ Begin Form
                 Begin Label
                     OverlapFlags =85
                     Left =300
-                    Top =4380
+                    Top =4320
                     Width =3375
                     Height =240
                     FontSize =10
@@ -231,9 +231,9 @@ Begin Form
                     Caption ="joyfullservice/msaccess-vcs-addin"
                     VerticalAnchor =1
                     LayoutCachedLeft =300
-                    LayoutCachedTop =4380
+                    LayoutCachedTop =4320
                     LayoutCachedWidth =3675
-                    LayoutCachedHeight =4620
+                    LayoutCachedHeight =4560
                     BorderThemeColorIndex =1
                     BorderTint =100.0
                     BorderShade =50.0
@@ -778,7 +778,7 @@ Begin Form
                     LayoutCachedTop =120
                     LayoutCachedWidth =6780
                     LayoutCachedHeight =1020
-                    TabIndex =4
+                    TabIndex =6
                 End
                 Begin CommandButton
                     Transparent = NotDefault
@@ -808,7 +808,7 @@ Begin Form
                     Left =240
                     Top =1200
                     Width =6735
-                    Height =3105
+                    Height =3000
                     FontSize =8
                     TabIndex =3
                     Name ="tabInstallType"
@@ -817,7 +817,7 @@ Begin Form
                     LayoutCachedLeft =240
                     LayoutCachedTop =1200
                     LayoutCachedWidth =6975
-                    LayoutCachedHeight =4305
+                    LayoutCachedHeight =4200
                     BackColor =15130848
                     BackThemeColorIndex =-1
                     BackShade =100.0
@@ -843,13 +843,13 @@ Begin Form
                             Left =315
                             Top =1590
                             Width =6585
-                            Height =2640
+                            Height =2535
                             Name ="Page40"
                             Caption ="Basic Install"
                             LayoutCachedLeft =315
                             LayoutCachedTop =1590
                             LayoutCachedWidth =6900
-                            LayoutCachedHeight =4230
+                            LayoutCachedHeight =4125
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -912,54 +912,6 @@ Begin Form
                                     ForeThemeColorIndex =-1
                                     ForeTint =100.0
                                 End
-                                Begin CommandButton
-                                    FontUnderline = NotDefault
-                                    TabStop = NotDefault
-                                    OverlapFlags =215
-                                    Left =4440
-                                    Top =3960
-                                    Width =1920
-                                    Height =270
-                                    FontSize =10
-                                    Name ="cmdAdvanced"
-                                    Caption ="Advanced Options..."
-                                    OnClick ="[Event Procedure]"
-                                    LeftPadding =135
-                                    TopPadding =135
-                                    RightPadding =150
-                                    BottomPadding =150
-                                    HorizontalAnchor =1
-                                    BackStyle =0
-
-                                    CursorOnHover =1
-                                    LayoutCachedLeft =4440
-                                    LayoutCachedTop =3960
-                                    LayoutCachedWidth =6360
-                                    LayoutCachedHeight =4230
-                                    Alignment =1
-                                    ForeThemeColorIndex =10
-                                    ForeTint =100.0
-                                    Gradient =0
-                                    BackColor =5324600
-                                    BackThemeColorIndex =-1
-                                    BackTint =100.0
-                                    OldBorderStyle =0
-                                    BorderColor =15321539
-                                    BorderThemeColorIndex =-1
-                                    BorderTint =100.0
-                                    HoverThemeColorIndex =10
-                                    HoverTint =100.0
-                                    PressedThemeColorIndex =10
-                                    PressedShade =100.0
-                                    HoverForeThemeColorIndex =10
-                                    HoverForeTint =100.0
-                                    PressedForeThemeColorIndex =10
-                                    PressedForeTint =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =10
-                                    WebImagePaddingBottom =10
-                                End
                             End
                         End
                         Begin Page
@@ -967,13 +919,13 @@ Begin Form
                             Left =315
                             Top =1590
                             Width =6585
-                            Height =2640
+                            Height =2535
                             Name ="Page41"
                             Caption ="Advanced Install"
                             LayoutCachedLeft =315
                             LayoutCachedTop =1590
                             LayoutCachedWidth =6900
-                            LayoutCachedHeight =4230
+                            LayoutCachedHeight =4125
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -983,9 +935,42 @@ Begin Form
                                     TabStop = NotDefault
                                     OverlapFlags =215
                                     Left =660
-                                    Top =2250
+                                    Top =2670
                                     Name ="chkOpenAfterInstall"
                                     DefaultValue ="False"
+
+                                    LayoutCachedLeft =660
+                                    LayoutCachedTop =2670
+                                    LayoutCachedWidth =920
+                                    LayoutCachedHeight =2910
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =945
+                                            Top =2640
+                                            Width =2595
+                                            Height =465
+                                            FontSize =10
+                                            ForeColor =5324600
+                                            Name ="Label36"
+                                            Caption ="Open add-in after installing to trust the add-in file"
+                                            LayoutCachedLeft =945
+                                            LayoutCachedTop =2640
+                                            LayoutCachedWidth =3540
+                                            LayoutCachedHeight =3105
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin CheckBox
+                                    TabStop = NotDefault
+                                    OverlapFlags =215
+                                    Left =660
+                                    Top =2250
+                                    TabIndex =1
+                                    Name ="chkUseRibbon"
+                                    DefaultValue ="True"
 
                                     LayoutCachedLeft =660
                                     LayoutCachedTop =2250
@@ -997,141 +982,85 @@ Begin Form
                                             Left =945
                                             Top =2220
                                             Width =2595
-                                            Height =465
-                                            FontSize =10
-                                            ForeColor =5324600
-                                            Name ="Label36"
-                                            Caption ="Open after install to \015\012trust add-in file"
-                                            LayoutCachedLeft =945
-                                            LayoutCachedTop =2220
-                                            LayoutCachedWidth =3540
-                                            LayoutCachedHeight =2685
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
-                                End
-                                Begin CheckBox
-                                    TabStop = NotDefault
-                                    OverlapFlags =215
-                                    Left =660
-                                    Top =2910
-                                    TabIndex =1
-                                    Name ="chkUseRibbon"
-                                    DefaultValue ="True"
-
-                                    LayoutCachedLeft =660
-                                    LayoutCachedTop =2910
-                                    LayoutCachedWidth =920
-                                    LayoutCachedHeight =3150
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =215
-                                            Left =945
-                                            Top =2880
-                                            Width =2595
                                             Height =300
                                             FontSize =10
                                             ForeColor =5324600
                                             Name ="Label40"
                                             Caption ="Use Ribbbon Addin"
                                             LayoutCachedLeft =945
-                                            LayoutCachedTop =2880
+                                            LayoutCachedTop =2220
                                             LayoutCachedWidth =3540
-                                            LayoutCachedHeight =3180
+                                            LayoutCachedHeight =2520
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin Label
+                                    OverlapFlags =215
+                                    TextAlign =1
+                                    Left =540
+                                    Top =1620
+                                    Width =3240
+                                    Height =360
+                                    FontSize =14
+                                    FontWeight =700
+                                    ForeColor =5324600
+                                    Name ="Label61"
+                                    Caption ="Advanced Options"
+                                    LayoutCachedLeft =540
+                                    LayoutCachedTop =1620
+                                    LayoutCachedWidth =3780
+                                    LayoutCachedHeight =1980
+                                    ForeThemeColorIndex =-1
+                                    ForeTint =100.0
+                                End
+                                Begin TextBox
+                                    OverlapFlags =215
+                                    IMESentenceMode =3
+                                    Left =660
+                                    Top =3660
+                                    Width =2760
+                                    Height =300
+                                    FontSize =10
+                                    TabIndex =2
+                                    Name ="txtInstallFolder"
+
+                                    LayoutCachedLeft =660
+                                    LayoutCachedTop =3660
+                                    LayoutCachedWidth =3420
+                                    LayoutCachedHeight =3960
+                                    BackShade =95.0
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =223
+                                            Left =660
+                                            Top =3360
+                                            Width =1485
+                                            Height =300
+                                            FontSize =10
+                                            ForeColor =5324600
+                                            Name ="Label63"
+                                            Caption ="Install Folder:   "
+                                            LayoutCachedLeft =660
+                                            LayoutCachedTop =3360
+                                            LayoutCachedWidth =2145
+                                            LayoutCachedHeight =3660
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
                                     End
                                 End
                                 Begin CommandButton
-                                    FontUnderline = NotDefault
-                                    TabStop = NotDefault
-                                    OverlapFlags =215
-                                    Left =4440
-                                    Top =3300
-                                    Width =2160
-                                    FontSize =9
-                                    TabIndex =2
-                                    Name ="cmdExplainOptions"
-                                    Caption ="Explain options..."
-                                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Installation"
-                                    ImageData = Begin
-                                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
-                                        0x000000000000000000000000000000000000000000000000e0e8e000e0c8b000 ,
-                                        0xe0d8d000e0d0c010e0d0c010d0d0c010d0d0c000d0d0d000e0e0e00000000000 ,
-                                        0x0000000000000000000000000000000000000000f0e8e0009068303080582080 ,
-                                        0x905010c0804820e0804820c0804810b06040108050381030d0c8c01000000000 ,
-                                        0x000000000000000000000000e0780000e0a05010a0683070c08860f0e0c8b0ff ,
-                                        0xf0f0f0fffffffffffffffffff0f0f0ffe0c8c0ffa07850c040301060d0c8c010 ,
-                                        0xe0d8d0000000000000000000e0882000b0703070e0a880fffff0e0ffe0b8a0ff ,
-                                        0xd08050ffc05820ffc05820ffd08050ffe0b8a0fff0e8e0ffb09070f050301060 ,
-                                        0xd0c8c000e0e0e00000000000b0783030d09870f0fff0e0ffe0a890ffc05010ff ,
-                                        0xc05010ffe0a890ffffffffffb04810ffb04810ffd0a080fff0f0e0ffa07050d0 ,
-                                        0x50381030d0d0d000f0f0f000b0784080f0d8c0fff0c8b0ffe05820ffd05810ff ,
-                                        0xd05010ffe08050ffe0a880ffc05010ffb04810ffb04810ffe0b8a0ffe0c8c0ff ,
-                                        0x50401080d0d0d010f0f0f000d08040e0fff8f0fff09870fff06020ffe05820ff ,
-                                        0xe05820fff0a890ffffffffffd05010ffc05010ffb05010ffc07850fff0f0f0ff ,
-                                        0x804020c0e0d0c000f0f0f000d08040f0ffffffffff7840ffff6830fff06820ff ,
-                                        0xf06020fff08850fffffffffff0c0b0ffc05820ffb05010ffb05820ffffffffff ,
-                                        0x804820e0e0d0c010f0f0f000d08850f0ffffffffff8050ffff7030ffff6830ff ,
-                                        0xff6830ffff6820fff09060fffff8f0fff0d8c0ffc05020ffc05820ffffffffff ,
-                                        0x804820e0e0d8d010f0f0f000d08050c0fff8f0ffffa880ffff7040ffff8850ff ,
-                                        0xffb090ffff7030fff06820fff09070fffffffffff08050ffd08860fffff0f0ff ,
-                                        0x805820b0e0d8d010f0f0f000c0804070f0d8c0ffffd0c0ffff7840ffff9870ff ,
-                                        0xffffffffffc8b0ffff9060ffffc8b0fffff8f0fff07840fff0c8b0ffe0c8b0ff ,
-                                        0x90602070e0c8b00000000000c0884030e0a070f0fff8f0ffffc0a0ffff7840ff ,
-                                        0xffb8a0fffff8f0fffffffffffff0e0ffff9870fff0b8a0fffff0e0ffc08850e0 ,
-                                        0xa0682030f0e8e0000000000000000000c0884060e0b8a0f0fff8f0ffffd0c0ff ,
-                                        0xffa880ffff8850ffff8850ffffa880fff0d0c0fffff0e0ffd0a880f0a0683060 ,
-                                        0xe0c0a00000000000000000000000000000000000c0884060e0a070f0f0d8c0ff ,
-                                        0xfff8f0fffffffffffffffffffff8f0fff0d8c0ffc09060e0a0703050f0b89000 ,
-                                        0x0000000000000000000000000000000000000000f0f0f000c0884030c0804070 ,
-                                        0xe0a070c0d09870e0d09860f0d09870d0b0784070b0784020f0e8f00000000000 ,
-                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
-                                        0xf0f0f000f0f0f000f0f0f000f0f0f000f0f0f00000000000f0f0f00000000000 ,
-                                        0x0000000000000000
-                                    End
-                                    BackStyle =0
-
-                                    LayoutCachedLeft =4440
-                                    LayoutCachedTop =3300
-                                    LayoutCachedWidth =6600
-                                    LayoutCachedHeight =3660
-                                    PictureCaptionArrangement =4
-                                    Alignment =1
-                                    ForeThemeColorIndex =10
-                                    ForeTint =100.0
-                                    Gradient =0
-                                    BackColor =14262935
-                                    BackThemeColorIndex =-1
-                                    BackTint =100.0
-                                    OldBorderStyle =0
-                                    BorderColor =15321539
-                                    BorderThemeColorIndex =-1
-                                    BorderTint =100.0
-                                    HoverColor =15321539
-                                    HoverThemeColorIndex =-1
-                                    HoverTint =100.0
-                                    PressedColor =13072231
-                                    PressedThemeColorIndex =-1
-                                    PressedShade =100.0
-                                    WebImagePaddingLeft =2
-                                    WebImagePaddingTop =2
-                                    WebImagePaddingRight =2
-                                    WebImagePaddingBottom =2
-                                End
-                                Begin CommandButton
-                                    TabStop = NotDefault
                                     OverlapFlags =215
                                     Left =3480
                                     Top =3660
-                                    Width =480
-                                    FontSize =9
+                                    Width =420
+                                    Height =300
                                     TabIndex =3
                                     Name ="cmdChangeInstallFolder"
+                                    Caption ="..."
                                     OnClick ="[Event Procedure]"
-                                    ControlTipText ="Click here to change installation folder"
                                     ImageData = Begin
                                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -1168,134 +1097,19 @@ Begin Form
                                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
                                         0x0000000000000000
                                     End
-                                    BackStyle =0
 
-                                    CursorOnHover =1
                                     LayoutCachedLeft =3480
                                     LayoutCachedTop =3660
-                                    LayoutCachedWidth =3960
-                                    LayoutCachedHeight =4020
-                                    PictureCaptionArrangement =4
+                                    LayoutCachedWidth =3900
+                                    LayoutCachedHeight =3960
                                     Gradient =0
-                                    BackColor =14262935
+                                    BackColor =15130848
                                     BackThemeColorIndex =-1
                                     BackTint =100.0
-                                    OldBorderStyle =0
-                                    BorderColor =15321539
-                                    BorderThemeColorIndex =-1
-                                    BorderTint =100.0
-                                    HoverColor =15321539
-                                    HoverThemeColorIndex =-1
-                                    HoverTint =100.0
-                                    PressedColor =13072231
-                                    PressedThemeColorIndex =-1
-                                    PressedShade =100.0
                                     WebImagePaddingLeft =2
                                     WebImagePaddingTop =2
-                                    WebImagePaddingRight =2
-                                    WebImagePaddingBottom =2
-                                End
-                                Begin CommandButton
-                                    FontUnderline = NotDefault
-                                    TabStop = NotDefault
-                                    OverlapFlags =215
-                                    Left =4440
-                                    Top =3960
-                                    Width =1920
-                                    Height =270
-                                    FontSize =10
-                                    TabIndex =4
-                                    Name ="cmdBasicInstall"
-                                    Caption ="Basic Install..."
-                                    OnClick ="[Event Procedure]"
-                                    LeftPadding =135
-                                    TopPadding =135
-                                    RightPadding =150
-                                    BottomPadding =150
-                                    HorizontalAnchor =1
-                                    BackStyle =0
-
-                                    CursorOnHover =1
-                                    LayoutCachedLeft =4440
-                                    LayoutCachedTop =3960
-                                    LayoutCachedWidth =6360
-                                    LayoutCachedHeight =4230
-                                    Alignment =1
-                                    ForeThemeColorIndex =10
-                                    ForeTint =100.0
-                                    Gradient =0
-                                    BackColor =5324600
-                                    BackThemeColorIndex =-1
-                                    BackTint =100.0
-                                    OldBorderStyle =0
-                                    BorderColor =15321539
-                                    BorderThemeColorIndex =-1
-                                    BorderTint =100.0
-                                    HoverThemeColorIndex =10
-                                    HoverTint =100.0
-                                    PressedThemeColorIndex =10
-                                    PressedShade =100.0
-                                    HoverForeThemeColorIndex =10
-                                    HoverForeTint =100.0
-                                    PressedForeThemeColorIndex =10
-                                    PressedForeTint =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =10
-                                    WebImagePaddingBottom =10
-                                End
-                                Begin Label
-                                    OverlapFlags =215
-                                    TextAlign =1
-                                    Left =540
-                                    Top =1620
-                                    Width =3240
-                                    Height =360
-                                    FontSize =14
-                                    FontWeight =700
-                                    ForeColor =5324600
-                                    Name ="Label61"
-                                    Caption ="Advanced Options"
-                                    LayoutCachedLeft =540
-                                    LayoutCachedTop =1620
-                                    LayoutCachedWidth =3780
-                                    LayoutCachedHeight =1980
-                                    ForeThemeColorIndex =-1
-                                    ForeTint =100.0
-                                End
-                                Begin TextBox
-                                    OverlapFlags =215
-                                    IMESentenceMode =3
-                                    Left =660
-                                    Top =3660
-                                    Width =2760
-                                    Height =315
-                                    TabIndex =5
-                                    Name ="txtInstallFolder"
-
-                                    LayoutCachedLeft =660
-                                    LayoutCachedTop =3660
-                                    LayoutCachedWidth =3420
-                                    LayoutCachedHeight =3975
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =223
-                                            Left =660
-                                            Top =3360
-                                            Width =1485
-                                            Height =300
-                                            FontSize =10
-                                            ForeColor =5324600
-                                            Name ="Label63"
-                                            Caption ="Install Folder:   "
-                                            LayoutCachedLeft =660
-                                            LayoutCachedTop =3360
-                                            LayoutCachedWidth =2145
-                                            LayoutCachedHeight =3660
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
+                                    WebImagePaddingRight =1
+                                    WebImagePaddingBottom =1
                                 End
                             End
                         End
@@ -1817,31 +1631,31 @@ Begin Form
                 Begin CheckBox
                     TabStop = NotDefault
                     OverlapFlags =215
-                    Left =4455
-                    Top =2880
+                    Left =4500
+                    Top =2910
                     TabIndex =2
                     Name ="chkAddTrustedLocation"
                     DefaultValue ="True"
 
-                    LayoutCachedLeft =4455
-                    LayoutCachedTop =2880
-                    LayoutCachedWidth =4715
-                    LayoutCachedHeight =3120
+                    LayoutCachedLeft =4500
+                    LayoutCachedTop =2910
+                    LayoutCachedWidth =4760
+                    LayoutCachedHeight =3150
                     Begin
                         Begin Label
                             OverlapFlags =215
-                            Left =4755
-                            Top =2850
+                            Left =4800
+                            Top =2880
                             Width =1935
                             Height =315
                             FontSize =10
                             ForeColor =5324600
                             Name ="Label34"
                             Caption ="Trust Add-In Folder"
-                            LayoutCachedLeft =4755
-                            LayoutCachedTop =2850
-                            LayoutCachedWidth =6690
-                            LayoutCachedHeight =3165
+                            LayoutCachedLeft =4800
+                            LayoutCachedTop =2880
+                            LayoutCachedWidth =6735
+                            LayoutCachedHeight =3195
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1860,6 +1674,118 @@ Begin Form
                     LayoutCachedHeight =1230
                     BorderThemeColorIndex =-1
                 End
+                Begin CheckBox
+                    TabStop = NotDefault
+                    OverlapFlags =215
+                    Left =4500
+                    Top =3345
+                    TabIndex =4
+                    Name ="chkAdvancedOptions"
+                    DefaultValue ="False"
+                    OnClick ="[Event Procedure]"
+
+                    LayoutCachedLeft =4500
+                    LayoutCachedTop =3345
+                    LayoutCachedWidth =4760
+                    LayoutCachedHeight =3585
+                    Begin
+                        Begin Label
+                            OverlapFlags =215
+                            Left =4800
+                            Top =3315
+                            Width =1980
+                            Height =315
+                            FontSize =10
+                            ForeColor =5324600
+                            Name ="Label65"
+                            Caption ="Advanced Options..."
+                            LayoutCachedLeft =4800
+                            LayoutCachedTop =3315
+                            LayoutCachedWidth =6780
+                            LayoutCachedHeight =3630
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CommandButton
+                    FontUnderline = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =215
+                    Left =4500
+                    Top =3780
+                    Width =2160
+                    FontSize =9
+                    TabIndex =5
+                    Name ="cmdExplainOptions"
+                    Caption ="Explain options..."
+                    HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Installation"
+                    ImageData = Begin
+                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                        0x000000000000000000000000000000000000000000000000e0e8e000e0c8b000 ,
+                        0xe0d8d000e0d0c010e0d0c010d0d0c010d0d0c000d0d0d000e0e0e00000000000 ,
+                        0x0000000000000000000000000000000000000000f0e8e0009068303080582080 ,
+                        0x905010c0804820e0804820c0804810b06040108050381030d0c8c01000000000 ,
+                        0x000000000000000000000000e0780000e0a05010a0683070c08860f0e0c8b0ff ,
+                        0xf0f0f0fffffffffffffffffff0f0f0ffe0c8c0ffa07850c040301060d0c8c010 ,
+                        0xe0d8d0000000000000000000e0882000b0703070e0a880fffff0e0ffe0b8a0ff ,
+                        0xd08050ffc05820ffc05820ffd08050ffe0b8a0fff0e8e0ffb09070f050301060 ,
+                        0xd0c8c000e0e0e00000000000b0783030d09870f0fff0e0ffe0a890ffc05010ff ,
+                        0xc05010ffe0a890ffffffffffb04810ffb04810ffd0a080fff0f0e0ffa07050d0 ,
+                        0x50381030d0d0d000f0f0f000b0784080f0d8c0fff0c8b0ffe05820ffd05810ff ,
+                        0xd05010ffe08050ffe0a880ffc05010ffb04810ffb04810ffe0b8a0ffe0c8c0ff ,
+                        0x50401080d0d0d010f0f0f000d08040e0fff8f0fff09870fff06020ffe05820ff ,
+                        0xe05820fff0a890ffffffffffd05010ffc05010ffb05010ffc07850fff0f0f0ff ,
+                        0x804020c0e0d0c000f0f0f000d08040f0ffffffffff7840ffff6830fff06820ff ,
+                        0xf06020fff08850fffffffffff0c0b0ffc05820ffb05010ffb05820ffffffffff ,
+                        0x804820e0e0d0c010f0f0f000d08850f0ffffffffff8050ffff7030ffff6830ff ,
+                        0xff6830ffff6820fff09060fffff8f0fff0d8c0ffc05020ffc05820ffffffffff ,
+                        0x804820e0e0d8d010f0f0f000d08050c0fff8f0ffffa880ffff7040ffff8850ff ,
+                        0xffb090ffff7030fff06820fff09070fffffffffff08050ffd08860fffff0f0ff ,
+                        0x805820b0e0d8d010f0f0f000c0804070f0d8c0ffffd0c0ffff7840ffff9870ff ,
+                        0xffffffffffc8b0ffff9060ffffc8b0fffff8f0fff07840fff0c8b0ffe0c8b0ff ,
+                        0x90602070e0c8b00000000000c0884030e0a070f0fff8f0ffffc0a0ffff7840ff ,
+                        0xffb8a0fffff8f0fffffffffffff0e0ffff9870fff0b8a0fffff0e0ffc08850e0 ,
+                        0xa0682030f0e8e0000000000000000000c0884060e0b8a0f0fff8f0ffffd0c0ff ,
+                        0xffa880ffff8850ffff8850ffffa880fff0d0c0fffff0e0ffd0a880f0a0683060 ,
+                        0xe0c0a00000000000000000000000000000000000c0884060e0a070f0f0d8c0ff ,
+                        0xfff8f0fffffffffffffffffffff8f0fff0d8c0ffc09060e0a0703050f0b89000 ,
+                        0x0000000000000000000000000000000000000000f0f0f000c0884030c0804070 ,
+                        0xe0a070c0d09870e0d09860f0d09870d0b0784070b0784020f0e8f00000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0xf0f0f000f0f0f000f0f0f000f0f0f000f0f0f00000000000f0f0f00000000000 ,
+                        0x0000000000000000
+                    End
+                    BackStyle =0
+
+                    LayoutCachedLeft =4500
+                    LayoutCachedTop =3780
+                    LayoutCachedWidth =6660
+                    LayoutCachedHeight =4140
+                    PictureCaptionArrangement =4
+                    Alignment =1
+                    ForeThemeColorIndex =10
+                    ForeTint =100.0
+                    Gradient =0
+                    BackColor =14262935
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    OldBorderStyle =0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverColor =15321539
+                    HoverThemeColorIndex =-1
+                    HoverTint =100.0
+                    PressedColor =13072231
+                    PressedThemeColorIndex =-1
+                    PressedShade =100.0
+                    WebImagePaddingLeft =2
+                    WebImagePaddingTop =2
+                    WebImagePaddingRight =2
+                    WebImagePaddingBottom =2
+                    Overlaps =1
+                End
             End
         End
     End
@@ -1871,6 +1797,18 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : chkAdvancedOptions_Click
+' Author    : Adam Waller
+' Date      : 5/22/2023
+' Purpose   : Toggle to show advanced install options.
+'---------------------------------------------------------------------------------------
+'
+Private Sub chkAdvancedOptions_Click()
+    tabInstallType = Not (chkAdvancedOptions - 1)
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -2004,6 +1942,11 @@ Private Sub Form_Load()
     
     chkAddTrustedLocation.Value = CBool(InstallSettingTrustedLocation)
     chkOpenAfterInstall.Value = CBool(InstallSettingOpenFile)
+    With txtInstallFolder
+        .Value = modInstall.VCSInstallFolder
+        .Locked = True ' Only enable this text box if not installed.
+        .BackColor = IIf(.Locked, 15921906, 16777215)
+    End With
     
     ' Show installed version
     If InstalledVersion = vbNullString Then
