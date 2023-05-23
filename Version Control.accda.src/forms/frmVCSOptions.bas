@@ -16,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =241
-    Left =-25575
-    Top =1500
-    Right =-5475
-    Bottom =14085
+    Left =20761
+    Top =2250
+    Right =-29055
+    Bottom =13995
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -419,14 +419,14 @@ Begin Form
                             OverlapFlags =87
                             Left =615
                             Top =1980
-                            Width =8865
-                            Height =4200
+                            Width =8850
+                            Height =4260
                             Name ="pgeGeneral"
                             Caption ="General"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
-                            LayoutCachedHeight =6180
+                            LayoutCachedWidth =9465
+                            LayoutCachedHeight =6240
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -716,14 +716,14 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8865
-                            Height =4200
+                            Width =8850
+                            Height =4260
                             Name ="pgeExport"
                             Caption ="Export"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
-                            LayoutCachedHeight =6180
+                            LayoutCachedWidth =9465
+                            LayoutCachedHeight =6240
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1229,14 +1229,14 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8865
-                            Height =4200
+                            Width =8850
+                            Height =4260
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
-                            LayoutCachedHeight =6180
+                            LayoutCachedWidth =9465
+                            LayoutCachedHeight =6240
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1881,14 +1881,14 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8865
-                            Height =4200
+                            Width =8850
+                            Height =4260
                             Name ="pgeTable"
                             Caption ="Table Data"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
-                            LayoutCachedHeight =6180
+                            LayoutCachedWidth =9465
+                            LayoutCachedHeight =6240
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2243,14 +2243,14 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8865
-                            Height =4200
+                            Width =8850
+                            Height =4260
                             Name ="pgeBuild"
                             Caption ="Build"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
-                            LayoutCachedHeight =6180
+                            LayoutCachedWidth =9465
+                            LayoutCachedHeight =6240
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2424,14 +2424,14 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8865
-                            Height =4200
+                            Width =8850
+                            Height =4260
                             Name ="pgeGitIntegration"
                             Caption ="Git Integration"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
-                            LayoutCachedHeight =6180
+                            LayoutCachedWidth =9465
+                            LayoutCachedHeight =6240
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2745,14 +2745,14 @@ Begin Form
                             OverlapFlags =247
                             Left =615
                             Top =1980
-                            Width =8865
-                            Height =4200
+                            Width =8850
+                            Height =4260
                             Name ="pgeSettings"
                             Caption ="Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
-                            LayoutCachedWidth =9480
-                            LayoutCachedHeight =6180
+                            LayoutCachedWidth =9465
+                            LayoutCachedHeight =6240
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -3753,7 +3753,7 @@ End Function
 
 
 Private Sub cmdOpenInstallFolder_Click()
-    Application.FollowHyperlink modInstall.VCSInstallFolder
+    Application.FollowHyperlink modInstall.GetInstallSettings.strInstallFolder
 End Sub
 
 '---------------------------------------------------------------------------------------
