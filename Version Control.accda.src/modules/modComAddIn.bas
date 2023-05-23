@@ -331,6 +331,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function DllUnregisterServer() As Boolean
+    If Not DllIsRegistered Then Exit Sub
     With New WshShell
         .Exec "regsvr32 /u /s """ & GetAddInPath & GetComAddInFileName & """"
     End With
