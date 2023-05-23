@@ -53,7 +53,7 @@ Public Sub VerifyComAddIn()
     End If
 
     ' COM Add-in
-    strFile = strPath & GetAddInFileName
+    strFile = strPath & GetComAddInFileName
     strKey = "COM Addin x" & GetOfficeBitness
 
     ' Verify add-in file
@@ -154,11 +154,12 @@ Private Sub RemoveComDll()
     Dim strTemp As String
 
     ' Build expected path for DLL
-    strPath = GetAddInPath & GetAddInFileName
+    strPath = GetAddInPath & GetComAddInFileName
     If FSO.FileExists(strPath) Then
 
         ' Attempt to delete it first
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         DeleteFile strPath
         If Catch(70) Then
             ' File handle in use. Rename to temp file
@@ -172,14 +173,26 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetAddInFileName
+' Procedure : GetAddInPath
+' Author    : Adam Waller
+' Date      : 3/11/2022
+' Purpose   : Return path to add-in installation folder
+'---------------------------------------------------------------------------------------
+'
+Private Function GetAddInPath() As String
+    GetAddInPath = GetInstallSettings.strInstallFolder & PathSep
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetComAddInFileName
 ' Author    : Adam Waller
 ' Date      : 3/5/2022
 ' Purpose   : Return the file name for the COM add-in
 '---------------------------------------------------------------------------------------
 '
-Private Function GetAddInFileName() As String
-    GetAddInFileName = Replace("MSAccessVCSLib_winXX.dll", "XX", GetOfficeBitness)
+Private Function GetComAddInFileName() As String
+    GetComAddInFileName = Replace("MSAccessVCSLib_winXX.dll", "XX", GetOfficeBitness)
 End Function
 
 
@@ -227,9 +240,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub LoadAddIn()
-
     Dim addVCS As COMAddIn
-
     Set addVCS = GetCOMAddIn
     If addVCS Is Nothing Then
         ' Add-in not found. May need to be registered
@@ -282,7 +293,7 @@ Private Function DllIsRegistered() As Boolean
             ' Read the file path for the registered DLL
             strTest = .RegRead("HKCU\SOFTWARE\Classes\CLSID\" & strTest & "\InProcServer32\")
             ' See if it matches the installation folder
-            If strTest = GetAddInPath & GetAddInFileName Then
+            If strTest = GetAddInPath & GetComAddInFileName Then
                 ' Path matches. See if the file actually exists
                 DllIsRegistered = FSO.FileExists(strTest)
             End If
@@ -299,11 +310,11 @@ End Function
 ' Purpose   : Register the add-in with the list of available add-ins for Access
 '---------------------------------------------------------------------------------------
 '
-Private Function DllRegisterServer() As Boolean
+Private Sub DllRegisterServer()
     With New WshShell
-        .Exec "regsvr32 /s """ & GetAddInPath & GetAddInFileName & """"
+        .Exec "regsvr32 /s """ & GetAddInPath & GetComAddInFileName & """"
     End With
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -313,8 +324,9 @@ End Function
 ' Purpose   : Remove the add-in from the list
 '---------------------------------------------------------------------------------------
 '
-Private Function DllUnregisterServer() As Boolean
+Private Sub DllUnregisterServer()
+    If Not DllIsRegistered Then Exit Sub
     With New WshShell
-        .Exec "regsvr32 /u /s """ & GetAddInPath & GetAddInFileName & """"
+        .Exec "regsvr32 /u /s """ & GetAddInPath & GetComAddInFileName & """"
     End With
-End Function
+End Sub

@@ -7,8 +7,9 @@
 '           : the add-in.
 '---------------------------------------------------------------------------------------
 Option Compare Database
-Option Explicit
 Option Private Module
+Option Explicit
+
 
 ' Registry hive
 Private Enum eHive
@@ -32,7 +33,17 @@ Private Const SW_SHOWNORMAL = 1
 Private Const ModuleName As String = "modInstall"
 
 ' Used to add a trusted location for the add-in path (when necessary)
-Private Const mcstrTrustedLocationName = "MSAccessVCS Version Control"
+Private Const mcstrTrustedLocationName = PROJECT_NAME & " Version Control"
+
+' Use a private type to manage install settings.
+Public Type udtInstallSettings
+    blnTrustAddInFolder As Boolean
+    blnUseRibbonAddIn As Boolean
+    blnOpenAfterInstall As Boolean
+    strInstallFolder As String
+    blnSettingsLoaded As Boolean
+End Type
+Private this As udtInstallSettings
 
 
 '---------------------------------------------------------------------------------------
@@ -85,7 +96,7 @@ End Function
 '           : Returns true if successful.
 '---------------------------------------------------------------------------------------
 '
-Public Function InstallVCSAddin() As Boolean
+Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, blnOpenAfterInstall As Boolean, strInstallFolder As String)
 
     Const OPEN_MODE_OPTION As String = "Default Open Mode for Databases"
 
@@ -94,12 +105,34 @@ Public Function InstallVCSAddin() As Boolean
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
+    ' Load install settings from registry, then update with parameter values
+    GetInstallSettings
+    With this
+        .blnUseRibbonAddIn = blnUseRibbon
+        .blnOpenAfterInstall = blnOpenAfterInstall
+        .blnTrustAddInFolder = blnTrustFolder
+        If .strInstallFolder <> strInstallFolder Then
+            ' Attempt to migrate any saved user settings files
+            MigrateUserFiles .strInstallFolder, strInstallFolder, GetFilePathsInFolder(.strInstallFolder)
+            ' Update install folder to new path
+            .strInstallFolder = strInstallFolder
+        End If
+   End With
+    
+    ' Save the updated settings to the registry.
+    SaveInstallSettings
+
+    ' Load some path values
     strSource = CodeProject.FullName
     strDest = GetAddInFileName
     VerifyPath strDest
 
     ' We can't replace a file with itself.  :-)
-    If strSource = strDest Then Exit Function
+    If strSource = strDest Then
+        MsgBox2 "Unable to Install", "You can't install the add-in over itself.", _
+            "Please run from a different location to update.", , vbExclamation
+        Exit Sub
+    End If
 
     ' Check default database open mode.
     If Application.GetOption(OPEN_MODE_OPTION) = 1 Then
@@ -111,39 +144,50 @@ Public Function InstallVCSAddin() As Boolean
             MsgBox2 "Default Option Changed", _
                 "Please restart Microsoft Access and run the install again.", , vbInformation
         End If
-        Exit Function
+        Exit Sub
     End If
 
-    ' Copy the file, overwriting any existing file.
-    ' Requires FSO to copy open database files. (VBA.FileCopy may give a permission denied error.)
-    ' We also use FSO to force the deletion of the existing file, if found.
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    If FSO.FileExists(strDest) Then DeleteFile strDest, True
-    FSO.CopyFile strSource, strDest, True
-    If Err Then
-        MsgBox2 "Unable to Update File", _
-            "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
-            "Is the Version Control Add-in loaded in another instance of Microsoft Access?" & vbCrLf & _
-            "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
-        Err.Clear
-    Else
-        If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    ' Run any applicable upgrades
+    RunUpgrades
+    
+    ' Verify the trusted location
+    If this.blnTrustAddInFolder Then VerifyTrustedLocation
 
-        ' Install the ribbon
+    ' Copy the add-in file
+    If Not UpdateAddInFile Then Exit Sub
+
+    ' Install the ribbon
+    If this.blnUseRibbonAddIn Then
+        ' Ensure that the ribbon is installed
         modCOMAddIn.VerifyComAddIn
-        ' Register the Menu controls
-        RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
-        RegisterMenuItem "&VCS Options", "=AddInOptionsLaunch()"
-        RegisterMenuItem "&VCS Export All Source", "=AddInMenuItemExport()"
-        ' Update installed version number
-        InstalledVersion = AppVersion
-        ' Warn the user if ActiveX is disabled
-        VerifyActivexNotDisabled
-        ' Return success
-        InstallVCSAddin = True
+    Else
+        ' Remove if currently installed
+        modCOMAddIn.UninstallComAddIn
     End If
+    
+    ' Register the Menu controls
+    RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
+    RegisterMenuItem "&VCS Options", "=AddInOptionsLaunch()"
+    RegisterMenuItem "&VCS Export All Source", "=AddInMenuItemExport()"
+    
+    ' Update installed version number
+    InstalledVersion = AppVersion
+    
+    ' Warn the user if ActiveX is disabled
+    VerifyActivexNotDisabled
+    
+    ' Show install confirmation message
+    MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
+        "The installer will now close. Please restart any open instances" & vbCrLf & _
+        "of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
+        
+    ' Open add-in from installed location if required.
+    If this.blnOpenAfterInstall Then OpenAddinFile GetAddInFileName, CodeProject.FullName
 
-End Function
+    ' Close Access after installation is complete.
+    DoCmd.Quit
+    
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -154,58 +198,150 @@ End Function
 '           : Returns true if successful.
 '---------------------------------------------------------------------------------------
 '
-Public Function UninstallVCSAddin() As Boolean
+Public Sub UninstallVCSAddin()
 
-    Dim strDest As String
-    strDest = GetAddInFileName
+    Dim intResponse As VbMsgBoxResult
+    Dim blnSaveSettings As Boolean
+    
+    ' Ask the user if they want to preserve their user settings.
+    intResponse = MsgBox2("Save User Settings", "Would you like your user settings/options preserved?", _
+        "Click YES to save these items so they can be used if you reinstall the add-in," & vbCrLf & _
+        "Or click NO to remove all settings related to this add-on.", vbQuestion + vbYesNoCancel)
+    
+    ' Allow user to cancel if they are not sure how to answer the above prompt.
+    If intResponse = vbCancel Then Exit Sub
+    
+    ' Note if the user wants to save/migrate their existing settings.
+    If intResponse = vbYes Then blnSaveSettings = True
+    
+    ' Close all database objects
+    If IsLoaded(acForm, "frmVCSOptions") Then DoCmd.Close acForm, "frmVCSOptions"
+    If IsLoaded(acForm, "frmVCSMain") Then DoCmd.Close acForm, "frmVCSMain"
 
-    ' Copy the file, overwriting any existing file.
-    ' Requires FSO to copy open database files. (VBA.FileCopy give a permission denied error.)
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-    DeleteFile strDest, True
-    On Error GoTo 0
+    ' Remove the add-in Menu controls
+    RemoveMenuItem "&VCS Open"
+    RemoveMenuItem "&VCS Options"
+    RemoveMenuItem "&VCS Export All Source"
 
-    ' Error 53 = File Not found is okay.
-    If Err.Number <> 0 And Err.Number <> 53 Then
-        MsgBox2 "Unable to delete file", _
-            "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
-            "Please check to be sure that the following file is not in use:" & vbCrLf & strDest, vbExclamation
-        Err.Clear
-    Else
-        ' Remove the add-in Menu controls
-        RemoveMenuItem "&VCS Open"
-        RemoveMenuItem "&VCS Options"
-        RemoveMenuItem "&VCS Export All Source"
+    ' Remove any legacy menu items.
+    RemoveMenuItem "&Version Control"
+    RemoveMenuItem "&Version Control Options"
+    RemoveMenuItem "&Export All Source"
 
-        ' Remove any legacy menu items.
-        RemoveMenuItem "&Version Control"
-        RemoveMenuItem "&Version Control Options"
-        RemoveMenuItem "&Export All Source"
-
-        ' Remove registry entries
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-        DeleteSetting PROJECT_NAME, "Install"
+    ' Remove registry entries
+    LogUnhandledErrors
+    On Error Resume Next
+    If blnSaveSettings Then
+        ' Delete keys that don't contain settings
         DeleteSetting PROJECT_NAME, "Build"
         DeleteSetting PROJECT_NAME, "Add-In"
+        DeleteSetting PROJECT_NAME, "Timer"
+    Else
+        ' Remove entire application key
+        DeleteSetting PROJECT_NAME
+    End If
+    
+    ' Resume normal error handling
+    If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
 
-        ' Remove private keys; since this (should have been) removed
-        ' during install, just do it again to verify.
-        DeleteSetting PROJECT_NAME, "Private Keys"
+    ' Remove trusted location added by this add-in. (if found)
+    RemoveTrustedLocation
+    
+    ' Remove COM add-in
+    modCOMAddIn.UninstallComAddIn
 
-        If Err Then Err.Clear
-        On Error GoTo 0
+    ' Remove On Save hook
+    'modExportOnSaveHook.Uninstall
 
-        ' Update installed version number
-        InstalledVersion = 0
-        ' Remove trusted location added by this add-in. (if found)
-        RemoveTrustedLocation
-        ' Remove COM add-in
-        modCOMAddIn.UninstallComAddIn
-        ' Return success
-        UninstallVCSAddin = True
+    ' Notify the user of the completion of the uninstall process.
+    MsgBox2 "Success!", "Version Control System has now been uninstalled.", _
+        "Microsoft Access will be closed to remove the remaining files.", _
+        vbInformation, "Version Control Add-in"
+    
+    ' Use the worker script to actually remove the add-in files.
+    ' (They cannot be removed when they are in use, such as when procesing the uninstall.)
+    Worker.Run_UninstallAddin
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpdateAddInFile
+' Author    : Adam Waller
+' Date      : 5/22/2023
+' Purpose   : Update the add-in database file. Return true if successful.
+'---------------------------------------------------------------------------------------
+'
+Private Function UpdateAddInFile() As Boolean
+
+    ' Make sure the destination folder exists
+    VerifyPath GetAddInFileName
+    
+    ' Update the file
+    LogUnhandledErrors
+    On Error Resume Next
+    If FSO.FileExists(GetAddInFileName) Then DeleteFile GetAddInFileName, True
+    FSO.CopyFile CodeProject.FullName, GetAddInFileName, True
+    If Err Then
+        MsgBox2 "Unable to Update File", _
+            "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
+            "Is the Version Control Add-in loaded in another instance of Microsoft Access?" & vbCrLf & _
+            "Please check to be sure that the following file is not in use:" & _
+            vbCrLf & GetAddInFileName, vbExclamation
+        Err.Clear
+    Else
+        ' Copied file with no errors.
+        UpdateAddInFile = True
     End If
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MigrateUserFiles
+' Author    : Adam Waller
+' Date      : 5/22/2023
+' Purpose   : Migrate a file, unless a destination file exists that is different from
+'           : the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MigrateUserFiles(strFromFolder As String, strToFolder As String, colNames As Dictionary)
+
+    Dim varKey As Variant
+    Dim strFile As String
+    Dim strSource As String
+    Dim strDest As String
+    
+    ' Loop through file names
+    For Each varKey In colNames.Keys
+        strSource = varKey
+        strFile = FSO.GetFileName(strSource)
+        strDest = BuildPath2(strToFolder, strFile)
+        Select Case True
+            ' Define exceptions to skip
+            Case strFile Like PROJECT_NAME & ".*accda"  ' Add-in or lock file
+            Case strFile Like "*.dll"   ' COM dlls
+            Case strFile Like "*.vbs"   ' Worker script
+            Case Else
+                ' Migrate other files
+                If FSO.FileExists(strSource) Then
+                    If FSO.FileExists(strDest) Then
+                        ' Check hash of file content
+                        If GetFileHash(strSource) = GetFileHash(strDest) Then
+                            ' File is identical in content. Remove source file.
+                            DeleteFile strSource
+                        Else
+                            ' Leave existing file if they don't match.
+                        End If
+                    Else
+                        ' If destination file does not exist, move from source.
+                        FSO.MoveFile strSource, strDest
+                    End If
+                End If
+        End Select
+    Next varKey
+    
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -216,44 +352,19 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetAddInFileName() As String
-    GetAddInFileName = FSO.BuildPath(FSO.BuildPath(Environ$("AppData"), PROJECT_NAME), CodeProject.Name)
+    GetAddInFileName = FSO.BuildPath(GetInstallSettings.strInstallFolder, CodeProject.Name)
 End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : IsAlreadyInstalled
+' Procedure : DefaultAddInFolderPath
 ' Author    : Adam Waller
-' Date      : 4/15/2020
-' Purpose   : Returns true if the addin is already installed.
+' Date      : 5/22/2023
+' Purpose   : Returns the default installation folder path.
 '---------------------------------------------------------------------------------------
 '
-Public Function IsAlreadyInstalled() As Boolean
-
-    Dim strPath As String
-    Dim strTest As String
-
-    ' Check for registry key of installed version
-    If InstalledVersion <> vbNullString Then
-
-        ' Check for addin file
-        If LCase(FSO.GetFileName(GetAddInFileName)) = LCase(CodeProject.Name) Then
-            strPath = GetAddinRegPath & "&Version Control\Library"
-
-            ' Check HKLM registry key
-            With New IWshRuntimeLibrary.WshShell
-                ' We should have a value here if the install ran in the past.
-                If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
-                strTest = .RegRead(strPath)
-            End With
-
-            If Err.Number > 0 Then Err.Clear
-            On Error GoTo 0
-
-            ' Return our determination
-            IsAlreadyInstalled = (strTest <> vbNullString)
-        End If
-    End If
-
+Private Function DefaultAddInFolderPath() As String
+    DefaultAddInFolderPath = BuildPath2(Environ$("AppData"), PROJECT_NAME)
 End Function
 
 
@@ -295,7 +406,7 @@ End Function
 ' Procedure : RegisterMenuItem
 ' Author    : Adam Waller
 ' Date      : 4/15/2020
-' Purpose   : Add the menu item through the registry (HKLM, requires admin)
+' Purpose   : Add the menu item through the registry (Normally HKCU hive)
 '---------------------------------------------------------------------------------------
 '
 Private Sub RegisterMenuItem(ByVal strName As String, Optional ByVal strFunction As String = "=LaunchMe()")
@@ -409,7 +520,7 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Same_Version)
     CopyFileToZip CodeProject.FullName, strBinaryFile
 
     ' Deploy latest version on this machine
-    blnSuccess = InstallVCSAddin
+    If Not UpdateAddInFile Then Exit Sub
 
     ' Use the newly installed add-in to Export the project to version control.
     VCS.Export
@@ -427,7 +538,7 @@ End Sub
 ' Purpose   : Process upgrade transitions and remove legacy components
 '---------------------------------------------------------------------------------------
 '
-Public Sub RunUpgrades()
+Private Sub RunUpgrades()
 
     Dim strName As String
     Dim strOldPath As String
@@ -554,19 +665,55 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : InstallSettingTrustedLocation
-' Author    : hecon5
-' Date      : 2/05/2021
-' Purpose   : Saves the setting used on install; elimiminates need to save separate
-'           : fork.
+' Procedure : GetInstallSettings
+' Author    : Adam Waller
+' Date      : 5/22/2023
+' Purpose   : Return the install settings.
 '---------------------------------------------------------------------------------------
 '
-Public Property Let InstallSettingTrustedLocation(InstallTrust As Integer)
-    SaveSetting PROJECT_NAME, "Install", "Trust Folder", InstallTrust
-End Property
-Public Property Get InstallSettingTrustedLocation() As Integer
-    InstallSettingTrustedLocation = GetSetting(PROJECT_NAME, "Install", "Trust Folder", CInt(True))
-End Property
+Public Function GetInstallSettings(Optional blnUseCache As Boolean = True) As udtInstallSettings
+    
+    ' Load install settings from registry
+    With this
+        If Not (.blnSettingsLoaded And blnUseCache) Then
+            .blnTrustAddInFolder = GetSetting(PROJECT_NAME, "Install", "Trust Folder", CInt(True))
+            .blnUseRibbonAddIn = GetSetting(PROJECT_NAME, "Install", "Use Ribbon", True)
+            .blnOpenAfterInstall = GetSetting(PROJECT_NAME, "Install", "Open File", CInt(False))
+            .strInstallFolder = GetSetting(PROJECT_NAME, "Install", "Install Folder", DefaultAddInFolderPath)
+            .blnSettingsLoaded = True
+        End If
+    End With
+    GetInstallSettings = this
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveInstallSettings
+' Author    : Adam Waller
+' Date      : 5/22/2023
+' Purpose   : Saves current install settings to the registry.
+'---------------------------------------------------------------------------------------
+'
+Public Function SaveInstallSettings()
+    With this
+        ' Basic settings
+        SaveSetting PROJECT_NAME, "Install", "Trust Folder", CInt(.blnTrustAddInFolder)
+        SaveSetting PROJECT_NAME, "Install", "Use Ribbon", CInt(.blnUseRibbonAddIn)
+        SaveSetting PROJECT_NAME, "Install", "Open File", CInt(.blnOpenAfterInstall)
+        ' Special handling
+        If .strInstallFolder = DefaultAddInFolderPath Then
+            ' This value should only be saved if using a non-standard path.
+            If GetSetting(PROJECT_NAME, "Install", "Install Folder") <> vbNullString Then
+                ' Remove custom folder path setting when it matches the default.
+                DeleteSetting PROJECT_NAME, "Install", "Install Folder"
+            End If
+        Else
+            ' Save the custom path
+            SaveSetting PROJECT_NAME, "Install", "Install Folder", .strInstallFolder
+        End If
+    End With
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -580,7 +727,7 @@ End Property
 '           : not function correctly.
 '---------------------------------------------------------------------------------------
 '
-Public Function VerifyTrustedLocation() As Boolean
+Private Function VerifyTrustedLocation() As Boolean
 
     Dim strPath As String
     Dim strTrusted As String
@@ -700,26 +847,12 @@ End Function
 '
 Public Function HasTrustedLocationKey(Optional strName As String) As Boolean
     With New IWshRuntimeLibrary.WshShell
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         HasTrustedLocationKey = Nz(.RegRead(GetTrustedLocationRegPath(strName) & "Path")) <> vbNullString
+        If Err Then Err.Clear
     End With
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : InstallSettingOpenFile
-' Author    : hecon5
-' Date      : 2/05/2021
-' Purpose   : Saves the setting used on install; elimiminates need to save separate
-'           : fork.
-'---------------------------------------------------------------------------------------
-'
-Public Property Let InstallSettingOpenFile(InstallOpen As Integer)
-    SaveSetting PROJECT_NAME, "Install", "Open File", InstallOpen
-End Property
-Public Property Get InstallSettingOpenFile() As Integer
-    InstallSettingOpenFile = GetSetting(PROJECT_NAME, "Install", "Open File", CInt(False))
-End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -937,5 +1070,3 @@ End Property
 Public Property Get InstalledVersion() As String
     InstalledVersion = GetSetting(PROJECT_NAME, "Add-in", "Installed Version", vbNullString)
 End Property
-
-

@@ -41,7 +41,7 @@
       "Type": 10
     },
     "AppVersion": {
-      "Value": "4.0.11",
+      "Value": "4.0.12",
       "Type": 10
     },
     "Auto Compact": {
@@ -71,6 +71,10 @@
     "Connect": {
       "Value": "",
       "Type": 12
+    },
+    "Continuous Form Navigation Keys": {
+      "Value": 0,
+      "Type": 4
     },
     "DesignMasterID": {
       "Value": "",
