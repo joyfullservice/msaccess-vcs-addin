@@ -32,7 +32,7 @@ Private Const SW_SHOWNORMAL = 1
 Private Const ModuleName As String = "modInstall"
 
 ' Used to add a trusted location for the add-in path (when necessary)
-Private Const mcstrTrustedLocationName = "MSAccessVCS Version Control"
+Private Const mcstrTrustedLocationName = PROJECT_NAME & " Version Control"
 
 ' Use a private type to manage install settings.
 Public Type udtInstallSettings
