@@ -34,6 +34,18 @@ Private WScript As Object
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Run_UninstallAddin
+' Author    : Adam Waller
+' Date      : 5/22/2023
+' Purpose   : Remove the actual add-in file and lock file during uninstall.
+'---------------------------------------------------------------------------------------
+'
+Public Function Run_UninstallAddin()
+    CallWorker PROJECT_NAME, 10, "Uninstall", """" & GetAddInFileName & """"
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DeleteDatabaseObject
 ' Author    : Adam Waller
 ' Date      : 3/2/2023
@@ -425,31 +437,42 @@ Sub Main()
         Case "RenameDatabaseObject"
             ' New name, Type, Old Name
             objApp.DoCmd.Rename WScript.Arguments(3), WScript.Arguments(4), WScript.Arguments(5)
+            
+        Case "Uninstall"
+            ' Remove the add-in database file and this worker script.
+            ' (This must be done after closing Access)
+            ' Args: Access application instance, add-in path
+            UninstallAddIn objApp, WScript.Arguments(3)
 
         Case Else
             MsgBox "Unknown Action: " & WScript.Arguments(1), vbExclamation
 
     End Select
 
-    ' Check the project name, just in case we are editing the VCS project
-    If objApp.CurrentProject.Name = "Version Control.accda" Then
-        ' Rename project so we can run the callback directly on the add-in
-        ' even if the local project does not currently compile. (Such as
-        ' after removing a class module during a merge operation.)
-        Set objProj = GetAddInVBProject(objApp)
-        objProj.Name = "MSAccessVCS-Lib"
-        objApp.Run "MSAccessVCS-Lib.WorkerCallback", strKey, varReturn
-        objProj.Name = "MSAccessVCS"
-    Else
-        ' Return key to caller to signal job completion
-        objApp.Run "MSAccessVCS.WorkerCallback", strKey, varReturn
+    ' Make sure we still have a valid reference to the application before
+    ' attempting any callback operations.
+    If Not objApp Is Nothing Then
+    
+        ' Check the project name, just in case we are editing the VCS project
+        If objApp.CurrentProject.Name = "Version Control.accda" Then
+            ' Rename project so we can run the callback directly on the add-in
+            ' even if the local project does not currently compile. (Such as
+            ' after removing a class module during a merge operation.)
+            Set objProj = GetAddInVBProject(objApp)
+            objProj.Name = "MSAccessVCS-Lib"
+            objApp.Run "MSAccessVCS-Lib.WorkerCallback", strKey, varReturn
+            objProj.Name = "MSAccessVCS"
+        Else
+            ' Return key to caller to signal job completion
+            objApp.Run "MSAccessVCS.WorkerCallback", strKey, varReturn
+        End If
     End If
 
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : currentvbproject
+' Procedure : CurrentVBProject
 ' Author    : Adam Waller
 ' Date      : 3/3/2023
 ' Purpose   : Get a reference to the VB Project associated with the current database.
@@ -541,3 +564,56 @@ Function GetUncPath(strPath)
 
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : UninstallAddIn
+' Author    : Adam Waller
+' Date      : 5/22/2023
+' Purpose   : Remove add-in files that would normally be in use during the uninstall
+'           : process. Then remove this worker script file itself.
+'           : NOTE: No message is given if the uninstall succeeds.
+'---------------------------------------------------------------------------------------
+'
+Function UninstallAddIn(objApp, strAddInFile)
+
+    Dim objFSO
+    Dim strLockFile
+    Dim intCnt
+    
+    Set objFSO = CreateObject("Scripting.FileSystemObject")
+
+    ' Close the Microsoft Access application
+    objApp.Quit
+    Set objApp = Nothing
+    
+    ' Build lock file name from add-in name
+    strLockFile = Replace(strAddInFile, ".accda", ".laccda")
+    
+    ' Resume next on any errors while attempting to delete the file.
+    On Error Resume Next
+    
+    ' Wait up to 10 seconds to delete the main add-in file and database lock file.
+    For intCnt = 1 To 10
+        If objFSO.FileExists(strLockFile) Then objFSO.DeleteFile strLockFile
+        If objFSO.FileExists(strAddInFile) Then objFSO.DeleteFile strAddInFile
+        If Not objFSO.FileExists(strAddInFile) Then
+            ' Clear any errors from failed delete attempts
+            If Err Then Err.Clear
+            Exit For
+        End If
+        WScript.Sleep 1000  ' Pause one second
+    Next
+    
+    ' Ready or not, here we go with one final attempt. (This time we will show the error message.)
+    If objFSO.FileExists(strAddInFile) Then objFSO.DeleteFile strAddInFile
+    If Err Then
+        MsgBox "Unable to delete add-in file: " & strAddInFile & vbCrLf & vbCrLf & _
+            " The file might be in use by another instance of Microsoft Access." & vbCrLf & vbCrLf & _
+            "Error " & Err.Number & ": " & Err.Description, vbExclamation
+    Else
+        ' Delete this worker script file.
+        objFSO.DeleteFile WScript.ScriptFullName
+        WScript.Quit
+    End If
+    
+End Function
