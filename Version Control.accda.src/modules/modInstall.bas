@@ -34,12 +34,15 @@ Private Const ModuleName As String = "modInstall"
 ' Used to add a trusted location for the add-in path (when necessary)
 Private Const mcstrTrustedLocationName = "MSAccessVCS Version Control"
 
-' Store the VCSInstall Folder for faster caching (used quite a bit for install, and in some cases export)
-Private m_VCSInstallFolder As String
-
-'Store the VCSUseRibbon value for faster caching; this is checked every time the VCS runs.
-Private m_VCSUseRibbon As Long
-Private m_VCSUseRibbonValid As Long ' This is set to True when the value is queried the first time.
+' Use a private type to manage install settings.
+Public Type udtInstallSettings
+    blnTrustAddInFolder As Boolean
+    blnUseRibbonAddIn As Boolean
+    blnOpenAfterInstall As Boolean
+    strInstallFolder As String
+    blnSettingsLoaded As Boolean
+End Type
+Private this As udtInstallSettings
 
 
 '---------------------------------------------------------------------------------------
@@ -101,6 +104,22 @@ Public Function InstallVCSAddin() As Boolean
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
+    ' Load install settings from registry, then update with parameter values
+    GetInstallSettings
+    With this
+        .blnUseRibbonAddIn = blnUseRibbon
+        .blnOpenAfterInstall = blnOpenAfterInstall
+        .blnTrustAddInFolder = blnTrustFolder
+        If .strInstallFolder <> strInstallFolder Then
+            ' Attempt to migrate any saved user settings files
+            MigrateUserFiles .strInstallFolder, strInstallFolder, GetFilePathsInFolder(.strInstallFolder)
+            ' Update install folder to new path
+            .strInstallFolder = strInstallFolder
+        End If
+   End With
+    
+    ' Save the updated settings to the registry.
+    SaveInstallSettings
     strSource = CodeProject.FullName
     strDest = GetAddInFileName
     VerifyPath strDest
@@ -599,58 +618,55 @@ Public Sub SetVCSInstallFolder()
 End Sub
 
 '---------------------------------------------------------------------------------------
-' Procedure : InstallFolder
-' Author    : hecon5
-' Date      : 2022-09-24
-' Purpose   : Saves the setting used on install; elimiminates need to save separate
-'           : fork.
+' Procedure : GetInstallSettings
+' Author    : Adam Waller
+' Date      : 5/22/2023
+' Purpose   : Return the install settings.
 '---------------------------------------------------------------------------------------
 '
-Public Property Let VCSInstallFolder(NewInstallFolder As String)
-    SaveSetting PROJECT_NAME, "Install", "Install Folder", NewInstallFolder
-    m_VCSInstallFolder = NewInstallFolder
-End Property
-Public Property Get VCSInstallFolder() As String
-    If m_VCSInstallFolder = vbNullString Then m_VCSInstallFolder = GetSetting(PROJECT_NAME, "Install", "Install Folder", DefaultAddInFolderPath)
-    VCSInstallFolder = m_VCSInstallFolder
-End Property
+Public Function GetInstallSettings(Optional blnUseCache As Boolean = True) As udtInstallSettings
+    
+    ' Load install settings from registry
+    With this
+        If Not (.blnSettingsLoaded And blnUseCache) Then
+            .blnTrustAddInFolder = GetSetting(PROJECT_NAME, "Install", "Trust Folder", CInt(True))
+            .blnUseRibbonAddIn = GetSetting(PROJECT_NAME, "Install", "Use Ribbon", True)
+            .blnOpenAfterInstall = GetSetting(PROJECT_NAME, "Install", "Open File", CInt(False))
+            .strInstallFolder = GetSetting(PROJECT_NAME, "Install", "Install Folder", DefaultAddInFolderPath)
+            .blnSettingsLoaded = True
+        End If
+    End With
+    GetInstallSettings = this
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : UseRibbon
-' Author    : hecon5
-' Date      : 2023-05-18
-' Purpose   : Saves the setting used on install; elimiminates need to save separate
-'           : fork. Defaults to TRUE (most users will want this).
-'---------------------------------------------------------------------------------------
-'
-Public Property Let UseRibbon(NewUseRibbon As Integer)
-    SaveSetting PROJECT_NAME, "Install", "Use Ribbon", NewUseRibbon
-    m_VCSUseRibbon = NewUseRibbon
-End Property
-Public Property Get UseRibbon() As Integer
-    If Not m_VCSUseRibbonValid Then
-        m_VCSUseRibbon = GetSetting(PROJECT_NAME, "Install", "Use Ribbon", True)
-        m_VCSUseRibbonValid = True
-    End If
-    UseRibbon = m_VCSUseRibbon
-End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : InstallSettingTrustedLocation
-' Author    : hecon5
-' Date      : 2/05/2021
-' Purpose   : Saves the setting used on install; elimiminates need to save separate
-'           : fork.
+' Procedure : SaveInstallSettings
+' Author    : Adam Waller
+' Date      : 5/22/2023
+' Purpose   : Saves current install settings to the registry.
 '---------------------------------------------------------------------------------------
 '
-Public Property Let InstallSettingTrustedLocation(InstallTrust As Integer)
-    SaveSetting PROJECT_NAME, "Install", "Trust Folder", InstallTrust
-End Property
-Public Property Get InstallSettingTrustedLocation() As Integer
-    InstallSettingTrustedLocation = GetSetting(PROJECT_NAME, "Install", "Trust Folder", CInt(True))
-End Property
+Public Function SaveInstallSettings()
+    With this
+        ' Basic settings
+        SaveSetting PROJECT_NAME, "Install", "Trust Folder", CInt(.blnTrustAddInFolder)
+        SaveSetting PROJECT_NAME, "Install", "Use Ribbon", CInt(.blnUseRibbonAddIn)
+        SaveSetting PROJECT_NAME, "Install", "Open File", CInt(.blnOpenAfterInstall)
+        ' Special handling
+        If .strInstallFolder = DefaultAddInFolderPath Then
+            ' This value should only be saved if using a non-standard path.
+            If GetSetting(PROJECT_NAME, "Install", "Install Folder") <> vbNullString Then
+                ' Remove custom folder path setting when it matches the default.
+                DeleteSetting PROJECT_NAME, "Install", "Install Folder"
+            End If
+        Else
+            ' Save the custom path
+            SaveSetting PROJECT_NAME, "Install", "Install Folder", .strInstallFolder
+        End If
+    End With
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -788,22 +804,6 @@ Public Function HasTrustedLocationKey(Optional strName As String) As Boolean
         HasTrustedLocationKey = Nz(.RegRead(GetTrustedLocationRegPath(strName) & "Path")) <> vbNullString
     End With
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : InstallSettingOpenFile
-' Author    : hecon5
-' Date      : 2/05/2021
-' Purpose   : Saves the setting used on install; elimiminates need to save separate
-'           : fork.
-'---------------------------------------------------------------------------------------
-'
-Public Property Let InstallSettingOpenFile(InstallOpen As Integer)
-    SaveSetting PROJECT_NAME, "Install", "Open File", InstallOpen
-End Property
-Public Property Get InstallSettingOpenFile() As Integer
-    InstallSettingOpenFile = GetSetting(PROJECT_NAME, "Install", "Open File", CInt(False))
-End Property
 
 
 '---------------------------------------------------------------------------------------
