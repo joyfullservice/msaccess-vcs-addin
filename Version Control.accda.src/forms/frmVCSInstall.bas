@@ -1812,32 +1812,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : cmdAdvanced_Click
-' Author    : Adam Waller
-' Date      : 5/20/2023
-' Purpose   : Change to advanced install
-'---------------------------------------------------------------------------------------
-'
-Private Sub cmdAdvanced_Click()
-    ' Switch to advanced install page
-    tabInstallType = 1
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : cmdBasicInstall_Click
-' Author    : Adam Waller
-' Date      : 5/20/2023
-' Purpose   : Switch back to basic install
-'---------------------------------------------------------------------------------------
-'
-Private Sub cmdBasicInstall_Click()
-    ' Switch to basic installer page
-    tabInstallType = 0
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : cmdCancel_Click
 ' Author    : Adam Waller
 ' Date      : 2/4/2021
@@ -1858,22 +1832,6 @@ End Sub
 '
 Private Sub cmdInstall_Click()
 
-    ' Check for legacy encryption key.
-    If HasLegacyRC4Keys Then
-        If MsgBox2("IMPORTANT: Encryption Feature Removed", _
-            "Prior versions of this add-in supported a reversible ""encryption"" of certain potentially sensitive items such as file paths. " & _
-            "This feature has been removed in this version of the add-in. More information can be found on GitHub issue #193 " & _
-            "of the joyfullservice/msaccess-vcs-addin project." & vbCrLf & vbCrLf & _
-            "For security reasons, this upgrade will REMOVE all existing encryption keys used by this add-in. " & _
-            "If you have source files for any projects that use these keys, " & _
-            "and do NOT have a working copy of the built database, please build the project(s) from source BEFORE upgrading the add-in. ", _
-            "REMOVE all existing encryption keys? (Make sure you have a copy of the keys.)", vbExclamation + vbYesNo + vbDefaultButton2) <> vbYes Then
-            
-            ' Cancel the installation if the user clicked anything other than Yes.
-            MsgBox2 "Installation Canceled", "Removal of existing encryption keys is required to upgrade.", , vbInformation
-            Exit Sub
-        End If
-    End If
 
     ' Show hourglass, as there may be a brief pause before the confirmation message.
     DoCmd.Hourglass True
