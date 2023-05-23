@@ -7,8 +7,9 @@
 '           : the add-in.
 '---------------------------------------------------------------------------------------
 Option Compare Database
-Option Explicit
 Option Private Module
+Option Explicit
+
 
 ' Registry hive
 Private Enum eHive
@@ -95,7 +96,7 @@ End Function
 '           : Returns true if successful.
 '---------------------------------------------------------------------------------------
 '
-Public Function InstallVCSAddin() As Boolean
+Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, blnOpenAfterInstall As Boolean, strInstallFolder As String)
 
     Const OPEN_MODE_OPTION As String = "Default Open Mode for Databases"
 
@@ -120,12 +121,18 @@ Public Function InstallVCSAddin() As Boolean
     
     ' Save the updated settings to the registry.
     SaveInstallSettings
+
+    ' Load some path values
     strSource = CodeProject.FullName
     strDest = GetAddInFileName
     VerifyPath strDest
 
     ' We can't replace a file with itself.  :-)
-    If strSource = strDest Then Exit Function
+    If strSource = strDest Then
+        MsgBox2 "Unable to Install", "You can't install the add-in over itself.", _
+            "Please run from a different location to update.", , vbExclamation
+        Exit Sub
+    End If
 
     ' Check default database open mode.
     If Application.GetOption(OPEN_MODE_OPTION) = 1 Then
@@ -137,7 +144,7 @@ Public Function InstallVCSAddin() As Boolean
             MsgBox2 "Default Option Changed", _
                 "Please restart Microsoft Access and run the install again.", , vbInformation
         End If
-        Exit Function
+        Exit Sub
     End If
 
     ' Copy the file, overwriting any existing file.
@@ -680,7 +687,7 @@ End Function
 '           : not function correctly.
 '---------------------------------------------------------------------------------------
 '
-Public Function VerifyTrustedLocation() As Boolean
+Private Function VerifyTrustedLocation() As Boolean
 
     Dim strPath As String
     Dim strTrusted As String
@@ -1021,5 +1028,3 @@ End Property
 Public Property Get InstalledVersion() As String
     InstalledVersion = GetSetting(PROJECT_NAME, "Add-in", "Installed Version", vbNullString)
 End Property
-
-

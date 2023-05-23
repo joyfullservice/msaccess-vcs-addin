@@ -4057,11 +4057,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdUninstall_Click()
-    If UninstallVCSAddin Then
-        MsgBox2 "Success!", "Version Control System has now been uninstalled.", _
-            "We must now close Microsoft Access", vbInformation, "Version Control Add-in"
-        DoCmd.Quit
-    End If
+    UninstallVCSAddin
 End Sub
 
 

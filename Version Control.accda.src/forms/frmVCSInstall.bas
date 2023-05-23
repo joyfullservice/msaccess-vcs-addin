@@ -19,7 +19,7 @@ Begin Form
     ItemSuffix =67
     Left =-25575
     Top =1500
-    Right =-5925
+    Right =-255
     Bottom =14085
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1832,36 +1832,43 @@ End Sub
 '
 Private Sub cmdInstall_Click()
 
+    Dim strFolder As String
+    Dim strFile As String
+    Dim strMsg As String
 
-    ' Show hourglass, as there may be a brief pause before the confirmation message.
+    ' Activate the hourglass before loading installer VBA module for somoother experince.
     DoCmd.Hourglass True
-
-    ' Check for legacy installations (before updating version)
-    RunUpgrades
-
-    ' Save the trusted location and open file settings.
-    InstallSettingTrustedLocation = chkAddTrustedLocation.Value
-    InstallSettingOpenFile = chkOpenAfterInstall.Value
-    UseRibbon = chkUseRibbon.Value
-
-    ' Check trusted location
-    If chkAddTrustedLocation Then modInstall.VerifyTrustedLocation
+    DoEvents
     
-    ' Main install
-    If modInstall.InstallVCSAddin Then
-    
-        ' Show success message
-        MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
-            "The installer will now close. Please restart any open instances" & vbCrLf & _
-            "of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
-    
-        ' Relaunch from install folder to allow user to trust file.
-        If chkOpenAfterInstall Then modInstall.OpenAddinFile GetAddInFileName, CodeProject.FullName
-
-        ' Close the installer add-in file.
-        DoCmd.Quit
+    ' Validate the folder path
+    strFolder = StripSlash(Nz(txtInstallFolder))
+    If StrComp(GetInstallSettings.strInstallFolder, strFolder, vbTextCompare) <> 0 Then
+        ' Using a custom install folder
+        If Not FSO.FolderExists(strFolder) Then
+            strMsg = "Folder does not exist: " & strFolder
+        Else
+            ' Test writing a file to make sure we have write access to this folder.
+            LogUnhandledErrors
+            On Error Resume Next
+            strFile = strFolder & PathSep & "WriteTest.txt"
+            WriteFile "Test", strFile
+            CatchAny eelNoError, vbNullString
+            If ReadFile(strFile) <> "Test" & vbCrLf Then strMsg = "Unable to write to folder: " & strFolder
+        End If
     End If
     
+    ' Resume normal error handling
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    
+    ' Bail out if we have a problem with the install.
+    If strMsg <> vbNullString Then
+        DoCmd.Hourglass False
+        MsgBox2 "Unable to Install", strMsg, , vbExclamation
+        Exit Sub
+    End If
+    
+    ' Run the installer
+    modInstall.InstallVCSAddin chkAddTrustedLocation, chkUseRibbon, chkOpenAfterInstall, txtInstallFolder
     DoCmd.Hourglass False
     
 End Sub
@@ -1898,12 +1905,15 @@ Private Sub Form_Load()
     ' Display version (better performance than bound control)
     lblVersion.Caption = "Version " & GetVCSVersion()
     
-    chkAddTrustedLocation.Value = CBool(InstallSettingTrustedLocation)
-    chkOpenAfterInstall.Value = CBool(InstallSettingOpenFile)
-    With txtInstallFolder
-        .Value = modInstall.VCSInstallFolder
-        .Locked = True ' Only enable this text box if not installed.
-        .BackColor = IIf(.Locked, 15921906, 16777215)
+    With GetInstallSettings
+        chkAddTrustedLocation = .blnTrustAddInFolder
+        chkOpenAfterInstall = .blnOpenAfterInstall
+        chkUseRibbon = .blnUseRibbonAddIn
+        With txtInstallFolder
+            .Value = GetInstallSettings.strInstallFolder
+            .Locked = True ' Only enable this text box if not installed.
+            .BackColor = IIf(.Locked, 15921906, 16777215)
+        End With
     End With
     
     ' Show installed version
