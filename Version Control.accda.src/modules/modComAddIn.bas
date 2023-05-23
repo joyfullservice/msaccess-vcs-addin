@@ -32,8 +32,6 @@ Public Sub VerifyComAddIn()
     Dim blnUpdateRibbon As Boolean
     Dim blnInstall As Boolean
 
-    If Not UseRibbon Then Exit Sub
-
     ' Build path to ribbon folder
     strPath = GetAddInPath
 
@@ -104,7 +102,6 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ReloadRibbon()
-    If Not UseRibbon Then Exit Sub
     UnloadAddIn
     LoadAddIn
 End Sub
@@ -161,7 +158,8 @@ Private Sub RemoveComDll()
     If FSO.FileExists(strPath) Then
 
         ' Attempt to delete it first
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         DeleteFile strPath
         If Catch(70) Then
             ' File handle in use. Rename to temp file
@@ -182,7 +180,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetAddInPath() As String
-    GetAddInPath = VCSInstallFolder & PathSep
+    GetAddInPath = GetInstallSettings.strInstallFolder & PathSep
 End Function
 
 
@@ -242,11 +240,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub LoadAddIn()
-
     Dim addVCS As COMAddIn
-    
-    If Not UseRibbon Then Exit Sub
-    
     Set addVCS = GetCOMAddIn
     If addVCS Is Nothing Then
         ' Add-in not found. May need to be registered
@@ -316,11 +310,11 @@ End Function
 ' Purpose   : Register the add-in with the list of available add-ins for Access
 '---------------------------------------------------------------------------------------
 '
-Private Function DllRegisterServer() As Boolean
+Private Sub DllRegisterServer()
     With New WshShell
         .Exec "regsvr32 /s """ & GetAddInPath & GetComAddInFileName & """"
     End With
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -330,9 +324,9 @@ End Function
 ' Purpose   : Remove the add-in from the list
 '---------------------------------------------------------------------------------------
 '
-Private Function DllUnregisterServer() As Boolean
+Private Sub DllUnregisterServer()
     If Not DllIsRegistered Then Exit Sub
     With New WshShell
         .Exec "regsvr32 /u /s """ & GetAddInPath & GetComAddInFileName & """"
     End With
-End Function
+End Sub
