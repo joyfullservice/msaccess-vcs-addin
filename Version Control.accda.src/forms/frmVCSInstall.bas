@@ -1876,13 +1876,37 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdChangeInstallFolder_Click
-' Author    : Ahecon5
-' Date      : 2022-SEPT-26
-' Purpose   : Load Install Folder popup.
+' Author    : Adam Waller
+' Date      : 5/22/2023
+' Purpose   : Allow the user to select another location for installation.
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdChangeInstallFolder_Click()
-    modInstall.SetVCSInstallFolder
+
+    ' See if the add-in is already installed
+    If FSO.FileExists(GetAddInFileName) Then
+        MsgBox2 "Please Uninstall First", _
+            "If you want to change the installation path, please uninstall the add-in, then reinstall to the desired location.", _
+            "(You will have the option to keep your current settings during the uninstall process.)", vbExclamation
+    Else
+        ' Show a folder picker to select the desired location.
+        ' (The path will be validated before installation, just in case it is changed direclty in the text box.)
+        With Application.FileDialog(msoFileDialogFolderPicker)
+            .AllowMultiSelect = False
+            .ButtonName = "Select Folder"
+            .InitialFileName = GetInstallSettings.strInstallFolder
+            .Title = "Select " & PROJECT_NAME & " Install folder"
+            .Show
+            If .SelectedItems.Count > 0 Then
+                ' Selected a folder
+                txtInstallFolder = .SelectedItems(1)
+            Else
+                ' Canceled dialog
+                Exit Sub
+            End If
+        End With
+    End If
+
 End Sub
 
 

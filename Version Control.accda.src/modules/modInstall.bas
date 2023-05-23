@@ -590,40 +590,6 @@ Private Sub RemoveLegacyInstall()
 End Sub
 
 
-Public Sub SetVCSInstallFolder()
-    ' Present Folder picker to user to choose installation location.
-    Const msoFileDialogFilePicker As Long = 4 '3 is file picker dialog box, 4 is folder picker
-    Dim objDialog As Object
-    Dim NewFolderLocation As Variant
-
-    If MsgBox2("Warning! If you move the installation location, it is HIGHLY advised to uninstall and remove the Addin then change install location prior to reinstalling." _
-            , "Unexpected operation or file export corruption may occur." & vbNewLine & "Are you sure you want to do this AND have uninstalled first?" _
-            , "Press [CANCEL] to abort file change." & vbNewLine & _
-             "Press [OK] to confirm and continue moving install." _
-             , vbInformation + vbDefaultButton2 + vbOKCancel, "Confirm installation change") <> vbOK Then Exit Sub
-
-    NewFolderLocation = VCSInstallFolder
-    Set objDialog = Application.FileDialog(msoFileDialogFilePicker)
-    With objDialog
-        ' Configure properites of the folder selection window
-        .Title = "Select " & PROJECT_NAME & " Install folder"
-        .InitialFileName = NewFolderLocation
-        .ButtonName = "Select"
-
-        ' Display folder selection window to user
-        .Show
-
-        ' Update table if user selected a folder
-        If .SelectedItems.Count > 0 Then
-            NewFolderLocation = .SelectedItems(1)
-            ' save the return value
-            VCSInstallFolder = NewFolderLocation
-        End If
-    End With
-
-    Set objDialog = Nothing
-End Sub
-
 '---------------------------------------------------------------------------------------
 ' Procedure : GetInstallSettings
 ' Author    : Adam Waller
