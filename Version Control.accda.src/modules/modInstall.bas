@@ -298,6 +298,53 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MigrateUserFiles
+' Author    : Adam Waller
+' Date      : 5/22/2023
+' Purpose   : Migrate a file, unless a destination file exists that is different from
+'           : the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MigrateUserFiles(strFromFolder As String, strToFolder As String, colNames As Dictionary)
+
+    Dim varKey As Variant
+    Dim strFile As String
+    Dim strSource As String
+    Dim strDest As String
+    
+    ' Loop through file names
+    For Each varKey In colNames.Keys
+        strSource = varKey
+        strFile = FSO.GetFileName(strSource)
+        strDest = BuildPath2(strToFolder, strFile)
+        Select Case True
+            ' Define exceptions to skip
+            Case strFile Like PROJECT_NAME & ".*accda"  ' Add-in or lock file
+            Case strFile Like "*.dll"   ' COM dlls
+            Case strFile Like "*.vbs"   ' Worker script
+            Case Else
+                ' Migrate other files
+                If FSO.FileExists(strSource) Then
+                    If FSO.FileExists(strDest) Then
+                        ' Check hash of file content
+                        If GetFileHash(strSource) = GetFileHash(strDest) Then
+                            ' File is identical in content. Remove source file.
+                            DeleteFile strSource
+                        Else
+                            ' Leave existing file if they don't match.
+                        End If
+                    Else
+                        ' If destination file does not exist, move from source.
+                        FSO.MoveFile strSource, strDest
+                    End If
+                End If
+        End Select
+    Next varKey
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAddinFileName
 ' Author    : Adam Waller
 ' Date      : 4/15/2020
@@ -800,8 +847,10 @@ End Function
 '
 Public Function HasTrustedLocationKey(Optional strName As String) As Boolean
     With New IWshRuntimeLibrary.WshShell
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         HasTrustedLocationKey = Nz(.RegRead(GetTrustedLocationRegPath(strName) & "Path")) <> vbNullString
+        If Err Then Err.Clear
     End With
 End Function
 
