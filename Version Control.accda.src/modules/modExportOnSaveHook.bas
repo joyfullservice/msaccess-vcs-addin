@@ -95,6 +95,7 @@ Public Function GetHookFileName() As String
     GetHookFileName = Replace("MSAccessVCSHook_winXX.dll", "XX", GetOfficeBitness)
 End Function
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : VerifyHook
 ' Author    : bclothier
@@ -112,7 +113,7 @@ Public Sub VerifyHook()
     Dim blnInstall As Boolean
 
     ' Hook
-    strPath = GetAddInPath()
+    strPath = GetInstallSettings.strInstallFolder & PathSep
     strFile = FSO.BuildPath(strPath, GetHookFileName)
     strKey = "Hook x" & GetOfficeBitness()
 
@@ -148,7 +149,7 @@ Public Function ActivateHook(Optional ExportRequestDelayMilliseconds As Long = 5
     
     If ptrLibraryHandle = 0 Then
         VerifyHook
-        ptrLibraryHandle = LoadLibraryExW(StrPtr(FSO.BuildPath(GetAddInPath, GetHookFileName)), &H0, &H0)
+        ptrLibraryHandle = LoadLibraryExW(StrPtr(FSO.BuildPath(GetInstallSettings.strInstallFolder, GetHookFileName)), &H0, &H0)
         If ptrLibraryHandle Then
             Config.Size = LenB(Config)
             Set Config.App = Application
