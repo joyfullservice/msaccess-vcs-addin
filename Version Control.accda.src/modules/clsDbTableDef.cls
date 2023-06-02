@@ -196,8 +196,13 @@ Private Sub IDbComponent_Merge(strFile As String)
         ' Restore any affected relationships
         RestoreRelations dRelations
     Else
+        ' If the table is deleted, discard any staged relationships
+        ' since we can't restore them when the table does not exist.
+        
+        ' Also remove table def from index.
         VCSIndex.Remove Me, strFile
     End If
+    
 End Sub
 
 
