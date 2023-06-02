@@ -179,13 +179,108 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-    DeleteObjectIfExists acTable, GetObjectNameFromFileName(strFile)
+
+    Dim strName As String
+    Dim dRelations As Dictionary
+    
+    ' Stage any affected relationships
+    strName = GetObjectNameFromFileName(strFile)
+    Set dRelations = StageRelations(strName)
+    
+    ' Delete any existing table with this name
+    Set m_Table = Nothing
+    DeleteObjectIfExists acTable, strName
+    
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
+        ' Restore any affected relationships
+        RestoreRelations dRelations
     Else
         VCSIndex.Remove Me, strFile
     End If
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StageRelations
+' Author    : Adam Waller
+' Date      : 6/2/2023
+' Purpose   : Return a dictionary of the database relationships involving this table.
+'           : Each relation is represented by a string value of the JSON source file
+'           : content for that relation. (This way we can release the object reference
+'           : and delete the actual relation object, but still recreate it later.)
+'---------------------------------------------------------------------------------------
+'
+Private Function StageRelations(strTableName As String) As Dictionary
+    
+    Dim dbs As Database
+    Dim intCnt As Integer
+    Dim rel As Relation
+    Dim cRel As IDbComponent
+    Dim strTempFile As String
+    Dim varKey As Variant
+    
+    Set StageRelations = New Dictionary
+    
+    ' Loop through relations, looking for matching table name
+    Set dbs = CurrentDb
+    For Each rel In dbs.Relations
+        If StrComp(rel.Table, strTableName, vbTextCompare) = 0 Or _
+            StrComp(rel.ForeignTable, strTableName, vbTextCompare) = 0 Then
+            If strTempFile = vbNullString Then
+                ' Create temp file for export
+                strTempFile = GetTempFile
+                Name strTempFile As strTempFile & ".json"
+                strTempFile = strTempFile & ".json"
+            End If
+            ' Set up DB component class targeting this object
+            Set cRel = New clsDbRelation
+            Set cRel.DbObject = rel
+            cRel.Export strTempFile
+            ' Add file content to dictionary
+            StageRelations.Add rel.Name, ReadFile(strTempFile)
+        End If
+    Next rel
+        
+    ' Remove the existing relationships affecting this table
+    For Each varKey In StageRelations.Keys
+        dbs.Relations.Delete varKey
+    Next varKey
+    
+    ' Remove any temp file
+    If FSO.FileExists(strTempFile) Then DeleteFile strTempFile
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RestoreRelations
+' Author    : Adam Waller
+' Date      : 6/2/2023
+' Purpose   : Restore any staged relationships.
+'---------------------------------------------------------------------------------------
+'
+Private Function RestoreRelations(dRelations As Dictionary)
+    
+    Dim varKey As Variant
+    Dim strTempFile As String
+    
+    If dRelations.Count > 0 Then
+        strTempFile = GetTempFile
+        ' Add .json file extension
+        Name strTempFile As strTempFile & ".json"
+        strTempFile = strTempFile & ".json"
+        ' Loop through relations, importing back to database from the temp file.
+        For Each varKey In dRelations.Keys
+            WriteFile dRelations.Item(varKey), strTempFile
+            With New clsDbRelation
+                .Parent.Import strTempFile
+            End With
+        Next varKey
+        DeleteFile strTempFile
+    End If
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -898,5 +993,4 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-
 
