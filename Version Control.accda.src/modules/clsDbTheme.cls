@@ -72,7 +72,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     End If
 
     ' Get full name of theme file. (*.thmx)
-	strFile = Nz2(strAlternatePath, IDbComponent_SourceFile)
+    strFile = Nz2(strAlternatePath, IDbComponent_SourceFile)
 
     ' Save as file
     If Not rst.EOF Then
