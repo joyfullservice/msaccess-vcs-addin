@@ -630,6 +630,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     ' Verify that the source files are being merged into the correct database.
     If Not blnFullBuild Then
         strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
+        ' Resolve any relative directives (i.e. "\..\") to actual path
+        If FSO.FileExists(strPath) Then strPath = FSO.GetFile(strPath).Path
         If strPath = vbNullString Then
             MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
             GoTo CleanUp
@@ -755,7 +757,11 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
             ' (Optionally uses the git integration to determine changes.)
             dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory)
         End If
-        dCategories.Add cCategory, dCategory
+        If dCategory("Files").Count = 0 Then
+            Log.Add IIf(blnFullBuild, "No ", "No modified ") & LCase(cCategory.Category) & " source files found.", Options.ShowDebug
+        Else
+            dCategories.Add cCategory, dCategory
+        End If
         If Not blnFullBuild Then
             ' Record any conflicts for later review
             VCSIndex.CheckImportConflicts cCategory, dCategory("Files")
@@ -782,53 +788,54 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
             End If
         End If
     End With
+    
+    ' A merge may not find any changed files
+    If dCategories.Count = 0 And Not blnFullBuild Then
+        Log.Add "No changes found."
+    Else
         ' Perform a backup if we have changes to merge
         If Not blnFullBuild Then
             Log.Add "Saving backup of original database..."
             FSO.CopyFile strPath, strBackup
             Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
         End If
+        Log.Spacer
+    End If
 
     ' Loop through all categories
-    Log.Spacer
     For Each varCategory In dCategories.Keys
 
         ' Set reference to object category class
         Set cCategory = varCategory
         Set dFiles = dCategories(varCategory)("Files")
 
-        ' Only show category details when source files are found
-        If dFiles.Count = 0 Then
-            Log.Spacer Options.ShowDebug
-            Log.Add "No " & LCase(cCategory.Category) & " source files found.", Options.ShowDebug
-        Else
-            ' Show category header
-            Log.Spacer Options.ShowDebug
-            Log.PadRight IIf(blnFullBuild, "Importing ", "Merging ") & LCase(cCategory.Category) & "...", , Options.ShowDebug
-            Log.ProgMax = dFiles.Count
-            Perf.CategoryStart cCategory.Category
+        ' Show category header
+        Log.Spacer Options.ShowDebug
+        Log.PadRight IIf(blnFullBuild, "Importing ", "Merging ") & LCase(cCategory.Category) & "...", , Options.ShowDebug
+        Log.ProgMax = dFiles.Count
+        Perf.CategoryStart cCategory.Category
 
-            ' Loop through each file in this category.
-            For Each varFile In dFiles.Keys
-                ' Import/merge the file
-                Log.Increment
-                Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
-                If blnFullBuild Then
-                    cCategory.Import CStr(varFile)
-                Else
-                    cCategory.Merge CStr(varFile)
-                End If
-                CatchAny eelError, strType & " error in: " & varFile, ModuleName & ".Build", True, True
+        ' Loop through each file in this category.
+        For Each varFile In dFiles.Keys
+            ' Import/merge the file
+            Log.Increment
+            Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+            If blnFullBuild Then
+                cCategory.Import CStr(varFile)
+            Else
+                cCategory.Merge CStr(varFile)
+            End If
+            CatchAny eelError, strType & " error in: " & varFile, ModuleName & ".Build", True, True
 
-                ' Bail out if we hit a critical error.
-                If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+            ' Bail out if we hit a critical error.
+            If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
 
-            Next varFile
+        Next varFile
 
-            ' Show category wrap-up.
-            Log.Add "[" & dFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
-            Perf.CategoryEnd dFiles.Count
-        End If
+        ' Show category wrap-up.
+        Log.Add "[" & dFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
+        Perf.CategoryEnd dFiles.Count
+    
     Next varCategory
 
     ' Reopen the database so the themes are loaded

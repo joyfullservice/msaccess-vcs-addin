@@ -467,7 +467,7 @@ End Function
 '           : in source files.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
+Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
 
     Dim colAllFiles As Dictionary
     Dim varFile As Variant
@@ -476,7 +476,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
     Dim dItem As Dictionary
     Dim blnModified As Boolean
 
-    Set GetModifiedSourceFiles = New Collection
+    Set GetModifiedSourceFiles = New Dictionary
     With GetModifiedSourceFiles
         ' Make sure we have a previous commit to reference.
         If Options.UseGitIntegration And LastMergedCommit <> vbNullString Then
@@ -498,7 +498,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
                     blnModified = Not dNZ(m_dIndex, strPath) = GetLastModifiedDate(strFile)
                 End If
                 ' Add modified files to collection
-                If blnModified Then .Add strFile
+                If blnModified Then .Add strFile, vbNullString
             Next varFile
         End If
     End With
