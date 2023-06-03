@@ -115,12 +115,16 @@ End Sub
 ' Procedure : Build
 ' Author    : Adam Waller
 ' Date      : 3/30/2022
-' Purpose   : Initiate a build from source
+' Purpose   : Initiate a full build from source
 '---------------------------------------------------------------------------------------
 '
 Public Sub Build()
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-    Form_frmVCSMain.cmdBuild_Click
+    With Form_frmVCSMain
+        ' Make sure we are doing a full build.
+        If Not .chkFullBuild Then .chkFullBuild = True
+        .cmdBuild_Click
+    End With
 End Sub
 
 
@@ -132,7 +136,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeBuild()
-    MsgBox2 "Coming Soon!", "Sorry, this isn't quite available yet.", , vbInformation
+    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+    With Form_frmVCSMain
+        ' See if merge build is available
+        If .chkFullBuild.Enabled Then
+            ' Initiate the merge build
+            .chkFullBuild = False
+            .cmdBuild_Click
+        Else
+            MsgBox2 "Merge Build Not Available", _
+                "A full build must be performed before you can merge from source.", _
+                "Please perform a full build of this database first.", vbInformation
+        End If
+    End With
 End Sub
 
 
