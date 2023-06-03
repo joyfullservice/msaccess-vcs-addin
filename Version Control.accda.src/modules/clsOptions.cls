@@ -23,6 +23,7 @@ Private Const cstrBuildPathProperty As String = "VCS Build Path"
 Public ExportFolder As String
 Public ShowDebug As Boolean
 Public UseFastSave As Boolean
+Public UseMergeBuild As Boolean
 Public UseGitIntegration As Boolean
 Public GitSettings As Dictionary
 Public SavePrintVars As Boolean
@@ -39,6 +40,8 @@ Public RunBeforeExport As String
 Public RunAfterExport As String
 Public RunBeforeBuild As String
 Public RunAfterBuild As String
+Public RunBeforeMerge As String
+Public RunAfterMerge As String
 Public ShowVCSLegacy As Boolean
 Public HashAlgorithm As String
 Public UseShortHash As Boolean
@@ -72,6 +75,7 @@ Public Sub LoadDefaults()
         .ExportFolder = vbNullString
         .ShowDebug = False
         .UseFastSave = True
+        .UseMergeBuild = False
         .UseGitIntegration = False
         .SavePrintVars = True
         .SaveQuerySQL = True
@@ -594,6 +598,7 @@ Private Sub Class_Initialize()
         .Add "ExportFolder"
         .Add "ShowDebug"
         .Add "UseFastSave"
+        .Add "UseMergeBuild"
         .Add "UseGitIntegration"
         .Add "SavePrintVars"
         .Add "ExportPrintSettings"
@@ -609,6 +614,8 @@ Private Sub Class_Initialize()
         .Add "RunAfterExport"
         .Add "RunBeforeBuild"
         .Add "RunAfterBuild"
+        .Add "RunBeforeMerge"
+        .Add "RunAfterMerge"
         .Add "ShowVCSLegacy"
         .Add "HashAlgorithm"
         .Add "UseShortHash"

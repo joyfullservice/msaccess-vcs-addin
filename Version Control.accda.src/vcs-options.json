@@ -1,12 +1,13 @@
 ﻿{
   "Info": {
-    "AddinVersion": "4.0.12",
+    "AddinVersion": "4.0.13",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
     "ExportFolder": "",
     "ShowDebug": false,
     "UseFastSave": true,
+    "UseMergeBuild": false,
     "UseGitIntegration": false,
     "SavePrintVars": true,
     "ExportPrintSettings": {
@@ -50,6 +51,8 @@
     "RunAfterExport": "",
     "RunBeforeBuild": "",
     "RunAfterBuild": "",
+    "RunBeforeMerge": "",
+    "RunAfterMerge": "",
     "ShowVCSLegacy": true,
     "HashAlgorithm": "SHA256",
     "UseShortHash": true,
