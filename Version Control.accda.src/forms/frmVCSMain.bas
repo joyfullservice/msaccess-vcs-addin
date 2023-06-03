@@ -16,10 +16,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =33
-    Left =-25575
-    Top =1500
-    Right =-5475
-    Bottom =14085
+    Left =3225
+    Top =2430
+    Right =28545
+    Bottom =16815
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1628,13 +1628,13 @@ Begin Form
                     End
                 End
                 Begin CheckBox
-                    Enabled = NotDefault
                     OverlapFlags =93
                     Left =5700
                     Top =4950
                     TabIndex =8
                     Name ="chkFullBuild"
                     DefaultValue ="True"
+                    OnClick ="[Event Procedure]"
 
                     LayoutCachedLeft =5700
                     LayoutCachedTop =4950
@@ -1802,10 +1802,21 @@ Public Sub cmdBuild_Click()
     If DatabaseFileOpen Then
         If FolderHasVcsOptionsFile(Options.GetExportFolder) Then
             strMsg(0) = "Build " & CurrentVBProject.Name & " (" & CurrentProject.Name & ") from source?"
-            strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
-                "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)"
+            If chkFullBuild Then
+                strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
+                    "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)"
+            Else
+                strMsg(1) = "Click 'Yes' to merge* any changed source files into this database." & vbCrLf & _
+                    "* (A backup of this database will be created before importing any source files.)"
+            End If
             strMsg(2) = "Click 'No' to select another project, or 'Cancel' to go back to the previous screen."
-            intChoice = MsgBox2(strMsg(0), strMsg(1), strMsg(2), vbYesNoCancel + vbQuestion + vbDefaultButton3)
+            If Not chkFullBuild And Not Me.Visible Then
+                ' Skip confirmation for merge build initiated from Ribbon
+                intChoice = vbYes
+            Else
+                ' Require user confirmation for full builds, or if main form is visible.
+                intChoice = MsgBox2(strMsg(0), strMsg(1), strMsg(2), vbYesNoCancel + vbQuestion + vbDefaultButton3)
+            End If
             If intChoice = vbYes Then
                 ' Rebuild the open project
                 strFolder = Options.GetExportFolder
@@ -1907,6 +1918,32 @@ Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "B
     cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     Me.strLastLogFilePath = Log.LogFilePath
     
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : chkFullBuild_Click
+' Author    : Adam Waller
+' Date      : 6/2/2023
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Private Sub chkFullBuild_Click()
+    SetBuildCaption
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetBuildCaption
+' Author    : Adam Waller
+' Date      : 6/2/2023
+' Purpose   : Set the appropriate caption for the build/merge button.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SetBuildCaption()
+    cmdBuild.Caption = IIf(chkFullBuild, _
+        " Build from Source", _
+        " Merge from Source")
 End Sub
 
 
@@ -2048,20 +2085,33 @@ Public Sub Form_Load()
         "<br><br><strong><em>Import</em></strong> source files to rebuild this database from source."
     
     ' Set defaults based on current options.
-    chkFullBuild = True ' Not Options.UseFastSave (Till we finish merge build functionality)
+    chkFullBuild = Not Options.UseMergeBuild
     chkFullExport = Not Options.UseFastSave
     
     ' You can only export if you have a database open.
     cmdExport.Enabled = DatabaseFileOpen
     chkFullExport.Enabled = DatabaseFileOpen
     
-    ' Require full export after options change
     If DatabaseFileOpen Then
+    
+        ' Require full export after options change
         If VCSIndex.OptionsHash <> Options.GetHash Then
             chkFullExport = True
             chkFullExport.Enabled = False
         End If
+        
+        ' Merge build only available after full build.
+        ' (Attempting a merge build of the entire database may
+        '  not work correctly due to objects that depend upon
+        '  each other.)
+        If VCSIndex.FullBuildDate = 0 Then
+            chkFullBuild = True
+            chkFullBuild.Enabled = False
+        End If
     End If
+    
+    ' Set caption on build button
+    SetBuildCaption
     
     ' Turn off the timer, just in case it was left on.
     Me.TimerInterval = 0
