@@ -624,7 +624,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     ' Make sure we can find the source files
     If Not FolderHasVcsOptionsFile(strSourceFolder) Then
         MsgBox2 "Source files not found", "Required source files were not found in the following folder:", strSourceFolder, vbExclamation
-        Exit Sub
+        GoTo CleanUp
     End If
 
     ' Verify that the source files are being merged into the correct database.
@@ -632,13 +632,13 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
         strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
         If strPath = vbNullString Then
             MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
-            Exit Sub
+            GoTo CleanUp
         ElseIf StrComp(strPath, CurrentProject.FullName, vbTextCompare) <> 0 Then
             MsgBox2 "Cannot merge to a different database", _
                 "The database file name for the source files must match the currently open database.", _
                 "Current: " & CurrentProject.FullName & vbCrLf & _
                 "Source: " & strPath, vbExclamation
-            Exit Sub
+            GoTo CleanUp
         End If
     End If
 
@@ -650,7 +650,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
         strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
         If strPath = vbNullString Then
             MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
-            Exit Sub
+            GoTo CleanUp
         End If
     Else
         ' Run any pre-merge instructions
