@@ -689,10 +689,15 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
 
     ' Rename original file as a backup
     strBackup = GetBackupFileName(strPath)
-    If FSO.FileExists(strPath) Then
-        Log.Add "Saving backup of original database..."
-        Name strPath As strBackup
-        Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
+    If blnFullBuild Then
+        If FSO.FileExists(strPath) Then
+            Log.Add "Saving backup of original database..."
+            Name strPath As strBackup
+            Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
+        End If
+    Else
+        ' Backups for merge builds performed later,
+        ' but only if we have changes we are actually merging.
     End If
 
     ' Create a new database with the original name
@@ -777,6 +782,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
             End If
         End If
     End With
+        ' Perform a backup if we have changes to merge
+        If Not blnFullBuild Then
+            Log.Add "Saving backup of original database..."
+            FSO.CopyFile strPath, strBackup
+            Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
+        End If
 
     ' Loop through all categories
     Log.Spacer
