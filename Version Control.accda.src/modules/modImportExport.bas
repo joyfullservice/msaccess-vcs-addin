@@ -654,7 +654,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
         End If
     Else
         ' Run any pre-merge instructions
-        'strText = dNZ(Options.GitSettings, "RunBeforeMerge")
+        strText = dNZ(Options.GitSettings, "RunBeforeMerge")
         If strText <> vbNullString Then
             Log.Add "Running " & strText & "..."
             Perf.OperationStart "RunBeforeMerge"
@@ -848,12 +848,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
         End If
     Else
         ' Merge build
-        'If Options.RunAfterMerge <> vbNullString Then
-        '    Log.Add "Running " & Options.RunAfterMerge & "..."
-        '    Perf.OperationStart "RunAfterMerge"
-        '    RunSubInCurrentProject Options.RunAfterMerge
-        '    Perf.OperationEnd
-        'End If
+        If Options.RunAfterMerge <> vbNullString Then
+            Log.Add "Running " & Options.RunAfterMerge & "..."
+            Perf.OperationStart "RunAfterMerge"
+            RunSubInCurrentProject Options.RunAfterMerge
+            Perf.OperationEnd
+        End If
     End If
 
     ' Log any errors after build/merge
