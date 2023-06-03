@@ -162,6 +162,38 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ContainerHasObject
+' Author    : Adam Waller
+' Date      : 6/2/2023
+' Purpose   : Returns true if the dictionary container has one or more of the specified
+'           : object type within it. (This is useful when determining whether we need
+'           : to run certain post-build operations.)
+'---------------------------------------------------------------------------------------
+'
+Public Function ContainerHasObject(dContainer As Dictionary, intComponentType As eDatabaseComponentType) As Boolean
+    
+    Dim cCategory As IDbComponent
+    Dim dCategory As Dictionary
+    Dim varKey As Variant
+    
+    ' Loop through containers
+    For Each varKey In dContainer.Keys
+        If TypeOf varKey Is IDbComponent Then
+            Set cCategory = varKey
+            ' Look for matching component type
+            If cCategory.ComponentType = intComponentType Then
+                Set dCategory = dContainer(varKey)
+                If dCategory.Exists("Files") Then ContainerHasObject = (dCategory("Files").Count > 0)
+                If dCategory.Exists("Objects") Then ContainerHasObject = (dCategory("Objects").Count > 0)
+                Exit For
+            End If
+        End If
+    Next varKey
+    
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetQuickObjectCount
 ' Author    : Adam Waller
 ' Date      : 6/14/2022

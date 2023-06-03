@@ -820,19 +820,23 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
         End If
     Next varCategory
 
+    ' Reopen the database so the themes are loaded
+    If ContainerHasObject(dCategories, edbTheme) Then
+        Log.Add "Reopening database..."
+        Log.Flush
+        StageMainForm
+        CloseCurrentDatabase2
+        ShiftOpenDatabase strPath, False, Form_frmVCSMain
+        RestoreMainForm
+    End If
+
     ' Initialize forms to ensure that the colors/themes are rendered properly
     ' (This must be done after all objects are imported, since subforms/subreports
     '  may be involved, and must already exist in the database.)
-    Log.Add "Initializing forms..."
-
-    ' Reopen the database so the themes are loaded
-    StageMainForm
-    CloseCurrentDatabase2
-    ShiftOpenDatabase strPath, False, Form_frmVCSMain
-    RestoreMainForm
-
-    ' Now we can initialize the form objects
-    InitializeForms dCategories
+    If ContainerHasObject(dCategories, edbForm) Then
+        Log.Add "Initializing forms..."
+        InitializeForms dCategories
+    End If
 
     ' Run any post-build/merge instructions
     If blnFullBuild Then
