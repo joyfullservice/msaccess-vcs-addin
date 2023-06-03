@@ -856,9 +856,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
         'End If
     End If
 
-    ' Close the cached connections, if any
-    CloseCachedConnections
-
     ' Log any errors after build/merge
     CatchAny eelError, "Error running " & CallByName(Options, "RunAfter" & strType, VbGet), ModuleName & ".Build", True, True
 
@@ -868,6 +865,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     blnSuccess = True
 
 CleanUp:
+
+    ' Close the cached connections, if any
+    CloseCachedConnections
 
     ' Add performance data to log file and save file.
     Perf.EndTiming
