@@ -17,10 +17,10 @@ Begin Form
     Width =12960
     DatasheetFontHeight =11
     ItemSuffix =48
-    Left =-25575
-    Top =1500
-    Right =-5475
-    Bottom =14085
+    Left =3225
+    Top =2430
+    Right =22695
+    Bottom =16815
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -794,7 +794,7 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    HorizontalAnchor =1
+                    VerticalAnchor =1
                     BackStyle =0
 
                     CursorOnHover =1
@@ -840,7 +840,7 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    HorizontalAnchor =1
+                    VerticalAnchor =1
                     BackStyle =0
 
                     CursorOnHover =1
