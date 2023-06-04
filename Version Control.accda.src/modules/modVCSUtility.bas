@@ -13,38 +13,12 @@ Private Const KEYEVENTF_EXTENDEDKEY = &H1
 Private Const KEYEVENTF_KEYUP = &H2
 Private Const VK_SHIFT = &H10
 
-Private Declare PtrSafe Function SetFocus _
-Lib "user32" ( _
-    ByVal hwnd As LongPtr _
-) As LongPtr
-
-Private Declare PtrSafe Function SetKeyboardState _
-Lib "user32" ( _
-    lppbKeyState As Any _
-) As Long
-    
-Private Declare PtrSafe Function GetKeyboardState _
-Lib "user32" ( _
-    pbKeyState As Any _
-) As Long
-
-Private Declare PtrSafe Function GetWindowThreadProcessId _
-Lib "user32" ( _
-    ByVal hwnd As LongPtr, _
-    ByRef lpdwProcessId As LongPtr _
-) As Long
-
-Private Declare PtrSafe Function AttachThreadInput _
-Lib "user32" ( _
-    ByVal idAttach As Long, _
-    ByVal idAttachTo As Long, _
-    ByVal fAttach As Long _
-) As Long
-
-Private Declare PtrSafe Function SetForegroundWindow _
-Lib "user32" ( _
-    ByVal hwnd As LongPtr _
-) As Long
+Private Declare PtrSafe Function SetFocus Lib "user32" (ByVal hwnd As LongPtr) As LongPtr
+Private Declare PtrSafe Function SetKeyboardState Lib "user32" (lppbKeyState As Any) As Long
+Private Declare PtrSafe Function GetKeyboardState Lib "user32" (pbKeyState As Any) As Long
+Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" (ByVal hwnd As LongPtr, ByRef lpdwProcessId As LongPtr) As Long
+Private Declare PtrSafe Function AttachThreadInput Lib "user32" (ByVal idAttach As Long, ByVal idAttachTo As Long, ByVal fAttach As Long) As Long
+Private Declare PtrSafe Function SetForegroundWindow Lib "user32" (ByVal hwnd As LongPtr) As Long
 
 Private Const ModuleName = "modVCSUtility"
 
