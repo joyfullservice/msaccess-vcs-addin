@@ -839,6 +839,18 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
         Perf.CategoryEnd dFiles.Count
     
     Next varCategory
+    
+    ' Check for merge items that might affect other components
+    If Not blnFullBuild Then
+        ' Check for any object visible in the object navigation pane that might have a description property.
+        If ContainerHasAnyObject(dCategories, _
+            edbAdpFunction, edbAdpServerView, edbAdpStoredProcedure, edbAdpTable, edbAdpTrigger, _
+            edbForm, edbMacro, edbModule, edbQuery, edbReport, edbTableData, edbTableDataMacro, edbTableDef) Then
+            ' Merge any changes to the document properties (i.e. description)
+            Log.Add "Merging any changed document properties...", Options.ShowDebug
+            MergeIfChanged edbDocument
+        End If
+    End If
 
     ' Reopen the database so the themes are loaded
     If ContainerHasObject(dCategories, edbTheme) Then

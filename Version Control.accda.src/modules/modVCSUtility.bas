@@ -212,6 +212,79 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ContainerHasAnyObject
+' Author    : Adam Waller
+' Date      : 6/3/2023
+' Purpose   : Return true if ANY of the specified objects types are found.
+'---------------------------------------------------------------------------------------
+'
+Public Function ContainerHasAnyObject(dContainer As Dictionary, ParamArray intOtherTypes() As Variant) As Boolean
+
+    Dim intType As Integer
+    Dim cCategory As IDbComponent
+    Dim dCategory As Dictionary
+    Dim varKey As Variant
+    Dim blnFound As Boolean
+    
+    ' Loop through types
+    For intType = LBound(intOtherTypes) To UBound(intOtherTypes)
+        ' Loop through containers
+        For Each varKey In dContainer.Keys
+            If TypeOf varKey Is IDbComponent Then
+                Set cCategory = varKey
+                ' Look for matching component type
+                If cCategory.ComponentType = intOtherTypes(intType) Then
+                    Set dCategory = dContainer(varKey)
+                    If dCategory.Exists("Files") Then blnFound = (dCategory("Files").Count > 0)
+                    If dCategory.Exists("Objects") Then blnFound = (dCategory("Objects").Count > 0)
+                    If blnFound Then Exit For
+                End If
+            End If
+        Next varKey
+        If blnFound Then Exit For
+    Next intType
+    
+    ' Return true if any matching object was found.
+    ContainerHasAnyObject = blnFound
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeIfChanged
+' Author    : Adam Waller
+' Date      : 6/3/2023
+' Purpose   : Merge the component type if the database object seems to be different
+'           : than the source file. (For example, after merging a form, you may need
+'           : to merge document properties to get the form description.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeIfChanged(intComponentType As eDatabaseComponentType)
+    
+    Dim cComponent As IDbComponent
+    Dim dItems As Dictionary
+    Dim varKey As Variant
+    Dim cItem As IDbComponent
+    
+    ' Convert enum to component class
+    Set cComponent = GetComponentClass(intComponentType)
+
+    ' Check component items for changed database objects.
+    With cComponent
+        ' Get dictionary of modified items
+        Set dItems = .GetAllFromDB(True)
+        For Each varKey In dItems.Keys
+            Set cItem = dItems(varKey)
+            Log.Add "  " & FSO.GetFileName(cItem.SourceFile)
+            cItem.Merge cItem.SourceFile
+            If .SingleFile Then Exit For
+        Next varKey
+    End With
+    
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetQuickObjectCount
 ' Author    : Adam Waller
 ' Date      : 6/14/2022
@@ -755,6 +828,7 @@ Public Sub CheckGitFiles()
 
 End Sub
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : ShiftOpenDatabase
 ' Author    : Adam Waller
@@ -813,6 +887,3 @@ Error_Handler:
         .Raise .Number, .Source, .Description, .HelpFile, .HelpContext
     End With
 End Sub
-
-
-
