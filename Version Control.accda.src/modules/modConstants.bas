@@ -52,7 +52,6 @@ Public Enum eDatabaseComponentType
     edbReport = acReport
     edbTableDef = acTable
     edbTableDataMacro = acTableDataMacro
-    edbLinkedTable
     ' ADP specific
     edbAdpTable
     edbAdpFunction
@@ -64,7 +63,6 @@ Public Enum eDatabaseComponentType
     edbRelation
     edbDbsProperty
     edbProjectProperty
-    edbFileProperty
     edbSharedImage
     edbDocument
     edbHiddenAttribute
@@ -77,6 +75,10 @@ Public Enum eDatabaseComponentType
     edbVbeReference
     edbProject
     edbConnection
+    ' Future implementation?
+    'edbLinkedTable
+    'edbFileProperty
+    [_Last]
 End Enum
 
 ' Error levels used for logging and monitoring the status
