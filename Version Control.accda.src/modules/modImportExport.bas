@@ -795,8 +795,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
     Else
         ' Perform a backup if we have changes to merge
         If Not blnFullBuild Then
+            LogUnhandledErrors
             Log.Add "Saving backup of original database..."
             FSO.CopyFile strPath, strBackup
+            If CatchAny(eelCritical, "Unable to back up current database", ModuleName & ".Build") Then GoTo CleanUp
             Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
         End If
         Log.Spacer
