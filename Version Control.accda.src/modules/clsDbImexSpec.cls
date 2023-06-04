@@ -112,7 +112,7 @@ Private Sub IDbComponent_Import(strFile As String)
     End If
 
     ' Update index
-    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
+    VCSIndex.Update Me, eatImport, GetStringHash(GetSource, True)
 
 End Sub
 
