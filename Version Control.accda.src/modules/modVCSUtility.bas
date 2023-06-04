@@ -162,6 +162,50 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetComponentClass
+' Author    : Adam Waller
+' Date      : 6/3/2023
+' Purpose   : Return an instance of the component class from the component type.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetComponentClass(intType As eDatabaseComponentType) As IDbComponent
+    Dim cls As IDbComponent
+    Select Case intType
+        Case edbAdpFunction:        Set cls = New clsAdpFunction
+        Case edbAdpServerView:      Set cls = New clsAdpServerView
+        Case edbAdpStoredProcedure: Set cls = New clsAdpProcedure
+        Case edbAdpTable:           Set cls = New clsAdpTable
+        Case edbAdpTrigger:         Set cls = New clsAdpTrigger
+        Case edbConnection:         Set cls = New clsDbConnection
+        Case edbDbsProperty:        Set cls = New clsDbProperty
+        Case edbDocument:           Set cls = New clsDbDocument
+        Case edbForm:               Set cls = New clsDbForm
+        Case edbHiddenAttribute:    Set cls = New clsDbHiddenAttribute
+        Case edbImexSpec:           Set cls = New clsDbImexSpec
+        Case edbMacro:              Set cls = New clsDbMacro
+        Case edbModule:             Set cls = New clsDbModule
+        Case edbNavPaneGroup:       Set cls = New clsDbNavPaneGroup
+        Case edbProject:            Set cls = New clsDbProject
+        Case edbProjectProperty:    Set cls = New clsDbProjProperty
+        Case edbQuery:              Set cls = New clsDbQuery
+        Case edbRelation:           Set cls = New clsDbRelation
+        Case edbReport:             Set cls = New clsDbReport
+        Case edbSavedSpec:          Set cls = New clsDbSavedSpec
+        Case edbSharedImage:        Set cls = New clsDbSharedImage
+        Case edbTableData:          Set cls = New clsDbTableData
+        Case edbTableDataMacro:     Set cls = New clsDbTableDataMacro
+        Case edbTableDef:           Set cls = New clsDbTableDef
+        Case edbTheme:              Set cls = New clsDbTheme
+        Case edbVbeForm:            Set cls = New clsDbVbeForm
+        Case edbVbeProject:         Set cls = New clsDbVbeProject
+        Case edbVbeReference:       Set cls = New clsDbVbeReference
+        Case Else ' No match, return nothing
+    End Select
+    Set GetComponentClass = cls
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ContainerHasObject
 ' Author    : Adam Waller
 ' Date      : 6/2/2023

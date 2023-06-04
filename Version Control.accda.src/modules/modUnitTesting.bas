@@ -392,3 +392,17 @@ Public Sub TestStringFileHash()
     FSO.DeleteFile strTempFile
     
 End Sub
+
+
+'@TestMethod("GetComponentClass")
+Public Sub TestGetClassFromComponentType()
+
+    Dim intType As eDatabaseComponentType
+    
+    ' Test the entire enum range of component types
+    ' to make sure they are all assigned to a class.
+    For intType = edbTableDataMacro To eDatabaseComponentType.[_Last] - 1
+        Debug.Assert Not GetComponentClass(intType) Is Nothing
+    Next intType
+
+End Sub
