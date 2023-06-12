@@ -107,10 +107,12 @@ Class AddInRibbon
 		Ensure that the add-in project is loaded in VBE
 	*/
 	Private Function VerifyAccessAddinProject() As Boolean
+
 		Dim strAddInPath As String
 		Dim proj As Object      	' VBProject
 		Dim addInProject As Object	' VBProject
 		Dim strName As String
+		Dim strTempDbPath As String = App.Path & "Temp.accdb"
 		
 		' Get relative path to Access add-in (Should be in same folder as this dll)
 		strAddInPath = App.Path & "\Version Control.accda"
@@ -126,7 +128,15 @@ Class AddInRibbon
 		If addInProject Is Nothing Then
 			
 			' If NO file is open, and NO add-ins are loaded, we may crash Access if we attempt to load
-			' the MSAccessVCS add-in using the dummy function method below.
+			' the MSAccessVCS add-in using the dummy function method below. Instead, create a new blank
+			' database project, load the addin, then close the temporary database project.
+			If applicationObject.VBE.ActiveVBProject Is Nothing Then
+				' Create a new database project.
+				If FSO.FileExists(strTempDbPath) Then FSO.DeleteFile(strTempDbPath)
+				applicationObject.NewCurrentDatabase strTempDbPath
+			End If
+			
+			' At this point we should have a database file open, but just in case...
 			If applicationObject.VBE.ActiveVBProject Is Nothing Then
 				MsgBox "Please open a database file before using this add-in", vbInformation
 			Else
@@ -149,6 +159,10 @@ Class AddInRibbon
 				Next proj
 			End If
 		End If
+		
+		' Clean up any temporary database
+		If applicationObject.CurrentProject.FullName = strTempDbPath Then applicationObject.CloseCurrentDatabase
+		If FSO.FileExists(strTempDbPath) Then FSO.DeleteFile(strTempDbPath)
 	
 		' Returns true if the project was found
 		Return (Not addInProject Is Nothing)
