@@ -258,6 +258,22 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
     With rst
         Do While Not .EOF
 
+            ' Check for change in group name.
+            If Nz(!GroupName) <> strGroup Then
+                ' Finish recording any previous group
+                If strGroup <> vbNullString Then
+                    dGroup.Add "Objects", colObjects
+                    colGroups.Add dGroup
+                End If
+                ' Set up new group
+                Set colObjects = New Collection
+                Set dGroup = New Dictionary
+                strGroup = Nz(!GroupName)
+                dGroup.Add "Name", strGroup
+                dGroup.Add "Flags", Nz(!GroupFlags, 0)
+                dGroup.Add "Position", Nz(!GroupPosition, 0)
+            End If
+            
             ' Check for change in category name
             If Nz(!CategoryName) <> strCategory Then
                 ' Finish recording any previous category
@@ -273,22 +289,6 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                 dCategory.Add "Name", strCategory
                 dCategory.Add "Flags", Nz(!CategoryFlags, 0)
                 dCategory.Add "Position", Nz(!CategoryPosition, 0)
-            End If
-
-            ' Check for change in group name.
-            If Nz(!GroupName) <> strGroup Then
-                ' Finish recording any previous group
-                If strGroup <> vbNullString Then
-                    dGroup.Add "Objects", colObjects
-                    colGroups.Add dGroup
-                End If
-                ' Set up new group
-                Set colObjects = New Collection
-                Set dGroup = New Dictionary
-                strGroup = Nz(!GroupName)
-                dGroup.Add "Name", strGroup
-                dGroup.Add "Flags", Nz(!GroupFlags, 0)
-                dGroup.Add "Position", Nz(!GroupPosition, 0)
             End If
 
             ' Add any item listed in this group
@@ -401,7 +401,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' Only need to iterate through the groups if we need to get a count.
         If Not blnModifiedOnly Or IDbComponent_IsModified Then
 
-            ' Loop through items to build count of custom groups
+            ' Loop through dictionary to build count of custom groups
             ' (Not counting individual objects within groups)
             If m_dItems.Exists("Categories") Then
                 For Each varCategory In m_dItems("Categories")
@@ -409,8 +409,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     If dCategory.Exists("Groups") Then
                         For Each varGroup In dCategory("Groups")
                             Set cGroup = New clsDbNavPaneGroup
-                            strKey = cGroup.SourceFile & ":" & varCategory("Name") & ":" & varGroup("Name")
-                            m_Items(blnModifiedOnly).Add strKey, cGroup
+                            strKey = varCategory("Name") & ":" & varGroup("Name")
+                            If Not m_Items(blnModifiedOnly).Exists(strKey) Then
+                                m_Items(blnModifiedOnly).Add strKey, cGroup
+                            End If
                         Next varGroup
                     End If
                 Next varCategory
@@ -681,6 +683,3 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-
-
-
