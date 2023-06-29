@@ -296,19 +296,25 @@ Public Sub ReEncodeFile(strInputFile As String, strInputCharset As String, _
     With New ADODB.Stream
         .Open
         .Type = adTypeBinary
+        Perf.OperationStart "Load Stream from File"
         .LoadFromFile strInputFile
+        Perf.OperationEnd
         .Type = adTypeText
         .Charset = strInputCharset
         objOutputStream.Open
         objOutputStream.Charset = strOutputCharset
         ' Copy from one stream to the other
+        Perf.OperationStart "Copy Stream"
         .CopyTo objOutputStream
+        Perf.OperationEnd
         .Close
     End With
 
     ' Save file and log performance
     VerifyPath strOutputFile
+    Perf.OperationStart "Save Stream to File"
     objOutputStream.SaveToFile strOutputFile, intOverwriteMode
+    Perf.OperationEnd
     objOutputStream.Close
     Perf.OperationEnd
 
