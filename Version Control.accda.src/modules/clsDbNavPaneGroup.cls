@@ -294,6 +294,8 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
             ' Add any item listed in this group
             If Nz(!ObjectName) = vbNullString Then
                 ' Saved group with no items.
+            ElseIf Left(Nz(!ObjectName), 1) = "~" Then
+                ' Skip temporary placeholder after deletion.
             Else
                 Set dObject = New Dictionary
                 dObject.Add "Name", Nz(!ObjectName)
