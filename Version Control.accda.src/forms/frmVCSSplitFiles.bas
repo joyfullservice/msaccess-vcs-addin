@@ -13,13 +13,13 @@ Begin Form
     DatasheetGridlinesBehavior =3
     GridX =24
     GridY =24
-    Width =10080
+    Width =10800
     DatasheetFontHeight =11
     ItemSuffix =245
-    Left =3225
-    Top =2430
-    Right =28545
-    Bottom =15015
+    Left =-25575
+    Top =1500
+    Right =-5310
+    Bottom =14085
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -212,12 +212,12 @@ Begin Form
                     BorderWidth =5
                     OverlapFlags =85
                     Top =1080
-                    Width =10080
+                    Width =10800
                     BorderColor =15321539
                     Name ="Line10"
                     HorizontalAnchor =2
                     LayoutCachedTop =1080
-                    LayoutCachedWidth =10080
+                    LayoutCachedWidth =10800
                     LayoutCachedHeight =1080
                     BorderThemeColorIndex =-1
                 End
@@ -226,12 +226,12 @@ Begin Form
                     BackStyle =1
                     OldBorderStyle =0
                     OverlapFlags =93
-                    Width =10080
+                    Width =10800
                     Height =1020
                     BackColor =5324600
                     Name ="Box1"
                     HorizontalAnchor =2
-                    LayoutCachedWidth =10080
+                    LayoutCachedWidth =10800
                     LayoutCachedHeight =1020
                     BackThemeColorIndex =-1
                 End
@@ -256,46 +256,48 @@ Begin Form
                     EnterKeyBehavior = NotDefault
                     OverlapFlags =85
                     IMESentenceMode =3
-                    Left =540
+                    Left =720
                     Top =1800
                     Width =6120
-                    Height =4320
+                    Height =3960
+                    TabIndex =1
                     Name ="txtFileList"
                     DefaultValue ="=\"c:\\example\\original.txt|c:\\example\\copy.txt\" & Chr(13) & Chr(10) & \"c:\\"
                         "example\\original2.txt|c:\\example\\copy2.txt\""
+                    HorizontalAnchor =2
+                    VerticalAnchor =2
 
-                    LayoutCachedLeft =540
+                    LayoutCachedLeft =720
                     LayoutCachedTop =1800
-                    LayoutCachedWidth =6660
-                    LayoutCachedHeight =6120
+                    LayoutCachedWidth =6840
+                    LayoutCachedHeight =5760
                     Begin
                         Begin Label
                             OverlapFlags =85
-                            Left =840
+                            Left =720
                             Top =1440
-                            Width =1830
+                            Width =4020
                             Height =315
                             Name ="Label241"
                             Caption ="List of files to split:"
-                            LayoutCachedLeft =840
+                            LayoutCachedLeft =720
                             LayoutCachedTop =1440
-                            LayoutCachedWidth =2670
+                            LayoutCachedWidth =4740
                             LayoutCachedHeight =1755
                         End
                     End
                 End
                 Begin CommandButton
-                    TabStop = NotDefault
                     OverlapFlags =85
-                    Left =7020
+                    Left =7560
                     Top =3960
                     Width =2400
                     Height =780
-                    TabIndex =1
                     Name ="cmdSplitFiles"
                     Caption ="   Split Files"
                     OnClick ="[Event Procedure]"
                     Picture ="Export.png"
+                    HorizontalAnchor =1
                     ImageData = Begin
                         0x89504e470d0a1a0a0000000d494844520000001e0000001e08060000003b30ae ,
                         0xa2000031697a5458745261772070726f66696c65207479706520657869660000 ,
@@ -774,9 +776,9 @@ Begin Form
                         0x0000000049454e44ae426082
                     End
 
-                    LayoutCachedLeft =7020
+                    LayoutCachedLeft =7560
                     LayoutCachedTop =3960
-                    LayoutCachedWidth =9420
+                    LayoutCachedWidth =9960
                     LayoutCachedHeight =4740
                     PictureCaptionArrangement =5
                     BackColor =14262935
@@ -798,7 +800,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    Left =7020
+                    Left =7560
                     Top =1800
                     Width =2640
                     Height =1905
@@ -806,16 +808,17 @@ Begin Form
                     Name ="Label227"
                     Caption ="Use this tool to duplicate files while preserving commit history in Git.\015\012"
                         "\015\012Paste in a list of Pipe delimited paths and click the button below."
-                    LayoutCachedLeft =7020
+                    HorizontalAnchor =1
+                    LayoutCachedLeft =7560
                     LayoutCachedTop =1800
-                    LayoutCachedWidth =9660
+                    LayoutCachedWidth =10200
                     LayoutCachedHeight =3705
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
                 Begin Label
                     OverlapFlags =85
-                    Left =7020
+                    Left =7560
                     Top =5040
                     Width =2640
                     Height =1560
@@ -825,9 +828,10 @@ Begin Form
                     Caption ="Use full file paths with a pipe character (|) between the original and new file "
                         "paths.\015\012\015\012Each entry should be on a new line. The list will be valid"
                         "ated before running the operation."
-                    LayoutCachedLeft =7020
+                    HorizontalAnchor =1
+                    LayoutCachedLeft =7560
                     LayoutCachedTop =5040
-                    LayoutCachedWidth =9660
+                    LayoutCachedWidth =10200
                     LayoutCachedHeight =6600
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
@@ -835,31 +839,34 @@ Begin Form
                 Begin TextBox
                     OverlapFlags =85
                     IMESentenceMode =3
-                    Left =2460
+                    Left =720
                     Top =6300
-                    Width =4200
+                    Width =6120
                     Height =315
                     TabIndex =2
                     Name ="txtCommitMessage"
                     DefaultValue ="=\"Split files while preserving history\""
+                    HorizontalAnchor =2
+                    VerticalAnchor =1
 
-                    LayoutCachedLeft =2460
+                    LayoutCachedLeft =720
                     LayoutCachedTop =6300
-                    LayoutCachedWidth =6660
+                    LayoutCachedWidth =6840
                     LayoutCachedHeight =6615
                     Begin
                         Begin Label
                             OverlapFlags =85
-                            Left =540
-                            Top =6300
-                            Width =1785
+                            Left =720
+                            Top =5940
+                            Width =4620
                             Height =315
                             Name ="Label244"
-                            Caption ="Final Commit Msg:"
-                            LayoutCachedLeft =540
-                            LayoutCachedTop =6300
-                            LayoutCachedWidth =2325
-                            LayoutCachedHeight =6615
+                            Caption ="Final Commit Message:"
+                            VerticalAnchor =1
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =5940
+                            LayoutCachedWidth =5340
+                            LayoutCachedHeight =6255
                         End
                     End
                 End
