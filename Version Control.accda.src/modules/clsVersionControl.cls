@@ -308,7 +308,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LocalizeLibraryReferences()
-    modLibReference.LocalizeLibraryReferences
+    modLibReference.LocalizeLibraryReferences True
 End Sub
 
 
