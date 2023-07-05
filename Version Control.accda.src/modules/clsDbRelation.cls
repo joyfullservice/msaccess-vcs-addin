@@ -37,6 +37,7 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Terminate()
+    Set m_Relation = Nothing
     Set m_Dbs = Nothing
 End Sub
 
@@ -93,7 +94,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
         ' Relationships create indexes, so we need to make sure an index
         ' with this name doesn't already exist. (Also check to be sure that
-        ' we don't already have a relationship with this name.
+        ' we don't already have a relationship with this name.)
         If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
         With m_Dbs
             .TableDefs(rel.Table).Indexes.Delete rel.Name
@@ -168,7 +169,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' Maintain persistent reference to database object so we don't
         ' lose the reference to the relation object with this procedure
         ' goes out of scope. (Make sure we release this on termination)
-        Set m_Dbs = CurrentDb
+        If m_Dbs Is Nothing Then Set m_Dbs = CurrentDb
 
         Set m_Items(blnModifiedOnly) = New Dictionary
         For Each rel In m_Dbs.Relations
