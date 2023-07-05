@@ -19,12 +19,6 @@ Option Explicit
 
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
-Private m_Dbs As DAO.Database
-
-' This is used to pass a reference to the record back
-' into the class for loading the private variables
-' with the actual file information.
-Private m_Rst As DAO.Recordset
 
 ' File details used for exporting/importing
 Private m_Name As String
@@ -52,6 +46,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strFile As String
     Dim strZip As String
     Dim strFolder As String
+    Dim dbs As DAO.Database
     Dim rst As Recordset2
     Dim rstAtc As Recordset2
     Dim strSql As String
@@ -61,8 +56,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     ' Query theme file details
     strSql = "SELECT [Data] FROM MSysResources WHERE [Name]='" & m_Name & "' AND Extension='" & m_Extension & "'"
-    Set m_Dbs = CurrentDb
-    Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
+    Set dbs = CurrentDb
+    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
 
     ' If we get multiple records back we don't know which to use
     If rst.RecordCount > 1 Then
@@ -310,6 +305,7 @@ End Sub
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
 
     Dim cTheme As IDbComponent
+    Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     Dim strSql As String
     Dim strKey As String
@@ -327,9 +323,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
 
-            Set m_Dbs = CurrentDb
+            Set dbs = CurrentDb
             strSql = "SELECT * FROM MSysResources WHERE Type='thmx'"
-            Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
+            Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
             With rst
                 Do While Not .EOF
                     strKey = Nz(!Name)
@@ -658,19 +654,21 @@ End Property
 '
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
 
+    ' Recordset to handle the incoming reference
+    Dim rst As DAO.Recordset
+    
     ' IMPORTANT: These variables must be declared as the
     ' generic parent classes to avoid problems in newer
     ' releases of Microsoft Access. (See issue #341)
     Dim fld2 As DAO.Field       ' Field2
     Dim rst2 As DAO.Recordset   ' Recordset2
 
-    Set m_Rst = RHS
-
     ' Load in the object details.
+    Set rst = RHS
     m_Name = Nz(rst!Name)
     m_Extension = Nz(rst!Extension)
     '@Ignore SetAssignmentWithIncompatibleObjectType
-    Set fld2 = m_Rst!Data
+    Set fld2 = rst!Data
     Set rst2 = fld2.Value
     m_FileName = Nz(rst2.Fields("FileName"))
     m_FileData = rst2.Fields("FileData")
@@ -678,7 +676,7 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     ' Clear the object references
     Set rst2 = Nothing
     Set fld2 = Nothing
-    Set m_Rst = Nothing
+    Set rst = Nothing
 
 End Property
 
@@ -708,15 +706,3 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Class_Terminate
-' Author    : Adam Waller
-' Date      : 5/13/2020
-' Purpose   : Clear reference to database object.
-'---------------------------------------------------------------------------------------
-'
-Private Sub Class_Terminate()
-    Set m_Dbs = Nothing
-End Sub
