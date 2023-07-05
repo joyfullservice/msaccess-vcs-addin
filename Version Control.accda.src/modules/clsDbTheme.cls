@@ -667,12 +667,12 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     Set m_Rst = RHS
 
     ' Load in the object details.
-    m_Name = m_Rst!Name
-    m_Extension = m_Rst!Extension
+    m_Name = Nz(rst!Name)
+    m_Extension = Nz(rst!Extension)
     '@Ignore SetAssignmentWithIncompatibleObjectType
     Set fld2 = m_Rst!Data
     Set rst2 = fld2.Value
-    m_FileName = rst2.Fields("FileName")
+    m_FileName = Nz(rst2.Fields("FileName"))
     m_FileData = rst2.Fields("FileData")
 
     ' Clear the object references
