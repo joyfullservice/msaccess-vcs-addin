@@ -10,7 +10,7 @@ Option Private Module
 Option Explicit
 
 Private Const ModuleName = "modConnect"
-Private m_dCachedConnections As Scripting.Dictionary
+Private m_dCachedConnections As Dictionary
 
 
 '---------------------------------------------------------------------------------------
@@ -179,7 +179,7 @@ Public Function CacheConnection(strConnect As String) As Boolean
     Dim bolCached As Boolean
 
     If m_dCachedConnections Is Nothing Then
-        Set m_dCachedConnections = New Scripting.Dictionary
+        Set m_dCachedConnections = New Dictionary
     End If
 
     If m_dCachedConnections.Exists(strConnect) Then

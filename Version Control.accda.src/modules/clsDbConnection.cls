@@ -58,7 +58,7 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim dConnections As Scripting.Dictionary
+    Dim dConnections As Dictionary
     Dim varConnect As Variant
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -121,7 +121,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
     Dim tdf As DAO.TableDef
     Dim qdf As DAO.QueryDef
     Dim cConnection As clsConnectionODBC
-    Dim dConnections As Scripting.Dictionary
+    Dim dConnections As Dictionary
     
     Set cConnection = New clsConnectionODBC
     With CurrentDb
@@ -172,13 +172,13 @@ End Function
 '           : sanitized connection string.
 '---------------------------------------------------------------------------------------
 '
-Private Function AddOdbcConnectionString(dSanitizedConnections As Scripting.Dictionary, cConnection As clsConnectionODBC, strObjectName As String)
-    Dim dConnections As Scripting.Dictionary
+Private Function AddOdbcConnectionString(dSanitizedConnections As Dictionary, cConnection As clsConnectionODBC, strObjectName As String)
+    Dim dConnections As Dictionary
     
     If dSanitizedConnections.Exists(cConnection.SanitizedConnectionString) Then
         Set dConnections = dSanitizedConnections(cConnection.SanitizedConnectionString)
     Else
-        Set dConnections = New Scripting.Dictionary
+        Set dConnections = New Dictionary
         dConnections.CompareMode = TextCompare
         dSanitizedConnections.Add cConnection.SanitizedConnectionString, dConnections
     End If

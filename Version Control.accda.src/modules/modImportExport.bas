@@ -388,13 +388,13 @@ End Sub
 ' Purpose   : Export multiple objects, passing a dictionary containing AccessObject.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportMultipleObjects(objItems As Scripting.Dictionary, Optional bolForceClose As Boolean = True)
+Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose As Boolean = True)
 
     Dim frm As Form_frmVCSMain
     
-    Dim dCategories As Scripting.Dictionary
-    Dim dCategory As Scripting.Dictionary
-    Dim dObjects As Scripting.Dictionary
+    Dim dCategories As Dictionary
+    Dim dCategory As Dictionary
+    Dim dObjects As Dictionary
     Dim cDbObject As IDbComponent
     Dim objItem As Access.AccessObject
     Dim strTempFile As String

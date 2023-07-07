@@ -205,7 +205,7 @@ End Function
 Public Sub HandleExportCallback(UpperBound As Long, ObjectDataArray() As ObjectData)
     On Error GoTo ErrHandler
     
-    Dim dAccessObjects As Scripting.Dictionary
+    Dim dAccessObjects As Dictionary
     Dim oAccessObject As Access.AccessObject
     Dim tObjectData As ObjectData
     
@@ -213,7 +213,7 @@ Public Sub HandleExportCallback(UpperBound As Long, ObjectDataArray() As ObjectD
     
     Dim lngIndex As Long
     
-    Set dAccessObjects = New Scripting.Dictionary
+    Set dAccessObjects = New Dictionary
     
     For lngIndex = 0 To UpperBound
         With ObjectDataArray(lngIndex)

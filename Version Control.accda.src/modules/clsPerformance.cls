@@ -28,9 +28,9 @@ Option Explicit
 Private Type udtPerformance
     Overall As clsPerformanceItem
     CategoryName As String
-    Categories As Scripting.Dictionary
+    Categories As Dictionary
     OperationName As String
-    Operations As Scripting.Dictionary
+    Operations As Dictionary
     Frequency As Currency
     intDigitsAfterDecimal As Integer
     ' Manage a type of call stack to track nested operations.
@@ -248,7 +248,7 @@ End Function
 ' Purpose   : Add the item if it doesn't exist, then set the start time.
 '---------------------------------------------------------------------------------------
 '
-Private Sub StartTimer(dItems As Scripting.Dictionary, strName As String)
+Private Sub StartTimer(dItems As Dictionary, strName As String)
     Dim cItem As clsPerformanceItem
     If Not dItems.Exists(strName) Then
         Set cItem = New clsPerformanceItem

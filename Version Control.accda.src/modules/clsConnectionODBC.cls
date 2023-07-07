@@ -44,7 +44,7 @@ Private Type udtData
     OriginalConnectionString As String
     SanitizedConnectionString As String
     
-    KeyValues As Scripting.Dictionary
+    KeyValues As Dictionary
 End Type
 Private this As udtData
 
@@ -196,8 +196,8 @@ End Property
 '           : generic key retains only the last value.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetKeyValues() As Scripting.Dictionary
-    Set GetKeyValues = New Scripting.Dictionary
+Public Function GetKeyValues() As Dictionary
+    Set GetKeyValues = New Dictionary
     GetKeyValues.CompareMode = TextCompare
     
     Dim varKey As Variant
@@ -262,7 +262,7 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
     End With
     
     this.OriginalConnectionString = strConnect
-    Set this.KeyValues = New Scripting.Dictionary
+    Set this.KeyValues = New Dictionary
     this.KeyValues.CompareMode = TextCompare
     
     For Each objMatch In objMatches
