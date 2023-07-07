@@ -11,6 +11,12 @@ Option Explicit
 ' Note, some enums are listed here when they are directly exposed
 ' through the Options and VCS classes. (Allowing them to be used externally)
 
+' Control the interaction mode
+Public Enum eInteractionMode
+    eimNormal = 0
+    eimSilent = 1
+End Enum
+
 ' Formats used when exporting table data.
 Public Enum eTableDataExportFormat
     etdNoData = 0
@@ -114,6 +120,19 @@ Public Function WorkerCallback(strKey As String, Optional varParams As Variant)
         Worker.ReturnWorker strKey, varParams
     End If
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetInteractionMode
+' Author    : Adam Waller
+' Date      : 6/24/2023
+' Purpose   : Control the types of UI interaction. (For example, you might set the
+'           : interaction mode to silent during an automated build.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetInteractionMode(intMode As eInteractionMode)
+    modVCSUtility.InteractionMode = intMode
+End Sub
 
 
 '---------------------------------------------------------------------------------------

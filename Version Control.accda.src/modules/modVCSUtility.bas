@@ -9,6 +9,9 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+' Control the interaction mode for the add-in
+Public InteractionMode As eInteractionMode
+
 Private Const KEYEVENTF_EXTENDEDKEY = &H1
 Private Const KEYEVENTF_KEYUP = &H2
 Private Const VK_SHIFT = &H10
