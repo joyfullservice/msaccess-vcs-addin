@@ -208,7 +208,8 @@ End Function
 ' Purpose   : Alternate message box with bold prompt on first line.
 '---------------------------------------------------------------------------------------
 '
-Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional strLine2 As String, Optional intButtons As VbMsgBoxStyle = vbOKOnly, Optional strTitle As String) As VbMsgBoxResult
+Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional strLine2 As String, _
+    Optional intButtons As VbMsgBoxStyle = vbOKOnly, Optional strTitle As String, Optional intDefaultResult As VbMsgBoxResult = vbOK) As VbMsgBoxResult
 
     Dim strMsg As String
     Dim varLines(0 To 3) As String
@@ -224,11 +225,29 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     varLines(2) = Replace(strLine2, "'", "''")
     varLines(3) = Replace(strTitle, "'", "''")
 
-    If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
-    strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
-    Perf.PauseTiming
-    MsgBox2 = Eval(strMsg)
-    Perf.ResumeTiming
+    ' Check interaction mode
+    If InteractionMode = eimNormal Then
+        ' Normal user interaction with MsgBox
+        If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
+        strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
+        Perf.PauseTiming
+        MsgBox2 = Eval(strMsg)
+        Perf.ResumeTiming
+    Else
+        ' Silent mode. Don't display any message, but log it instead.
+        With New clsConcat
+            .AppendOnAdd = vbCrLf
+            .Add "[**MessageBox Not Displayed**]"
+            If Len(strTitle) Then .Add "Title: " & strTitle
+            If Len(strBold) Then .Add strBold
+            If Len(strLine1) Then .Add strLine1
+            If Len(strLine2) Then .Add strLine2
+            If intButtons <> vbOKOnly Then .Add "Buttons Flag: " & intButtons
+            Log.Add .GetStr
+        End With
+        ' Return default (unattended) result
+        MsgBox2 = intDefaultResult
+    End If
 
     ' Restore MousePointer (if needed)
     If intCursor > 0 Then Screen.MousePointer = intCursor

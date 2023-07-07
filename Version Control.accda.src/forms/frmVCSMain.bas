@@ -1816,6 +1816,7 @@ Public Sub cmdBuild_Click()
             Else
                 ' Require user confirmation for full builds, or if main form is visible.
                 intChoice = MsgBox2(strMsg(0), strMsg(1), strMsg(2), vbYesNoCancel + vbQuestion + vbDefaultButton3)
+                intChoice = MsgBox2(strMsg(0), strMsg(1), strMsg(2), vbYesNoCancel + vbQuestion + vbDefaultButton3, , vbYes)
             End If
             If intChoice = vbYes Then
                 ' Rebuild the open project
@@ -1974,6 +1975,7 @@ Private Function ConfirmCancel() As Boolean
         "You are in the midst of a running process. Are you sure you want to cancel?", _
         "Click [Yes] to cancel the process, or [No] to resume.", _
         vbYesNo + vbDefaultButton2 + vbExclamation) = vbYes
+        vbYesNo + vbDefaultButton2 + vbExclamation, , vbYes) = vbYes
 End Function
 
 
