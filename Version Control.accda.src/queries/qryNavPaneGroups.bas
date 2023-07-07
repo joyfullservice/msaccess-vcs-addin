@@ -136,26 +136,6 @@ Begin
         dbText "Name" ="CategoryID"
         dbLong "AggregateType" ="-1"
     End
-    Begin
-        dbText "Name" ="MSysNavPaneGroupToObjects.Id"
-        dbLong "AggregateType" ="-1"
-    End
-    Begin
-        dbText "Name" ="MSysNavPaneGroups.Id"
-        dbLong "AggregateType" ="-1"
-    End
-    Begin
-        dbText "Name" ="MSysNavPaneGroupCategories.Id"
-        dbLong "AggregateType" ="-1"
-    End
-    Begin
-        dbText "Name" ="MSysNavPaneGroupCategories.Position"
-        dbLong "AggregateType" ="-1"
-    End
-    Begin
-        dbText "Name" ="MSysNavPaneGroupCategories.Flags"
-        dbLong "AggregateType" ="-1"
-    End
 End
 Begin
     State =0

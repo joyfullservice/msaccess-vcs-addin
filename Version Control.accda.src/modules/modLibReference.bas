@@ -9,6 +9,7 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : LocalizeLibraryReferences
 ' Author    : Adam Waller
