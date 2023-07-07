@@ -18,8 +18,8 @@ Begin Form
     ItemSuffix =33
     Left =3225
     Top =2430
-    Right =28545
-    Bottom =16815
+    Right =13890
+    Bottom =14175
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1708,7 +1708,7 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    HorizontalAnchor =1
+                    VerticalAnchor =1
                     BackStyle =0
 
                     CursorOnHover =1
@@ -1815,7 +1815,6 @@ Public Sub cmdBuild_Click()
                 intChoice = vbYes
             Else
                 ' Require user confirmation for full builds, or if main form is visible.
-                intChoice = MsgBox2(strMsg(0), strMsg(1), strMsg(2), vbYesNoCancel + vbQuestion + vbDefaultButton3)
                 intChoice = MsgBox2(strMsg(0), strMsg(1), strMsg(2), vbYesNoCancel + vbQuestion + vbDefaultButton3, , vbYes)
             End If
             If intChoice = vbYes Then
@@ -1974,7 +1973,6 @@ Private Function ConfirmCancel() As Boolean
     ConfirmCancel = MsgBox2("Cancel Current Operation?", _
         "You are in the midst of a running process. Are you sure you want to cancel?", _
         "Click [Yes] to cancel the process, or [No] to resume.", _
-        vbYesNo + vbDefaultButton2 + vbExclamation) = vbYes
         vbYesNo + vbDefaultButton2 + vbExclamation, , vbYes) = vbYes
 End Function
 
