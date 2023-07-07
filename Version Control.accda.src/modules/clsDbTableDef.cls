@@ -560,7 +560,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
             .Attributes = SafeAttributes(dItem("Attributes"))
         End With
         dbs.TableDefs.Append tdf
-        If Catch(3011) Then
+        If Catch(3011, 3024, 3044) Then
             Log.Error eelError, "Could not link table '" & dItem("SourceTableName") & "'", _
             ModuleName(Me) & ".ImportLinkedTable"
             Log.Add "Linked table object not found in " & strFile, False
