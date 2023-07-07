@@ -16,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =241
-    Left =20761
-    Top =2250
-    Right =-29055
-    Bottom =13995
+    Left =3225
+    Top =2430
+    Right =18945
+    Bottom =14175
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -3435,6 +3435,7 @@ Private Enum eTableCol
     etcSystem = 3
     etcOther = 4
     etcLocal = 5
+    etcLinked = 6
 End Enum
 
 Private Enum eMapAction
@@ -3520,76 +3521,89 @@ Private Sub LoadTableList()
     Dim intFormat As eTableDataExportFormat
     Dim strName As String
     Dim lngColumn As eTableCol
+    Dim dbs As DAO.Database
+    Dim rstTableData As DAO.Recordset
+    Dim rstSource As DAO.Recordset
+    Dim strSql As String
+    Dim fld As DAO.Field
+    Dim lngFlags As Long
+    Dim lngType As Long
     
     ' Reset list of tables
-    CodeDb.Execute "DELETE FROM tblTableData;", dbFailOnError
-        
+    Set dbs = CodeDb
+    dbs.Execute "DELETE FROM tblTableData;", dbFailOnError
+    
+    ' Open table to load records
+    Set rstTableData = dbs.OpenRecordset("SELECT * FROM tblTableData;", dbOpenDynaset)
+    
     ' Get list of tables if we have a database file open.
     If DatabaseFileOpen Then
-        Dim strSql As String
-        Dim rsSource As DAO.Recordset
-        Dim rsTableData As DAO.Recordset
-        Dim fld As DAO.Field
-        
+
+        ' Note that Access SQL does not support bitwise "and" operator
+        ' (Also known as BAND in ADO) so we will check the bit flags in VBA instead.
         strSql = _
-            "SELECT " & _
-            "  o.Name AS TableName, " & _
-            "  IIf(o.Flags And -2147483646 = -2147483646, 1, 0) AS IsSystem, " & _
-            "  IIf(o.Flags And 1 = 1, 1, 0) AS IsHidden, " & _
-            "  IIf(o.Type = 1, 1, 0) AS IsLocal, " & _
-            "  IIf(o.Type <> 1, 1, 0) AS IsOther " & _
+            "SELECT o.Name, o.Type, o.Flags " & _
             "FROM MSysObjects AS o " & _
             "WHERE o.Type IN (1, 4, 6) " & _
             "ORDER BY o.Name;"
-        Set rsSource = CurrentDb.OpenRecordset(strSql, dbOpenSnapshot)
-        Set rsTableData = CodeDb.OpenRecordset("SELECT * FROM tblTableData;", dbOpenDynaset)
-        
-        Do Until rsSource.EOF
-            rsTableData.AddNew
-            For Each fld In rsSource.Fields
-                rsTableData.Fields(fld.Name).Value = fld.Value
-            Next
-            Select Case True
-                Case Nz(rsSource.Fields("IsSystem").Value, False)
-                    lngColumn = etcSystem
-                Case Nz(rsSource.Fields("IsLocal").Value, False)
-                    lngColumn = etcLocal
-                Case Nz(rsSource.Fields("IsOther").Value, False)
-                    lngColumn = etcOther
-                Case Else
-                    lngColumn = -1
-            End Select
-            rsTableData.Fields("TableIcon").Value = GetTableIcon(lngColumn)
-            rsTableData.Update
-            rsSource.MoveNext
-        Loop
-        
-        ' Add in the list of saved tables, adding into the sorted location
-        If Not Options.TablesToExportData Is Nothing Then
-            ' Loop through each table in the saved table list
-            For Each varKey In Options.TablesToExportData.Keys
-                strName = CStr(varKey)
-                strFormat = Options.TablesToExportData.Item(varKey)("Format")
-                intFormat = Options.GetTableExportFormat(strFormat)
-                
-                With rsTableData
-                    .FindFirst "[TableName]='" & Replace$(strName, "'", "''") & "'"
-                    If .EOF Then
-                        .AddNew
-                        .Fields("TableName").Value = strName
-                        .Fields("TableIcon").Value = GetTableIcon(etcOther)
-                        .Fields("FormatType").Value = intFormat
-                        .Fields("IsOther").Value = True
-                        .Update
-                    Else
-                        .Edit
-                        .Fields("FormatType").Value = intFormat
-                        .Update
-                    End If
-                End With
-            Next varKey
-        End If
+
+        Set rstSource = CurrentDb.OpenRecordset(strSql, dbOpenSnapshot)
+        With rstSource
+            Do While Not .EOF
+                ' Determine type of table
+                lngFlags = Nz(!Flags, 0)
+                lngType = Nz(!Type, 0)
+                If (lngFlags < 0) Or BitSet(lngFlags, 1) Then
+                    ' Don't include read-only or deeply hidden system tables.
+                    ' https://isladogs.co.uk/purpose-of-system-tables-2/index.html#TFE
+                Else
+                    rstTableData.AddNew
+                        rstTableData!TableName = Nz(!Name)
+                        rstTableData!Flags = Nz(!Flags)
+                        rstTableData!IsSystem = ((lngFlags <> 0) And (lngFlags <> 8) And (lngType = 1))
+                        rstTableData!IsHidden = BitSet(lngFlags, 8)
+                        rstTableData!IsLocal = (lngType = 1)
+                        ' Determine table icon
+                        rstTableData!TableIcon = GetTableIcon(etcLinked)    ' Default to linked table if no match.
+                        If rstTableData!IsLocal Then rstTableData!TableIcon = GetTableIcon(etcLocal)
+                        If rstTableData!IsSystem Then rstTableData!TableIcon = GetTableIcon(etcSystem)
+                    rstTableData.Update
+                End If
+                .MoveNext
+            Loop
+            .Close
+        End With
     End If
+    
+    ' Add in the list of saved tables, adding into the sorted location
+    If Not Options.TablesToExportData Is Nothing Then
+        ' Loop through each table in the saved table list
+        For Each varKey In Options.TablesToExportData.Keys
+            strName = CStr(varKey)
+            strFormat = Options.TablesToExportData.Item(varKey)("Format")
+            intFormat = Options.GetTableExportFormat(strFormat)
+            
+            With rstTableData
+                .FindFirst "[TableName]='" & Replace$(strName, "'", "''") & "'"
+                If .NoMatch Then
+                    .AddNew
+                    !TableName = strName
+                    !TableIcon = GetTableIcon(etcOther)
+                    !FormatType = intFormat
+                    !IsOther = True
+                    .Update
+                Else
+                    .Edit
+                    !FormatType = intFormat
+                    .Update
+                End If
+            End With
+        Next varKey
+    End If
+    
+    ' Close recordset after adding records
+    rstTableData.Close
+    
 End Sub
 
 
@@ -3601,25 +3615,31 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub SaveTableList()
-    Dim rsTableData As DAO.Recordset
-    Dim dTables As Scripting.Dictionary
-    Dim dTable As Scripting.Dictionary
+
+    Dim rstTableData As DAO.Recordset
+    Dim dTables As Dictionary
+    Dim dTable As Dictionary
     
     ' Save list of tables to export data
-    Set dTables = New Scripting.Dictionary
+    Set dTables = New Dictionary
     dTables.CompareMode = TextCompare
     
-    Set rsTableData = CodeDb.OpenRecordset("SELECT TableName, FormatType FROM tblTableData WHERE FormatType <> 0 ORDER BY TableName;", dbOpenForwardOnly)
-    Do Until rsTableData.EOF
-        Set dTable = New Scripting.Dictionary
-        dTable.CompareMode = TextCompare
-        dTable("Format") = Options.GetTableExportFormatName(rsTableData.Fields("FormatType").Value)
-        dTables.Add rsTableData.Fields("TableName").Value, dTable
-        
-        rsTableData.MoveNext
-    Loop
+    Set rstTableData = CodeDb.OpenRecordset( _
+        "SELECT TableName, FormatType FROM tblTableData " & _
+        "WHERE FormatType <> 0 ORDER BY TableName;", dbOpenForwardOnly)
+    With rstTableData
+        Do Until .EOF
+            Set dTable = New Dictionary
+            dTable.CompareMode = TextCompare
+            dTable("Format") = Options.GetTableExportFormatName(Nz(!FormatType, 0))
+            dTables.Add Nz(!TableName), dTable
+            .MoveNext
+        Loop
+        .Close
+    End With
     
     Set Options.TablesToExportData = dTables
+    
 End Sub
 
 
@@ -3631,33 +3651,38 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub AddUpdateTableInList(strName As String, lngFormatType As eTableDataExportFormat, blnHidden As Boolean, blnSystem As Boolean, blnOther As Boolean, blnLocal As Boolean)
-    Dim rsClone As DAO.Recordset
-    Dim rsActive As DAO.Recordset
     
-    Set rsClone = Me.sfrmTableData.Form.RecordsetClone
-    Set rsActive = Me.sfrmTableData.Form.Recordset
+    Dim rstClone As DAO.Recordset
+    Dim rstActive As DAO.Recordset
     
-    With rsActive
-        rsClone.FindFirst "TableName='" & Replace$(strName, "'", "''") & "'"
+    Set rstClone = Me.sfrmTableData.Form.RecordsetClone
+    Set rstActive = Me.sfrmTableData.Form.Recordset
     
-        If rsClone.NoMatch Then
+    With rstActive
+    
+        ' Look for matching table name
+        rstClone.FindFirst "TableName='" & Replace$(strName, "'", "''") & "'"
+        If rstClone.NoMatch Then
+            ' Add new table to this list
             Me.sfrmTableData.Form.AllowAdditions = True
             .AddNew
-            .Fields("TableName").Value = strName
-            .Fields("TableIcon").Value = GetTableIcon(etcOther)
+            !TableName = strName
+            !TableIcon = GetTableIcon(etcOther)
         Else
-            .Bookmark = rsClone.Bookmark
+            .Bookmark = rstClone.Bookmark
             .Edit
         End If
         
-        .Fields("FormatType").Value = lngFormatType
-        .Fields("IsHidden").Value = blnHidden
-        .Fields("IsSystem").Value = blnSystem
-        .Fields("IsOther").Value = blnOther
-        .Fields("IsLocal").Value = blnLocal
+        ' Update remaining fields
+        !FormatType = lngFormatType
+        !IsHidden = blnHidden
+        !IsSystem = blnSystem
+        !IsOther = blnOther
+        !IsLocal = blnLocal
         .Update
         Me.sfrmTableData.Form.AllowAdditions = False
     End With
+    
 End Sub
 
 
@@ -3711,9 +3736,11 @@ Private Sub RefreshTableDisplay()
                 
     Me.sfrmTableData.Form.RecordSource = strSql
     
-    Me.lblTableShowHidden.Caption = GetCaptionWithCount("Show Hidden", "SELECT COUNT(d.TableName) FROM tblTableData AS d WHERE d.IsHidden <> 0 AND d.FormatType <> 0;")
-    Me.lblTableShowSystem.Caption = GetCaptionWithCount("Show System", "SELECT COUNT(d.TableName) FROM tblTableData AS d WHERE d.IsSystem <> 0 AND d.FormatType <> 0;")
-    Me.lblTableShowOther.Caption = GetCaptionWithCount("Show Other", "SELECT COUNT(d.TableName) FROM tblTableData AS d WHERE d.IsOther <> 0 AND d.FormatType <> 0;")
+    ' Update captions with counts
+    Me.lblTableShowHidden.Caption = GetCaptionWithCount("Show Hidden", "d.IsHidden = True AND d.IsSystem = " & chkTableShowSystem)
+    Me.lblTableShowSystem.Caption = GetCaptionWithCount("Show System", "d.IsSystem = True AND d.IsHidden = " & chkTableShowHidden)
+    Me.lblTableShowOther.Caption = GetCaptionWithCount("Show Other  ", "d.IsOther  = True")
+    
 End Sub
 
 
@@ -3724,23 +3751,31 @@ End Sub
 ' Purpose   : Provides caption with a count appended if non-zero.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetCaptionWithCount(TemplateCaption As String, CountSQL As String) As String
+Private Function GetCaptionWithCount(TemplateCaption As String, CountFilter As String) As String
     Dim rs As DAO.Recordset
-    Set rs = CodeDb.OpenRecordset(CountSQL, dbOpenSnapshot)
+    Set rs = CodeDb.OpenRecordset( _
+        "SELECT COUNT(d.TableName) FROM tblTableData AS d WHERE " & CountFilter, dbOpenSnapshot)
     If rs.EOF = False Then
         If Nz(rs.Fields(0).Value, 0) Then
             GetCaptionWithCount = TemplateCaption & " (" & rs.Fields(0).Value & ")"
             Exit Function
         End If
     End If
-    
     GetCaptionWithCount = TemplateCaption
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : cmdOpenInstallFolder_Click
+' Author    : Adam Waller
+' Date      : 7/6/2023
+' Purpose   : Open the installation folder
+'---------------------------------------------------------------------------------------
+'
 Private Sub cmdOpenInstallFolder_Click()
     Application.FollowHyperlink modInstall.GetInstallSettings.strInstallFolder
 End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdRestoreDefaults_Click
@@ -3883,7 +3918,7 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
     Dim pge As Access.Page
     Dim ctl As Access.Control
     Dim strKey As String
-    Dim dSettings As Scripting.Dictionary
+    Dim dSettings As Dictionary
     
     ' Loop through each page
     For Each pge In tabOptions.Pages
@@ -4024,6 +4059,7 @@ Private Sub txtExportFolder_BeforeUpdate(Cancel As Integer)
     
 End Sub
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTableIcon
 ' Author    : Adam Waller & Indigo744
@@ -4049,7 +4085,7 @@ Private Function GetTableIcon(ByRef lngColumn As eTableCol) As String
             ' http://www.fileformat.info/info/unicode/char/21aa/index.htm
             GetTableIcon = ChrW$(8618)
         Case Else
-            ' Everything else are linked table
+            ' Anything else would be a linked table
             ' Uses symbol EARTH GLOBE AMERICAS
             ' https://www.fileformat.info/info/unicode/char/1f30e/index.htm
             GetTableIcon = ChrW$(55356) & ChrW$(57102)

@@ -778,6 +778,18 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : BitSet
+' Author    : Adam Waller
+' Date      : 5/19/2020
+' Purpose   : Returns true if the flag is set.
+'---------------------------------------------------------------------------------------
+'
+Public Function BitSet(lngFlags As Long, lngValue As Long) As Boolean
+    BitSet = CBool((lngFlags And lngValue) = lngValue)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Repeat
 ' Author    : Adam Waller
 ' Date      : 4/29/2021
