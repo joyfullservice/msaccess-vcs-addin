@@ -153,6 +153,80 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : BuildAs
+' Author    : Adam Waller
+' Date      : 7/8/2023
+' Purpose   : Build the source files to a new file name or location.
+'           : If source files are identified for the currently open database, it will
+'           : build from those files. Otherwise it will ask the use to select a folder
+'           : with source files.
+'---------------------------------------------------------------------------------------
+'
+Public Sub BuildAs()
+    
+    Dim strNewDbPath As String
+    Dim strSourceFolder As String
+
+    ' See if we can find source files for the currently open database.
+    If DatabaseFileOpen Then
+        If FolderHasVcsOptionsFile(Options.GetExportFolder) Then
+            ' Get the source folder location.
+            strSourceFolder = Options.GetExportFolder
+        End If
+    End If
+    
+    ' If we aren't doing the current database, then prompt user to find a folder
+    ' with source files to use for the build.
+    If strSourceFolder = vbNullString Then
+    
+        ' Show a folder picker to select the file with source code.
+        With Application.FileDialog(msoFileDialogFolderPicker)
+            .AllowMultiSelect = False
+            .ButtonName = "Select Source Files Folder"
+            .Title = "Select Source Folder"
+            .Show
+            If .SelectedItems.Count > 0 Then
+                ' Selected a folder
+                If FolderHasVcsOptionsFile(.SelectedItems(1)) Then
+                    ' Has source files
+                    strSourceFolder = .SelectedItems(1) & PathSep
+                Else
+                    MsgBox2 "Source files not found", "Required source files were not found in this folder.", _
+                        "You selected: " & .SelectedItems(1), vbExclamation
+                    Exit Sub
+                End If
+            Else
+                ' Canceled dialog
+                Exit Sub
+            End If
+        End With
+    End If
+
+    ' At this point, we should have identified the source files folder.
+    ' Now, we need to get the desired new database file name.
+    With Application.FileDialog(msoFileDialogSaveAs)
+        .AllowMultiSelect = False
+        .ButtonName = "Build Here"
+        .Title = "Build New Database File"
+        If DatabaseFileOpen Then
+            .InitialFileName = CurrentProject.FullName
+        Else
+            .InitialFileName = GetOriginalDbFullPathFromSource(strSourceFolder)
+        End If
+        .Show
+        ' Return path to new file
+        If .SelectedItems.Count > 0 Then strNewDbPath = .SelectedItems(1)
+    End With
+
+    ' Proceed with build if we have the new path.
+    If Len(strNewDbPath) Then
+        modImportExport.Build strSourceFolder, True, , strNewDbPath
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : MergeAllSource
 ' Author    : Adam Waller
 ' Date      : 5/16/2023

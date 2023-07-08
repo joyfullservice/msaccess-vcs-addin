@@ -584,7 +584,8 @@ End Sub
 ' Purpose   : Build the project from source files.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional intFilter As eContainerFilter = ecfAllObjects)
+Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
+    Optional intFilter As eContainerFilter = ecfAllObjects, Optional strAlternatePath As String)
 
     Dim strPath As String
     Dim strBackup As String
@@ -646,12 +647,15 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, Optional in
 
     Set Options = Nothing
     Options.LoadOptionsFromFile StripSlash(strSourceFolder) & PathSep & "vcs-options.json"
+    ' Override the export folder when exporting to an alternate path.
+    If Len(strAlternatePath) Then Options.ExportFolder = strSourceFolder
 
     ' Build original file name for database
     If blnFullBuild Then
-        strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
+        ' Use alternate path if provided, otherwise extract the original database path from the source files.
+        strPath = Nz2(strAlternatePath, GetOriginalDbFullPathFromSource(strSourceFolder))
         If strPath = vbNullString Then
-            MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
+            MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be parsed:", strSourceFolder, vbExclamation
             GoTo CleanUp
         End If
     Else
@@ -926,14 +930,16 @@ CleanUp:
         DoEvents
     End If
 
-    ' Save index file (After build complete)
-    If blnFullBuild Then
-        ' NOTE: Add a couple seconds since some items may still be in the process of saving.
-        VCSIndex.FullBuildDate = DateAdd("s", 2, Now)
-    Else
-        VCSIndex.MergeBuildDate = DateAdd("s", 2, Now)
+    ' Save index file after build is complete, or discard index for "Build As..."
+    If strAlternatePath = vbNullString Then
+        If blnFullBuild Then
+            ' NOTE: Add a couple seconds since some items may still be in the process of saving.
+            VCSIndex.FullBuildDate = DateAdd("s", 2, Now)
+        Else
+            VCSIndex.MergeBuildDate = DateAdd("s", 2, Now)
+        End If
+        VCSIndex.Save strSourceFolder
     End If
-    VCSIndex.Save strSourceFolder
     Set VCSIndex = Nothing
 
     ' Show MessageBox if not using GUI for build.
