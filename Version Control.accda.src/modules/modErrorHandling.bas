@@ -10,6 +10,12 @@ Option Private Module
 Option Explicit
 
 
+Private Type udtThis
+    blnInError As Boolean   ' Monitor error state
+End Type
+Private this As udtThis
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : DebugMode
 ' Author    : Adam Waller
@@ -39,11 +45,10 @@ End Function
 '
 Public Sub LogUnhandledErrors()
 
-    Static blnInError As Boolean
     Dim blnBreak As Boolean
 
     ' Check for any unhandled errors
-    If (Err.Number <> 0) And Not blnInError Then
+    If (Err.Number <> 0) And Not this.blnInError Then
 
         ' Don't reference the property this till we have loaded the options.
         If OptionsLoaded Then blnBreak = Options.BreakOnError
@@ -78,11 +83,11 @@ Public Sub LogUnhandledErrors()
             ' Log otherwise unhandled error
             If Not Log(False) Is Nothing Then
                 ' Set flag so we don't create a loop while logging the error
-                blnInError = True
+                this.blnInError = True
                 ' We don't know the procedure that it originated from, but we should at least
                 ' log that the error occurred. A review of the log file may help identify the source.
                 Log.Error eelError, "Unhandled error, likely before `On Error` directive", "Unknown"
-                blnInError = False
+                this.blnInError = False
             End If
         End If
     End If
@@ -120,7 +125,11 @@ End Function
 Public Function CatchAny(eLevel As eErrorLevel, strDescription As String, Optional strSource As String, _
     Optional blnLogError As Boolean = True, Optional blnClearError As Boolean = True) As Boolean
     If Err Then
-        If blnLogError Then Log.Error eLevel, strDescription, strSource
+        If blnLogError Then
+            this.blnInError = True
+            Log.Error eLevel, strDescription, strSource
+            this.blnInError = False
+        End If
         If blnClearError Then Err.Clear
         CatchAny = True
     End If
