@@ -523,10 +523,10 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Same_Version)
     If Not UpdateAddInFile Then Exit Sub
 
     ' Use the newly installed add-in to Export the project to version control.
-    VCS.Export
+    modAPI.HandleRibbonCommand "btnExport"
 
     ' Finish with success message if the latest version was installed.
-    If blnSuccess Then Debug.Print "Version " & AppVersion & " installed."
+    Debug.Print "Version " & AppVersion & " installed."
 
 End Sub
 
