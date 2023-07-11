@@ -165,6 +165,8 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                     
                 ' Code section behind form or report object
                 Case "CodeBehindForm"
+                    ' Apply sanitize rules to VBA code
+                    SanitizeCodeLines lngLine, varLines
                     ' Keep everything from this point on
                     Exit Do
 
@@ -318,6 +320,35 @@ Private Function SkipLine(lngLine As Long, Optional intMinSanitizeLevel As eSani
         m_SkipLines(m_lngSkipIndex) = lngLine
         m_lngSkipIndex = m_lngSkipIndex + 1
     End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SanitizeCodeLines
+' Author    : Adam Waller
+' Date      : 7/11/2023
+' Purpose   : Perform any sanitizing of code lines.
+'---------------------------------------------------------------------------------------
+'
+Private Function SanitizeCodeLines(lngLineStart As Long, ByRef varLines As Variant)
+
+    Dim lngLine As Long
+    
+    Perf.OperationStart "Sanitize Code Lines"
+    For lngLine = lngLineStart To UBound(varLines)
+        ' Check for lines that include only space padding
+        ' added by the IDE automatic indenting. (The padding is removed if you
+        ' comment out a block, then uncomment the same block, causing unwanted
+        ' noise in version control.)
+        If Len(varLines(lngLine)) > 0 Then
+            If Trim(varLines(lngLine)) = vbNullString Then
+                ' Remove the space padding
+                varLines(lngLine) = vbNullString
+            End If
+        End If
+    Next lngLine
+    Perf.OperationEnd
+    
 End Function
 
 
