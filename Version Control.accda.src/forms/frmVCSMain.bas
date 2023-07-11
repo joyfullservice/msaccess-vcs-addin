@@ -1786,10 +1786,10 @@ Public Sub cmdBuild_Click()
     Dim strFolder As String
     Dim strMsg(0 To 2) As String
     Dim intChoice As VbMsgBoxResult
-    
+
     DoCmd.Hourglass True
     DoEvents
-    
+
     ' Make sure we use the add-in to build the add-in.
     If CodeProject.FullName = CurrentProject.FullName Then
         MsgBox2 "Build must be run from Add-In", "Instead of opening this form to build the add-in," & vbCrLf & _
@@ -1797,7 +1797,7 @@ Public Sub cmdBuild_Click()
         DoCmd.Hourglass False
         Exit Sub
     End If
-    
+
     ' Close the current database if it is currently open.
     If DatabaseFileOpen Then
         If FolderHasVcsOptionsFile(Options.GetExportFolder) Then
@@ -1827,11 +1827,11 @@ Public Sub cmdBuild_Click()
             End If
         End If
     End If
-    
+
     ' If we aren't doing the current database, then prompt user to find a folder
     ' with source files to use for the build.
     If strFolder = vbNullString Then
-    
+
         ' Show a folder picker to select the file with source code.
         DoCmd.Hourglass False
         With Application.FileDialog(msoFileDialogFolderPicker)
@@ -1857,12 +1857,12 @@ Public Sub cmdBuild_Click()
             End If
         End With
     End If
-    
+
     ' Build project using the selected source folder
     ' (Use a timer so we can release the reference to this form before beginning the
     '  build process, just in case we need to import a form with the same name.)
     If strFolder <> vbNullString Then SetTimer "Build", strFolder, chkFullBuild
-    
+
 End Sub
 
 
@@ -1876,7 +1876,7 @@ End Sub
 Public Sub StartBuild(blnFullBuild As Boolean)
 
     Dim strType As String
-    
+
     cmdClose.SetFocus
     HideActionButtons
     DoEvents
@@ -1887,12 +1887,12 @@ Public Sub StartBuild(blnFullBuild As Boolean)
     End With
     Log.SetConsole Me.txtLog, GetProgressBar
     Me.Visible = True
-    
+
     ' Show the status
     strType = IIf(blnFullBuild, "Building", "Merging")
     SetStatusText "Running...", strType & " From Source", _
         "A summary of the build progress can be seen on this screen, and additional details are included in the log file."
-    
+
 End Sub
 
 
@@ -1906,10 +1906,10 @@ End Sub
 Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "Build")
 
     Dim strType As String
-    
+
     ' Turn on scroll bars in case the user wants to scroll back through the log.
     txtLog.ScrollBars = 2
-    
+
     ' Display final UI messages.
     Log.Flush
     strType = IIf(blnFullBuild, "Build", "Merge")
@@ -1917,7 +1917,7 @@ Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "B
         "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
     cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     Me.strLastLogFilePath = Log.LogFilePath
-    
+
 End Sub
 
 
@@ -1985,7 +1985,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub cmdExport_Click()
-    
+
     cmdClose.SetFocus
     HideActionButtons
     DoEvents
@@ -1995,11 +1995,11 @@ Public Sub cmdExport_Click()
         .SetFocus
     End With
     Log.SetConsole Me.txtLog, GetProgressBar
-    
+
     ' Show the status
     SetStatusText "Running...", "Exporting source code", _
         "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
-    
+
     ' See if we are exporting a single object, or everything.
     If Me.objSingleObject Is Nothing Then
         ' Export the source code using the specified filter.
@@ -2007,11 +2007,11 @@ Public Sub cmdExport_Click()
     Else
         modImportExport.ExportSingleObject Me.objSingleObject, Me
     End If
-    
+
     ' Turn on scroll bars in case the user wants to scroll back through the log.
     txtLog.ScrollBars = 2
     Log.Flush
-    
+
     ' Don't attempt to access controls if we are in the process of closing the form.
     If FormLoaded(Me) Then
         SetStatusText "Finished", "Export Complete", _
@@ -2020,7 +2020,7 @@ Public Sub cmdExport_Click()
         Me.strLastLogFilePath = Me.strLastLogFilePath
         DoEvents
     End If
-    
+
 End Sub
 
 
@@ -2079,27 +2079,27 @@ Public Sub Form_Load()
 
     ' Display version (better performance than bound control)
     lblVersion.Caption = "Version " & GetVCSVersion()
-    
+
     SetStatusText "Choose Action", "What would you like to do?", _
         "<strong><em>Export</em></strong> source to generate source files from the current database." & _
         "<br><br><strong><em>Import</em></strong> source files to rebuild this database from source."
-    
+
     ' Set defaults based on current options.
     chkFullBuild = Not Options.UseMergeBuild
     chkFullExport = Not Options.UseFastSave
-    
+
     ' You can only export if you have a database open.
     cmdExport.Enabled = DatabaseFileOpen
     chkFullExport.Enabled = DatabaseFileOpen
-    
+
     If DatabaseFileOpen Then
-    
+
         ' Require full export after options change
         If VCSIndex.OptionsHash <> Options.GetHash Then
             chkFullExport = True
             chkFullExport.Enabled = False
         End If
-        
+
         ' Merge build only available after full build.
         ' (Attempting a merge build of the entire database may
         '  not work correctly due to objects that depend upon
@@ -2109,13 +2109,13 @@ Public Sub Form_Load()
             chkFullBuild.Enabled = False
         End If
     End If
-    
+
     ' Set caption on build button
     SetBuildCaption
-    
+
     ' Turn off the timer, just in case it was left on.
     Me.TimerInterval = 0
-    
+
 End Sub
 
 
@@ -2172,18 +2172,18 @@ End Sub
 Public Function GetProgressBar() As clsLblProg
 
     Dim cProg As clsLblProg
-    
+
     ' Create a new progress bar class, and initialize with form controls
     Set cProg = New clsLblProg
     cProg.Initialize lblProgBack, lblProgFront, lblProgCaption
     cProg.SetRepaintInterval 0.5
-    
+
     ' Move caption up slightly for better alignment on this very small progress bar
     lblProgCaption.Top = lblProgBack.Top + 1
-    
+
     ' Return reference to caller
     Set GetProgressBar = cProg
-    
+
 End Function
 
 
@@ -2197,11 +2197,11 @@ End Function
 Private Sub Form_Unload(Cancel As Integer)
 
     Static intAttempt As Integer
-    
+
     ' Allow the form to close on the third attempt, just in case the log
     ' is stuck in active status for some reason.
     If intAttempt > 2 Then Exit Sub
-    
+
     ' Check to see if we have an active job running.
     If Log.Active Then
         If ConfirmCancel Then Log.Error eelCritical, "Canceled Operation", Me.Name & ".Form_Unload"
@@ -2209,10 +2209,10 @@ Private Sub Form_Unload(Cancel As Integer)
         Cancel = True
         intAttempt = intAttempt + 1
     End If
-    
+
     ' Release the log console if we are closing the form
     If Not Cancel Then Log.ReleaseConsole
-    
+
 End Sub
 
 

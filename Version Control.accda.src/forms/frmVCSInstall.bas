@@ -1839,7 +1839,7 @@ Private Sub cmdInstall_Click()
     ' Activate the hourglass before loading installer VBA module for somoother experince.
     DoCmd.Hourglass True
     DoEvents
-    
+
     ' Validate the folder path
     strFolder = StripSlash(Nz(txtInstallFolder))
     If StrComp(GetInstallSettings.strInstallFolder, strFolder, vbTextCompare) <> 0 Then
@@ -1856,21 +1856,21 @@ Private Sub cmdInstall_Click()
             If ReadFile(strFile) <> "Test" & vbCrLf Then strMsg = "Unable to write to folder: " & strFolder
         End If
     End If
-    
+
     ' Resume normal error handling
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Bail out if we have a problem with the install.
     If strMsg <> vbNullString Then
         DoCmd.Hourglass False
         MsgBox2 "Unable to Install", strMsg, , vbExclamation
         Exit Sub
     End If
-    
+
     ' Run the installer
     modInstall.InstallVCSAddin chkAddTrustedLocation, chkUseRibbon, chkOpenAfterInstall, txtInstallFolder
     DoCmd.Hourglass False
-    
+
 End Sub
 
 
@@ -1919,16 +1919,16 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Form_Load()
-    
+
     Const STYLE_NO_TABS As Integer = 2
-    
+
     ' Change install type tab control to no tabs and no border
     tabInstallType.Style = STYLE_NO_TABS
     tabInstallType.BorderStyle = 0
-    
+
     ' Display version (better performance than bound control)
     lblVersion.Caption = "Version " & GetVCSVersion()
-    
+
     With GetInstallSettings
         chkAddTrustedLocation = .blnTrustAddInFolder
         chkOpenAfterInstall = .blnOpenAfterInstall
@@ -1939,12 +1939,12 @@ Private Sub Form_Load()
             .BackColor = IIf(.Locked, 15921906, 16777215)
         End With
     End With
-    
+
     ' Show installed version
     If InstalledVersion = vbNullString Then
         lblInstalled.Caption = "(Add-in not currently installed)"
     Else
         lblInstalled.Caption = "Version " & InstalledVersion & " currently installed."
     End If
-    
+
 End Sub

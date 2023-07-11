@@ -162,7 +162,7 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                     Else
                         BeginBlock
                     End If
-                    
+
                 ' Code section behind form or report object
                 Case "CodeBehindForm"
                     ' Apply sanitize rules to VBA code
@@ -234,7 +234,7 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
         "${BlockCount}", m_colBlocks.Count), _
         "${File}", strPath), ModuleName & ".SanitizeFile"
     End If
-    
+
 Build_Output:
     ' Build the final output
     strContent = BuildOutput(varLines)
@@ -568,20 +568,20 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
 
     Static objXml As MSXML2.DOMDocument60
     Dim objNode As MSXML2.IXMLDOMNode
-    
+
     If objXml Is Nothing Then
         Set objXml = New MSXML2.DOMDocument60
     End If
-    
+
     objXml.LoadXML strFile
-    
+
     ' Determine if it's a table data with schema
     For Each objNode In objXml.SelectNodes("/root/dataroot")
         ' Remove the generated timestamp attribute to reduce noise
         '   <dataroot xmlns:od="urn:schemas-microsoft-com:officedata" generated="2020-04-27T10:28:32">
         '   <dataroot generated="2021-04-29T17:27:33" xmlns:od="urn:schemas-microsoft-com:officedata">
         objNode.Attributes.removeNamedItem "generated"
-        
+
         ' Determine whether the schema is required for import. If the schema contains elements:
         '   <xsd:element od:expression ...>
         '   <xsd:element od:jetType="complex" ...>
@@ -591,12 +591,12 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
             objXml.replaceChild objXml.SelectSingleNode("/root/dataroot"), objXml.SelectSingleNode("/root")
         End If
     Next
-    
+
     ' Remove generated timestamp from tables exported without schema (such as linked tables)
     For Each objNode In objXml.SelectNodes("/dataroot")
         objNode.Attributes.removeNamedItem "generated"
     Next
-    
+
     ' Remove all nodes that are meaningless noise:
     '   <od:tableProperty name="NameMap" ...>
     '   <od:tableProperty name="GUID" ...>
@@ -604,7 +604,7 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
     For Each objNode In objXml.SelectNodes("//*[(namespace-uri()='urn:schemas-microsoft-com:officedata' and local-name()='tableProperty' and (@name='NameMap' or @name='GUID')) or (namespace-uri()='urn:schemas-microsoft-com:officedata' and local-name()='fieldProperty' and @name='GUID')]")
         objNode.ParentNode.RemoveChild objNode
     Next
-    
+
     If Options.StripPublishOption Then
         ' Remove all web publish options:
         '   <od:tableProperty name="PublishToWeb" ...>
@@ -612,12 +612,12 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
             objNode.ParentNode.RemoveChild objNode
         Next
     End If
-    
+
     Perf.OperationEnd
 
     ' Write out sanitized XML file
     WriteFile FormatXML(objXml), strPath
-    
+
     ' Return hash, if requested
     If blnReturnHash Then SanitizeXML = GetStringHash(cData.GetStr, True)
 
@@ -728,10 +728,10 @@ Private Function FormatXML( _
     Const strIndentXslt As String = "<xsl:stylesheet xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" version=""1.0""><xsl:output method=""xml""/><xsl:template match=""@*""><xsl:copy/></xsl:template><xsl:template match=""text()""><xsl:value-of select=""normalize-space(.)""/></xsl:template><xsl:template match=""*""><xsl:param name=""indent"" select=""''""/><xsl:text>&#xA;</xsl:text><xsl:value-of select=""$indent""/><xsl:copy><xsl:apply-templates select=""@*|*|text()""><xsl:with-param name=""indent"" select=""concat($indent, '  ')""/></xsl:apply-templates></xsl:copy><xsl:if test=""count(../*)&gt;0 and ../*[last()]=. and not(following-sibling::*)""><xsl:text>&#xA;</xsl:text><xsl:value-of select=""substring($indent,3)""/></xsl:if></xsl:template></xsl:stylesheet>"
     ' This constant has the `omit-xml-declaration="yes"` added to remove XML declarations.
     Const strIndentXsltNoDeclarations As String = "<xsl:stylesheet xmlns:xsl=""http://www.w3.org/1999/XSL/Transform"" version=""1.0""><xsl:output method=""xml"" omit-xml-declaration=""yes""/><xsl:template match=""@*""><xsl:copy/></xsl:template><xsl:template match=""text()""><xsl:value-of select=""normalize-space(.)""/></xsl:template><xsl:template match=""*""><xsl:param name=""indent"" select=""''""/><xsl:text>&#xA;</xsl:text><xsl:value-of select=""$indent""/><xsl:copy><xsl:apply-templates select=""@*|*|text()""><xsl:with-param name=""indent"" select=""concat($indent, '  ')""/></xsl:apply-templates></xsl:copy><xsl:if test=""count(../*)&gt;0 and ../*[last()]=. and not(following-sibling::*)""><xsl:text>&#xA;</xsl:text><xsl:value-of select=""substring($indent,3)""/></xsl:if></xsl:template></xsl:stylesheet>"
-    
+
     Static objTransform As MSXML2.DOMDocument60
     Static objTransformNoDeclaration As MSXML2.DOMDocument60
-    
+
     Dim strOutput As String
 
     ' Skip processing if no content to format
@@ -759,7 +759,7 @@ Private Function FormatXML( _
         End If
         strOutput = objInput.transformNode(objTransform)
     End If
-    
+
     ' Check for any errors parsing the XML
     If CatchAny(eelError, "Error parsing XML content", ModuleName & ".FormatXML") Then
         ' Fall back to input XML

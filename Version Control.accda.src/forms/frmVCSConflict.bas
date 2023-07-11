@@ -906,7 +906,7 @@ End Sub
 Private Sub cmdContinue_Click()
 
     Dim lngRemaining As Long
-    
+
     lngRemaining = ActionDecisionsNeeded
     If lngRemaining > 0 Then
         MsgBox2 "Please Resolve Conflicts", _
@@ -916,7 +916,7 @@ Private Sub cmdContinue_Click()
         VCSIndex.Conflicts.ApproveResolutions = True
         DoCmd.Close acForm, Me.Name
     End If
-    
+
 End Sub
 
 
@@ -931,10 +931,10 @@ End Sub
 Private Sub Form_Load()
     ' Display version (better performance than bound control)
     lblVersion.Caption = Replace(lblVersion.Caption, "${version}", GetVCSVersion())
-    
+
     Dim frmList As Form_frmVCSConflictList
     Set frmList = Me.sfrmConflictList.Form
-        
+
     ' Update heading caption
     If Log.OperationType = eotExport Then
         lblHeading.Caption = "These source files have changed since the last export"
@@ -949,14 +949,14 @@ Private Sub Form_Load()
             .AddItem eResolveConflict.ercOverwrite & ";" & "Overwrite database object"
         End With
     End If
-    
+
     ' Change to resizable form
     MakeDialogResizable Me
-    
+
     ' Set initial column size
     DoEvents
     Form_Resize
-    
+
 End Sub
 
 
@@ -1009,18 +1009,18 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function ActionDecisionsNeeded() As Long
-    
+
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
-    
+
     Set dbs = CodeDb
     Set rst = dbs.OpenRecordset( _
         "select count(*) as Remaining from (select id from tblConflicts where NZ(Resolution)=0)", _
         dbOpenDynaset, dbOpenForwardOnly, dbReadOnly)
-        
+
     ActionDecisionsNeeded = Nz(rst!Remaining)
     rst.Close
     Set rst = Nothing
     Set dbs = Nothing
-    
+
 End Function

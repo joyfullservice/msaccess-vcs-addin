@@ -899,10 +899,10 @@ Private Sub cmdSplitFiles_Click()
     Dim lngLine As Long
     Dim strError As String
     Dim strWorkingFolderBackup As String
-    
+
     ' Get an array of entries
     varEntries = Split(Nz(txtFileList), vbCrLf)
-    
+
     ' Loop through lines, building arrays and validating each entry.
     For lngLine = 0 To UBound(varEntries)
         varPaths = Split(varEntries(lngLine), "|")
@@ -930,15 +930,15 @@ Private Sub cmdSplitFiles_Click()
         MsgBox2 "Validation Failed", strError, "Please correct the problem to continue.", vbExclamation
     Else
         ' Proceed with the split after some validation
-        
+
         ' Get folder from first file (just in case they are from a different location)
         strWorkingFolderBackup = Git.WorkingFolder
         Git.WorkingFolder = FSO.GetParentFolderName(strPaths(0))
-        
+
         ' Require clean branch with git installation
         If Not Git.IsCleanBranch Then strError = "Cannot split files in Git when changes are present in the branch"
         If Not Git.GitInstalled Then strError = "Git must be installed to use this tool."
-        
+
         ' Make sure we don't have any errors with the Git commands
         If Len(strError) Then
             MsgBox2 "Validation Failed", strError, "Please correct the problem to continue.", vbExclamation
@@ -946,7 +946,7 @@ Private Sub cmdSplitFiles_Click()
             ' Split the files using git commands
             Git.SplitFilesWithHistory strPaths, strNew, txtCommitMessage
         End If
-        
+
         ' Restore original working folder
         Git.WorkingFolder = strWorkingFolderBackup
     End If

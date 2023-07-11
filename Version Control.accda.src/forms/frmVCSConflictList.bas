@@ -469,18 +469,18 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Private Sub txtDiff_Click()
-    
+
     Dim strTempFile As String
     Dim strSourceFile As String
     Dim strFileName As String
     Dim cCont As IDbComponent
     Dim dItems As Dictionary
     Dim cItem As IDbComponent
-    
+
     ' Move focus back to resolution control
     cboResolution.SetFocus
     DoEvents
-    
+
     ' Make sure we have a file name to compare
     strFileName = Nz(txtFileName)
     If strFileName = vbNullString Then
@@ -488,11 +488,11 @@ Private Sub txtDiff_Click()
     Else
         ' Build full path to source file
         strSourceFile = Options.GetExportFolder & strFileName
-    
+
         ' Check for existing temp file
         strTempFile = VCSIndex.GetTempExportFolder & strFileName
         If Not FSO.FileExists(strTempFile) Then
-            
+
             ' Has not already been exported. Export a copy that we can use for the compare.
             ' Try to find matching category and file
             For Each cCont In GetContainers(ecfAllObjects)
@@ -511,7 +511,7 @@ Private Sub txtDiff_Click()
                 End If
             Next cCont
         End If
-    
+
         ' Show comparison if we were able to export a temp file
         If Not FSO.FileExists(strTempFile) Then
             MsgBox2 "Unable to Diff Object", "Unable to produce a temporary diff file with the current database object.", , vbExclamation
@@ -530,5 +530,5 @@ Private Sub txtDiff_Click()
             End If
         End If
     End If
-    
+
 End Sub

@@ -3528,14 +3528,14 @@ Private Sub LoadTableList()
     Dim fld As DAO.Field
     Dim lngFlags As Long
     Dim lngType As Long
-    
+
     ' Reset list of tables
     Set dbs = CodeDb
     dbs.Execute "DELETE FROM tblTableData;", dbFailOnError
-    
+
     ' Open table to load records
     Set rstTableData = dbs.OpenRecordset("SELECT * FROM tblTableData;", dbOpenDynaset)
-    
+
     ' Get list of tables if we have a database file open.
     If DatabaseFileOpen Then
 
@@ -3574,7 +3574,7 @@ Private Sub LoadTableList()
             .Close
         End With
     End If
-    
+
     ' Add in the list of saved tables, adding into the sorted location
     If Not Options.TablesToExportData Is Nothing Then
         ' Loop through each table in the saved table list
@@ -3582,7 +3582,7 @@ Private Sub LoadTableList()
             strName = CStr(varKey)
             strFormat = Options.TablesToExportData.Item(varKey)("Format")
             intFormat = Options.GetTableExportFormat(strFormat)
-            
+
             With rstTableData
                 .FindFirst "[TableName]='" & Replace$(strName, "'", "''") & "'"
                 If .NoMatch Then
@@ -3600,10 +3600,10 @@ Private Sub LoadTableList()
             End With
         Next varKey
     End If
-    
+
     ' Close recordset after adding records
     rstTableData.Close
-    
+
 End Sub
 
 
@@ -3619,11 +3619,11 @@ Private Sub SaveTableList()
     Dim rstTableData As DAO.Recordset
     Dim dTables As Dictionary
     Dim dTable As Dictionary
-    
+
     ' Save list of tables to export data
     Set dTables = New Dictionary
     dTables.CompareMode = TextCompare
-    
+
     Set rstTableData = CodeDb.OpenRecordset( _
         "SELECT TableName, FormatType FROM tblTableData " & _
         "WHERE FormatType <> 0 ORDER BY TableName;", dbOpenForwardOnly)
@@ -3637,9 +3637,9 @@ Private Sub SaveTableList()
         Loop
         .Close
     End With
-    
+
     Set Options.TablesToExportData = dTables
-    
+
 End Sub
 
 
@@ -3651,15 +3651,15 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub AddUpdateTableInList(strName As String, lngFormatType As eTableDataExportFormat, blnHidden As Boolean, blnSystem As Boolean, blnOther As Boolean, blnLocal As Boolean)
-    
+
     Dim rstClone As DAO.Recordset
     Dim rstActive As DAO.Recordset
-    
+
     Set rstClone = Me.sfrmTableData.Form.RecordsetClone
     Set rstActive = Me.sfrmTableData.Form.Recordset
-    
+
     With rstActive
-    
+
         ' Look for matching table name
         rstClone.FindFirst "TableName='" & Replace$(strName, "'", "''") & "'"
         If rstClone.NoMatch Then
@@ -3672,7 +3672,7 @@ Private Sub AddUpdateTableInList(strName As String, lngFormatType As eTableDataE
             .Bookmark = rstClone.Bookmark
             .Edit
         End If
-        
+
         ' Update remaining fields
         !FormatType = lngFormatType
         !IsHidden = blnHidden
@@ -3682,7 +3682,7 @@ Private Sub AddUpdateTableInList(strName As String, lngFormatType As eTableDataE
         .Update
         Me.sfrmTableData.Form.AllowAdditions = False
     End With
-    
+
 End Sub
 
 
@@ -3694,53 +3694,53 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub RefreshTableDisplay()
-    
+
     Dim strFilter As String
     Dim strJoin As String
     Dim strOrderBy As String
-    
+
     If Me.chkTableShowOther Then
         strOrderBy = strOrderBy & ", IIf([IsOther], 0, 1)"
     Else
         strFilter = strFilter & " AND [IsOther] = 0"
     End If
-    
+
     If Me.chkTableShowSystem Then
         strOrderBy = strOrderBy & ", IIf([IsSystem], 0, 1)"
     Else
         strFilter = strFilter & " AND [IsSystem] = 0"
     End If
-    
+
     If Me.chkTableShowHidden Then
         strOrderBy = strOrderBy & ", IIf([IsHidden], 0, 1)"
     Else
         strFilter = strFilter & " AND [IsHidden] = 0"
     End If
-    
+
     strOrderBy = strOrderBy & ", IIf([IsLocal], 0, 1), [TableName]"
-    
+
     If Len(strFilter) Then
         strFilter = " WHERE " & Mid$(strFilter, 6)
     End If
-    
+
     If Len(strOrderBy) Then
         strOrderBy = " ORDER BY " & Mid$(strOrderBy, 3)
     End If
-    
+
     Dim strSql As String
     strSql = _
         "SELECT d.TableIcon, d.TableName, d.FormatType, d.IsHidden, d.IsSystem, d.IsOther, d.IsLocal " & _
         "FROM tblTableData AS d " & _
         strFilter & _
         strOrderBy
-                
+
     Me.sfrmTableData.Form.RecordSource = strSql
-    
+
     ' Update captions with counts
     Me.lblTableShowHidden.Caption = GetCaptionWithCount("Show Hidden", "d.IsHidden = True AND d.IsSystem = " & chkTableShowSystem)
     Me.lblTableShowSystem.Caption = GetCaptionWithCount("Show System", "d.IsSystem = True AND d.IsHidden = " & chkTableShowHidden)
     Me.lblTableShowOther.Caption = GetCaptionWithCount("Show Other  ", "d.IsOther  = True")
-    
+
 End Sub
 
 
@@ -3815,10 +3815,10 @@ Private Sub cmdSaveAndClose_Click()
     MapControlsToOptions emaFormToClass
     Options.SaveOptionsForProject
     DoCmd.Close acForm, Me.Name
-    
+
     ' Update main form if options changed.
     If IsLoaded(acForm, "frmVCSMain", True) Then Form_frmVCSMain.Form_Load
-    
+
 End Sub
 
 
@@ -3832,7 +3832,7 @@ End Sub
 Private Sub cmdSaveAsDefault_Click()
 
     Dim strPath As String
-    
+
     ' Note that we can't save an absolute path as default, or we will potentially
     ' create some major issues with source files being overwritten and lost.
     strPath = Nz(txtExportFolder)
@@ -3845,11 +3845,11 @@ Private Sub cmdSaveAsDefault_Click()
             Exit Sub
         End If
     End If
-    
+
     ' Load the options from the form and save as default
     MapControlsToOptions emaFormToClass
     Options.SaveOptionsAsDefault
-    
+
 End Sub
 
 
@@ -3864,10 +3864,10 @@ Private Sub Form_Load()
 
     Dim intFormat As eTableDataExportFormat
     Dim intSanitizeLevel As eSanitizeLevel
-    
+
     MapControlsToOptions emaClassToForm
     RefreshTableDisplay
-    
+
     ' Load list of table data export formats
     Dim frmTableData As Form_frmVCSTableData
     Set frmTableData = Me.sfrmTableData.Form
@@ -3879,7 +3879,7 @@ Private Sub Form_Load()
         Me.cboFormatTypeForOther.RowSource = .RowSource
         Me.cboFormatTypeForOther.RemoveItem etdNoData
     End With
-    
+
     ' Load general sanitize options
     With Me.cboSanitizeLevel
         .RowSource = vbNullString
@@ -3887,7 +3887,7 @@ Private Sub Form_Load()
             .AddItem intSanitizeLevel & ";" & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
     End With
-    
+
     ' Load color sanitize options
     With Me.cboSanitizeColors
         .RowSource = vbNullString
@@ -3895,14 +3895,14 @@ Private Sub Form_Load()
             .AddItem intSanitizeLevel & ";" & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
     End With
-    
+
     ' Make form resizable (helpful with table selection when many tables are listed)
     MakeDialogResizable Me
-    
+
     ' Set inital column sizing for table data
     DoEvents
     Form_frmVCSTableData.Form_Resize
-    
+
 End Sub
 
 
@@ -3919,7 +3919,7 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
     Dim ctl As Access.Control
     Dim strKey As String
     Dim dSettings As Dictionary
-    
+
     ' Loop through each page
     For Each pge In tabOptions.Pages
         For Each ctl In pge.Controls
@@ -3977,10 +3977,10 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
     ElseIf eAction = emaFormToClass Then
         SaveTableList
     End If
-    
+
     ' Enable pages based on options.
     chkUseGitIntegration_Click
-    
+
 End Sub
 
 
@@ -4043,7 +4043,7 @@ End Sub
 Private Sub txtExportFolder_BeforeUpdate(Cancel As Integer)
 
     Dim strPath As String
-    
+
     strPath = Nz(txtExportFolder)
     If strPath <> vbNullString Then
         If (Left(strPath, 1) = PathSep) Or _
@@ -4056,7 +4056,7 @@ Private Sub txtExportFolder_BeforeUpdate(Cancel As Integer)
             Cancel = True
         End If
     End If
-    
+
 End Sub
 
 
