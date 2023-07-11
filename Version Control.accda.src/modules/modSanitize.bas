@@ -174,9 +174,12 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                         SkipLine lngLine
                     ElseIf StartsWith(strTLine, "Checksum =") Then
                         ' Ignore Checksum lines, since they will change.
-                        SkipLine lngLine
-                    ElseIf StartsWith(strTLine, "BaseInfo =") Then
-                        ' BaseInfo is used with combo boxes, similar to RowSource.
+                        SkipLine lngLine, eslBasic
+                    ElseIf StartsWith(strTLine, "ColumnInfo =") _
+                        Or StartsWith(strTLine, "BaseInfo =") Then
+                        ' [ColumnInfo] contains some cached info from the record source
+                        ' and will be regenerated when the form is imported. See #412
+                        ' [BaseInfo] is used with combo boxes, similar to RowSource.
                         ' Since the value could span multiple lines, we need to
                         ' check the indent level of the following lines to see how
                         ' many lines to skip.
@@ -193,7 +196,7 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                         SkipLine lngLine, eslAggressive
                     ElseIf blnIsReport And StartsWith(strLine, "    Bottom =") Then
                         ' Turn flag back off now that we have ignored these two lines.
-                        SkipLine lngLine
+                        SkipLine lngLine, eslAggressive
                         blnIsReport = False
                     ElseIf StartsWith(strTLine, "Begin ") Then
                         ' Include block type name for controls
