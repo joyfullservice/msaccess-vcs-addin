@@ -152,10 +152,10 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
 
                 ' Beginning of main section
                 Case "Begin"
-                    If blnIsPassThroughQuery And Options.AggressiveSanitize Then
+                    If blnIsPassThroughQuery Then
                         ' Ignore remaining content. (See Issue #182)
                         Do While lngLine < UBound(varLines)
-                            SkipLine lngLine
+                            SkipLine lngLine, eslAggressive
                             lngLine = lngLine + 1
                         Loop
                         Exit Do
@@ -180,17 +180,17 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                         ' Since the value could span multiple lines, we need to
                         ' check the indent level of the following lines to see how
                         ' many lines to skip.
-                        SkipLine lngLine
+                        SkipLine lngLine, eslAggressive
                         intIndent = GetIndent(strLine)
                         ' Preview the next line, and check the indent level
                         Do While GetIndent(varLines(lngLine + 1)) > intIndent
                             ' Skip previewed line and move to next line
-                            SkipLine lngLine + 1
+                            SkipLine lngLine + 1, eslAggressive
                             lngLine = lngLine + 1
                         Loop
                     ElseIf blnIsReport And StartsWith(strLine, "    Right =") Then
                         ' Ignore this line. (Not important, and frequently changes.)
-                        SkipLine lngLine
+                        SkipLine lngLine, eslAggressive
                     ElseIf blnIsReport And StartsWith(strLine, "    Bottom =") Then
                         ' Turn flag back off now that we have ignored these two lines.
                         SkipLine lngLine
@@ -306,12 +306,15 @@ End Function
 ' Procedure : SkipLine
 ' Author    : Adam Waller
 ' Date      : 6/4/2021
-' Purpose   : Skip this line in the final output file
+' Purpose   : Skip this line in the final output file. Optionally include a minimum
+'           : sanitize level to skip this line.
 '---------------------------------------------------------------------------------------
 '
-Private Function SkipLine(lngLine As Long)
-    m_SkipLines(m_lngSkipIndex) = lngLine
-    m_lngSkipIndex = m_lngSkipIndex + 1
+Private Function SkipLine(lngLine As Long, Optional intMinSanitizeLevel As eSanitizeLevel)
+    If Options.SanitizeLevel >= intMinSanitizeLevel Then
+        m_SkipLines(m_lngSkipIndex) = lngLine
+        m_lngSkipIndex = m_lngSkipIndex + 1
+    End If
 End Function
 
 
