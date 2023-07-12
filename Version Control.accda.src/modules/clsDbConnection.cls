@@ -66,7 +66,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
     Set dConnections = ReadJsonFile(strFile).Item("Items")
-    
+
     ' Prime Access' internal cache. If the connection string is incomplete, it will
     ' pop open a dialog from the driver for the user to then fill in.
     For Each varConnect In dConnections
@@ -78,7 +78,7 @@ Private Sub IDbComponent_Import(strFile As String)
             CacheConnection CStr(x)
         Next
     Next
-    
+
     CatchAny eelError, "Importing Connection", ModuleName(Me) & ".Import"
 
     ' Save to index
@@ -122,7 +122,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
     Dim qdf As DAO.QueryDef
     Dim cConnection As clsConnectionODBC
     Dim dConnections As Dictionary
-    
+
     Set cConnection = New clsConnectionODBC
     With CurrentDb
         For Each tdf In .TableDefs
@@ -157,7 +157,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
             End If
         Next
     End With
-    
+
 End Function
 
 
@@ -174,7 +174,7 @@ End Function
 '
 Private Function AddOdbcConnectionString(dSanitizedConnections As Dictionary, cConnection As clsConnectionODBC, strObjectName As String)
     Dim dConnections As Dictionary
-    
+
     If dSanitizedConnections.Exists(cConnection.SanitizedConnectionString) Then
         Set dConnections = dSanitizedConnections(cConnection.SanitizedConnectionString)
     Else
@@ -228,7 +228,7 @@ End Sub
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
 
     Dim varKey As Variant
-    
+
     ' Build a dictionary of component class objects if not already cached.
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
@@ -242,10 +242,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             Next varKey
         End If
     End If
-    
+
     ' Return cached dictionary
     Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
-    
+
 End Function
 
 
@@ -479,7 +479,3 @@ End Sub
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-
-
-
-

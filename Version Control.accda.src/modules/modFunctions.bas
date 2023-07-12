@@ -715,14 +715,14 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function InArray(varArray, varValue, Optional intCompare As VbCompareMethod = vbBinaryCompare) As Boolean
-    
+
     Dim varItem As Variant
     Dim lngCnt As Long
-    
+
     ' Guard clauses
     If Not IsArray(varArray) Then Exit Function
     If IsEmptyArray(varArray) Then Exit Function
-    
+
     ' Loop through array items, looking for a match
     For lngCnt = LBound(varArray) To UBound(varArray)
         If TypeName(varValue) = "String" Then
@@ -740,7 +740,7 @@ Public Function InArray(varArray, varValue, Optional intCompare As VbCompareMeth
             End If
         End If
     Next lngCnt
-    
+
 End Function
 
 
@@ -777,22 +777,22 @@ Public Function IsEmptyArray(varArray As Variant) As Boolean
 
     ' Use an arbitrary number extremly unlikely to collide with an existing index
     Const clngTest As Long = -2147483646
-    
+
     Dim lngLowBound As Long
-    
+
     ' Exit (returning False) if we are not dealing with an array variable
     If Not IsArray(varArray) Then Exit Function
-    
+
     LogUnhandledErrors
     On Error Resume Next
-    
+
     ' Attempt to read the lower bound of the array
     lngLowBound = clngTest
     lngLowBound = LBound(varArray)
-    
+
     ' If the above assignment fails, we have an empty array
     IsEmptyArray = (lngLowBound = clngTest)
-    
+
 End Function
 
 
@@ -938,24 +938,24 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub MakeDialogResizable(frmMe As Form)
-    
+
     Dim lngHwnd As LongPtr
     Dim lngFlags As LongPtr
     Dim lngResult As LongPtr
-    
+
     ' Get handle for form
     lngHwnd = frmMe.hwnd
-    
+
     ' Debug.Print IsWindowUnicode(lngHwnd) - Testing indicates that the windows are
     ' Unicode, so we are using the Unicode versions of the GetWindowLong functions.
-    
+
     ' Get the current window style
     lngFlags = GetWindowLongPtr(lngHwnd, GWL_STYLE)
-    
+
     ' Set resizable flag and apply updated style
     lngFlags = lngFlags Or WS_SIZEBOX
     lngResult = SetWindowLongPtr(lngHwnd, GWL_STYLE, lngFlags)
-    
+
 End Sub
 
 
@@ -978,10 +978,10 @@ Public Sub ScaleColumns(frmDatasheet As Form, Optional lngScrollWidthTwips As Lo
     Dim dblRatio As Double
     Dim ctl As Control
     Dim colResize As Collection
-    
+
     lngTotal = frmDatasheet.InsideWidth - lngScrollWidthTwips
     Set colResize = New Collection
-    
+
     ' Loop through the columns twice, once to get the current widths, then to set them.
     For Each ctl In frmDatasheet.Controls
         Select Case ctl.ControlType
@@ -1004,17 +1004,17 @@ Public Sub ScaleColumns(frmDatasheet As Form, Optional lngScrollWidthTwips As Lo
                 End If
         End Select
     Next ctl
-    
+
     ' Exit if we have no sizable controls
     If lngSizeable = 0 Then Exit Sub
-    
+
     ' Get ratio for new sizes (Scales resizable controls proportionately)
     lngFixed = lngCurrent - lngSizeable
     dblRatio = (lngTotal - lngFixed) / lngSizeable
-    
+
     ' Resize each control
     For Each ctl In colResize
         ctl.ColumnWidth = ctl.ColumnWidth * dblRatio
     Next ctl
-    
+
 End Sub

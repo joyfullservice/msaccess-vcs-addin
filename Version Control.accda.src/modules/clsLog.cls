@@ -379,4 +379,3 @@ Public Sub Increment()
     Perf.OperationEnd
 
 End Sub
-

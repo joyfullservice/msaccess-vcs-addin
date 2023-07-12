@@ -192,11 +192,11 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function ContainerHasObject(dContainer As Dictionary, intComponentType As eDatabaseComponentType) As Boolean
-    
+
     Dim cCategory As IDbComponent
     Dim dCategory As Dictionary
     Dim varKey As Variant
-    
+
     ' Loop through containers
     For Each varKey In dContainer.Keys
         If TypeOf varKey Is IDbComponent Then
@@ -210,7 +210,7 @@ Public Function ContainerHasObject(dContainer As Dictionary, intComponentType As
             End If
         End If
     Next varKey
-    
+
 End Function
 
 
@@ -228,7 +228,7 @@ Public Function ContainerHasAnyObject(dContainer As Dictionary, ParamArray intOt
     Dim dCategory As Dictionary
     Dim varKey As Variant
     Dim blnFound As Boolean
-    
+
     ' Loop through types
     For intType = LBound(intOtherTypes) To UBound(intOtherTypes)
         ' Loop through containers
@@ -246,7 +246,7 @@ Public Function ContainerHasAnyObject(dContainer As Dictionary, ParamArray intOt
         Next varKey
         If blnFound Then Exit For
     Next intType
-    
+
     ' Return true if any matching object was found.
     ContainerHasAnyObject = blnFound
 
@@ -263,12 +263,12 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeIfChanged(intComponentType As eDatabaseComponentType)
-    
+
     Dim cComponent As IDbComponent
     Dim dItems As Dictionary
     Dim varKey As Variant
     Dim cItem As IDbComponent
-    
+
     ' Convert enum to component class
     Set cComponent = GetComponentClass(intComponentType)
 
@@ -283,7 +283,7 @@ Public Sub MergeIfChanged(intComponentType As eDatabaseComponentType)
             If .SingleFile Then Exit For
         Next varKey
     End With
-    
+
 End Sub
 
 
@@ -856,7 +856,7 @@ Public Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain
     End If
 
     On Error GoTo Error_Handler
-    
+
     Dim abytCodesSrc(0 To 255) As Byte
     Dim abytCodesDest(0 To 255) As Byte
 
@@ -866,7 +866,7 @@ Public Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain
 
     SetForegroundWindow Application.hWndAccessApp
     SetFocus Application.hWndAccessApp
-    
+
     ' Set Shift state
     GetKeyboardState abytCodesSrc(0)
     GetKeyboardState abytCodesDest(0)
@@ -875,17 +875,17 @@ Public Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain
 
     ' Open the database with shift key down
     Application.OpenCurrentDatabase strPath, blnExclusive
-    
+
     ' Revert back keyboard state and restore focus
     SetKeyboardState abytCodesSrc(0)
     SetForegroundWindow Application.hWndAccessApp
     SetFocus Application.hWndAccessApp
-    
+
     Exit Sub
 
 Error_Handler:
     SetForegroundWindow Application.hWndAccessApp
-    
+
     With Err
         .Raise .Number, .Source, .Description, .HelpFile, .HelpContext
     End With

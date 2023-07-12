@@ -342,4 +342,3 @@ Private Function GetUTF8Bytes(strText As String, Optional blnWithBom As Boolean 
     End With
 
 End Function
-

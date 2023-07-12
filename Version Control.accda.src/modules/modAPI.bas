@@ -52,14 +52,14 @@ Public Function HandleRibbonCommand(strCommand As String) As Boolean
     ' don't want it to be since that'd cause errors. To avoid this, we will ignore any
     ' commands while the current command is running.
     Static IsRunning As Boolean
-    
+
     On Error GoTo ErrHandler
-    
+
     If IsRunning Then
         ' Ignore the re-entry; do NOT go to clean-up.
         Exit Function
     End If
-    
+
     IsRunning = True
 
     ' Make sure we are not attempting to run this from the current database when making
@@ -80,12 +80,12 @@ Public Function HandleRibbonCommand(strCommand As String) As Boolean
 CleanUp:
     IsRunning = False
     Exit Function
-    
+
 ErrHandler:
     ' An error occurred so we need to make it available for further attempts
     ' but do not handle the error.
     IsRunning = False
-    
+
     ' Re-throw
     Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
 End Function
@@ -259,4 +259,3 @@ Public Function ExampleLoadAddInAndRunExport()
     End If
 
 End Function
-

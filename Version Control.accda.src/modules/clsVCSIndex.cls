@@ -840,4 +840,3 @@ Private Sub Class_Initialize()
     Set m_dGitIndex = Nothing
 
 End Sub
-

@@ -192,14 +192,14 @@ Private Sub IDbComponent_Merge(strFile As String)
 
     ' Clear any existing customizations
     ClearExistingNavGroups
-    
+
     If FSO.FileExists(strFile) Then
         IDbComponent_Import (strFile)
     Else
         ' Remove from index when source file is removed
         VCSIndex.Remove Me, strFile
     End If
-    
+
 End Sub
 
 
@@ -273,7 +273,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                 dGroup.Add "Flags", Nz(!GroupFlags, 0)
                 dGroup.Add "Position", Nz(!GroupPosition, 0)
             End If
-            
+
             ' Check for change in category name
             If Nz(!CategoryName) <> strCategory Then
                 ' Finish recording any previous category

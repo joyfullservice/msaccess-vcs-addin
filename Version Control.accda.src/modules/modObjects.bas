@@ -19,7 +19,7 @@ Private Type udtObjects
     VCSIndex As clsVCSIndex
     Worker As clsWorker
     Git As clsGitIntegration
-    
+
     ' Keep a persistent reference to file system object after initializing version control.
     ' This way we don't have to recreate this object dozens of times while using VCS.
     FSO As Scripting.FileSystemObject
@@ -42,7 +42,7 @@ Public Sub ReleaseObjects()
     Set this.Worker = Nothing
     Set this.Git = Nothing
     Set this.FSO = Nothing
-        
+
     Dim udtEmpty As udtObjects
     ' Reassign "this" to blank, clearing any saved data.
     LSet this = udtEmpty
@@ -199,4 +199,3 @@ Public Property Get Git() As clsGitIntegration
     If this.Git Is Nothing Then Set this.Git = New clsGitIntegration
     Set Git = this.Git
 End Property
-

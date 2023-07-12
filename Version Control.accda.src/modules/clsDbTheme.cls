@@ -656,7 +656,7 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
 
     ' Recordset to handle the incoming reference
     Dim rst As DAO.Recordset
-    
+
     ' IMPORTANT: These variables must be declared as the
     ' generic parent classes to avoid problems in newer
     ' releases of Microsoft Access. (See issue #341)

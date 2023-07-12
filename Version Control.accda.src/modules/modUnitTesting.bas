@@ -328,29 +328,29 @@ End Sub
 Public Sub TestGitRepositoryRoot()
 
     With New clsGitIntegration
-    
+
         ' Verify repository root for this project
         Debug.Assert .GetRepositoryRoot = CurrentProject.Path & PathSep
-        
+
         ' Resolve from subfolder
         .WorkingFolder = CurrentProject.Path & "\Version Control.accda.src\modules\"
         Debug.Assert .GetRepositoryRoot = CurrentProject.Path & PathSep
-    
+
         ' Return working folder when not in a git repository
         ' (Also tests returning final path separator)
         .WorkingFolder = "c:\windows"
         Debug.Assert .GetRepositoryRoot = "c:\windows\"
-        
+
         ' Reflect change in working folder
         .WorkingFolder = vbNullString
          Debug.Assert .GetRepositoryRoot = CurrentProject.Path & PathSep
-       
+
         ' Return specified working folder, even if it doesn't exist
         .WorkingFolder = "c:\Some Path that Doesn't Exist"
          Debug.Assert .GetRepositoryRoot = "c:\Some Path that Doesn't Exist\"
-        
+
     End With
-    
+
 End Sub
 
 
@@ -371,26 +371,26 @@ End Sub
 
 '@TestMethod("GetFileHash")
 Public Sub TestStringFileHash()
-    
+
     Const cstrText As String = "This is my text content."
     Dim strTempFile As String
-    
+
     ' Make sure we get the same result when hashing a string as hashing a file.
-    
+
     ' Create a file, and write our content.
     strTempFile = GetTempFile
     WriteFile cstrText, strTempFile
-    
+
     ' Compare to known hash (without BOM)
     Debug.Assert GetStringHash(cstrText) = "f80a555"        ' Without BOM
     Debug.Assert GetStringHash(cstrText, True) = "b628391"  ' With UTF-8 BOM and trailing vbCrLf
-    
+
     ' Compare results of hashing file with hashing a string.
     Debug.Assert GetFileHash(strTempFile) = GetStringHash(cstrText, True)
-    
+
     ' Remove temp file.
     FSO.DeleteFile strTempFile
-    
+
 End Sub
 
 
@@ -398,7 +398,7 @@ End Sub
 Public Sub TestGetClassFromComponentType()
 
     Dim intType As eDatabaseComponentType
-    
+
     ' Test the entire enum range of component types
     ' to make sure they are all assigned to a class.
     For intType = edbTableDataMacro To eDatabaseComponentType.[_Last] - 1

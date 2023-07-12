@@ -975,6 +975,3 @@ Private Function String_BufferToString(ByRef StringBufferIn As StringBufferCache
         String_BufferToString = VBA.Left$(StringBufferIn.String_Buffer, StringBufferIn.string_BufferPosition)
     End If
 End Function
-
-
-

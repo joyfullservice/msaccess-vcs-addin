@@ -757,6 +757,3 @@ End Property
 Private Sub Class_Terminate()
     Set m_Dbs = Nothing
 End Sub
-
-
-

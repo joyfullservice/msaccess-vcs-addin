@@ -30,7 +30,7 @@ Private Type udtData
     UID As String
     PWD As String
     SaveFile As String
-    
+
     ' Those technically are not generic keys but they are very
     ' common among a variety of ODBC drivers and Access do treat
     ' two connection strings with a different values for those
@@ -38,12 +38,12 @@ Private Type udtData
     Server As String
     Port As String ' Should be either an integer between 0 to 65535 or empty
     Database As String
-    
+
     ' The rest of members below are for class' use and is not related to
     ' the ODBC connection string specifications.
     OriginalConnectionString As String
     SanitizedConnectionString As String
-    
+
     KeyValues As Dictionary
 End Type
 Private this As udtData
@@ -95,7 +95,7 @@ End Property
 Public Property Get UID() As String
     UID = this.UID
 End Property
-    
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : PWD
@@ -107,7 +107,7 @@ End Property
 Public Property Get PWD() As String
     PWD = this.PWD
 End Property
-    
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SaveFile
@@ -199,7 +199,7 @@ End Property
 Public Function GetKeyValues() As Dictionary
     Set GetKeyValues = New Dictionary
     GetKeyValues.CompareMode = TextCompare
-    
+
     Dim varKey As Variant
     For Each varKey In this.KeyValues
         GetKeyValues.Add varKey, this.KeyValues(varKey)
@@ -210,9 +210,9 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
     If StartsWith(strConnect, "ODBC;", vbTextCompare) = False Then
         Exit Sub
     End If
-    
+
     ResetData
-    
+
     ' 2.1.1 Common ABNF Rules
     ' SC           = %x3B         ; Semicolon
     ' LCB          = %x7B         ; Left curly brackets
@@ -235,20 +235,20 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
     ' nonSP-SC-EQ = %x01-1F / %x21-3A / %x3C / %x3E-FFFF           ; not space, ";" or "="
     ' nonEQ = %x01-3C / %x3E-FFFF                                  ; not "="
     ' nonSC = %x01-003A / %x3C-FFFF                                ; not ";"
-    
+
     ' Use https://regex101.com/ to provide a detailed explanation of the pattern
     ' It should conform to the rules defined by the MS-ODBCSTR and extract the
     ' key as the first match and the value as either 2nd or 3rd match. The 2nd
     ' match represents the ValueFormat1 specification and 3rd match, the
     ' ValueContent2 specification.
     Const RegExpPattern As String = "\s?([^ ;=][^=]*?)=(?:\s?(\{(?:[^}]|\}\})*?\})\s?|\s?([^ ;{][^;]*)|\s?)(?:;|$)"
-    
+
     Dim objRegExp As VBScript_RegExp_55.RegExp
     Dim objMatches As VBScript_RegExp_55.MatchCollection
     Dim objMatch As VBScript_RegExp_55.Match
     Dim strKey As String
     Dim strValue As String
-    
+
     Set objRegExp = New VBScript_RegExp_55.RegExp
     With objRegExp
         .Global = True
@@ -260,11 +260,11 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
         ' Access itself.
         Set objMatches = .Execute(Mid$(strConnect, 6))
     End With
-    
+
     this.OriginalConnectionString = strConnect
     Set this.KeyValues = New Dictionary
     this.KeyValues.CompareMode = TextCompare
-    
+
     For Each objMatch In objMatches
         With objMatch
             strKey = .SubMatches(0)
@@ -275,7 +275,7 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
             Else
                 strValue = vbNullString ' No matches; assume empty string
             End If
-            
+
             If this.KeyValues.Exists(strKey) Then
                 ' 2.2.3 indicates generic key takes the last value. Driver specific
                 ' key however is driver-defined. We'll use vbNullChar as delimiter
@@ -291,7 +291,7 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
             Else
                 this.KeyValues.Add strKey, strValue
             End If
-            
+
             Select Case strKey
                 Case "Driver"
                     this.Driver = strValue
@@ -305,7 +305,7 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
                     this.UID = strValue
                 Case "PWD"
                     this.PWD = strValue
-                    
+
                 ' The following keys are non-generic so take the first value
                 ' for the purpose of sanitized connection string comparison
                 Case "Server"
@@ -323,7 +323,7 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
             End Select
         End With
     Next
-    
+
     ' Build the sanitized connection string based on key parameters that Access will use
     ' to differeniate one connection string from another. This is based on experience
     ' because there is no formal documentation for how Access treats one connection string.
@@ -345,10 +345,10 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
     ' takes precedence so if we find `Driver` key, we always use that, followed by `DSN`
     ' then finally `FileDSN`. The specification also mentions FileDSN needing to precede
     ' DSN but we don't handle this.
-    
+
     Dim objConcat As clsConcat
     Set objConcat = New clsConcat
-    
+
     If Len(this.Driver) Then
         objConcat.Add ";Driver=", this.Driver
     ElseIf Len(this.DSN) Then
@@ -358,31 +358,31 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
     Else
         ' Apparently this is an incomplete ODBC connection string. Access would always prompt to fill in.... Masochistic?
     End If
-    
+
     If Len(this.SaveFile) Then
         objConcat.Add ";SaveFile=", this.SaveFile
     End If
-    
+
     If Len(this.Server) Then
         objConcat.Add ";SERVER=", this.Server
     End If
-    
+
     If Len(this.Port) Then
         objConcat.Add ";PORT=", this.Port
     End If
-    
+
     If Len(this.Database) Then
         objConcat.Add ";DATABASE=", this.Database
     End If
-    
+
     If Len(this.UID) Then
         objConcat.Add ";UID=", this.UID
     End If
-    
+
     If Len(this.PWD) Then
         objConcat.Add ";PWD=", this.PWD
     End If
-    
+
     this.SanitizedConnectionString = "ODBC" & objConcat.GetStr
 End Sub
 
@@ -417,10 +417,9 @@ End Function
 '
 Private Sub ResetData()
     Dim blank As udtData
-    
+
     ' Not necessary but best to ensure proper de-referencing
     Set this.KeyValues = Nothing
-    
+
     LSet this = blank
 End Sub
-

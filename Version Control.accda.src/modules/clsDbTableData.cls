@@ -46,7 +46,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     ' Use error handling in case we encouter errors during export
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Save as selected format, and remove other formats if they exist.
     For intFormat = 1 To eTableDataExportFormat.[_Last]
         ' Build file name for this format
@@ -77,7 +77,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     ' Trap any errors while exporting table data.
     CatchAny eelError, "Error exporting table data for " & m_Table.Name, ModuleName(Me) & ".Export"
-    
+
 End Sub
 
 
@@ -373,11 +373,11 @@ Private Sub IDbComponent_Import(strFile As String)
 
     ' Only allow import into local tables (not linked tables)
     If IsLocalTable(strTable) Then
-        
+
         ' Import from different formats (XML is preferred for data integrity)
         Select Case GetFormatByExt(strFile)
             Case etdXML
-                    
+
                     ' The ImportXML function does not properly handle UrlEncoded paths
                     blnUseTemp = (InStr(1, strFile, "%") > 0)
                     If blnUseTemp Then
@@ -389,11 +389,11 @@ Private Sub IDbComponent_Import(strFile As String)
                     Else
                         Application.ImportXML strFile, acAppendData
                     End If
-    
+
             Case etdTabDelimited
                 ImportTableDataTDF strFile
         End Select
-    
+
     Else
         ' Either not a local table, or it doesn't exist
         If TableExists(strTable) Then
@@ -406,7 +406,7 @@ Private Sub IDbComponent_Import(strFile As String)
         End If
         Log.Add "Table data from '" & strTable & "' was not imported.", False
     End If
-    
+
 End Sub
 
 
@@ -752,5 +752,3 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-
-

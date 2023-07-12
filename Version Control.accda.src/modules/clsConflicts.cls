@@ -217,4 +217,3 @@ Public Sub Initialize(ByRef dCategories As Dictionary)
     Set m_dItems = New Dictionary
     Me.ApproveResolutions = False
 End Sub
-

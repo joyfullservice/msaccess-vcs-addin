@@ -540,6 +540,3 @@ End Sub
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-
-
-

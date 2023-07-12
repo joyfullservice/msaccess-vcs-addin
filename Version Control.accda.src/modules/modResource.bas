@@ -27,7 +27,7 @@ Public Sub VerifyResources()
     VerifyResource "COM Addin x64", "\Ribbon\Build\MSAccessVCSLib_win64.dll"
     VerifyResource "Hook x32", "\Hook\Build\MSAccessVCSHook_win32.dll"
     VerifyResource "Hook x64", "\Hook\Build\MSAccessVCSHook_win64.dll"
-    
+
     ' Template .gitignore and .gitattributes files
     VerifyResource "Default .gitignore", "\.gitignore.default"
     VerifyResource "Default .gitattributes", "\.gitattributes.default"

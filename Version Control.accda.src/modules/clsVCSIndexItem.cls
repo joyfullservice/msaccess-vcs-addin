@@ -24,4 +24,3 @@ Public SourceModified As Date
 Public FileHash As String
 Public OtherHash As String
 Public FilePropertiesHash As String
-

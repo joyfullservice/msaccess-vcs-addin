@@ -65,7 +65,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         ' Linked table - Save as JSON
         Set dbs = CurrentDb
         Set tdf = dbs.TableDefs(m_Table.Name)
-        
+
         Set dItem = New Dictionary
         With dItem
             .Add "Name", m_Table.Name
@@ -133,7 +133,7 @@ Private Sub IDbComponent_Import(strFile As String)
             ' Watch out for errors when importing XML
             LogUnhandledErrors
             On Error Resume Next
-            
+
             ' The ImportXML function does not properly handle UrlEncoded paths
             blnUseTemp = (InStr(1, strFile, "%") > 0)
             If blnUseTemp Then
@@ -145,7 +145,7 @@ Private Sub IDbComponent_Import(strFile As String)
             Else
                 Application.ImportXML strFile, acStructureOnly
             End If
-            
+
             ' Importing XML can throw an error if ActiveX security is too restrictive.
             If Catch(31521) Then
                 Log.Error eelError, "ActiveX security settings blocked the import of " & _
@@ -155,7 +155,7 @@ Private Sub IDbComponent_Import(strFile As String)
                 ' Log any other error.
                 CatchAny eelError, "Unable to import XML for " & FSO.GetFileName(strFile), ModuleName(Me) & ".Import"
             End If
-            
+
         Case Else
             ' Unsupported file
             Exit Sub
@@ -182,15 +182,15 @@ Private Sub IDbComponent_Merge(strFile As String)
 
     Dim strName As String
     Dim dRelations As Dictionary
-    
+
     ' Stage any affected relationships
     strName = GetObjectNameFromFileName(strFile)
     Set dRelations = StageRelations(strName)
-    
+
     ' Delete any existing table with this name
     Set m_Table = Nothing
     DeleteObjectIfExists acTable, strName
-    
+
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
         ' Restore any affected relationships
@@ -198,11 +198,11 @@ Private Sub IDbComponent_Merge(strFile As String)
     Else
         ' If the table is deleted, discard any staged relationships
         ' since we can't restore them when the table does not exist.
-        
+
         ' Also remove table def from index.
         VCSIndex.Remove Me, strFile
     End If
-    
+
 End Sub
 
 
@@ -217,16 +217,16 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function StageRelations(strTableName As String) As Dictionary
-    
+
     Dim dbs As Database
     Dim intCnt As Integer
     Dim rel As Relation
     Dim cRel As IDbComponent
     Dim strTempFile As String
     Dim varKey As Variant
-    
+
     Set StageRelations = New Dictionary
-    
+
     ' Loop through relations, looking for matching table name
     Set dbs = CurrentDb
     For Each rel In dbs.Relations
@@ -246,15 +246,15 @@ Private Function StageRelations(strTableName As String) As Dictionary
             StageRelations.Add rel.Name, ReadFile(strTempFile)
         End If
     Next rel
-        
+
     ' Remove the existing relationships affecting this table
     For Each varKey In StageRelations.Keys
         dbs.Relations.Delete varKey
     Next varKey
-    
+
     ' Remove any temp file
     If FSO.FileExists(strTempFile) Then DeleteFile strTempFile
-    
+
 End Function
 
 
@@ -266,10 +266,10 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function RestoreRelations(dRelations As Dictionary)
-    
+
     Dim varKey As Variant
     Dim strTempFile As String
-    
+
     If dRelations.Count > 0 Then
         strTempFile = GetTempFile
         ' Add .json file extension
@@ -284,7 +284,7 @@ Private Function RestoreRelations(dRelations As Dictionary)
         Next varKey
         DeleteFile strTempFile
     End If
-    
+
 End Function
 
 
@@ -322,7 +322,7 @@ Public Sub SaveTableSqlDef(strTable As String, strFolder As String)
     Dim tdf As DAO.TableDef
 
     Perf.OperationStart "Save Table SQL"
-    
+
     Set dbs = CurrentDb
     Set tdf = dbs.TableDefs(strTable)
 
@@ -847,28 +847,28 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IsLinkedTable() As Boolean
-    
+
     ' Cache the value to save lookups
     Static lngType As Long
-    
+
     Dim dbs As Database
     Dim rst As Recordset
-    
+
     ' Nothing to check if we don't have a table name
     If m_Table Is Nothing Then Exit Property
-    
+
     ' Use cached value if possible
     If lngType > 0 Then
         IsLinkedTable = (lngType <> 1)
         Exit Property
     End If
-    
+
     Perf.OperationStart "Check for linked table"
-    
+
     ' This is the simple way to check for a linked table, but it is not very performant
     ' when called hundreds of times while scanning tables for changes.
     'IsLinkedTable = CurrentDb.TableDefs(m_Table.Name).Connect <> vbNullString
-    
+
     ' A faster way is to read the object type from MSysObjects
     Set dbs = CurrentDb
     Set rst = dbs.OpenRecordset( _
@@ -881,12 +881,12 @@ Private Property Get IsLinkedTable() As Boolean
     rst.Close
     Set rst = Nothing
     Set dbs = Nothing
-    
+
     ' A value of 1 means a local Access table. Any other value
     ' is almost certainly a linked table of some type. (ODBC, Excel, etc)
     IsLinkedTable = (lngType <> 1)
     Perf.OperationEnd
-    
+
 End Property
 
 
@@ -998,4 +998,3 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-

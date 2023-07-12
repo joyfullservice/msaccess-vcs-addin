@@ -163,7 +163,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub BuildAs()
-    
+
     Dim strNewDbPath As String
     Dim strSourceFolder As String
 
@@ -174,11 +174,11 @@ Public Sub BuildAs()
             strSourceFolder = Options.GetExportFolder
         End If
     End If
-    
+
     ' If we aren't doing the current database, then prompt user to find a folder
     ' with source files to use for the build.
     If strSourceFolder = vbNullString Then
-    
+
         ' Show a folder picker to select the file with source code.
         With Application.FileDialog(msoFileDialogFolderPicker)
             .AllowMultiSelect = False
@@ -517,4 +517,3 @@ End Sub
 Private Function ReadSetting(strName As String, Optional strDefault As String) As String
     ReadSetting = GetSetting(PROJECT_NAME, "State", strName, strDefault)
 End Function
-

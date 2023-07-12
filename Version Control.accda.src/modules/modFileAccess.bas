@@ -88,9 +88,9 @@ End Function
 Public Function ReadFile(strPath As String, Optional strCharset As String = "utf-8") As String
 
     Dim cData As clsConcat
-    
+
     Set cData = New clsConcat
-    
+
     If FSO.FileExists(strPath) Then
         Perf.OperationStart "Read File"
         With New ADODB.Stream
@@ -107,10 +107,10 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "utf
         End With
         Perf.OperationEnd
     End If
-    
+
     ' Return text contents of file.
     ReadFile = cData.GetStr
-    
+
 End Function
 
 

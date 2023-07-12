@@ -743,5 +743,3 @@ Private Function GetPropertyByName(strName As String) As AccessObjectProperty
     End If
 
 End Function
-
-

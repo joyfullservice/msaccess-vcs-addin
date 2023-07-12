@@ -117,7 +117,7 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
     ' Trim any trailing vbLf
     If Right$(strResult, 1) = vbLf Then strResult = Left$(strResult, Len(strResult) - 1)
     RunGitCommand = strResult
-    
+
     ' Show debug info, if flag is on
     With New clsConcat
         .Add "Sent Git Command: ", strCmd
@@ -174,12 +174,12 @@ Public Function GetRepositoryRoot() As String
 
     Static strLastFolder As String  ' Working folder
     Static strLastRoot As String    ' Repository Root
-    
+
     Dim strWorking As String
-    
+
     ' Determine the current working folder
     strWorking = GetWorkingFolder
-    
+
     ' On first call, we will attempt to get the repository root from the working
     ' folder, or the export folder if a working folder is not specified.
     If strLastRoot = vbNullString Or (strLastFolder <> strWorking) Then
@@ -276,7 +276,7 @@ End Function
 '
 Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As String, _
     strCommitMessage As String, Optional strRunInFolder As String = vbNullString)
-    
+
     Dim lngCnt As Long
     Dim strOrig As String
     Dim strNew As String
@@ -285,29 +285,29 @@ Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As
     Dim strBranch As String
     Dim blnLog As Boolean
     Dim strBaseFolder As String
-    
+
     ' Save current value and turn on logging.
     blnLog = Me.LogCommands
     strBaseFolder = m_strRepositoryRoot
     m_strRepositoryRoot = strRunInFolder
     Me.LogCommands = True
-    
+
     ' We should be starting with a clean slate (no uncommitted changes)
     If Not Me.IsCleanBranch Then
         Log.Error eelCritical, "Cannot split files in Git when changes are present in the branch", _
             ModuleName(Me) & ".SplitFilesWithHistory"
         GoTo CleanUp
     End If
-    
+
     ' Initialize the repository just to make sure everthing is in order
     RunGitCommand egcInitialize
-    
+
     ' Get the current branch name, so we can switch back to it later
     strBranch = Me.BranchName
-    
+
     ' Create a new branch to use when splitting the files
     RunGitCommand egcCheckoutNewBranch, "split-files"
-    
+
     ' We could use git to move the files individually, but this would be much slower.
     ' For our purposes, the files should be pretty unique in content, so we should be
     ' fine to move them in batches. (As passed to this function)
@@ -319,35 +319,35 @@ Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As
             FSO.MoveFile strOrig, strNew
         End If
     Next lngCnt
-    
+
     ' Update the index, and commit the move
     RunGitCommand egcAddAll
     RunGitCommand egcCommit, "Rename as new files"
-    
+
     ' Restore the original files
     ' (TODO: see if we can do this from a named branch)
     RunGitCommand egcCheckoutHeadToCurrent
-    
+
     ' Commit these files (with history) to the temporary branch
     RunGitCommand egcCommit, "Restore original files"
-    
+
     ' Move back to original branch
     RunGitCommand egcCheckoutBranch, strBranch
-    
+
     ' Merge the temporary branch into the original branch
     RunGitCommand egcMergeNoFastFwd, "split-files" & " -m """ & strCommitMessage & """"
-    
+
     ' Delete the temporary branch now that we are finished using it
     RunGitCommand egcDeleteBranch, "split-files"
-    
+
     ' Restore original logging
     Me.LogCommands = blnLog
-    
+
 CleanUp:
 
     ' Restore base folder
     m_strRepositoryRoot = strBaseFolder
-    
+
 End Sub
 
 
@@ -643,4 +643,3 @@ Public Function GetChangedFileIndex(strFromCommit As String) As Dictionary
     Set GetChangedFileIndex = dIndex
 
 End Function
-

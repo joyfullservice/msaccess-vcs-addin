@@ -27,7 +27,7 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
 
     ' Log any unhandled errors
     If blnTrapUnhandledErrors Then LogUnhandledErrors
-    
+
     ' Don't reference the property this till we have loaded the options.
     If OptionsLoaded Then DebugMode = Options.BreakOnError
 
@@ -91,7 +91,7 @@ Public Sub LogUnhandledErrors()
             End If
         End If
     End If
-    
+
 End Sub
 
 
@@ -134,4 +134,3 @@ Public Function CatchAny(eLevel As eErrorLevel, strDescription As String, Option
         CatchAny = True
     End If
 End Function
-

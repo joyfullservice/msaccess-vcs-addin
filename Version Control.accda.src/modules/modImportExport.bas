@@ -245,7 +245,7 @@ CleanUp:
 
     ' Clear object references
     modObjects.ReleaseObjects
-    
+
 End Sub
 
 
@@ -391,7 +391,7 @@ End Sub
 Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose As Boolean = True)
 
     Dim frm As Form_frmVCSMain
-    
+
     Dim dCategories As Dictionary
     Dim dCategory As Dictionary
     Dim dObjects As Dictionary
@@ -401,11 +401,11 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     Dim varKey As Variant
     Dim varCategory As Variant
     Dim varObject As Variant
-        
+
     ' Guard clause
     If objItems Is Nothing Then Exit Sub
     If objItems.Count = 0 Then Exit Sub
-    
+
     ' Use inline error handling functions to trap and log errors.
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -434,7 +434,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
             "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
         .Visible = True
     End With
-    
+
     ' Make sure the object is currently closed
     If bolForceClose Then
         For Each varKey In objItems.Keys
@@ -472,12 +472,12 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     End With
 
     Set dCategories = New Dictionary
-        
+
     For Each varKey In objItems.Keys
         Set objItem = objItems.Item(varKey)
         Log.Add "Exporting " & objItem.Name & "..."
         Log.Flush
-        
+
         ' FIXME: Hackish, need to figure a clean way of communicating types instead of encoding the key
         Dim lngObjectType As Access.AcObjectType
         On Error Resume Next
@@ -489,12 +489,12 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
             ' Get a database component class from the item
             Set cDbObject = GetClassFromObject(objItem)
         End If
-        
+
         ' Check for conflicts
         If Not dCategories.Exists(cDbObject.Category) Then
             Set dObjects = New Dictionary
             Set dCategory = New Dictionary
-            
+
             dObjects.Add cDbObject.SourceFile, cDbObject
             dCategory.Add "Class", cDbObject
             dCategory.Add "Objects", dObjects
@@ -502,11 +502,11 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
         Else
             dCategories.Item(cDbObject.Category).Item("Objects").Add cDbObject.SourceFile, cDbObject
         End If
-        
+
         VCSIndex.Conflicts.Initialize dCategories
         VCSIndex.CheckExportConflicts dObjects
     Next
-        
+
     ' Resolve any outstanding conflict, or allow user to cancel.
     With VCSIndex.Conflicts
         If .Count > 0 Then
@@ -534,7 +534,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
             Set dObjects = dCategory.Item("Objects")
             For Each varObject In dObjects.Keys
                 Set cDbObject = dObjects.Item(varObject)
-                
+
                 ' If we have already exported this object while scanning for changes, use that copy.
                 strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
                 If FSO.FileExists(strTempFile) Then
@@ -792,7 +792,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
             End If
         End If
     End With
-    
+
     ' A merge may not find any changed files
     If dCategories.Count = 0 And Not blnFullBuild Then
         Log.Add "No changes found."
@@ -841,9 +841,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
         ' Show category wrap-up.
         Log.Add "[" & dFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
         Perf.CategoryEnd dFiles.Count
-    
+
     Next varCategory
-    
+
     ' Check for merge items that might affect other components
     If Not blnFullBuild Then
         ' Check for any object visible in the object navigation pane that might have a description property.
@@ -1130,8 +1130,8 @@ Public Sub MergeAllSource()
         .Add "Scanning source files..."
         .Flush
     End With
-    
-    
+
+
     ' Build collections of files to import/merge
     Set dCategories = New Dictionary
     Perf.OperationStart "Scan Source Files"

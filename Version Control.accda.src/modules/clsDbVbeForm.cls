@@ -58,25 +58,25 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Before exporting the file, let's see if the source files exist, just in case
     ' the database object already matches the source file.
     If strAlternatePath = vbNullString Then
-    
+
         ' Build out all three source file paths.
         strJsonPath = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json"
         strBinaryPath = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".frx"
         strFormPath = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".frm"
-        
+
         ' See if all three files already exist.
         If FSO.FileExists(strJsonPath) And FSO.FileExists(strBinaryPath) And FSO.FileExists(strFormPath) Then
             ' If so, compare the hash of the json file to the database object.
             blnUnchanged = (GetStringHash(strContent, True) = GetFileHash(strJsonPath))
         End If
     End If
-    
+
     ' This is the serialized output file in JSON format to track changes in version control
     WriteFile strContent, Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json")
 
     ' Only export the VBE object (including binary source) if the form has changed.
     If Not blnUnchanged Then
-    
+
         ' This is the binary export file used when building from source
         m_Form.Export IDbComponent_SourceFile
     End If
@@ -109,7 +109,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
         ' Import the source file
         .Import strFile
-        
+
         ' Set reference to form after import
         Set m_Form = .Item(GetObjectNameFromFileName(strFile))
 
@@ -126,7 +126,7 @@ Private Sub IDbComponent_Import(strFile As String)
             End If
         End With
     End With
-    
+
     ' Update index (based on serialized representation)
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
 
@@ -462,4 +462,3 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-

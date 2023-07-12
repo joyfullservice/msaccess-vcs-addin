@@ -506,17 +506,17 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
     Dim strRecord As String
     Dim cItem As clsPerformanceItem
     Dim dSorted As Dictionary
-    
+
     ' Create an array to build our items
     ReDim varItems(0 To dItems.Count - 1)
-    
+
     ' The idea here is that we want to build a fixed width record with the time on
     ' the left, and the key on the right. We will then sort this list of "records"
     ' to get them sorted by time. However, since the sorting is in ascending order,
     ' we will loop backwards through the resulting array to rebuild a dictionary
     ' of items in descending order. We will split out the key and use this to get
     ' a reference back to the original item in the source dictionary.
-    
+
     ' Build our list of records
     For Each varKey In dItems.Keys
         ' Create a record like this: "00062840.170000|Export Form Objects       ..."
@@ -526,10 +526,10 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
         ' Increment counter for array
         lngCnt = lngCnt + 1
     Next varKey
-    
+
     ' Sort the array in ascending order
     QuickSort varItems
-    
+
     ' Now, build a new dictionary with the sorted items
     ' (We are walking backwards through the array to flip the sort to descending)
     Set dSorted = New Dictionary
@@ -541,7 +541,7 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
         ' Add to dictionary of resorted items
         dSorted.Add varKey, cItem
     Next lngCnt
-    
+
     ' Return the sorted dictionary
     Set SortItemsByTime = dSorted
 
@@ -578,4 +578,3 @@ Private Sub Class_Initialize()
     GetFrequencyAPI this.Frequency
     this.intDigitsAfterDecimal = 2
 End Sub
-

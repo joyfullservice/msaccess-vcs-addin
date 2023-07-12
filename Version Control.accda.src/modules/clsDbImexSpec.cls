@@ -126,17 +126,17 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-    
+
     ' Remove any existing spec by this name
     DeleteSpecByName GetObjectNameFromFileName(strFile)
-    
+
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
     Else
         ' Remove from index if the source file doesn't exist.
         VCSIndex.Remove Me, strFile
     End If
-    
+
 End Sub
 
 
@@ -236,7 +236,7 @@ Private Function GetDictionary() As Dictionary
     Set dSpec = New Dictionary
     Set dCols = New Dictionary
     Set dbs = CurrentDb
-    
+
     ' Make sure we have an object specified
     If Me.ID = 0 Then Exit Function
 
@@ -278,7 +278,7 @@ Private Function GetDictionary() As Dictionary
 
     ' Return dictionary
     Set GetDictionary = dSpec
-    
+
 End Function
 
 
@@ -292,10 +292,10 @@ End Function
 Private Sub DeleteSpecByName(strName As String)
 
     Dim lngID As Long
-    
+
     ' Skip lookup if we don't even have the corresponding system table.
     If Not TableExists("MSysIMEXSpecs") Then Exit Sub
-    
+
     ' Attempt to look up spec by name
     lngID = Nz(DLookup("SpecID", "MSysIMEXSpecs", "SpecName=""" & DblQ(strName) & """"))
     If lngID > 0 Then
@@ -303,7 +303,7 @@ Private Sub DeleteSpecByName(strName As String)
         CurrentDb.Execute "delete from MSysIMEXColumns where SpecID=" & lngID, dbFailOnError
         CurrentDb.Execute "delete from MSysIMEXSpecs where SpecID=" & lngID, dbFailOnError
     End If
-    
+
 End Sub
 
 

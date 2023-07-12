@@ -437,7 +437,7 @@ Sub Main()
         Case "RenameDatabaseObject"
             ' New name, Type, Old Name
             objApp.DoCmd.Rename WScript.Arguments(3), WScript.Arguments(4), WScript.Arguments(5)
-            
+
         Case "Uninstall"
             ' Remove the add-in database file and this worker script.
             ' (This must be done after closing Access)
@@ -452,7 +452,7 @@ Sub Main()
     ' Make sure we still have a valid reference to the application before
     ' attempting any callback operations.
     If Not objApp Is Nothing Then
-    
+
         ' Check the project name, just in case we are editing the VCS project
         If objApp.CurrentProject.Name = "Version Control.accda" Then
             ' Rename project so we can run the callback directly on the add-in
@@ -579,19 +579,19 @@ Function UninstallAddIn(objApp, strAddInFile)
     Dim objFSO
     Dim strLockFile
     Dim intCnt
-    
+
     Set objFSO = CreateObject("Scripting.FileSystemObject")
 
     ' Close the Microsoft Access application
     objApp.Quit
     Set objApp = Nothing
-    
+
     ' Build lock file name from add-in name
     strLockFile = Replace(strAddInFile, ".accda", ".laccda")
-    
+
     ' Resume next on any errors while attempting to delete the file.
     On Error Resume Next
-    
+
     ' Wait up to 10 seconds to delete the main add-in file and database lock file.
     For intCnt = 1 To 10
         If objFSO.FileExists(strLockFile) Then objFSO.DeleteFile strLockFile
@@ -603,7 +603,7 @@ Function UninstallAddIn(objApp, strAddInFile)
         End If
         WScript.Sleep 1000  ' Pause one second
     Next
-    
+
     ' Ready or not, here we go with one final attempt. (This time we will show the error message.)
     If objFSO.FileExists(strAddInFile) Then objFSO.DeleteFile strAddInFile
     If Err Then
@@ -615,5 +615,5 @@ Function UninstallAddIn(objApp, strAddInFile)
         objFSO.DeleteFile WScript.ScriptFullName
         WScript.Quit
     End If
-    
+
 End Function

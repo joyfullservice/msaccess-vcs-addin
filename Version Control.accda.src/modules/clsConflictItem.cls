@@ -79,4 +79,3 @@ Private Function RemoveFromItemList()
         End If
     End If
 End Function
-

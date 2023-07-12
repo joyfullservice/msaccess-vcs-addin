@@ -588,4 +588,3 @@ Private Function GetPropertyList(strType As String) As Collection
     End With
 
 End Function
-

@@ -333,7 +333,7 @@ End Function
 Private Function SanitizeCodeLines(lngLineStart As Long, ByRef varLines As Variant)
 
     Dim lngLine As Long
-    
+
     Perf.OperationStart "Sanitize Code Lines"
     For lngLine = lngLineStart To UBound(varLines)
         ' Check for lines that include only space padding
@@ -348,7 +348,7 @@ Private Function SanitizeCodeLines(lngLineStart As Long, ByRef varLines As Varia
         End If
     Next lngLine
     Perf.OperationEnd
-    
+
 End Function
 
 
@@ -824,6 +824,3 @@ Private Function FormatXML( _
     FormatXML = strOutput
 
 End Function
-
-
-

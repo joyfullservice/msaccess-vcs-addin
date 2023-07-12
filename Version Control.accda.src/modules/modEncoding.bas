@@ -487,4 +487,3 @@ Public Function GetSystemEncoding(Optional blnAllowUtf8 As Boolean = False) As S
     End Select
 
 End Function
-

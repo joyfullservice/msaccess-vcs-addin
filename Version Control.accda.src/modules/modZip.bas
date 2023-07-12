@@ -145,4 +145,3 @@ Public Sub ExtractFromZip(strZip As String, strDestFolder As String, _
     End If
 
 End Sub
-

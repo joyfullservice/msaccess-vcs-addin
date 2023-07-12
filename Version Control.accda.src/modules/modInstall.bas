@@ -118,7 +118,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
             .strInstallFolder = strInstallFolder
         End If
    End With
-    
+
     ' Save the updated settings to the registry.
     SaveInstallSettings
 
@@ -149,7 +149,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
 
     ' Run any applicable upgrades
     RunUpgrades
-    
+
     ' Verify the trusted location
     If this.blnTrustAddInFolder Then VerifyTrustedLocation
 
@@ -164,29 +164,29 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
         ' Remove if currently installed
         modCOMAddIn.UninstallComAddIn
     End If
-    
+
     ' Register the Menu controls
     RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
     RegisterMenuItem "&VCS Options", "=AddInOptionsLaunch()"
     RegisterMenuItem "&VCS Export All Source", "=AddInMenuItemExport()"
-    
+
     ' Update installed version number
     InstalledVersion = AppVersion
-    
+
     ' Warn the user if ActiveX is disabled
     VerifyActivexNotDisabled
-    
+
     ' Show install confirmation message
     MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
         "The installer will now close. Please restart any open instances" & vbCrLf & _
         "of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
-        
+
     ' Open add-in from installed location if required.
     If this.blnOpenAfterInstall Then OpenAddinFile GetAddInFileName, CodeProject.FullName
 
     ' Close Access after installation is complete.
     DoCmd.Quit
-    
+
 End Sub
 
 
@@ -202,18 +202,18 @@ Public Sub UninstallVCSAddin()
 
     Dim intResponse As VbMsgBoxResult
     Dim blnSaveSettings As Boolean
-    
+
     ' Ask the user if they want to preserve their user settings.
     intResponse = MsgBox2("Save User Settings", "Would you like your user settings/options preserved?", _
         "Click YES to save these items so they can be used if you reinstall the add-in," & vbCrLf & _
         "Or click NO to remove all settings related to this add-on.", vbQuestion + vbYesNoCancel)
-    
+
     ' Allow user to cancel if they are not sure how to answer the above prompt.
     If intResponse = vbCancel Then Exit Sub
-    
+
     ' Note if the user wants to save/migrate their existing settings.
     If intResponse = vbYes Then blnSaveSettings = True
-    
+
     ' Close all database objects
     If IsLoaded(acForm, "frmVCSOptions") Then DoCmd.Close acForm, "frmVCSOptions"
     If IsLoaded(acForm, "frmVCSMain") Then DoCmd.Close acForm, "frmVCSMain"
@@ -240,13 +240,13 @@ Public Sub UninstallVCSAddin()
         ' Remove entire application key
         DeleteSetting PROJECT_NAME
     End If
-    
+
     ' Resume normal error handling
     If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Remove trusted location added by this add-in. (if found)
     RemoveTrustedLocation
-    
+
     ' Remove COM add-in
     modCOMAddIn.UninstallComAddIn
 
@@ -257,11 +257,11 @@ Public Sub UninstallVCSAddin()
     MsgBox2 "Success!", "Version Control System has now been uninstalled.", _
         "Microsoft Access will be closed to remove the remaining files.", _
         vbInformation, "Version Control Add-in"
-    
+
     ' Use the worker script to actually remove the add-in files.
     ' (They cannot be removed when they are in use, such as when procesing the uninstall.)
     Worker.Run_UninstallAddin
-    
+
 End Sub
 
 
@@ -276,7 +276,7 @@ Private Function UpdateAddInFile() As Boolean
 
     ' Make sure the destination folder exists
     VerifyPath GetAddInFileName
-    
+
     ' Update the file
     LogUnhandledErrors
     On Error Resume Next
@@ -311,7 +311,7 @@ Private Sub MigrateUserFiles(strFromFolder As String, strToFolder As String, col
     Dim strFile As String
     Dim strSource As String
     Dim strDest As String
-    
+
     ' Loop through file names
     For Each varKey In colNames.Keys
         strSource = varKey
@@ -340,7 +340,7 @@ Private Sub MigrateUserFiles(strFromFolder As String, strToFolder As String, col
                 End If
         End Select
     Next varKey
-    
+
 End Sub
 
 
@@ -672,7 +672,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function GetInstallSettings(Optional blnUseCache As Boolean = True) As udtInstallSettings
-    
+
     ' Load install settings from registry
     With this
         If Not (.blnSettingsLoaded And blnUseCache) Then
@@ -684,7 +684,7 @@ Public Function GetInstallSettings(Optional blnUseCache As Boolean = True) As ud
         End If
     End With
     GetInstallSettings = this
-    
+
 End Function
 
 
@@ -976,20 +976,20 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function CheckRegKey(strPath As String, ParamArray AllowedValues() As Variant) As Boolean
-    
+
     Dim varValue As Variant
     Dim intCnt As Integer
-    
+
     LogUnhandledErrors
     On Error Resume Next
-    
+
     ' Attempt to read registry key
     With New IWshRuntimeLibrary.WshShell
         varValue = .RegRead(strPath)
         ' A file not found error means the key did not exist.
         If Catch(-2147024894) Then varValue = Null
     End With
-    
+
     ' Compare to array of allowed values
     For intCnt = 0 To UBound(AllowedValues)
         If varValue = AllowedValues(intCnt) Or _
@@ -998,7 +998,7 @@ Private Function CheckRegKey(strPath As String, ParamArray AllowedValues() As Va
             Exit For
         End If
     Next intCnt
-        
+
 End Function
 
 

@@ -545,4 +545,3 @@ Private Sub Class_Terminate()
     If Err.Number <> 0 Then Err.Clear
 
 End Sub
-

@@ -250,7 +250,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetDictionary() As Dictionary
-    
+
     Dim dItem As Dictionary
     Dim dField As Dictionary
     Dim colItems As Collection
@@ -279,7 +279,7 @@ Private Function GetDictionary() As Dictionary
 
     ' Return dictionary object
     Set GetDictionary = dItem
-    
+
 End Function
 
 
@@ -503,4 +503,3 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-

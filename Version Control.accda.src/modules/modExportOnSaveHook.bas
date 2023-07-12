@@ -146,7 +146,7 @@ End Sub
 '
 Public Function ActivateHook(Optional ExportRequestDelayMilliseconds As Long = 500) As Boolean
     Dim Config As HookConfiguration
-    
+
     If ptrLibraryHandle = 0 Then
         VerifyHook
         ptrLibraryHandle = LoadLibraryExW(StrPtr(FSO.BuildPath(GetInstallSettings.strInstallFolder, GetHookFileName)), &H0, &H0)
@@ -169,7 +169,7 @@ Public Function ActivateHook(Optional ExportRequestDelayMilliseconds As Long = 5
             End If
         End If
     End If
-    
+
     ActivateHook = (ptrLibraryHandle <> 0)
 End Function
 
@@ -189,7 +189,7 @@ Public Function DeactivateHook() As Boolean
             End If
         End If
     End If
-    
+
     DeactivateHook = (ptrLibraryHandle = 0)
 End Function
 
@@ -204,17 +204,17 @@ End Function
 '
 Public Sub HandleExportCallback(UpperBound As Long, ObjectDataArray() As ObjectData)
     On Error GoTo ErrHandler
-    
+
     Dim dAccessObjects As Dictionary
     Dim oAccessObject As Access.AccessObject
     Dim tObjectData As ObjectData
-    
+
     Dim strName As String
-    
+
     Dim lngIndex As Long
-    
+
     Set dAccessObjects = New Dictionary
-    
+
     For lngIndex = 0 To UpperBound
         With ObjectDataArray(lngIndex)
             If .Cancelled = False Then
@@ -239,14 +239,14 @@ Public Sub HandleExportCallback(UpperBound As Long, ObjectDataArray() As ObjectD
                     Case acModule
                         Set oAccessObject = CurrentProject.AllModules(strName)
                 End Select
-                
+
                 dAccessObjects.Add .NewObjectType & "|" & strName, oAccessObject
             End If
         End With
     Next
-    
+
     modImportExport.ExportMultipleObjects dAccessObjects, False
-    
+
 ExitProc:
     Exit Sub
 

@@ -1658,4 +1658,3 @@ Private Function RTrimNulls(strData As String, lngLeaveCount As Long) As String
     End If
 
 End Function
-

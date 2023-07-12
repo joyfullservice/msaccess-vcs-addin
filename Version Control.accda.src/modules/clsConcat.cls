@@ -321,4 +321,3 @@ Public Sub SelfTest()
         Debug.Assert .GetStr = "1234567890A"
     End With
 End Sub
-

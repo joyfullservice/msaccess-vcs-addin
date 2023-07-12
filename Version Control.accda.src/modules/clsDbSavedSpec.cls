@@ -60,7 +60,7 @@ Private Sub IDbComponent_Import(strFile As String)
     If Not strFile Like "*.json" Then Exit Sub
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     Set dSpec = ReadJsonFile(strFile)
     If Not dSpec Is Nothing Then
         Set dItem = dSpec("Items")
@@ -70,13 +70,13 @@ Private Sub IDbComponent_Import(strFile As String)
             If Nz(dItem("Description")) <> vbNullString Then .Description = dItem("Description")
         End With
     End If
-    
+
     ' Update index
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
 
     CatchAny eelError, "Error importing saved specification: " & _
         GetObjectNameFromFileName(strFile), ModuleName(Me) & ".Import"
-    
+
 End Sub
 
 
@@ -91,15 +91,15 @@ End Sub
 Private Sub IDbComponent_Merge(strFile As String)
 
     Dim strName As String
-    
+
     strName = GetObjectNameFromFileName(strFile)
-    
+
     ' Remove any existing object by this name
     LogUnhandledErrors
     On Error Resume Next
     CurrentProject.ImportExportSpecifications(strName).Delete
     If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' See if the source file exists. (It might not if we are removing the object.)
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
@@ -107,7 +107,7 @@ Private Sub IDbComponent_Merge(strFile As String)
         ' Remove index entry for a removed object
         VCSIndex.Remove Me, strFile
     End If
-    
+
 End Sub
 
 
@@ -192,10 +192,10 @@ Private Function GetDictionary() As Dictionary
         .Add "XML", DeDupString(m_Spec.XML, vbCr)
     End With
     CatchAny eelNoError, vbNullString, , False
-    
+
     ' Return dictionary
     Set GetDictionary = dSpec
-    
+
 End Function
 
 
