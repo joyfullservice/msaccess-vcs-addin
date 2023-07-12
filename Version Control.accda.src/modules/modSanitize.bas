@@ -513,6 +513,55 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SanitizeVBA
+' Author    : Adam Waller
+' Date      : 7/12/2023
+' Purpose   : Standardizes blank line padding and trailing lines in VBA code content.
+'           : NOTE: This does not make any code changes, but only modifies padding
+'           : and blank lines to generate standardized output for version control.
+'           :
+'           : OPERATIONS:
+'           :   - Trim blank lines that only include space padding.
+'           :   - Remove extra trailing lines from the end of the module.
+'---------------------------------------------------------------------------------------
+'
+Public Function SanitizeVBA(strCode As String) As String
+
+    Dim lngLine As Long
+    Dim varLines As Variant
+    Dim lngLastLine As Long
+
+    Perf.OperationStart "Sanitize VBA Code"
+
+    ' Split code into lines
+    varLines = Split(strCode, vbCrLf)
+
+    ' Build sanitized content
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+
+        ' Find the last non-blank line
+        For lngLine = UBound(varLines) To 0 Step -1
+            If Len(Trim(varLines(lngLine))) > 0 Then
+                lngLastLine = lngLine
+                Exit For
+            End If
+        Next lngLine
+
+        ' Loop through lines
+        For lngLine = 0 To lngLastLine
+            .Add RTrim(varLines(lngLine))
+        Next lngLine
+
+        ' Return standardized code block
+        SanitizeVBA = .GetStr
+        Perf.OperationEnd
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SanitizeXML
 ' Author    : Adam Waller
 ' Date      : 4/29/2021

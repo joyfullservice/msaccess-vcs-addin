@@ -43,13 +43,16 @@ Implements IDbComponent
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strTempFile As String
+    Dim strContent As String
     Dim strExt As String
     Dim strAlternateFile As String
 
     ' Export to temp file and convert to UTF-8 encoding
     strTempFile = GetTempFile
     ExportVbComponent strTempFile
-    ConvertAnsiUtf8 strTempFile, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    strContent = SanitizeVBA(ReadFile(strTempFile, GetSystemEncoding))
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    DeleteFile strTempFile
 
     ' Remove any file with the same name but alternate extension
     strExt = IIf(GetExtension = ".bas", ".cls", ".bas")
