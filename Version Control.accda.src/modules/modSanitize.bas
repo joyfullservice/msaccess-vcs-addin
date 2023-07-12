@@ -531,6 +531,12 @@ Public Function SanitizeVBA(strCode As String) As String
     Dim varLines As Variant
     Dim lngLastLine As Long
 
+    ' Skip sanitizing if not using that option.
+    If Options.SanitizeLevel < eslAggressive Then
+        SanitizeVBA = strCode
+        Exit Function
+    End If
+
     Perf.OperationStart "Sanitize VBA Code"
 
     ' Split code into lines
