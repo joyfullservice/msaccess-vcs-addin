@@ -81,6 +81,12 @@ Public Enum eDatabaseComponentType
     [_Last]
 End Enum
 
+' Database server types for external databases
+Public Enum eDatabaseServerType
+    estMsSql
+    estMySql
+End Enum
+
 ' Error levels used for logging and monitoring the status
 ' of the current operation.
 Public Enum eErrorLevel
@@ -135,4 +141,5 @@ End Enum
 Public Enum eContainerFilter
     ecfAllObjects
     ecfVBAItems
+    ecfSchemas
 End Enum
