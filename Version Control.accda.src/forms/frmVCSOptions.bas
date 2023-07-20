@@ -15,11 +15,11 @@ Begin Form
     GridY =24
     Width =10080
     DatasheetFontHeight =11
-    ItemSuffix =241
-    Left =3225
-    Top =2430
-    Right =18945
-    Bottom =14175
+    ItemSuffix =248
+    Left =-25575
+    Top =1500
+    Right =-5310
+    Bottom =14085
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -405,7 +405,7 @@ Begin Form
                     Left =540
                     Top =1500
                     Width =9000
-                    Height =4815
+                    Height =4740
                     TabIndex =2
                     Name ="tabOptions"
                     HorizontalAnchor =2
@@ -414,7 +414,7 @@ Begin Form
                     LayoutCachedLeft =540
                     LayoutCachedTop =1500
                     LayoutCachedWidth =9540
-                    LayoutCachedHeight =6315
+                    LayoutCachedHeight =6240
                     ThemeFontIndex =1
                     Shape =1
                     Gradient =12
@@ -434,13 +434,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4260
+                            Height =4185
                             Name ="pgeGeneral"
                             Caption ="General"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6240
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -731,13 +731,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4260
+                            Height =4185
                             Name ="pgeExport"
                             Caption ="Export"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6240
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1244,13 +1244,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4260
+                            Height =4185
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6240
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -1896,13 +1896,305 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4260
+                            Height =4185
+                            Name ="pgeDatabases"
+                            Caption ="Databases"
+                            LayoutCachedLeft =615
+                            LayoutCachedTop =1980
+                            LayoutCachedWidth =9465
+                            LayoutCachedHeight =6165
+                            WebImagePaddingLeft =2
+                            WebImagePaddingTop =2
+                            WebImagePaddingRight =2
+                            WebImagePaddingBottom =2
+                            Begin
+                                Begin ListBox
+                                    OverlapFlags =247
+                                    IMESentenceMode =3
+                                    Left =1020
+                                    Top =2520
+                                    Width =4440
+                                    Height =2880
+                                    Name ="lstDatabases"
+                                    RowSourceType ="Table/Query"
+                                    HorizontalAnchor =2
+                                    VerticalAnchor =2
+
+                                    LayoutCachedLeft =1020
+                                    LayoutCachedTop =2520
+                                    LayoutCachedWidth =5460
+                                    LayoutCachedHeight =5400
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =1200
+                                            Top =2160
+                                            Width =1890
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label243"
+                                            Caption ="External Databases:"
+                                            LayoutCachedLeft =1200
+                                            LayoutCachedTop =2160
+                                            LayoutCachedWidth =3090
+                                            LayoutCachedHeight =2475
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin Label
+                                    OverlapFlags =247
+                                    Left =5880
+                                    Top =2580
+                                    Width =3240
+                                    Height =3525
+                                    ForeColor =5324600
+                                    Name ="Label244"
+                                    Caption ="Your database application may connect to external database systems such as Micro"
+                                        "soft SQL Server.\015\012\015\012If you define a connection to an external databa"
+                                        "se, you can use version control to track changes in those external database obje"
+                                        "cts.\015\012\015\012Please see documentation for additional notes."
+                                    HorizontalAnchor =1
+                                    LayoutCachedLeft =5880
+                                    LayoutCachedTop =2580
+                                    LayoutCachedWidth =9120
+                                    LayoutCachedHeight =6105
+                                    ForeThemeColorIndex =-1
+                                    ForeTint =100.0
+                                End
+                                Begin CommandButton
+                                    OverlapFlags =247
+                                    Left =1020
+                                    Top =5520
+                                    Width =1320
+                                    TabIndex =1
+                                    Name ="cmdDeleteDatabase"
+                                    Caption =" Delete"
+                                    LeftPadding =135
+                                    TopPadding =135
+                                    RightPadding =150
+                                    BottomPadding =150
+                                    VerticalAnchor =1
+                                    ImageData = Begin
+                                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000b0a090ff302010ff302010ff302010ff302010ff302010ff ,
+                                        0x302010ff302010ff302010ff302010ff302010ff302010ff302010ff00000000 ,
+                                        0x0000000000000000b0a090fffff8f0fffff0f0ffffe8e0fff0e8e0fff0e0d0ff ,
+                                        0xf0d8d0fff0d8c0fff0d8c0fff0d8c0fff0d8c0fff0d8c0ff302010ff00000000 ,
+                                        0x0000000000000000b0a090ffffffffffe06830ffe06830ffe06830ffd06830ff ,
+                                        0xd06830ffd06830ffd06030ffc06030ff904820ffffe0d0ff302010ff00000000 ,
+                                        0x0000000000000000b0a090ffffffffffd06830ffffb080ffffa880ffffa070ff ,
+                                        0xf09870fff09060ffa0b0f0ff1020e0ffc0c8f0ffffe0d0ff302010ff00000000 ,
+                                        0x00000000a0a8f0ffb0a090ffffffffffe06830ffe06830ffe06830ffd06830ff ,
+                                        0xd06830ffe0e0f0ff0028ffff1028f0ff4050d0ffffe0d0ff302010ff00000000 ,
+                                        0x4050e0ff0010b0ffb0a090ffffffffffffffffffffffffffffffffffffffffff ,
+                                        0xfff8f0ffffe8e0ff2048ffff1038ffff1028ffffe0e8f0ff302010ff7088f0ff ,
+                                        0x0018c0ff6078f0ffb0a090ffb0a090ffb0a090ffb0a090ffb0a090ffb0a090ff ,
+                                        0xb0a090ffb0a090ffe0e0f0ff3050ffff2040ffff8090f0ffb0b8f0ff0028f0ff ,
+                                        0x4058f0ff00000000000000000000000000000000000000000000000000000000 ,
+                                        0x000000000000000000000000d0d8f0ff4060ffff3050ffff2040ffff3050ffff ,
+                                        0xe0e8f0ff00000000000000000000000000000000000000000000000000000000 ,
+                                        0x00000000000000000000000000000000c0d0f0ff4068ffff4060ffffc0c8f0ff ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x000000000000000000000000c0c8f0ff6078ffff6078ffff6080ffff5070ffff ,
+                                        0xe0e0f0ff00000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000b0b8f0ff6078ffff6078ffffb0c0f0fff0f0f0ff7088ffff ,
+                                        0x6078ffffc0d0f0ff000000000000000000000000000000000000000000000000 ,
+                                        0x0000000090a0ffff6078ffff6078ffffd0d8f0ff000000000000000000000000 ,
+                                        0xb0b8f0ff8098ffff000000000000000000000000000000000000000000000000 ,
+                                        0x000000008098ffff6080ffffd0d8f0ff00000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000
+                                    End
+
+                                    LayoutCachedLeft =1020
+                                    LayoutCachedTop =5520
+                                    LayoutCachedWidth =2340
+                                    LayoutCachedHeight =5880
+                                    PictureCaptionArrangement =5
+                                    BackColor =14262935
+                                    BackThemeColorIndex =-1
+                                    BackTint =100.0
+                                    BorderColor =15321539
+                                    BorderThemeColorIndex =-1
+                                    BorderTint =100.0
+                                    HoverColor =15321539
+                                    HoverThemeColorIndex =-1
+                                    HoverTint =100.0
+                                    PressedColor =13072231
+                                    PressedThemeColorIndex =-1
+                                    PressedShade =100.0
+                                    WebImagePaddingLeft =9
+                                    WebImagePaddingTop =9
+                                    WebImagePaddingRight =9
+                                    WebImagePaddingBottom =9
+                                End
+                                Begin CommandButton
+                                    OverlapFlags =247
+                                    Left =4260
+                                    Top =5520
+                                    Width =1200
+                                    TabIndex =2
+                                    Name ="cmdAddDatabase"
+                                    Caption =" Add"
+                                    LeftPadding =135
+                                    TopPadding =135
+                                    RightPadding =150
+                                    BottomPadding =150
+                                    HorizontalAnchor =1
+                                    VerticalAnchor =1
+                                    ImageData = Begin
+                                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000b09880ff201010ff201010ff201010ff201010ff201010ff ,
+                                        0x201010ff201010ff201010ff201010ff201010ff201010ff201010ff00000000 ,
+                                        0x0000000000000000c0a090fffff8f0fffff8f0fffff0f0fffff0e0fff0e8e0ff ,
+                                        0xf0e8d0fff0e0d0fff0e0d0fff0e0d0fff0d8d0fff0d8d0ff201810ff00000000 ,
+                                        0x0000000000000000c0a090ffffffffffd07850ffd07840ffd07040ffc07040ff ,
+                                        0xc06840ffc06840ffc06840ffc07040ffa06040fff0e0d0ff403830ff00000000 ,
+                                        0x0000000000000000c0a890ffffffffffd07850fff0b8a0fff0b090fff0a880ff ,
+                                        0xf0a080fff09870fff09870fff0a880ffc09880fffff0f0ff909090ff00000000 ,
+                                        0x0000000000000000c0a890ffffffffffd07850ffd07850ffd07840ffd07040ff ,
+                                        0xc07040ffc07050ffd09070ff70b8c0ff90d8f0ff90f0ffff40c0e0ffa0f0ffff ,
+                                        0xa0e8ffff90d8f0ffc0a8a0fffffffffffffffffffffffffffffffffffff8f0ff ,
+                                        0xfff8f0fffff8f0fffff8f0ffb0e8ffff30b8e0ff80e8ffff60c8e0ff90f0ffff ,
+                                        0x30b8e0ffa0e8ffffc0a8a0ffc0a8a0ffc0a890ffc0a090ffc0a090ffc0a090ff ,
+                                        0xc09880ffc0a090ffd0c0b0ffa0e8ffff90f0ffffc0f8ffffb0e8f0ffc0f8ffff ,
+                                        0x90f0ffffa0f0ffff000000000000000000000000000000000000000000000000 ,
+                                        0x00000000000000000000000020a8e0ff50c0e0ffb0e8f0fff0ffffffb0e8f0ff ,
+                                        0x50c0e0ff30b8e0ff000000000000000000000000000000000000000000000000 ,
+                                        0x00000000000000000000000080e8ffc090f0ffffc0f8ffffb0e8f0ffc0f8ffff ,
+                                        0x90f0ffff90d8e0ff000000000000000000000000000000000000000000000000 ,
+                                        0x00000000000000000000000050d8ff8030b8e0ff90f0ffff60c0e0ff90f0ffff ,
+                                        0x30b8e0ff50d0f080000000000000000000000000000000000000000000000000 ,
+                                        0x00000000000000000000000030b0e0a040c8f09080e8ffc020b0e0ff70e8ffc0 ,
+                                        0x50d8f08030b0e080000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000
+                                    End
+
+                                    LayoutCachedLeft =4260
+                                    LayoutCachedTop =5520
+                                    LayoutCachedWidth =5460
+                                    LayoutCachedHeight =5880
+                                    PictureCaptionArrangement =5
+                                    BackColor =14262935
+                                    BackThemeColorIndex =-1
+                                    BackTint =100.0
+                                    BorderColor =15321539
+                                    BorderThemeColorIndex =-1
+                                    BorderTint =100.0
+                                    HoverColor =15321539
+                                    HoverThemeColorIndex =-1
+                                    HoverTint =100.0
+                                    PressedColor =13072231
+                                    PressedThemeColorIndex =-1
+                                    PressedShade =100.0
+                                    WebImagePaddingLeft =9
+                                    WebImagePaddingTop =9
+                                    WebImagePaddingRight =9
+                                    WebImagePaddingBottom =9
+                                End
+                                Begin CommandButton
+                                    OverlapFlags =247
+                                    Left =3000
+                                    Top =5520
+                                    Width =1140
+                                    TabIndex =3
+                                    Name ="cmdEditDatabase"
+                                    Caption =" Edit..."
+                                    LeftPadding =135
+                                    TopPadding =135
+                                    RightPadding =150
+                                    BottomPadding =150
+                                    HorizontalAnchor =1
+                                    VerticalAnchor =1
+                                    ImageData = Begin
+                                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000000000000000000ff00000000000000ff00000000000000ff00000000 ,
+                                        0x707070ff505850ff000000ff2048503000000000000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0xa0a0a0ffffffffff5090b0ff101010ff30607030000000000000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0xa0a0a0ff90b8c0ff70d0e0ff5098b0ff101010ff306070300000000000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x80a0b04050a0b0ff90e0f0ff60c0d0ff5098b0ff101010ff3060704000000000 ,
+                                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                                        0x0000000080a0b04050a0b0ff90e0f0ff60c0d0ff5098b0ff101010ff30607040 ,
+                                        0x000000000000000000000000000000000000000070707000707070ff404040ff ,
+                                        0x000800ff0000000080a0b04060a8b0ff90e0f0ff60c0d0ff5098b0ff101010ff ,
+                                        0x305860300000000000000000000000000000000070687000707070ff505050ff ,
+                                        0x100810ff000000000000000080a0b04070b0c0ff90e0f0ff70c8e0ff808880ff ,
+                                        0x303890ff3038805000000000000000000000000000000000707070ff707070ff ,
+                                        0x404040ff00000000000000000000000080a0b04080b0c0ffd0b8b0ff7088d0ff ,
+                                        0x6070b0ff303890ff00000000000000000000000000000000707070ff909890ff ,
+                                        0x504850ff4048402000000000000000000000000080a0b0406070b0ff7090e0ff ,
+                                        0x6078d0ff6070b0ff00000000000000000000000090989060909090ffd0c8c0ff ,
+                                        0x505850ff50485060000000000000000000000000000000007080c0506070b0ff ,
+                                        0x6070b0ff6078c030000000000000000090909050808880fff0f0f0ffe0d8d0ff ,
+                                        0x909890ff404840ff505050400000000000000000000000000000000000000000 ,
+                                        0x000000000000000000000000a098a040707070fff0e8f0fffff8fffff0e8e0ff ,
+                                        0xd0d0d0ff707070ff404840ff5050503000000000000000000000000000000000 ,
+                                        0x0000000000000000a098a050707070ffc0c8c0fffffffffff0f8f0fff0f0f0ff ,
+                                        0xd0d8d0ffb0a8b0ff606060ff404840ff50505040000000000000000000000000 ,
+                                        0x0000000000000000c0b8c0ffc0c0c0ffd0c8d0ffc0c0c0ffb0b8b0ffb0b0b0ff ,
+                                        0xb0b0b0ffa0a0a0ff808080ff606060ff404840ff303030000000000000000000 ,
+                                        0x0000000000000000
+                                    End
+
+                                    LayoutCachedLeft =3000
+                                    LayoutCachedTop =5520
+                                    LayoutCachedWidth =4140
+                                    LayoutCachedHeight =5880
+                                    PictureCaptionArrangement =5
+                                    BackColor =14262935
+                                    BackThemeColorIndex =-1
+                                    BackTint =100.0
+                                    BorderColor =15321539
+                                    BorderThemeColorIndex =-1
+                                    BorderTint =100.0
+                                    HoverColor =15321539
+                                    HoverThemeColorIndex =-1
+                                    HoverTint =100.0
+                                    PressedColor =13072231
+                                    PressedThemeColorIndex =-1
+                                    PressedShade =100.0
+                                    WebImagePaddingLeft =9
+                                    WebImagePaddingTop =9
+                                    WebImagePaddingRight =9
+                                    WebImagePaddingBottom =9
+                                End
+                            End
+                        End
+                        Begin Page
+                            OverlapFlags =247
+                            Left =615
+                            Top =1980
+                            Width =8850
+                            Height =4185
                             Name ="pgeTable"
                             Caption ="Table Data"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6240
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2213,13 +2505,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4260
+                            Height =4185
                             Name ="pgeBuild"
                             Caption ="Build"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6240
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2394,13 +2686,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4260
+                            Height =4185
                             Name ="pgeGitIntegration"
                             Caption ="Git Integration"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6240
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
@@ -2715,13 +3007,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4260
+                            Height =4185
                             Name ="pgeSettings"
                             Caption ="Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6240
+                            LayoutCachedHeight =6165
                             WebImagePaddingLeft =2
                             WebImagePaddingTop =2
                             WebImagePaddingRight =2
