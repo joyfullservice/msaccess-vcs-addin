@@ -16,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =248
-    Left =-25575
-    Top =1500
-    Right =-5310
-    Bottom =14085
+    Left =20761
+    Top =2250
+    Right =31426
+    Bottom =13995
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -1909,14 +1909,19 @@ Begin Form
                             WebImagePaddingBottom =2
                             Begin
                                 Begin ListBox
+                                    ColumnHeads = NotDefault
+                                    RowSourceTypeInt =1
                                     OverlapFlags =247
                                     IMESentenceMode =3
+                                    ColumnCount =2
                                     Left =1020
                                     Top =2520
                                     Width =4440
                                     Height =2880
                                     Name ="lstDatabases"
-                                    RowSourceType ="Table/Query"
+                                    RowSourceType ="Value List"
+                                    ColumnWidths ="2520"
+                                    OnDblClick ="[Event Procedure]"
                                     HorizontalAnchor =2
                                     VerticalAnchor =2
 
@@ -1971,6 +1976,7 @@ Begin Form
                                     TabIndex =1
                                     Name ="cmdDeleteDatabase"
                                     Caption =" Delete"
+                                    OnClick ="[Event Procedure]"
                                     LeftPadding =135
                                     TopPadding =135
                                     RightPadding =150
@@ -2043,6 +2049,7 @@ Begin Form
                                     TabIndex =2
                                     Name ="cmdAddDatabase"
                                     Caption =" Add"
+                                    OnClick ="[Event Procedure]"
                                     LeftPadding =135
                                     TopPadding =135
                                     RightPadding =150
@@ -2116,6 +2123,7 @@ Begin Form
                                     TabIndex =3
                                     Name ="cmdEditDatabase"
                                     Caption =" Edit..."
+                                    OnClick ="[Event Procedure]"
                                     LeftPadding =135
                                     TopPadding =135
                                     RightPadding =150
@@ -3736,6 +3744,10 @@ Private Enum eMapAction
 End Enum
 
 
+' Dictionary to stash database schemas while managing options.
+Public DatabaseSchemas As Dictionary
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : chkTableShowHidden_Click
 ' Author    : Adam Waller
@@ -3763,6 +3775,94 @@ End Sub
 '
 Private Sub chkUseGitIntegration_Click()
     pgeGitIntegration.Visible = chkUseGitIntegration
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdAddDatabase_Click
+' Author    : Adam Waller
+' Date      : 7/20/2023
+' Purpose   : Add an external database connection
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdAddDatabase_Click()
+    DoCmd.OpenForm "frmVCSDatabase"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdEditDatabase_Click
+' Author    : Adam Waller
+' Date      : 7/20/2023
+' Purpose   : Edit an existing database connection
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdEditDatabase_Click()
+    If Len(Nz(lstDatabases)) > 0 Then
+        ' Open the form as hidden, then load the properties
+        DoCmd.OpenForm "frmVCSDatabase", , , , , acHidden
+        With Form_frmVCSDatabase
+            .LoadSchema lstDatabases, Me.DatabaseSchemas(Nz(lstDatabases))
+            .Visible = True
+        End With
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : lstDatabases_DblClick
+' Author    : Adam Waller
+' Date      : 7/20/2023
+' Purpose   : Shortcut to edit the selected database
+'---------------------------------------------------------------------------------------
+'
+Private Sub lstDatabases_DblClick(Cancel As Integer)
+    cmdEditDatabase_Click
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdDeleteDatabase_Click
+' Author    : Adam Waller
+' Date      : 7/20/2023
+' Purpose   : Delete a database connection
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdDeleteDatabase_Click()
+    Dim strName As String
+    strName = Nz(lstDatabases)
+    If Len(strName) = 0 Then
+        MsgBox2 "Select a connection to delete", , , vbExclamation
+    Else
+        With Me.DatabaseSchemas
+            If .Exists(strName) Then .Remove strName
+        End With
+        RefreshSchemaList
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadSchemas
+' Author    : Adam Waller
+' Date      : 7/20/2023
+' Purpose   : Load (or reload) the schemas from a dictionary object
+'---------------------------------------------------------------------------------------
+'
+Public Sub RefreshSchemaList()
+
+    Dim varKey As Variant
+
+    With lstDatabases
+        .RowSource = vbNullString
+        ' Add header row
+        .AddItem "Name;Description"
+        ' Update list from dictionary
+        For Each varKey In Me.DatabaseSchemas.Keys
+            .AddItem CStr(varKey) & ";" & Me.DatabaseSchemas(varKey)("Description")
+        Next varKey
+    End With
+
 End Sub
 
 
@@ -4159,6 +4259,7 @@ Private Sub Form_Load()
 
     MapControlsToOptions emaClassToForm
     RefreshTableDisplay
+    RefreshSchemaList
 
     ' Load list of table data export formats
     Dim frmTableData As Form_frmVCSTableData
@@ -4268,6 +4369,13 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
         LoadTableList
     ElseIf eAction = emaFormToClass Then
         SaveTableList
+    End If
+
+    ' Database schemas
+    If eAction = emaClassToForm Then
+        Set DatabaseSchemas = CloneDictionary(Options.SchemaExports)
+    ElseIf eAction = emaFormToClass Then
+        Set Options.SchemaExports = CloneDictionary(DatabaseSchemas)
     End If
 
     ' Enable pages based on options.

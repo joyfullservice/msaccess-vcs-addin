@@ -36,6 +36,7 @@ Public SanitizeColors As eSanitizeLevel
 Public SanitizeLevel As eSanitizeLevel
 Public ExtractThemeFiles As Boolean
 Public TablesToExportData As Dictionary
+Public SchemaExports As Dictionary
 Public RunBeforeExport As String
 Public RunAfterExport As String
 Public RunBeforeBuild As String
@@ -95,6 +96,9 @@ Public Sub LoadDefaults()
         ' Save specific tables by default
         AddTableToExportData "USysRegInfo", etdTabDelimited
         AddTableToExportData "USysRibbons", etdTabDelimited
+
+        ' External Database Schemas
+        Set .SchemaExports = New Dictionary
 
         ' Print settings to export
         Set .ExportPrintSettings = New Dictionary
@@ -242,6 +246,8 @@ Public Sub LoadOptionsFromFile(strFile As String)
                             Set Me.ExportPrintSettings = dOptions(strKey)
                         Case "TablesToExportData"
                             Set Me.TablesToExportData = CloneDictionary(dOptions(strKey), ecmTextCompare)
+                        Case "SchemaExports"
+                            Set Me.SchemaExports = CloneDictionary(dOptions(strKey), ecmTextCompare)
                         Case Else
                             ' Regular top-level properties
                             CallByName Me, strKey, VbLet, dOptions(strKey)
@@ -610,6 +616,7 @@ Private Sub Class_Initialize()
         .Add "SanitizeLevel"
         .Add "ExtractThemeFiles"
         .Add "TablesToExportData"
+        .Add "SchemaExports"
         .Add "RunBeforeExport"
         .Add "RunAfterExport"
         .Add "RunBeforeBuild"

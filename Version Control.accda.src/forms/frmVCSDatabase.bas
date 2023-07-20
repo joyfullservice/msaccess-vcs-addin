@@ -16,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =256
-    Left =-25575
-    Top =1500
-    Right =-5310
-    Bottom =14085
+    Left =20761
+    Top =2250
+    Right =-29055
+    Bottom =13995
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -278,7 +278,7 @@ Begin Form
                     Top =1800
                     Width =3360
                     Height =315
-                    Name ="txtCommitMessage"
+                    Name ="txtName"
                     HorizontalAnchor =2
 
                     LayoutCachedLeft =720
@@ -313,7 +313,7 @@ Begin Form
                     Width =5820
                     Height =315
                     TabIndex =1
-                    Name ="Text245"
+                    Name ="txtDescription"
                     HorizontalAnchor =2
 
                     LayoutCachedLeft =720
@@ -348,7 +348,7 @@ Begin Form
                     Width =5820
                     Height =315
                     TabIndex =2
-                    Name ="Text247"
+                    Name ="txtConnect"
                     HorizontalAnchor =2
 
                     LayoutCachedLeft =720
@@ -420,6 +420,7 @@ Begin Form
                     TabIndex =4
                     Name ="cmdCancel"
                     Caption ="Cancel"
+                    OnClick ="[Event Procedure]"
                     LeftPadding =135
                     TopPadding =135
                     RightPadding =150
@@ -457,6 +458,7 @@ Begin Form
                     TabIndex =5
                     Name ="cmdSaveAndClose"
                     Caption =" Save && Close"
+                    OnClick ="[Event Procedure]"
                     LeftPadding =135
                     TopPadding =135
                     RightPadding =150
@@ -647,7 +649,7 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label252"
                             Caption ="Database Type:"
-                            HorizontalAnchor =2
+                            HorizontalAnchor =1
                             LayoutCachedLeft =4500
                             LayoutCachedTop =1440
                             LayoutCachedWidth =6330
@@ -717,3 +719,165 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
+
+
+' Store original name, just in case we rename an existing entry.
+Private m_strOriginalName As String
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadSchema
+' Author    : Adam Waller
+' Date      : 7/20/2023
+' Purpose   : Load a schema by name
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadSchema(strName As String, dSchema As Dictionary)
+
+    ' Load values from options
+    txtName = strName
+    cboType = dSchema("DatabaseType")
+    txtDescription = dSchema("Description")
+    txtFilter = dSchema("Filter")
+
+    ' Load connection string
+    txtConnect = LoadConnectionString(strName)
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadConnectionString
+' Author    : Adam Waller
+' Date      : 7/20/2023
+' Purpose   : Load the connection string from the .env file.
+'---------------------------------------------------------------------------------------
+'
+Private Function LoadConnectionString(strSchemaName As String) As String
+
+    Dim strFile As String
+
+    ' Load connection string from .env file
+    strFile = BuildPath2(Options.GetExportFolder & "databases", GetSafeFileName(strSchemaName), ".env")
+    If FSO.FileExists(strFile) Then
+        With New clsDotEnv
+            .LoadFromFile strFile
+            LoadConnectionString = .GetVar("CONNECT", False)
+        End With
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveConnectionString
+' Author    : Adam Waller
+' Date      : 7/20/2023
+' Purpose   : Saves the connection string to a .env file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SaveConnectionString()
+
+    Dim strFile As String
+
+    ' Guard clause safety check
+    If Nz(txtName) = vbNullString Or Nz(txtConnect) = vbNullString Then Exit Sub
+
+    ' Update the value in the .env file. (Creating the file, if needed.)
+    strFile = BuildPath2(Options.GetExportFolder & "databases", GetSafeFileName(Nz(txtName)), ".env")
+    With New clsDotEnv
+        ' Reload file so we preserve existing values
+        .LoadFromFile strFile
+        .SetVar "CONNECT", Nz(txtConnect)
+        .SaveToFile strFile
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdCancel_Click
+' Author    : Adam Waller
+' Date      : 7/20/2023
+' Purpose   : Close this form
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdCancel_Click()
+    DoCmd.Close acForm, Me.Name
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdSaveAndClose_Click
+' Author    : Adam Waller
+' Date      : 7/20/2023
+' Purpose   : Save the schema back to the options form.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdSaveAndClose_Click()
+
+    Dim dSchema As Dictionary
+    Dim strKey As String
+
+    If Not PassedValidation Then Exit Sub
+
+    If IsLoaded(acForm, "frmVCSOptions") Then
+        With Form_frmVCSOptions.DatabaseSchemas
+
+            ' Get a reference to dictionary object
+            strKey = Nz(txtName)
+            If Not .Exists(strKey) Then
+                ' Could be a rename
+                Set dSchema = New Dictionary
+                .Add strKey, dSchema
+                ' Remove any previous entry
+                If Len(m_strOriginalName) Then
+                    If .Exists(m_strOriginalName) Then .Remove m_strOriginalName
+                End If
+            End If
+
+            ' Update meta values
+            .Item(strKey)("DatabaseType") = CInt(cboType)
+            .Item(strKey)("Description") = Nz(txtDescription)
+            .Item(strKey)("Filter") = Nz(txtFilter)
+        End With
+
+        ' Save connection string to .env file
+        SaveConnectionString
+
+        ' Refresh list
+        Form_frmVCSOptions.RefreshSchemaList
+
+        ' Close form
+        DoCmd.Close acForm, Me.Name
+    Else
+        MsgBox2 "Options form not found", "The Options form must be open to save changes to external database connections", , vbExclamation
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PassedValidation
+' Author    : Adam Waller
+' Date      : 7/20/2023
+' Purpose   : Return true if we pass validation on the form to save the entry.
+'---------------------------------------------------------------------------------------
+'
+Private Function PassedValidation() As Boolean
+
+    Dim strMsg As String
+
+    ' TODO: Could add more validation for filter entries
+
+    If Len(Nz(txtConnect)) < 5 Then strMsg = "Please enter connection string for database"
+    If Nz(cboType, -1) < 0 Then strMsg = "Please select database type"
+    If Len(Nz(txtName)) = 0 Then strMsg = "Connection name is required"
+
+    If Len(strMsg) Then
+        MsgBox2 "Please fix validation issues to continue", strMsg, "See online wiki for additional documentation", vbExclamation
+    Else
+        PassedValidation = True
+    End If
+
+End Function
