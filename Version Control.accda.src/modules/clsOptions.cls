@@ -99,10 +99,12 @@ Public Sub LoadDefaults()
 
         ' External Database Schemas
         Set .SchemaExports = New Dictionary
+        .SchemaExports.CompareMode = TextCompare
 
         ' Print settings to export
         Set .ExportPrintSettings = New Dictionary
         With .ExportPrintSettings
+            .CompareMode = TextCompare
             .Add "Orientation", True
             .Add "PaperSize", True
             .Add "Duplex", False
@@ -128,6 +130,7 @@ Public Sub LoadDefaults()
         ' Git integration settings
         Set .GitSettings = New Dictionary
         With .GitSettings
+            .CompareMode = TextCompare
             .Add "MergeUntrackedFiles", True
             .Add "ImportTableData", False
             .Add "MergeQuerySQL", False
@@ -137,7 +140,6 @@ Public Sub LoadDefaults()
             .Add "InspectSharedImages", False
             .Add "InspectThemeFiles", False
         End With
-
     End With
 
 End Sub
