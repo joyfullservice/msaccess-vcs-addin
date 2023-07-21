@@ -90,6 +90,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Perf.OperationEnd
     End If
 
+    ' Export any external database schemas
+    ExportSchemas blnFullExport
+
     ' Finish header section
     Log.Spacer
     Log.Add "Scanning " & IIf(blnFullExport, "source files...", "for changes...")
@@ -573,6 +576,68 @@ CleanUp:
 
     ' Clear object references
     modObjects.ReleaseObjects
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportSchemas
+' Author    : Adam Waller
+' Date      : 7/21/2023
+' Purpose   : Export any external database schemas configured in options
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportSchemas(blnFullExport As Boolean)
+
+    Dim varKey As Variant
+    Dim strName As String
+    Dim strType As String
+    Dim cSchema As IDbSchema
+    Dim dParams As Dictionary
+    Dim strFile As String
+
+    ' Skip this section if there are no connections defined.
+    If Options.SchemaExports.Count = 0 Then Exit Sub
+
+    ' Loop through schemas
+    Log.Spacer
+    Log.Add "Scanning external databases..."
+    Perf.OperationStart "Scan External Databases"
+    For Each varKey In Options.SchemaExports.Keys
+        Select Case Options.SchemaExports(varKey)("DatabaseType")
+            Case eDatabaseServerType.estMsSql
+                strType = " (MSSQL)"
+                Set cSchema = New clsSchemaMsSql
+            Case eDatabaseServerType.estMySql
+                strType = " (MySQL)"
+                'Set cSchema = New clsSchemaMySql
+        End Select
+        strName = varKey
+        Log.Add " - " & strName & strType
+        Perf.CategoryStart strName & strType
+        Log.Flush
+        ' Load parameters for initializing the connection
+        Set dParams = CloneDictionary(Options.SchemaExports(varKey))
+        dParams("Name") = strName
+
+        strFile = BuildPath2(Options.GetExportFolder & "databases", GetSafeFileName(strName), ".env")
+        If Not FSO.FileExists(strFile) Then
+            Log.Add "   No connection string found. (.env)", , , "Red", , True
+            Log.Error eelWarning, "File not found: " & strFile, ModuleName & ".ExportSchemas"
+            Log.Add "Set the connection string for this external database connection in VCS options to automatically create this file.", False
+            Log.Add "(This file may contain authentication credentials and should be excluded from version control.)", False
+        Else
+            ' Use .env file to initialize connection
+            With New clsDotEnv
+                .LoadFromFile strFile
+                .MergeIntoDictionary dParams, False
+            End With
+            cSchema.Initialize dParams
+            cSchema.Export blnFullExport
+        End If
+        Perf.CategoryEnd
+    Next varKey
+    Perf.OperationEnd
 
 End Sub
 

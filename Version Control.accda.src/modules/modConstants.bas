@@ -83,6 +83,7 @@ End Enum
 
 ' Database server types for external databases
 Public Enum eDatabaseServerType
+    estUnknown
     estMsSql
     estMySql
 End Enum
