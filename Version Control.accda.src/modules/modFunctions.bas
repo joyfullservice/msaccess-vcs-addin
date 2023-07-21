@@ -536,7 +536,7 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : CloneDictionary
 ' Author    : Adam Waller
-' Date      : 3/30/2021
+' Date      : 7/21/2023
 ' Purpose   : Recursive function to deep-clone a dictionary object, including nested
 '           : dictionaries.
 '           : NOTE: All other object types are cloned as a reference to the same object
@@ -564,9 +564,9 @@ Public Function CloneDictionary(dSource As Dictionary, _
 
     ' Loop through keys
     For Each varKey In dSource.Keys
-        If TypeOf varKey Is Dictionary Then
+        If TypeOf dSource(varKey) Is Dictionary Then
             ' Call this function recursively to add nested dictionary
-            Set dChild = varKey
+            Set dChild = dSource(varKey)
             dNew.Add varKey, CloneDictionary(dChild, Compare)
         Else
             ' Add key to dictionary

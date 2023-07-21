@@ -227,15 +227,21 @@ Private Sub TestCloneDictionary()
     ' Clone the dictionary
     Set dClone = CloneDictionary(dFruit, ecmSourceMethod)
 
+    ' Change some data in the cloned dictionary
+    dClone("Apple")("Seed2") = "Pear Seed"
+
     ' Test the results to make sure it cloned correctly.
     Debug.Assert dClone.Exists("APPLE") = False
     Debug.Assert dClone.Exists("Apple") = True
     Debug.Assert dClone.Exists("ORANGE") = False
     Debug.Assert dClone.Exists("Orange") = True
+    Debug.Assert dClone.CompareMode = BinaryCompare
     Debug.Assert dClone("Apple").CompareMode = Scripting.CompareMethod.TextCompare
     Debug.Assert dClone("Apple").Exists("seed1") = True
     Debug.Assert dClone("Apple").Exists("SEED1") = True
     Debug.Assert dClone("Apple").Exists("Seed3") = False
+    Debug.Assert dClone("Apple")("Seed2") = "Pear Seed"
+    Debug.Assert dFruit("Apple")("Seed2") = "Apple Seed"
 
 End Sub
 
