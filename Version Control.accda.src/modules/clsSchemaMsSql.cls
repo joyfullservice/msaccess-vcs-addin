@@ -91,6 +91,8 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
             ' Update record in index
             UpdateIndex strItem, dItem
             Log.Increment
+            ' Check for canceled operation
+            If Log.ErrorLevel = eelCritical Then Exit For
         Next varItem
 
         ' Close database connection

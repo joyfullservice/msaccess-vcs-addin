@@ -92,6 +92,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
     ' Export any external database schemas
     ExportSchemas blnFullExport
+    If Log.ErrorLevel = eelCritical Then GoTo CleanUp
 
     ' Finish header section
     Log.Spacer
