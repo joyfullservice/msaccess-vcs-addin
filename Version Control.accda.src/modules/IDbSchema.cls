@@ -35,6 +35,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetChangeCount
+' Author    : Adam Waller
+' Date      : 7/21/2023
+' Purpose   : Return a count of how many changes were found between the database
+'           : objects and the current index file.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetChangeCount() As Long
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Export
 ' Author    : Adam Waller
 ' Date      : 7/14/2023
