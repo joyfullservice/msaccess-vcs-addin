@@ -617,22 +617,15 @@ Public Sub ExportSchemas(blnFullExport As Boolean)
         Log.Add " - " & strName & strType
         Perf.CategoryStart strName & strType
         Log.Flush
-        ' Load parameters for initializing the connection
-        Set dParams = CloneDictionary(Options.SchemaExports(varKey))
-        dParams("Name") = strName
 
-        strFile = BuildPath2(Options.GetExportFolder & "databases", GetSafeFileName(strName), ".env")
-        If Not FSO.FileExists(strFile) Then
+        ' Load parameters for initializing the connection
+        Set dParams = GetSchemaInitParams(strName)
+        If dParams("Connect") = vbNullString Then
             Log.Add "   No connection string found. (.env)", , , "Red", , True
             Log.Error eelWarning, "File not found: " & strFile, ModuleName & ".ExportSchemas"
             Log.Add "Set the connection string for this external database connection in VCS options to automatically create this file.", False
             Log.Add "(This file may contain authentication credentials and should be excluded from version control.)", False
         Else
-            ' Use .env file to initialize connection
-            With New clsDotEnv
-                .LoadFromFile strFile
-                .MergeIntoDictionary dParams, False
-            End With
             cSchema.Initialize dParams
             cSchema.Export blnFullExport
         End If

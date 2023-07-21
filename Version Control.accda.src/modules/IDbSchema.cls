@@ -35,14 +35,14 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetChangeCount
+' Procedure : ObjectCount
 ' Author    : Adam Waller
 ' Date      : 7/21/2023
-' Purpose   : Return a count of how many changes were found between the database
-'           : objects and the current index file.
+' Purpose   : Return a count of total objects, or how many changes were found between
+'           : the database server objects and the current index file.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetChangeCount() As Long
+Public Function ObjectCount(blnModifiedOnly As Boolean) As Long
 End Function
 
 

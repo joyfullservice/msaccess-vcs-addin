@@ -33,6 +33,7 @@ Private Type udtThis
     strConnect As String
     strUserID As String
     strPassword As String
+    varFilters As Variant
 End Type
 Private this As udtThis
 
@@ -220,6 +221,42 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : PassesFilter
+' Author    : Adam Waller
+' Date      : 7/21/2023
+' Purpose   : Returns true if this item passed any user-defined filter rules.
+'           : The current implementation processes rules sequentially, applying each
+'           : rule in order. Last matching rule will apply to the object.
+'---------------------------------------------------------------------------------------
+'
+Private Function PassesFilter(strItem As String) As Boolean
+
+    Dim blnPass As Boolean
+    Dim lngRule As Long
+    Dim strRule As String
+
+    ' Loop through rules
+    For lngRule = 0 To UBound(this.varFilters)
+        strRule = Trim(this.varFilters(lngRule))
+        Select Case Left(strRule, 1)
+            Case "#", vbNullString
+                ' Ignore comments and blank lines
+            Case "!"
+                ' Negative rule (do not include)
+                If strItem Like Mid(strRule, 2) Then blnPass = False
+            Case Else
+                ' Positive rule
+                If strItem Like strRule Then blnPass = True
+        End Select
+    Next lngRule
+
+    ' Return final result
+    PassesFilter = blnPass
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ScanDatabaseObjects
 ' Author    : Adam Waller
 ' Date      : 7/21/2023
@@ -277,26 +314,30 @@ Private Sub ScanDatabaseObjects()
             strItem = Nz(!Folder) & PathSep & GetSafeFileName(Nz(!Name)) & ".sql"
             strPath = this.strBaseFolder & strItem
 
-            ' Add all objects to full collection
-            Set dItem = New Dictionary
-            dItem("LastModified") = Nz(!last_modified)
-            m_AllItems.Add strItem, dItem
+            ' See if we pass the filter
+            If PassesFilter(strItem) Then
 
-            ' Reset flag
-            blnModified = True
+                ' Add all objects to full collection
+                Set dItem = New Dictionary
+                dItem("LastModified") = Nz(!last_modified)
+                m_AllItems.Add strItem, dItem
 
-            ' See if this item has been modified
-            If m_Index.Exists(strItem) Then
-                blnModified = (dItem("LastModified") <> Nz(!last_modified))
-            End If
+                ' Reset flag
+                blnModified = True
 
-            ' Build dictionary of modified objects
-            If blnModified Then
-                Set dItem = CloneDictionary(dItem)
-                dItem("type_desc") = Nz(!type_desc)
-                dItem("schema") = Nz(!schema)
-                dItem("name") = Nz(!Name)
-                m_ModifiedItems.Add strItem, dItem
+                ' See if this item has been modified
+                If m_Index.Exists(strItem) Then
+                    blnModified = (dItem("LastModified") <> Nz(!last_modified))
+                End If
+
+                ' Build dictionary of modified objects
+                If blnModified Then
+                    Set dItem = CloneDictionary(dItem)
+                    dItem("type_desc") = Nz(!type_desc)
+                    dItem("schema") = Nz(!schema)
+                    dItem("name") = Nz(!Name)
+                    m_ModifiedItems.Add strItem, dItem
+                End If
             End If
 
             ' Move to next object
@@ -324,9 +365,10 @@ End Function
 ' Purpose   : Return count of modified objects
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbSchema_GetChangeCount() As Long
+Private Function IDbSchema_ObjectCount(blnModifiedOnly As Boolean) As Long
     If m_AllItems Is Nothing Then ScanDatabaseObjects
-    IDbSchema_GetChangeCount = m_ModifiedItems.Count
+    If m_AllItems Is Nothing Then Exit Function
+    IDbSchema_ObjectCount = IIf(blnModifiedOnly, m_ModifiedItems.Count, m_AllItems.Count)
 End Function
 
 
@@ -338,10 +380,25 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbSchema_Initialize(dInstance As Scripting.IDictionary)
+
+    Dim strFilter As String
+    Dim varRules As Variant
+
+    ' Build filters
+    strFilter = dNZ(dInstance, "Filter")
+    If Trim(Replace(strFilter, vbCrLf, vbNullString)) = vbNullString Then
+        ' Blank lines, or nothing defined
+        varRules = Array("*")
+    Else
+        ' Create array of rules (we will skip comments and blank lines later)
+        varRules = Split(strFilter, vbCrLf)
+    End If
+
     With this
         .strName = dNZ(dInstance, "Name")
         .strConnect = dNZ(dInstance, "Connect")
         .strBaseFolder = Options.GetExportFolder & "databases\" & GetSafeFileName(.strName) & PathSep
+        .varFilters = varRules
         .blnInitialized = (Len(.strConnect))
     End With
 End Sub

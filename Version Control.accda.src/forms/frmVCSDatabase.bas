@@ -394,7 +394,7 @@ Begin Form
                     LayoutCachedHeight =6120
                     Begin
                         Begin Label
-                            OverlapFlags =85
+                            OverlapFlags =93
                             Left =720
                             Top =4380
                             Width =4620
@@ -677,36 +677,55 @@ Begin Form
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
-                Begin CheckBox
-                    Visible = NotDefault
-                    OverlapFlags =85
-                    Left =5640
-                    Top =4410
+                Begin CommandButton
+                    FontUnderline = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =87
+                    Left =5340
+                    Top =4440
+                    Width =1140
+                    Height =240
+                    FontSize =10
                     TabIndex =8
-                    Name ="chkRegExFilter"
+                    Name ="cmdTest"
+                    Caption ="Test Filter..."
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    HorizontalAnchor =1
+                    BackStyle =0
 
-                    LayoutCachedLeft =5640
-                    LayoutCachedTop =4410
-                    LayoutCachedWidth =5900
-                    LayoutCachedHeight =4650
-                    Begin
-                        Begin Label
-                            OverlapFlags =247
-                            Left =5870
-                            Top =4380
-                            Width =735
-                            Height =315
-                            ForeColor =5324600
-                            Name ="Label255"
-                            Caption ="RegEx"
-                            LayoutCachedLeft =5870
-                            LayoutCachedTop =4380
-                            LayoutCachedWidth =6605
-                            LayoutCachedHeight =4695
-                            ForeThemeColorIndex =-1
-                            ForeTint =100.0
-                        End
-                    End
+                    CursorOnHover =1
+                    LayoutCachedLeft =5340
+                    LayoutCachedTop =4440
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =4680
+                    Alignment =1
+                    ForeThemeColorIndex =10
+                    ForeTint =100.0
+                    Gradient =0
+                    BackColor =5324600
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    OldBorderStyle =0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverThemeColorIndex =10
+                    HoverTint =100.0
+                    PressedThemeColorIndex =10
+                    PressedShade =100.0
+                    HoverForeThemeColorIndex =10
+                    HoverForeTint =100.0
+                    PressedForeThemeColorIndex =10
+                    PressedForeTint =100.0
+                    WebImagePaddingLeft =9
+                    WebImagePaddingTop =9
+                    WebImagePaddingRight =10
+                    WebImagePaddingBottom =10
+                    Overlaps =1
                 End
             End
         End
@@ -815,11 +834,26 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdSaveAndClose_Click()
+    If SaveConnection Then
+        Form_frmVCSOptions.RefreshSchemaList
+        DoCmd.Close acForm, Me.Name
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveConnection
+' Author    : Adam Waller
+' Date      : 7/21/2023
+' Purpose   : Save the current connection, return true if successful.
+'---------------------------------------------------------------------------------------
+'
+Private Function SaveConnection() As Boolean
 
     Dim dSchema As Dictionary
     Dim strKey As String
 
-    If Not PassedValidation Then Exit Sub
+    If Not PassedValidation Then Exit Function
 
     If IsLoaded(acForm, "frmVCSOptions") Then
         With Form_frmVCSOptions.DatabaseSchemas
@@ -845,16 +879,13 @@ Private Sub cmdSaveAndClose_Click()
         ' Save connection string to .env file
         SaveConnectionString
 
-        ' Refresh list
-        Form_frmVCSOptions.RefreshSchemaList
-
-        ' Close form
-        DoCmd.Close acForm, Me.Name
+        ' Return success
+        SaveConnection = True
     Else
         MsgBox2 "Options form not found", "The Options form must be open to save changes to external database connections", , vbExclamation
     End If
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -881,3 +912,39 @@ Private Function PassedValidation() As Boolean
     End If
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdTest_Click
+' Author    : Adam Waller
+' Date      : 7/21/2023
+' Purpose   : Test the current filter and return the number of objects found.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdTest_Click()
+
+    Dim cSchema As IDbSchema
+    Dim lngCount As Long
+    Dim dblStart As Double
+    Dim dParams As Dictionary
+
+    If Not SaveConnection Then Exit Sub
+
+    Select Case cboType
+        Case eDatabaseServerType.estMsSql
+            Set cSchema = New clsSchemaMsSql
+        'Case eDatabaseServerType.estMsSql
+    End Select
+
+    ' Retrieve object count from server.
+    If Not cSchema Is Nothing Then
+        Set dParams = GetSchemaInitParams(Nz(txtName))
+        dParams("Filter") = Nz(txtFilter)
+        cSchema.Initialize dParams
+        dblStart = Perf.MicroTimer
+        lngCount = cSchema.ObjectCount(False)
+        MsgBox2 lngCount & " Objects Found", "A total of " & lngCount & " database objects were retrieved in " & _
+            Round(Perf.MicroTimer - dblStart, 2) & " seconds.", , vbInformation
+    End If
+
+End Sub
