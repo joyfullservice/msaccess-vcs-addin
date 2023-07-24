@@ -412,3 +412,30 @@ Public Sub TestGetClassFromComponentType()
     Next intType
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestJsonNewLineIssue
+' Author    : Adam Waller
+' Date      : 7/24/2023
+' Purpose   : Encountered an issue where vbCrLf strings are not parsed correctly when
+'           : converting to JSON and back to string values.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestJsonNewLineIssue()
+
+    Const cstrTest As String = "Line1" & vbCrLf & "Line2" & vbCr & "Line3" & vbLf & "Line4" & vbCrLf
+
+    Dim dTest As Dictionary
+    Dim strResult As String
+
+    Set dTest = New Dictionary
+
+    dTest("Multiline") = cstrTest
+    Debug.Assert dTest("Multiline") = cstrTest
+
+    ' Test round trip conversion
+    strResult = ParseJson(ConvertToJson(dTest, 2))("Multiline")
+    Debug.Assert (strResult = cstrTest)
+
+End Sub
