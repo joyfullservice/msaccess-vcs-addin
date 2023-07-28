@@ -57,6 +57,7 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
     Dim conn As ADODB.Connection
     Dim strItem As String
     Dim dItem As Dictionary
+    Dim strHash As String
     Dim varItem As Variant
     Dim dblStart As Double
 
@@ -87,7 +88,8 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
             dblStart = Perf.MicroTimer
             Set dItem = m_ModifiedItems(varItem)
             strItem = varItem
-            ExportObject dItem("type_desc"), dItem("schema"), dItem("name"), this.strBaseFolder & varItem, conn
+            strHash = ExportObject(dItem("type_desc"), dItem("schema"), dItem("name"), this.strBaseFolder & varItem, conn)
+            If Len(strHash) Then dItem("hash") = strHash
             Log.Add "    Exported " & varItem & " in " & Round(Perf.MicroTimer - dblStart, 2) & " seconds.", Options.ShowDebug
             ' Update record in index
             UpdateIndex strItem, dItem
@@ -112,9 +114,9 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
         WriteFile BuildJsonFile(TypeName(Me), m_Index, "Version Control System Schema Index"), this.strBaseFolder & "vcs-index.json"
     End If
 
-
     ' Now, loop back through the files and remove any file that is not represented by
     ' the list of objects returned from the server.
+    VerifyFiles
 
 End Sub
 
@@ -123,10 +125,10 @@ End Sub
 ' Procedure : ExportObject
 ' Author    : Adam Waller
 ' Date      : 7/18/2023
-' Purpose   : Export the object definition and update the index
+' Purpose   : Export the object definition and return a hash of the content.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ExportObject(strType, strSchema As String, strName As String, strPath As String, ByRef oConn As ADODB.Connection)
+Private Function ExportObject(strType, strSchema As String, strName As String, strPath As String, ByRef oConn As ADODB.Connection) As String
 
     Static intUseSP As Integer
 
@@ -187,7 +189,10 @@ Private Sub ExportObject(strType, strSchema As String, strName As String, strPat
         Perf.OperationEnd
     End If
 
-End Sub
+    ' Return hash from object definition (if found)
+    ExportObject = GetSimpleHash(strDefinition)
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -213,7 +218,7 @@ Private Sub UpdateIndex(strItem As String, dObject As Dictionary)
     End If
 
     ' Update the meta values
-    dItem("ExportDate") = Now()
+    dItem("FileDate") = Now()
     dItem("LastModified") = dObject("LastModified")
     Perf.OperationEnd
 
@@ -351,6 +356,88 @@ Private Sub ScanDatabaseObjects()
     conn.Close
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyFiles
+' Author    : Adam Waller
+' Date      : 7/24/2023
+' Purpose   : Compare the files to the index, ensuring that we don't have any orphaned
+'           : files, or files that are now different from the last exported version.
+'           : (Comparing index hashes of files where the modified dates differ from the
+'           :  the export date.)
+'---------------------------------------------------------------------------------------
+'
+Public Function VerifyFiles()
+
+    Dim oFld As Scripting.Folder
+    Dim oFile As Scripting.File
+    Dim dFolders As Dictionary
+    Dim varKey As Variant
+    Dim strFolder As String
+    Dim strName As String
+    Dim strItem As String
+    Dim strPath As String
+    Dim lngTotal As Long
+    Dim dFile As Dictionary
+    Dim dIndex As Dictionary
+    Dim strHash As String
+
+    ' Build a collection of subfolders to check
+    Set dFolders = New Dictionary
+    For Each oFld In FSO.GetFolder(this.strBaseFolder).SubFolders
+        Select Case oFld.Name
+            Case "views", "tables", "procedures", "functions", "types", "sequences", "synonymns"
+                ' Keep this list current with the pass-through query that defines the folder names.
+                dFolders.Add oFld.Name, oFld.Files.Count
+                lngTotal = lngTotal + dFolders(oFld.Name)
+        End Select
+    Next oFld
+
+    ' Load the current index, falling back to a new dictionary object
+    strPath = this.strBaseFolder & "vcs-index.json"
+    If FSO.FileExists(strPath) Then
+        Set dFile = ReadJsonFile(strPath)
+        If Not dFile Is Nothing Then Set dIndex = dFile("Items")
+    End If
+    If dIndex Is Nothing Then Set dIndex = New Dictionary
+
+    ' Loop through subfolders, checking files
+    For Each varKey In dFolders.Keys
+        strFolder = varKey
+        For Each oFile In FSO.GetFolder(this.strBaseFolder & strFolder).Files
+            strName = oFile.Name
+            ' Filter by file extension
+            If StrComp(FSO.GetExtensionName(strName), "sql", vbTextCompare) = 0 Then
+                ' Check for index entry
+                strItem = strFolder & PathSep & strName
+                If dIndex.Exists(strItem) Then
+                    ' Check the modified date
+                    If DatesClose(dNZ(dIndex(strItem), "FileDate"), oFile.DateLastModified) Then
+                        ' Looks like we match the dates from the last export. Should be pretty safe
+                        ' to assume that this file is the same as when we exported it.
+                    Else
+                        ' The export dates don't match. Check the content hash.
+                        ' (It should be faster to compare the file hash with the index
+                        '  than to export the object again from the server.)
+                        strHash = GetSimpleHash(ReadFile(oFile.Path))
+                        If strHash = dNZ(dIndex(strItem), "FileHash") Then
+                            ' Update modified date in index to match file.
+                            ' (No need to export again)
+                            dIndex(strItem)("FileModified") = oFile.DateLastModified
+                        End If
+                    End If
+                Else
+                    ' File does not exist in the index. Purge the orphaned file.
+                    oFile.Delete
+                End If
+            End If
+        Next oFile
+    Next varKey
+
+End Function
+
+
 
 
 Private Function PurgeOrphanedObjects()
