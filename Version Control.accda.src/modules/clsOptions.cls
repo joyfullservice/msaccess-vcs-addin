@@ -463,10 +463,18 @@ End Function
 ' Date      : 2/16/2021
 ' Purpose   : Return a hash of the current options. Used to detect if options have
 '           : changed, which may require a full export to reflect the change.
+'           : Note that this only checks a hash of the options that affect general
+'           : exports, not changes to external database connections.
 '---------------------------------------------------------------------------------------
 '
 Public Function GetHash() As String
-    GetHash = GetDictionaryHash(SerializeOptions)
+    Dim dExportOptions As Dictionary
+    Set dExportOptions = CloneDictionary(SerializeOptions)
+    With dExportOptions("Options")
+        ' Remove options not related to exports
+        If .Exists("SchemaExports") Then .Remove ("SchemaExports")
+    End With
+    GetHash = GetDictionaryHash(dExportOptions)
 End Function
 
 
