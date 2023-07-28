@@ -15,7 +15,7 @@
 # be comitted to version control.
 vcs-index.json
 
-# Ignore any dotenv files
+# Ignore any dotenv files (used for external database connections)
 *.env
 
 # TwinBasic ribbon project packages
