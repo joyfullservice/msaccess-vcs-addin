@@ -342,3 +342,46 @@ Private Function GetUTF8Bytes(strText As String, Optional blnWithBom As Boolean 
     End With
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SimpleHash
+' Author    : Adam Waller
+' Date      : 7/24/2023
+' Purpose   : Return a simple SHA256 hash from a file without any Windows API calls.
+'           : (This function can be ported to VBScript as a worker process)
+'           : Adapted from https://en.wikibooks.org/wiki/Visual_Basic_for_Applications/String_Hashing_in_VBA
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSimpleHash(strText As String) As String
+
+    Dim objEnc As Object
+    Dim objSHA256 As Object
+    Dim objDoc As Object
+    Dim bteText() As Byte
+    Dim bteHash() As Byte
+    Dim strHash As String
+
+    On Error Resume Next
+
+    ' Create objects
+    Set objEnc = CreateObject("System.Text.UTF8Encoding")
+    Set objSHA256 = CreateObject("System.Security.Cryptography.SHA256Managed")
+
+    ' Compute hash
+    bteText = objEnc.GetBytes_4(strText)
+    bteHash = objSHA256.ComputeHash_2((bteText))
+
+    ' Convert to hex string
+    Set objDoc = CreateObject("MSXML2.DOMDocument")
+    objDoc.LoadXML "<root />"
+    With objDoc.DocumentElement
+        .DataType = "bin.Hex"
+        .nodeTypedValue = bteHash
+        strHash = Replace(.Text, vbLf, vbNullString)
+    End With
+
+    ' Return short hash
+    GetSimpleHash = Left(strHash, 7)
+
+End Function
