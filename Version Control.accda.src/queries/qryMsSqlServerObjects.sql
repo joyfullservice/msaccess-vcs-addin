@@ -7,7 +7,7 @@
 		WHEN 'U' THEN 'tables'
 		WHEN 'IT' THEN 'tables'		-- Internal tables
 		WHEN 'TR' THEN 'tables'
-		WHEN 'P' THEN 'proceedures'
+		WHEN 'P' THEN 'procedures'
 		WHEN 'FN' THEN 'functions'	-- Scalar function
 		WHEN 'IF' THEN 'functions'	-- Inline table valued function
 		WHEN 'TF' THEN 'functions'	-- Table valued function
