@@ -39,6 +39,7 @@ Private this As udtThis
 
 
 ' Dictionaries representing modified items, and all items
+Private m_Files As Dictionary
 Private m_AllItems As Dictionary
 Private m_ModifiedItems As Dictionary
 Private m_Index As Dictionary
@@ -60,19 +61,21 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
     Dim strHash As String
     Dim varItem As Variant
     Dim dblStart As Double
+    Dim strPath As String
 
     ' Make sure we initialize before running the export
     If Not this.blnInitialized Then Exit Sub
 
     ' Make sure we have already performed a scan of the database objects
+    If m_Files Is Nothing Then ScanFiles
     If m_AllItems Is Nothing Then ScanDatabaseObjects
 
-    ' If there are no new changes from the database side, we may not need to update the index.
-    If (m_ModifiedItems.Count = 0) And (m_Index.Count = m_AllItems.Count) Then
-        ' Database matches the current index.
+    ' If there are no new changes found, we may not need to export anything
+    If (m_ModifiedItems.Count = 0) And (m_Files.Count = m_AllItems.Count) Then
+        ' Database matches the current set of files
     Else
         If m_ModifiedItems.Count = 0 Then
-            Log.Add "     Updating index", , , , , True
+            Log.Add "     Verifying files...", , , , , True
         Else
             Log.Add "     Exporting " & m_ModifiedItems.Count & " objects...", , , , , True
             Log.ProgMax = m_ModifiedItems.Count
@@ -83,16 +86,17 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
         Set conn = New ADODB.Connection
         conn.Open this.strConnect, this.strUserID, this.strPassword
 
-        ' Export the modified items
+        ' --------------------------------------------------
+        ' FIRST PASS - Export changed/new database objects
+        ' --------------------------------------------------
         For Each varItem In m_ModifiedItems.Keys
+
+            ' Time the export of each item
             dblStart = Perf.MicroTimer
             Set dItem = m_ModifiedItems(varItem)
             strItem = varItem
-            strHash = ExportObject(dItem("type_desc"), dItem("schema"), dItem("name"), this.strBaseFolder & varItem, conn)
-            If Len(strHash) Then dItem("hash") = strHash
+            ExportObject dItem("type_desc"), dItem("schema"), dItem("name"), dItem("last_modified"), this.strBaseFolder & varItem, conn
             Log.Add "    Exported " & varItem & " in " & Round(Perf.MicroTimer - dblStart, 2) & " seconds.", Options.ShowDebug
-            ' Update record in index
-            UpdateIndex strItem, dItem
             Log.Increment
             ' Check for canceled operation
             If Log.ErrorLevel = eelCritical Then Exit For
@@ -101,22 +105,22 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
         ' Close database connection
         conn.Close
         Set conn = Nothing
-
-        ' Purge missing index entries
-        For Each varItem In m_Index
-            If Not m_AllItems.Exists(varItem) Then
-                m_Index.Remove varItem
-            End If
-        Next varItem
-
-        ' For performance reasons (especially on large databases with thousands of objects) we only want
-        ' to convert this back to JSON and write the file if we actually made changes.
-        WriteFile BuildJsonFile(TypeName(Me), m_Index, "Version Control System Schema Index"), this.strBaseFolder & "vcs-index.json"
     End If
 
-    ' Now, loop back through the files and remove any file that is not represented by
-    ' the list of objects returned from the server.
-    VerifyFiles
+    ' --------------------------------------------------
+    ' SECOND PASS - Remove orphaned files
+    ' --------------------------------------------------
+    Perf.OperationStart "Clear Orphaned Schema Files"
+    For Each varItem In m_Files
+        If Not m_AllItems.Exists(varItem) Then
+            strPath = this.strBaseFolder & varItem
+            If FSO.FileExists(strPath) Then
+                Log.Add " - Removed orphaned file: " & varItem, False
+                DeleteFile strPath
+            End If
+        End If
+    Next varItem
+    Perf.OperationEnd
 
 End Sub
 
@@ -125,10 +129,10 @@ End Sub
 ' Procedure : ExportObject
 ' Author    : Adam Waller
 ' Date      : 7/18/2023
-' Purpose   : Export the object definition and return a hash of the content.
+' Purpose   : Export the object definition to a file
 '---------------------------------------------------------------------------------------
 '
-Private Function ExportObject(strType, strSchema As String, strName As String, strPath As String, ByRef oConn As ADODB.Connection) As String
+Private Function ExportObject(strType, strSchema As String, strName As String, dteModified As Date, strPath As String, ByRef oConn As ADODB.Connection) As String
 
     Static intUseSP As Integer
 
@@ -181,16 +185,14 @@ Private Function ExportObject(strType, strSchema As String, strName As String, s
             If strDefinition = vbNullString Then
                 If FSO.FileExists(strPath) Then DeleteFile strPath
             Else
-                ' Export to file
+                ' Export to file, and set modified date to match SQL object
                 WriteFile strDefinition, strPath
+                SetFileDate strPath, dteModified
             End If
             .Close
         End With
         Perf.OperationEnd
     End If
-
-    ' Return hash from object definition (if found)
-    ExportObject = GetSimpleHash(strDefinition)
 
 End Function
 
@@ -282,6 +284,7 @@ Private Sub ScanDatabaseObjects()
     Dim blnModified As Boolean
     Dim dItem As Dictionary
     Dim blnHasChanges As Boolean
+    Dim lngCount As Long
 
     ' Clear module level objects
     Set m_AllItems = Nothing
@@ -323,34 +326,35 @@ Private Sub ScanDatabaseObjects()
             If PassesFilter(strItem) Then
 
                 ' Add all objects to full collection
-                Set dItem = New Dictionary
-                dItem("LastModified") = Nz(!last_modified)
-                m_AllItems.Add strItem, dItem
+                m_AllItems.Add strItem, Nz(!last_modified)
 
-                ' Reset flag
-                blnModified = True
-
-                ' See if this item has been modified
-                If m_Index.Exists(strItem) Then
-                    blnModified = (dItem("LastModified") <> Nz(!last_modified))
+                ' Check for modification/new item
+                If m_Files.Exists(strItem) Then
+                    ' Flag as modified if the dates don't match
+                    blnModified = (Nz(!last_modified) <> CStr(m_Files(strItem)))
+                Else
+                    ' File does not yet exist
+                    blnModified = True
                 End If
 
                 ' Build dictionary of modified objects
                 If blnModified Then
-                    Set dItem = CloneDictionary(dItem)
+                    Set dItem = New Dictionary
                     dItem("type_desc") = Nz(!type_desc)
                     dItem("schema") = Nz(!schema)
                     dItem("name") = Nz(!Name)
+                    dItem("last_modified") = CDate(!last_modified)
                     m_ModifiedItems.Add strItem, dItem
                 End If
             End If
 
             ' Move to next object
+            lngCount = lngCount + 1
             .MoveNext
         Loop
         .Close
     End With
-    Perf.OperationEnd
+    Perf.OperationEnd lngCount
 
     ' Close connection
     conn.Close
@@ -359,85 +363,43 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : VerifyFiles
+' Procedure : ScanFiles
 ' Author    : Adam Waller
-' Date      : 7/24/2023
-' Purpose   : Compare the files to the index, ensuring that we don't have any orphaned
-'           : files, or files that are now different from the last exported version.
-'           : (Comparing index hashes of files where the modified dates differ from the
-'           :  the export date.)
+' Date      : 7/28/2023
+' Purpose   : Scan the files to get a list of source files that should match the current
+'           : database objects. For performance reasons, we won't apply the filter here
+'           : but will check the filter later when removing orphaned objects.
 '---------------------------------------------------------------------------------------
 '
-Public Function VerifyFiles()
+Private Function ScanFiles()
 
     Dim oFld As Scripting.Folder
-    Dim oFile As Scripting.File
-    Dim dFolders As Dictionary
+    Dim dFiles As Dictionary
     Dim varKey As Variant
     Dim strFolder As String
-    Dim strName As String
-    Dim strItem As String
     Dim strPath As String
-    Dim lngTotal As Long
-    Dim dFile As Dictionary
-    Dim dIndex As Dictionary
-    Dim strHash As String
 
-    ' Build a collection of subfolders to check
-    Set dFolders = New Dictionary
+    ' Reset module-level dictionary
+    Set m_Files = New Dictionary
+
+    ' Build a collection of subfolders and files with modified dates
+    ' (Using the Windows API for faster scanning and more accurate dates)
     For Each oFld In FSO.GetFolder(this.strBaseFolder).SubFolders
-        Select Case oFld.Name
+        strFolder = oFld.Name
+        Select Case strFolder
             Case "views", "tables", "procedures", "functions", "types", "sequences", "synonymns"
-                ' Keep this list current with the pass-through query that defines the folder names.
-                dFolders.Add oFld.Name, oFld.Files.Count
-                lngTotal = lngTotal + dFolders(oFld.Name)
+                ' Get dictionary of files with modified dates
+                Set dFiles = GetFileList(oFld.Path, "*.sql")
+                ' Loop through files, adding to index
+                For Each varKey In dFiles.Keys
+                    ' Add each file with a key that matches the database object, and the
+                    ' file modified date as the value for each item.
+                    m_Files.Add strFolder & "\" & CStr(varKey), dFiles(varKey)
+                Next varKey
         End Select
     Next oFld
 
-    ' Load the current index, falling back to a new dictionary object
-    strPath = this.strBaseFolder & "vcs-index.json"
-    If FSO.FileExists(strPath) Then
-        Set dFile = ReadJsonFile(strPath)
-        If Not dFile Is Nothing Then Set dIndex = dFile("Items")
-    End If
-    If dIndex Is Nothing Then Set dIndex = New Dictionary
-
-    ' Loop through subfolders, checking files
-    For Each varKey In dFolders.Keys
-        strFolder = varKey
-        For Each oFile In FSO.GetFolder(this.strBaseFolder & strFolder).Files
-            strName = oFile.Name
-            ' Filter by file extension
-            If StrComp(FSO.GetExtensionName(strName), "sql", vbTextCompare) = 0 Then
-                ' Check for index entry
-                strItem = strFolder & PathSep & strName
-                If dIndex.Exists(strItem) Then
-                    ' Check the modified date
-                    If DatesClose(dNZ(dIndex(strItem), "FileDate"), oFile.DateLastModified) Then
-                        ' Looks like we match the dates from the last export. Should be pretty safe
-                        ' to assume that this file is the same as when we exported it.
-                    Else
-                        ' The export dates don't match. Check the content hash.
-                        ' (It should be faster to compare the file hash with the index
-                        '  than to export the object again from the server.)
-                        strHash = GetSimpleHash(ReadFile(oFile.Path))
-                        If strHash = dNZ(dIndex(strItem), "FileHash") Then
-                            ' Update modified date in index to match file.
-                            ' (No need to export again)
-                            dIndex(strItem)("FileModified") = oFile.DateLastModified
-                        End If
-                    End If
-                Else
-                    ' File does not exist in the index. Purge the orphaned file.
-                    oFile.Delete
-                End If
-            End If
-        Next oFile
-    Next varKey
-
 End Function
-
-
 
 
 Private Function PurgeOrphanedObjects()
@@ -453,6 +415,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbSchema_ObjectCount(blnModifiedOnly As Boolean) As Long
+    If m_Files Is Nothing Then ScanFiles
     If m_AllItems Is Nothing Then ScanDatabaseObjects
     If m_AllItems Is Nothing Then Exit Function
     IDbSchema_ObjectCount = IIf(blnModifiedOnly, m_ModifiedItems.Count, m_AllItems.Count)

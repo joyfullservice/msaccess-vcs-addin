@@ -590,3 +590,19 @@ Public Function StripSlash(strText As String) As String
         StripSlash = strText
     End If
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddSlash
+' Author    : Adam Waller
+' Date      : 7/28/2023
+' Purpose   : Ensure that the string or path ends with a slash (or path separator)
+'---------------------------------------------------------------------------------------
+'
+Public Function AddSlash(strText As String) As String
+    If Right$(strText, 1) = PathSep Then
+        AddSlash = strText
+    Else
+        AddSlash = strText & PathSep
+    End If
+End Function

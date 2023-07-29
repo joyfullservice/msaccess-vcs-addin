@@ -30,7 +30,6 @@ AND o.[type] NOT IN (
 	,'SQ' -- Service queues
 	,'TR'  -- Triggers saved from tables
 	,'IT'  -- Internal tables
+	,'TT'  -- Type tables
+	,'SO'  -- Sequence objects
 	)
-ORDER BY o.[modify_date] DESC;
-
-
