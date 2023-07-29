@@ -596,6 +596,7 @@ Public Sub ExportSchemas(blnFullExport As Boolean)
     Dim cSchema As IDbSchema
     Dim dParams As Dictionary
     Dim strFile As String
+    Dim lngCount As Long
 
     ' Skip this section if there are no connections defined.
     If Options.SchemaExports.Count = 0 Then Exit Sub
@@ -628,8 +629,9 @@ Public Sub ExportSchemas(blnFullExport As Boolean)
         Else
             cSchema.Initialize dParams
             cSchema.Export blnFullExport
+            lngCount = cSchema.ObjectCount(True)
         End If
-        Perf.CategoryEnd
+        Perf.CategoryEnd lngCount
     Next varKey
     Perf.OperationEnd
 
