@@ -606,27 +606,33 @@ Public Sub ExportSchemas(blnFullExport As Boolean)
     Log.Add "Scanning external databases..."
     Perf.OperationStart "Scan External Databases"
     For Each varKey In Options.SchemaExports.Keys
-        Select Case Options.SchemaExports(varKey)("DatabaseType")
-            Case eDatabaseServerType.estMsSql
-                strType = " (MSSQL)"
-                Set cSchema = New clsSchemaMsSql
-            Case eDatabaseServerType.estMySql
-                strType = " (MySQL)"
-                'Set cSchema = New clsSchemaMySql
-        End Select
         strName = varKey
-        Log.Add " - " & strName & strType
-        Perf.CategoryStart strName & strType
-        Log.Flush
 
         ' Load parameters for initializing the connection
         Set dParams = GetSchemaInitParams(strName)
-        If dParams("Connect") = vbNullString Then
+        If dParams("Enabled") = False Then
+            Log.Add " - " & strName & " - Connection disabled", False
+        ElseIf dParams("Connect") = vbNullString Then
+            Log.Add " - " & strName, False
             Log.Add "   No connection string found. (.env)", , , "Red", , True
             Log.Error eelWarning, "File not found: " & strFile, ModuleName & ".ExportSchemas"
             Log.Add "Set the connection string for this external database connection in VCS options to automatically create this file.", False
             Log.Add "(This file may contain authentication credentials and should be excluded from version control.)", False
         Else
+            ' Show server type along with name
+            Select Case Options.SchemaExports(varKey)("DatabaseType")
+                Case eDatabaseServerType.estMsSql
+                    strType = " (MSSQL)"
+                    Set cSchema = New clsSchemaMsSql
+                Case eDatabaseServerType.estMySql
+                    strType = " (MySQL)"
+                    'Set cSchema = New clsSchemaMySql
+            End Select
+            Log.Add " - " & strName & strType
+            Perf.CategoryStart strName & strType
+            Log.Flush
+
+            ' Export/sync the server objects
             cSchema.Initialize dParams
             cSchema.Export blnFullExport
             lngCount = cSchema.ObjectCount(True)

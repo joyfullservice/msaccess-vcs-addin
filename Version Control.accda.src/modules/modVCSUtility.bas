@@ -905,17 +905,18 @@ Public Function GetSchemaInitParams(strName As String) As Dictionary
     Dim strFile As String
 
     ' Load parameters for initializing the connection
-    Set dParams = CloneDictionary(Options.SchemaExports(strName))
+    If Options.SchemaExports.Exists(strName) Then
+        Set dParams = CloneDictionary(Options.SchemaExports(strName))
+    Else
+        ' Could be a new schema not yet saved
+        Set dParams = New Dictionary
+        dParams.CompareMode = TextCompare
+    End If
     dParams("Name") = strName
 
+    ' Check for `Connect` or other parameters in .env file
     strFile = BuildPath2(Options.GetExportFolder & "databases", GetSafeFileName(strName), ".env")
-    If Not FSO.FileExists(strFile) Then
-        Log.Add "   No connection string found. (.env)", , , "Red", , True
-        Log.Error eelWarning, "File not found: " & strFile, ModuleName & ".ExportSchemas"
-        Log.Add "Set the connection string for this external database connection in VCS options to automatically create this file.", False
-        Log.Add "(This file may contain authentication credentials and should be excluded from version control.)", False
-    Else
-        ' Use .env file to initialize connection
+    If FSO.FileExists(strFile) Then
         With New clsDotEnv
             .LoadFromFile strFile
             .MergeIntoDictionary dParams, False
