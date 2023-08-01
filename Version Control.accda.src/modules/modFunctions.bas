@@ -64,15 +64,15 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : MergeDictionary
 ' Author    : Adam Waller
-' Date      : 5/27/2021
-' Purpose   : Merge a dictionary into another dictionary. (Does not check for duplicate
-'           : key values, which will throw an error.)
+' Date      : 7/31/2023
+' Purpose   : Merge a dictionary into another dictionary. Existing values are replaced
+'           : from the incoming dictionary.
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeDictionary(ByRef dOriginal As Dictionary, ByVal dToAdd As Dictionary)
     Dim varKey As Variant
     For Each varKey In dToAdd.Keys
-        dOriginal.Add varKey, dToAdd(varKey)
+        dOriginal(varKey) = dToAdd(varKey)
     Next varKey
 End Sub
 
