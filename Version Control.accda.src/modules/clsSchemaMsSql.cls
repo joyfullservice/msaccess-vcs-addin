@@ -265,12 +265,12 @@ Private Function CanUseGetDDL() As Boolean
         Set cmd = New ADODB.Command
         With cmd
             ' Check in master database (System SP)
-            .CommandText = "select OBJECT_ID('master.dbo.sp_GetDDLz')"
+            .CommandText = "select OBJECT_ID('master.dbo.sp_GetDDL')"
             Set .ActiveConnection = conn
             Set rst = .Execute
             If Nz(rst.Fields(0).Value, 0) = 0 Then
                 ' Nothing found on the master DB. Try this db.
-                .CommandText = "select OBJECT_ID('sp_GetDDLz')"
+                .CommandText = "select OBJECT_ID('sp_GetDDL')"
                 Set rst = .Execute
                 If Nz(rst.Fields(0).Value, 0) = 0 Then
                     ' Still not available
