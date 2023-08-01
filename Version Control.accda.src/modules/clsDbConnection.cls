@@ -107,7 +107,7 @@ End Function
 ' Purpose   : Return a dictionary object of project connections.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictionary
+Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictionary
 
     ' Check cache first
     If blnUseCache And Not m_dItems Is Nothing Then

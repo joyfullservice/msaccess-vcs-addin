@@ -18,13 +18,14 @@ Begin Form
     ItemSuffix =262
     Left =20761
     Top =2250
-    Right =-29055
+    Right =31426
     Bottom =13995
     RecSrcDt = Begin
         0x79e78b777268e540
     End
     Caption ="Version Control System"
     DatasheetFontName ="Calibri"
+    OnLoad ="[Event Procedure]"
     AllowDatasheetView =0
     FilterOnLoad =0
     ShowPageMargins =0
@@ -313,7 +314,7 @@ Begin Form
                     Top =3480
                     Width =6060
                     Height =315
-                    TabIndex =2
+                    TabIndex =3
                     Name ="txtDescription"
                     HorizontalAnchor =2
 
@@ -336,41 +337,6 @@ Begin Form
                             LayoutCachedTop =3180
                             LayoutCachedWidth =2640
                             LayoutCachedHeight =3495
-                            ForeThemeColorIndex =-1
-                            ForeTint =100.0
-                        End
-                    End
-                End
-                Begin TextBox
-                    OverlapFlags =223
-                    IMESentenceMode =3
-                    Left =720
-                    Top =4320
-                    Width =6060
-                    Height =315
-                    TabIndex =3
-                    Name ="txtConnect"
-                    HorizontalAnchor =2
-
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =4320
-                    LayoutCachedWidth =6780
-                    LayoutCachedHeight =4635
-                    Begin
-                        Begin Label
-                            OverlapFlags =93
-                            Left =720
-                            Top =4020
-                            Width =2940
-                            Height =315
-                            ForeColor =5324600
-                            Name ="Label248"
-                            Caption ="Connection String:"
-                            HorizontalAnchor =2
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =4020
-                            LayoutCachedWidth =3660
-                            LayoutCachedHeight =4335
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -743,7 +709,7 @@ Begin Form
                     LayoutCachedHeight =4290
                     Begin
                         Begin Label
-                            OverlapFlags =247
+                            OverlapFlags =93
                             Left =5040
                             Top =4020
                             Width =1740
@@ -827,6 +793,46 @@ Begin Form
                         End
                     End
                 End
+                Begin ComboBox
+                    RowSourceTypeInt =1
+                    OverlapFlags =215
+                    IMESentenceMode =3
+                    Left =720
+                    Top =4320
+                    Width =6060
+                    Height =315
+                    TabIndex =2
+                    Name ="cboConnect"
+                    RowSourceType ="Value List"
+                    HorizontalAnchor =2
+
+                    LayoutCachedLeft =720
+                    LayoutCachedTop =4320
+                    LayoutCachedWidth =6780
+                    LayoutCachedHeight =4635
+                    ForeThemeColorIndex =0
+                    ForeTint =75.0
+                    ForeShade =100.0
+                    Begin
+                        Begin Label
+                            OverlapFlags =93
+                            Left =720
+                            Top =4020
+                            Width =2940
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label248"
+                            Caption ="Connection String:"
+                            HorizontalAnchor =2
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =4020
+                            LayoutCachedWidth =3660
+                            LayoutCachedHeight =4335
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
             End
         End
     End
@@ -867,7 +873,7 @@ Public Sub LoadSchema(strName As String, dSchema As Dictionary)
     chkUtcDates = dParams("UtcDateTime")
     txtDescription = dParams("Description")
     txtFilter = dParams("Filter")
-    txtConnect = dParams("Connect")
+    cboConnect = dParams("Connect")
     chkSaveDotEnv = dParams("UseDotEnv")
 
 End Sub
@@ -905,14 +911,14 @@ Private Sub SaveConnectionStringToFile()
     Dim strFile As String
 
     ' Guard clause safety check
-    If Nz(txtName) = vbNullString Or Nz(txtConnect) = vbNullString Then Exit Sub
+    If Nz(txtName) = vbNullString Or Nz(cboConnect) = vbNullString Then Exit Sub
 
     ' Update the value in the .env file. (Creating the file, if needed.)
     strFile = BuildPath2(Options.GetExportFolder & "databases", GetSafeFileName(Nz(txtName)), ".env")
     With New clsDotEnv
         ' Reload file so we preserve existing values
         .LoadFromFile strFile
-        .SetVar "CONNECT", Nz(txtConnect)
+        .SetVar "CONNECT", Nz(cboConnect)
         .SaveToFile strFile
     End With
 
@@ -1012,7 +1018,7 @@ Private Sub SetParamsFromForm(ByRef dParams As Dictionary)
         .Item("Description") = Nz(txtDescription)
         .Item("Filter") = Nz(txtFilter)
         .Item("UtcDateTime") = CBool(chkUtcDates)
-        .Item("Connect") = Nz(txtConnect)
+        .Item("Connect") = Nz(cboConnect)
         .Item("UseDotEnv") = CBool(chkSaveDotEnv)
     End With
 End Sub
@@ -1053,7 +1059,7 @@ Private Function PassedValidation() As Boolean
 
     ' TODO: Could add more validation for filter entries
 
-    If Len(Nz(txtConnect)) < 5 Then strMsg = "Please enter connection string for database"
+    If Len(Nz(cboConnect)) < 5 Then strMsg = "Please select or enter a connection string for database"
     If Nz(cboType, -1) < 0 Then strMsg = "Please select database type"
     If Len(Nz(txtName)) = 0 Then strMsg = "Connection name is required"
 
@@ -1136,5 +1142,60 @@ Private Sub CheckGitignoreDotEnv()
             End If
         End If
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Form_Load
+' Author    : Adam Waller
+' Date      : 8/1/2023
+' Purpose   : Load in sample connection strings from the current database.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Load()
+    LoadSampleConnectionStrings
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadSampleConnectionStrings
+' Author    : Adam Waller
+' Date      : 8/1/2023
+' Purpose   : Loads in some sample connection strings from the current database (from
+'           : tables or pass-through queries) that can be selected by the user.
+'---------------------------------------------------------------------------------------
+'
+Private Sub LoadSampleConnectionStrings()
+
+    Dim dItems As Dictionary
+    Dim varKey As Variant
+    Dim varConn As Variant
+    Dim strCurrent As String
+
+    ' Take advantage of our connection class to retrieve some example
+    ' connection strings from the current database.
+    With New clsDbConnection
+        Set dItems = .GetDictionary
+    End With
+
+    ' Save current value, and rebuild list
+    strCurrent = Nz(cboConnect)
+    cboConnect.RowSource = vbNullString
+
+    ' Loop through the connection strings
+    If Not dItems Is Nothing Then
+        For Each varKey In dItems.Keys
+            For Each varConn In dItems(varKey)
+                If Len(varConn) > 10 Then
+                    ' Looks like a connection string. Add to list.
+                    cboConnect.AddItem """" & varConn & """"
+                End If
+            Next varConn
+        Next varKey
+    End If
+
+    ' Restore original value
+    cboConnect = strCurrent
 
 End Sub
