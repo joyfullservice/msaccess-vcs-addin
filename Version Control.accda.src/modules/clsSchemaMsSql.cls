@@ -18,12 +18,12 @@ Option Compare Database
 Option Explicit
 
 
-' This requires us to use all the public methods and properties of the implemented class
-' which keeps all the server classes consistent in how they are used in the export
-' process. The implemented functions should be kept private as they are called
-' from the implementing class, not this class.
-Implements IDbSchema
-
+' Status of GetDDL stored procedure
+Private Enum eSpStatus
+    essUnknown
+    essUnavailable
+    essInstalled
+End Enum
 
 ' Handle local variables
 Private Type udtThis
@@ -31,25 +31,30 @@ Private Type udtThis
     strName As String
     strBaseFolder As String
     strConnect As String
+    blnUtcTime As Boolean
     strUserID As String
     strPassword As String
     varFilters As Variant
 End Type
 Private this As udtThis
 
-
 ' Dictionaries representing modified items, and all items
 Private m_Files As Dictionary
 Private m_AllItems As Dictionary
 Private m_ModifiedItems As Dictionary
-Private m_Index As Dictionary
+
+' This requires us to use all the public methods and properties of the implemented class
+' which keeps all the server classes consistent in how they are used in the export
+' process. The implemented functions should be kept private as they are called
+' from the implementing class, not this class.
+Implements IDbSchema
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : IDbSchema_Export
 ' Author    : Adam Waller
 ' Date      : 7/14/2023
-' Purpose   :
+' Purpose   : Export DDL representations of the external database objects.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath As String)
@@ -154,8 +159,6 @@ End Sub
 '
 Private Function ExportObject(strType, strSchema As String, strName As String, dteModified As Date, strPath As String, ByRef oConn As ADODB.Connection) As String
 
-    Static intUseSP As Integer
-
     Dim strSqlDef
     Dim strDefinition As String
     Dim rst As ADODB.Recordset
@@ -164,16 +167,26 @@ Private Function ExportObject(strType, strSchema As String, strName As String, d
     Dim cmd As ADODB.Command
     Dim strCmdTemplate As String
 
-    ' Prepare template statement for sp_GetDDL to work around VARCHAR(MAX) issue
-    ' with many SQL Server ODBC drivers.
-    strCmdTemplate = _
-        "DECLARE @table TABLE (item text) " & _
-        "INSERT INTO @table exec sp_GetDDL N'{name}' " & _
-        "SELECT * FROM @table"
+    ' Attempt to use the sp_GetDDL SP if possible
+    If CanUseGetDDL Then
+        ' Prepare template statement for sp_GetDDL to work around VARCHAR(MAX) issue
+        ' with many SQL Server ODBC drivers.
+        strCmdTemplate = _
+            "DECLARE @table TABLE (item text) " & _
+            "INSERT INTO @table exec sp_GetDDL N'{name}' " & _
+            "SELECT * FROM @table"
+    Else
+        ' Fall back to built-in SQL statements
+        strCmdTemplate = _
+            "DECLARE @table TABLE (item text) " & _
+            "INSERT INTO @table SELECT object_definition (OBJECT_ID(N'{name}')) " & _
+            "SELECT * FROM @table"
 
-    ' Cache whether or not
-    'if intusesp=0 then intusesp =
+        'strCmdTemplate = "SELECT object_definition (OBJECT_ID(N'{name}'))"
+        'strCmdTemplate = "test"
+    End If
 
+    ' Build full name of SQL object
     strFullName = "[" & strSchema & "].[" & strName & "]"
 
     ' Determine how to export this type of object
@@ -181,7 +194,6 @@ Private Function ExportObject(strType, strSchema As String, strName As String, d
         Case "USER_TABLE", "VIEW", "SYNONYM", "SQL_STORED_PROCEDURE", _
             "SQL_SCALAR_FUNCTION", "SQL_INLINE_TABLE_VALUED_FUNCTION", "SQL_TABLE_VALUED_FUNCTION"
             strSqlDef = Replace(strCmdTemplate, "{name}", strFullName)
-            'strSqlDef = "exec sp_help " & strFullName & ""
 
         Case "TYPE_TABLE", "SEQUENCE_OBJECT", "SERVICE_QUEUE", "SYSTEM_TABLE", "INTERNAL_TABLE"
             ' Unsupported non-dependent objects
@@ -190,7 +202,11 @@ Private Function ExportObject(strType, strSchema As String, strName As String, d
 
     ' Sanity check
     If Len(strSqlDef) Then
-        Perf.OperationStart "Run sp_GetDDL on " & strType
+        If CanUseGetDDL Then
+            Perf.OperationStart "Run sp_GetDDL on " & strType
+        Else
+            Perf.OperationStart "Get DDL for " & strType
+        End If
         Set cmd = New ADODB.Command
         With cmd
             Set .ActiveConnection = oConn
@@ -199,18 +215,25 @@ Private Function ExportObject(strType, strSchema As String, strName As String, d
         End With
 
         ' Get secondary recordset with object definition record
-        Set rst2 = rst.NextRecordset
-        With rst2
-            If Not .EOF Then strDefinition = Nz(.Fields(0))
-            If strDefinition = vbNullString Then
-                If FSO.FileExists(strPath) Then DeleteFile strPath
-            Else
-                ' Export to file, and set modified date to match SQL object
-                WriteFile strDefinition, strPath
-                SetFileDate strPath, dteModified
-            End If
-            .Close
-        End With
+        If strType = "USER_TABLE" And Not CanUseGetDDL Then
+            strDefinition = GetTableDefFallback(strFullName, oConn)
+        Else
+            Set rst2 = rst.NextRecordset
+            With rst2
+                If Not .EOF Then strDefinition = Nz(.Fields(0))
+                .Close
+            End With
+        End If
+
+        ' Write object definition to file
+        If strDefinition = vbNullString Then
+            If FSO.FileExists(strPath) Then DeleteFile strPath
+        Else
+            ' Export to file, and set modified date to match SQL object
+            WriteFile strDefinition, strPath
+            SetFileDate strPath, dteModified, Not this.blnUtcTime
+        End If
+
         Perf.OperationEnd
     End If
 
@@ -218,33 +241,124 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : UpdateIndex
+' Procedure : CanUseGetDDL
 ' Author    : Adam Waller
-' Date      : 7/19/2023
-' Purpose   : Update the entry in the index using values from the recordset
+' Date      : 7/31/2023
+' Purpose   : Returns true if we can use the system SP `sp_GetDDL`
 '---------------------------------------------------------------------------------------
 '
-Private Sub UpdateIndex(strItem As String, dObject As Dictionary)
+Private Function CanUseGetDDL() As Boolean
 
-    Dim dItem As Dictionary
+    Static intUseSP As eSpStatus
 
-    Perf.OperationStart "Update Schema Index"
-    ' See if we are working with an existing entry
+    Dim conn As ADODB.Connection
+    Dim cmd As ADODB.Command
+    Dim rst As ADODB.Recordset
 
-    If m_Index.Exists(strItem) Then
-        Set dItem = m_Index(strItem)
-    Else
-        ' Add the new entry
-        Set dItem = New Dictionary
-        m_Index.Add strItem, dItem
+    ' Cache whether or not sp_GetDDL exists
+    If intUseSP = essUnknown Then
+
+        ' Open connection, if not provided
+        Set conn = New ADODB.Connection
+        conn.Open this.strConnect, this.strUserID, this.strPassword
+
+        Set cmd = New ADODB.Command
+        With cmd
+            ' Check in master database (System SP)
+            .CommandText = "select OBJECT_ID('master.dbo.sp_GetDDLz')"
+            Set .ActiveConnection = conn
+            Set rst = .Execute
+            If Nz(rst.Fields(0).Value, 0) = 0 Then
+                ' Nothing found on the master DB. Try this db.
+                .CommandText = "select OBJECT_ID('sp_GetDDLz')"
+                Set rst = .Execute
+                If Nz(rst.Fields(0).Value, 0) = 0 Then
+                    ' Still not available
+                    intUseSP = essUnavailable
+                Else
+                    ' Works on the local database
+                    intUseSP = essInstalled
+                End If
+            Else
+                ' Found an object ID. Should be available
+                intUseSP = essInstalled
+            End If
+        End With
+
+        ' Close connection
+        conn.Close
+
+        ' Add log entries if the tool is not available
+        If intUseSP = essUnavailable Then
+            Log.Add "   Note: sp_GetDDL was not available for generating object definitions. Using built-in SQL functions instead.", False
+            Log.Add "   This system stored procedure can be found at: http://www.stormrage.com/2022/03/16/sp_getddla-and-sp_getddl/", False
+        End If
     End If
 
-    ' Update the meta values
-    dItem("FileDate") = Now()
-    dItem("LastModified") = dObject("LastModified")
-    Perf.OperationEnd
+    ' Return current status
+    CanUseGetDDL = (intUseSP = essInstalled)
 
-End Sub
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTableDefFallback
+' Author    : Adam Waller
+' Date      : 7/31/2023
+' Purpose   : Return a simplified fall-back version of a table definition without using
+'           : sp_GetDDL.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetTableDefFallback(strTable As String, oConn As ADODB.Connection) As String
+
+    Dim strSql As String
+    Dim rst As ADODB.Recordset
+    Dim intRst As Integer
+    Dim fld As ADODB.Field
+    Dim colText As New clsConcat
+
+    ' Initialize counter
+    intRst = 2
+
+    ' Get initial table information
+    strSql = "exec sp_help N'" & strTable & "'"
+    '@Ignore SetAssignmentWithIncompatibleObjectType
+    Set rst = oConn.Execute(strSql)
+    colText.Add "-- sp_help Recordset 1" & vbCrLf & vbCrLf
+    For Each fld In rst.Fields
+        colText.Add fld.Name
+        colText.Add vbTab
+    Next fld
+    colText.Add vbCrLf
+    colText.Add rst.GetString(, , vbTab, vbCrLf)
+
+    ' Loop through additional recordsets for columns, keys and other data
+    Do
+        Set rst = rst.NextRecordset
+        If rst Is Nothing Then Exit Do
+        If rst.State = adStateClosed Then Exit Do
+
+        colText.Add vbCrLf & vbCrLf & "-- sp_help Recordset " & intRst & vbCrLf & vbCrLf
+        For Each fld In rst.Fields
+            colText.Add fld.Name
+            colText.Add vbTab
+        Next fld
+        If Not rst.EOF Then
+            colText.Add vbCrLf
+            colText.Add rst.GetString(, , vbTab, vbCrLf)
+        End If
+
+        intRst = intRst + 1
+    Loop
+
+    ' Clear references
+    Set fld = Nothing
+    Set rst = Nothing
+
+    ' Return SQL content
+    GetTableDefFallback = colText.GetStr
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -299,6 +413,7 @@ Private Sub ScanDatabaseObjects()
     Dim blnUseGetDDL As Boolean
     Dim conn As ADODB.Connection
     Dim strItem As String
+    Dim strSchema As String
     Dim strPath As String
     Dim blnExport As Boolean
     Dim blnModified As Boolean
@@ -309,18 +424,9 @@ Private Sub ScanDatabaseObjects()
     ' Clear module level objects
     Set m_AllItems = Nothing
     Set m_ModifiedItems = Nothing
-    Set m_Index = Nothing
 
     ' Make sure we initialize before running the scan
     If Not this.blnInitialized Then Exit Sub
-
-    ' Load index
-    Set dFile = ReadJsonFile(IndexPath)
-    If Not dFile Is Nothing Then
-        Set m_Index = dFile("Items")
-    Else
-        Set m_Index = New Dictionary
-    End If
 
     ' Return list of objects from the server
     Set conn = New ADODB.Connection
@@ -338,8 +444,10 @@ Private Sub ScanDatabaseObjects()
     With rstObjects
         Do While Not .EOF
 
-            ' Build item path and full path to source file
-            strItem = Nz(!Folder) & PathSep & GetSafeFileName(Nz(!Name)) & ".sql"
+            ' Build item path and full path to source file (ignore dbo schema name)
+            strSchema = Nz(!schema, "dbo") & "."
+            If StrComp(strSchema, "dbo.", vbTextCompare) = 0 Then strSchema = vbNullString
+            strItem = Nz(!Folder) & PathSep & GetSafeFileName(strSchema & Nz(!Name)) & ".sql"
             strPath = this.strBaseFolder & strItem
 
             ' See if we pass the filter
@@ -482,15 +590,17 @@ Private Sub IDbSchema_Initialize(dInstance As Scripting.IDictionary)
         varRules = Split(strFilter, vbCrLf)
     End If
 
+    ' Set class values
     With this
         .strName = dNZ(dInstance, "Name")
         .strConnect = dNZ(dInstance, "Connect")
         .strBaseFolder = Options.GetExportFolder & "databases\" & GetSafeFileName(.strName) & PathSep
         .varFilters = varRules
+        If dInstance.Exists("UtcDateTime") Then .blnUtcTime = dInstance("UtcDateTime")
         .blnInitialized = (Len(.strConnect))
     End With
-End Sub
 
+End Sub
 
 
 Private Property Get IDbSchema_BaseFolder() As String
@@ -498,13 +608,8 @@ Private Property Get IDbSchema_BaseFolder() As String
 End Property
 
 
-Private Function IndexPath() As String
-    IndexPath = this.strBaseFolder & "vcs-index.json"
-End Function
-
-
 Private Property Get IDbSchema_Name() As String
-
+    IDbSchema_Name = this.strName
 End Property
 
 
