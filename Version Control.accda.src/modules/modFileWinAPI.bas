@@ -123,7 +123,7 @@ End Type
 '           : (Could be extended in the future to return other values)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFileList(strFolder As String, Optional strPattern As String = "*.*") As Dictionary
+Public Function GetFileList(strFolder As String, Optional strPattern As String = "*.*", Optional blnAsLocalTime As Boolean = True) As Dictionary
 
     Dim dList As Dictionary
     Dim pFileHandle As LongPtr
@@ -149,7 +149,7 @@ Public Function GetFileList(strFolder As String, Optional strPattern As String =
                 ' Skip subfolders
             Else
                 ' Save file to list
-                dList.Add strName, FileTimeToDate(tFileData.ftLastWriteTime)
+                dList.Add strName, FileTimeToDate(tFileData.ftLastWriteTime, blnAsLocalTime)
             End If
         Loop While FindNextFileW(pFileHandle, VarPtr(tFileData))
     End If
@@ -178,9 +178,10 @@ End Function
 '           : Further Reading: https://stackoverflow.com/q/66615978/4121863
 '---------------------------------------------------------------------------------------
 '
-Public Sub SetFileDate(strFile As String, dteDate As Date)
+Public Sub SetFileDate(strFile As String, dteDate As Date, blnAsLocalTime As Boolean)
 
     Dim lngHandle As Long
+    Dim stNewDate As SYSTEMTIME
     Dim stLocal As SYSTEMTIME
     Dim stUtc As SYSTEMTIME
     Dim ftUtc As FILETIME
@@ -207,15 +208,19 @@ Public Sub SetFileDate(strFile As String, dteDate As Date)
     End If
 
     ' Convert the date to a SYSTEMTIME
-    stLocal = DateToSystemTime(dteDate)
+    stNewDate = DateToSystemTime(dteDate)
 
-    ' Convert to UTC using an API that is able to translate Timezone/DST to UTC
-    ' This is SUPPOSED to default to the local TZ if null is provided, but this was not the case
-    ' in my testing, so we are passing the current time zone information just to be safe.
-    lngResult = TzSpecificLocalTimeToSystemTime(GetLocalTimeZoneInfo, stLocal, stUtc)
+    ' See if we are converting this from a local time
+    If blnAsLocalTime Then
+        ' Convert to UTC using an API that is able to translate Timezone/DST to UTC
+        ' This is SUPPOSED to default to the local TZ if null is provided, but this was not the case
+        ' in my testing, so we are passing the current time zone information just to be safe.
+        lngResult = TzSpecificLocalTimeToSystemTime(GetLocalTimeZoneInfo, stNewDate, stUtc)
+        stNewDate = stUtc
+    End If
 
     ' Convert the UTC system time to a FILETIME
-    lngResult = SystemTimeToFileTime(stUtc, ftUtc)
+    lngResult = SystemTimeToFileTime(stNewDate, ftUtc)
 
     ' Set the file date using the converted UTC time
     lngResult = SetFileTime(lngHandle, ftBlank, ftBlank, ftUtc)
@@ -249,21 +254,25 @@ End Function
 ' Purpose   : Convert a Win32 API FileTime to a VBA Datetime value
 '---------------------------------------------------------------------------------------
 '
-Public Function FileTimeToDate(tFileTime As FILETIME) As Date
+Public Function FileTimeToDate(tFileTime As FILETIME, blnAsLocalTime As Boolean) As Date
 
     Dim dteUtc As Date
+    Dim tReturnTime As SYSTEMTIME
     Dim tUtcTime As SYSTEMTIME
-    Dim tLocalTime As SYSTEMTIME
     Dim lngResult As Long
 
     ' Get UTC file time
     FileTimeToSystemTime tFileTime, tUtcTime
 
-    ' Convert to local time
-    lngResult = SystemTimeToTzSpecificLocalTime(GetLocalTimeZoneInfo, tUtcTime, tLocalTime)
+    ' Perform local time conversion, if requested
+    If blnAsLocalTime Then
+        lngResult = SystemTimeToTzSpecificLocalTime(GetLocalTimeZoneInfo, tUtcTime, tReturnTime)
+    Else
+        tReturnTime = tUtcTime
+    End If
 
     ' Convert to a VBA date value
-    With tLocalTime
+    With tReturnTime
         FileTimeToDate = DateSerial(.wYear, .wMonth, .wDay) + TimeSerial(.wHour, .wMinute, .wSecond)
     End With
 
