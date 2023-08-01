@@ -980,6 +980,7 @@ Private Function SaveConnection() As Boolean
 
             ' Connection string
             If chkSaveDotEnv Then
+                CheckGitignoreDotEnv
                 ' Save connection string to .env file
                 SaveConnectionStringToFile
                 ' Remove connect parameter from dictionary
@@ -1101,6 +1102,39 @@ Private Sub cmdTest_Click()
         DoCmd.Hourglass False
         MsgBox2 lngCount & " Objects Found", "A total of " & lngCount & " database objects were retrieved in " & _
             Round(Perf.MicroTimer - dblStart, 2) & " seconds.", , vbInformation
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckGitignoreDotEnv
+' Author    : Adam Waller
+' Date      : 7/31/2023
+' Purpose   : If the project appears to be a .git repository, check to see if .env
+'           : appears in the .gitignore file.
+'           : (This is not a comprehensive test, but just an extra aid for most common
+'           :  scenarios to help users avoid inadvertently comitting a .env file to
+'           :  their version control system.)
+'---------------------------------------------------------------------------------------
+'
+Private Sub CheckGitignoreDotEnv()
+
+    Dim strPath As String
+    Dim strContent As String
+
+    ' Guess at the standard location for a .gitignore file
+    strPath = Options.GetExportFolder & "..\.gitignore"
+    If FSO.FileExists(strPath) Then
+        strContent = ReadFile(strPath)
+        If Len(strContent) Then
+            If InStr(1, strContent, ".env", vbTextCompare) = 0 Then
+                MsgBox2 "Potentially Sensitive File", _
+                    "Please note: .env files should not be committed to version control.", _
+                    "To avoid exposing credentials to your repository, please exclude .env files in .gitignore", _
+                    vbExclamation
+            End If
+        End If
     End If
 
 End Sub
