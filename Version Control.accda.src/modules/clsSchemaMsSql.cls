@@ -514,19 +514,21 @@ Private Function ScanFiles()
     ' Build a collection of subfolders and files with modified dates
     ' (Using the Windows API for faster scanning and more accurate dates)
     Set dBaseFolders = GetBaseFolders
-    For Each oFld In FSO.GetFolder(this.strBaseFolder).SubFolders
-        strFolder = oFld.Name
-        If dBaseFolders.Exists(strFolder) Then
-            ' Get dictionary of files with modified dates
-            Set dFiles = GetFileList(oFld.Path, "*.sql", Not this.blnUtcTime)
-            ' Loop through files, adding to index
-            For Each varKey In dFiles.Keys
-                ' Add each file with a key that matches the database object, and the
-                ' file modified date as the value for each item.
-                m_Files.Add strFolder & "\" & CStr(varKey), dFiles(varKey)
-            Next varKey
-        End If
-    Next oFld
+    If FSO.FolderExists(this.strBaseFolder) Then
+        For Each oFld In FSO.GetFolder(this.strBaseFolder).SubFolders
+            strFolder = oFld.Name
+            If dBaseFolders.Exists(strFolder) Then
+                ' Get dictionary of files with modified dates
+                Set dFiles = GetFileList(oFld.Path, "*.sql", Not this.blnUtcTime)
+                ' Loop through files, adding to index
+                For Each varKey In dFiles.Keys
+                    ' Add each file with a key that matches the database object, and the
+                    ' file modified date as the value for each item.
+                    m_Files.Add strFolder & "\" & CStr(varKey), dFiles(varKey)
+                Next varKey
+            End If
+        Next oFld
+    End If
 
 End Function
 
