@@ -15,7 +15,7 @@ Begin Form
     GridY =24
     Width =10800
     DatasheetFontHeight =11
-    ItemSuffix =262
+    ItemSuffix =263
     Left =20761
     Top =2250
     Right =31426
@@ -314,7 +314,7 @@ Begin Form
                     Top =3480
                     Width =6060
                     Height =315
-                    TabIndex =3
+                    TabIndex =4
                     Name ="txtDescription"
                     HorizontalAnchor =2
 
@@ -350,7 +350,7 @@ Begin Form
                     Top =5160
                     Width =6060
                     Height =1380
-                    TabIndex =4
+                    TabIndex =8
                     Name ="txtFilter"
                     HorizontalAnchor =2
                     VerticalAnchor =2
@@ -368,7 +368,7 @@ Begin Form
                             Height =315
                             ForeColor =5324600
                             Name ="Label250"
-                            Caption ="Filter for database objects (source files):"
+                            Caption ="Filter for database objects (source file paths):"
                             LayoutCachedLeft =720
                             LayoutCachedTop =4860
                             LayoutCachedWidth =5340
@@ -385,7 +385,7 @@ Begin Form
                     Top =6900
                     Width =1500
                     Height =420
-                    TabIndex =6
+                    TabIndex =9
                     Name ="cmdCancel"
                     Caption ="Cancel"
                     OnClick ="[Event Procedure]"
@@ -423,7 +423,7 @@ Begin Form
                     Top =6900
                     Width =1860
                     Height =420
-                    TabIndex =7
+                    TabIndex =10
                     Name ="cmdSaveAndClose"
                     Caption =" Save && Close"
                     OnClick ="[Event Procedure]"
@@ -498,7 +498,7 @@ Begin Form
                     Left =3720
                     Top =6960
                     Width =1560
-                    TabIndex =8
+                    TabIndex =11
                     Name ="cmdSeeDocs"
                     Caption ="See Docs..."
                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Documentation"
@@ -653,7 +653,7 @@ Begin Form
                     Width =1140
                     Height =240
                     FontSize =10
-                    TabIndex =5
+                    TabIndex =7
                     Name ="cmdTest"
                     Caption ="Test Filter..."
                     OnClick ="[Event Procedure]"
@@ -698,7 +698,7 @@ Begin Form
                     OverlapFlags =85
                     Left =4740
                     Top =4050
-                    TabIndex =9
+                    TabIndex =5
                     Name ="chkSaveDotEnv"
                     DefaultValue ="True"
                     HorizontalAnchor =1
@@ -731,7 +731,7 @@ Begin Form
                     OverlapFlags =85
                     Left =4740
                     Top =2250
-                    TabIndex =10
+                    TabIndex =3
                     Name ="chkUtcDates"
                     DefaultValue ="False"
                     HorizontalAnchor =1
@@ -764,7 +764,7 @@ Begin Form
                     OverlapFlags =85
                     Left =4740
                     Top =1830
-                    TabIndex =11
+                    TabIndex =2
                     Name ="chkEnabled"
                     DefaultValue ="True"
                     HorizontalAnchor =1
@@ -801,7 +801,7 @@ Begin Form
                     Top =4320
                     Width =6060
                     Height =315
-                    TabIndex =2
+                    TabIndex =6
                     Name ="cboConnect"
                     RowSourceType ="Value List"
                     HorizontalAnchor =2
@@ -832,6 +832,54 @@ Begin Form
                             ForeTint =100.0
                         End
                     End
+                End
+                Begin CommandButton
+                    FontUnderline = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =720
+                    Top =6600
+                    Width =1140
+                    Height =240
+                    FontSize =10
+                    TabIndex =12
+                    Name ="cmdExamples"
+                    Caption ="Examples..."
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    VerticalAnchor =1
+                    BackStyle =0
+
+                    CursorOnHover =1
+                    LayoutCachedLeft =720
+                    LayoutCachedTop =6600
+                    LayoutCachedWidth =1860
+                    LayoutCachedHeight =6840
+                    Alignment =1
+                    ForeThemeColorIndex =10
+                    ForeTint =100.0
+                    Gradient =0
+                    BackColor =5324600
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    OldBorderStyle =0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverThemeColorIndex =10
+                    HoverTint =100.0
+                    PressedThemeColorIndex =10
+                    PressedShade =100.0
+                    HoverForeThemeColorIndex =10
+                    HoverForeTint =100.0
+                    PressedForeThemeColorIndex =10
+                    PressedForeTint =100.0
+                    WebImagePaddingLeft =9
+                    WebImagePaddingTop =9
+                    WebImagePaddingRight =10
+                    WebImagePaddingBottom =10
                 End
             End
         End
