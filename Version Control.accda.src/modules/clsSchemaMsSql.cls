@@ -62,6 +62,8 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
     Dim varItem As Variant
     Dim dblStart As Double
     Dim strPath As String
+    Dim blnChanges As Boolean
+    Dim dFolders As Dictionary
 
     ' Make sure we initialize before running the export
     If Not this.blnInitialized Then Exit Sub
@@ -74,6 +76,7 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
     If (m_ModifiedItems.Count = 0) And (m_Files.Count = m_AllItems.Count) Then
         ' Database matches the current set of files
     Else
+        blnChanges = True
         If m_ModifiedItems.Count = 0 Then
             Log.Add "     Verifying files...", , , , , True
         Else
@@ -117,10 +120,27 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
             If FSO.FileExists(strPath) Then
                 Log.Add " - Removed orphaned file: " & varItem, False
                 DeleteFile strPath
+                blnChanges = True
             End If
         End If
     Next varItem
     Perf.OperationEnd
+
+    ' --------------------------------------------------
+    ' THIRD PASS - Remove empty source folders
+    ' --------------------------------------------------
+    If blnChanges Then
+        Set dFolders = GetBaseFolders
+        For Each varItem In dFolders
+            strPath = this.strBaseFolder & varItem
+            If FSO.FolderExists(strPath) Then
+                If FSO.GetFolder(strPath).Files.Count = 0 Then
+                    ' Remove empty component subfolders
+                    FSO.DeleteFolder strPath
+                End If
+            End If
+        Next varItem
+    End If
 
 End Sub
 
@@ -374,6 +394,7 @@ End Sub
 Private Function ScanFiles()
 
     Dim oFld As Scripting.Folder
+    Dim dBaseFolders As Dictionary
     Dim dFiles As Dictionary
     Dim varKey As Variant
     Dim strFolder As String
@@ -384,26 +405,43 @@ Private Function ScanFiles()
 
     ' Build a collection of subfolders and files with modified dates
     ' (Using the Windows API for faster scanning and more accurate dates)
+    Set dBaseFolders = GetBaseFolders
     For Each oFld In FSO.GetFolder(this.strBaseFolder).SubFolders
         strFolder = oFld.Name
-        Select Case strFolder
-            Case "views", "tables", "procedures", "functions", "types", "sequences", "synonymns"
-                ' Get dictionary of files with modified dates
-                Set dFiles = GetFileList(oFld.Path, "*.sql")
-                ' Loop through files, adding to index
-                For Each varKey In dFiles.Keys
-                    ' Add each file with a key that matches the database object, and the
-                    ' file modified date as the value for each item.
-                    m_Files.Add strFolder & "\" & CStr(varKey), dFiles(varKey)
-                Next varKey
-        End Select
+        If dBaseFolders.Exists(strFolder) Then
+            ' Get dictionary of files with modified dates
+            Set dFiles = GetFileList(oFld.Path, "*.sql", Not this.blnUtcTime)
+            ' Loop through files, adding to index
+            For Each varKey In dFiles.Keys
+                ' Add each file with a key that matches the database object, and the
+                ' file modified date as the value for each item.
+                m_Files.Add strFolder & "\" & CStr(varKey), dFiles(varKey)
+            Next varKey
+        End If
     Next oFld
 
 End Function
 
 
-Private Function PurgeOrphanedObjects()
-
+'---------------------------------------------------------------------------------------
+' Procedure : GetBaseFolders
+' Author    : Adam Waller
+' Date      : 7/31/2023
+' Purpose   : Return a dictionary of base folders used for component types
+'---------------------------------------------------------------------------------------
+'
+Private Function GetBaseFolders() As Dictionary
+    Set GetBaseFolders = New Dictionary
+    With GetBaseFolders
+        .CompareMode = TextCompare
+        .Add "views", Null
+        .Add "tables", Null
+        .Add "procedures", Null
+        .Add "functions", Null
+        .Add "types", Null
+        .Add "sequences", Null
+        .Add "synonymns", Null
+    End With
 End Function
 
 
