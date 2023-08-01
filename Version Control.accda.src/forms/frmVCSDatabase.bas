@@ -13,9 +13,9 @@ Begin Form
     DatasheetGridlinesBehavior =3
     GridX =24
     GridY =24
-    Width =10080
+    Width =10800
     DatasheetFontHeight =11
-    ItemSuffix =256
+    ItemSuffix =262
     Left =20761
     Top =2250
     Right =-29055
@@ -203,7 +203,7 @@ Begin Form
             GridlineShade =65.0
         End
         Begin Section
-            Height =7200
+            Height =7560
             BackColor =15130848
             Name ="Detail"
             AlternateBackColor =15130848
@@ -212,12 +212,12 @@ Begin Form
                     BorderWidth =5
                     OverlapFlags =85
                     Top =1080
-                    Width =10080
+                    Width =10800
                     BorderColor =15321539
                     Name ="Line10"
                     HorizontalAnchor =2
                     LayoutCachedTop =1080
-                    LayoutCachedWidth =10080
+                    LayoutCachedWidth =10800
                     LayoutCachedHeight =1080
                     BorderThemeColorIndex =-1
                 End
@@ -226,12 +226,12 @@ Begin Form
                     BackStyle =1
                     OldBorderStyle =0
                     OverlapFlags =93
-                    Width =10080
+                    Width =10800
                     Height =1020
                     BackColor =5324600
                     Name ="Box1"
                     HorizontalAnchor =2
-                    LayoutCachedWidth =10080
+                    LayoutCachedWidth =10800
                     LayoutCachedHeight =1020
                     BackThemeColorIndex =-1
                 End
@@ -254,42 +254,43 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    Left =7020
+                    Left =7500
                     Top =1560
                     Width =2760
-                    Height =2760
+                    Height =3360
                     ForeColor =5324600
                     Name ="Label227"
                     Caption ="This add-in provides limited support for exporting object definitions from exter"
-                        "nal databases for use in version control.\015\012\015\012* The connection string"
-                        " is saved in .env, and should be excluded from version control."
+                        "nal databases for use in version control.\015\012\015\012* If the connection str"
+                        "ing contains a password, please use the .env option, and exclude this file from "
+                        "version control."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =7020
+                    LayoutCachedLeft =7500
                     LayoutCachedTop =1560
-                    LayoutCachedWidth =9780
-                    LayoutCachedHeight =4320
+                    LayoutCachedWidth =10260
+                    LayoutCachedHeight =4920
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
                 Begin TextBox
-                    OverlapFlags =85
+                    OverlapFlags =215
                     IMESentenceMode =3
                     Left =720
                     Top =1800
-                    Width =3360
+                    Width =3720
                     Height =315
                     Name ="txtName"
                     HorizontalAnchor =2
 
                     LayoutCachedLeft =720
                     LayoutCachedTop =1800
-                    LayoutCachedWidth =4080
+                    LayoutCachedWidth =4440
                     LayoutCachedHeight =2115
                     Begin
                         Begin Label
-                            OverlapFlags =85
+                            OverlapFlags =93
                             Left =720
-                            Top =1440
+                            Top =1500
                             Width =2160
                             Height =315
                             ForeColor =5324600
@@ -297,79 +298,79 @@ Begin Form
                             Caption ="Connection Name:"
                             HorizontalAnchor =2
                             LayoutCachedLeft =720
-                            LayoutCachedTop =1440
+                            LayoutCachedTop =1500
                             LayoutCachedWidth =2880
-                            LayoutCachedHeight =1755
+                            LayoutCachedHeight =1815
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
                     End
                 End
                 Begin TextBox
-                    OverlapFlags =85
+                    OverlapFlags =215
                     IMESentenceMode =3
                     Left =720
-                    Top =2700
-                    Width =5820
+                    Top =3480
+                    Width =6060
                     Height =315
-                    TabIndex =1
+                    TabIndex =2
                     Name ="txtDescription"
                     HorizontalAnchor =2
 
                     LayoutCachedLeft =720
-                    LayoutCachedTop =2700
-                    LayoutCachedWidth =6540
-                    LayoutCachedHeight =3015
+                    LayoutCachedTop =3480
+                    LayoutCachedWidth =6780
+                    LayoutCachedHeight =3795
                     Begin
                         Begin Label
-                            OverlapFlags =85
+                            OverlapFlags =93
                             Left =720
-                            Top =2340
-                            Width =4620
+                            Top =3180
+                            Width =1920
                             Height =315
                             ForeColor =5324600
                             Name ="Label246"
                             Caption ="Description:"
                             HorizontalAnchor =2
                             LayoutCachedLeft =720
-                            LayoutCachedTop =2340
-                            LayoutCachedWidth =5340
-                            LayoutCachedHeight =2655
+                            LayoutCachedTop =3180
+                            LayoutCachedWidth =2640
+                            LayoutCachedHeight =3495
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
                     End
                 End
                 Begin TextBox
-                    OverlapFlags =85
+                    OverlapFlags =223
                     IMESentenceMode =3
                     Left =720
-                    Top =3600
-                    Width =5820
+                    Top =4320
+                    Width =6060
                     Height =315
-                    TabIndex =2
+                    TabIndex =3
                     Name ="txtConnect"
                     HorizontalAnchor =2
 
                     LayoutCachedLeft =720
-                    LayoutCachedTop =3600
-                    LayoutCachedWidth =6540
-                    LayoutCachedHeight =3915
+                    LayoutCachedTop =4320
+                    LayoutCachedWidth =6780
+                    LayoutCachedHeight =4635
                     Begin
                         Begin Label
-                            OverlapFlags =85
+                            OverlapFlags =93
                             Left =720
-                            Top =3240
+                            Top =4020
                             Width =2940
                             Height =315
                             ForeColor =5324600
                             Name ="Label248"
-                            Caption ="*Connection String:"
+                            Caption ="Connection String:"
                             HorizontalAnchor =2
                             LayoutCachedLeft =720
-                            LayoutCachedTop =3240
+                            LayoutCachedTop =4020
                             LayoutCachedWidth =3660
-                            LayoutCachedHeight =3555
+                            LayoutCachedHeight =4335
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -377,47 +378,48 @@ Begin Form
                 End
                 Begin TextBox
                     EnterKeyBehavior = NotDefault
-                    OverlapFlags =85
+                    OverlapFlags =215
                     IMESentenceMode =3
                     Left =720
-                    Top =4740
-                    Width =5820
+                    Top =5160
+                    Width =6060
                     Height =1380
-                    TabIndex =3
+                    TabIndex =4
                     Name ="txtFilter"
                     HorizontalAnchor =2
                     VerticalAnchor =2
 
                     LayoutCachedLeft =720
-                    LayoutCachedTop =4740
-                    LayoutCachedWidth =6540
-                    LayoutCachedHeight =6120
+                    LayoutCachedTop =5160
+                    LayoutCachedWidth =6780
+                    LayoutCachedHeight =6540
                     Begin
                         Begin Label
                             OverlapFlags =93
                             Left =720
-                            Top =4380
+                            Top =4860
                             Width =4620
                             Height =315
                             ForeColor =5324600
                             Name ="Label250"
                             Caption ="Filter for database objects (source files):"
                             LayoutCachedLeft =720
-                            LayoutCachedTop =4380
+                            LayoutCachedTop =4860
                             LayoutCachedWidth =5340
-                            LayoutCachedHeight =4695
+                            LayoutCachedHeight =5175
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
                     End
                 End
                 Begin CommandButton
+                    Cancel = NotDefault
                     OverlapFlags =85
-                    Left =6120
-                    Top =6540
+                    Left =6540
+                    Top =6900
                     Width =1500
                     Height =420
-                    TabIndex =4
+                    TabIndex =6
                     Name ="cmdCancel"
                     Caption ="Cancel"
                     OnClick ="[Event Procedure]"
@@ -428,10 +430,10 @@ Begin Form
                     HorizontalAnchor =1
                     VerticalAnchor =1
 
-                    LayoutCachedLeft =6120
-                    LayoutCachedTop =6540
-                    LayoutCachedWidth =7620
-                    LayoutCachedHeight =6960
+                    LayoutCachedLeft =6540
+                    LayoutCachedTop =6900
+                    LayoutCachedWidth =8040
+                    LayoutCachedHeight =7320
                     BackColor =14262935
                     BackThemeColorIndex =-1
                     BackTint =100.0
@@ -451,11 +453,11 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
-                    Left =7920
-                    Top =6540
+                    Left =8340
+                    Top =6900
                     Width =1860
                     Height =420
-                    TabIndex =5
+                    TabIndex =7
                     Name ="cmdSaveAndClose"
                     Caption =" Save && Close"
                     OnClick ="[Event Procedure]"
@@ -502,10 +504,10 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =7920
-                    LayoutCachedTop =6540
-                    LayoutCachedWidth =9780
-                    LayoutCachedHeight =6960
+                    LayoutCachedLeft =8340
+                    LayoutCachedTop =6900
+                    LayoutCachedWidth =10200
+                    LayoutCachedHeight =7320
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -528,9 +530,9 @@ Begin Form
                     FontUnderline = NotDefault
                     OverlapFlags =85
                     Left =3720
-                    Top =6600
+                    Top =6960
                     Width =1560
-                    TabIndex =6
+                    TabIndex =8
                     Name ="cmdSeeDocs"
                     Caption ="See Docs..."
                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Documentation"
@@ -575,9 +577,9 @@ Begin Form
                     BackStyle =0
 
                     LayoutCachedLeft =3720
-                    LayoutCachedTop =6600
+                    LayoutCachedTop =6960
                     LayoutCachedWidth =5280
-                    LayoutCachedHeight =6960
+                    LayoutCachedHeight =7320
                     PictureCaptionArrangement =4
                     ForeThemeColorIndex =10
                     ForeTint =100.0
@@ -603,7 +605,7 @@ Begin Form
                 Begin Label
                     OverlapFlags =85
                     Left =240
-                    Top =6660
+                    Top =7020
                     Width =3375
                     Height =240
                     FontSize =10
@@ -611,9 +613,9 @@ Begin Form
                     Caption ="joyfullservice/msaccess-vcs-addin"
                     VerticalAnchor =1
                     LayoutCachedLeft =240
-                    LayoutCachedTop =6660
+                    LayoutCachedTop =7020
                     LayoutCachedWidth =3615
-                    LayoutCachedHeight =6900
+                    LayoutCachedHeight =7260
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                     ForeShade =50.0
@@ -621,39 +623,38 @@ Begin Form
                 Begin ComboBox
                     LimitToList = NotDefault
                     RowSourceTypeInt =1
-                    OverlapFlags =85
+                    OverlapFlags =215
                     IMESentenceMode =3
                     ColumnCount =2
-                    Left =4500
-                    Top =1800
-                    Width =2040
+                    Left =720
+                    Top =2640
+                    Width =3720
                     Height =315
-                    TabIndex =7
+                    TabIndex =1
                     Name ="cboType"
                     RowSourceType ="Value List"
                     RowSource ="\"1\";\"Microsoft SQL Server\";\"2\";\"MySQL Server\""
                     ColumnWidths ="0"
-                    HorizontalAnchor =1
+                    HorizontalAnchor =2
 
-                    LayoutCachedLeft =4500
-                    LayoutCachedTop =1800
-                    LayoutCachedWidth =6540
-                    LayoutCachedHeight =2115
+                    LayoutCachedLeft =720
+                    LayoutCachedTop =2640
+                    LayoutCachedWidth =4440
+                    LayoutCachedHeight =2955
                     Begin
                         Begin Label
-                            OverlapFlags =85
-                            Left =4500
-                            Top =1440
-                            Width =1830
+                            OverlapFlags =93
+                            Left =720
+                            Top =2340
+                            Width =2340
                             Height =315
                             ForeColor =5324600
                             Name ="Label252"
                             Caption ="Database Type:"
-                            HorizontalAnchor =1
-                            LayoutCachedLeft =4500
-                            LayoutCachedTop =1440
-                            LayoutCachedWidth =6330
-                            LayoutCachedHeight =1755
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =2340
+                            LayoutCachedWidth =3060
+                            LayoutCachedHeight =2655
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -661,8 +662,8 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    Left =7020
-                    Top =4740
+                    Left =7500
+                    Top =5100
                     Width =2760
                     Height =1380
                     ForeColor =5324600
@@ -670,10 +671,10 @@ Begin Form
                     Caption ="Filter paths to source files. Start line with ! to exclude match. Use * for wild"
                         "card matches (LIKE comparison)."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =7020
-                    LayoutCachedTop =4740
-                    LayoutCachedWidth =9780
-                    LayoutCachedHeight =6120
+                    LayoutCachedLeft =7500
+                    LayoutCachedTop =5100
+                    LayoutCachedWidth =10260
+                    LayoutCachedHeight =6480
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -682,11 +683,11 @@ Begin Form
                     TabStop = NotDefault
                     OverlapFlags =87
                     Left =5340
-                    Top =4440
+                    Top =4860
                     Width =1140
                     Height =240
                     FontSize =10
-                    TabIndex =8
+                    TabIndex =5
                     Name ="cmdTest"
                     Caption ="Test Filter..."
                     OnClick ="[Event Procedure]"
@@ -699,9 +700,9 @@ Begin Form
 
                     CursorOnHover =1
                     LayoutCachedLeft =5340
-                    LayoutCachedTop =4440
+                    LayoutCachedTop =4860
                     LayoutCachedWidth =6480
-                    LayoutCachedHeight =4680
+                    LayoutCachedHeight =5100
                     Alignment =1
                     ForeThemeColorIndex =10
                     ForeTint =100.0
@@ -726,6 +727,105 @@ Begin Form
                     WebImagePaddingRight =10
                     WebImagePaddingBottom =10
                     Overlaps =1
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =4740
+                    Top =4050
+                    TabIndex =9
+                    Name ="chkSaveDotEnv"
+                    DefaultValue ="True"
+                    HorizontalAnchor =1
+
+                    LayoutCachedLeft =4740
+                    LayoutCachedTop =4050
+                    LayoutCachedWidth =5000
+                    LayoutCachedHeight =4290
+                    Begin
+                        Begin Label
+                            OverlapFlags =247
+                            Left =5040
+                            Top =4020
+                            Width =1740
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label257"
+                            Caption ="Save in .env file*"
+                            HorizontalAnchor =1
+                            LayoutCachedLeft =5040
+                            LayoutCachedTop =4020
+                            LayoutCachedWidth =6780
+                            LayoutCachedHeight =4335
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =4740
+                    Top =2250
+                    TabIndex =10
+                    Name ="chkUtcDates"
+                    DefaultValue ="False"
+                    HorizontalAnchor =1
+
+                    LayoutCachedLeft =4740
+                    LayoutCachedTop =2250
+                    LayoutCachedWidth =5000
+                    LayoutCachedHeight =2490
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =5040
+                            Top =2220
+                            Width =1620
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label259"
+                            Caption ="Use UTC Dates"
+                            HorizontalAnchor =1
+                            LayoutCachedLeft =5040
+                            LayoutCachedTop =2220
+                            LayoutCachedWidth =6660
+                            LayoutCachedHeight =2535
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =4740
+                    Top =1830
+                    TabIndex =11
+                    Name ="chkEnabled"
+                    DefaultValue ="True"
+                    HorizontalAnchor =1
+
+                    LayoutCachedLeft =4740
+                    LayoutCachedTop =1830
+                    LayoutCachedWidth =5000
+                    LayoutCachedHeight =2070
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =5040
+                            Top =1800
+                            Width =1080
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label261"
+                            Caption ="Enabled"
+                            HorizontalAnchor =1
+                            LayoutCachedLeft =5040
+                            LayoutCachedTop =1800
+                            LayoutCachedWidth =6120
+                            LayoutCachedHeight =2115
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
                 End
             End
         End
@@ -753,39 +853,44 @@ Private m_strOriginalName As String
 '
 Public Sub LoadSchema(strName As String, dSchema As Dictionary)
 
-    ' Load values from options
-    txtName = strName
-    cboType = dSchema("DatabaseType")
-    txtDescription = dSchema("Description")
-    txtFilter = dSchema("Filter")
+    Dim dParams As Dictionary
 
-    ' Load connection string
-    txtConnect = LoadConnectionString(strName)
+    ' Merge values into defaults to ensure that all values are defined
+    Set dParams = GetDefaults
+    MergeDictionary dParams, dSchema
+    MergeDotEnv strName, dParams
+
+    ' Load values from dictionary parameters
+    txtName = strName
+    chkEnabled = dParams("Enabled")
+    cboType = dParams("DatabaseType")
+    chkUtcDates = dParams("UtcDateTime")
+    txtDescription = dParams("Description")
+    txtFilter = dParams("Filter")
+    txtConnect = dParams("Connect")
+    chkSaveDotEnv = dParams("UseDotEnv")
 
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : LoadConnectionString
+' Procedure : MergeDotEnv
 ' Author    : Adam Waller
-' Date      : 7/20/2023
-' Purpose   : Load the connection string from the .env file.
+' Date      : 7/31/2023
+' Purpose   : Merge any specified .env params into dictionary. (Will override schema
+'           : options saved in vcs-options.json)
 '---------------------------------------------------------------------------------------
 '
-Private Function LoadConnectionString(strSchemaName As String) As String
-
+Private Sub MergeDotEnv(strSchemaName As String, ByRef dParams As Dictionary)
     Dim strFile As String
-
-    ' Load connection string from .env file
     strFile = BuildPath2(Options.GetExportFolder & "databases", GetSafeFileName(strSchemaName), ".env")
     If FSO.FileExists(strFile) Then
         With New clsDotEnv
             .LoadFromFile strFile
-            LoadConnectionString = .GetVar("CONNECT", False)
+            .MergeIntoDictionary dParams, False
         End With
     End If
-
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -795,7 +900,7 @@ End Function
 ' Purpose   : Saves the connection string to a .env file.
 '---------------------------------------------------------------------------------------
 '
-Private Sub SaveConnectionString()
+Private Sub SaveConnectionStringToFile()
 
     Dim strFile As String
 
@@ -870,14 +975,17 @@ Private Function SaveConnection() As Boolean
                 End If
             End If
 
-            ' Update meta values
-            .Item(strKey)("DatabaseType") = CInt(cboType)
-            .Item(strKey)("Description") = Nz(txtDescription)
-            .Item(strKey)("Filter") = Nz(txtFilter)
-        End With
+            ' Load form values
+            SetParamsFromForm .Item(strKey)
 
-        ' Save connection string to .env file
-        SaveConnectionString
+            ' Connection string
+            If chkSaveDotEnv Then
+                ' Save connection string to .env file
+                SaveConnectionStringToFile
+                ' Remove connect parameter from dictionary
+                If .Item(strKey).Exists("Connect") Then .Item(strKey).Remove "Connect"
+            End If
+        End With
 
         ' Return success
         SaveConnection = True
@@ -885,6 +993,49 @@ Private Function SaveConnection() As Boolean
         MsgBox2 "Options form not found", "The Options form must be open to save changes to external database connections", , vbExclamation
     End If
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetParamsFromForm
+' Author    : Adam Waller
+' Date      : 7/31/2023
+' Purpose   : Sets the dictionary parameters based on the current form values.
+'           : (This is especially helpful for testing filters before saving an entry.)
+'---------------------------------------------------------------------------------------
+'
+Private Sub SetParamsFromForm(ByRef dParams As Dictionary)
+    With dParams
+        .Item("Enabled") = chkEnabled
+        .Item("DatabaseType") = CInt(cboType)
+        .Item("Description") = Nz(txtDescription)
+        .Item("Filter") = Nz(txtFilter)
+        .Item("UtcDateTime") = CBool(chkUtcDates)
+        .Item("Connect") = Nz(txtConnect)
+        .Item("UseDotEnv") = CBool(chkSaveDotEnv)
+    End With
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDefaults
+' Author    : Adam Waller
+' Date      : 7/31/2023
+' Purpose   : Set the default values for connection parameters
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDefaults() As Dictionary
+    Set GetDefaults = New Dictionary
+    With GetDefaults
+        .CompareMode = TextCompare
+        .Item("Enabled") = True
+        .Item("DatabaseType") = 1
+        .Item("Description") = vbNullString
+        .Item("Filter") = vbNullString
+        .Item("UtcDateTime") = False
+        .Item("Connect") = vbNullString
+        .Item("UseDotEnv") = True
+    End With
 End Function
 
 
@@ -928,7 +1079,9 @@ Private Sub cmdTest_Click()
     Dim dblStart As Double
     Dim dParams As Dictionary
 
-    If Not SaveConnection Then Exit Sub
+    txtFilter.SetFocus
+    txtFilter.SelStart = 9999
+    If Not PassedValidation Then Exit Sub
 
     Select Case cboType
         Case eDatabaseServerType.estMsSql
@@ -938,11 +1091,14 @@ Private Sub cmdTest_Click()
 
     ' Retrieve object count from server.
     If Not cSchema Is Nothing Then
-        Set dParams = GetSchemaInitParams(Nz(txtName))
-        dParams("Filter") = Nz(txtFilter)
+        Set dParams = New Dictionary
+        dParams.CompareMode = TextCompare
+        SetParamsFromForm dParams
         cSchema.Initialize dParams
         dblStart = Perf.MicroTimer
+        DoCmd.Hourglass True
         lngCount = cSchema.ObjectCount(False)
+        DoCmd.Hourglass False
         MsgBox2 lngCount & " Objects Found", "A total of " & lngCount & " database objects were retrieved in " & _
             Round(Perf.MicroTimer - dblStart, 2) & " seconds.", , vbInformation
     End If
