@@ -125,7 +125,7 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
     Set cConnection = New clsConnectionODBC
     With CurrentDb
         For Each tdf In .TableDefs
-            If StartsWith(tdf.Connect, "ODBC;", vbTextCompare) Then
+            If StartsWith(tdf.Connect, "ODBC;", vbTextCompare) And (Len(tdf.Connect) > 5) Then
                 cConnection.ParseOdbcConnectionString tdf.Connect
                 AddOdbcConnectionString GetDictionary, cConnection, tdf.Name
             End If
@@ -150,9 +150,13 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
                 End If
             End If
             On Error GoTo 0
-            If StartsWith(strQdfConnect, "ODBC;", vbTextCompare) Then
-                cConnection.ParseOdbcConnectionString strQdfConnect
-                AddOdbcConnectionString GetDictionary, cConnection, qdf.Name
+            If StartsWith(strQdfConnect, "ODBC;", vbTextCompare) And (Len(strQdfConnect) > 5) Then
+                If StartsWith(qdf.Name, "~") Then
+                    ' Ignore temporary queries
+                Else
+                    cConnection.ParseOdbcConnectionString strQdfConnect
+                    AddOdbcConnectionString GetDictionary, cConnection, qdf.Name
+                End If
             End If
         Next
     End With
