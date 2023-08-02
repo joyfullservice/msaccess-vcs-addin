@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =263
     Left =20761
     Top =2250
-    Right =31426
+    Right =-29055
     Bottom =13995
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -914,6 +914,9 @@ Public Sub LoadSchema(strName As String, dSchema As Dictionary)
     MergeDictionary dParams, dSchema
     MergeDotEnv strName, dParams
 
+    ' Save original name, just in case it is renamed
+    m_strOriginalName = strName
+
     ' Load values from dictionary parameters
     txtName = strName
     chkEnabled = dParams("Enabled")
@@ -1061,7 +1064,7 @@ End Function
 '
 Private Sub SetParamsFromForm(ByRef dParams As Dictionary)
     With dParams
-        .Item("Enabled") = chkEnabled
+        .Item("Enabled") = CBool(chkEnabled)
         .Item("DatabaseType") = CInt(cboType)
         .Item("Description") = Nz(txtDescription)
         .Item("Filter") = Nz(txtFilter)
