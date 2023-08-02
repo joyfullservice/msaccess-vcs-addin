@@ -3835,9 +3835,14 @@ Private Sub cmdDeleteDatabase_Click()
         MsgBox2 "Select a connection to delete", , , vbExclamation
     Else
         With Me.DatabaseSchemas
-            If .Exists(strName) Then .Remove strName
+            If .Exists(strName) Then
+                If MsgBox2("Remove Connection?", "Are you sure you want to delete '" & strName & "'?", _
+                    "Click YES to remove or NO to cancel.", vbQuestion + vbYesNo) = vbYes Then
+                    .Remove strName
+                    RefreshSchemaList
+                End If
+            End If
         End With
-        RefreshSchemaList
     End If
 End Sub
 
