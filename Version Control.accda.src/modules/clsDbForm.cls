@@ -206,8 +206,6 @@ End Sub
 '
 Public Function IDbComponent_IsModified() As Boolean
 
-    Dim dteDate As Date
-
     ' Item is considered modified unless proven otherwise.
     IDbComponent_IsModified = True
 

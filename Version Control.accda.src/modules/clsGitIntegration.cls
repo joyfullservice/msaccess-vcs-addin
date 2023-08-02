@@ -280,8 +280,6 @@ Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As
     Dim lngCnt As Long
     Dim strOrig As String
     Dim strNew As String
-    Dim strAlt As String
-    Dim strHead As String
     Dim strBranch As String
     Dim blnLog As Boolean
     Dim strBaseFolder As String

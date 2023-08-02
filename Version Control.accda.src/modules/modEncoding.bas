@@ -163,9 +163,6 @@ End Sub
 Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String, _
     Optional blnDeleteSourceFileAfterConversion As Boolean = True)
 
-    Dim strText As String
-    Dim utf8Bytes() As Byte
-
     ' Make sure the path exists before we write a file.
     VerifyPath strDestinationFile
     If FSO.FileExists(strDestinationFile) Then DeleteFile strDestinationFile, True

@@ -92,8 +92,6 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent, ParamArray StrExtensi
     Dim strExt As String
     Dim cItem As IDbComponent
     Dim strHash As String
-    Dim cXItem As clsVCSIndexItem
-    Dim dteModified As Date
 
     ' No orphaned files if the folder doesn't exist.
     If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub

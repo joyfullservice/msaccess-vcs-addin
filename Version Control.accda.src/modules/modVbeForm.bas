@@ -34,7 +34,6 @@ End Function
 
 Private Function GetMSFormProperties(ByVal FormComponent As VBComponent) As Dictionary
     Dim dict As New Dictionary
-    Dim p As Property
     dict.Add "Name", FormComponent.Name
     dict.Add "Designer", GetDesigner(FormComponent)
     dict.Add "Properties", GetProperties(FormComponent, FormComponent.Properties)
@@ -49,7 +48,6 @@ End Function
 
 Private Function GetProperties(ByVal Context As Object, ByVal Properties As VBIDE.Properties) As Dictionary
     Dim dict As New Dictionary
-    Dim props As New Collection
     Dim p As VBIDE.Property
     Dim i As Long
     For i = 1 To Properties.Count

@@ -209,7 +209,6 @@ End Function
 '
 Private Function GetHash(bteContent() As Byte) As String
 
-    Dim objEnc As Object
     Dim bteHash As Variant
     Dim strHash As String
     Dim intPos As Integer
@@ -250,7 +249,7 @@ End Function
 ' Purpose   : Return a hash from the VBA code module behind an object.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As String, Optional intLength As Integer = 7) As String
+Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As String) As String
 
     Dim strHash As String
     Dim cmpItem As VBComponent

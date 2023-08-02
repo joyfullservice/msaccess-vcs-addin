@@ -96,7 +96,6 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
     Dim cData As New clsConcat
     Dim intFields As Integer
     Dim intCnt As Integer
-    Dim strText As String
     Dim lngProgMax As Long
     Dim lngProgValue As Long
 
@@ -320,7 +319,6 @@ Private Function GetTableExportSql(strTable As String) As String
 
     Dim tdf As DAO.TableDef
     Dim fld As DAO.Field
-    Dim intCnt As Integer
     Dim intFields As Integer
     Dim cText As New clsConcat
     Dim cFieldList As New clsConcat

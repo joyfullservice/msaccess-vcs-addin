@@ -151,10 +151,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
 
     Dim proj As VBProject
     Dim dRef As Dictionary
-    Dim cItem As IDbComponent
-    Dim cRef As clsDbVbeReference
     Dim ref As VBIDE.Reference
-    Dim strPath As String
     Dim dNames As Dictionary
 
     ' Check cache parameter

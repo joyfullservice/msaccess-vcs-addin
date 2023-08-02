@@ -142,7 +142,6 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim dbs As Database
     Dim varCont As Variant
     Dim varDoc As Variant
-    Dim blnNoChanges As Boolean
     Dim strKey As String
 
     ' Build collection if not already cached
@@ -250,7 +249,6 @@ End Function
 Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
 
     Dim dCont As Dictionary
-    Dim dDoc As Dictionary
     Dim dbs As Database
     Dim contType As AcObjectType
     Dim varCont As Variant

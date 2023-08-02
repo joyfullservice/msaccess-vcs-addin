@@ -125,9 +125,6 @@ End Function
 '
 Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding As String = "utf-8")
 
-    Dim strContent As String
-    Dim dblPos As Double
-
     Perf.OperationStart "Write File"
 
     ' Write to a UTF-8 eoncoded file

@@ -231,7 +231,6 @@ Private Function GetDictionary() As Dictionary
     Dim rst As DAO.Recordset
     Dim strSql As String
     Dim fld As DAO.Field
-    Dim strContent As String
 
     Set dSpec = New Dictionary
     Set dCols = New Dictionary

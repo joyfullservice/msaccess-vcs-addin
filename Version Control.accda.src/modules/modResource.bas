@@ -72,9 +72,7 @@ Public Sub ExtractResource(strKey As String, strFolder As String)
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset2
     Dim rstFiles As DAO.Recordset2
-    Dim blnSuccess As Boolean
     Dim strPath As String
-    Dim strName As String
 
     Set dbs = CodeDb
     Set rst = dbs.OpenRecordset( _

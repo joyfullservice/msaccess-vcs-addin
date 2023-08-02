@@ -67,7 +67,6 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim lngCategoryID As Long
     Dim intObject As Integer
     Dim dObject As Dictionary
-    Dim lngCategory As Long
     Dim lngObjectID As Long
     Dim lngLinkID As Long
 
@@ -388,10 +387,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cGroup As IDbComponent
     Dim varCategory As Variant
     Dim dCategory As Dictionary
-    Dim colGroups As Collection
     Dim varGroup As Variant
-    Dim colObjects As Collection
-    Dim varObject As Variant
     Dim strKey As String
 
     ' Build collection if not already cached

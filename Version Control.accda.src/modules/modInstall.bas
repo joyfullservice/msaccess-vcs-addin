@@ -477,7 +477,6 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Same_Version)
     Const cstrSpacer As String = "--------------------------------------------------------------"
 
     Dim strBinaryFile As String
-    Dim blnSuccess As Boolean
 
     If Not IsCompiled Then
         MsgBox2 "Please Compile and Save Project", _

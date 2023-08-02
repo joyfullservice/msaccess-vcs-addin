@@ -176,7 +176,6 @@ Public Function CacheConnection(strConnect As String) As Boolean
     End If
 
     Dim qdf As DAO.QueryDef
-    Dim bolCached As Boolean
 
     If m_dCachedConnections Is Nothing Then
         Set m_dCachedConnections = New Dictionary

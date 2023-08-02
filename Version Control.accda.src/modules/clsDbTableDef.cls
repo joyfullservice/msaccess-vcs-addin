@@ -219,7 +219,6 @@ End Sub
 Private Function StageRelations(strTableName As String) As Dictionary
 
     Dim dbs As Database
-    Dim intCnt As Integer
     Dim rel As Relation
     Dim cRel As IDbComponent
     Dim strTempFile As String

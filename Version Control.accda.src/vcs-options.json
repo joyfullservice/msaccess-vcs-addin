@@ -47,6 +47,8 @@
         "Format": "Tab Delimited"
       }
     },
+    "SchemaExports": {
+    },
     "RunBeforeExport": "",
     "RunAfterExport": "",
     "RunBeforeBuild": "",

@@ -361,7 +361,6 @@ End Function
 Public Function VerifyResourcesTable() As Boolean
 
     Dim blnExists As Boolean
-    Dim strName As String
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 

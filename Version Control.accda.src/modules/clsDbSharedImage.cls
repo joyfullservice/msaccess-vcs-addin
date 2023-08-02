@@ -52,7 +52,6 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strContent As String
     Dim strFile As String
     Dim dItem As Dictionary
-    Dim strHash As String
 
     ' Build header file
     Set dItem = GetDictionary
@@ -295,7 +294,7 @@ End Function
 ' Purpose   : Return a dictionary object representing the content for the json file.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
+Private Function GetDictionary() As Dictionary
     Set GetDictionary = New Dictionary
     With GetDictionary
         .Add "Name", m_Name

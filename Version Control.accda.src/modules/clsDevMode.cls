@@ -347,7 +347,6 @@ End Sub
 Public Sub LoadFromPrinter(strPrinter As String)
 
     Dim hPrinter As LongPtr
-    Dim udtDefaults As PRINTER_DEFAULTS
     Dim lngReturn As Long
     Dim strBuffer As String
     Dim udtBuffer As tDevModeBuffer

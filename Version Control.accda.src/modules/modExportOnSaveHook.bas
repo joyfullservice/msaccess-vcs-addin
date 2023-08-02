@@ -109,7 +109,6 @@ Public Sub VerifyHook()
     Dim strFile As String
     Dim strKey As String
     Dim strHash As String
-    Dim blnUpdateRibbon As Boolean
     Dim blnInstall As Boolean
 
     ' Hook
@@ -207,7 +206,6 @@ Public Sub HandleExportCallback(UpperBound As Long, ObjectDataArray() As ObjectD
 
     Dim dAccessObjects As Dictionary
     Dim oAccessObject As Access.AccessObject
-    Dim tObjectData As ObjectData
 
     Dim strName As String
 

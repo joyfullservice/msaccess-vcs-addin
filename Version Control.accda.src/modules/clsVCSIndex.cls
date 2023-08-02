@@ -473,7 +473,6 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
     Dim varFile As Variant
     Dim strFile As String
     Dim strPath As String
-    Dim dItem As Dictionary
     Dim blnModified As Boolean
 
     Set GetModifiedSourceFiles = New Dictionary
@@ -684,9 +683,7 @@ Private Function IsImportConflict(cItemClass As IDbComponent, strSourceFile As S
     Dim blnConflict As Boolean
     Dim cItem As IDbComponent
     Dim strName As String
-    Dim strHash As String
     Dim strTempFile As String
-    Dim blnCompareTemp As Boolean
 
     ' Check for special cases based on component type
     If cItemClass.ComponentType = edbTableData Then

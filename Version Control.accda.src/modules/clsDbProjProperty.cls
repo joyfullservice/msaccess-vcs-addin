@@ -159,8 +159,6 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
 
     Dim prp As AccessObjectProperty
     Dim dCollection As Dictionary
-    Dim dItem As Dictionary
-    Dim varValue As Variant
 
     ' Check cache parameter
     If blnUseCache And Not m_dItems Is Nothing Then

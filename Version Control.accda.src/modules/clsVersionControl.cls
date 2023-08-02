@@ -336,7 +336,6 @@ End Sub
 Private Sub OpenLog(strName As String)
 
     Dim strPath As String
-    Dim objShell As Object
 
     strPath = Options.GetExportFolder & strName
     If FSO.FileExists(strPath) Then

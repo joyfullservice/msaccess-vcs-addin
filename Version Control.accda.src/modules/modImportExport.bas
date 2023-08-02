@@ -23,7 +23,6 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
     Dim dCategories As Dictionary
     Dim colCategories As Collection
-    Dim varCategory As Variant
     Dim dCategory As Dictionary
     Dim dObjects As Dictionary
     Dim varCatKey As Variant
@@ -32,7 +31,6 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Dim cDbObject As IDbComponent
     Dim lngCount As Long
     Dim strTempFile As String
-    Dim strSourceFile As String
 
     ' Use inline error handling functions to trap and log errors.
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -658,11 +656,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
     Dim strBackup As String
     Dim cCategory As IDbComponent
     Dim dCategories As Dictionary
-    Dim colCategories As Collection
     Dim varCategory As Variant
     Dim dCategory As Dictionary
     Dim dFiles As Dictionary
-    Dim varKey As Variant
     Dim varFile As Variant
     Dim strType As String
     Dim blnSuccess As Boolean
@@ -1037,7 +1033,6 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     Dim dCategories As Dictionary
     Dim dCategory As Dictionary
     Dim dSourceFiles As Dictionary
-    Dim strTempFile As String
 
     ' Guard clauses
     If cComponentClass Is Nothing Then Exit Sub
@@ -1164,9 +1159,6 @@ Public Sub MergeAllSource()
     Dim varCategory As Variant
     Dim dFiles As Dictionary
     Dim varFile As Variant
-    Dim dSourceFiles As Dictionary
-    Dim strTempFile As String
-
 
     ' Use inline error handling functions to trap and log errors.
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -1352,34 +1344,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : VerifyHash
-' Author    : Adam Waller
-' Date      : 7/29/2020
-' Purpose   : Verify that we can decrypt the hash value in the options file, if found.
-'           : Returns false if a hash is found but cannot be decrypted.
-'---------------------------------------------------------------------------------------
-'
-Private Function VerifyHash(strOptionsFile As String) As Boolean
-
-    Dim dFile As Dictionary
-    Dim strHash As String
-
-    Set dFile = ReadJsonFile(strOptionsFile)
-    strHash = dNZ(dFile, "Info\Hash")
-
-    ' Check hash value
-    If strHash = vbNullString Then
-        ' Could not find hash.
-        VerifyHash = True
-    Else
-        ' Return true if we can successfully decrypt the hash.
-        VerifyHash = False
-    End If
-
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : CheckForLegacyModules
 ' Author    : Adam Waller
 ' Date      : 7/16/2020
@@ -1422,7 +1386,6 @@ Private Sub PrepareRunBootstrap()
     Dim strModule As String
     Dim strName As String
     Dim varFile As Variant
-    Dim cMod As clsDbModule
 
     ' Update output since there may be some delays
     Log.Add "Loading bootstrap..."
@@ -1492,9 +1455,6 @@ Public Sub InitializeForms(cContainers As Dictionary)
     Dim cont As IDbComponent
     Dim frm As IDbComponent
     Dim dForms As Dictionary
-    Dim strHash As String
-    Dim colForms As Collection
-    Dim varFile As Variant
     Dim cAllForms As IDbComponent
     Dim varKey As Variant
 

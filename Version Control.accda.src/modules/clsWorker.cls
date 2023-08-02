@@ -276,7 +276,6 @@ Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
     strAction As String, ParamArray varParams()) As Long
 
     Dim intParam As Integer
-    Dim strCommand As String
     Dim strHash As String
     Dim lngHandle As Long
     Dim cJob As clsJob

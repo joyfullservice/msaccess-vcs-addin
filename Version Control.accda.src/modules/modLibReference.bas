@@ -33,7 +33,6 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
     Dim dRefs As Dictionary
     Dim varKey As Variant
     Dim frm As Form_frmVCSMain
-    Dim oApp As Access.Application
 
     ' Look up the references from the current database
     Perf.StartTiming
@@ -133,7 +132,6 @@ Public Function GetReferencesDictionary() As Dictionary
     Dim dProjects As Dictionary
     Dim dRefs As Dictionary
     Dim varKey As Variant
-    Dim blnAdd As Boolean
     Dim strRefPath As String
 
     ' Create dictionary and header info

@@ -49,12 +49,6 @@ Public UseShortHash As Boolean
 Public BreakOnError As Boolean
 Public PreserveRubberDuckID As Boolean
 
-' Constants for enum values
-' (These values are not permanently stored and
-'  may change between releases.)
-Private Const Enum_Table_Format_TDF = 10
-Private Const Enum_Table_Format_XML = 11
-
 ' Private collections for options and enum values.
 Private m_colOptions As Collection
 Private m_dEnum As Dictionary
@@ -416,7 +410,6 @@ Private Function SerializeOptions() As Dictionary
     Dim dInfo As Dictionary
     Dim dWrapper As Dictionary
     Dim varOption As Variant
-    Dim strOption As String
     Dim strBit As String
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -561,36 +554,6 @@ Public Function GetTableExportFormat(strKey As String) As eTableDataExportFormat
             Exit For
         End If
     Next intFormat
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetEnumName
-' Author    : Adam Waller
-' Date      : 6/1/2020
-' Purpose   : Translate the enum value to name for saving to file.
-'---------------------------------------------------------------------------------------
-'
-Private Function GetEnumName(intVal As Integer) As String
-    If m_dEnum.Exists(intVal) Then GetEnumName = m_dEnum(intVal)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetEnumVal
-' Author    : Adam Waller
-' Date      : 6/1/2020
-' Purpose   : Get enum value when reading string name from file.
-'---------------------------------------------------------------------------------------
-'
-Private Function GetEnumVal(strName As String) As Integer
-    Dim varKey As Variant
-    For Each varKey In m_dEnum.Keys
-        If m_dEnum(varKey) = strName Then
-            GetEnumVal = varKey
-            Exit For
-        End If
-    Next varKey
 End Function
 
 

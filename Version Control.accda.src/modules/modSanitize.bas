@@ -30,7 +30,6 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
     Dim strFile As String
     Dim varLines As Variant
     Dim lngLine As Long
-    Dim cData As clsConcat
     Dim strLine As String
     Dim strTLine As String
     Dim blnInsideIgnoredBlock As Boolean
@@ -453,9 +452,6 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     Dim dBlock As Dictionary
     Dim varParts As Variant
     Dim lngCnt As Long
-    Dim lngID As Long
-    Dim strID As String
-    Dim lngValue As Long
     Dim lngColor As Long
 
     ' Skip if not using this option
@@ -581,16 +577,7 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
     Dim curStart As Currency
     Dim cData As clsConcat
     Dim strFile As String
-    Dim strText As String
-    Dim strTLine As String
-    Dim strLine As String
-    Dim lngLine As Long
-    Dim lngData As Long
-    Dim lngPos As Long
-    Dim lngLen As Long
     Dim rxLine As VBScript_RegExp_55.RegExp
-    Dim objMatches As VBScript_RegExp_55.MatchCollection
-    Dim varLines As Variant
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 

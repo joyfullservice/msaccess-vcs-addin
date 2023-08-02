@@ -121,7 +121,6 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
     Dim tdf As DAO.TableDef
     Dim qdf As DAO.QueryDef
     Dim cConnection As clsConnectionODBC
-    Dim dConnections As Dictionary
 
     Set cConnection = New clsConnectionODBC
     With CurrentDb

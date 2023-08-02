@@ -182,14 +182,11 @@ Public Sub SetFileDate(strFile As String, dteDate As Date, blnAsLocalTime As Boo
 
     Dim lngHandle As Long
     Dim stNewDate As SYSTEMTIME
-    Dim stLocal As SYSTEMTIME
     Dim stUtc As SYSTEMTIME
     Dim ftUtc As FILETIME
     Dim ftBlank As FILETIME
     Dim lngResult As Long
     Dim strFullPath As String
-    Dim blnSuccess As Boolean
-    Dim strTest As String
 
     Perf.OperationStart "Set file modified date"
 
@@ -256,7 +253,6 @@ End Function
 '
 Public Function FileTimeToDate(tFileTime As FILETIME, blnAsLocalTime As Boolean) As Date
 
-    Dim dteUtc As Date
     Dim tReturnTime As SYSTEMTIME
     Dim tUtcTime As SYSTEMTIME
     Dim lngResult As Long

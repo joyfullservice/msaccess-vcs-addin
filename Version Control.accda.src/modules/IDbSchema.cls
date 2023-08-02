@@ -91,17 +91,6 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ServerVersion
-' Author    : Adam Waller
-' Date      : 7/14/2023
-' Purpose   : Return the server version identifier
-'---------------------------------------------------------------------------------------
-'
-Public Property Get ServerVersion() As String
-End Property
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : Name
 ' Author    : Adam Waller
 ' Date      : 7/14/2023

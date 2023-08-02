@@ -176,7 +176,6 @@ End Function
 Private Function GetDictionary() As Dictionary
 
     Dim dSpec As Dictionary
-    Dim strContent As String
 
     Set dSpec = New Dictionary
 

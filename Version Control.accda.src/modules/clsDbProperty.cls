@@ -59,7 +59,6 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim dbs As DAO.Database
     Dim varKey As Variant
     Dim varValue As Variant
-    Dim strDecrypted As String
     Dim blnAdd As Boolean
     Dim varItem As Variant
     Dim bArray() As Byte

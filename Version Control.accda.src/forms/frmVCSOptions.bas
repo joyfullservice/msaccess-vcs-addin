@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =248
     Left =20761
     Top =2250
-    Right =31426
+    Right =-29055
     Bottom =13995
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -3912,12 +3912,10 @@ Private Sub LoadTableList()
     Dim strFormat As String
     Dim intFormat As eTableDataExportFormat
     Dim strName As String
-    Dim lngColumn As eTableCol
     Dim dbs As DAO.Database
     Dim rstTableData As DAO.Recordset
     Dim rstSource As DAO.Recordset
     Dim strSql As String
-    Dim fld As DAO.Field
     Dim lngFlags As Long
     Dim lngType As Long
 
@@ -4088,7 +4086,6 @@ End Sub
 Private Sub RefreshTableDisplay()
 
     Dim strFilter As String
-    Dim strJoin As String
     Dim strOrderBy As String
 
     If Me.chkTableShowOther Then

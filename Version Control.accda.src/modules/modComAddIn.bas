@@ -117,7 +117,6 @@ End Sub
 Public Sub UninstallComAddIn()
 
     Dim strPath As String
-    Dim strTemp As String
 
     ' Unload the add-in ribbon
     UnloadAddIn

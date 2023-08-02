@@ -125,7 +125,6 @@ End Sub
 Private Function ParseSourceFile(strFile As String, strName As String) As udtVbaFileContent
 
     Dim strLines() As String
-    Dim strTLine As String
     Dim lngLine As Long
     Dim cData As clsConcat
     Dim blnIsClass As Boolean

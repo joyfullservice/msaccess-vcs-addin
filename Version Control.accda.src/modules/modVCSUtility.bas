@@ -12,10 +12,6 @@ Option Explicit
 ' Control the interaction mode for the add-in
 Public InteractionMode As eInteractionMode
 
-Private Const KEYEVENTF_EXTENDEDKEY = &H1
-Private Const KEYEVENTF_KEYUP = &H2
-Private Const VK_SHIFT = &H10
-
 Private Declare PtrSafe Function SetFocus Lib "user32" (ByVal hwnd As LongPtr) As LongPtr
 Private Declare PtrSafe Function SetKeyboardState Lib "user32" (lppbKeyState As Any) As Long
 Private Declare PtrSafe Function GetKeyboardState Lib "user32" (pbKeyState As Any) As Long
@@ -414,7 +410,6 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
 
     Dim strTempFile As String
     Dim strPrintSettingsFile As String
-    Dim strContent As String
     Dim strHash As String
 
     On Error GoTo ErrHandler
@@ -841,6 +836,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain As Form_frmVCSMain)
+
+    Const VK_SHIFT = &H10
 
     ' Skip open if we are already on the correct database
     If CurrentProject.FullName = strPath And Not blnExclusive Then Exit Sub

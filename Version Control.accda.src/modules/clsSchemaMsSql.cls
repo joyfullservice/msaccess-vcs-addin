@@ -59,11 +59,9 @@ Implements IDbSchema
 '
 Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath As String)
 
-    Dim rstObjects As ADODB.Recordset
     Dim conn As ADODB.Connection
     Dim strItem As String
     Dim dItem As Dictionary
-    Dim strHash As String
     Dim varItem As Variant
     Dim dblStart As Double
     Dim strPath As String
@@ -406,19 +404,13 @@ End Function
 '
 Private Sub ScanDatabaseObjects()
 
-    Dim dFile As Dictionary
-    Dim dObjects As Dictionary
-    Dim dteLast As Date
     Dim rstObjects As ADODB.Recordset
-    Dim blnUseGetDDL As Boolean
     Dim conn As ADODB.Connection
     Dim strItem As String
     Dim strSchema As String
     Dim strPath As String
-    Dim blnExport As Boolean
     Dim blnModified As Boolean
     Dim dItem As Dictionary
-    Dim blnHasChanges As Boolean
     Dim lngCount As Long
 
     ' Clear module level objects
@@ -506,7 +498,6 @@ Private Function ScanFiles()
     Dim dFiles As Dictionary
     Dim varKey As Variant
     Dim strFolder As String
-    Dim strPath As String
 
     ' Reset module-level dictionary
     Set m_Files = New Dictionary
@@ -605,11 +596,25 @@ Private Sub IDbSchema_Initialize(dInstance As Scripting.IDictionary)
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : IDbSchema_BaseFolder
+' Author    : Adam Waller
+' Date      : 8/2/2023
+' Purpose   : Return base folder for this schema export
+'---------------------------------------------------------------------------------------
+'
 Private Property Get IDbSchema_BaseFolder() As String
     IDbSchema_BaseFolder = this.strBaseFolder
 End Property
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : IDbSchema_Name
+' Author    : Adam Waller
+' Date      : 8/2/2023
+' Purpose   : Return the name of this schema
+'---------------------------------------------------------------------------------------
+'
 Private Property Get IDbSchema_Name() As String
     IDbSchema_Name = this.strName
 End Property
@@ -627,11 +632,13 @@ Private Property Get IDbSchema_ServerType() As eDatabaseServerType
 End Property
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : IDbSchema_TypeDescription
+' Author    : Adam Waller
+' Date      : 8/2/2023
+' Purpose   : Return type description
+'---------------------------------------------------------------------------------------
+'
 Private Property Get IDbSchema_TypeDescription() As Variant
     IDbSchema_TypeDescription = "Microsoft SQL Server"
-End Property
-
-
-Private Property Get IDbSchema_ServerVersion() As String
-
 End Property
