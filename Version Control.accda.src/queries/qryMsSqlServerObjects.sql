@@ -1,6 +1,11 @@
-﻿SELECT o.[name],
+﻿-- On Microsoft SQL Server, return a listing of all parent level objects
+SELECT o.[name],
     SCHEMA_NAME(o.[schema_id]) AS [schema],
-    o.modify_date AS last_modified, c.modify_date AS test,
+	CASE
+		-- Return the most recent modfied date of the object or any dependent object
+		WHEN isnull(c.max_modified, 0) > o.modify_date THEN c.max_modified
+		ELSE o.modify_date
+	END AS last_modified,
 	o.type_desc,
 	CASE o.[type]
 		WHEN 'V' THEN 'views'
@@ -19,9 +24,16 @@
 	o.[type] AS object_type
     -- ,*
 FROM sys.objects o
--- Join child objects to find greatest last_modified date
 LEFT JOIN 
-sys.objects c ON c.object_id = o.parent_object_id
+	-- Get most recent modified date of any child object
+	(select 
+		parent_object_id,
+		max(modify_date) AS max_modified
+		from sys.objects
+		WHERE parent_object_id > 0
+		GROUP BY parent_object_id
+	)AS c 
+	ON c.parent_object_id = o.object_id
 WHERE 1 = 1
 --AND o.type = 'TT'
 AND o.parent_object_id = 0
