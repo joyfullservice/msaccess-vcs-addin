@@ -180,12 +180,12 @@ End Function
 '
 Public Sub SetFileDate(strFile As String, dteDate As Date, blnAsLocalTime As Boolean)
 
-    Dim lngHandle As Long
+    Dim lngHandle As LongPtr
     Dim stNewDate As SYSTEMTIME
     Dim stUtc As SYSTEMTIME
     Dim ftUtc As FILETIME
     Dim ftBlank As FILETIME
-    Dim lngResult As Long
+    Dim lngResult As LongPtr
     Dim strFullPath As String
 
     Perf.OperationStart "Set file modified date"
@@ -255,7 +255,7 @@ Public Function FileTimeToDate(tFileTime As FILETIME, blnAsLocalTime As Boolean)
 
     Dim tReturnTime As SYSTEMTIME
     Dim tUtcTime As SYSTEMTIME
-    Dim lngResult As Long
+    Dim lngResult As LongPtr
 
     ' Get UTC file time
     FileTimeToSystemTime tFileTime, tUtcTime
