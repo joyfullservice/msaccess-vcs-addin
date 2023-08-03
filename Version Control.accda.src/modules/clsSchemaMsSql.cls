@@ -89,8 +89,8 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
         End If
 
         ' Open database connection
-        Set conn = New ADODB.Connection
-        conn.Open this.strConnect, this.strUserID, this.strPassword
+        Set conn = GetNewOpenConnection
+        If conn Is Nothing Then Exit Sub
 
         ' --------------------------------------------------
         ' FIRST PASS - Export changed/new database objects
@@ -257,8 +257,8 @@ Private Function CanUseGetDDL() As Boolean
     If intUseSP = essUnknown Then
 
         ' Open connection, if not provided
-        Set conn = New ADODB.Connection
-        conn.Open this.strConnect, this.strUserID, this.strPassword
+        Set conn = GetNewOpenConnection
+        If conn Is Nothing Then Exit Function
 
         Set cmd = New ADODB.Command
         With cmd
@@ -420,10 +420,12 @@ Private Sub ScanDatabaseObjects()
     ' Make sure we initialize before running the scan
     If Not this.blnInitialized Then Exit Sub
 
+    ' Open database connection
+    Set conn = GetNewOpenConnection
+    If conn Is Nothing Then Exit Sub
+    
     ' Return list of objects from the server
-    Set conn = New ADODB.Connection
     Perf.OperationStart "Retrieve SQL Objects"
-    conn.Open this.strConnect, this.strUserID, this.strPassword
     Set rstObjects = conn.Execute(CodeDb.QueryDefs("qryMsSqlServerObjects").SQL)
     Perf.OperationEnd
 
@@ -480,6 +482,39 @@ Private Sub ScanDatabaseObjects()
     conn.Close
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetNewOpenConnection
+' Author    : Adam Waller
+' Date      : 8/3/2023
+' Purpose   : Return a new, open ADODB connection
+'---------------------------------------------------------------------------------------
+'
+Private Function GetNewOpenConnection() As ADODB.Connection
+
+    Dim oConn As ADODB.Connection
+    
+    Set oConn = New ADODB.Connection
+    With oConn
+        LogUnhandledErrors
+        On Error Resume Next
+        If Len(this.strUserID) Then
+            .Open this.strConnect, this.strUserID, this.strPassword
+        Else
+            .Open this.strConnect
+        End If
+    End With
+    
+    ' Check for any connection error
+    If CatchAny(eelError, "Unable to connect to " & this.strName, ModuleName(Me)) Then
+        Log.Add "Connection string: " & this.strConnect, False
+    Else
+        ' Return open connection
+        Set GetNewOpenConnection = oConn
+    End If
+    
+End Function
 
 
 '---------------------------------------------------------------------------------------
