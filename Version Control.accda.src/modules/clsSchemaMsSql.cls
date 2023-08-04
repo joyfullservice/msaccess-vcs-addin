@@ -438,9 +438,8 @@ Private Sub ScanDatabaseObjects()
     With rstObjects
         Do While Not .EOF
 
-            ' Build item path and full path to source file (ignore dbo schema name)
+            ' Build item path and full path to source file
             strSchema = Nz(!schema, "dbo") & "."
-            If StrComp(strSchema, "dbo.", vbTextCompare) = 0 Then strSchema = vbNullString
             strItem = Nz(!Folder) & PathSep & GetSafeFileName(strSchema & Nz(!Name)) & ".sql"
             strPath = this.strBaseFolder & strItem
 
