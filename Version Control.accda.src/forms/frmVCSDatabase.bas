@@ -845,6 +845,7 @@ Begin Form
                     TabIndex =12
                     Name ="cmdExamples"
                     Caption ="Examples..."
+                    OnClick ="[Event Procedure]"
                     LeftPadding =135
                     TopPadding =135
                     RightPadding =150
@@ -989,6 +990,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : cmdExamples_Click
+' Author    : Adam Waller
+' Date      : 8/2/2023
+' Purpose   : Show syntax examples on the Wiki
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdExamples_Click()
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : cmdSaveAndClose_Click
 ' Author    : Adam Waller
 ' Date      : 7/20/2023
@@ -1018,31 +1031,38 @@ Private Function SaveConnection() As Boolean
     If Not PassedValidation Then Exit Function
 
     If IsLoaded(acForm, "frmVCSOptions") Then
-        With Form_frmVCSOptions.DatabaseSchemas
+        With Form_frmVCSOptions
 
-            ' Get a reference to dictionary object
-            strKey = Nz(txtName)
-            If Not .Exists(strKey) Then
-                ' Could be a rename
-                Set dSchema = New Dictionary
-                .Add strKey, dSchema
-                ' Remove any previous entry
-                If Len(m_strOriginalName) Then
-                    If .Exists(m_strOriginalName) Then .Remove m_strOriginalName
+            ' Make sure we have a dictionary object
+            If .DatabaseSchemas Is Nothing Then Set .DatabaseSchemas = New Dictionary
+
+            ' Save to options form
+            With .DatabaseSchemas
+
+                ' Get a reference to dictionary object
+                strKey = Nz(txtName)
+                If Not .Exists(strKey) Then
+                    ' Could be a rename
+                    Set dSchema = New Dictionary
+                    .Add strKey, dSchema
+                    ' Remove any previous entry
+                    If Len(m_strOriginalName) Then
+                        If .Exists(m_strOriginalName) Then .Remove m_strOriginalName
+                    End If
                 End If
-            End If
 
-            ' Load form values
-            SetParamsFromForm .Item(strKey)
+                ' Load form values
+                SetParamsFromForm .Item(strKey)
 
-            ' Connection string
-            If chkSaveDotEnv Then
-                CheckGitignoreDotEnv
-                ' Save connection string to .env file
-                SaveConnectionStringToFile
-                ' Remove connect parameter from dictionary
-                If .Item(strKey).Exists("Connect") Then .Item(strKey).Remove "Connect"
-            End If
+                ' Connection string
+                If chkSaveDotEnv Then
+                    CheckGitignoreDotEnv
+                    ' Save connection string to .env file
+                    SaveConnectionStringToFile
+                    ' Remove connect parameter from dictionary
+                    If .Item(strKey).Exists("Connect") Then .Item(strKey).Remove "Connect"
+                End If
+            End With
         End With
 
         ' Return success
@@ -1144,7 +1164,8 @@ Private Sub cmdTest_Click()
     Select Case cboType
         Case eDatabaseServerType.estMsSql
             Set cSchema = New clsSchemaMsSql
-        'Case eDatabaseServerType.estMsSql
+        Case eDatabaseServerType.estMySql
+            Set cSchema = New clsSchemaMySql
     End Select
 
     ' Retrieve object count from server.

@@ -2,7 +2,7 @@
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "clsSchemaMsSql"
+Attribute VB_Name = "clsSchemaMySql"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
@@ -17,13 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-
-' Status of GetDDL stored procedure
-Private Enum eSpStatus
-    essUnknown
-    essUnavailable
-    essInstalled
-End Enum
 
 ' Handle local variables
 Private Type udtThis
@@ -101,7 +94,7 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
             dblStart = Perf.MicroTimer
             Set dItem = m_ModifiedItems(varItem)
             strItem = varItem
-            ExportObject dItem("type_desc"), dItem("schema"), dItem("name"), dItem("last_modified"), this.strBaseFolder & varItem, conn
+            ExportObject dItem("folder"), dItem("schema"), dItem("name"), dItem("last_modified"), dItem("hash"), CStr(varItem), conn
             Log.Add "    Exported " & varItem & " in " & Round(Perf.MicroTimer - dblStart, 2) & " seconds.", Options.ShowDebug
             Log.Increment
             ' Check for canceled operation
@@ -145,6 +138,9 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
         Next varItem
     End If
 
+    ' Save updated index
+    SaveUpdatedIndex
+
 End Sub
 
 
@@ -155,56 +151,35 @@ End Sub
 ' Purpose   : Export the object definition to a file
 '---------------------------------------------------------------------------------------
 '
-Private Function ExportObject(strType, strSchema As String, strName As String, dteModified As Date, strPath As String, ByRef oConn As ADODB.Connection) As String
+Private Function ExportObject(strType, strSchema As String, strName As String, dteModified As Date, strHash As String, strFile As String, ByRef oConn As ADODB.Connection) As String
 
     Dim strSqlDef
     Dim strDefinition As String
     Dim rst As ADODB.Recordset
-    Dim rst2 As ADODB.Recordset
     Dim strFullName As String
     Dim cmd As ADODB.Command
-    Dim strCmdTemplate As String
-
-    ' Attempt to use the sp_GetDDL SP if possible
-    If CanUseGetDDL Then
-        ' Prepare template statement for sp_GetDDL to work around VARCHAR(MAX) issue
-        ' with many SQL Server ODBC drivers.
-        strCmdTemplate = _
-            "DECLARE @table TABLE (item text) " & _
-            "INSERT INTO @table exec sp_GetDDL N'{name}' " & _
-            "SELECT * FROM @table"
-    Else
-        ' Fall back to built-in SQL statements
-        strCmdTemplate = _
-            "DECLARE @table TABLE (item text) " & _
-            "INSERT INTO @table SELECT object_definition (OBJECT_ID(N'{name}')) " & _
-            "SELECT * FROM @table"
-
-        'strCmdTemplate = "SELECT object_definition (OBJECT_ID(N'{name}'))"
-        'strCmdTemplate = "test"
-    End If
+    Dim intField As Integer
+    Dim strPath As String
 
     ' Build full name of SQL object
-    strFullName = "[" & strSchema & "].[" & strName & "]"
+    strFullName = "`" & strSchema & "`.`" & strName & "`"
 
     ' Determine how to export this type of object
     Select Case strType
-        Case "USER_TABLE", "VIEW", "SYNONYM", "SQL_STORED_PROCEDURE", _
-            "SQL_SCALAR_FUNCTION", "SQL_INLINE_TABLE_VALUED_FUNCTION", "SQL_TABLE_VALUED_FUNCTION"
-            strSqlDef = Replace(strCmdTemplate, "{name}", strFullName)
-
-        Case "TYPE_TABLE", "SEQUENCE_OBJECT", "SERVICE_QUEUE", "SYSTEM_TABLE", "INTERNAL_TABLE"
-            ' Unsupported non-dependent objects
-
+        Case "tables":      strSqlDef = "show create table " & strFullName
+        Case "views":       strSqlDef = "show create view " & strFullName
+        Case "procedures":  strSqlDef = "show create procedure " & strFullName
+        Case "functions":   strSqlDef = "show create function " & strFullName
+        Case "triggers":    strSqlDef = "show create trigger " & strFullName
+        Case Else
+            ' Unsupported type
+            Log.Error eelError, "Unsupported object type: " & strType, ModuleName(Me) & ".ExportObject"
+            Exit Function
     End Select
 
     ' Sanity check
     If Len(strSqlDef) Then
-        If CanUseGetDDL Then
-            Perf.OperationStart "Run sp_GetDDL on " & strType
-        Else
-            Perf.OperationStart "Get DDL for " & strType
-        End If
+        Perf.OperationStart "Get DDL for " & strType
         Set cmd = New ADODB.Command
         With cmd
             Set .ActiveConnection = oConn
@@ -212,149 +187,38 @@ Private Function ExportObject(strType, strSchema As String, strName As String, d
             Set rst = .Execute
         End With
 
-        ' Get secondary recordset with object definition record
-        If strType = "USER_TABLE" And Not CanUseGetDDL Then
-            strDefinition = GetTableDefFallback(strFullName, oConn)
-        Else
-            Set rst2 = rst.NextRecordset
-            With rst2
-                If Not .EOF Then strDefinition = Nz(.Fields(0))
-                .Close
-            End With
-        End If
+        ' Look up definition from recordset
+        With rst
+            If Not .EOF Then
+                ' Definition might be in second or third column
+                For intField = 1 To 2
+                    If StartsWith(.Fields(intField).Name, "Create ") Then
+                        strDefinition = Nz(.Fields(intField))
+                        Exit For
+                    End If
+                Next intField
+            End If
+            .Close
+        End With
 
         ' Write object definition to file
+        strPath = this.strBaseFolder & strFile
         If strDefinition = vbNullString Then
             If FSO.FileExists(strPath) Then DeleteFile strPath
         Else
-            ' Export to file, and set modified date to match SQL object
+            ' Export to file
             WriteFile strDefinition, strPath
-            SetFileDate strPath, dteModified, Not this.blnUtcTime
+            If strType = "views" Then
+                ' Use hash index
+                m_AllItems(strFile) = strHash
+            Else
+                ' Set file modified date to match SQL object
+                SetFileDate strPath, dteModified, Not this.blnUtcTime
+            End If
         End If
 
         Perf.OperationEnd
     End If
-
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : CanUseGetDDL
-' Author    : Adam Waller
-' Date      : 7/31/2023
-' Purpose   : Returns true if we can use the system SP `sp_GetDDL`
-'---------------------------------------------------------------------------------------
-'
-Private Function CanUseGetDDL() As Boolean
-
-    Static intUseSP As eSpStatus
-
-    Dim conn As ADODB.Connection
-    Dim cmd As ADODB.Command
-    Dim rst As ADODB.Recordset
-
-    ' Cache whether or not sp_GetDDL exists
-    If intUseSP = essUnknown Then
-
-        ' Open connection, if not provided
-        Set conn = GetNewOpenConnection
-        If conn Is Nothing Then Exit Function
-
-        Set cmd = New ADODB.Command
-        With cmd
-            ' Check in master database (System SP)
-            .CommandText = "select OBJECT_ID('master.dbo.sp_GetDDL')"
-            Set .ActiveConnection = conn
-            Set rst = .Execute
-            If Nz(rst.Fields(0).Value, 0) = 0 Then
-                ' Nothing found on the master DB. Try this db.
-                .CommandText = "select OBJECT_ID('sp_GetDDL')"
-                Set rst = .Execute
-                If Nz(rst.Fields(0).Value, 0) = 0 Then
-                    ' Still not available
-                    intUseSP = essUnavailable
-                Else
-                    ' Works on the local database
-                    intUseSP = essInstalled
-                End If
-            Else
-                ' Found an object ID. Should be available
-                intUseSP = essInstalled
-            End If
-        End With
-
-        ' Close connection
-        conn.Close
-
-        ' Add log entries if the tool is not available
-        If intUseSP = essUnavailable Then
-            Log.Add "   Note: sp_GetDDL was not available for generating object definitions. Using built-in SQL functions instead.", False
-            Log.Add "   This system stored procedure can be found at: http://www.stormrage.com/2022/03/16/sp_getddla-and-sp_getddl/", False
-        End If
-    End If
-
-    ' Return current status
-    CanUseGetDDL = (intUseSP = essInstalled)
-
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetTableDefFallback
-' Author    : Adam Waller
-' Date      : 7/31/2023
-' Purpose   : Return a simplified fall-back version of a table definition without using
-'           : sp_GetDDL.
-'---------------------------------------------------------------------------------------
-'
-Private Function GetTableDefFallback(strTable As String, oConn As ADODB.Connection) As String
-
-    Dim strSql As String
-    Dim rst As ADODB.Recordset
-    Dim intRst As Integer
-    Dim fld As ADODB.Field
-    Dim colText As New clsConcat
-
-    ' Initialize counter
-    intRst = 2
-
-    ' Get initial table information
-    strSql = "exec sp_help N'" & strTable & "'"
-    '@Ignore SetAssignmentWithIncompatibleObjectType
-    Set rst = oConn.Execute(strSql)
-    colText.Add "-- sp_help Recordset 1" & vbCrLf & vbCrLf
-    For Each fld In rst.Fields
-        colText.Add fld.Name
-        colText.Add vbTab
-    Next fld
-    colText.Add vbCrLf
-    colText.Add rst.GetString(, , vbTab, vbCrLf)
-
-    ' Loop through additional recordsets for columns, keys and other data
-    Do
-        Set rst = rst.NextRecordset
-        If rst Is Nothing Then Exit Do
-        If rst.State = adStateClosed Then Exit Do
-
-        colText.Add vbCrLf & vbCrLf & "-- sp_help Recordset " & intRst & vbCrLf & vbCrLf
-        For Each fld In rst.Fields
-            colText.Add fld.Name
-            colText.Add vbTab
-        Next fld
-        If Not rst.EOF Then
-            colText.Add vbCrLf
-            colText.Add rst.GetString(, , vbTab, vbCrLf)
-        End If
-
-        intRst = intRst + 1
-    Loop
-
-    ' Clear references
-    Set fld = Nothing
-    Set rst = Nothing
-
-    ' Return SQL content
-    GetTableDefFallback = colText.GetStr
 
 End Function
 
@@ -376,6 +240,7 @@ Private Sub ScanDatabaseObjects()
     Dim blnModified As Boolean
     Dim dItem As Dictionary
     Dim lngCount As Long
+    Dim strHash As String
 
     ' Clear module level objects
     Set m_AllItems = Nothing
@@ -390,7 +255,7 @@ Private Sub ScanDatabaseObjects()
 
     ' Return list of objects from the server
     Perf.OperationStart "Retrieve SQL Objects"
-    Set rstObjects = conn.Execute(CodeDb.QueryDefs("qryMsSqlServerObjects").SQL)
+    Set rstObjects = conn.Execute(CodeDb.QueryDefs("qryMySqlServerObjects").SQL)
     Perf.OperationEnd
 
     ' Initialize dictionaries
@@ -398,37 +263,46 @@ Private Sub ScanDatabaseObjects()
     Set m_ModifiedItems = New Dictionary
 
     ' Loop through objects, building dictionary of items that match our filter.
-    Perf.OperationStart "Loop through SQL objects"
+    Perf.OperationStart "Loop through MySQL objects"
     With rstObjects
         Do While Not .EOF
 
             ' Build item path and full path to source file
-            strSchema = Nz(!schema, "dbo") & "."
+            strSchema = Nz(!schema, "schema") & "."
             strItem = Nz(!Folder) & PathSep & GetSafeFileName(strSchema & Nz(!Name)) & ".sql"
             strPath = this.strBaseFolder & strItem
+            strHash = vbNullString
 
             ' See if we pass the filter
             If PassesSchemaFilter(strItem, this.varFilters) Then
 
-                ' Add all objects to full collection
-                m_AllItems.Add strItem, Nz(!last_modified)
+                ' Use modified date to match file, if possible.
+                ' Some objects don't store a modified date, so use a hash for those.
+                If Nz(!last_modified) = vbNullString Then
+                    ' Create hash from definition
+                    strHash = "hash:" & GetStringHash(Nz(!definition))
+                End If
 
                 ' Check for modification/new item
                 If m_Files.Exists(strItem) Then
-                    ' Flag as modified if the dates don't match
-                    blnModified = (Nz(!last_modified) <> CStr(m_Files(strItem)))
+                    ' Flag as modified if the dates or hash don't match
+                    blnModified = (Nz2(strHash, Nz(!last_modified)) <> CStr(m_Files(strItem)))
                 Else
                     ' File does not yet exist
                     blnModified = True
                 End If
 
+                ' Add all objects to full collection
+                m_AllItems.Add strItem, Nz2(strHash, Nz(!last_modified))
+
                 ' Build dictionary of modified objects
                 If blnModified Then
                     Set dItem = New Dictionary
-                    dItem("type_desc") = Nz(!type_desc)
+                    dItem("folder") = Nz(!Folder)
                     dItem("schema") = Nz(!schema)
                     dItem("name") = Nz(!Name)
-                    dItem("last_modified") = CDate(!last_modified)
+                    dItem("hash") = strHash
+                    dItem("last_modified") = CDate(Nz(!last_modified, 0))
                     m_ModifiedItems.Add strItem, dItem
                 End If
             End If
@@ -445,6 +319,48 @@ Private Sub ScanDatabaseObjects()
     conn.Close
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveUpdatedIndex
+' Author    : Adam Waller
+' Date      : 8/7/2023
+' Purpose   : Save an updated version of the index (after scanning for changes and
+'           : exporting any changed objects)
+'---------------------------------------------------------------------------------------
+'
+Private Function SaveUpdatedIndex()
+
+    Dim varKey As Variant
+    Dim strValue As String
+    Dim dIndex As Dictionary
+    Dim strPath As String
+
+    ' Only run this if we actually have an index to process
+    If m_AllItems Is Nothing Then Exit Function
+
+    ' Loop through all items, building a dictionary of hashed items.
+    ' (These items don't have modified dates in MySQL, and must be tracked via hash.)
+    Set dIndex = New Dictionary
+    For Each varKey In m_AllItems.Keys
+        strValue = m_AllItems(varKey)
+        If StartsWith(strValue, "hash:") Then
+            ' Add to index
+            dIndex(varKey) = strValue
+        End If
+    Next varKey
+
+    ' Update the saved index file
+    strPath = this.strBaseFolder & "vcs-index.json"
+    If dIndex.Count = 0 Then
+        ' Remove index when no longer needed.
+        If FSO.FileExists(strPath) Then DeleteFile strPath
+    Else
+        ' Save the rebuilt index
+        WriteFile BuildJsonFile(TypeName(Me), dIndex, "Version Control System Schema Index for MySQL"), strPath
+    End If
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -495,10 +411,23 @@ Private Function ScanFiles()
     Dim dBaseFolders As Dictionary
     Dim dFiles As Dictionary
     Dim varKey As Variant
+    Dim strKey As String
+    Dim strValue As String
     Dim strFolder As String
+    Dim dFile As Dictionary
+    Dim dIndex As Dictionary
+    Dim strPath As String
 
     ' Reset module-level dictionary
     Set m_Files = New Dictionary
+
+    ' Load any existing index file of hashes for object that don't store modified dates.
+    strPath = this.strBaseFolder & "vcs-index.json"
+    If FSO.FileExists(strPath) Then
+        Set dFile = ReadJsonFile(strPath)
+        If Not dFile Is Nothing Then Set dIndex = dFile("Items")
+    End If
+    If dIndex Is Nothing Then Set dIndex = New Dictionary
 
     ' Build a collection of subfolders and files with modified dates
     ' (Using the Windows API for faster scanning and more accurate dates)
@@ -511,9 +440,20 @@ Private Function ScanFiles()
                 Set dFiles = GetFileList(oFld.Path, "*.sql", Not this.blnUtcTime)
                 ' Loop through files, adding to index
                 For Each varKey In dFiles.Keys
+                    strKey = strFolder & "\" & varKey
+                    ' For most objects, the key value will be the modified date.
+                    ' For objects (like views) that don't have a modified date, look up
+                    ' the hash from the index. (Or fall back to the file date, if no
+                    ' index entry is found.)
+                    If dIndex.Exists(strKey) Then
+                        strValue = dIndex(strKey)
+                    Else
+                        ' Use modified date from file
+                        strValue = dFiles(varKey)
+                    End If
                     ' Add each file with a key that matches the database object, and the
                     ' file modified date as the value for each item.
-                    m_Files.Add strFolder & "\" & CStr(varKey), dFiles(varKey)
+                    m_Files.Add strKey, strValue
                 Next varKey
             End If
         Next oFld
@@ -533,13 +473,12 @@ Private Function GetBaseFolders() As Dictionary
     Set GetBaseFolders = New Dictionary
     With GetBaseFolders
         .CompareMode = TextCompare
-        .Add "views", Null
         .Add "tables", Null
+        .Add "views", Null
         .Add "procedures", Null
         .Add "functions", Null
-        .Add "types", Null
-        .Add "sequences", Null
-        .Add "synonymns", Null
+        .Add "triggers", Null
+        '.Add "indexes", Null
     End With
 End Function
 
@@ -626,7 +565,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbSchema_ServerType() As eDatabaseServerType
-    IDbSchema_ServerType = estMsSql
+    IDbSchema_ServerType = estMySql
 End Property
 
 
@@ -638,5 +577,5 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbSchema_TypeDescription() As Variant
-    IDbSchema_TypeDescription = "Microsoft SQL Server"
+    IDbSchema_TypeDescription = "MySQL Server"
 End Property

@@ -924,3 +924,39 @@ Public Function GetSchemaInitParams(strName As String) As Dictionary
     Set GetSchemaInitParams = dParams
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PassesSchemaFilter
+' Author    : Adam Waller
+' Date      : 7/21/2023
+' Purpose   : Returns true if this item passed any user-defined filter rules.
+'           : The current implementation processes rules sequentially, applying each
+'           : rule in order. Last matching rule will apply to the object.
+'---------------------------------------------------------------------------------------
+'
+Public Function PassesSchemaFilter(strItem As String, varFilterArray As Variant) As Boolean
+
+    Dim blnPass As Boolean
+    Dim lngRule As Long
+    Dim strRule As String
+
+    ' Loop through rules
+    For lngRule = 0 To UBound(varFilterArray)
+        strRule = Trim(varFilterArray(lngRule))
+        Select Case Left(strRule, 1)
+            Case "#", vbNullString
+                ' Ignore comments and blank lines
+            Case "!"
+                ' Negative rule (do not include)
+                If strItem Like Mid(strRule, 2) Then blnPass = False
+            Case Else
+                ' Positive rule
+                If strItem Like strRule Then blnPass = True
+        End Select
+    Next lngRule
+
+    ' Return final result
+    PassesSchemaFilter = blnPass
+
+End Function

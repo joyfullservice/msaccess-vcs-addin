@@ -716,7 +716,6 @@ End Function
 '
 Public Function InArray(varArray, varValue, Optional intCompare As VbCompareMethod = vbBinaryCompare) As Boolean
 
-    Dim varItem As Variant
     Dim lngCnt As Long
 
     ' Guard clauses

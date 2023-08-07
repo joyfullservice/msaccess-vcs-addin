@@ -624,7 +624,7 @@ Public Sub ExportSchemas(blnFullExport As Boolean)
                     Set cSchema = New clsSchemaMsSql
                 Case eDatabaseServerType.estMySql
                     strType = " (MySQL)"
-                    'Set cSchema = New clsSchemaMySql
+                    Set cSchema = New clsSchemaMySql
             End Select
             Log.Add " - " & strName & strType
             Perf.CategoryStart strName & strType
