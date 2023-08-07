@@ -126,8 +126,12 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
     With CurrentDb
         For Each tdf In .TableDefs
             If StartsWith(tdf.Connect, "ODBC;", vbTextCompare) And (Len(tdf.Connect) > 5) Then
-                cConnection.ParseOdbcConnectionString tdf.Connect
-                AddOdbcConnectionString GetDictionary, cConnection, tdf.Name
+                If StartsWith(tdf.Name, "~") Then
+                    ' Ignore temporary table objects
+                Else
+                    cConnection.ParseOdbcConnectionString tdf.Connect
+                    AddOdbcConnectionString GetDictionary, cConnection, tdf.Name
+                End If
             End If
         Next
         For Each qdf In .QueryDefs
