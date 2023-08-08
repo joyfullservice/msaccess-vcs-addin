@@ -199,6 +199,9 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                         ' Turn flag back off now that we have ignored these two lines.
                         SkipLine lngLine, eslAggressive
                         blnIsReport = False
+                    ElseIf StartsWith(strTLine, "WebImagePadding") Then
+                        ' These values tend to drift between builds. See #423
+                        SkipLine lngLine, eslAggressive
                     ElseIf StartsWith(strTLine, "Begin ") Then
                         ' Include block type name for controls
                         BeginBlock Mid$(strTLine, 7)
