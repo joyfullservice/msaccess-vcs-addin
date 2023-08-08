@@ -739,6 +739,14 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
             RunSubInCurrentProject strText
             Perf.OperationEnd
         End If
+
+        ' Now, just to make sure all objects are closed and unloaded, we will
+        ' close and shift-open the database before merging source files into it.
+        Log.Add "Closing and reopening current database before merge..."
+        Perf.OperationStart "Reopen DB before Merge"
+        CloseCurrentDatabase2
+        ShiftOpenDatabase strPath
+        Perf.OperationEnd
     End If
 
     ' Start log and performance timers
