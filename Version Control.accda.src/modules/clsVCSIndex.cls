@@ -494,7 +494,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
                     strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "SourceModified"), PathSep)
                     ' Compare modified date of file with modified date in index.
                     ' File is considered not modified if the index date matches the file modification date.
-                    blnModified = Not dNZ(m_dIndex, strPath) = GetLastModifiedDate(strFile)
+                    blnModified = Not (dNZ(m_dIndex, strPath) = CStr(GetLastModifiedDate(strFile)))
                 End If
                 ' Add modified files to collection
                 If blnModified Then .Add strFile, vbNullString
