@@ -122,6 +122,12 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         ' Clear any orphaned files in this category
         cCategory.ClearOrphanedSourceFiles
         Perf.CategoryEnd 0
+        ' Handle critical error or cancel during scan
+        If Log.ErrorLevel = eelCritical Then
+            Log.Add vbNullString
+            Perf.OperationEnd   ' Scan DB Objects
+            GoTo CleanUp
+        End If
     Next cCategory
     Perf.OperationEnd
     Log.ProgressBar.Reset
@@ -636,6 +642,9 @@ Public Sub ExportSchemas(blnFullExport As Boolean)
             lngCount = cSchema.ObjectCount(True)
         End If
         Perf.CategoryEnd lngCount
+
+        ' Check for error
+        If Log.ErrorLevel = eelCritical Then Exit For
     Next varKey
     Perf.OperationEnd
 
@@ -834,6 +843,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
             VCSIndex.CheckImportConflicts cCategory, dCategory("Files")
             ' Clear orphaned database objects (With no corresponding source file)
             cCategory.ClearOrphanedDatabaseObjects
+        End If
+        ' Check for critical error or cancel
+        If Log.ErrorLevel = eelCritical Then
+            Log.Add vbNullString
+            Perf.OperationEnd
+            GoTo CleanUp
         End If
     Next cCategory
     Perf.OperationEnd
