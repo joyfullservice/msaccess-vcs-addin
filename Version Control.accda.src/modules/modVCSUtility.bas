@@ -835,7 +835,7 @@ End Sub
 '           : bypass the startup code.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain As Form_frmVCSMain)
+Public Sub ShiftOpenDatabase(strPath As String, Optional blnExclusive As Boolean = False)
 
     Const VK_SHIFT = &H10
 
@@ -845,10 +845,8 @@ Public Sub ShiftOpenDatabase(strPath As String, blnExclusive As Boolean, frmMain
     ' Close any open database before we try to open another one.
     If DatabaseFileOpen Then
         StageMainForm
-        Set frmMain = Nothing
         CloseCurrentDatabase2
         DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-        Set frmMain = Form_frmVCSMain
         RestoreMainForm
     End If
 

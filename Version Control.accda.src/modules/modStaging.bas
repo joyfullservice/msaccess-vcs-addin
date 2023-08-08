@@ -35,6 +35,9 @@ Public Sub StageMainForm()
     Dim blnLogActive As Boolean
     Dim frm As Form_frmVCSMain
 
+    ' Make sure the form is actually open, just in case.
+    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+
     ' Get reference to form instance
     Set frm = Form_frmVCSMain
 

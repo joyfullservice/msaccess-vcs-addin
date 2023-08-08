@@ -82,7 +82,7 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
             Case "ProjCount", "RefCount"
             Case Else
                 Log.Add FSO.GetFileName(varKey)
-                ShiftOpenDatabase strFolder & varKey, True, frm
+                ShiftOpenDatabase strFolder & varKey
                 FixReferences dRefs(varKey)
         End Select
     Next varKey
@@ -92,7 +92,7 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
     If CurrentProject.FullName <> strPath Then
         Log.Add "Opening original database..."
         Log.Flush
-        ShiftOpenDatabase strPath, False, frm
+        ShiftOpenDatabase strPath
         DoEvents
     End If
 

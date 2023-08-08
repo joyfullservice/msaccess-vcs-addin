@@ -940,7 +940,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
         Log.Flush
         StageMainForm
         CloseCurrentDatabase2
-        ShiftOpenDatabase strPath, False, Form_frmVCSMain
+        ShiftOpenDatabase strPath
         RestoreMainForm
     End If
 
