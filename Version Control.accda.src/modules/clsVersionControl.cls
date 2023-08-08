@@ -106,7 +106,7 @@ Private Sub RunExport(Optional intFilter As eContainerFilter = ecfAllObjects, Op
         End If
         .Visible = True
         .cmdExport_Click
-        If Log.ErrorLevel = eelNoError Then .AutoClose
+        If Log.ErrorLevel < eelError Then .AutoClose
     End With
 End Sub
 
