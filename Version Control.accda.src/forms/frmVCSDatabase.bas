@@ -412,10 +412,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =9
-                    WebImagePaddingBottom =9
                 End
                 Begin CommandButton
                     OverlapFlags =85
@@ -487,10 +483,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =9
-                    WebImagePaddingBottom =9
                 End
                 Begin CommandButton
                     FontUnderline = NotDefault
@@ -563,10 +555,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =2
-                    WebImagePaddingTop =2
-                    WebImagePaddingRight =2
-                    WebImagePaddingBottom =2
                 End
                 Begin Label
                     OverlapFlags =85
@@ -688,10 +676,6 @@ Begin Form
                     HoverForeTint =100.0
                     PressedForeThemeColorIndex =10
                     PressedForeTint =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =10
-                    WebImagePaddingBottom =10
                     Overlaps =1
                 End
                 Begin CheckBox
@@ -877,10 +861,6 @@ Begin Form
                     HoverForeTint =100.0
                     PressedForeThemeColorIndex =10
                     PressedForeTint =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =10
-                    WebImagePaddingBottom =10
                 End
             End
         End

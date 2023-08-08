@@ -796,10 +796,6 @@ Begin Form
                     LayoutCachedTop =120
                     LayoutCachedWidth =7080
                     LayoutCachedHeight =300
-                    WebImagePaddingLeft =2
-                    WebImagePaddingTop =2
-                    WebImagePaddingRight =1
-                    WebImagePaddingBottom =1
                     Overlaps =1
                 End
                 Begin Tab
@@ -850,10 +846,6 @@ Begin Form
                             LayoutCachedTop =1590
                             LayoutCachedWidth =6900
                             LayoutCachedHeight =4125
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
                             Begin
                                 Begin Label
                                     OverlapFlags =215
@@ -926,10 +918,6 @@ Begin Form
                             LayoutCachedTop =1590
                             LayoutCachedWidth =6900
                             LayoutCachedHeight =4125
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
                             Begin
                                 Begin CheckBox
                                     TabStop = NotDefault
@@ -1106,10 +1094,6 @@ Begin Form
                                     BackColor =15130848
                                     BackThemeColorIndex =-1
                                     BackTint =100.0
-                                    WebImagePaddingLeft =2
-                                    WebImagePaddingTop =2
-                                    WebImagePaddingRight =1
-                                    WebImagePaddingBottom =1
                                 End
                             End
                         End
@@ -1622,10 +1606,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =2
-                    WebImagePaddingTop =2
-                    WebImagePaddingRight =1
-                    WebImagePaddingBottom =1
                     Overlaps =1
                 End
                 Begin CheckBox
@@ -1780,10 +1760,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =2
-                    WebImagePaddingTop =2
-                    WebImagePaddingRight =2
-                    WebImagePaddingBottom =2
                     Overlaps =1
                 End
             End

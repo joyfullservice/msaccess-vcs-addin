@@ -318,10 +318,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =9
-                    WebImagePaddingBottom =9
                     Overlaps =1
                 End
                 Begin CommandButton
@@ -394,10 +390,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =9
-                    WebImagePaddingBottom =9
                     Overlaps =1
                 End
                 Begin Tab
@@ -441,10 +433,6 @@ Begin Form
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
                             LayoutCachedHeight =6165
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =215
@@ -738,10 +726,6 @@ Begin Form
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
                             LayoutCachedHeight =6165
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
                             Begin
                                 Begin TextBox
                                     OverlapFlags =247
@@ -1168,10 +1152,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =2
-                                    WebImagePaddingTop =2
-                                    WebImagePaddingRight =2
-                                    WebImagePaddingBottom =2
                                 End
                                 Begin Label
                                     OverlapFlags =247
@@ -1231,10 +1211,6 @@ Begin Form
                                     HoverForeTint =100.0
                                     PressedForeThemeColorIndex =10
                                     PressedForeTint =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =10
-                                    WebImagePaddingBottom =10
                                 End
                             End
                         End
@@ -1251,10 +1227,6 @@ Begin Form
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
                             LayoutCachedHeight =6165
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -1903,10 +1875,6 @@ Begin Form
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
                             LayoutCachedHeight =6165
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
                             Begin
                                 Begin ListBox
                                     ColumnHeads = NotDefault
@@ -2036,10 +2004,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
                                 End
                                 Begin CommandButton
                                     OverlapFlags =247
@@ -2110,10 +2074,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
                                 End
                                 Begin CommandButton
                                     OverlapFlags =247
@@ -2184,10 +2144,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
                                 End
                             End
                         End
@@ -2203,10 +2159,6 @@ Begin Form
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
                             LayoutCachedHeight =6165
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -2413,10 +2365,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
                                 End
                                 Begin Label
                                     OverlapFlags =247
@@ -2520,10 +2468,6 @@ Begin Form
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
                             LayoutCachedHeight =6165
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -2701,10 +2645,6 @@ Begin Form
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
                             LayoutCachedHeight =6165
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -3022,10 +2962,6 @@ Begin Form
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
                             LayoutCachedHeight =6165
-                            WebImagePaddingLeft =2
-                            WebImagePaddingTop =2
-                            WebImagePaddingRight =2
-                            WebImagePaddingBottom =2
                             Begin
                                 Begin OptionGroup
                                     OverlapFlags =255
@@ -3130,10 +3066,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
@@ -3221,10 +3153,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
@@ -3312,10 +3240,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
@@ -3403,10 +3327,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
@@ -3530,10 +3450,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                    WebImagePaddingLeft =9
-                                    WebImagePaddingTop =9
-                                    WebImagePaddingRight =9
-                                    WebImagePaddingBottom =9
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
@@ -3628,10 +3544,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =2
-                    WebImagePaddingTop =2
-                    WebImagePaddingRight =2
-                    WebImagePaddingBottom =2
                     Overlaps =1
                 End
                 Begin Label

@@ -691,10 +691,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =2
-                    WebImagePaddingTop =2
-                    WebImagePaddingRight =1
-                    WebImagePaddingBottom =1
                     Overlaps =1
                 End
                 Begin Label
@@ -1239,10 +1235,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =9
-                    WebImagePaddingBottom =9
                     Overlaps =1
                 End
                 Begin Label
@@ -1342,10 +1334,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =9
-                    WebImagePaddingBottom =9
                     Overlaps =1
                 End
                 Begin CommandButton
@@ -1419,10 +1407,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =10
-                    WebImagePaddingBottom =10
                     Overlaps =1
                 End
                 Begin Label
@@ -1518,10 +1502,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =10
-                    WebImagePaddingBottom =10
                     Overlaps =1
                 End
                 Begin Label
@@ -1735,10 +1715,6 @@ Begin Form
                     HoverForeTint =100.0
                     PressedForeThemeColorIndex =10
                     PressedForeTint =100.0
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =10
-                    WebImagePaddingBottom =10
                     Overlaps =1
                 End
             End
