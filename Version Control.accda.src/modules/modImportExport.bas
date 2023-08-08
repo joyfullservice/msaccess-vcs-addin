@@ -837,9 +837,16 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
             ' Return all the source files
             dCategory.Add "Files", cCategory.GetFileList
         Else
-            ' Return just the modified source files for merge
-            ' (Optionally uses the git integration to determine changes.)
-            dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory)
+            ' Merge build
+            If cCategory.ComponentType = edbTableData Then
+                ' Some component types are only imported on full build
+                Log.Add "Not merging " & LCase(cCategory.Category) & ". (Imported only on full build)", Options.ShowDebug
+                dCategory.Add "Files", New Dictionary
+            Else
+                ' Return just the modified source files for merge
+                ' (Optionally uses the git integration to determine changes.)
+                dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory)
+            End If
         End If
         If dCategory("Files").Count = 0 Then
             Log.Add IIf(blnFullBuild, "No ", "No modified ") & LCase(cCategory.Category) & " source files found.", Options.ShowDebug
