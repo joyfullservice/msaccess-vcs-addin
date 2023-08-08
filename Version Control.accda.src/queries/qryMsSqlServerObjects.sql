@@ -16,7 +16,7 @@ SELECT o.[name],
 		WHEN 'FN' THEN 'Function'		-- Scalar function
 		WHEN 'IF' THEN 'Function'		-- Inline table valued function
 		WHEN 'TF' THEN 'Function'		-- Table valued function
-		WHEN 'TT' THEN 'UserTableType'	-- Type table
+		WHEN 'TT' THEN 'UserDefinedTableType'	-- Type table
 		WHEN 'SO' THEN 'Sequence'		-- Sequence object
 		WHEN 'SN' THEN 'Synonymn'		-- Synonyms
 		ELSE 'unknown'
