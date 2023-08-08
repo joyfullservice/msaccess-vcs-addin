@@ -404,7 +404,7 @@ Private Sub ScanDatabaseObjects()
 
             ' Build item path and full path to source file
             strSchema = Nz(!schema, "dbo") & "."
-            strItem = Nz(!Folder) & PathSep & GetSafeFileName(strSchema & Nz(!Name)) & ".sql"
+            strItem = Nz(!Folder) & PathSep & GetSafeFileName(strSchema & Nz(!Name) & Nz(!Folder)) & ".sql"
             strPath = this.strBaseFolder & strItem
 
             ' See if we pass the filter
@@ -533,13 +533,16 @@ Private Function GetBaseFolders() As Dictionary
     Set GetBaseFolders = New Dictionary
     With GetBaseFolders
         .CompareMode = TextCompare
-        .Add "views", Null
-        .Add "tables", Null
-        .Add "procedures", Null
-        .Add "functions", Null
-        .Add "types", Null
-        .Add "sequences", Null
-        .Add "synonymns", Null
+        .Add "View", Null
+        .Add "Table", Null
+        .Add "StoredProcedure", Null
+        .Add "Function", Null
+        .Add "UserDefinedTableType", Null
+        .Add "Sequence", Null
+        .Add "Synonymn", Null
+        .Add "Role", Null
+        .Add "User", Null
+        .Add "Schema", Null
     End With
 End Function
 

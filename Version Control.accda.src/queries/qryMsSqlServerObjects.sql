@@ -8,17 +8,17 @@ SELECT o.[name],
 	END AS last_modified,
 	o.type_desc,
 	CASE o.[type]
-		WHEN 'V' THEN 'views'
-		WHEN 'U' THEN 'tables'
-		WHEN 'IT' THEN 'tables'		-- Internal tables
-		WHEN 'TR' THEN 'tables'
-		WHEN 'P' THEN 'procedures'
-		WHEN 'FN' THEN 'functions'	-- Scalar function
-		WHEN 'IF' THEN 'functions'	-- Inline table valued function
-		WHEN 'TF' THEN 'functions'	-- Table valued function
-		WHEN 'TT' THEN 'types'		-- Type table
-		WHEN 'SO' THEN 'sequences'	-- Sequence object
-		WHEN 'SN' THEN 'synonymns'	-- Synonyms
+		WHEN 'V'  THEN 'View'
+		WHEN 'U'  THEN 'Table'
+		WHEN 'IT' THEN 'Table'			-- Internal tables
+		WHEN 'TR' THEN 'Trigger'
+		WHEN 'P'  THEN 'StoredProcedure'
+		WHEN 'FN' THEN 'Function'		-- Scalar function
+		WHEN 'IF' THEN 'Function'		-- Inline table valued function
+		WHEN 'TF' THEN 'Function'		-- Table valued function
+		WHEN 'TT' THEN 'UserTableType'	-- Type table
+		WHEN 'SO' THEN 'Sequence'		-- Sequence object
+		WHEN 'SN' THEN 'Synonymn'		-- Synonyms
 		ELSE 'unknown'
 	END as folder,
 	o.[type] AS object_type
