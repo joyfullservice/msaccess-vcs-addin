@@ -220,6 +220,25 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RTrim
+' Author    : Adam Waller
+' Date      : 8/14/2023
+' Purpose   : Trim trailing whitespace from content
+'---------------------------------------------------------------------------------------
+'
+Public Function RTrim(Optional strTrimChars As String = " ")
+    Do
+        If Me.Length < Len(strTrimChars) Then Exit Do
+        If Me.RightStr(Len(strTrimChars)) = strTrimChars Then
+            Me.Remove Len(strTrimChars)
+        Else
+            Exit Do
+        End If
+    Loop
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Right
 ' Author    : Adam Waller
 ' Date      : 11/5/2020
