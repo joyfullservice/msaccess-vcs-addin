@@ -439,3 +439,17 @@ Public Sub TestJsonNewLineIssue()
     Debug.Assert (strResult = cstrTest)
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestSqlFormatter
+' Author    : Adam Waller
+' Date      : 8/16/2023
+' Purpose   : Self-test the SQL Formatter class
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestSqlFormatter()
+    With New clsSqlFormatter
+        .SelfTest
+    End With
+End Sub

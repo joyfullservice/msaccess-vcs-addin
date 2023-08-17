@@ -66,7 +66,6 @@ Private Enum eTokenTypes
     ttVariable
 End Enum
 
-Private m_strIndent As String
 Private m_strSql As String
 Private m_colTokens As Collection
 Private m_lngPos As Long
@@ -88,7 +87,7 @@ End Function
 ' Purpose   : This is the main function used outside the class for SQL formatting.
 '---------------------------------------------------------------------------------------
 '
-Public Function FormatSQL(strSql As String) As String
+Public Function FormatSQL(Optional strSql As String) As String
 
     Dim lngIndentLevel As Long
     Dim blnNewline As Boolean
@@ -111,8 +110,8 @@ Public Function FormatSQL(strSql As String) As String
     Dim lngLength As Long
     Dim varItem As Variant
 
-    ' Tokenize the string
-    Tokenize strSql
+    ' Tokenize the string, if provided
+    If strSql <> vbNullString Then Tokenize strSql
 
     ' Set up collection to hold types of indents
     Set colIndents = New Collection
@@ -124,6 +123,9 @@ Public Function FormatSQL(strSql As String) As String
 
         intTokenType = m_colTokens(lngToken)(0)
         strTokenValue = m_colTokens(lngToken)(1)
+
+        ' Only process non-whitespace tokens
+        If intTokenType = ttWhitespace Then GoTo NextToken
 
         ' If we are increasing the special indent level
         If blnIncreaseSpecialIndent Then
@@ -142,6 +144,9 @@ Public Function FormatSQL(strSql As String) As String
             cReturn.RTrim
             cReturn.Add vbCrLf, StrRepeat(vbTab, lngIndentLevel)
             blnNewline = False
+            blnAddedNewline = True
+        ElseIf cReturn.Length = 0 Then
+            ' Avoid adding a newline at beginning
             blnAddedNewline = True
         Else
             blnAddedNewline = False
@@ -198,9 +203,16 @@ Public Function FormatSQL(strSql As String) As String
             lngLength = 0
             ' Begin secondary loop to look at the next tokens without changing
             ' primary token iteration.
-            For lngToken2 = lngToken To lngToken + 250
-                ' Check for end of tokens
-                If lngToken2 > lngToken Then Exit For
+            lngToken2 = lngToken
+            Do
+                ' Get next non-whitespace token
+                lngToken2 = GetNextTokenID(lngToken2, ttWhitespace)
+
+                If lngToken2 > m_colTokens.Count _
+                    Or lngToken2 > (lngToken + 250) Then
+                    ' Reached end of string
+                    Exit Do
+                End If
 
                 ' Get type and value of next token
                 intNextType = m_colTokens(lngToken2)(0)
@@ -211,12 +223,12 @@ Public Function FormatSQL(strSql As String) As String
                     blnInlineParentheses = True
                     intInlineCount = 0
                     blnInlineIndented = False
-                    Exit For
+                    Exit Do
                 End If
 
                 ' Reached an invalid token for inline parentheses
                 If strNextValue = ";" Or strNextValue = "(" Then
-                    Exit For
+                    Exit Do
                 End If
 
                 ' Reached an invalid token type for inline parentheses
@@ -225,14 +237,14 @@ Public Function FormatSQL(strSql As String) As String
                         ttReservedNewline, _
                         ttComment, _
                         ttBlockComment
-                        Exit For
+                        Exit Do
                 End Select
 
                 ' Add to total length
                 lngLength = lngLength + (Len(strNextValue))
 
             ' Look at next token ahead of current position
-            Next lngToken2
+            Loop
 
             If blnInlineParentheses And (lngLength > 30) Then
                 blnIncreateBlockIndent = True
@@ -242,7 +254,7 @@ Public Function FormatSQL(strSql As String) As String
 
             ' Take out the preceding space unless there was whitespace there in the original query
             If m_colTokens.Count > 0 Then
-                If m_colTokens(lngToken - 1)(0) = ttWhitespace Then
+                If Not m_colTokens(lngToken - 1)(0) = ttWhitespace Then
                     cReturn.RTrim
                 End If
             End If
@@ -333,9 +345,9 @@ Public Function FormatSQL(strSql As String) As String
             If m_colTokens(lngToken2)(0) = ttBoundary Then
                 ' If previous non-whitespace character was a boundary, then trim
                 ' any whitespace going back to the boundary.
-                If m_colTokens(GetPreviousTokenID(lngToken))(0) = ttWhitespace Then
+                'If m_colTokens(GetPreviousTokenID(lngToken))(0) = ttWhitespace Then
                     cReturn.RTrim
-                End If
+                'End If
             End If
         End If
 
@@ -397,88 +409,13 @@ NextToken:
         End If
     Next varItem
 
+    ' Trim any trailing spaces from completed string
+    cReturn.RTrim
+
     ' Final formatting of tab indents when returning formatted string
-    FormatSQL = Replace(cReturn.GetStr, vbTab, "__")
+    FormatSQL = Replace(cReturn.GetStr, vbTab, "  ")
 
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Class_Initialize
-' Author    : Adam Waller
-' Date      : 4/1/2020
-' Purpose   : Set any default options
-'---------------------------------------------------------------------------------------
-'
-Private Sub Class_Initialize()
-
-    ' Set default constants
-    m_strIndent = Space(2)
-
-'    ' Set up tokenizer RegEx objects
-'    Set oRegEx(erWhitespace) = NewRegEx("^(\s+)")
-'    Set oRegEx(erNumber) = NewRegEx("^((-\s*)?[0-9]+(\.[0-9]+)?|0x[0-9a-fA-F]+|0b[01]+)\b")
-'    Set oRegEx(erOperator) = NewRegEx("^(!=|<>|==|<=|>=|!<|!>|\|\||::|->>|->|~~\*|~~|!~~\*|!~~|~\*|!~\*|!~|.)")
-'    Set oRegEx(erBlockComment) = NewRegEx("^(\/\*[^]*?(?:\*\/|$))")
-'    Set oRegEx(erLineComment) = NewRegEx("^((?:" & cstrLineCommentTypes & ").*?(?:\n|$))")
-'    Set oRegEx(erReservedTopLevel) = NewRegEx("^(" & cstrReservedToplevelWords & ")\b")
-'    Set oRegEx(erReservedNewLine) = NewRegEx("^(" & cstrReservedNewlineWords & ")\b")
-'    Set oRegEx(erReservedPlain) = NewRegEx("^(" & cstrReservedWords & ")\b")
-'    Set oRegEx(erWord) = NewRegEx("^([\w" & Join(Split(cstrSpecialWordChars, "|"), "") & "]+)")
-'    Set oRegEx(erString) = NewRegEx(CreateStringPattern)
-'    Set oRegEx(erOpenParen) = NewRegEx()
-'    Set oRegEx(erCloseParen) = NewRegEx()
-'    Set oRegEx(erIndexedPlaceholder) = NewRegEx()
-'    Set oRegEx(erIndentNamedPlaceholder) = NewRegEx()
-'    Set oRegEx(erStringNamedPlaceholder) = NewRegEx()
-
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : PrintTokens
-' Author    : Adam Waller
-' Date      : 8/14/2023
-' Purpose   : Print the current sequence of tokens (type and value) for debugging
-'---------------------------------------------------------------------------------------
-'
-Public Sub PrintTokens()
-
-    Dim varToken As Variant
-
-    If m_colTokens Is Nothing Then
-        Debug.Print "No tokens found"
-        Exit Sub
-    End If
-
-    ' Print header
-    Debug.Print "---------------------------------------------------"
-    Debug.Print "TOKEN NAME           TOKEN VALUE"
-    Debug.Print "---------------------------------------------------"
-
-    ' Loop through Tokens
-    For Each varToken In m_colTokens
-        Select Case varToken(0)
-            Case ttWhitespace:          Debug.Print "Whitespace:          " & varToken(1)
-            Case ttWord:                Debug.Print "Word:                " & varToken(1)
-            Case ttQuote:               Debug.Print "Quote:               " & varToken(1)
-            Case ttBacktickQuote:       Debug.Print "Backtick Quote:      " & varToken(1)
-            Case ttReserved:            Debug.Print "Reserved:            " & varToken(1)
-            Case ttReservedTopLevel:    Debug.Print "Reserved Top Level:  " & varToken(1)
-            Case ttReservedNewline:     Debug.Print "Reserved Newline:    " & varToken(1)
-            Case ttBoundary:            Debug.Print "Boundary:            " & varToken(1)
-            Case ttComment:             Debug.Print "Comment:             " & varToken(1)
-            Case ttBlockComment:        Debug.Print "Block Comment:       " & varToken(1)
-            Case ttNumber:              Debug.Print "Number:              " & varToken(1)
-            Case ttError:               Debug.Print "Error:               " & varToken(1)
-            Case ttVariable:            Debug.Print "Variable:            " & varToken(1)
-            Case Else:                  Debug.Print "Unknown type         " & varToken(1)
-        End Select
-    Next varToken
-    Debug.Print "---------------------------------------------------"
-
-End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -528,14 +465,14 @@ Private Sub Tokenize(strSql As String)
             AddToken ttBacktickQuote, GetQuotedString
 
         ' Quoted string
-        ElseIf NextChar("""") Or NextChar("\'") Or NextChar("[") Then
+        ElseIf NextChar("""") Or NextChar("'") Or NextChar("[") Then
             AddToken ttQuote, GetQuotedString
 
         ' User defined variable
         ElseIf (NextChar("@") Or NextChar(":")) And (RemainingChars > 1) Then
 
             ' Check for quoted variable name
-            If PeekChar(1, """") Or PeekChar(1, "`") Or PeekChar(1, "\'") Then
+            If PeekChar(1, """") Or PeekChar(1, "`") Or PeekChar(1, "'") Then
                 AddToken ttVariable, GetRange & GetQuotedString(1)
             Else
                 ' Non-quoted variable name
@@ -625,7 +562,7 @@ Private Function HasMatches(strRegEx As String, ByRef strMatches As String) As B
     Dim objMatches As VBScript_RegExp_55.MatchCollection
     With New VBScript_RegExp_55.RegExp
         .Pattern = strRegEx
-        .IgnoreCase = False
+        .IgnoreCase = True
         '.Global = True
         Set objMatches = .Execute(Mid$(m_strSql, m_lngPos))
         If objMatches.Count = 0 Then
@@ -1007,4 +944,305 @@ Private Function RegExBoundaries() As String
     ' Return list of boundaries
     RegExBoundaries = strBoundaries
 
+End Function
+
+
+'#######################################################################################
+'#######################################################################################
+'
+'                                   TESTING CODE
+'
+'   The following section contains code and functions used to verify the behavior
+'   of this class with various types of queries to ensure consistent output.
+'
+'#######################################################################################
+'#######################################################################################
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SelfTest
+' Author    : Adam Waller
+' Date      : 8/16/2023
+' Purpose   : Perform testing with various sample queries to ensure that the formatting
+'           : rules are being applied as intended.
+'           : More complex tests can be performed using larger queries and result
+'           : files, but this should allow us to cover the primary functionality.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SelfTest()
+
+    Dim varExpected As Variant
+    Dim intCnt As Integer
+    Dim strActual As String
+
+    ' Test simple query with a few features
+    Tokenize "SELECT  5 AS `TEST`"
+
+    ' Verify tokens
+    Debug.Assert m_colTokens.Count = 7
+    Debug.Assert VerifyToken(1, ttReservedTopLevel, "SELECT")
+    Debug.Assert VerifyToken(2, ttWhitespace, "  ")
+    Debug.Assert VerifyToken(3, ttNumber, "5")
+    Debug.Assert VerifyToken(4, ttWhitespace, " ")
+    Debug.Assert VerifyToken(5, ttReserved, "AS")
+    Debug.Assert VerifyToken(6, ttWhitespace, " ")
+    Debug.Assert VerifyToken(7, ttBacktickQuote, "`TEST`")
+
+    ' Verify result
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT"
+        .Add "  5 AS `TEST`"
+        .Remove 2
+        strActual = .GetStr
+    End With
+    Debug.Assert (strActual = FormatSQL)
+
+
+    ' Example query from https://github.com/doctrine/sql-formatter
+    Tokenize "SELECT count(*),`Column1`,`Testing`, `Testing Three` FROM `Table1`" & _
+            " WHERE Column1 = 'testing' AND ( (`Column2` = `Column3` OR Column4 >= NOW()) )" & _
+            " GROUP BY Column1 ORDER BY Column3 DESC LIMIT 5,10"
+
+    ' Verify tokens
+    Debug.Assert m_colTokens.Count = 70
+    Debug.Assert VerifyToken(1, ttReservedTopLevel, "SELECT")
+    Debug.Assert VerifyToken(2, ttWhitespace, " ")
+    Debug.Assert VerifyToken(3, ttReserved, "count")
+    Debug.Assert VerifyToken(4, ttBoundary, "(")
+    Debug.Assert VerifyToken(5, ttBoundary, "*")
+    Debug.Assert VerifyToken(6, ttBoundary, ")")
+    Debug.Assert VerifyToken(7, ttBoundary, ",")
+    Debug.Assert VerifyToken(8, ttBacktickQuote, "`Column1`")
+    Debug.Assert VerifyToken(9, ttBoundary, ",")
+    Debug.Assert VerifyToken(10, ttBacktickQuote, "`Testing`")
+    Debug.Assert VerifyToken(11, ttBoundary, ",")
+    Debug.Assert VerifyToken(12, ttWhitespace, " ")
+    Debug.Assert VerifyToken(13, ttBacktickQuote, "`Testing Three`")
+    Debug.Assert VerifyToken(14, ttWhitespace, " ")
+    Debug.Assert VerifyToken(15, ttReservedTopLevel, "FROM")
+    Debug.Assert VerifyToken(16, ttWhitespace, " ")
+    Debug.Assert VerifyToken(17, ttBacktickQuote, "`Table1`")
+    Debug.Assert VerifyToken(18, ttWhitespace, " ")
+    Debug.Assert VerifyToken(19, ttReservedTopLevel, "WHERE")
+    Debug.Assert VerifyToken(20, ttWhitespace, " ")
+    Debug.Assert VerifyToken(21, ttWord, "Column1")
+    Debug.Assert VerifyToken(22, ttWhitespace, " ")
+    Debug.Assert VerifyToken(23, ttBoundary, "=")
+    Debug.Assert VerifyToken(24, ttWhitespace, " ")
+    Debug.Assert VerifyToken(25, ttQuote, "'testing'")
+    Debug.Assert VerifyToken(26, ttWhitespace, " ")
+    Debug.Assert VerifyToken(27, ttReservedNewline, "AND")
+    Debug.Assert VerifyToken(28, ttWhitespace, " ")
+    Debug.Assert VerifyToken(29, ttBoundary, "(")
+    Debug.Assert VerifyToken(30, ttWhitespace, " ")
+    Debug.Assert VerifyToken(31, ttBoundary, "(")
+    Debug.Assert VerifyToken(32, ttBacktickQuote, "`Column2`")
+    Debug.Assert VerifyToken(33, ttWhitespace, " ")
+    Debug.Assert VerifyToken(34, ttBoundary, "=")
+    Debug.Assert VerifyToken(35, ttWhitespace, " ")
+    Debug.Assert VerifyToken(36, ttBacktickQuote, "`Column3`")
+    Debug.Assert VerifyToken(37, ttWhitespace, " ")
+    Debug.Assert VerifyToken(38, ttReservedNewline, "OR")
+    Debug.Assert VerifyToken(39, ttWhitespace, " ")
+    Debug.Assert VerifyToken(40, ttWord, "Column4")
+    Debug.Assert VerifyToken(41, ttWhitespace, " ")
+    Debug.Assert VerifyToken(42, ttBoundary, ">")
+    Debug.Assert VerifyToken(43, ttBoundary, "=")
+    Debug.Assert VerifyToken(44, ttWhitespace, " ")
+    Debug.Assert VerifyToken(45, ttWord, "NOW")
+    Debug.Assert VerifyToken(46, ttBoundary, "(")
+    Debug.Assert VerifyToken(47, ttBoundary, ")")
+    Debug.Assert VerifyToken(48, ttBoundary, ")")
+    Debug.Assert VerifyToken(49, ttWhitespace, " ")
+    Debug.Assert VerifyToken(50, ttBoundary, ")")
+    Debug.Assert VerifyToken(51, ttWhitespace, " ")
+    Debug.Assert VerifyToken(52, ttReserved, "GROUP")
+    Debug.Assert VerifyToken(53, ttWhitespace, " ")
+    Debug.Assert VerifyToken(54, ttWord, "BY")
+    Debug.Assert VerifyToken(55, ttWhitespace, " ")
+    Debug.Assert VerifyToken(56, ttWord, "Column1")
+    Debug.Assert VerifyToken(57, ttWhitespace, " ")
+    Debug.Assert VerifyToken(58, ttWord, "ORDER")
+    Debug.Assert VerifyToken(59, ttWhitespace, " ")
+    Debug.Assert VerifyToken(60, ttWord, "BY")
+    Debug.Assert VerifyToken(61, ttWhitespace, " ")
+    Debug.Assert VerifyToken(62, ttWord, "Column3")
+    Debug.Assert VerifyToken(63, ttWhitespace, " ")
+    Debug.Assert VerifyToken(64, ttReserved, "DESC")
+    Debug.Assert VerifyToken(65, ttWhitespace, " ")
+    Debug.Assert VerifyToken(66, ttReservedTopLevel, "LIMIT")
+    Debug.Assert VerifyToken(67, ttWhitespace, " ")
+    Debug.Assert VerifyToken(68, ttNumber, "5")
+    Debug.Assert VerifyToken(69, ttBoundary, ",")
+    Debug.Assert VerifyToken(70, ttNumber, "10")
+
+    ' Verify result
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT"
+        .Add "  count(*),"
+        .Add "  `Column1`,"
+        .Add "  `Testing`,"
+        .Add "  `Testing Three`"
+        .Add "FROM"
+        .Add "  `Table1`"
+        .Add "WHERE"
+        .Add "  Column1 = 'testing'"
+        .Add "  AND ("
+        .Add "    ("
+        .Add "      `Column2` = `Column3`"
+        .Add "      OR Column4 >= NOW()"
+        .Add "    )"
+        .Add "  )"
+        .Add "GROUP BY"
+        .Add "  Column1 "
+        .Add "ORDER BY"
+        .Add "  Column3 DESC"
+        .Add "LIMIT"
+        .Add "  5, 10"
+        .Remove 2
+        strActual = .GetStr
+    End With
+    Debug.Assert (strActual = FormatSQL)
+
+
+    'PrintTokens
+    'BuildTestFromTokens
+    Diff.Strings strActual, FormatSQL
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyToken
+' Author    : Adam Waller
+' Date      : 8/16/2023
+' Purpose   : Verify a token type and value based on index position.
+'---------------------------------------------------------------------------------------
+'
+Private Function VerifyToken(intIndex As Integer, intType As eTokenTypes, strValue As String) As Boolean
+    If m_colTokens Is Nothing Then Exit Function
+    If intIndex > m_colTokens.Count Then Exit Function
+    If m_colTokens(intIndex)(0) = intType Then
+        VerifyToken = (m_colTokens(intIndex)(1) = strValue)
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildTestFromTokens
+' Author    : Adam Waller
+' Date      : 8/16/2023
+' Purpose   : Builds a verification test from the current tokens.
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildTestFromTokens()
+
+    Dim intToken As Integer
+    Dim strType As String
+    Dim strValue As String
+    Dim varLines As Variant
+    Dim intLine As Integer
+
+    Debug.Print vbCrLf & vbCrLf & "    ' Verify tokens"
+    Debug.Print vbCrLf & "    Debug.Assert m_colTokens.Count = " & m_colTokens.Count
+
+    ' Loop through tokens
+    For intToken = 1 To m_colTokens.Count
+
+        ' Get type and value
+        strType = TypeEnumToString(m_colTokens(intToken)(0))
+        strValue = Replace(m_colTokens(intToken)(1), """", """""")
+
+        ' Print test to debug window
+        Debug.Print "    Debug.Assert VerifyToken(" & intToken & ", " & strType & ", """ & strValue & """)"
+
+    Next intToken
+
+    ' Output formatted SQL
+    varLines = Split(FormatSQL, vbCrLf)
+    Debug.Print vbCrLf & "    ' Verify result"
+    Debug.Print "    With New clsConcat"
+    Debug.Print "        .AppendOnAdd = vbCrLf"
+'    Debug.Print "    strActual = _"
+
+    ' Loop through lines, outputting SQL with line breaks
+    For intLine = 0 To UBound(varLines)
+        Debug.Print "        .Add """ & Replace(varLines(intLine), """", """""") & """"
+    Next intLine
+    Debug.Print "        .Remove 2"
+    Debug.Print "        strActual = .GetStr"
+    Debug.Print "    End With"
+    Debug.Print "    Debug.Assert (strActual = FormatSQL)"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PrintTokens
+' Author    : Adam Waller
+' Date      : 8/14/2023
+' Purpose   : Print the current sequence of tokens (type and value) for debugging
+'---------------------------------------------------------------------------------------
+'
+Private Sub PrintTokens()
+
+    Dim varToken As Variant
+    Dim strType As String
+
+    If m_colTokens Is Nothing Then
+        Debug.Print "No tokens found"
+        Exit Sub
+    End If
+
+    ' Print header
+    Debug.Print "---------------------------------------------------"
+    Debug.Print "TOKEN NAME          TOKEN VALUE"
+    Debug.Print "---------------------------------------------------"
+
+    ' Loop through Tokens
+    For Each varToken In m_colTokens
+
+        ' Print type name with padding to start values at same position
+        strType = TypeEnumToString(varToken(0))
+        Debug.Print strType;
+
+        ' Add padding to start values at same position
+        Debug.Print Space(20 - Len(strType));
+
+        ' Print value
+        Debug.Print varToken(1)
+
+    Next varToken
+    Debug.Print "---------------------------------------------------"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TypeEnumToString
+' Author    : Adam Waller
+' Date      : 8/16/2023
+' Purpose   : Convert token type enum to string. (Used for debug output and automated
+'           : test building.)
+'---------------------------------------------------------------------------------------
+'
+Private Function TypeEnumToString(intType As Variant) As String
+    Select Case intType
+        Case ttUnknown:             TypeEnumToString = "ttUnknown"
+        Case ttWhitespace:          TypeEnumToString = "ttWhitespace"
+        Case ttWord:                TypeEnumToString = "ttWord"
+        Case ttQuote:               TypeEnumToString = "ttQuote"
+        Case ttBacktickQuote:       TypeEnumToString = "ttBacktickQuote"
+        Case ttReserved:            TypeEnumToString = "ttReserved"
+        Case ttReservedTopLevel:    TypeEnumToString = "ttReservedTopLevel"
+        Case ttReservedNewline:     TypeEnumToString = "ttReservedNewline"
+        Case ttBoundary:            TypeEnumToString = "ttBoundary"
+        Case ttComment:             TypeEnumToString = "ttComment"
+        Case ttBlockComment:        TypeEnumToString = "ttBlockComment"
+        Case ttNumber:              TypeEnumToString = "ttNumber"
+        Case ttError:               TypeEnumToString = "ttError"
+        Case ttVariable:            TypeEnumToString = "ttVariable"
+    End Select
 End Function
