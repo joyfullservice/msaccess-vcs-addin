@@ -36,7 +36,6 @@ Private Const cstrFunctions As String = _
 Private Const cstrReservedToplevel As String = "|WITH|SELECT|FROM|WHERE|SET|ORDER BY|GROUP BY|LIMIT|DROP|VALUES|UPDATE|HAVING|ADD|CHANGE|MODIFY|ALTER TABLE|DELETE FROM|UNION ALL|UNION|EXCEPT|INTERSECT|PARTITION BY|ROWS|RANGE|GROUPS|WINDOW|"
 Private Const cstrReservedNewline As String = "|LEFT OUTER JOIN|RIGHT OUTER JOIN|LEFT JOIN|RIGHT JOIN|OUTER JOIN|INNER JOIN|JOIN|XOR|OR|AND|EXCLUDE|"
 Private Const cstrBoundaries As String = ",;:)(.=<>+-*/!^%|&#"
-'Private Const cstrBoundaries As String = ",;:)(.=<>+-*/!^%|&#"
 Private Const cstrRegExSpecial As String = ".\+*?[^]$(){}=!<>|:-#/"
 
 ' Types of lists
@@ -67,19 +66,10 @@ Private Enum eTokenTypes
     ttVariable
 End Enum
 
-Private m_blnLogPerformance As Boolean
 Private m_strSql As String
 Private m_colTokens As Collection
 Private m_lngPos As Long
-
-
-Public Function Test()
-
-    Debug.Print FormatSQL(CurrentDb.QueryDefs("qryTest2").SQL)
-
-    PrintTokens
-
-End Function
+Private m_varWordCache(1 To 2) As Variant
 
 
 '---------------------------------------------------------------------------------------
@@ -111,6 +101,10 @@ Public Function FormatSQL(Optional strSql As String) As String
     Dim strTokenValue As String
     Dim lngLength As Long
     Dim varItem As Variant
+    Dim strType As String
+
+    Perf.CategoryStart "Format SQL"
+    Perf.OperationStart "Formating"
 
     ' Tokenize the string, if provided
     If strSql <> vbNullString Then Tokenize strSql
@@ -118,7 +112,6 @@ Public Function FormatSQL(Optional strSql As String) As String
     ' Set up collection to hold types of indents
     Set colIndents = New Collection
     Set cReturn = New clsConcat
-    'strTab = Space(2)   ' Set indent style
 
     ' Build formatted output from tokens
     For lngToken = 1 To m_colTokens.Count
@@ -271,12 +264,15 @@ Public Function FormatSQL(Optional strSql As String) As String
             ' Closing parentheses decrease the block indent level
             ' Remove whitespace before the closing parentheses
             cReturn.RTrim
-            DecreaseIndent colIndents, lngIndentLevel
 
-            ' Reduce indents down to the block level
-            Do While colIndents(1) = "special"
+            ' Reset indent level
+            Do While colIndents.Count > 0
+                ' Get type of current indent
+                strType = colIndents(1)
+                ' Reduce the indents
                 DecreaseIndent colIndents, lngIndentLevel
-                If colIndents.Count = 0 Then Exit Do
+                ' Exit after removing a block indent
+                If strType = "block" Then Exit Do
             Loop
 
             ' Add a newline before the closing parentheses (if not already added)
@@ -347,9 +343,7 @@ Public Function FormatSQL(Optional strSql As String) As String
             If m_colTokens(lngToken2)(0) = ttBoundary Then
                 ' If previous non-whitespace character was a boundary, then trim
                 ' any whitespace going back to the boundary.
-                'If m_colTokens(GetPreviousTokenID(lngToken))(0) = ttWhitespace Then
-                    cReturn.RTrim
-                'End If
+                cReturn.RTrim
             End If
         End If
 
@@ -417,6 +411,9 @@ NextToken:
     ' Final formatting of tab indents when returning formatted string
     FormatSQL = Replace(cReturn.GetStr, vbTab, "  ")
 
+    Perf.OperationEnd
+    Perf.CategoryEnd
+
 End Function
 
 
@@ -430,15 +427,16 @@ End Function
 '
 Private Sub Tokenize(strSql As String)
 
-    Const cstrBreakAfter As String = "zORDER"
+    Const cstrBreakAfter As String = "LIMIT" & ";;;;"
 
     Dim strMatch As String
-    Dim strWord As String
 
     ' Reset collection of token items
     Set m_colTokens = New Collection
     m_strSql = strSql
     m_lngPos = 1
+    m_varWordCache(1) = Empty
+    m_varWordCache(2) = Empty
 
     Perf.CategoryStart "Tokenize SQL"
 
@@ -452,7 +450,7 @@ Private Sub Tokenize(strSql As String)
         ' adding the token when we find a match.
 
         ' Whitespace
-        If HasMatches("^\s+", strMatch) Then
+        If MatchWhitespace(strMatch) Then
             AddToken ttWhitespace, strMatch
 
         ' Single line comment
@@ -488,12 +486,12 @@ Private Sub Tokenize(strSql As String)
             End If
 
         ' Number (decimal, bindary, or hex)
-        ElseIf HasMatches("^([0-9]+(\.[0-9]+)?|0x[0-9a-fA-F]+|0b[01]+)($|\s|""\'`|" & RegExBoundaries & ")", strMatch) Then
+        ElseIf MatchNumber(strMatch) Then
             AddToken ttNumber, strMatch
 
         ' Boundary character (punctuation and symbols)
-        ElseIf HasMatches("^(" & RegExBoundaries & ")", strMatch) Then
-            AddToken ttBoundary, strMatch
+        ElseIf NextBoundary = m_lngPos Then
+            AddToken ttBoundary, GetRange
 
         ' A reserved word cannot be preceded by a "."
         ' This makes it so in "mytable.from", "from" is not considered a reserved word
@@ -509,43 +507,35 @@ Private Sub Tokenize(strSql As String)
         ' Check for reserved words or functions
         Else
 
-            ' Extract next word so we can compare it to some lists
-            If HasMatches("^(.*?)($|\s|" & RegExBoundaries & ")", strMatch) Then
+            ' Top level reserved word
+            If InList(eltReservedToplevel, strMatch) Then
+                AddToken ttReservedTopLevel, strMatch
 
-                ' Convert to upper case
-                strWord = UCase(strMatch)
+            ' Newline reserved word
+            ElseIf InList(eltReservedNewline, strMatch) Then
+                AddToken ttReservedNewline, strMatch
 
-                ' Top level reserved word
-                If InList(eltReservedToplevel, strMatch) Then
-                    AddToken ttReservedTopLevel, strMatch
+            ' Other reserved word
+            ElseIf InList(eltReserved, strMatch) Then
+                AddToken ttReserved, strMatch
 
-                ' Newline reserved word
-                ElseIf InList(eltReservedNewline, strMatch) Then
-                    AddToken ttReservedNewline, strMatch
+            ' A function must be followed by "("
+            ' This makes it so "count(" is considered a function, but "count" alone is not
+            ElseIf HasMatches("^((" & cstrFunctions & ")[(]|\s|[)])", strMatch) Then
+                ' Add the function, but not the opening parenthesis
+                AddToken ttReserved, GetRange(, Len(strMatch) - 1)
 
-                ' Other reserved word
-                ElseIf InList(eltReserved, strMatch) Then
-                    AddToken ttReserved, strMatch
+            ' Non-reserved word
+            ElseIf HasMatches("^(.*?)($|\s|[""\'`]|" & RegExBoundaries & ")", strMatch) Then
+                AddToken ttWord, strMatch
 
-                ' A function must be followed by "("
-                ' This makes it so "count(" is considered a function, but "count" alone is not
-                ElseIf HasMatches("^((" & cstrFunctions & ")[(]|\s|[)])", strMatch) Then
-                    ' Add the function, but not the opening parenthesis
-                    AddToken ttReserved, GetRange(, Len(strMatch) - 1)
+            Else
+                ' TODO: check for errors
+                Stop
 
-                ' Non-reserved word
-                ElseIf HasMatches("^(.*?)($|\s|[""\'`]|" & RegExBoundaries & ")", strMatch) Then
-                    AddToken ttWord, strMatch
-
-                Else
-                    ' TODO: check for errors
-                    Stop
-
-                End If
             End If
-        End If
 
-        'DoEvents
+        End If
 
     ' Move to next token
     Loop
@@ -623,9 +613,9 @@ End Sub
 ' Purpose   : Return next one or more characters from current position.
 '---------------------------------------------------------------------------------------
 '
-Private Function NextChar(strMatch As String, Optional intCompareMode As VbCompareMethod = vbTextCompare) As Boolean
+Private Function NextChar(strMatch As String) As Boolean
     If (m_lngPos + 1) > Len(m_strSql) Then Exit Function
-    NextChar = (StrComp(Mid$(m_strSql, m_lngPos, Len(strMatch)), strMatch, intCompareMode) = 0)
+    NextChar = (Mid$(m_strSql, m_lngPos, Len(strMatch)) = strMatch)
 End Function
 
 
@@ -636,10 +626,12 @@ End Function
 ' Purpose   : Peek ahead at another character other than the next one.
 '---------------------------------------------------------------------------------------
 '
-Private Function PeekChar(lngOffset As Long, strMatch As String, Optional intCompareMode As VbCompareMethod = vbTextCompare) As Boolean
+Private Function PeekChar(lngOffset As Long, strMatchChar As String) As Boolean
     If (m_lngPos + lngOffset) < 1 Then Exit Function
     If (m_lngPos + lngOffset) > Len(m_strSql) Then Exit Function
-    PeekChar = (StrComp(Mid$(m_strSql, m_lngPos + lngOffset, Len(strMatch)), strMatch, intCompareMode) = 0)
+    Perf.OperationStart "Peek Character"
+    PeekChar = (Mid$(m_strSql, m_lngPos + lngOffset, 1) = strMatchChar)
+    Perf.OperationEnd
 End Function
 
 
@@ -733,8 +725,8 @@ Private Function GetQuotedString(Optional lngStartOffset As Long = 0) As String
 
     ' Apply RegEx
     With New VBScript_RegExp_55.RegExp
-        '.Global = True
-        '.Multiline = True
+        .Global = True
+        .Multiline = True
         .Pattern = strExp
         Set objMatches = .Execute(Mid$(m_strSql, m_lngPos + lngStartOffset))
         If objMatches.Count > 0 Then GetQuotedString = objMatches(0)
@@ -796,11 +788,9 @@ Private Function InList(intList As eListType, ByRef strMatch As String) As Boole
 
     Dim intWords As Integer
     Dim intMaxWords As Integer
-    Dim lngPos As Long
     Dim strList As String
     Dim strTest As String
     Dim strWords As String
-    Dim strLastWord As String
     Dim lngEndPos As Long
 
     ' Look up list of words
@@ -832,7 +822,7 @@ Private Function InList(intList As eListType, ByRef strMatch As String) As Boole
         If strTest = "||" Then Exit For
 
         ' See if the words exist in the list
-        If InStr(1, strTest, strList) > 0 Then
+        If InStr(1, strList, strTest) > 0 Then
 
             ' Found a match. Return original string (including any extra whitespace)
             strMatch = Mid$(m_strSql, m_lngPos, lngEndPos - m_lngPos)
@@ -857,77 +847,71 @@ End Function
 '
 Private Function GetNextWords(intCount As Integer, Optional ByRef lngEndPos As Long) As String
 
-    Dim strChar As String
     Dim lngChar As Integer
+    Dim lngStart As Long
     Dim intFoundWords As Integer
-    Dim blnNewWord As Boolean
+    Dim lngBoundary As Long
+
+    ' Cache word lookup so we can avoid repeated calls when checking the same word(s)
+    ' against different lists. (For 1 or 2 words)
+    If intCount = 1 Or intCount = 2 Then
+        If IsArray(m_varWordCache(intCount)) Then
+            If m_varWordCache(intCount)(0) = m_lngPos Then
+                ' Found matching cache from last lookup
+                lngEndPos = m_varWordCache(intCount)(1)
+                GetNextWords = m_varWordCache(intCount)(2)
+                Exit Function
+            End If
+        End If
+    End If
+
+    ' Get next boundary, and exit if we don't have anything before the boundary
+    lngBoundary = NextBoundary
+    If lngBoundary = m_lngPos Then Exit Function
 
     Perf.OperationStart "Get Next Words"
     With New clsConcat
         ' Loop through characters up till next boundary
-        For lngChar = m_lngPos To NextBoundary
-            Select Case Mid$(m_strSql, lngChar, 1)
-                Case " ", vbTab, vbLf, vbCr, vbNullChar
-                    ' Found whitespace. Complete previous word.
-                    If .Length > 0 And Not blnNewWord Then
-                        ' Exit after finding desired number of words.
+        For lngChar = m_lngPos To lngBoundary - 1
+            Select Case AscW(Mid$(m_strSql, lngChar, 1))
+                Case 32, 9, 10, 13, 0
+                    ' Found whitespace
+                    If lngStart > 0 Then
+                        ' Complete previous word
+                        If intFoundWords > 0 Then .Add " "
                         intFoundWords = intFoundWords + 1
+                        .Add Mid$(m_strSql, lngStart, lngChar - lngStart)
+                        lngEndPos = lngChar
+                        lngStart = 0
                         If intFoundWords >= intCount Then Exit For
-                        .Add " "
-                        ' Set flag so we don't add multiple spaces between words.
-                        blnNewWord = True
                     End If
+
                 Case Else
-                    ' Reset flag
-                    blnNewWord = False
-                    ' Add to current word
-                    .Add Mid$(m_strSql, lngChar, 1)
+                    ' Begin at first non-whitespace character
+                    If lngStart = 0 Then lngStart = lngChar
+                    ' Exit if we reached the boundary
+                    If lngChar = lngBoundary - 1 Then
+                        .Add Mid$(m_strSql, lngStart, lngChar - lngStart)
+                        lngEndPos = lngChar - 1
+                        Exit For
+                    End If
+
             End Select
         Next lngChar
-        lngEndPos = lngChar
+
+        If lngEndPos = 0 Then Stop
+
+        ' Prepare results
         GetNextWords = .GetStr
+
+        ' Save to cache for 1 and 2 word lookups
+        If intCount = 1 Or intCount = 2 Then
+            m_varWordCache(intCount) = Array(m_lngPos, lngEndPos, GetNextWords)
+        End If
     End With
     Perf.OperationEnd
 
 End Function
-
-
-Private Function GetNextWords2(intCount As Integer, Optional ByRef lngEndPos As Long) As String
-
-    Dim strChar As String
-    Dim lngChar As Integer
-    Dim intFoundWords As Integer
-    Dim blnNewWord As Boolean
-
-    Perf.OperationStart "Get Next Words"
-    With New clsConcat
-        ' Loop through characters up till next boundary
-        For lngChar = m_lngPos To NextBoundary
-            Select Case Mid$(m_strSql, lngChar, 1)
-                Case " ", vbTab, vbLf, vbCr, vbNullChar
-                    ' Found whitespace. Complete previous word.
-                    If .Length > 0 And Not blnNewWord Then
-                        ' Exit after finding desired number of words.
-                        intFoundWords = intFoundWords + 1
-                        If intFoundWords >= intCount Then Exit For
-                        .Add " "
-                        ' Set flag so we don't add multiple spaces between words.
-                        blnNewWord = True
-                    End If
-                Case Else
-                    ' Reset flag
-                    blnNewWord = False
-                    ' Add to current word
-                    .Add Mid$(m_strSql, lngChar, 1)
-            End Select
-        Next lngChar
-        lngEndPos = lngChar
-        GetNextWords2 = .GetStr
-    End With
-    Perf.OperationEnd
-
-End Function
-
 
 
 '---------------------------------------------------------------------------------------
@@ -940,9 +924,7 @@ End Function
 Private Function NextBoundary() As Long
 
     Dim lngChar As Long
-    Dim intChar As Integer
     Dim lngLowest As Long
-    Dim lngFound As Long
 
     Perf.OperationStart "Next Boundary"
     ' Begin with maximum length, and reduce based on found characters
@@ -969,6 +951,75 @@ Private Function NextBoundary() As Long
     If NextBoundary = 0 Then NextBoundary = Len(m_strSql)
 
     Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MatchWhitespace
+' Author    : Adam Waller
+' Date      : 8/18/2023
+' Purpose   : Get any contiguous whitespace from the current position.
+'---------------------------------------------------------------------------------------
+'
+Private Function MatchWhitespace(ByRef strMatches As String) As Boolean
+
+    Dim lngChar As Long
+    Dim lngFound As Long
+
+    Perf.OperationStart "Get Whitespace"
+
+    ' Loop through next characters
+    For lngChar = m_lngPos To Len(m_strSql)
+
+        ' Use AscW for fastest performance
+        Select Case AscW(Mid$(m_strSql, lngChar, 1))
+
+            ' Any whitespace character (space, tab, lf, cr, nullchar)
+            Case 32, 9, 10, 13, 0
+                lngFound = lngChar
+
+            ' Non-whitespace character
+            Case Else
+                Exit For
+
+        End Select
+    Next lngChar
+
+    ' Set match string if we found whitespace
+    If lngFound > 0 Then
+        strMatches = Mid$(m_strSql, m_lngPos, (lngFound + 1) - m_lngPos)
+        MatchWhitespace = True
+    End If
+
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MatchNumber
+' Author    : Adam Waller
+' Date      : 8/18/2023
+' Purpose   : Return a number token from the current position, if found.
+'           : Checks for a leading digit before the slower RegEx for the various
+'           : types of numbers.
+'---------------------------------------------------------------------------------------
+'
+Private Function MatchNumber(ByRef strMatches As String) As Boolean
+
+    ' Perform an inital very fast test to see if this might be a number.
+    Select Case AscW(Mid$(m_strSql, m_lngPos, 1))
+        ' Any number 0 to 9
+        Case 48 To 57
+            ' Continue with RegEx
+        Case Else
+            ' Not a number
+            Exit Function
+    End Select
+
+    ' Now move on with the RegEx to get the entire number
+    MatchNumber = HasMatches("^([0-9]+(\.[0-9]+)?|0x[0-9a-fA-F]+|0b[01]+)($|\s|""\'`|" & RegExBoundaries & ")", strMatches)
 
 End Function
 
@@ -1052,61 +1103,6 @@ Private Sub PurgeExtraWhitespace(ByRef strValue As String)
             End If
         End With
     End If
-
-End Sub
-
-
-Private Sub PurgeExtraWhitespace2(ByRef strValue As String)
-
-    Dim strResult As String
-    Dim lngChar As Long
-    Dim blnInWhitespace As Boolean
-
-
-    ' Check for any space, tab, or vbcrlf
-    With New clsConcat
-        For lngChar = 1 To Len(strValue)
-            Select Case Mid$(strValue, lngChar, 1)
-                Case " ", vbTab, vbLf, vbCr, vbNullChar
-                    If Not blnInWhitespace Then
-                        .Add " "
-                        blnInWhitespace = True
-                    End If
-                Case Else
-                    blnInWhitespace = False
-                    .Add Mid$(strValue, lngChar, 1)
-            End Select
-        Next lngChar
-        If Len(strValue) > .Length Then strValue = .GetStr
-    End With
-
-
-End Sub
-
-
-Private Sub PurgeExtraWhitespace3(ByRef strValue As String)
-
-    Dim strResult As String
-    Dim lngChar As Long
-    Dim blnInWhitespace As Boolean
-
-
-    ' Check for any space, tab, or vbcrlf
-
-
-
-    If InStr(1, strValue, vbTab) > 0 Then strValue = Replace(strValue, vbTab, " ")
-    If InStr(1, strValue, vbLf) > 0 Then strValue = Replace(strValue, vbLf, " ")
-    If InStr(1, strValue, vbCr) > 0 Then strValue = Replace(strValue, vbCr, " ")
-    If InStr(1, strValue, vbNullChar) > 0 Then strValue = Replace(strValue, vbNullChar, " ")
-
-    Do While InStr(1, strValue, "          ") > 0
-        strValue = Replace(strValue, "          ", " ")
-    Loop
-
-    Do While InStr(1, strValue, "  ") > 0
-        strValue = Replace(strValue, "  ", " ")
-    Loop
 
 End Sub
 
@@ -1217,23 +1213,15 @@ End Function
 '
 Public Sub SelfTest()
 
-    Dim varExpected As Variant
-    Dim intCnt As Integer
-    Dim lngTest As Long
     Dim strActual As String
 
-    ' Turn on performance logging
-    m_blnLogPerformance = True
-
-
-    PerformanceTesting
+    ' Test performance
+    TestPerformance
 
     ' Test GetNextWords
     Tokenize "  LEFT " & vbTab & vbCrLf & " JOIN test on 1=2"
     Debug.Assert GetNextWords(2) = "LEFT JOIN"
     Debug.Assert GetNextWords(1) = "LEFT"
-
-    Exit Sub
 
     ' Test simple query with a few features
     Tokenize "SELECT  5 AS `TEST`"
@@ -1257,6 +1245,7 @@ Public Sub SelfTest()
         strActual = .GetStr
     End With
     Debug.Assert (strActual = FormatSQL)
+    If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
 
 
     ' Example query from https://github.com/doctrine/sql-formatter
@@ -1265,7 +1254,7 @@ Public Sub SelfTest()
             " GROUP BY Column1 ORDER BY Column3 DESC LIMIT 5,10"
 
     ' Verify tokens
-    Debug.Assert m_colTokens.Count = 70
+    Debug.Assert m_colTokens.Count = 66
     Debug.Assert VerifyToken(1, ttReservedTopLevel, "SELECT")
     Debug.Assert VerifyToken(2, ttWhitespace, " ")
     Debug.Assert VerifyToken(3, ttReserved, "count")
@@ -1317,25 +1306,21 @@ Public Sub SelfTest()
     Debug.Assert VerifyToken(49, ttWhitespace, " ")
     Debug.Assert VerifyToken(50, ttBoundary, ")")
     Debug.Assert VerifyToken(51, ttWhitespace, " ")
-    Debug.Assert VerifyToken(52, ttReserved, "GROUP")
+    Debug.Assert VerifyToken(52, ttReservedTopLevel, "GROUP BY")
     Debug.Assert VerifyToken(53, ttWhitespace, " ")
-    Debug.Assert VerifyToken(54, ttWord, "BY")
+    Debug.Assert VerifyToken(54, ttWord, "Column1")
     Debug.Assert VerifyToken(55, ttWhitespace, " ")
-    Debug.Assert VerifyToken(56, ttWord, "Column1")
+    Debug.Assert VerifyToken(56, ttReservedTopLevel, "ORDER BY")
     Debug.Assert VerifyToken(57, ttWhitespace, " ")
-    Debug.Assert VerifyToken(58, ttWord, "ORDER")
+    Debug.Assert VerifyToken(58, ttWord, "Column3")
     Debug.Assert VerifyToken(59, ttWhitespace, " ")
-    Debug.Assert VerifyToken(60, ttWord, "BY")
+    Debug.Assert VerifyToken(60, ttReserved, "DESC")
     Debug.Assert VerifyToken(61, ttWhitespace, " ")
-    Debug.Assert VerifyToken(62, ttWord, "Column3")
+    Debug.Assert VerifyToken(62, ttReservedTopLevel, "LIMIT")
     Debug.Assert VerifyToken(63, ttWhitespace, " ")
-    Debug.Assert VerifyToken(64, ttReserved, "DESC")
-    Debug.Assert VerifyToken(65, ttWhitespace, " ")
-    Debug.Assert VerifyToken(66, ttReservedTopLevel, "LIMIT")
-    Debug.Assert VerifyToken(67, ttWhitespace, " ")
-    Debug.Assert VerifyToken(68, ttNumber, "5")
-    Debug.Assert VerifyToken(69, ttBoundary, ",")
-    Debug.Assert VerifyToken(70, ttNumber, "10")
+    Debug.Assert VerifyToken(64, ttNumber, "5")
+    Debug.Assert VerifyToken(65, ttBoundary, ",")
+    Debug.Assert VerifyToken(66, ttNumber, "10")
 
     ' Verify result
     With New clsConcat
@@ -1356,7 +1341,7 @@ Public Sub SelfTest()
         .Add "    )"
         .Add "  )"
         .Add "GROUP BY"
-        .Add "  Column1 "
+        .Add "  Column1"
         .Add "ORDER BY"
         .Add "  Column3 DESC"
         .Add "LIMIT"
@@ -1365,11 +1350,12 @@ Public Sub SelfTest()
         strActual = .GetStr
     End With
     Debug.Assert (strActual = FormatSQL)
+    If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
 
 
     'PrintTokens
     'BuildTestFromTokens
-    Diff.Strings strActual, FormatSQL
+    'Diff.Strings strActual, FormatSQL
 
 End Sub
 
@@ -1384,7 +1370,11 @@ End Sub
 '
 Private Function Perf() As clsPerformance
     Static cInternal As clsPerformance
-    If cInternal Is Nothing Then Set cInternal = New clsPerformance
+    If cInternal Is Nothing Then
+        Set cInternal = New clsPerformance
+        ' Disable detailed internal performance monitoring by default
+        cInternal.Enabled = False
+    End If
     Set Perf = cInternal
 End Function
 
@@ -1440,7 +1430,6 @@ Private Function BuildTestFromTokens()
     Debug.Print vbCrLf & "    ' Verify result"
     Debug.Print "    With New clsConcat"
     Debug.Print "        .AppendOnAdd = vbCrLf"
-'    Debug.Print "    strActual = _"
 
     ' Loop through lines, outputting SQL with line breaks
     For intLine = 0 To UBound(varLines)
@@ -1523,76 +1512,53 @@ Private Function TypeEnumToString(intType As Variant) As String
 End Function
 
 
-Private Function PerformanceTesting()
+'---------------------------------------------------------------------------------------
+' Procedure : GetAscWFromString
+' Author    : Adam Waller
+' Date      : 8/18/2023
+' Purpose   : Print out AscW indexes of each character in the string.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetAscWFromString(strText As String) As String
+    Dim lngCnt As Long
+    Debug.Print
+    For lngCnt = 1 To Len(strText)
+        Debug.Print AscW(Mid$(strText, lngCnt, 1)) & ", ";
+    Next lngCnt
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PerformanceTesting
+' Author    : Adam Waller
+' Date      : 8/18/2023
+' Purpose   : Test performance of tokenizing and building formatted string
+'---------------------------------------------------------------------------------------
+'
+Private Function TestPerformance()
 
     Dim lngCnt As Long
     Dim lngMax As Long
-    Dim strMatches As String
-    Dim strTest As String
 
-    Tokenize "`Column1`,`Testing`,    `Testing Three` FROM                                                         `Table1` WHERE Column1 = 'testing' AND   (    (`Column2` = `Column3` OR Column4 >= NOW()) ) GROUP BY Column1 ORDER BY Column3 DESC LIMIT 5,10"
-
-
+    ' Number of iterations to perform
     lngMax = 100
 
-
+    ' Test performance of tokenizing a query
+    Perf.Enabled = True
     Perf.StartTiming
-
-    Perf.OperationStart "Tokenize"
     For lngCnt = 1 To lngMax
-
         Tokenize "SELECT count(*),`Column1`,`Testing`, `Testing Three` FROM `Table1`" & _
                 " WHERE Column1 = 'testing' AND ( (`Column2` = `Column3` OR Column4 >= NOW()) )" & _
                 " GROUP BY Column1 ORDER BY Column3 DESC LIMIT 5,10"
     Next lngCnt
-    Perf.OperationEnd lngMax
-'
-'    Perf.OperationStart "RegEx search"
-'    For lngCnt = 1 To lngMax
-'        HasMatches "^(" & cstrReserved & ")", strMatches
-'    Next lngCnt
-'    Perf.OperationEnd lngMax
-'
-'    Perf.OperationStart "Instr search"
-'    For lngCnt = 1 To lngMax
-'        InList eltReserved, strMatches
-'    Next lngCnt
-'    Perf.OperationEnd lngMax
-'
-'    Perf.OperationStart "Purge Regex"
-'    For lngCnt = 1 To lngMax
-'        strTest = m_strSql
-'        PurgeExtraWhitespace strTest
-'    Next lngCnt
-'    Perf.OperationEnd lngMax
-'
-'    Perf.OperationStart "Purge Loop"
-'    For lngCnt = 1 To lngMax
-'        strTest = m_strSql
-'        PurgeExtraWhitespace2 strTest
-'    Next lngCnt
-'    Perf.OperationEnd lngMax
-'
-'    Perf.OperationStart "Purge Replace"
-'    For lngCnt = 1 To lngMax
-'        strTest = m_strSql
-'        PurgeExtraWhitespace3 strTest
-'    Next lngCnt
-'    Perf.OperationEnd lngMax
-'
-'    Perf.OperationStart "Boundary match"
-'    For lngCnt = 1 To lngMax
-'        HasMatches "^(.*?)($|\s|[""\'`]|" & RegExBoundaries & ")", strMatches
-'    Next lngCnt
-'    Perf.OperationEnd lngMax
-'
-'    Perf.OperationStart "Boundary instr"
-'    For lngCnt = 1 To lngMax
-'        NextBoundary
-'    Next lngCnt
-'    Perf.OperationEnd lngMax
+
+    ' Test performance of formatting SQL
+    For lngCnt = 1 To lngMax
+        FormatSQL
+    Next lngCnt
 
     Perf.EndTiming
     Debug.Print Perf.GetReports
+    Perf.Enabled = False
 
 End Function
