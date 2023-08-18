@@ -23,6 +23,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+' Enable or disable timing operations
+Public Enabled As Boolean
 
 ' Use type for private class variables
 Private Type udtPerformance
@@ -53,6 +55,7 @@ Private Declare PtrSafe Function GetTimeAPI Lib "kernel32" Alias "QueryPerforman
 '---------------------------------------------------------------------------------------
 '
 Public Sub StartTiming()
+    If Not Me.Enabled Then Exit Sub
     Reset
     Set this.Overall = New clsPerformanceItem
     this.Overall.Start = MicroTimer
@@ -73,6 +76,8 @@ End Sub
 Public Property Get CallStack() As String
 
     Dim lngCallStackPosition As Long
+
+    If Not Me.Enabled Then Exit Property
 
     ' Build out breadcrumb type call stack string
     With New clsConcat
@@ -99,6 +104,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Sub CategoryStart(strName As String)
+    If Not Me.Enabled Then Exit Sub
     If this.CategoryName <> vbNullString Then CategoryEnd
     If this.Categories Is Nothing Then Set this.Categories = New Dictionary
     StartTimer this.Categories, strName
@@ -114,6 +120,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub CategoryEnd(Optional lngCount As Long = 1)
+    If Not Me.Enabled Then Exit Sub
     If this.CategoryName <> vbNullString And Not this.Categories Is Nothing Then
         LapTimer this.Categories(this.CategoryName), lngCount
         this.CategoryName = vbNullString
@@ -131,6 +138,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub OperationStart(strName As String)
+
+    If Not Me.Enabled Then Exit Sub
 
     ' Ensure that we have created the operations dictionary
     If this.Operations Is Nothing Then Set this.Operations = New Dictionary
@@ -166,6 +175,8 @@ End Sub
 Public Sub OperationEnd(Optional lngCount As Long = 1)
 
     Dim strLastOperation As String
+
+    If Not Me.Enabled Then Exit Sub
 
     ' Verify that we are timing something, and record the elapsed time.
     If this.OperationName <> vbNullString And Not this.Operations Is Nothing Then
@@ -216,6 +227,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Sub EndTiming()
+    If Not Me.Enabled Then Exit Sub
     LapTimer this.Overall, 1
 End Sub
 
@@ -286,6 +298,8 @@ End Sub
 '
 Public Sub PauseTiming()
 
+    If Not Me.Enabled Then Exit Sub
+
     ' Lap overall time
     LapTimer this.Overall, 0
 
@@ -308,6 +322,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ResumeTiming()
+
+    If Not Me.Enabled Then Exit Sub
 
     ' Resume overall time
     If Not this.Overall Is Nothing Then this.Overall.Start = MicroTimer
@@ -351,6 +367,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get TotalTime() As Currency
+    If Not Me.Enabled Then Exit Function
     If this.Overall Is Nothing Then
         TotalTime = 0
     Else
@@ -376,6 +393,8 @@ Public Function GetReports() As String
     Dim dblCount As Double
     Dim lngCol(0 To 2) As Long
     Dim strSpacer As String
+
+    If Not Me.Enabled Then Exit Function
 
     ' Set up column sizes
     lngCol(0) = 30
@@ -561,6 +580,7 @@ Public Sub Reset()
     Set this.Categories = Nothing
     this.OperationName = vbNullString
     Set this.Operations = Nothing
+    Enabled = True
 End Sub
 
 
@@ -576,4 +596,5 @@ Private Sub Class_Initialize()
     ' https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
     GetFrequencyAPI this.Frequency
     this.intDigitsAfterDecimal = 2
+    Enabled = True
 End Sub
