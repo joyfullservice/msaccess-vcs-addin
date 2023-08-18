@@ -15,11 +15,11 @@ Begin Form
     GridY =24
     Width =10080
     DatasheetFontHeight =11
-    ItemSuffix =248
-    Left =20761
-    Top =2250
-    Right =-29055
-    Bottom =13995
+    ItemSuffix =250
+    Left =-25575
+    Top =1500
+    Right =-5310
+    Bottom =14085
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -397,7 +397,7 @@ Begin Form
                     Left =540
                     Top =1500
                     Width =9000
-                    Height =4740
+                    Height =4755
                     TabIndex =2
                     Name ="tabOptions"
                     HorizontalAnchor =2
@@ -406,7 +406,7 @@ Begin Form
                     LayoutCachedLeft =540
                     LayoutCachedTop =1500
                     LayoutCachedWidth =9540
-                    LayoutCachedHeight =6240
+                    LayoutCachedHeight =6255
                     ThemeFontIndex =1
                     Shape =1
                     Gradient =12
@@ -426,13 +426,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeGeneral"
                             Caption ="General"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =215
@@ -719,13 +719,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4205
                             Name ="pgeExport"
                             Caption ="Export"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6185
                             Begin
                                 Begin TextBox
                                     OverlapFlags =247
@@ -990,28 +990,28 @@ Begin Form
                                 Begin CheckBox
                                     OverlapFlags =247
                                     Left =5340
-                                    Top =4200
+                                    Top =4620
                                     TabIndex =8
                                     Name ="chkExtractThemeFiles"
 
                                     LayoutCachedLeft =5340
-                                    LayoutCachedTop =4200
+                                    LayoutCachedTop =4620
                                     LayoutCachedWidth =5600
-                                    LayoutCachedHeight =4440
+                                    LayoutCachedHeight =4860
                                     Begin
                                         Begin Label
                                             OverlapFlags =247
                                             Left =5640
-                                            Top =4140
+                                            Top =4560
                                             Width =2340
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label112"
                                             Caption ="Extract Theme Files"
                                             LayoutCachedLeft =5640
-                                            LayoutCachedTop =4140
+                                            LayoutCachedTop =4560
                                             LayoutCachedWidth =7980
-                                            LayoutCachedHeight =4455
+                                            LayoutCachedHeight =4875
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -1212,6 +1212,36 @@ Begin Form
                                     PressedForeThemeColorIndex =10
                                     PressedForeTint =100.0
                                 End
+                                Begin CheckBox
+                                    OverlapFlags =247
+                                    Left =5340
+                                    Top =4200
+                                    TabIndex =13
+                                    Name ="chkFormatSQL"
+
+                                    LayoutCachedLeft =5340
+                                    LayoutCachedTop =4200
+                                    LayoutCachedWidth =5600
+                                    LayoutCachedHeight =4440
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =5640
+                                            Top =4140
+                                            Width =2340
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label249"
+                                            Caption ="Format SQL"
+                                            LayoutCachedLeft =5640
+                                            LayoutCachedTop =4140
+                                            LayoutCachedWidth =7980
+                                            LayoutCachedHeight =4455
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
                             End
                         End
                         Begin Page
@@ -1220,13 +1250,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -1868,13 +1898,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeDatabases"
                             Caption ="Databases"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             Begin
                                 Begin ListBox
                                     ColumnHeads = NotDefault
@@ -2152,13 +2182,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeTable"
                             Caption ="Table Data"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -2461,13 +2491,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeBuild"
                             Caption ="Build"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -2638,13 +2668,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeGitIntegration"
                             Caption ="Git Integration"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -2955,13 +2985,13 @@ Begin Form
                             Left =615
                             Top =1980
                             Width =8850
-                            Height =4185
+                            Height =4200
                             Name ="pgeSettings"
                             Caption ="Settings"
                             LayoutCachedLeft =615
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6165
+                            LayoutCachedHeight =6180
                             Begin
                                 Begin OptionGroup
                                     OverlapFlags =255

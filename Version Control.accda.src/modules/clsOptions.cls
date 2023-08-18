@@ -29,6 +29,7 @@ Public GitSettings As Dictionary
 Public SavePrintVars As Boolean
 Public ExportPrintSettings As Dictionary
 Public SaveQuerySQL As Boolean
+Public FormatSQL As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
 Public SaveTableSQL As Boolean
 Public StripPublishOption As Boolean
@@ -74,6 +75,7 @@ Public Sub LoadDefaults()
         .UseGitIntegration = False
         .SavePrintVars = True
         .SaveQuerySQL = True
+        .FormatSQL = True
         .ForceImportOriginalQuerySQL = False
         .SaveTableSQL = True
         .StripPublishOption = True
@@ -582,6 +584,7 @@ Private Sub Class_Initialize()
         .Add "SavePrintVars"
         .Add "ExportPrintSettings"
         .Add "SaveQuerySQL"
+        .Add "FormatSQL"
         .Add "ForceImportOriginalQuerySQL"
         .Add "SaveTableSQL"
         .Add "StripPublishOption"

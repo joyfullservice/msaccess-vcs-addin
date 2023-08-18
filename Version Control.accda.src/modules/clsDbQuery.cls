@@ -39,6 +39,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strFile As String
     Dim strHash As String
+    Dim strSql As String
     Dim dbs As DAO.Database
 
     ' Save and sanitize file
@@ -52,13 +53,25 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             Set dbs = CurrentDb
             strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
             On Error Resume Next
-            WriteFile dbs.QueryDefs(m_Query.Name).SQL, strFile
+            strSql = dbs.QueryDefs(m_Query.Name).SQL
             If Catch(3258) Then
                 Log.Error eelWarning, "Unable to access SQL property of query '" & m_Query.Name & "'. SQL view may not be available for this query.", ModuleName(Me) & ".Export"
             ElseIf Err.Number Then
                 Log.Error eelError, "Unexpected error accessing SQL property of query '" & m_Query.Name & "'. Error " & Err.Number & ": " & Err.Description, ModuleName(Me) & ".Export"
             End If
             On Error GoTo 0
+            If strSql <> vbNullString Then
+                ' Pass-through queries should not be formatted, since they support formatting and comments.
+                If Options.SaveQuerySQL And dbs.QueryDefs(m_Query.Name).Type <> dbQSQLPassThrough Then
+                    With New clsSqlFormatter
+                        Perf.OperationStart "Format SQL"
+                        WriteFile .FormatSQL(strSql), strFile
+                        Perf.OperationEnd
+                    End With
+                Else
+                    WriteFile strSql, strFile
+                End If
+            End If
             Perf.OperationEnd
             Log.Add "  " & m_Query.Name & " (SQL)", Options.ShowDebug
         End If

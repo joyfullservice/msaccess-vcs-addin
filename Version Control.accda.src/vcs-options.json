@@ -33,6 +33,7 @@
       "TTOption": false
     },
     "SaveQuerySQL": true,
+    "FormatSQL": true,
     "ForceImportOriginalQuerySQL": false,
     "SaveTableSQL": true,
     "StripPublishOption": true,
