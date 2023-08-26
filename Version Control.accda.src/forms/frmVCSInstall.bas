@@ -1861,9 +1861,15 @@ Private Sub cmdChangeInstallFolder_Click()
 
     ' See if the add-in is already installed
     If FSO.FileExists(GetAddInFileName) Then
-        MsgBox2 "Please Uninstall First", _
-            "If you want to change the installation path, please uninstall the add-in, then reinstall to the desired location.", _
-            "(You will have the option to keep your current settings during the uninstall process.)", vbExclamation
+        MsgBox2 "Please Uninstall First" _
+            , "Please uninstall (and delete) the add-in, then reinstall to the new location. " & _
+            "If you have already uninstalled, delete the addin file. " & _
+            "The install folder will open now to allow you to delete the file." _
+            , "You will have the option to keep your current settings during the uninstall process." _
+            , vbExclamation
+
+        Application.FollowHyperlink GetInstallSettings.strInstallFolder
+
     Else
         ' Show a folder picker to select the desired location.
         ' (The path will be validated before installation, just in case it is changed direclty in the text box.)
