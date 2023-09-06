@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =33
     Left =3225
     Top =2430
-    Right =13890
+    Right =18945
     Bottom =14175
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
@@ -1893,6 +1893,9 @@ Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "B
         "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
     cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     Me.strLastLogFilePath = Log.LogFilePath
+
+    ' Close form if running in silent mode (such as when running automated builds)
+    If InteractionMode = eimSilent Then DoCmd.Close acForm, Me.Name
 
 End Sub
 
