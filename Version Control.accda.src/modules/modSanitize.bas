@@ -116,7 +116,7 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                     "NameMap = Begin", _
                     "dbLongBinary ""DOL"" = Begin", _
                     "dbBinary ""GUID"" = Begin"
-                    If Options.SanitizeLevel >= eslAggressive Then
+                    If Options.SanitizeLevel >= eslStandard Then
                         blnInsideIgnoredBlock = True
                         SkipLine lngLine
                     End If
@@ -154,7 +154,7 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                     If blnIsPassThroughQuery Then
                         ' Ignore remaining content. (See Issue #182)
                         Do While lngLine < UBound(varLines)
-                            SkipLine lngLine, eslAggressive
+                            SkipLine lngLine, eslStandard
                             lngLine = lngLine + 1
                         Loop
                         Exit Do
@@ -175,7 +175,7 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                         SkipLine lngLine
                     ElseIf StartsWith(strTLine, "Checksum =") Then
                         ' Ignore Checksum lines, since they will change.
-                        SkipLine lngLine, eslBasic
+                        SkipLine lngLine, eslMinimal
                     ElseIf StartsWith(strTLine, "ColumnInfo =") _
                         Or StartsWith(strTLine, "BaseInfo =") Then
                         ' [ColumnInfo] contains some cached info from the record source
@@ -184,24 +184,24 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                         ' Since the value could span multiple lines, we need to
                         ' check the indent level of the following lines to see how
                         ' many lines to skip.
-                        SkipLine lngLine, eslAggressive
+                        SkipLine lngLine, eslStandard
                         intIndent = GetIndent(strLine)
                         ' Preview the next line, and check the indent level
                         Do While GetIndent(varLines(lngLine + 1)) > intIndent
                             ' Skip previewed line and move to next line
-                            SkipLine lngLine + 1, eslAggressive
+                            SkipLine lngLine + 1, eslStandard
                             lngLine = lngLine + 1
                         Loop
                     ElseIf blnIsReport And StartsWith(strLine, "    Right =") Then
                         ' Ignore this line. (Not important, and frequently changes.)
-                        SkipLine lngLine, eslAggressive
+                        SkipLine lngLine, eslStandard
                     ElseIf blnIsReport And StartsWith(strLine, "    Bottom =") Then
                         ' Turn flag back off now that we have ignored these two lines.
-                        SkipLine lngLine, eslAggressive
+                        SkipLine lngLine, eslStandard
                         blnIsReport = False
                     ElseIf StartsWith(strTLine, "WebImagePadding") Then
                         ' These values tend to drift between builds. See #423
-                        SkipLine lngLine, eslAggressive
+                        SkipLine lngLine, eslStandard
                     ElseIf StartsWith(strTLine, "Begin ") Then
                         ' Include block type name for controls
                         BeginBlock Mid$(strTLine, 7)
@@ -425,7 +425,7 @@ Private Sub CloseBlock()
                     ' unless otherwise specified.
                     ' As discussed in #183, this can be affected by incomplete
                     ' component definition blocks.
-                    If Options.SanitizeColors = eslAdvancedBeta Then
+                    If Options.SanitizeColors = eslExtended Then
                         strKey = varBase(intCnt) & "Color"
                         If dBlock.Exists(strKey) Then
                             ' Skip the dynamic color line
@@ -531,7 +531,7 @@ Public Function SanitizeVBA(strCode As String) As String
     Dim lngLastLine As Long
 
     ' Skip sanitizing if not using that option.
-    If Options.SanitizeLevel < eslAggressive Then
+    If Options.SanitizeLevel < eslStandard Then
         SanitizeVBA = strCode
         Exit Function
     End If

@@ -79,8 +79,8 @@ Public Sub LoadDefaults()
         .ForceImportOriginalQuerySQL = False
         .SaveTableSQL = True
         .StripPublishOption = True
-        .SanitizeLevel = eslAggressive
-        .SanitizeColors = eslBasic
+        .SanitizeLevel = eslStandard
+        .SanitizeColors = eslMinimal
         .ShowVCSLegacy = True
         .HashAlgorithm = DefaultHashAlgorithm
         .UseShortHash = True
@@ -280,7 +280,7 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
             ' Check for non-default level
             If Not dOptions("AggressiveSanitize") Then
                 ' Set to basic level
-                dOptions.Add "SanitizeLevel", eslBasic
+                dOptions.Add "SanitizeLevel", eslMinimal
             End If
         End If
     End If
@@ -476,9 +476,9 @@ End Function
 Public Function GetSanitizeLevelName(intSanitizeLevel As eSanitizeLevel) As String
     Select Case intSanitizeLevel
         Case eslNone:           GetSanitizeLevelName = "None (Off)"
-        Case eslBasic:          GetSanitizeLevelName = "Basic"
-        Case eslAggressive:     GetSanitizeLevelName = "Aggressive"
-        Case eslAdvancedBeta:   GetSanitizeLevelName = "Advanced (BETA)"
+        Case eslMinimal:        GetSanitizeLevelName = "Minimal"
+        Case eslStandard:       GetSanitizeLevelName = "Standard"
+        Case eslExtended:       GetSanitizeLevelName = "Extended"
         Case Else:              GetSanitizeLevelName = vbNullString
     End Select
 End Function

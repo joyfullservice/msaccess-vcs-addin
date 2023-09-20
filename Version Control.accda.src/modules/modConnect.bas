@@ -44,7 +44,7 @@ Public Function SanitizeConnectionString(strConnection As String) As String
                     StartsWith(strPart, "PWD=", vbTextCompare)
                     ' These values are not needed when using a trusted connection.
                     If (InStr(1, strConnection, "Trusted_Connection=Yes", vbTextCompare) = 0) _
-                        Or (Options.SanitizeLevel < eslAggressive) Then
+                        Or (Options.SanitizeLevel < eslStandard) Then
                         ' Retain the values if not using trusted connection, or if
                         ' using less than the normal sanitize level.
                         .Add strPart

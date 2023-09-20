@@ -25,16 +25,13 @@ Public Enum eTableDataExportFormat
     [_Last] = 2
 End Enum
 
+' Sanitize levels used for sanitizing general and color elements in source files.
 Public Enum eSanitizeLevel
-    eslNone = 0     ' Sanitize only items which won't build correctly unless you sanitize them.
-    eslBasic        ' Strip out excess items (like GUIDs) that are just noise and no effect can be found.
-    eslAggressive    ' Strip out anything that can be reliably rebuilt by Access during Build (themed control colors).
-
-    ' WARNING: AdvancedBeta introduces sanitzation that may or may not work in all environments, and has known
-    '          (or highly suspected) edge cases where it does not always operate correctly. Do not use this level in
-    '          production databases.
-    eslAdvancedBeta ' Remove all excess noise. Try out new sanitize features that still have ragged edges.
-    [_Last]         ' DO NOT REMOVE: This is a "Fake" level, and must be at the end.
+    eslNone = 0     ' Don't sanitize anything.
+    eslMinimal      ' Sanitize minimal things like GUIDs.
+    eslStandard     ' Remove non-critical elements that cause VCS noise between builds.
+    eslExtended     ' Remove as much as possible. May have possible negative effects.
+    [_Last]         ' Placeholder for the end of the list.
 End Enum
 
 
