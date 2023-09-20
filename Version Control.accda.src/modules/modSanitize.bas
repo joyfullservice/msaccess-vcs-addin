@@ -116,7 +116,7 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
                     "NameMap = Begin", _
                     "dbLongBinary ""DOL"" = Begin", _
                     "dbBinary ""GUID"" = Begin"
-                    If Options.AggressiveSanitize Then
+                    If Options.SanitizeLevel >= eslAggressive Then
                         blnInsideIgnoredBlock = True
                         SkipLine lngLine
                     End If

@@ -432,14 +432,7 @@ Private Function SerializeOptions() As Dictionary
     ' Loop through options
     For Each varOption In m_colOptions
         ' Simulate reflection to serialize properties.
-        Select Case varOption
-            Case "AggressiveSanitize"
-                'Ignored Properties/Options that should not be exported.
-            Case Else
-                dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
-        End Select
-
-
+        dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
     Next varOption
 
     'Set SerializeOptions = new Dictionary
@@ -510,18 +503,6 @@ Public Function GetSanitizeLevel(strKey As String) As eSanitizeLevel
     Next intSanitizeLevel
 End Function
 
-
-'---------------------------------------------------------------------------------------
-' Property  : AggressiveSanitize
-' Author    : hecon5
-' Date      : 6/16/2021
-' Purpose   : Return the AggressiveSanitize value based on new property; used to ensure
-'           : we can still use AggressiveSanitize in legacy code.
-'---------------------------------------------------------------------------------------
-'
-Public Property Get AggressiveSanitize() As Boolean
-    If SanitizeLevel >= eslAggressive Then AggressiveSanitize = True
-End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTableExportFormatName
