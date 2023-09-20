@@ -1,6 +1,6 @@
 ﻿{
   "Info": {
-    "AddinVersion": "4.0.13",
+    "AddinVersion": "4.0.22",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
@@ -33,6 +33,7 @@
       "TTOption": false
     },
     "SaveQuerySQL": true,
+    "FormatSQL": true,
     "ForceImportOriginalQuerySQL": false,
     "SaveTableSQL": true,
     "StripPublishOption": true,
@@ -55,6 +56,8 @@
       "USysRibbons": {
         "Format": "Tab Delimited"
       }
+    },
+    "SchemaExports": {
     },
     "RunBeforeExport": "",
     "RunAfterExport": "",

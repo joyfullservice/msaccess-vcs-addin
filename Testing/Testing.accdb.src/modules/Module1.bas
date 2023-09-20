@@ -47,29 +47,29 @@ Public Sub PrtMipCols(ByVal strName As String)
     Dim rpt As Report
     Const PM_HORIZONTALCOLS = 1953
     Const PM_VERTICALCOLS = 1954
-    
+
     ' Open the report.
     DoCmd.OpenReport strName, acDesign
     Set rpt = Reports(strName)
     PrtMipString.strRGB = rpt.PrtMip
     LSet PM = PrtMipString
-    
+
     ' Create two columns.
     PM.cxColumns = 2
-    
+
     ' Set 0.25 inch between rows.
     PM.xRowSpacing = 0.25 * 1440
-    
+
     ' Set 0.5 inch between columns.
     PM.yColumnSpacing = 0.5 * 1440
     PM.rItemLayout = PM_HORIZONTALCOLS
-    
+
     ' Update property.
     LSet PrtMipString = PM
     rpt.PrtMip = PrtMipString.strRGB
-    
+
     Set rpt = Nothing
-    
+
 End Sub
 
 
@@ -81,26 +81,26 @@ Public Sub TestPrinterMIP()
     Dim strData As String
     Dim lngNull As Long
     Dim lngStart As Long
-    
+
     Set rpt = Report_rptDefaultPrinter
     Set rpt = Report_rptNavigationPaneGroups
-    
+
     tBuffer.strBuffer = rpt.PrtDevNames
     LSet tDevNames = tBuffer
-    
+
     ' Bytes in structure before the data string starts
-    
+
     'debug.Print mid$(strdata,tDevNames.wDeviceOffset- lngstart,instr
-    
+
     strData = StrConv(tDevNames.extra, vbUnicode)
-    
+
     Debug.Print GetNullTermStringByOffset(strData, 7, tDevNames.wDriverOffset)
     Debug.Print GetNullTermStringByOffset(strData, 7, tDevNames.wDeviceOffset)
     Debug.Print GetNullTermStringByOffset(strData, 7, tDevNames.wOutputOffset)
-    
-    
+
+
     Stop
-    
+
 End Sub
 
 
@@ -112,14 +112,14 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetNullTermStringByOffset(strData As String, lngHeaderLen As Long, intOffset As Integer) As String
-    
+
     Dim lngNull As Long
     Dim lngStart As Long
-    
+
     lngStart = intOffset - lngHeaderLen
     lngNull = InStr(lngStart, strData, vbNullChar)
-    
+
     ' Return the string if we found a null terminator
     If lngNull > 0 Then GetNullTermStringByOffset = Mid$(strData, lngStart, lngNull - lngStart)
-    
+
 End Function

@@ -36,10 +36,10 @@ Public Sub RunAfterBuild()
 
     ' Compile and save VBA code. Should prompt for any errors here.
     DoCmd.RunCommand acCmdCompileAndSaveAllModules
-    
+
     ' Run startup macro to execute tests.
     DoCmd.RunMacro "AutoExec"
-    
+
 End Sub
 
 
@@ -61,15 +61,15 @@ Public Sub TestProperties()
     Dim dbs As DAO.Database
     Dim prp As AccessObjectProperty
     Dim proj As CurrentProject
-    
+
     Set dbs = CurrentDb
     Set proj = CurrentProject
-    
+
     For Each prp In proj.AllModules(0).Properties
     'For Each prp In dbs.TableDefs("tblLinkedCSV").Properties
         Debug.Print prp.Name & ": " & prp.Value
     Next prp
-    
+
 End Sub
 
 
@@ -97,7 +97,7 @@ Public Function GetVBProjectForCurrentDB() As VBProject
 
     Dim objProj As Object
     Dim strPath As String
-    
+
     strPath = CurrentProject.FullName
     If VBE.ActiveVBProject.FileName = strPath Then
         ' Use currently active project
@@ -111,5 +111,5 @@ Public Function GetVBProjectForCurrentDB() As VBProject
             End If
         Next objProj
     End If
-    
+
 End Function

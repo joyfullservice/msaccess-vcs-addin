@@ -191,10 +191,6 @@ Begin Form
                     PressedColor =9262658
                     HoverForeColor =4210752
                     PressedForeColor =4210752
-                    WebImagePaddingLeft =2
-                    WebImagePaddingTop =2
-                    WebImagePaddingRight =1
-                    WebImagePaddingBottom =1
                     Overlaps =1
                 End
                 Begin ListBox
@@ -327,10 +323,6 @@ Begin Form
                     PressedColor =9262658
                     HoverForeColor =4210752
                     PressedForeColor =4210752
-                    WebImagePaddingLeft =2
-                    WebImagePaddingTop =2
-                    WebImagePaddingRight =1
-                    WebImagePaddingBottom =1
                     Overlaps =1
                 End
                 Begin Label
@@ -398,94 +390,94 @@ Public Sub cmdRunTests_Click()
     Dim intTest As Integer
     Dim dbs As DAO.Database
     Dim rsc As SharedResource
-    
+
     Set dbs = CurrentDb
-    
+
     ' Clear list and totals
     lstResults.RowSource = ""
     m_Totals(True) = 0
     m_Totals(False) = 0
-    
+
     ' Ignore any errors.
     ' NOTE: don't include the test result on a line that may throw an error.
     On Error Resume Next
-    
+
     ' Update linked tables/CSV to use the current directory
     dbs.TableDefs("tblLinkedAccess").Connect = ";DATABASE=" & Application.CurrentProject.Path & "\Testing.accdb"
     dbs.TableDefs("tblLinkedAccess").RefreshLink
     dbs.TableDefs("tblLinkedCSV").Connect = "Text;DSN=Linked Link Specification;FMT=Delimited;HDR=NO;IMEX=2;CharacterSet=437;ACCDB=YES;DATABASE=" & Application.CurrentProject.Path
     dbs.TableDefs("tblLinkedCSV").RefreshLink
-    
+
     '========================
     '   BEGIN TESTS
     '========================
-    
+
     ' Tables
     strTest = dbs.TableDefs("tblInternal").Name
     ShowResult "Access Table exists", (strTest = "tblInternal")
-    
+
     intTest = 0
     intTest = DCount("*", "tblInternal")
     ShowResult "tblInternal has data", (intTest > 0)
-    
+
     strTest = dbs.TableDefs("tblLinkedCSV").Name
     ShowResult "Linked Table exists", (strTest = "tblLinkedCSV")
 
     intTest = 0
     intTest = DCount("*", "tblLinkedCSV")
     ShowResult "tblLinkedCSV has data", (intTest > 0)
-    
+
     ShowResult "Saved Table Data (TDF)", FSO.FileExists(ExportFolder & "tables\tblInternal.txt")
-    
+
     ShowResult "Saved Table Data (XML)", FSO.FileExists(ExportFolder & "tables\tblSaveXML.xml")
-    
+
     ShowResult "Table SQL", FSO.FileExists(ExportFolder & "tbldefs\tblInternal.sql")
 
     ShowResult "Linked Table JSON", FSO.FileExists(ExportFolder & "tbldefs\tblLinkedCSV.json")
-    
+
     ShowResult "Linked Table structure", FSO.FileExists(ExportFolder & "tbldefs\tblLinkedCSV.sql")
 
     intTest = 0
     intTest = dbs.Relations("tblInternaltblSaveXML").Fields.Count
     ShowResult "Table Relationship", (intTest = 1)
-    
+
     intTest = 0
     intTest = DCount("*", "MSysObjects", "Not IsNull(LvExtra) and Type = 1 and [Name] = 'tblSaveXML'")
     ShowResult "Table Data Macro Exists", (intTest > 0)
-    
-    
+
+
     ' Queries
     strTest = dbs.QueryDefs("qryNavigationPaneGroups").Name
     ShowResult "Query exists", (strTest = "qryNavigationPaneGroups")
-    
-    
+
+
     ' Forms
     strTest = CurrentProject.AllForms("frmMain").Name
     ShowResult "Form exists", (strTest = "frmMain")
-    
-    
+
+
     ' Reports
     strTest = CurrentProject.AllReports("rptNavigationPaneGroups").Name
     ShowResult "Report exists", (strTest = "rptNavigationPaneGroups")
     ShowResult "Landscape Orientation", (Report_rptNonDefaultPaperSize.Printer.Orientation = acPRORLandscape)
     ShowResult "A4 Paper Size", (Report_rptNonDefaultPaperSize.Printer.PaperSize = acPRPSA4)
-    
-    
+
+
     ' Macros
     strTest = CurrentProject.AllMacros("AutoExec").Name
     ShowResult "Macro exists", (strTest = "AutoExec")
-    
-    
+
+
     ' Modules
     strTest = CurrentProject.AllModules("basUtility").Name
     ShowResult "Standard Module exists", (strTest = "basUtility")
     strTest = GetVBProjectForCurrentDB.VBComponents("basExtendedChars").CodeModule.Lines(6, 1)
     ShowResult "Extended ASCII text in VBA", (Mid$(strTest, 10, 1) = Chr(151))
-    
+
     strTest = CurrentProject.AllModules("clsPerson").Name
     ShowResult "Class Module exists", (strTest = "clsPerson")
-    
-    
+
+
     ' Database properties
     strTest = ""
     strTest = dbs.Properties("AppIcon")
@@ -493,51 +485,51 @@ Public Sub cmdRunTests_Click()
 
     strTest = dbs.Properties("DAOProperty").Value
     ShowResult "Custom Database (DAO) property", (strTest = "DAO")
-    
+
     strTest = CurrentProject.Properties("ProjectProperty").Value
     ShowResult "Custom Project Property", (strTest = "TestValue")
-    
+
     strTest = dbs.Containers("Databases").Documents("SummaryInfo").Properties("Title")
     ShowResult "Database Summary Property (Title)", (strTest = "VCS Testing")
-    
+
     strTest = dbs.Containers("Tables").Documents("tblSaveXML").Properties("Description")
     ShowResult "Navigation pane object description", (strTest = "Saved description in XML table.")
-    
+
     strTest = dbs.Containers("Modules").Documents("basUtility").Properties("Description")
     ShowResult "Module description", (strTest = "My special description on the code module.")
-    
+
     ShowResult "Saved shared images", (CurrentProject.Resources.Count > 2)
-    
+
     ShowResult "Saved import/export specs (XML)", (CurrentProject.ImportExportSpecifications.Count > 0)
-    
+
     strTest = CurrentProject.ImportExportSpecifications(0).Name
     ShowResult "Name of saved specification", (strTest = "Export-MSysIMEXColumns")
-    
+
     strTest = Nz(DLookup("SpecName", "MSysIMEXSpecs", "SpecName=""Test 2"""))
     ShowResult "Saved IMEX spec (Table based)", (strTest = "Test 2")
-    
+
     strTest = Nz(DLookup("Name", "MSysNavPaneGroups", "Name=""My Modules"""))
     ShowResult "Custom navigation pane group", (strTest = "My Modules")
-    
+
     ' VBE Project
     With GetVBProjectForCurrentDB
-    
+
         ShowResult "VBE project name", (.Name = "VCS Testing")
         ShowResult "VBE project description", (.Description = "For automated testing of Version Control")
         ShowResult "Help context id", (.HelpContextId = 123456)
-        
+
         strTest = .References("Scripting").Name
         ShowResult "GUID reference (scripting)", (strTest = "Scripting")
-        
+
         strTest = .References("MSForms").Name
         ShowResult "MS Forms 2.0 reference", (strTest = "MSForms")
-        
+
     End With
-    
+
     ' Theme
     strTest = CurrentDb.Properties("Theme Resource Name")
     ShowResult "Active theme = Angles", (strTest = "Angles")
-    
+
     strTest = vbNullString
     For Each rsc In CurrentProject.Resources
         If rsc.Type = acResourceTheme Then
@@ -546,26 +538,26 @@ Public Sub cmdRunTests_Click()
         End If
     Next rsc
     ShowResult "Theme resource exists", (strTest = "Angles")
-    
+
     ' Other
     ShowResult "VCS Options file exists", FSO.FileExists(ExportFolder & "vcs-options.json")
-    
-    
+
+
     '========================
     '   END TESTS
     '========================
-    
+
     ' Display results
     lblResults.Caption = _
         m_Totals(True) & " tests passed" & vbCrLf & _
         m_Totals(False) & " tests failed"
-    
+
     If m_Totals(False) = 0 Then
         imgResult.Picture = "button_ok"
     Else
         imgResult.Picture = "button_error"
     End If
-    
+
     If Err Then Err.Clear
 
 End Sub
