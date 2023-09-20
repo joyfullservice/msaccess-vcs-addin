@@ -47,6 +47,7 @@ Implements IDbComponent
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strContent As String
+    Dim strBasePath As String
     Dim strJsonPath  As String
     Dim strFormPath As String
     Dim strBinaryPath As String
@@ -55,30 +56,33 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Get the JSON representation of the current database object
     strContent = GetSource
 
-    ' Before exporting the file, let's see if the source files exist, just in case
+    ' Build out all three normal source file paths.
+    strBasePath = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name)
+    strJsonPath = strBasePath & ".json"
+    strBinaryPath = strBasePath & ".frx"
+    strFormPath = strBasePath & ".frm"
+
+    ' Before exporting the VBE file, let's see if the source files exist, just in case
     ' the database object already matches the source file.
-    If strAlternatePath = vbNullString Then
-
-        ' Build out all three source file paths.
-        strJsonPath = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json"
-        strBinaryPath = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".frx"
-        strFormPath = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".frm"
-
-        ' See if all three files already exist.
-        If FSO.FileExists(strJsonPath) And FSO.FileExists(strBinaryPath) And FSO.FileExists(strFormPath) Then
-            ' If so, compare the hash of the json file to the database object.
-            blnUnchanged = (GetStringHash(strContent, True) = GetFileHash(strJsonPath))
-        End If
+    If FSO.FileExists(strJsonPath) And FSO.FileExists(strBinaryPath) And FSO.FileExists(strFormPath) Then
+        ' If so, compare the hash of the json file to the database object.
+        blnUnchanged = (GetStringHash(strContent, True) = GetFileHash(strJsonPath))
     End If
 
     ' This is the serialized output file in JSON format to track changes in version control
-    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json")
+    ' Always ouput this file during an export
+    WriteFile strContent, strJsonPath
 
-    ' Only export the VBE object (including binary source) if the form has changed.
+    ' Only export the VBE object (including binary source) if the form has changed
+    ' or if the VBE files are missing in the original source location
     If Not blnUnchanged Then
-
-        ' This is the binary export file used when building from source
-        m_Form.Export IDbComponent_SourceFile
+        If Len(strAlternatePath) Then
+            ' Save to alternate path
+            m_Form.Export SwapExtension(strAlternatePath, "frm")
+        Else
+            ' This is the binary export file used when building from source
+            m_Form.Export strFormPath
+        End If
     End If
 
     ' Update index with a hash of the serialized content. (Since the binary content changes frequently)
@@ -97,17 +101,33 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
 
     Dim proj As VBProject
+    Dim strTestFile As String
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    ' Only import files with the correct extension.
-    If Not strFile Like "*.frm" Then Exit Sub
+    ' Only import files with the correct (primary) extension.
+    If Not strFile Like "*.json" Then Exit Sub
 
+    ' Make sure the other two companion files also exist
+    strTestFile = SwapExtension(strFile, "frm")
+    If Not FSO.FileExists(strTestFile) Then
+        Log.Error eelError, "VBE Form definition file not found: " & strTestFile, ModuleName(Me) & ".Import"
+        Exit Sub
+    Else
+        ' Check binary file
+        strTestFile = SwapExtension(strFile, "frx")
+        If Not FSO.FileExists(strTestFile) Then
+            Log.Error eelError, "VBE Form binary file not found: " & strTestFile, ModuleName(Me) & ".Import"
+            Exit Sub
+        End If
+    End If
+
+    ' With the files verified, we can move forward with the actual import
     Set proj = CurrentVBProject
     With proj.VBComponents
 
-        ' Import the source file
-        .Import strFile
+        ' Import the VBE source file
+        .Import SwapExtension(strFile, "frm")
 
         ' Set reference to form after import
         Set m_Form = .Item(GetObjectNameFromFileName(strFile))
@@ -127,8 +147,9 @@ Private Sub IDbComponent_Import(strFile As String)
     End With
 
     ' Update index (based on serialized representation)
-    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
+    VCSIndex.Update Me, eatImport, GetStringHash(GetSource, True)
 
+    ' Log any errors while importing the VBE form
     CatchAny eelError, "Error importing " & strFile, ModuleName(Me) & ".Import"
 
 End Sub
@@ -179,8 +200,8 @@ End Sub
 '
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
     MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".frm", strToFolder
     MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".frx", strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
 End Sub
 
 
@@ -249,7 +270,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.frm")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
     Set IDbComponent_GetFileList = m_FileList
 End Function
 
@@ -366,7 +387,7 @@ End Property
 '
 Private Property Get IDbComponent_SourceFile() As String
     If m_Form Is Nothing Then Exit Property
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".frm"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json"
 End Property
 
 

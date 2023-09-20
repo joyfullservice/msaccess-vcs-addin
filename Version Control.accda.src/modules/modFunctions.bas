@@ -878,6 +878,21 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SwapExtension
+' Author    : Adam Waller
+' Date      : 8/9/2023
+' Purpose   : Return the file path with a different file extension.
+'           : I.e.  c:\test.bas > c:\test.cls
+'---------------------------------------------------------------------------------------
+'
+Public Function SwapExtension(strFilePath As String, strNewExtension As String) As String
+    Dim strCurrentExt As String
+    strCurrentExt = FSO.GetExtensionName(strFilePath)
+    SwapExtension = Left(strFilePath, Len(strFilePath) - Len(strCurrentExt)) & strNewExtension
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : LikeAny
 ' Author    : Adam Waller
 ' Date      : 3/14/2023
