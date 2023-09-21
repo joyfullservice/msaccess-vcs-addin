@@ -453,6 +453,10 @@ Private Sub Tokenize(strSql As String)
         If MatchWhitespace(strMatch) Then
             AddToken ttWhitespace, strMatch
 
+        ' Date literal (Microsoft Access SQL)
+        ElseIf MatchAccessDateLiteral(strMatch) Then
+            AddToken ttQuote, strMatch
+
         ' Single line comment
         ElseIf NextChar("#") Or NextChar("--") Then
             AddToken ttComment, GetTill(vbCrLf, vbLf)
@@ -652,7 +656,7 @@ Private Function GetTill(strStopAt As String, Optional strAltStopAt As String, O
     Perf.OperationStart "GetTill"
 
     ' See if the searched string exists
-    lngPos = InStr(m_lngPos, m_strSql, strStopAt)
+    lngPos = InStr(m_lngPos + 1, m_strSql, strStopAt)
 
     ' Try again using alternate stop
     If lngPos = 0 Then
@@ -998,6 +1002,42 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MatchAccessDateLiteral
+' Author    : Adam Waller
+' Date      : 9/21/2023
+' Purpose   : Returns a matching date literal for Microsoft Access. (I.e. #1/1/2000#)
+'           : Checks for a closing hash, and a date value inside.
+'---------------------------------------------------------------------------------------
+'
+Private Function MatchAccessDateLiteral(ByRef strMatches As String) As Boolean
+
+    Dim lngPos As Long
+    Dim lngLen As Long
+
+    ' See if we start with a hash character...
+    If AscW(Mid$(m_strSql, m_lngPos, 1)) = 35 Then
+
+        ' Check for closing hash character
+        lngPos = InStr(m_lngPos + 1, m_strSql, "#")
+        If lngPos > m_lngPos Then
+            ' We found another hash somewhere down the line.
+            ' See if the distance looks reasonable.
+            lngLen = lngPos - m_lngPos
+            If lngLen < 50 Then
+                ' See if this is a date value
+                If IsDate(Mid$(m_strSql, m_lngPos + 1, lngLen - 1)) Then
+                    ' Appears to be a valid date. Let's go with it.
+                    MatchAccessDateLiteral = True
+                    strMatches = Mid$(m_strSql, m_lngPos, lngLen + 1)
+                End If
+            End If
+        End If
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : MatchNumber
 ' Author    : Adam Waller
 ' Date      : 8/18/2023
@@ -1241,6 +1281,35 @@ Public Sub SelfTest()
         .AppendOnAdd = vbCrLf
         .Add "SELECT"
         .Add "  5 AS `TEST`"
+        .Remove 2
+        strActual = .GetStr
+    End With
+    Debug.Assert (strActual = FormatSQL)
+    If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
+
+
+    ' Test Access date literal with MySQL inline comment
+    Tokenize "SELECT (#1/1/2000#) AS SampleDate # MySQL inline ## comment"
+
+    ' Verify tokens
+    Debug.Assert m_colTokens.Count = 11
+    Debug.Assert VerifyToken(1, ttReservedTopLevel, "SELECT")
+    Debug.Assert VerifyToken(2, ttWhitespace, " ")
+    Debug.Assert VerifyToken(3, ttBoundary, "(")
+    Debug.Assert VerifyToken(4, ttQuote, "#1/1/2000#")
+    Debug.Assert VerifyToken(5, ttBoundary, ")")
+    Debug.Assert VerifyToken(6, ttWhitespace, " ")
+    Debug.Assert VerifyToken(7, ttReserved, "AS")
+    Debug.Assert VerifyToken(8, ttWhitespace, " ")
+    Debug.Assert VerifyToken(9, ttWord, "SampleDate")
+    Debug.Assert VerifyToken(10, ttWhitespace, " ")
+    Debug.Assert VerifyToken(11, ttComment, "# MySQL inline ## comment")
+
+    ' Verify result
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT"
+        .Add "  (#1/1/2000#) AS SampleDate # MySQL inline ## comment"
         .Remove 2
         strActual = .GetStr
     End With
