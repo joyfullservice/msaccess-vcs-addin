@@ -77,7 +77,6 @@ End Sub
 Public Property Get CallStack() As String
 
     Dim lngCallStackPosition As Long
-    Dim strCallStackElement As String
 
     If Not Me.Enabled Then Exit Property
 
