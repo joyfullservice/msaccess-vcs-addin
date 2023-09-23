@@ -499,7 +499,7 @@ End Function
 '           : MyFancyTest      23     2.45
 '---------------------------------------------------------------------------------------
 '
-Public Function ListResult(ByRef strHeading As String _
+Private Function ListResult(ByRef strHeading As String _
                             , ByRef strResult1 As String _
                             , ByRef strResult2 As String _
                             , ByRef lngCol() As Long) As String
@@ -507,7 +507,7 @@ Public Function ListResult(ByRef strHeading As String _
 End Function
 
 
-Public Function ListResultIndent(ByRef strHeading As String _
+Private Function ListResultIndent(ByRef strHeading As String _
                                 , ByRef strResult1 As String _
                                 , ByRef strResult2 As String _
                                 , ByRef lngCol() As Long _
@@ -524,10 +524,9 @@ Public Function ListResultIndent(ByRef strHeading As String _
     Dim RowTotal As Long
     Dim RowPosition As Long
 
-    Dim StrOutput As clsConcat
+    Dim strOutput As clsConcat
 
     On Error Resume Next
-    Perf.OperationStart ModuleName & ".ListResultIndent"
 
     Col1StrArr = FitStringToColumn(strHeading, lngCol(0) - 1, ColumnIndent)
     Col2StrArr = FitStringToColumn(strResult1, lngCol(1) - 1, ColumnIndent)
@@ -539,32 +538,74 @@ Public Function ListResultIndent(ByRef strHeading As String _
 
     RowTotal = MaxValue(Col1Rows, Col2Rows, Col3Rows)
 
-    Set StrOutput = New clsConcat
+    Set strOutput = New clsConcat
 
     For RowPosition = 0 To RowTotal
 
         If Col1Rows >= RowPosition Then
-            StrOutput.Add PadRight(Col1StrArr(RowPosition), lngCol(0))
+            strOutput.Add PadRight(Col1StrArr(RowPosition), lngCol(0))
         Else
-            StrOutput.Add Space$(lngCol(0))
+            strOutput.Add Space$(lngCol(0))
         End If
         If Col2Rows >= RowPosition Then
-            StrOutput.Add PadRight(Col2StrArr(RowPosition), lngCol(1))
+            strOutput.Add PadRight(Col2StrArr(RowPosition), lngCol(1))
         Else
-            StrOutput.Add Space$(lngCol(1))
+            strOutput.Add Space$(lngCol(1))
         End If
         If Col3Rows >= RowPosition Then
-            StrOutput.Add PadRight(Col3StrArr(RowPosition), lngCol(2))
+            strOutput.Add PadRight(Col3StrArr(RowPosition), lngCol(2))
         Else
-            StrOutput.Add Space$(lngCol(2))
+            strOutput.Add Space$(lngCol(2))
         End If
         ' Don't add a new line for the last line; it's handled outside this tool
-        If RowTotal > RowPosition Then StrOutput.Add vbNewLine
+        If RowTotal > RowPosition Then strOutput.Add vbNewLine
 
     Next RowPosition
 
-    ListResultIndent = StrOutput.GetStr
-    Perf.OperationEnd
+    ListResultIndent = strOutput.GetStr
+End Function
+
+
+Private Function MaxValue(ParamArray ValueIn() As Variant) As Variant
+    Dim Output As Variant
+    Dim ArrayPosition As Long
+
+    ' Load the first value in to compare to.
+    Output = ValueIn(LBound(ValueIn))
+
+    For ArrayPosition = LBound(ValueIn) + 1 To UBound(ValueIn)
+        If Output < ValueIn(ArrayPosition) Then Output = ValueIn(ArrayPosition)
+    Next ArrayPosition
+
+    MaxValue = Output
+End Function
+
+
+Private Function RoundUp(ByVal Value As Double) As Long
+    Dim lngVal As Long
+    Dim deltaValue As Double
+
+    lngVal = CLng(Value)
+    deltaValue = lngVal - Value
+
+    If deltaValue < 0 Then
+        RoundUp = lngVal + 1
+    Else
+        RoundUp = lngVal
+    End If
+End Function
+Private Function RoundDown(ByVal Value As Double) As Long
+    Dim lngVal As Long
+    Dim deltaValue As Double
+
+    lngVal = CLng(Value)
+    deltaValue = lngVal - Value
+
+    If deltaValue <= 0 Then
+        RoundDown = lngVal
+    Else
+        RoundDown = lngVal - 1
+    End If
 End Function
 
 
@@ -575,7 +616,7 @@ End Function
 ' Purpose   : Takes in a long string and returns an array of strings ColumnWidth wide.
 '---------------------------------------------------------------------------------------
 '
-Public Function FitStringToColumn(ByRef LongString As String _
+Private Function FitStringToColumn(ByRef LongString As String _
                                 , Optional ByRef ColumnWidth As Long = 200 _
                                 , Optional ByRef ColumnIndent As Long = 0) As String()
 
@@ -589,7 +630,6 @@ Public Function FitStringToColumn(ByRef LongString As String _
     Dim ColumnWidthInternal As Long
 
     On Error Resume Next
-    Perf.OperationStart ModuleName & ".FitStringToColumn"
     If Len(LongString) = 0 Then Exit Function
     ColumnWidthInternal = ColumnWidth
     If ColumnWidthInternal <= 0 Then ColumnWidthInternal = 1
@@ -615,13 +655,11 @@ Public Function FitStringToColumn(ByRef LongString As String _
     Next ArrPosition
 
 Exit_Here:
-    CatchAny eelError, "Could not fit to column", Perf.CurrentOperationName
     FitStringToColumn = StrArr
-    Perf.OperationEnd
 End Function
 
 
-Public Function FitStringToWidth(ByRef LongString As String _
+Private Function FitStringToWidth(ByRef LongString As String _
                                 , Optional ByRef MaxWidth As Long = 200 _
                                 , Optional ByRef DesiredWidth As Long = 75) As String
     ' Fits a string to a message box if it's wider than MaxWidth
@@ -633,10 +671,8 @@ Public Function FitStringToWidth(ByRef LongString As String _
     Dim StrArrLen As Long ' Length of substring
     Dim StringArr() As String
 
-    Perf.OperationStart "FitStringToWidth"
     StrLen = Len(LongString)
     If StrLen > MaxWidth Then
-        Perf.OperationStart "FitStringToWidth.Resize"
         StringArr = Split(LongString, vbNewLine, , vbTextCompare)
         NewLineCount = UBound(StringArr) - LBound(StringArr)
         Set OutputConcat = New clsConcat
@@ -651,11 +687,9 @@ Public Function FitStringToWidth(ByRef LongString As String _
             Loop
         Next ArrPosition
         FitStringToWidth = OutputConcat.GetStr
-        Perf.OperationEnd
     Else
         FitStringToWidth = LongString
     End If
-    Perf.OperationEnd
 End Function
 
 
@@ -666,7 +700,9 @@ End Function
 ' Purpose   : Pads a string
 '---------------------------------------------------------------------------------------
 '
-Private Function PadRight(strText As String, lngLen As Long, Optional lngMinTrailingSpaces As Long = 1) As String
+Private Function PadRight(strText As String _
+                        , lngLen As Long _
+                        , Optional lngMinTrailingSpaces As Long = 1) As String
 
     Dim strResult As String
     Dim strTrimmed As String
