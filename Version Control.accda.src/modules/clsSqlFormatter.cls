@@ -430,6 +430,7 @@ Private Sub Tokenize(strSql As String)
     Const cstrBreakAfter As String = "LIMIT" & ";;;;"
 
     Dim strMatch As String
+    Dim lngLastPos As Long
 
     ' Reset collection of token items
     Set m_colTokens = New Collection
@@ -539,6 +540,15 @@ Private Sub Tokenize(strSql As String)
 
             End If
 
+        End If
+
+        ' Make sure we don't get stuck on the same position
+        If m_lngPos = lngLastPos Then
+            Log.Error eelError, "Unable tp parse SQL after position " & m_lngPos, ModuleName(Me) & ".Tokenize"
+            AddToken ttUnknown, GetRange(Len(m_strSql) - m_lngPos)
+            Exit Do
+        Else
+            lngLastPos = m_lngPos
         End If
 
     ' Move to next token
