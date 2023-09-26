@@ -38,6 +38,14 @@ Private Const cstrReservedNewline As String = "|LEFT OUTER JOIN|RIGHT OUTER JOIN
 Private Const cstrBoundaries As String = ",;:)(.=<>+-*/!^%|&#"
 Private Const cstrRegExSpecial As String = ".\+*?[^]$(){}=!<>|:-#/"
 
+' SQL Dialects
+Public Enum eSqlDialect
+    esdUnknown
+    esdAccess
+    esdMSSQL
+    esdMySQL
+End Enum
+
 ' Types of lists
 Private Enum eListType
     eltReserved
@@ -69,6 +77,7 @@ End Enum
 Private m_strSql As String
 Private m_colTokens As Collection
 Private m_lngPos As Long
+Private m_intDialect As eSqlDialect
 Private m_varWordCache(1 To 2) As Variant
 
 
@@ -79,7 +88,7 @@ Private m_varWordCache(1 To 2) As Variant
 ' Purpose   : This is the main function used outside the class for SQL formatting.
 '---------------------------------------------------------------------------------------
 '
-Public Function FormatSQL(Optional strSql As String) As String
+Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSqlDialect) As String
 
     Dim lngIndentLevel As Long
     Dim blnNewline As Boolean
@@ -105,6 +114,9 @@ Public Function FormatSQL(Optional strSql As String) As String
 
     Perf.CategoryStart "Format SQL"
     Perf.OperationStart "Formating"
+
+    ' Set SQL dialect
+    m_intDialect = intDialect
 
     ' Tokenize the string, if provided
     If strSql <> vbNullString Then Tokenize strSql
@@ -727,12 +739,22 @@ Private Function GetQuotedString(Optional lngStartOffset As Long = 0) As String
             ' (2) square bracket quoted string (SQL Server) using ]] to escape
             .Add "((\[[^\]]*($|\]))(\][^\]]*($|\]))*)|"
 
-            ' (3) double quoted string using "" or \" to escape
-            .Add "((""[^""\\\\]*(?:\\\\.[^""\\\\]*)*(""|$))+)|"
+            Select Case m_intDialect
+                Case esdMySQL
+                    ' (3) double quoted string using "" or \" to escape
+                    .Add "((""[^""\\\\]*(?:\\\\.[^""\\\\]*)*(""|$))+)|"
 
-            ' (4) single quoted string using '' or \' to escape
-            .Add "((\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*(\'|$))+)"      ' sx',
+                    ' (4) single quoted string using '' or \' to escape
+                    .Add "((\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*(\'|$))+)"      ' sx',
 
+                Case Else
+                    ' (3) double quoted string using "" to escape
+                    .Add "((""[^""]*(""|$))+)|"
+
+                    ' (4) single quoted string using '' to escape
+                    .Add "((\'[^\']*(\'|$))+)"      ' sx',
+
+            End Select
         .Add ")"
         strExp = .GetStr
     End With
