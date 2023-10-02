@@ -720,7 +720,9 @@ End Function
 ' Procedure : GetQuotedString
 ' Author    : Adam Waller
 ' Date      : 8/12/2023
-' Purpose   : Return a quoted string (Applies four possible rules)
+' Purpose   : Return a quoted string (dialect-specific)
+'           : https://stackoverflow.com/q/10573922/4121863
+'           : https://stackoverflow.com/q/9719869/4121863
 '---------------------------------------------------------------------------------------
 '
 Private Function GetQuotedString(Optional lngStartOffset As Long = 0) As String
@@ -733,26 +735,28 @@ Private Function GetQuotedString(Optional lngStartOffset As Long = 0) As String
         ' Build out RegEx expression
         .Add "^("
 
-            ' (1) backtick quoted string using `` to escape
-            .Add "((`[^`]*($|`))+)|"
-
-            ' (2) square bracket quoted string (SQL Server) using ]] to escape
-            .Add "((\[[^\]]*($|\]))(\][^\]]*($|\]))*)|"
-
+            ' Accomodate dialect-specific variants
             Select Case m_intDialect
+
                 Case esdMySQL
-                    ' (3) double quoted string using "" or \" to escape
+                    ' Backtick quoted string using `` to escape
+                    .Add "((`[^`]*($|`))+)|"
+
+                    ' Double quoted string using "" or \" to escape
                     .Add "((""[^""\\\\]*(?:\\\\.[^""\\\\]*)*(""|$))+)|"
 
-                    ' (4) single quoted string using '' or \' to escape
-                    .Add "((\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*(\'|$))+)"      ' sx',
+                    ' Single quoted string using '' or \' to escape
+                    .Add "((\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*(\'|$))+)"
 
                 Case Else
-                    ' (3) double quoted string using "" to escape
+                    ' Square bracket quoted string (SQL Server) using ]] to escape
+                    .Add "((\[[^\]]*($|\]))(\][^\]]*($|\]))*)|"
+
+                    ' Double quoted string using "" to escape
                     .Add "((""[^""]*(""|$))+)|"
 
-                    ' (4) single quoted string using '' to escape
-                    .Add "((\'[^\']*(\'|$))+)"      ' sx',
+                    ' Single quoted string using '' to escape
+                    .Add "((\'[^\']*(\'|$))+)"
 
             End Select
         .Add ")"
