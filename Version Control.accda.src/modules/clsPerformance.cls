@@ -96,6 +96,7 @@ Public Property Get CallStack() As String
 
 End Property
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : CurrentCategoryName
 ' Author    : hecon5
@@ -515,10 +516,10 @@ End Function
 '           : e                12     3.23
 '---------------------------------------------------------------------------------------
 '
-Private Function ListResult(strHeading As String _
-                            , strResult1 As String _
-                            , strResult2 As String _
-                            , lngCol() As Long) As String
+Private Function ListResult(strHeading As String, _
+                            strResult1 As String, _
+                            strResult2 As String, _
+                            lngCol() As Long) As String
 
     Dim strRowHeading As String
     Dim lngPos As Long
@@ -560,9 +561,9 @@ End Function
 ' Purpose   : Pads a string
 '---------------------------------------------------------------------------------------
 '
-Private Function PadRight(strText As String _
-                        , lngLen As Long _ 
-                        , Optional lngMinTrailingSpaces As Long = 1) As String
+Private Function PadRight(strText As String, _
+                        lngLen As Long, _
+                        Optional lngMinTrailingSpaces As Long = 1) As String
 
     Dim strResult As String
     Dim strTrimmed As String
