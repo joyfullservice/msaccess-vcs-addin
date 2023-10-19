@@ -618,7 +618,11 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
         Set objXml = New MSXML2.DOMDocument60
     End If
 
-    objXml.LoadXML strFile
+    If objXml.LoadXML(strFile) = False Then
+        Log.Error eelError, _
+                "Unable to parse the XML for file '" & strPath & "'. This may be due to containing malformed XML. Check the source XML document for validity. In some cases, this may be due to table data containing characters not allowed in XML documents.", ModuleName & ".SanitizeXML"
+        Exit Function
+    End If
 
     ' Determine if it's a table data with schema
     For Each objNode In objXml.SelectNodes("/root/dataroot")
