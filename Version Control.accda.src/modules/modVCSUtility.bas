@@ -794,7 +794,7 @@ Public Sub CheckGitFiles()
     Dim strFile As String
     Dim blnAdded As Boolean
 
-    strPath = CurrentProject.Path & PathSep
+    strPath = Options.GetExportFolder
     If FSO.FolderExists(strPath & ".git") Then
 
         ' gitignore file
