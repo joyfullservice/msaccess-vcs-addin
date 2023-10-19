@@ -96,7 +96,13 @@ Public Property Get CallStack() As String
 
 End Property
 
-
+'---------------------------------------------------------------------------------------
+' Procedure : CurrentCategoryName
+' Author    : hecon5
+' Date      : 10/3/2023
+' Purpose   : Return the current category name.
+'---------------------------------------------------------------------------------------
+'
 Public Property Get CurrentCategoryName() As String
     CurrentCategoryName = this.CategoryName
 End Property
@@ -132,11 +138,6 @@ Public Sub CategoryEnd(Optional lngCount As Long = 1)
         this.CategoryName = vbNullString
     End If
 End Sub
-
-
-Public Property Get CurrentOperationName() As String
-    CurrentOperationName = this.OperationName
-End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -219,6 +220,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CurrentOperationName
+' Author    : hecon5
+' Date      : 10/3/2023
+' Purpose   : Return the current operation's name.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get CurrentOperationName() As String
+    CurrentOperationName = this.OperationName
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DigitsAfterDecimal
 ' Author    : Eugen Albiker
 ' Date      : 16/3/2021
@@ -273,7 +286,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub StartTimer(dItems As Dictionary, strName As String)
+
     Dim cItem As clsPerformanceItem
+
     If Not dItems.Exists(strName) Then
         Set cItem = New clsPerformanceItem
         dItems.Add strName, cItem
@@ -455,9 +470,6 @@ Public Function GetReports() As String
                 curTotal = curTotal + this.Operations(varKey).Total
             Next varKey
             .Add strSpacer
-            .Add ListResult("TOTALS:", CStr(dblCount), _
-                Format(curTotal, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
-            .Add strSpacer
             If Not this.Overall Is Nothing Then
                 .Add ListResult("Other Operations", vbNullString, _
                     Format(this.Overall.Total - curTotal, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
@@ -493,202 +505,51 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
 ' Purpose   : List the result of a test in a fixed width format. The result strings
-'           : are positioned at the number of characters specified.
+'           : are positioned at the number of characters specified. If the heading size
+'           : exceeds the width of the column, the text will be wrapped.
 '           : I.e:
 '           : MyFancyTest      23     2.45
+'           : My very long nam
+'           : e that I probabl
+'           : y should condens
+'           : e                12     3.23
 '---------------------------------------------------------------------------------------
 '
-Private Function ListResult(ByRef strHeading As String _
-                            , ByRef strResult1 As String _
-                            , ByRef strResult2 As String _
-                            , ByRef lngCol() As Long) As String
-    ListResult = ListResultIndent(strHeading, strResult1, strResult2, lngCol)
-End Function
+Private Function ListResult(strHeading As String _
+                            , strResult1 As String _
+                            , strResult2 As String _
+                            , lngCol() As Long) As String
 
+    Dim strRowHeading As String
+    Dim lngPos As Long
+    Dim intMax As Integer
 
-Private Function ListResultIndent(ByRef strHeading As String _
-                                , ByRef strResult1 As String _
-                                , ByRef strResult2 As String _
-                                , ByRef lngCol() As Long _
-                                , Optional ByVal ColumnIndent As Long = 2) As String
+    ' Wrap at one character less than the column width
+    intMax = lngCol(0) - 1
 
-    Dim Col1StrArr() As String
-    Dim Col2StrArr() As String
-    Dim Col3StrArr() As String
+    ' Use concatenation class in case we need to deal with line wrapping
+    With New clsConcat
 
-    Dim Col1Rows As Long
-    Dim Col2Rows As Long
-    Dim Col3Rows As Long
-
-    Dim RowTotal As Long
-    Dim RowPosition As Long
-
-    Dim strOutput As clsConcat
-
-    On Error Resume Next
-
-    Col1StrArr = FitStringToColumn(strHeading, lngCol(0) - 1, ColumnIndent)
-    Col2StrArr = FitStringToColumn(strResult1, lngCol(1) - 1, ColumnIndent)
-    Col3StrArr = FitStringToColumn(strResult2, lngCol(2) - 1, ColumnIndent)
-
-    Col1Rows = UBound(Col1StrArr)
-    Col2Rows = UBound(Col2StrArr)
-    Col3Rows = UBound(Col3StrArr)
-
-    RowTotal = MaxValue(Col1Rows, Col2Rows, Col3Rows)
-
-    Set strOutput = New clsConcat
-
-    For RowPosition = 0 To RowTotal
-
-        If Col1Rows >= RowPosition Then
-            strOutput.Add PadRight(Col1StrArr(RowPosition), lngCol(0))
-        Else
-            strOutput.Add Space$(lngCol(0))
-        End If
-        If Col2Rows >= RowPosition Then
-            strOutput.Add PadRight(Col2StrArr(RowPosition), lngCol(1))
-        Else
-            strOutput.Add Space$(lngCol(1))
-        End If
-        If Col3Rows >= RowPosition Then
-            strOutput.Add PadRight(Col3StrArr(RowPosition), lngCol(2))
-        Else
-            strOutput.Add Space$(lngCol(2))
-        End If
-        ' Don't add a new line for the last line; it's handled outside this tool
-        If RowTotal > RowPosition Then strOutput.Add vbNewLine
-
-    Next RowPosition
-
-    ListResultIndent = strOutput.GetStr
-End Function
-
-
-Private Function MaxValue(ParamArray ValueIn() As Variant) As Variant
-    Dim Output As Variant
-    Dim ArrayPosition As Long
-
-    ' Load the first value in to compare to.
-    Output = ValueIn(LBound(ValueIn))
-
-    For ArrayPosition = LBound(ValueIn) + 1 To UBound(ValueIn)
-        If Output < ValueIn(ArrayPosition) Then Output = ValueIn(ArrayPosition)
-    Next ArrayPosition
-
-    MaxValue = Output
-End Function
-
-
-Private Function RoundUp(ByVal Value As Double) As Long
-    Dim lngVal As Long
-    Dim deltaValue As Double
-
-    lngVal = CLng(Value)
-    deltaValue = lngVal - Value
-
-    If deltaValue < 0 Then
-        RoundUp = lngVal + 1
-    Else
-        RoundUp = lngVal
-    End If
-End Function
-Private Function RoundDown(ByVal Value As Double) As Long
-    Dim lngVal As Long
-    Dim deltaValue As Double
-
-    lngVal = CLng(Value)
-    deltaValue = lngVal - Value
-
-    If deltaValue <= 0 Then
-        RoundDown = lngVal
-    Else
-        RoundDown = lngVal - 1
-    End If
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : FitStringToColumn
-' Author    : hecon5
-' Date      : May 18, 2022
-' Purpose   : Takes in a long string and returns an array of strings ColumnWidth wide.
-'---------------------------------------------------------------------------------------
-'
-Private Function FitStringToColumn(ByRef LongString As String _
-                                , Optional ByRef ColumnWidth As Long = 200 _
-                                , Optional ByRef ColumnIndent As Long = 0) As String()
-
-    Dim RowTotal As Long
-    Dim StrLen As Long
-    Dim StrIndentedLen As Long
-    Dim StrTextWidth As Long
-    Dim StrPosition As Long
-    Dim ArrPosition As Long
-    Dim StrArr() As String
-    Dim ColumnWidthInternal As Long
-
-    On Error Resume Next
-    If Len(LongString) = 0 Then Exit Function
-    ColumnWidthInternal = ColumnWidth
-    If ColumnWidthInternal <= 0 Then ColumnWidthInternal = 1
-
-    StrTextWidth = ColumnWidthInternal - ColumnIndent
-
-    StrLen = Len(LongString)
-    RowTotal = RoundUp((StrLen - ColumnWidthInternal) / StrTextWidth) + 1
-    If RowTotal < 1 Then RowTotal = 1
-    StrPosition = 1
-
-    ReDim StrArr(0 To (RowTotal - 1))
-
-    ' The first row is longer.
-    StrArr(ArrPosition) = Mid$(LongString, StrPosition, ColumnWidthInternal)
-    If RowTotal <= 1 Then GoTo Exit_Here ' Don't do the rest if there's only one row...
-
-    StrPosition = StrPosition + ColumnWidthInternal
-
-    For ArrPosition = 1 To (RowTotal - 1)
-        StrArr(ArrPosition) = Space$(ColumnIndent) & Mid$(LongString, StrPosition, StrTextWidth)
-        StrPosition = StrPosition + StrTextWidth
-    Next ArrPosition
-
-Exit_Here:
-    FitStringToColumn = StrArr
-End Function
-
-
-Private Function FitStringToWidth(ByRef LongString As String _
-                                , Optional ByRef MaxWidth As Long = 200 _
-                                , Optional ByRef DesiredWidth As Long = 75) As String
-    ' Fits a string to a message box if it's wider than MaxWidth
-    Dim OutputConcat As clsConcat
-    Dim StrPosition As Long
-    Dim StrLen As Long ' Length of total string
-    Dim NewLineCount As Long ' Number of newlines
-    Dim ArrPosition As Long
-    Dim StrArrLen As Long ' Length of substring
-    Dim StringArr() As String
-
-    StrLen = Len(LongString)
-    If StrLen > MaxWidth Then
-        StringArr = Split(LongString, vbNewLine, , vbTextCompare)
-        NewLineCount = UBound(StringArr) - LBound(StringArr)
-        Set OutputConcat = New clsConcat
-        For ArrPosition = 0 To NewLineCount
-            StrPosition = 1
-            StrArrLen = Len(StringArr(ArrPosition))
-            If ArrPosition > 0 Then OutputConcat.Add vbNewLine
-            Do While StrPosition < StrArrLen
-                If StrPosition > 1 Then OutputConcat.Add vbNewLine
-                OutputConcat.Add Mid$(StringArr(ArrPosition), StrPosition, DesiredWidth)
-                StrPosition = StrPosition + DesiredWidth
+        ' Check for size overflow on heading. (Wrap on multiple lines)
+        strRowHeading = strHeading
+        If Len(strRowHeading) > intMax Then
+            lngPos = 1
+            Do While lngPos + intMax <= Len(strHeading)
+                ' Add segment and linebreak
+                .Add Mid$(strHeading, lngPos, intMax), " ", vbCrLf
+                lngPos = lngPos + intMax
             Loop
-        Next ArrPosition
-        FitStringToWidth = OutputConcat.GetStr
-    Else
-        FitStringToWidth = LongString
-    End If
+            ' Get last heading line to use with results
+            strRowHeading = Mid$(strHeading, lngPos)
+        End If
+
+        ' Display heading and amounts
+        .Add PadRight(strRowHeading, lngCol(0))
+        .Add PadRight(strResult1, lngCol(1))
+        .Add strResult2
+        ListResult = .GetStr
+    End With
+
 End Function
 
 
@@ -700,7 +561,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function PadRight(strText As String _
-                        , lngLen As Long _
+                        , lngLen As Long _ 
                         , Optional lngMinTrailingSpaces As Long = 1) As String
 
     Dim strResult As String
@@ -746,7 +607,7 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
     ' Build our list of records
     For Each varKey In dItems.Keys
         ' Create a record like this: "00062840.170000|Export Form Objects       ..."
-        strRecord = Format(dItems(varKey).Total, "00000000.000000") & "|" & PadRight(CStr(varKey), 100)
+        strRecord = Format(dItems(varKey).Total, "00000000.000000") & "|" & PadRight(CStr(varKey), 255)
         ' Add to array.
         varItems(lngCnt) = strRecord
         ' Increment counter for array
