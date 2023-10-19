@@ -394,8 +394,12 @@ Private Sub CloseBlock()
 
     ' Skip if we are not using themes for this control (UseTheme=0)
     ' (Applies to "CommandButton", "Tab", "ToggleButton")
-    If dBlock.Exists("UseTheme") Then Exit Sub
-
+    If dBlock.Exists("UseTheme") Then 
+		' Remove this block
+        m_colBlocks.Remove m_colBlocks.Count
+		Exit Sub
+	End If
+	
     ' Build array of base properties
     varBase = Array("Back", "AlternateBack", "Border", _
             "Fore", "Gridline", "HoverFore", _
