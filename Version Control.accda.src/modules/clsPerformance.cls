@@ -474,15 +474,49 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
 ' Purpose   : List the result of a test in a fixed width format. The result strings
-'           : are positioned at the number of characters specified.
+'           : are positioned at the number of characters specified. If the heading size
+'           : exceeds the width of the column, the text will be wrapped.
 '           : I.e:
 '           : MyFancyTest      23     2.45
+'           : My very long nam
+'           : e that I probabl
+'           : y should condens
+'           : e                12     3.23
 '---------------------------------------------------------------------------------------
 '
 Private Function ListResult(strHeading As String, strResult1 As String, strResult2 As String, _
     lngCol() As Long) As String
-    ListResult = PadRight(strHeading, lngCol(0)) & _
-        PadRight(strResult1, lngCol(1)) & strResult2
+
+    Dim strRowHeading As String
+    Dim lngPos As Long
+    Dim intMax As Integer
+
+    ' Wrap at one character less than the column width
+    intMax = lngCol(0) - 1
+
+    ' Use concatenation class in case we need to deal with line wrapping
+    With New clsConcat
+
+        ' Check for size overflow on heading. (Wrap on multiple lines)
+        strRowHeading = strHeading
+        If Len(strRowHeading) > intMax Then
+            lngPos = 1
+            Do While lngPos + intMax <= Len(strHeading)
+                ' Add segment and linebreak
+                .Add Mid$(strHeading, lngPos, intMax), " ", vbCrLf
+                lngPos = lngPos + intMax
+            Loop
+            ' Get last heading line to use with results
+            strRowHeading = Mid$(strHeading, lngPos)
+        End If
+
+        ' Display heading and amounts
+        .Add PadRight(strRowHeading, lngCol(0))
+        .Add PadRight(strResult1, lngCol(1))
+        .Add strResult2
+        ListResult = .GetStr
+    End With
+
 End Function
 
 
@@ -538,7 +572,7 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
     ' Build our list of records
     For Each varKey In dItems.Keys
         ' Create a record like this: "00062840.170000|Export Form Objects       ..."
-        strRecord = Format(dItems(varKey).Total, "00000000.000000") & "|" & PadRight(CStr(varKey), 100)
+        strRecord = Format(dItems(varKey).Total, "00000000.000000") & "|" & PadRight(CStr(varKey), 255)
         ' Add to array.
         varItems(lngCnt) = strRecord
         ' Increment counter for array
