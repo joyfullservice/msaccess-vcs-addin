@@ -118,11 +118,12 @@ End Sub
 ' Purpose   : Initiate a full build from source
 '---------------------------------------------------------------------------------------
 '
-Public Sub Build()
+Public Sub Build(Optional strSourceFolder As String)
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     With Form_frmVCSMain
         ' Make sure we are doing a full build.
         If Not .chkFullBuild Then .chkFullBuild = True
+        .strSourcePath = strSourceFolder
         .cmdBuild_Click
     End With
 End Sub
@@ -425,6 +426,7 @@ Public Sub ActivateHook()
         MsgBox "Error activating the hook", vbCritical, "Unable to activate hook"
     End If
 End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Class_Initialize

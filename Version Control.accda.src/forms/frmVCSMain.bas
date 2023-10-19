@@ -16,10 +16,10 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =33
-    Left =3225
-    Top =2430
-    Right =18945
-    Bottom =14175
+    Left =20761
+    Top =2250
+    Right =-29055
+    Bottom =13995
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -1749,6 +1749,9 @@ Public objSingleObject As AccessObject
 ' (The Log object has already been reset at this point, so we can't use Log.LogFilePath.)
 Public strLastLogFilePath As String
 
+' Use this property to set the path to the source files (such as a build triggered from the API)
+Public strSourcePath As String
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdBuild_Click
@@ -1760,11 +1763,6 @@ Public strLastLogFilePath As String
 Public Sub cmdBuild_Click()
 
     Dim strFolder As String
-    Dim strMsg(0 To 2) As String
-    Dim intChoice As VbMsgBoxResult
-
-    DoCmd.Hourglass True
-    DoEvents
 
     ' Make sure we use the add-in to build the add-in.
     If CodeProject.FullName = CurrentProject.FullName Then
@@ -1773,6 +1771,43 @@ Public Sub cmdBuild_Click()
         DoCmd.Hourglass False
         Exit Sub
     End If
+
+    ' Get source files folder
+    If Len(Me.strSourcePath) Then
+        ' Use specified build folder
+        strFolder = Me.strSourcePath
+    Else
+        ' Attempt to get the source folder from the current database, or from
+        ' a folder picker dialog.
+        strFolder = GetSourceFolder
+        ' Exit out of build if the user cancelled any of the confirmations.
+        If strFolder = vbNullString Then Exit Sub
+    End If
+
+    ' Build project using the selected source folder
+    ' (Use a timer so we can release the reference to this form before beginning the
+    '  build process, just in case we need to import a form with the same name.)
+    If strFolder <> vbNullString Then SetTimer "Build", strFolder, chkFullBuild
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSourceFolder
+' Author    : Adam Waller
+' Date      : 10/19/2023
+' Purpose   : Return the source files folder from either the currently open database
+'           : or from a folder picker dialog. (Returns an empty string if the user
+'           : cancels the selection.)
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSourceFolder() As String
+
+    Dim strMsg(0 To 2) As String
+    Dim intChoice As VbMsgBoxResult
+
+    DoCmd.Hourglass True
+    DoEvents
 
     ' Close the current database if it is currently open.
     If DatabaseFileOpen Then
@@ -1795,18 +1830,18 @@ Public Sub cmdBuild_Click()
             End If
             If intChoice = vbYes Then
                 ' Rebuild the open project
-                strFolder = Options.GetExportFolder
+                GetSourceFolder = Options.GetExportFolder
             ElseIf intChoice = vbCancel Then
                 ' Canceled out of build option.
                 DoCmd.Hourglass False
-                Exit Sub
+                Exit Function
             End If
         End If
     End If
 
     ' If we aren't doing the current database, then prompt user to find a folder
     ' with source files to use for the build.
-    If strFolder = vbNullString Then
+    If GetSourceFolder = vbNullString Then
 
         ' Show a folder picker to select the file with source code.
         DoCmd.Hourglass False
@@ -1820,26 +1855,21 @@ Public Sub cmdBuild_Click()
                 ' Selected a folder
                 If FolderHasVcsOptionsFile(.SelectedItems(1)) Then
                     ' Has source files
-                    strFolder = .SelectedItems(1) & PathSep
+                    GetSourceFolder = .SelectedItems(1) & PathSep
                     DoCmd.Hourglass True
                 Else
                     MsgBox2 "Source files not found", "Required source files were not found in this folder.", _
                         "You selected: " & .SelectedItems(1), vbExclamation
-                    Exit Sub
+                    Exit Function
                 End If
             Else
                 ' Canceled dialog
-                Exit Sub
+                Exit Function
             End If
         End With
     End If
 
-    ' Build project using the selected source folder
-    ' (Use a timer so we can release the reference to this form before beginning the
-    '  build process, just in case we need to import a form with the same name.)
-    If strFolder <> vbNullString Then SetTimer "Build", strFolder, chkFullBuild
-
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------

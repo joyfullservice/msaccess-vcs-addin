@@ -44,7 +44,7 @@ End Enum
 '           :  Access add-in.)
 '---------------------------------------------------------------------------------------
 '
-Public Function HandleRibbonCommand(strCommand As String) As Boolean
+Public Function HandleRibbonCommand(strCommand As String, Optional strArgument As String) As Boolean
     ' The function is called by Application.Run which can be re-entrant but we really
     ' don't want it to be since that'd cause errors. To avoid this, we will ignore any
     ' commands while the current command is running.
@@ -62,17 +62,21 @@ Public Function HandleRibbonCommand(strCommand As String) As Boolean
     ' Make sure we are not attempting to run this from the current database when making
     ' changes to the add-in itself. (It will re-run the command through the add-in.)
     If RunningOnLocal() Then
-        RunInAddIn "HandleRibbonCommand", True, strCommand
+        RunInAddIn "HandleRibbonCommand", True, strCommand, strArgument
         GoTo CleanUp
     End If
 
     ' If a function is not found, this will throw an error. It is up to the ribbon
     ' designer to ensure that the control IDs match public procedures in the VCS
-    ' (clsVersionControl) class module. Additional parameters are not supported.
+    ' (clsVersionControl) class module.
     ' For example, to run VCS.Export, the ribbon button ID should be named "btnExport"
 
     ' Trim off control ID prefix when calling command
-    CallByName VCS, Mid(strCommand, 4), VbMethod
+    If Len(strArgument) Then
+        CallByName VCS, Mid(strCommand, 4), VbMethod, strArgument
+    Else
+        CallByName VCS, Mid(strCommand, 4), VbMethod
+    End If
 
 CleanUp:
     IsRunning = False
@@ -310,7 +314,8 @@ Public Function ExampleBuildFromSource()
         ' Set the application interaction level to silent to skip confirmation dialogs.
         Application.Run "MSAccessVCS.SetInteractionMode", 1
         ' Launch the build process (as if we clicked the button on the ribbon)
-        Application.Run "MSAccessVCS.HandleRibbonCommand", "btnBuild"
+        ' Optionally specify a specific folder of source files to build from.
+        Application.Run "MSAccessVCS.HandleRibbonCommand", "btnBuild" ', "c:\path\to\source\folder"
     End If
 
 End Function
