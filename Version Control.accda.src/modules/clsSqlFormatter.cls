@@ -38,6 +38,14 @@ Private Const cstrReservedNewline As String = "|LEFT OUTER JOIN|RIGHT OUTER JOIN
 Private Const cstrBoundaries As String = ",;:)(.=<>+-*/!^%|&#"
 Private Const cstrRegExSpecial As String = ".\+*?[^]$(){}=!<>|:-#/"
 
+' SQL Dialects
+Public Enum eSqlDialect
+    esdUnknown
+    esdAccess
+    esdMSSQL
+    esdMySQL
+End Enum
+
 ' Types of lists
 Private Enum eListType
     eltReserved
@@ -69,6 +77,7 @@ End Enum
 Private m_strSql As String
 Private m_colTokens As Collection
 Private m_lngPos As Long
+Private m_intDialect As eSqlDialect
 Private m_varWordCache(1 To 2) As Variant
 
 
@@ -79,7 +88,7 @@ Private m_varWordCache(1 To 2) As Variant
 ' Purpose   : This is the main function used outside the class for SQL formatting.
 '---------------------------------------------------------------------------------------
 '
-Public Function FormatSQL(Optional strSql As String) As String
+Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSqlDialect) As String
 
     Dim lngIndentLevel As Long
     Dim blnNewline As Boolean
@@ -105,6 +114,9 @@ Public Function FormatSQL(Optional strSql As String) As String
 
     Perf.CategoryStart "Format SQL"
     Perf.OperationStart "Formating"
+
+    ' Set SQL dialect
+    m_intDialect = intDialect
 
     ' Tokenize the string, if provided
     If strSql <> vbNullString Then Tokenize strSql
@@ -430,6 +442,7 @@ Private Sub Tokenize(strSql As String)
     Const cstrBreakAfter As String = "LIMIT" & ";;;;"
 
     Dim strMatch As String
+    Dim lngLastPos As Long
 
     ' Reset collection of token items
     Set m_colTokens = New Collection
@@ -539,6 +552,15 @@ Private Sub Tokenize(strSql As String)
 
             End If
 
+        End If
+
+        ' Make sure we don't get stuck on the same position
+        If m_lngPos = lngLastPos Then
+            Log.Error eelError, "Unable tp parse SQL after position " & m_lngPos, ModuleName(Me) & ".Tokenize"
+            AddToken ttUnknown, GetRange(Len(m_strSql) - m_lngPos)
+            Exit Do
+        Else
+            lngLastPos = m_lngPos
         End If
 
     ' Move to next token
@@ -698,7 +720,9 @@ End Function
 ' Procedure : GetQuotedString
 ' Author    : Adam Waller
 ' Date      : 8/12/2023
-' Purpose   : Return a quoted string (Applies four possible rules)
+' Purpose   : Return a quoted string (dialect-specific)
+'           : https://stackoverflow.com/q/10573922/4121863
+'           : https://stackoverflow.com/q/9719869/4121863
 '---------------------------------------------------------------------------------------
 '
 Private Function GetQuotedString(Optional lngStartOffset As Long = 0) As String
@@ -711,18 +735,30 @@ Private Function GetQuotedString(Optional lngStartOffset As Long = 0) As String
         ' Build out RegEx expression
         .Add "^("
 
-            ' (1) backtick quoted string using `` to escape
-            .Add "((`[^`]*($|`))+)|"
+            ' Accomodate dialect-specific variants
+            Select Case m_intDialect
 
-            ' (2) square bracket quoted string (SQL Server) using ]] to escape
-            .Add "((\[[^\]]*($|\]))(\][^\]]*($|\]))*)|"
+                Case esdMySQL
+                    ' Backtick quoted string using `` to escape
+                    .Add "((`[^`]*($|`))+)|"
 
-            ' (3) double quoted string using "" or \" to escape
-            .Add "((""[^""\\\\]*(?:\\\\.[^""\\\\]*)*(""|$))+)|"
+                    ' Double quoted string using "" or \" to escape
+                    .Add "((""[^""\\\\]*(?:\\\\.[^""\\\\]*)*(""|$))+)|"
 
-            ' (4) single quoted string using '' or \' to escape
-            .Add "((\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*(\'|$))+)"      ' sx',
+                    ' Single quoted string using '' or \' to escape
+                    .Add "((\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*(\'|$))+)"
 
+                Case Else
+                    ' Square bracket quoted string (SQL Server) using ]] to escape
+                    .Add "((\[[^\]]*($|\]))(\][^\]]*($|\]))*)|"
+
+                    ' Double quoted string using "" to escape
+                    .Add "((""[^""]*(""|$))+)|"
+
+                    ' Single quoted string using '' to escape
+                    .Add "((\'[^\']*(\'|$))+)"
+
+            End Select
         .Add ")"
         strExp = .GetStr
     End With
