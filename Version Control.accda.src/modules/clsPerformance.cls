@@ -20,6 +20,7 @@ Attribute VB_Exposed = False
 '           : microsecond level. For additional details, see the following link:
 '           : http://www.mendipdatasystems.co.uk/timer-comparison-tests/4594552971
 '---------------------------------------------------------------------------------------
+
 Option Compare Database
 Option Explicit
 
@@ -97,6 +98,18 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CurrentCategoryName
+' Author    : hecon5
+' Date      : 10/3/2023
+' Purpose   : Return the current category name.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get CurrentCategoryName() As String
+    CurrentCategoryName = this.CategoryName
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CategoryStart
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
@@ -105,15 +118,15 @@ End Property
 '
 Public Sub CategoryStart(strName As String)
     If Not Me.Enabled Then Exit Sub
-    If this.CategoryName <> vbNullString Then CategoryEnd
     If this.Categories Is Nothing Then Set this.Categories = New Dictionary
+    If this.CategoryName <> vbNullString Then CategoryEnd
     StartTimer this.Categories, strName
     this.CategoryName = strName
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ComponentEnd
+' Procedure : CategoryEnd
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
 ' Purpose   : End the timing of the active component
@@ -199,10 +212,24 @@ Public Sub OperationEnd(Optional lngCount As Long = 1)
                     this.OperationName = vbNullString
                 End If
             End With
+        Else
+            this.OperationName = vbNullString
         End If
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CurrentOperationName
+' Author    : hecon5
+' Date      : 10/3/2023
+' Purpose   : Return the current operation's name.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get CurrentOperationName() As String
+    CurrentOperationName = this.OperationName
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -260,7 +287,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub StartTimer(dItems As Dictionary, strName As String)
+
     Dim cItem As clsPerformanceItem
+
     If Not dItems.Exists(strName) Then
         Set cItem = New clsPerformanceItem
         dItems.Add strName, cItem
@@ -330,6 +359,9 @@ Public Sub ResumeTiming()
 
     ' Resume current operation
     If this.OperationName <> vbNullString Then StartTimer this.Operations, this.OperationName
+
+    ' Resume current Category
+    If this.CategoryName <> vbNullString Then StartTimer this.Categories, this.CategoryName
 
 End Sub
 
@@ -484,8 +516,10 @@ End Function
 '           : e                12     3.23
 '---------------------------------------------------------------------------------------
 '
-Private Function ListResult(strHeading As String, strResult1 As String, strResult2 As String, _
-    lngCol() As Long) As String
+Private Function ListResult(strHeading As String, _
+                            strResult1 As String, _
+                            strResult2 As String, _
+                            lngCol() As Long) As String
 
     Dim strRowHeading As String
     Dim lngPos As Long
@@ -527,7 +561,9 @@ End Function
 ' Purpose   : Pads a string
 '---------------------------------------------------------------------------------------
 '
-Private Function PadRight(strText As String, lngLen As Long, Optional lngMinTrailingSpaces As Long = 1) As String
+Private Function PadRight(strText As String, _
+                        lngLen As Long, _
+                        Optional lngMinTrailingSpaces As Long = 1) As String
 
     Dim strResult As String
     Dim strTrimmed As String
