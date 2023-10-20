@@ -9,6 +9,7 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+Private Const ModuleName As String = "modErrorHandling"
 
 Private Type udtThis
     blnInError As Boolean   ' Monitor error state
@@ -41,20 +42,22 @@ End Function
 ' Purpose   : Log any unhandled error condition, also breaking code execution if that
 '           : option is currently set. (Run this before any ON ERROR directive which
 '           : will siently reset any current VBA error condition.)
+'
+' Example   : See Sub `CatchTest` for example use.
+'
 '---------------------------------------------------------------------------------------
 '
-Public Sub LogUnhandledErrors()
-
-    Dim blnBreak As Boolean
+Public Sub LogUnhandledErrors(Optional ByRef CallingFunction As String = vbNullString)
 
     ' Check for any unhandled errors
     If (Err.Number <> 0) And Not this.blnInError Then
 
-        ' Don't reference the property this till we have loaded the options.
-        If OptionsLoaded Then blnBreak = Options.BreakOnError
+        this.blnInError = True ' Set flag so we don't create a loop while logging the error
 
+        ' With the above flag, options will load in background and we don't depend on
+        ' flags outside of this routine.
         ' Check current BreakOnError mode
-        If blnBreak Then
+        If Options.BreakOnError Then
             ' Stop the code here so we can investigate the source of the error.
             Debug.Print "Error " & Err.Number & ": " & Err.Description
             Stop
@@ -81,19 +84,47 @@ Public Sub LogUnhandledErrors()
             '===========================================================================
         Else
             ' Log otherwise unhandled error
-            If Not Log(False) Is Nothing Then
-                ' Set flag so we don't create a loop while logging the error
-                this.blnInError = True
-                ' We don't know the procedure that it originated from, but we should at least
-                ' log that the error occurred. A review of the log file may help identify the source.
-                Log.Error eelError, "Unhandled error, likely before `On Error` directive", "Unknown"
-                this.blnInError = False
-            End If
+            ' We don't know the procedure that it originated from, but we should at least
+            ' log that the error occurred. A review of the log file may help identify the source.
+            Log.Error eelError, "Unhandled error, likely before `On Error` directive", CallingFunction & ".Unknown.LogUnhandledErrors"
         End If
+        this.blnInError = False
     End If
 
 End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : CatchTest
+' Author    : hecon5
+' Date      : 10/20/2023
+' Purpose   : Validates that Catch operates correctly and that LogUnhandledErrors
+'           : doesn't create an infinite loop whether or not log exists.
+'           :
+'           : To use, run normally, after loading options / other core dependancies.
+'           : Then Stop the code (in VBA IDE) and then run again. Stopping code execution
+'           :
+'---------------------------------------------------------------------------------------
+'
+Public Sub CatchTest()
+
+    ' Specifiying a Const FunctionName allows copy/paste code and having the wrong FunctionName
+    ' names if (when) they change.
+    Const FunctionName As String = ModuleName & ".CatchTest"
+
+    On Error Resume Next ' Clear out any errors that may happen, and continue on when errors happen.
+    Err.Raise 24601, "Pre Log Test"
+
+    ' This is the "standard" way of catching errors without losing them.
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+
+    ' "Pretend" code tossing an error.
+    Err.Raise 24602, "Post Log Test"
+    ' Checking for any issues post code execution.
+    CatchAny eelError, "Catch Test Validation", FunctionName
+
+End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Catch
