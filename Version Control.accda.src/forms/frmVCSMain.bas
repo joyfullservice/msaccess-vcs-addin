@@ -2138,7 +2138,13 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub AutoClose()
-    Me.TimerInterval = 2000
+    'The procedure may be called when the form has been closed.
+    'In this case, a VBA error may occur, so we check if the
+    'form is loaded before setting the property. We do not use
+    'the Me.Name because that would be also an error.
+    If IsLoaded(acForm, "frmVCSMain", False) Then
+        Me.TimerInterval = 2000
+    End If
 End Sub
 
 
