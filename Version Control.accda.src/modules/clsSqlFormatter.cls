@@ -82,7 +82,7 @@ Private m_varWordCache(1 To 2) As Variant
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Format
+' Procedure : FormatSQL
 ' Author    : Adam Waller
 ' Date      : 4/1/2020
 ' Purpose   : This is the main function used outside the class for SQL formatting.
@@ -1214,6 +1214,12 @@ End Function
 '
 Private Function GetNextTokenID(lngCurrentToken As Long, Optional intExceptType As eTokenTypes) As Long
     Dim intToken As Integer
+
+    If lngCurrentToken + 1 > m_colTokens.Count Then
+        GetNextTokenID = lngCurrentToken + 1
+        Exit Function
+    End If
+
     For intToken = lngCurrentToken + 1 To m_colTokens.Count
         If m_colTokens(intToken)(0) <> intExceptType Then
             GetNextTokenID = intToken
