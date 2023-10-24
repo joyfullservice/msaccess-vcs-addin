@@ -575,6 +575,36 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ExportVbComponent
+' Author    : Adam Waller
+' Date      : 5/26/2021
+' Purpose   : Export the code module VB component and convert to UTF-8
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportCodeModule(strName As String, strFile As String)
+
+    Dim strTempFile As String
+    Dim strContent As String
+
+    Perf.OperationStart "Export VBE Module"
+
+    ' Export to a temp file so we can convert to UTF-8 encoding
+    strTempFile = GetTempFile
+    CurrentVBProject.VBComponents(strName).Export strFile
+
+    ' Sanitize the VBA code while reading the temp file
+    strContent = SanitizeVBA(ReadFile(strTempFile, GetSystemEncoding))
+
+    ' Write the content as UTF-8 to the final destination
+    WriteFile strContent, strFile
+    DeleteFile strTempFile
+
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RemoveNonBuiltInReferences
 ' Author    : Adam Waller
 ' Date      : 10/20/2020

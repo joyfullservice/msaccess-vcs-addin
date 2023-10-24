@@ -42,17 +42,11 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
-    Dim strTempFile As String
-    Dim strContent As String
     Dim strExt As String
     Dim strAlternateFile As String
 
-    ' Export to temp file and convert to UTF-8 encoding
-    strTempFile = GetTempFile
-    ExportVbComponent strTempFile
-    strContent = SanitizeVBA(ReadFile(strTempFile, GetSystemEncoding))
-    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
-    DeleteFile strTempFile
+    ' Export as sanitized UTF-8 file
+    ExportCodeModule m_Module.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
 
     ' Remove any file with the same name but alternate extension
     strExt = IIf(GetExtension = ".bas", ".cls", ".bas")
@@ -240,20 +234,6 @@ Private Sub IDbComponent_Merge(strFile As String)
     Else
         VCSIndex.Remove Me, strFile
     End If
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ExportVbComponent
-' Author    : Adam Waller
-' Date      : 5/26/2021
-' Purpose   : Export the code module VB component
-'---------------------------------------------------------------------------------------
-'
-Private Sub ExportVbComponent(strFile As String)
-    Perf.OperationStart "Export VBE Module"
-    CurrentVBProject.VBComponents(m_Module.Name).Export strFile
-    Perf.OperationEnd
 End Sub
 
 
