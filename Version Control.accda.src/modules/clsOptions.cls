@@ -32,6 +32,7 @@ Public SaveQuerySQL As Boolean
 Public FormatSQL As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
 Public SaveTableSQL As Boolean
+Public SplitLayoutFromVBA As Boolean
 Public StripPublishOption As Boolean
 Public SanitizeColors As eSanitizeLevel
 Public SanitizeLevel As eSanitizeLevel
@@ -78,6 +79,7 @@ Public Sub LoadDefaults()
         .FormatSQL = True
         .ForceImportOriginalQuerySQL = False
         .SaveTableSQL = True
+        .SplitLayoutFromVBA = True
         .StripPublishOption = True
         .SanitizeLevel = eslStandard
         .SanitizeColors = eslMinimal
@@ -568,6 +570,7 @@ Private Sub Class_Initialize()
         .Add "FormatSQL"
         .Add "ForceImportOriginalQuerySQL"
         .Add "SaveTableSQL"
+        .Add "SplitLayoutFromVBA"
         .Add "StripPublishOption"
         .Add "SanitizeColors"
         .Add "SanitizeLevel"
