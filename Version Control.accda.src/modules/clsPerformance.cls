@@ -622,8 +622,9 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
     ' (We are walking backwards through the array to flip the sort to descending)
     Set dSorted = New Dictionary
     For lngCnt = dItems.Count - 1 To 0 Step -1
-        ' Parse key from record
-        varKey = Trim(Split(varItems(lngCnt), "|")(1))
+        ' Parse key from record (text after first pipe character)
+        strRecord = varItems(lngCnt)
+        varKey = Trim(Mid$(strRecord, InStr(1, strRecord, "|") + 1))
         ' Reference performance item class
         Set cItem = dItems(varKey)
         ' Add to dictionary of resorted items
