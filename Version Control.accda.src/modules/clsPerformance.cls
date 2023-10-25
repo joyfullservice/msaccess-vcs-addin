@@ -595,6 +595,8 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
     Dim cItem As clsPerformanceItem
     Dim dSorted As Dictionary
 
+    Const SEPERATOR As String = "|§|"
+
     ' Create an array to build our items
     ReDim varItems(0 To dItems.Count - 1)
 
@@ -608,7 +610,7 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
     ' Build our list of records
     For Each varKey In dItems.Keys
         ' Create a record like this: "00062840.170000|Export Form Objects       ..."
-        strRecord = Format(dItems(varKey).Total, "00000000.000000") & "|" & PadRight(CStr(varKey), 255)
+        strRecord = Format(dItems(varKey).Total, "00000000.000000") & SEPERATOR & PadRight(CStr(varKey), 255)
         ' Add to array.
         varItems(lngCnt) = strRecord
         ' Increment counter for array
@@ -623,7 +625,7 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
     Set dSorted = New Dictionary
     For lngCnt = dItems.Count - 1 To 0 Step -1
         ' Parse key from record
-        varKey = Trim(Split(varItems(lngCnt), "|")(1))
+        varKey = Trim(Split(varItems(lngCnt), SEPERATOR)(1))
         ' Reference performance item class
         Set cItem = dItems(varKey)
         ' Add to dictionary of resorted items
