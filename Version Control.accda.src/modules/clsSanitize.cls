@@ -1,4 +1,12 @@
-﻿Attribute VB_Name = "modSanitize"
+﻿VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "clsSanitize"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 ' Module    : modSanitize
 ' Author    : Adam Waller
@@ -6,7 +14,6 @@
 ' Purpose   : Functions to sanitize files to remove non-essential metadata
 '---------------------------------------------------------------------------------------
 Option Compare Database
-Option Private Module
 Option Explicit
 
 Private Const ModuleName = "modSanitize"
