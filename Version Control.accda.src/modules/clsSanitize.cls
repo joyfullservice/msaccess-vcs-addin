@@ -16,12 +16,18 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName = "modSanitize"
+Public ObjectName As String
 
-' Array of lines to skip
-Private m_SkipLines() As Long
-Private m_lngSkipIndex As Long
-Private m_colBlocks As Collection
+
+' Private type to handle internal variables
+Private Type udtThis
+    lngSkipLines() As Long  ' Array of lines to skip
+    lngSkipIndex As Long
+    cOutput As clsConcat
+    cVBA As clsConcat
+    colBlocks As Collection
+End Type
+Private this As udtThis
 
 
 '---------------------------------------------------------------------------------------
@@ -77,9 +83,9 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
     If Options.SanitizeLevel = eslNone Then GoTo Build_Output
 
     ' Set up index of lines to skip
-    ReDim m_SkipLines(0 To UBound(varLines)) As Long
-    m_lngSkipIndex = 0
-    Set m_colBlocks = New Collection
+    ReDim this.lngSkipLines(0 To UBound(varLines)) As Long
+    this.lngSkipIndex = 0
+    Set this.colBlocks = New Collection
 
     ' Initialize concatenation class to include line breaks
     ' after each line that we add when building new file text.
@@ -237,11 +243,11 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
     Loop
 
     ' Ensure that we correctly processed the nested block sequence.
-    If m_colBlocks.Count > 0 Then
+    If this.colBlocks.Count > 0 Then
         Log.Error eelWarning, Replace(Replace( _
         "Found ${BlockCount} unclosed blocks after sanitizing ${File}.", _
-        "${BlockCount}", m_colBlocks.Count), _
-        "${File}", strPath), ModuleName & ".SanitizeFile"
+        "${BlockCount}", this.colBlocks.Count), _
+        "${File}", strPath), ModuleName(Me) & ".SanitizeFile"
     End If
 
 Build_Output:
@@ -253,12 +259,12 @@ Build_Output:
     If blnReturnHash Then SanitizeFile = GetStringHash(strContent, True)
 
     ' Log performance
-    Set m_colBlocks = Nothing
+    Set this.colBlocks = Nothing
     Perf.OperationEnd
     Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
 
     ' Log any errors
-    CatchAny eelError, "Error sanitizing file " & FSO.GetFileName(strPath), ModuleName & ".SanitizeFile"
+    CatchAny eelError, "Error sanitizing file " & FSO.GetFileName(strPath), ModuleName(Me) & ".SanitizeFile"
 
 End Function
 
@@ -277,14 +283,14 @@ Private Function BuildOutput(varLines As Variant) As String
     Dim lngLine As Long
 
     ' Check index of skipped lines
-    If m_lngSkipIndex = 0 Then
+    If this.lngSkipIndex = 0 Then
         ' No lines to skip
-        ReDim m_SkipLines(0 To 0)
-        m_SkipLines(0) = UBound(varLines) + 1
+        ReDim this.lngSkipLines(0 To 0)
+        this.lngSkipLines(0) = UBound(varLines) + 1
     Else
         ' Trim and sort index array
-        ReDim Preserve m_SkipLines(0 To m_lngSkipIndex - 1)
-        QuickSort m_SkipLines
+        ReDim Preserve this.lngSkipLines(0 To this.lngSkipIndex - 1)
+        QuickSort this.lngSkipLines
     End If
 
     ' Use concatenation class to maximize performance
@@ -297,12 +303,12 @@ Private Function BuildOutput(varLines As Variant) As String
 
             ' Iterate the sorted skipped lines index to keep up with main loop
             ' (Using parallel loops to optimize performance)
-            If m_SkipLines(lngSkip) < lngLine Then
-                If lngSkip < UBound(m_SkipLines) Then lngSkip = lngSkip + 1
+            If this.lngSkipLines(lngSkip) < lngLine Then
+                If lngSkip < UBound(this.lngSkipLines) Then lngSkip = lngSkip + 1
             End If
 
             ' Add content, unless the line is flagged to skip
-            If m_SkipLines(lngSkip) <> lngLine Then .Add CStr(varLines(lngLine))
+            If this.lngSkipLines(lngSkip) <> lngLine Then .Add CStr(varLines(lngLine))
 
         Next lngLine
 
@@ -326,8 +332,8 @@ End Function
 '
 Private Function SkipLine(lngLine As Long, Optional intMinSanitizeLevel As eSanitizeLevel)
     If Options.SanitizeLevel >= intMinSanitizeLevel Then
-        m_SkipLines(m_lngSkipIndex) = lngLine
-        m_lngSkipIndex = m_lngSkipIndex + 1
+        this.lngSkipLines(this.lngSkipIndex) = lngLine
+        this.lngSkipIndex = this.lngSkipIndex + 1
     End If
 End Function
 
@@ -370,10 +376,10 @@ End Function
 '
 Private Sub BeginBlock(Optional strType As String)
     Dim dBlock As Dictionary
-    If m_colBlocks Is Nothing Then Set m_colBlocks = New Collection
+    If this.colBlocks Is Nothing Then Set this.colBlocks = New Collection
     Set dBlock = New Dictionary
     If strType <> vbNullString Then dBlock.Add "Type", strType
-    m_colBlocks.Add dBlock
+    this.colBlocks.Add dBlock
 End Sub
 
 
@@ -396,14 +402,14 @@ Private Sub CloseBlock()
     If Options.SanitizeColors <= eslNone Then Exit Sub
 
     ' Bail out if we don't have a block to review
-    If m_colBlocks.Count = 0 Then Exit Sub
-    Set dBlock = m_colBlocks(m_colBlocks.Count)
+    If this.colBlocks.Count = 0 Then Exit Sub
+    Set dBlock = this.colBlocks(this.colBlocks.Count)
 
     ' Skip if we are not using themes for this control (UseTheme=0)
     ' (Applies to "CommandButton", "Tab", "ToggleButton")
     If dBlock.Exists("UseTheme") Then
         ' Remove this block
-        m_colBlocks.Remove m_colBlocks.Count
+        this.colBlocks.Remove this.colBlocks.Count
         Exit Sub
     End If
 
@@ -448,7 +454,7 @@ Private Sub CloseBlock()
     Next intCnt
 
     ' Remove this block
-    m_colBlocks.Remove m_colBlocks.Count
+    this.colBlocks.Remove this.colBlocks.Count
 
 End Sub
 
@@ -472,9 +478,9 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     If Options.SanitizeColors <= eslNone Then Exit Sub
 
     ' Exit if we are not inside a block
-    If Not m_colBlocks Is Nothing Then lngCnt = m_colBlocks.Count
+    If Not this.colBlocks Is Nothing Then lngCnt = this.colBlocks.Count
     If lngCnt = 0 Then Exit Sub
-    Set dBlock = m_colBlocks(m_colBlocks.Count)
+    Set dBlock = this.colBlocks(this.colBlocks.Count)
 
     ' Split on property/value
     varParts = Split(strTLine, " =")
@@ -631,7 +637,7 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
 
     If objXml.LoadXML(strFile) = False Then
         Log.Error eelError, _
-                "Unable to parse the XML for file '" & strPath & "'. This may be due to containing malformed XML. Check the source XML document for validity. In some cases, this may be due to table data containing characters not allowed in XML documents.", ModuleName & ".SanitizeXML"
+                "Unable to parse the XML for file '" & strPath & "'. This may be due to containing malformed XML. Check the source XML document for validity. In some cases, this may be due to table data containing characters not allowed in XML documents.", ModuleName(Me) & ".SanitizeXML"
         Exit Function
     End If
 
@@ -685,7 +691,7 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
     Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
 
     ' Log any errors
-    CatchAny eelError, "Error sanitizing XML file " & FSO.GetFileName(strPath), ModuleName & ".SanitizeXML"
+    CatchAny eelError, "Error sanitizing XML file " & FSO.GetFileName(strPath), ModuleName(Me) & ".SanitizeXML"
 
 End Function
 
@@ -697,7 +703,7 @@ End Function
 ' Purpose   : Trim off tabs from beginning and end of string
 '---------------------------------------------------------------------------------------
 '
-Public Function TrimTabs(strText As String) As String
+Private Function TrimTabs(strText As String) As String
 
     Dim dblStart As Double
     Dim dblEnd As Double
@@ -739,7 +745,7 @@ End Function
 ' Purpose   : Returns the number of spaces until the first non-space character.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetIndent(strLine As Variant) As Integer
+Private Function GetIndent(strLine As Variant) As Integer
     Dim strChar As String
     strChar = Left$(Trim(strLine), 1)
     If strLine <> vbNullString Then GetIndent = InStr(1, strLine, strChar) - 1
@@ -753,10 +759,8 @@ End Function
 ' Purpose   : Format XML content for consistent and readable output.
 '---------------------------------------------------------------------------------------
 '
-Private Function FormatXML( _
-    objInput As MSXML2.DOMDocument60, _
-    Optional blnOmitDeclaration As Boolean _
-) As String
+Private Function FormatXML(objInput As MSXML2.DOMDocument60, _
+                            Optional blnOmitDeclaration As Boolean) As String
 
     ' XSLT stylesheet that allow us to control indenting and also get a better indent result.
     ' For testing and adjusting, you can use https://www.online-toolz.com/tools/xslt-validator-tester-online.php
@@ -798,7 +802,7 @@ Private Function FormatXML( _
     End If
 
     ' Check for any errors parsing the XML
-    If CatchAny(eelError, "Error parsing XML content", ModuleName & ".FormatXML") Then
+    If CatchAny(eelError, "Error parsing XML content", ModuleName(Me) & ".FormatXML") Then
         ' Fall back to input XML
         strOutput = objInput.XML
         ' Output XML to log file
@@ -812,3 +816,17 @@ Private Function FormatXML( _
     FormatXML = strOutput
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Terminate
+' Author    : Adam Waller
+' Date      : 10/25/2023
+' Purpose   : Release private objects when terminating
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Terminate()
+    Set this.colBlocks = Nothing
+    Set this.cOutput = Nothing
+    Set this.cVBA = Nothing
+End Sub
