@@ -878,6 +878,31 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : StartsWith
+' Author    : Adam Waller
+' Date      : 11/5/2020
+' Purpose   : See if a string begins with a specified string.
+'---------------------------------------------------------------------------------------
+'
+Public Function StartsWith(strText As String, strStartsWith As String, Optional Compare As VbCompareMethod = vbBinaryCompare) As Boolean
+    StartsWith = (InStr(1, strText, strStartsWith, Compare) = 1)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EndsWith
+' Author    : Adam Waller
+' Date      : 4/29/2021
+' Purpose   : See if a string ends with a specified string.
+'---------------------------------------------------------------------------------------
+'
+Public Function EndsWith(strText As String, strEndsWith As String, Optional Compare As VbCompareMethod = vbBinaryCompare) As Boolean
+    EndsWith = (StrComp(Right$(strText, Len(strEndsWith)), strEndsWith, Compare) = 0)
+    'EndsWith = (InStr(1, strText, strEndsWith, Compare) = len(strtext len(strendswith) 1)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SwapExtension
 ' Author    : Adam Waller
 ' Date      : 8/9/2023

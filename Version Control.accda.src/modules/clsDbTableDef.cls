@@ -59,7 +59,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         Perf.OperationEnd
 
         ' Rewrite sanitized XML as formatted UTF-8 content
-        strHash = SanitizeXML(strFile, True)
+        With New clsSanitize
+            strHash = .SanitizeXML(strFile, True)
+        End With
 
     Else
         ' Linked table - Save as JSON

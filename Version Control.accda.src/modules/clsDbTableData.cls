@@ -70,7 +70,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                         Application.ExportXML acExportTable, m_Table.Name, strFile
                     End If
                     Perf.OperationEnd
-                    SanitizeXML strFile, False
+                    With New clsSanitize
+                        .SanitizeXML strFile, False
+                    End With
             End Select
         End If
     Next intFormat
