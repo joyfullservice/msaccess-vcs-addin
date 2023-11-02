@@ -413,7 +413,7 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
     Dim strPrefix As String
     Dim strPrintSettingsFile As String
     Dim strHash As String
-    Dim cSanitize As clsSanitize
+    Dim cParser As clsSourceParser
 
     On Error GoTo ErrHandler
 
@@ -428,7 +428,7 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
     If FSO.FileExists(strFile) Then DeleteFile strFile
 
     ' Sanitize certain object types
-    Set cSanitize = New clsSanitize
+    Set cParser = New clsSourceParser
     Select Case intType
         Case acForm, acReport
             With New clsDevMode
@@ -454,7 +454,7 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
             End With
 
             ' Sanitizing converts to UTF-8
-            With cSanitize
+            With cParser
                 .LoadSourceFile strTempFile
                 .ObjectName = FSO.GetBaseName(strFile)
                 WriteFile .Sanitize(ectObjectDefinition), strFile
@@ -473,7 +473,7 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
 
         Case acQuery, acMacro
             ' Sanitizing converts to UTF-8
-            With cSanitize
+            With cParser
                 .LoadSourceFile strTempFile
                 WriteFile .Sanitize(ectObjectDefinition), strFile
                 strHash = .Hash
@@ -485,7 +485,7 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
             ' Table data macros are stored in XML format
             ' The file may not exist if no TD Macro was found
             If FSO.FileExists(strTempFile) Then
-                With cSanitize
+                With cParser
                     .LoadSourceFile strTempFile
                     WriteFile .Sanitize(ectXML), strFile
                     strHash = .Hash
@@ -622,7 +622,7 @@ Public Sub ExportCodeModule(strName As String, strFile As String)
     CurrentVBProject.VBComponents(strName).Export strTempFile
 
     ' Sanitize the VBA code while reading the temp file
-    With New clsSanitize
+    With New clsSourceParser
         .LoadString ReadFile(strTempFile, GetSystemEncoding)
         strContent = .Sanitize(ectVBA)
     End With

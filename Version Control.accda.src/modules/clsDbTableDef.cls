@@ -59,7 +59,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         Perf.OperationEnd
 
         ' Rewrite sanitized XML as formatted UTF-8 content
-        With New clsSanitize
+        With New clsSourceParser
             .LoadSourceFile strFile
             DeleteFile strFile
             WriteFile .Sanitize(ectXML), strFile

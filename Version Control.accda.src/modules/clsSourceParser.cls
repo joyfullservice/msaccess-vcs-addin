@@ -8,7 +8,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
-' Module    : modSanitize
+' Module    : clsSourceParser
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
 ' Purpose   : Functions to sanitize files to remove non-essential metadata
@@ -417,7 +417,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     ' Prepare VBA output (if used)
     If Not cVBA Is Nothing Then
         ' Build sanitized VBA string
-        With New clsSanitize
+        With New clsSourceParser
             .LoadString cVBA.GetStr
             this.strVBA = .Sanitize(ectVBA)
         End With
