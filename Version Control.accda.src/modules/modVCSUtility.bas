@@ -409,8 +409,11 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
                                 Optional cDbObjectClass As IDbComponent = Nothing) As String
 
     Dim strTempFile As String
+    Dim strAltFile As String
+    Dim strPrefix As String
     Dim strPrintSettingsFile As String
     Dim strHash As String
+    Dim cSanitize As clsSanitize
 
     On Error GoTo ErrHandler
 
@@ -421,7 +424,11 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
     Perf.OperationEnd
     VerifyPath strFile
 
+    ' Delete any existing source file
+    If FSO.FileExists(strFile) Then DeleteFile strFile
+
     ' Sanitize certain object types
+    Set cSanitize = New clsSanitize
     Select Case intType
         Case acForm, acReport
             With New clsDevMode
@@ -445,25 +452,44 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
                     If FSO.FileExists(strPrintSettingsFile) Then DeleteFile strPrintSettingsFile
                 End If
             End With
+
             ' Sanitizing converts to UTF-8
-            If FSO.FileExists(strFile) Then DeleteFile strFile
-            strHash = SanitizeFile(strTempFile, True)
-            FSO.MoveFile strTempFile, strFile
+            With cSanitize
+                .LoadSourceFile strTempFile
+                .ObjectName = FSO.GetBaseName(strFile)
+                WriteFile .Sanitize(ectObjectDefinition), strFile
+                strHash = .Hash
+
+                ' Process any VBA
+                strAltFile = SwapExtension(strFile, "cls")
+                If Options.SplitLayoutFromVBA And Len(.GetObjectVBA) Then
+                    ' Write VBA code as separate .cls file.
+                    WriteFile .GetObjectVBA, strAltFile
+                Else
+                    ' Remove any split VBA file
+                    If FSO.FileExists(strAltFile) Then DeleteFile strAltFile
+                End If
+            End With
 
         Case acQuery, acMacro
             ' Sanitizing converts to UTF-8
-            If FSO.FileExists(strFile) Then DeleteFile strFile
-            strHash = SanitizeFile(strTempFile, True)
-            FSO.MoveFile strTempFile, strFile
+            With cSanitize
+                .LoadSourceFile strTempFile
+                WriteFile .Sanitize(ectObjectDefinition), strFile
+                strHash = .Hash
+            End With
 
         ' Case acModule - Use VBE export instead.
 
         Case acTableDataMacro
             ' Table data macros are stored in XML format
+            ' The file may not exist if no TD Macro was found
             If FSO.FileExists(strTempFile) Then
-                strHash = SanitizeXML(strTempFile, True)
-                If FSO.FileExists(strFile) Then DeleteFile strFile
-                FSO.MoveFile strTempFile, strFile
+                With cSanitize
+                    .LoadSourceFile strTempFile
+                    WriteFile .Sanitize(ectXML), strFile
+                    strHash = .Hash
+                End With
             End If
 
         Case Else
@@ -471,6 +497,9 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
             ConvertUcs2Utf8 strTempFile, strFile
 
     End Select
+
+    ' Remove any leftover temp file.
+    If FSO.FileExists(strTempFile) Then DeleteFile strTempFile
 
     ' Normal exit
     On Error GoTo 0
@@ -590,10 +619,13 @@ Public Sub ExportCodeModule(strName As String, strFile As String)
 
     ' Export to a temp file so we can convert to UTF-8 encoding
     strTempFile = GetTempFile
-    CurrentVBProject.VBComponents(strName).Export strFile
+    CurrentVBProject.VBComponents(strName).Export strTempFile
 
     ' Sanitize the VBA code while reading the temp file
-    strContent = SanitizeVBA(ReadFile(strTempFile, GetSystemEncoding))
+    With New clsSanitize
+        .LoadString ReadFile(strTempFile, GetSystemEncoding)
+        strContent = .Sanitize(ectVBA)
+    End With
 
     ' Write the content as UTF-8 to the final destination
     WriteFile strContent, strFile

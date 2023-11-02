@@ -60,7 +60,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
         ' Rewrite sanitized XML as formatted UTF-8 content
         With New clsSanitize
-            strHash = .SanitizeXML(strFile, True)
+            .LoadSourceFile strFile
+            DeleteFile strFile
+            WriteFile .Sanitize(ectXML), strFile
+            strHash = .Hash
         End With
 
     Else

@@ -71,7 +71,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                     End If
                     Perf.OperationEnd
                     With New clsSanitize
-                        .SanitizeXML strFile, False
+                        .LoadSourceFile strFile
+                        WriteFile .Sanitize(ectXML), strFile
                     End With
             End Select
         End If

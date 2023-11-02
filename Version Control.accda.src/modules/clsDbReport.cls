@@ -93,6 +93,7 @@ End Sub
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
     MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
     MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
+    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".cls", strToFolder
 End Sub
 
 
@@ -150,7 +151,7 @@ End Function
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
     ClearFilesByExtension IDbComponent_BaseFolder, "pv" ' Remove legacy files
     If Not Options.SavePrintVars Then ClearFilesByExtension IDbComponent_BaseFolder, "json"
-    ClearOrphanedSourceFiles Me, "bas", "json"
+    ClearOrphanedSourceFiles Me, "bas", "json", "cls"
 End Sub
 
 
