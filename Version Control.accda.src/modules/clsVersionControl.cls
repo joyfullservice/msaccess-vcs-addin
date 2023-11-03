@@ -437,6 +437,10 @@ End Sub
 '
 Private Sub Class_Initialize()
     SaveState
+    ' When the class is initialized, make sure the ribbon is active (if installed).
+    ' This way if the COM add-in is not active, it will be automatically activated
+    ' when the add-in is opened from the [Database Tools\Add-ins] menu. (See #451)
+    modCOMAddIn.VerifyRibbon
 End Sub
 
 

@@ -87,6 +87,9 @@ Public Sub VerifyComAddIn()
             ' Reload the add-in to refresh the ribbon
             UnloadAddIn
             LoadAddIn
+        Else
+            ' Verify that the ribbon is active
+            VerifyRibbon
         End If
     End If
 
@@ -104,6 +107,24 @@ End Sub
 Public Sub ReloadRibbon()
     UnloadAddIn
     LoadAddIn
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyRibbon
+' Author    : Adam Waller
+' Date      : 11/3/2023
+' Purpose   : A lightweight function to verify that the ribbon add-in is active.
+'           : (It may get turned off if Access is opened in administrator mode.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub VerifyRibbon()
+    Dim objAddIn As COMAddIn
+    Set objAddIn = GetCOMAddIn
+    If Not objAddIn Is Nothing Then
+        ' Activate the add-in if it is not currently active
+        If Not objAddIn.Connect Then objAddIn.Connect = True
+    End If
 End Sub
 
 
