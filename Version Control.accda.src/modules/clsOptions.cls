@@ -275,6 +275,9 @@ End Sub
 '
 Private Sub Upgrade(ByRef dOptions As Dictionary)
 
+    Dim dFiles As Dictionary
+    Dim strPath As String
+
     ' 6/16/2021
     ' Aggressive sanitize to sanitize levels
     If dOptions.Exists("AggressiveSanitize") Then
@@ -287,7 +290,64 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
         End If
     End If
 
+    ' 11/3/2023
+    ' Check option to split VBA from object layout
+    If Not dOptions.Exists("SplitLayoutFromVBA") Then
+        ' The existing options file does not have this option defined.
+        ' See if we have any source files from previous exports.
+        If HasUnifiedLayoutFilesInGit(Me.GetExportFolder) Then
+            ' Set the option as false by default, and let the user
+            ' turn it on explicitly for this project.
+            ' (That way they are not forced to make a decision immediately)
+            Me.SplitLayoutFromVBA = False
+        Else
+            ' If we already have split files, or if this project is
+            ' being exported for the first time, leave the option at
+            ' the default setting.
+        End If
+    End If
+
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasUnifiedLayoutFilesInGit
+' Author    : Adam Waller
+' Date      : 11/3/2023
+' Purpose   : Returns true if the current project seems to have existing form or report
+'           : source files AND appears to be in a .git repository.
+'           : (This function is used when determining the default for splitting VBA
+'           :  from layout files in new projects.)
+'           : For performance reasons this is not a fully comprehensive check of every
+'           : possible source file, but should be a pretty good indication of whether
+'           : existing source files need to be split in git to preserve the history in
+'           : both source files.
+'---------------------------------------------------------------------------------------
+'
+Private Function HasUnifiedLayoutFilesInGit(strExportPath As String) As Boolean
+
+    Dim blnHasFiles As Boolean
+    Dim strFolder As String
+
+    ' See if we have any ".bas" files, but no corresponding ".cls" files in the
+    ' forms and reports export folders.
+    ' Hard-coding the folder names to avoid calling options.
+    If GetFileList(BuildPath2(strExportPath, "forms"), "*.bas").Count > 0 Then
+        blnHasFiles = (GetFileList(BuildPath2(strExportPath, "forms"), "*.cls").Count = 0)
+    ElseIf GetFileList(BuildPath2(strExportPath, "reports"), "*.bas").Count > 0 Then
+        blnHasFiles = (GetFileList(BuildPath2(strExportPath, "reports"), "*.cls").Count = 0)
+    End If
+
+    If blnHasFiles Then
+        ' Check to see if this folder is in a git repository
+        If Git.GitInstalled Then
+            ' Check export path
+            Git.WorkingFolder = strExportPath
+            HasUnifiedLayoutFilesInGit = Git.IsInsideRepository
+        End If
+    End If
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
