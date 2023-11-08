@@ -219,7 +219,7 @@ End Function
 '           : valid for use.
 '---------------------------------------------------------------------------------------
 '
-Private Function HasValidCompareTool() As Boolean
+Public Function HasValidCompareTool() As Boolean
 
     ' Check the current option for compare tool.
     Select Case Me.ToolName
