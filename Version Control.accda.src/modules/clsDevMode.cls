@@ -216,7 +216,7 @@ End Function
 ' Purpose   : Load sections from export file
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadFromExportFile(strFile As String)
+Public Sub LoadFromExportFile(strFileContent As String)
 
     Dim varLines As Variant
     Dim lngLine As Long
@@ -240,17 +240,11 @@ Public Sub LoadFromExportFile(strFile As String)
     ' Clear existing structures and create block classes.
     ClearStructures
 
-    If Not FSO.FileExists(strFile) Then Exit Sub
-
-    ' Open the export file, checking to see if it is in UCS format
-    If HasUcs2Bom(strFile) Then
-        varLines = Split(ReadFile(strFile, "Unicode"), vbCrLf)
-    Else
-        varLines = Split(ReadFile(strFile), vbCrLf)
-    End If
+    If Not Len(strFileContent) Then Exit Sub
 
     ' Read the text file line by line, loading the block data
     Perf.OperationStart "Read File DevMode"
+    varLines = Split(strFileContent, vbCrLf)
     For lngLine = 0 To UBound(varLines)
         strLine = Trim$(varLines(lngLine))
         ' Look for header if not inside block
@@ -315,7 +309,7 @@ Public Sub LoadFromExportFile(strFile As String)
     Next intBlock
     Perf.OperationEnd
 
-    CatchAny eelError, "Error loading printer settings from file: " & strFile, _
+    CatchAny eelError, "Error loading printer settings from file content.", _
         ModuleName(Me) & ".LoadFromExportFile", True, True
 
 End Sub
@@ -1008,18 +1002,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetPrintSettingsFileName
-' Author    : Adam Waller
-' Date      : 1/14/2021
-' Purpose   : Return the file name for the print vars json file.
-'---------------------------------------------------------------------------------------
-'
-Public Function GetPrintSettingsFileName(cDbObject As IDbComponent) As String
-    GetPrintSettingsFileName = cDbObject.BaseFolder & GetSafeFileName(cDbObject.Name) & ".json"
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : AddToExportFile
 ' Author    : Adam Waller
 ' Date      : 11/2/2020
@@ -1028,7 +1010,7 @@ End Function
 '           : file for import into the database using the loaded print settings.
 '---------------------------------------------------------------------------------------
 '
-Public Function AddToExportFile(strFile As String) As String
+Public Function AddToExportFile(strFileContent As String) As String
 
     Dim strTempFile As String
     Dim strLine As String
@@ -1040,15 +1022,12 @@ Public Function AddToExportFile(strFile As String) As String
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    ' Load data from export file
-    strData = ReadFile(strFile)
-    varLines = Split(strData, vbCrLf)
-
     ' Use concatenation class for performance reasons.
     With New clsConcat
         .AppendOnAdd = vbCrLf
 
         ' Loop through lines in file, searching for location to insert blocks.
+        varLines = Split(strFileContent, vbCrLf)
         For lngLine = LBound(varLines) To UBound(varLines)
 
             ' Get single line
@@ -1088,16 +1067,13 @@ Public Function AddToExportFile(strFile As String) As String
             End If
         Next lngLine
 
-        ' Write to new file
-        strTempFile = GetTempFile
-        WriteFile .GetStr, strTempFile
-
+        ' Return content
+        AddToExportFile = .GetStr
     End With
 
-    ' Return path to temp file
-    AddToExportFile = strTempFile
-    CatchAny eelError, "Error adding to export file: " & strFile, _
+    CatchAny eelError, "Error adding print settings to export file.", _
         ModuleName(Me) & ".AddToExportFile", True, True
+
 End Function
 
 

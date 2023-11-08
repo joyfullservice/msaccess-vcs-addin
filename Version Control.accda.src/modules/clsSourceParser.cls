@@ -165,6 +165,39 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MergePrintSettings
+' Author    : Adam Waller
+' Date      : 11/8/2023
+' Purpose   : Merge print settings into the current source file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergePrintSettings(strJson As String)
+
+    Dim dSettings As Dictionary
+
+    ' Make sure we have some output
+    If Not Len(this.strOutput) Then this.strOutput = this.strInput
+
+    ' Don't try to parse an empty string
+    If strJson = vbNullString Then Exit Sub
+
+    ' Read settings from JSON
+    Set dSettings = ParseJson(strJson)
+    If dSettings.Exists("Items") Then
+        With New clsDevMode
+            ' Load default printer settings, then overlay
+            ' settings saved with report.
+            .ApplySettings dSettings("Items")
+            ' Write the printer settings to the output content
+            this.strOutput = .AddToExportFile(this.strOutput)
+            this.blnOutputModified = True
+        End With
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SaveObjectVBA
 ' Author    : Adam Waller
 ' Date      : 10/31/2023

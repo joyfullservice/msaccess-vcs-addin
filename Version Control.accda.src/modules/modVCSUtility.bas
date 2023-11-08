@@ -562,6 +562,13 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
                     End If
                 End With
             End If
+
+                ' Check for print settings file
+                strAltFile = SwapExtension(strFile, "json")
+                If FSO.FileExists(strAltFile) Then
+                    ' Merge the print settings into the source file content
+                    .MergePrintSettings ReadFile(strAltFile)
+                End If
     End Select
 
     ' Check UCS-2-LE requirement for the current database.
