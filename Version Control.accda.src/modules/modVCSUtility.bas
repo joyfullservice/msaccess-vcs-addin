@@ -1027,3 +1027,39 @@ Public Function PassesSchemaFilter(strItem As String, varFilterArray As Variant)
     PassesSchemaFilter = blnPass
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReadSourceFile
+' Author    : Adam Waller
+' Date      : 11/8/2023
+' Purpose   : Load source file content into a string. (Considers BOM and file type)
+'---------------------------------------------------------------------------------------
+'
+Public Function ReadSourceFile(strPath As String) As String
+
+    Dim strTempFile As String
+
+    ' Read text from file, and split into lines
+    If HasUcs2Bom(strPath) Then
+        ReadSourceFile = ReadFile(strPath, "Unicode")
+    Else
+        ' ADP projects may contain mixed Unicode content
+        If CurrentProject.ProjectType = acADP Then
+            strTempFile = GetTempFile
+            ConvertUcs2Utf8 strPath, strTempFile, False
+            ReadSourceFile = ReadFile(strTempFile)
+            DeleteFile strTempFile
+        Else
+            If DbVersion <= 4 Then
+                ' Access 2000 format exports using system codepage
+                ' See issue #217
+                ReadSourceFile = ReadFile(strPath, GetSystemEncoding)
+            Else
+                ' Newer versions export as UTF-8
+                ReadSourceFile = ReadFile(strPath)
+            End If
+        End If
+    End If
+
+End Function

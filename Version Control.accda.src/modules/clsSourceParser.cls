@@ -45,33 +45,8 @@ Private this As udtThis
 '---------------------------------------------------------------------------------------
 '
 Public Function LoadSourceFile(strPath As String)
-
-    Dim strTempFile As String
-
     ResetContent
-
-    ' Read text from file, and split into lines
-    If HasUcs2Bom(strPath) Then
-        this.strInput = ReadFile(strPath, "Unicode")
-    Else
-        ' ADP projects may contain mixed Unicode content
-        If CurrentProject.ProjectType = acADP Then
-            strTempFile = GetTempFile
-            ConvertUcs2Utf8 strPath, strTempFile, False
-            this.strInput = ReadFile(strTempFile)
-            DeleteFile strTempFile
-        Else
-            If DbVersion <= 4 Then
-                ' Access 2000 format exports using system codepage
-                ' See issue #217
-                this.strInput = ReadFile(strPath, GetSystemEncoding)
-            Else
-                ' Newer versions export as UTF-8
-                this.strInput = ReadFile(strPath)
-            End If
-        End If
-    End If
-
+    this.strInput = ReadSourceFile(strPath)
 End Function
 
 
