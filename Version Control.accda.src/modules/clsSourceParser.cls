@@ -29,6 +29,7 @@ Private Type udtThis
     lngSkipLines() As Long  ' Array of lines to skip
     lngSkipIndex As Long
     strFilePath As String   ' Path to loaded file
+    blnOutputModified As Boolean
     strInput As String
     strOutput As String
     strVBA As String
@@ -64,6 +65,30 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetOutput
+' Author    : Adam Waller
+' Date      : 11/8/2023
+' Purpose   : Wrapper to return output string
+'---------------------------------------------------------------------------------------
+'
+Public Function GetOutput() As String
+    GetOutput = this.strOutput
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OutputModified
+' Author    : Adam Waller
+' Date      : 11/8/2023
+' Purpose   : Return true if the output has been modified
+'---------------------------------------------------------------------------------------
+'
+Public Property Get OutputModified() As Boolean
+    OutputModified = this.blnOutputModified
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ResetContent
 ' Author    : Adam Waller
 ' Date      : 10/31/2023
@@ -76,6 +101,7 @@ Private Sub ResetContent()
         .strInput = vbNullString
         .strOutput = vbNullString
         .strVBA = vbNullString
+        .blnOutputModified = False
     End With
     Me.ObjectName = vbNullString
 End Sub
@@ -110,6 +136,9 @@ Public Sub MergeVBA(strVbaCode As String)
     Dim varLines As Variant
     Dim lngLine As Long
 
+    ' Make sure we have some output
+    If Not Len(this.strOutput) Then this.strOutput = this.strInput
+
     ' Rebuild output using provided VBA code
     With New clsConcat
         .AppendOnAdd = vbCrLf
@@ -134,6 +163,8 @@ Public Sub MergeVBA(strVbaCode As String)
 
         ' Update output with combined content
         this.strOutput = .GetStr
+        this.strVBA = strVbaCode
+        this.blnOutputModified = True
     End With
 
 End Sub

@@ -410,6 +410,7 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
 
     Dim strTempFile As String
     Dim strAltFile As String
+    Dim strContent As String
     Dim strPrefix As String
     Dim strPrintSettingsFile As String
     Dim strHash As String
@@ -431,13 +432,18 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
     Set cParser = New clsSourceParser
     Select Case intType
         Case acForm, acReport
+
+            ' Load content from file
+            strContent = ReadSourceFile(strTempFile)
+
+            ' Process any saved devmode settings
             With New clsDevMode
                 ' Build print settings file name.
-                strPrintSettingsFile = .GetPrintSettingsFileName(cDbObjectClass)
+                strPrintSettingsFile = SwapExtension(strFile, "json")
                 ' See if we are exporting print vars.
                 If Options.SavePrintVars = True Then
                     ' Grab the printer settings before sanitizing the file.
-                    .LoadFromExportFile strTempFile
+                    .LoadFromExportFile strContent
                     ' Only need to save print settings if they are different
                     ' from the default printer settings.
                     If (.GetHash <> VCSIndex.DefaultDevModeHash) And .HasData Then
@@ -455,7 +461,7 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
 
             ' Sanitizing converts to UTF-8
             With cParser
-                .LoadSourceFile strTempFile
+                .LoadString strContent
                 .ObjectName = FSO.GetBaseName(strFile)
                 WriteFile .Sanitize(ectObjectDefinition), strFile
                 strHash = .Hash
@@ -533,35 +539,24 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
                                 Optional cDbObjectClass As IDbComponent = Nothing)
 
     Dim strTempFile As String
-    Dim strPrintSettingsFile As String
     Dim strSourceFile As String
+    Dim strAltFile As String
+    Dim strContent As String
     Dim blnConvert As Boolean
     Dim dFile As Dictionary
+    Dim cParser As clsSourceParser
 
-    ' The path to the source file may change if we add print settings.
+    ' In most cases we are importing/converting the actual source file.
     strSourceFile = strFile
 
-    ' Add DevMode structures back into forms/reports
+    ' Add DevMode structures and VBA code back into forms/reports
     Select Case intType
         Case acForm, acReport
-            'Insert print settings (if needed)
-            If Not (cDbObjectClass Is Nothing) Then
-                With New clsDevMode
-                    ' Manually build the print settings file path since we don't have
-                    ' a database object we can use with the clsDevMode.GetPrintSettingsFileName
-                    strPrintSettingsFile = cDbObjectClass.BaseFolder & GetSafeFileName(strName) & ".json"
-                    Set dFile = ReadJsonFile(strPrintSettingsFile)
-                    ' Check to ensure dictionary was loaded
-                    If Not (dFile Is Nothing) Then
-                    ' Insert DevMode structures into file before importing.
-                        ' Load default printer settings, then overlay
-                        ' settings saved with report.
-                        .ApplySettings dFile("Items")
-                        ' Insert the settings into a combined export file.
-                        strSourceFile = .AddToExportFile(strFile)
-                    End If
-                End With
-            End If
+
+            ' Read file content. (Should be UTF-8)
+            strContent = ReadFile(strFile)
+            With New clsSourceParser
+                .LoadString strContent
 
                 ' Check for print settings file
                 strAltFile = SwapExtension(strFile, "json")
@@ -569,6 +564,22 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
                     ' Merge the print settings into the source file content
                     .MergePrintSettings ReadFile(strAltFile)
                 End If
+
+                ' For forms and reports, check for VBA code file that needs to be merged
+                strAltFile = SwapExtension(strFile, "cls")
+                If FSO.FileExists(strAltFile) Then
+                    ' Found a companion class file.
+                    .MergeVBA ReadFile(strAltFile)
+                End If
+
+                ' Write ouput to a new file if anything has changed
+                If .OutputModified Then
+                    strSourceFile = GetTempFile
+                    WriteFile .GetOutput, strSourceFile
+                End If
+
+            End With
+
     End Select
 
     ' Check UCS-2-LE requirement for the current database.
@@ -604,8 +615,8 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
         Perf.OperationEnd
     End If
 
-    ' Remove any temporary combined source file
-    If strSourceFile <> strFile Then DeleteFile strSourceFile
+    ' Clean up any temp file
+    If FSO.FileExists(strSourceFile) Then DeleteFile strSourceFile
 
 End Sub
 
