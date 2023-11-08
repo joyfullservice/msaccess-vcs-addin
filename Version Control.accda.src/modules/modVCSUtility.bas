@@ -611,8 +611,10 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
         Perf.OperationEnd
     End If
 
-    ' Clean up any temp file
-    If FSO.FileExists(strSourceFile) Then DeleteFile strSourceFile
+    ' Clean up any additional temp file used in the building process
+    If strFile <> strSourceFile Then
+        If FSO.FileExists(strSourceFile) Then DeleteFile strSourceFile
+    End If
 
     ' Check for VBA overlay
     If blnVbaOverlay Then OverlayCodeModule strName, SwapExtension(strFile, "cls")

@@ -137,7 +137,7 @@ Public Sub MergeVBA(strVbaCode As String)
     Dim lngLine As Long
 
     ' Make sure we have some output
-    If Not Len(this.strOutput) Then this.strOutput = this.strInput
+    If Len(this.strOutput) = 0 Then this.strOutput = this.strInput
 
     ' Rebuild output using provided VBA code
     With New clsConcat
@@ -182,7 +182,7 @@ Public Sub MergePrintSettings(strJson As String)
     Dim dSettings As Dictionary
 
     ' Make sure we have some output
-    If Not Len(this.strOutput) Then this.strOutput = this.strInput
+    If Len(this.strOutput) = 0 Then this.strOutput = this.strInput
 
     ' Don't try to parse an empty string
     If strJson = vbNullString Then Exit Sub

@@ -240,7 +240,7 @@ Public Sub LoadFromExportFile(strFileContent As String)
     ' Clear existing structures and create block classes.
     ClearStructures
 
-    If Not Len(strFileContent) Then Exit Sub
+    If Len(strFileContent) = 0 Then Exit Sub
 
     ' Read the text file line by line, loading the block data
     Perf.OperationStart "Read File DevMode"
