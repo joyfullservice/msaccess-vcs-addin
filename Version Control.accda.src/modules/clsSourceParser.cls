@@ -527,6 +527,64 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : StripClassHeader
+' Author    : Adam Waller
+' Date      : 10/24/2023
+' Purpose   : Strip the class header section from the VBA content. (Remove the version
+'           : and VBE attributes lines that come before the actual VBA code.)
+'---------------------------------------------------------------------------------------
+'
+Public Function StripClassHeader(strContent As String, blnStripNameOnly As Boolean) As String
+
+    Dim lngLine As Long
+    Dim varLines As Variant
+    Dim strLine As String
+    Dim blnPastHeader As Boolean
+
+    ' Split code into lines
+    varLines = Split(strContent, vbCrLf)
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+
+        ' Skip the header information saved in the VBA class
+        For lngLine = 0 To UBound(varLines)
+            If Not blnPastHeader Then
+                strLine = varLines(lngLine)
+                If blnStripNameOnly Then
+                    If StartsWith(strLine, "Attribute VB_Name = ") Then
+                        ' Just skip that line. Keep everything else.
+                        blnPastHeader = True
+                    Else
+                        .Add CStr(varLines(lngLine))
+                    End If
+                Else
+                    Select Case True
+                        Case (strLine = "VERSION 1.0 CLASS")
+                        Case (strLine = "BEGIN")
+                        Case (strLine = "  MultiUse = -1  'True")
+                        Case (strLine = "END")
+                        Case StartsWith(strLine, "Attribute VB_")
+                        Case Else
+                            blnPastHeader = True
+                            .Add CStr(varLines(lngLine))
+                    End Select
+                End If
+            Else
+                ' Add remaining lines
+                .Add CStr(varLines(lngLine))
+            End If
+        Next lngLine
+
+        ' remove trailing CrLf and return result
+        .Remove 2
+        StripClassHeader = .GetStr
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SkipLine
 ' Author    : Adam Waller
 ' Date      : 6/4/2021

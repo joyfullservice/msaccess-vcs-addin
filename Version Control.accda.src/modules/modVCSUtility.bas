@@ -542,6 +542,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
     Dim strSourceFile As String
     Dim strAltFile As String
     Dim strContent As String
+    Dim blnVbaOverlay As Boolean
     Dim blnConvert As Boolean
     Dim dFile As Dictionary
     Dim cParser As clsSourceParser
@@ -570,6 +571,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
                 If FSO.FileExists(strAltFile) Then
                     ' Found a companion class file.
                     .MergeVBA ReadFile(strAltFile)
+                    blnVbaOverlay = RequiresOverlay(.GetObjectVBA)
                 End If
 
                 ' Write ouput to a new file if anything has changed
@@ -618,6 +620,9 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
     ' Clean up any temp file
     If FSO.FileExists(strSourceFile) Then DeleteFile strSourceFile
 
+    ' Check for VBA overlay
+    If blnVbaOverlay Then OverlayCodeModule strName, SwapExtension(strFile, "cls")
+
 End Sub
 
 
@@ -652,6 +657,75 @@ Public Sub ExportCodeModule(strName As String, strFile As String)
     Perf.OperationEnd
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OverlayCodeModule
+' Author    : Adam Waller
+' Date      : 10/24/2023
+' Purpose   : Overlay VBA code from an object's *.cls file to the form or report
+'           : Note that this opens the object in design view, which may slow the build
+'           : process if a large number of items are invovled.
+'---------------------------------------------------------------------------------------
+'
+Public Sub OverlayCodeModule(strName As String, strClassFile As String)
+
+    Dim objModule As VBIDE.CodeModule
+    Dim strContent As String
+    Dim intType As AcObjectType
+    Dim strShortName As String
+    Dim cParser As clsSourceParser
+
+    LogUnhandledErrors
+    'On Error Resume Next
+    Set objModule = CurrentVBProject.VBComponents(strName).CodeModule
+    If CatchAny(eelError, "Could not find code module for " & strName, ModuleName & ".OverlayCodeModule") Then Exit Sub
+
+    ' Read class file content
+    strContent = ReadFile(strClassFile)
+    If strContent = vbNullString Then
+        Log.Error eelError, "Unable to read " & strClassFile, ModuleName & ".OverlayCodeModule"
+        Exit Sub
+    End If
+
+    ' Get object type and short name
+    If strName Like "Form_*" Then
+        intType = acForm
+        strShortName = Mid$(strName, 6)
+        DoCmd.OpenForm strShortName, acDesign, , , , acHidden
+    ElseIf strName Like "Report_*" Then
+        intType = acReport
+        strShortName = Mid$(strName, 8)
+        DoCmd.OpenReport strShortName, acViewDesign, , , acHidden
+    End If
+
+    ' Overlay the VBA code, replacing any existing code.
+    Set cParser = New clsSourceParser
+    objModule.DeleteLines 1, objModule.CountOfLines
+    objModule.AddFromString cParser.StripClassHeader(strContent, False)
+
+    ' Close any form or report object
+    Select Case intType
+        Case acForm, acReport
+            DoCmd.Close intType, strShortName, acSaveYes
+    End Select
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RequiresOverlay
+' Author    : Adam Waller
+' Date      : 11/2/2023
+' Purpose   : Returns true if we need to overlay the VBA code through VBE for a form
+'           : or report object.
+'---------------------------------------------------------------------------------------
+'
+Private Function RequiresOverlay(strVbaCode As String) As Boolean
+    If modEncoding.GetSystemEncoding(True) = "utf-8" Then
+        RequiresOverlay = StringHasExtendedASCII(strVbaCode)
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
