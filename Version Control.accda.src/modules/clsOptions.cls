@@ -275,9 +275,6 @@ End Sub
 '
 Private Sub Upgrade(ByRef dOptions As Dictionary)
 
-    Dim dFiles As Dictionary
-    Dim strPath As String
-
     ' 6/16/2021
     ' Aggressive sanitize to sanitize levels
     If dOptions.Exists("AggressiveSanitize") Then
@@ -327,7 +324,6 @@ End Sub
 Private Function HasUnifiedLayoutFilesInGit(strExportPath As String) As Boolean
 
     Dim blnHasFiles As Boolean
-    Dim strFolder As String
 
     ' See if we have any ".bas" files, but no corresponding ".cls" files in the
     ' forms and reports export folders.

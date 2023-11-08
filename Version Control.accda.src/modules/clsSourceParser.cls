@@ -222,8 +222,8 @@ End Function
 ' Purpose   : Return a hash of the sanitized content
 '---------------------------------------------------------------------------------------
 '
-Public Function Hash(Optional blnWithBOM As Boolean = True) As String
-    Hash = GetStringHash(this.strOutput, blnWithBOM)
+Public Function Hash(Optional blnWithBom As Boolean = True) As String
+    Hash = GetStringHash(this.strOutput, blnWithBom)
 End Function
 
 
@@ -246,8 +246,6 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     Dim blnIsReport As Boolean
     Dim blnIsPassThroughQuery As Boolean
     Dim curStart As Currency
-    Dim strTempFile As String
-    Dim strContent As String
     Dim cVBA As clsConcat
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next

@@ -113,7 +113,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
         .blnTrustAddInFolder = blnTrustFolder
         If .strInstallFolder <> strInstallFolder Then
             ' Attempt to migrate any saved user settings files
-            MigrateUserFiles .strInstallFolder, strInstallFolder, GetFilePathsInFolder(.strInstallFolder)
+            MigrateUserFiles strInstallFolder, GetFilePathsInFolder(.strInstallFolder)
             ' Update install folder to new path
             .strInstallFolder = strInstallFolder
         End If
@@ -305,7 +305,7 @@ End Function
 '           : the source file.
 '---------------------------------------------------------------------------------------
 '
-Private Sub MigrateUserFiles(strFromFolder As String, strToFolder As String, colNames As Dictionary)
+Private Sub MigrateUserFiles(strToFolder As String, colNames As Dictionary)
 
     Dim varKey As Variant
     Dim strFile As String

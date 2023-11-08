@@ -58,7 +58,7 @@ Private Sub IDbComponent_Import(strFile As String)
     If Not strFile Like "*.bas" Then Exit Sub
 
     strName = GetObjectNameFromFileName(strFile)
-    LoadComponentFromText acReport, strName, strFile, Me
+    LoadComponentFromText acReport, strName, strFile
     Set m_Report = CurrentProject.AllReports(strName)
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), GetCodeModuleHash(IDbComponent_ComponentType, strName)
 

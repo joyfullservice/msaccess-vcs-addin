@@ -1012,10 +1012,8 @@ End Sub
 '
 Public Function AddToExportFile(strFileContent As String) As String
 
-    Dim strTempFile As String
     Dim strLine As String
     Dim varLines As Variant
-    Dim strData As String
     Dim lngLine As Long
     Dim blnFound As Boolean
     Dim blnInBlock As Boolean

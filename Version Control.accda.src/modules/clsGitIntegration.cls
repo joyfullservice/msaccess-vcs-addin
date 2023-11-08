@@ -272,7 +272,6 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IsInsideRepository() As Boolean
-    Dim strResult As String
     If Me.GitInstalled Then
         IsInsideRepository = (RunGitCommand(egcIsInsideTree) = "true")
     End If

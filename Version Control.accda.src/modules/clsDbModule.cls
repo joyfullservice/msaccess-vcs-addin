@@ -145,7 +145,7 @@ Private Function ParseSourceFile(strFile As String, strName As String) As udtVba
             blnIsClass = True
             Exit For
         End If
-        ' Exit after 10 lines
+        ' Exit after 9 lines
         If lngLine > 8 Then Exit For
     Next lngLine
 

@@ -411,7 +411,6 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
     Dim strTempFile As String
     Dim strAltFile As String
     Dim strContent As String
-    Dim strPrefix As String
     Dim strPrintSettingsFile As String
     Dim strHash As String
     Dim cParser As clsSourceParser
@@ -533,10 +532,7 @@ End Function
 ' Purpose   : Load the object into the database from the saved source file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadComponentFromText(intType As AcObjectType, _
-                                strName As String, _
-                                strFile As String, _
-                                Optional cDbObjectClass As IDbComponent = Nothing)
+Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, strFile As String)
 
     Dim strTempFile As String
     Dim strSourceFile As String
@@ -544,8 +540,6 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
     Dim strContent As String
     Dim blnVbaOverlay As Boolean
     Dim blnConvert As Boolean
-    Dim dFile As Dictionary
-    Dim cParser As clsSourceParser
 
     ' In most cases we are importing/converting the actual source file.
     strSourceFile = strFile

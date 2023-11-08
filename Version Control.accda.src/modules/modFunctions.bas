@@ -910,10 +910,10 @@ End Function
 '           : I.e.  c:\test.bas > c:\test.cls
 '---------------------------------------------------------------------------------------
 '
-Public Function SwapExtension(strFilePath As String, strNewExtension As String) As String
+Public Function SwapExtension(strFilePath As String, strNewExtensionWithoutDelimiter As String) As String
     Dim strCurrentExt As String
     strCurrentExt = FSO.GetExtensionName(strFilePath)
-    SwapExtension = Left(strFilePath, Len(strFilePath) - Len(strCurrentExt)) & strNewExtension
+    SwapExtension = Left(strFilePath, Len(strFilePath) - Len(strCurrentExt)) & strNewExtensionWithoutDelimiter
 End Function
 
 
