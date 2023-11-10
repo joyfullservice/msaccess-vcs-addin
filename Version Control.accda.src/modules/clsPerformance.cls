@@ -447,14 +447,14 @@ Public Function GetReports() As String
             .Add ListResult("Category", "Count", "Seconds", lngCol), vbCrLf, strSpacer
             For Each varKey In this.Categories.Keys
                 .Add ListResult(CStr(varKey), CStr(this.Categories(varKey).Count), _
-                    Format(this.Categories(varKey).Total, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
+                    Format$(this.Categories(varKey).Total, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
                 ' Add to totals
                 dblCount = dblCount + this.Categories(varKey).Count
                 curTotal = curTotal + this.Categories(varKey).Total
             Next varKey
             .Add strSpacer
             .Add ListResult("TOTALS:", CStr(dblCount), _
-                Format(curTotal, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
+                Format$(curTotal, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
             .Add strSpacer
             .Add vbNullString
         End If
@@ -467,13 +467,13 @@ Public Function GetReports() As String
             .Add ListResult("Operations", "Count", "Seconds", lngCol), vbCrLf, strSpacer
             For Each varKey In this.Operations.Keys
                 .Add ListResult(CStr(varKey), CStr(this.Operations(varKey).Count), _
-                    Format(this.Operations(varKey).Total, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
+                    Format$(this.Operations(varKey).Total, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
                 curTotal = curTotal + this.Operations(varKey).Total
             Next varKey
             .Add strSpacer
             If Not this.Overall Is Nothing Then
                 .Add ListResult("Other Operations", vbNullString, _
-                    Format(this.Overall.Total - curTotal, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
+                    Format$(this.Overall.Total - curTotal, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
                 .Add strSpacer
             End If
             .Add vbNullString
@@ -608,7 +608,7 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
     ' Build our list of records
     For Each varKey In dItems.Keys
         ' Create a record like this: "00062840.170000|Export Form Objects       ..."
-        strRecord = Format(dItems(varKey).Total, "00000000.000000") & "|" & PadRight(CStr(varKey), 255)
+        strRecord = Format$(dItems(varKey).Total, "00000000.000000") & "|" & PadRight(CStr(varKey), 255)
         ' Add to array.
         varItems(lngCnt) = strRecord
         ' Increment counter for array
@@ -624,7 +624,7 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
     For lngCnt = dItems.Count - 1 To 0 Step -1
         ' Parse key from record (text after first pipe character)
         strRecord = varItems(lngCnt)
-        varKey = Trim(Mid$(strRecord, InStr(1, strRecord, "|") + 1))
+        varKey = Trim$(Mid$(strRecord, InStr(1, strRecord, "|") + 1))
         ' Reference performance item class
         Set cItem = dItems(varKey)
         ' Add to dictionary of resorted items
