@@ -297,14 +297,43 @@ utc_ErrorHandling:
     Err.Raise 10012, "UtcConverter.ConvertToUtc", "UTC conversion error: " & Err.Number & " - " & Err.Description
 End Function
 
+
+Public Function TimeStampDate(Optional LocalTimeStamp As Boolean = False) As Date
+
+    Dim TimeStampOut As Date
+
+#If Mac Then
+    ' I'm sure there's a way to do this better, but this works for now.
+    TimeStampOut = ConvertToUtc(VBA.Now())
+    If Not LocalTimeStamp Then TimeStampOut = ConvertToUtc(TimeStampOut)
+
+#Else
+    Dim tSysTime As utc_SYSTEMTIME
+
+    If Not LocalTimeStamp Then
+        GetSystemTime tSysTime
+        TimeStampOut = utc_SystemTimeToDate(tSysTime)
+
+    Else
+        GetLocalTime tSysTime
+        TimeStampOut = utc_SystemTimeToDate(tSysTime)
+    End If
+#End If
+
+    TimeStampDate = TimeStampOut
+
+End Function
+
+
 ' NOTE: As of now, "LocalTimeStamp" does nothing on a Mac; need to build "getTimeZoneOffset" for Mac, and I don't have one.
 '       It will, however, output a UTC string that is correct for local time (eg, in the correct UTC for the given local time)
 '       I also don't know how to get millisecond values out of a Mac, so that'll return zero, as well.
 Public Function ISO8601TimeStamp(Optional IncludeMilliseconds As Boolean = True _
                                 , Optional LocalTimeStamp As Boolean = False) As String
-    Dim CurrentTimeVB As Date
 
+    Dim CurrentTimeVB As Date
     Dim tString_Buffer As StringBufferCache
+
 ' Note: This varies slightly from ConvertToISO8601Time because it's faster to do on Windows if you have SYSTEMTIME
 #If Mac Then
     ' I'm sure there's a way to do this better, but this works for now.
