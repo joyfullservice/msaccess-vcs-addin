@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =245
     Left =-25575
     Top =1500
-    Right =-5310
+    Right =-255
     Bottom =14085
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -276,13 +276,13 @@ Begin Form
                             OverlapFlags =85
                             Left =720
                             Top =1440
-                            Width =4020
+                            Width =2280
                             Height =315
                             Name ="Label241"
                             Caption ="List of files to split:"
                             LayoutCachedLeft =720
                             LayoutCachedTop =1440
-                            LayoutCachedWidth =4740
+                            LayoutCachedWidth =3000
                             LayoutCachedHeight =1755
                         End
                     End
@@ -866,6 +866,43 @@ Begin Form
                         End
                     End
                 End
+                Begin CommandButton
+                    FontUnderline = NotDefault
+                    OverlapFlags =85
+                    Left =4020
+                    Top =1440
+                    Width =2820
+                    TabIndex =3
+                    Name ="cmdAddFormsAndReports"
+                    Caption ="Add Forms and Reports..."
+                    OnClick ="[Event Procedure]"
+                    HorizontalAnchor =1
+                    BackStyle =0
+
+                    CursorOnHover =1
+                    LayoutCachedLeft =4020
+                    LayoutCachedTop =1440
+                    LayoutCachedWidth =6840
+                    LayoutCachedHeight =1800
+                    Alignment =3
+                    ForeThemeColorIndex =10
+                    ForeTint =100.0
+                    Gradient =0
+                    BackColor =14262935
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    OldBorderStyle =0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverColor =15321539
+                    HoverThemeColorIndex =-1
+                    HoverTint =100.0
+                    PressedColor =13072231
+                    PressedThemeColorIndex =-1
+                    PressedShade =100.0
+                    Overlaps =1
+                End
             End
         End
     End
@@ -877,6 +914,69 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdAddFormsAndReports_Click
+' Author    : Adam Waller
+' Date      : 11/9/2023
+' Purpose   : Add the forms and reports source files for the project. Doing this
+'           : intelligently by only adding items that have a VBA code module.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdAddFormsAndReports_Click()
+
+    Dim intType As AcObjectType
+    Dim cComponent As IDbComponent
+    Dim varKey As Variant
+    Dim strFile As String
+    Dim strPrefix As String
+    Dim cList As clsConcat
+
+    ' Prepare class for new list
+    Set cList = New clsConcat
+    cList.AppendOnAdd = vbCrLf
+
+    ' Process for forms and reports (2 to 3)
+    DoCmd.Hourglass True
+    For intType = acForm To acReport
+
+        ' Get component type
+        If intType = acForm Then
+            Set cComponent = New clsDbForm
+            strPrefix = "Form_"
+        ElseIf intType = acReport Then
+            Set cComponent = New clsDbReport
+            strPrefix = "Report_"
+        End If
+
+        ' Loop through files
+        For Each varKey In cComponent.GetFileList.Keys
+            strFile = SwapExtension(CStr(varKey), "cls")
+            ' Skip files that already exist
+            If Not FSO.FileExists(strFile) Then
+                ' Check for code module marker in source file
+                If InStr(1, ReadFile(CStr(varKey)), "CodeBehindForm") > 0 Then
+                    ' Add to list of files to split
+                    cList.Add CStr(varKey), "|", strFile
+                End If
+            End If
+        Next varKey
+    Next intType
+    DoCmd.Hourglass False
+    cmdSplitFiles.SetFocus
+
+    ' See if we found any files to split.
+    If cList.Length > 0 Then
+        ' Replace existing content.
+        txtFileList = cList.GetStr
+    Else
+        MsgBox2 "No Relevant Files Found", _
+            "Could not find any combined form or report source files that contained VBA modules", _
+            , vbInformation
+    End If
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
