@@ -1012,7 +1012,7 @@ Private Sub cmdSplitFiles_Click()
             AddToArray strPaths, varPaths(0)
             AddToArray strNew, varPaths(1)
         Else
-            If UBound(varPaths) = 0 And Trim(varPaths(0)) = vbNullString Then
+            If Len(Trim(varEntries(lngLine))) = 0 Then
                 ' Ignore blank lines
             Else
                 strError = "Expecting two file paths, separated by | character. See line: '" & varPaths(0) & "'"
@@ -1033,7 +1033,7 @@ Private Sub cmdSplitFiles_Click()
 
         ' Require clean branch with git installation
         If Not Git.IsCleanBranch Then strError = "Cannot split files in Git when changes are present in the branch"
-        If Not Git.GitInstalled Then strError = "Git must be installed to use this tool."
+        If Not Git.Installed Then strError = "Git must be installed to use this tool."
 
         ' Make sure we don't have any errors with the Git commands
         If Len(strError) Then

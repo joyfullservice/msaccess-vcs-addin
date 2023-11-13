@@ -336,7 +336,7 @@ Private Function HasUnifiedLayoutFilesInGit(strExportPath As String) As Boolean
 
     If blnHasFiles Then
         ' Check to see if this folder is in a git repository
-        If Git.GitInstalled Then
+        If Git.Installed Then
             ' Check export path
             Git.WorkingFolder = strExportPath
             HasUnifiedLayoutFilesInGit = Git.IsInsideRepository

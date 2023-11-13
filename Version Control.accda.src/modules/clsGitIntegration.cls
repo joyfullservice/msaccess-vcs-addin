@@ -183,7 +183,7 @@ Public Function GetRepositoryRoot(Optional blnFallBackToWorking As Boolean = Tru
     strWorking = GetWorkingFolder
 
     ' Make sure git is actually installed
-    If Not Me.GitInstalled Then
+    If Not Me.Installed Then
         If blnFallBackToWorking Then GetRepositoryRoot = strWorking
         Exit Function
     End If
@@ -272,7 +272,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IsInsideRepository() As Boolean
-    If Me.GitInstalled Then
+    If Me.Installed Then
         IsInsideRepository = (RunGitCommand(egcIsInsideTree) = "true")
     End If
 End Function
@@ -524,8 +524,8 @@ End Function
 ' Purpose   : Returns true if git is installed.
 '---------------------------------------------------------------------------------------
 '
-Public Function GitInstalled() As Boolean
-    GitInstalled = (Len(Me.Version))
+Public Function Installed() As Boolean
+    Installed = (Len(Me.Version))
 End Function
 
 
