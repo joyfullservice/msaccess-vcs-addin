@@ -16,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =252
-    Left =3225
-    Top =2430
-    Right =13890
-    Bottom =14175
+    Left =-25575
+    Top =1500
+    Right =-255
+    Bottom =14085
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -4296,6 +4296,9 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                                 If eAction = emaClassToForm Then
                                     ctl = CallByName(Options, strKey, VbGet)
                                 ElseIf eAction = emaFormToClass Then
+                                    ' Check for any hooks on option change
+                                    OnOptionChange strKey, Nz(ctl.Value)
+                                    ' Set the option value
                                     CallByName Options, strKey, VbLet, Nz(ctl.Value)
                                 End If
                         End Select
@@ -4324,6 +4327,46 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
 
     ' Enable pages based on options.
     chkUseGitIntegration_Click
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OnOptionChange
+' Author    : Adam Waller
+' Date      : 11/9/2023
+' Purpose   : A hook to run special code or processing when specific options are changed
+'           : from their existing values. Add any specific rules here.
+'---------------------------------------------------------------------------------------
+'
+Private Sub OnOptionChange(strName As String, varNewValue As Variant)
+
+    Dim blnChanged As Boolean
+
+    ' Determine if the option was changed
+    blnChanged = Not (CVar(CallByName(Options, strName, VbGet)) = varNewValue)
+    If Not blnChanged Then Exit Sub
+
+    ' Define actual rules here
+    Select Case strName
+
+        ' If a user turns on the option to split files
+        Case "SplitLayoutFromVBA"
+            If varNewValue = True Then
+                If Git.Installed Then
+                    If Git.IsInsideRepository Then
+                        ' Prompt user with suggestion
+                        If MsgBox2("May I make a Suggestion?", _
+                            "This project appears to be within a Git repository. This add-in includes a special utility " & _
+                            "that can split the files (layout and VBA) while preserving this history of previous changes in BOTH files.", _
+                            "Would you like to see additional information on this from the wiki?", vbQuestion + vbYesNo) = vbYes Then
+                            FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Split-Files"
+                        End If
+                    End If
+                End If
+            End If
+
+    End Select
 
 End Sub
 
