@@ -794,7 +794,7 @@ Private Function ConvTimeUTC2(ByVal InVal As String) As Date
         ConvTimeUTC2 = TimeSerial(varParts(0), varParts(1), Left(varParts(2), 2))
     Else
         ' Fall back to slower RegEx function
-        ConvTimeUTC2 = ConvDateUTC(InVal)
+        ConvTimeUTC2 = ConvTimeUTC(InVal)
     End If
 
 End Function
