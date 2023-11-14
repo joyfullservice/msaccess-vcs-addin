@@ -518,7 +518,8 @@ Private Function IndexAvailable(tdf As TableDef) As Boolean
 
     Dim lngTest As Long
 
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
     lngTest = tdf.Indexes.Count
     If Err Then
         Err.Clear
@@ -547,7 +548,8 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
     Dim strSql As String
     Dim strConnect As String
 
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
 
     ' Read json file
     Set dTable = ReadJsonFile(strFile)

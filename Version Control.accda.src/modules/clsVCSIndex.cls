@@ -776,7 +776,8 @@ End Property
 Public Sub ClearTempExportFolder()
     If m_strTempExportFolderPath <> vbNullString Then
         If FSO.FolderExists(m_strTempExportFolderPath) Then
-            If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+            LogUnhandledErrors
+            On Error Resume Next
             ' Use FSO to delete the folder and contents
             FSO.DeleteFolder m_strTempExportFolderPath, True
             CatchAny eelWarning, "Unable to delete temp folder: '" & m_strTempExportFolderPath & _

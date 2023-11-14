@@ -95,7 +95,8 @@ Private Sub IDbComponent_Import(strFile As String)
     DoCmd.Save acModule, strName
 
     ' Set reference to object
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
     Set m_Module = CurrentProject.AllModules(strName)
     If Catch(2467) Then Log.Error eelCritical, _
         "Imported module not found after import: " & strName, ModuleName(Me) & ".Import"
@@ -205,7 +206,8 @@ Private Sub LoadVbeModuleFromFile(strFile As String, strName As String)
     With proj.VBComponents
 
         ' Remove any existing component (In most cases the module will exist)
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         .Remove .Item(strName)
         If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
 

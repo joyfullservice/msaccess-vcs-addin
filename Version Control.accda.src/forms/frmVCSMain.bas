@@ -1965,7 +1965,8 @@ End Sub
 '
 Private Sub cmdClose_Click()
     ' Ignore the error if the user resumes (cancels the close operation)
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
     DoCmd.Close acForm, Me.Name
     Catch 2501  ' Close form was canceled.
 End Sub

@@ -789,6 +789,9 @@ Public Function IsEmptyArray(varArray As Variant) As Boolean
     lngLowBound = clngTest
     lngLowBound = LBound(varArray)
 
+    ' Clear any error thrown while attempting to read LBound()
+    If Err Then Err.Clear
+
     ' If the above assignment fails, we have an empty array
     IsEmptyArray = (lngLowBound = clngTest)
 

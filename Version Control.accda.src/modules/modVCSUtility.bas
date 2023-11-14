@@ -923,8 +923,10 @@ End Function
 Public Sub LoadVCSAddIn()
     ' The following lines will load the add-in at the application level,
     ' but will not actually call the function. Ignore the error of function not found.
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
     Application.Run GetAddInFileName & "!DummyFunction"
+    If Err Then Err.Clear
 End Sub
 
 

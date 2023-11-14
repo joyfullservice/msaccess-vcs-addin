@@ -108,7 +108,8 @@ Private Sub SafeSetProperty(cProj As VBProject, strProperty As String, varValue 
     If varValue = varCurrent Then Exit Sub
 
     ' Switch to on error resume next after checking for current errors
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
 
     ' Attempt to set the property
     CallByName cProj, strProperty, VbLet, varValue
