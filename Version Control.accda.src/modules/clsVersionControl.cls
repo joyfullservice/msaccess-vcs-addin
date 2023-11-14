@@ -374,6 +374,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SplitFiles
+' Author    : Adam Waller
+' Date      : 11/14/2023
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Public Sub SplitFiles()
+    DoCmd.OpenForm "frmVCSSplitFiles"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : LocalizeLibraryReferences
 ' Author    : Adam Waller
 ' Date      : 5/4/2022

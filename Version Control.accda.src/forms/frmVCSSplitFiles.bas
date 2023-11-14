@@ -1040,7 +1040,16 @@ Private Sub cmdSplitFiles_Click()
             MsgBox2 "Validation Failed", strError, "Please correct the problem to continue.", vbExclamation
         Else
             ' Split the files using git commands
+            DoCmd.Hourglass True
             Git.SplitFilesWithHistory strPaths, strNew, txtCommitMessage
+            DoCmd.Hourglass False
+
+            ' Show success message
+            MsgBox2 "Finished", "The operation is complete.", _
+                "For additional details, please see `git.log` in the source folder.", vbInformation
+
+            ' Clear existing list
+            txtFileList = vbNullString
         End If
 
         ' Restore original working folder
