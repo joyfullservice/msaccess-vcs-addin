@@ -491,6 +491,7 @@ utc_ErrorHandling:
     Err.Raise 10013, "UtcConverter.ParseIso", "ISO 8601 parsing error for " & utc_IsoString & ": " & Err.Number & " - " & Err.Description
 End Function
 
+
 Public Function ConvertToUTCISO8601TimeStamp(ByVal LocalDateIn As Date) As String
     ConvertToUTCISO8601TimeStamp = ConvertToISO8601Time(LocalDateIn, False, False, True)
 End Function
@@ -716,51 +717,13 @@ Private Function utc_SystemTimeToDate(ByRef utc_Value As utc_SYSTEMTIME) As Date
 End Function
 
 
-Private Function ConvDateUTC(ByRef InVal As String) As Date
-    Dim RetVal As Variant
+Public Function ConvDateUTC(ByRef ISO8601DateIn As String) As Date
 
-'    Dim RegEx As Object
-'    Set RegEx = CreateObject("VBScript.RegExp")
-    Dim RegEx As New RegExp
-    With RegEx
-        .Global = True
-        .Multiline = True
-        .IgnoreCase = False
-    End With
+    Dim DateParts() As String
 
-    RegEx.Pattern = "^(\d{4})-?(\d{2})?-?(\d{1,2})?$|^(\d{4})-?W(\d{2})?-?(\d)?$|^(\d{4})-?(\d{3})$"
-    Dim Match As Object
-    Set Match = RegEx.Execute(InVal)
+    DateParts = Split(ISO8601DateIn, ISO8601DateDelimiter, , vbTextCompare)
+    ConvDateUTC = DateSerial(CInt(DateParts(0)), CInt(DateParts(1)), CInt(DateParts(2)))
 
-    If Match.Count <> 1 Then Exit Function
-    With Match(0)
-        If Not IsEmpty(.SubMatches(0)) Then
-            'YYYY-MM-DD
-            If IsEmpty(.SubMatches(1)) Then  'YYYY
-                RetVal = DateSerial(CInt(.SubMatches(0)), 1, 1)
-            ElseIf IsEmpty(.SubMatches(2)) Then 'YYYY-MM
-                RetVal = DateSerial(CInt(.SubMatches(0)), CInt(.SubMatches(1)), 1)
-            Else 'YYYY-MM-DD or YYYY-MM-D
-                RetVal = DateSerial(CInt(.SubMatches(0)), CInt(.SubMatches(1)), CInt(.SubMatches(2)))
-            End If
-        ElseIf Not IsEmpty(.SubMatches(3)) Then
-            'YYYY-Www-D
-            RetVal = DateSerial(CInt(.SubMatches(3)), 1, 4) '4th of jan is always week 1
-            RetVal = RetVal - Weekday(RetVal, 2) 'subtract the weekday number of 4th of jan
-            RetVal = RetVal + 7 * (CInt(.SubMatches(4)) - 1) 'add 7 times the (weeknumber - 1)
-
-            If IsEmpty(.SubMatches(5)) Then 'YYYY-Www
-                RetVal = RetVal + 1 'choose monday of that week
-            Else 'YYYY-Www-D
-                RetVal = RetVal + CInt(.SubMatches(5)) 'choose day of that week 1-7 monday to sunday
-            End If
-        Else
-            'YYYY-DDD
-            RetVal = DateSerial(CInt(.SubMatches(6)), 1, 1) + CInt(.SubMatches(7)) - 1
-        End If
-    End With
-
-    ConvDateUTC = RetVal
 End Function
 
 
