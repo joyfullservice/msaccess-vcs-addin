@@ -298,7 +298,17 @@ utc_ErrorHandling:
 End Function
 
 
-Public Function TimeStampDate(Optional LocalTimeStamp As Boolean = False) As Date
+Public Function TimeStampLocalNow() As Date
+    TimeStampLocalNow = TimeStampDate(True)
+End Function
+
+
+Public Function TimeStampUTCNow() As Date
+    TimeStampUTCNow = TimeStampDate(False)
+End Function
+
+
+Private Function TimeStampDate(Optional LocalTimeStamp As Boolean = False) As Date
 
     Dim TimeStampOut As Date
 
@@ -706,7 +716,7 @@ Private Function utc_SystemTimeToDate(ByRef utc_Value As utc_SYSTEMTIME) As Date
 End Function
 
 
-Private Function ConvDateUTC(ByVal InVal As String) As Date
+Private Function ConvDateUTC(ByRef InVal As String) As Date
     Dim RetVal As Variant
 
 '    Dim RegEx As Object
@@ -752,6 +762,7 @@ Private Function ConvDateUTC(ByVal InVal As String) As Date
 
     ConvDateUTC = RetVal
 End Function
+
 
 Private Function ConvTimeUTC(ByRef InVal As String) As Date
 
