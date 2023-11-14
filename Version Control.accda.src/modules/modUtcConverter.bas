@@ -473,7 +473,7 @@ Public Function ParseIso(utc_IsoString As String _
             ParseIso = utc_DateTimeOut
         End If
     Else ' Assume any "Date Only" Text doesn't have a timezone (they aren't converted the other way, either)
-        ParseIso = ConvDateUTC(utc_Parts(0))
+        ParseIso = ConvDateUTC2(utc_Parts(0))
     End If
     Exit Function
 #End If
