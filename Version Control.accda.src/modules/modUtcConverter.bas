@@ -466,7 +466,7 @@ Public Function ParseIso(utc_IsoString As String _
     Exit Function
 #Else
     If UBound(utc_Parts) > 0 Then
-        utc_DateTimeOut = ConvDateUTC(utc_Parts(0)) + ConvTimeUTC(utc_Parts(1))
+        utc_DateTimeOut = ConvDateUTC2(utc_Parts(0)) + ConvTimeUTC2(utc_Parts(1))
         If Not OutputUTCDate Then
             ParseIso = ConvertToLocalDate(utc_DateTimeOut)
         Else
@@ -706,6 +706,29 @@ Private Function utc_SystemTimeToDate(ByRef utc_Value As utc_SYSTEMTIME) As Date
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : ConvDateUTC2
+' Author    : Adam Waller
+' Date      : 11/14/2023
+' Purpose   : Attempt a higher performance conversion first, then fall back to RegEx.
+'---------------------------------------------------------------------------------------
+'
+Private Function ConvDateUTC2(ByVal InVal As String) As Date
+
+    Dim varParts As Variant
+
+    If InVal Like "####-##-##" Then
+        ' Use high-performance conversion to date
+        varParts = Split(InVal, "-")
+        ConvDateUTC2 = DateSerial(varParts(0), varParts(1), varParts(2))
+    Else
+        ' Fall back to slower RegEx function
+        ConvDateUTC2 = ConvDateUTC(InVal)
+    End If
+
+End Function
+
+
 Private Function ConvDateUTC(ByVal InVal As String) As Date
     Dim RetVal As Variant
 
@@ -752,6 +775,30 @@ Private Function ConvDateUTC(ByVal InVal As String) As Date
 
     ConvDateUTC = RetVal
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ConvTimeUTC2
+' Author    : Adam Waller
+' Date      : 11/14/2023
+' Purpose   : Attempt a higher performance conversion first, then fall back to RegEx.
+'---------------------------------------------------------------------------------------
+'
+Private Function ConvTimeUTC2(ByVal InVal As String) As Date
+
+    Dim varParts As Variant
+
+    If InVal Like "##:##:##.###Z" Then
+        ' Use high-performance conversion to date
+        varParts = Split(InVal, ":")
+        ConvTimeUTC2 = TimeSerial(varParts(0), varParts(1), Left(varParts(2), 2))
+    Else
+        ' Fall back to slower RegEx function
+        ConvTimeUTC2 = ConvDateUTC(InVal)
+    End If
+
+End Function
+
 
 Private Function ConvTimeUTC(ByRef InVal As String) As Date
 
