@@ -717,7 +717,7 @@ Private Function utc_SystemTimeToDate(ByRef utc_Value As utc_SYSTEMTIME) As Date
 End Function
 
 
-Public Function ConvDateUTC(ByRef ISO8601DateIn As String) As Date
+Private Function ConvDateUTC(ByRef ISO8601DateIn As String) As Date
 
     Dim DateParts() As String
 
