@@ -248,7 +248,9 @@ Public Function ConvertToJson(ByVal JsonValue As Variant, Optional ByVal Whitesp
     Case VBA.vbDate
         ' Date
         If JsonOptions.ConvertDateToIso Then
+            Perf.OperationStart "Convert JSON Date to ISO"
             json_DateStr = ConvertToIsoTime(VBA.CDate(JsonValue))
+            Perf.OperationEnd
         Else
             json_DateStr = VBA.CStr(JsonValue)
         End If
@@ -621,8 +623,11 @@ Private Function json_ParseString(ByRef json_String As String _
         Case json_Quote
             json_ParseString = json_BufferToString(json_Buffer, json_BufferPosition)
             If JsonOptions.ConvertDateToIso Then ' Only convert and test for condition if needed for speed boost.
-                If (json_ParseString Like "####-##-##T##:##:##*") Then _
+                If (json_ParseString Like "####-##-##T##:##:##*") Then
+                    Perf.OperationStart "Parse JSON ISO Date"
                     json_ParseString = ParseIso(VBA.CStr$(json_ParseString)) ' Return as a date
+                    Perf.OperationEnd
+                End If
             End If
             json_Index = json_Index + 1
             Exit Function
