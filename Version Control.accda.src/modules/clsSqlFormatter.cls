@@ -359,7 +359,8 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
         ' If the token shouldn't have a space before it
         If strTokenValue = "." _
             Or strTokenValue = "," _
-            Or strTokenValue = ";" Then
+            Or strTokenValue = ";" _
+            Or (strTokenValue = "!" And m_intDialect = esdAccess) Then
             ' Trim any whitespace
             cReturn.RTrim
         End If
@@ -368,7 +369,9 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
         cReturn.Add strTokenValue, " "
 
         ' If the token shouldn't have a space after it
-        If strTokenValue = "(" Or strTokenValue = "." Then
+        If strTokenValue = "(" _
+            Or strTokenValue = "." _
+            Or (strTokenValue = "!" And m_intDialect = esdAccess) Then
             cReturn.RTrim
         End If
 
@@ -512,7 +515,8 @@ Private Sub Tokenize(strSql As String, intDialect As eSqlDialect)
 
         ' A reserved word cannot be preceded by a "."
         ' This makes it so in "mytable.from", "from" is not considered a reserved word
-        ElseIf PeekChar(-1, ".") Then
+        ElseIf PeekChar(-1, ".") _
+            Or (PeekChar(-1, "!") And m_intDialect = esdAccess) Then
 
             ' Likely an object name
             If HasMatches("^(.*?)($|\s|[""\'`]|" & RegExBoundaries & ")", strMatch) Then
@@ -1461,9 +1465,69 @@ Public Sub SelfTest()
     If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
 
 
-    'PrintTokens
-    'BuildTestFromTokens
-    'Diff.Strings strActual, FormatSQL
+    ' Test multi-part names
+    Tokenize "SELECT [dbo].[field] FROM [server].[schema].[table];", esdMSSQL
+
+    ' Verify tokens
+    Debug.Assert m_colTokens.Count = 13
+    Debug.Assert VerifyToken(1, ttReservedTopLevel, "SELECT")
+    Debug.Assert VerifyToken(2, ttWhitespace, " ")
+    Debug.Assert VerifyToken(3, ttQuote, "[dbo]")
+    Debug.Assert VerifyToken(4, ttBoundary, ".")
+    Debug.Assert VerifyToken(5, ttQuote, "[field]")
+    Debug.Assert VerifyToken(6, ttWhitespace, " ")
+    Debug.Assert VerifyToken(7, ttReservedTopLevel, "FROM")
+    Debug.Assert VerifyToken(8, ttWhitespace, " ")
+    Debug.Assert VerifyToken(9, ttQuote, "[server]")
+    Debug.Assert VerifyToken(10, ttBoundary, ".")
+    Debug.Assert VerifyToken(11, ttQuote, "[schema]")
+    Debug.Assert VerifyToken(12, ttBoundary, ".")
+    Debug.Assert VerifyToken(13, ttQuote, "[table]")
+
+    ' Verify result
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT"
+        .Add "  [dbo].[field]"
+        .Add "FROM"
+        .Add "  [server].[schema].[table]"
+        .Remove 2
+        strActual = .GetStr
+    End With
+    Debug.Assert (strActual = FormatSQL)
+    If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
+
+
+    ' Test parameter expression
+    Tokenize "SELECT [Forms]![frmColors]![Text18];", esdAccess
+
+    ' Verify tokens
+    Debug.Assert m_colTokens.Count = 7
+    Debug.Assert VerifyToken(1, ttReservedTopLevel, "SELECT")
+    Debug.Assert VerifyToken(2, ttWhitespace, " ")
+    Debug.Assert VerifyToken(3, ttQuote, "[Forms]")
+    Debug.Assert VerifyToken(4, ttBoundary, "!")
+    Debug.Assert VerifyToken(5, ttQuote, "[frmColors]")
+    Debug.Assert VerifyToken(6, ttBoundary, "!")
+    Debug.Assert VerifyToken(7, ttQuote, "[Text18]")
+
+    ' Verify result
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT"
+        .Add "  [Forms]![frmColors]![Text18]"
+        .Remove 2
+        strActual = .GetStr
+    End With
+    Debug.Assert (strActual = FormatSQL)
+    If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
+
+'    PrintTokens
+'    BuildTestFromTokens
+'    Diff.Strings strActual, FormatSQL
+
+    ' Test performance
+    TestPerformance
 
 End Sub
 
