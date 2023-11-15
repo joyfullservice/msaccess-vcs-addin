@@ -812,16 +812,16 @@ End Function
 ' Purpose   : Attempt a higher performance conversion first, then fall back to RegEx.
 '---------------------------------------------------------------------------------------
 '
-Private Function ConvTimeUTC(ByVal InVal As String) As Date
+Private Function ConvTimeUTC(ByRef InVal As String) As Date
 
     Dim varParts As Variant
-    Dim SecondsInPart As String
+    Dim InValSeconds As String
 
     If InVal Like "##:##:##.###Z" Then
         ' Use high-performance conversion to date
         varParts = Split(InVal, ":")
-        SecondsInPart = Mid(varParts(2), 1, Len(varParts(2)) - 1)
-        ConvTimeUTC = TimeSerialDbl(varParts(0), varParts(1), SecondsInPart)
+        InValSeconds = Mid(varParts(2), 1, Len(varParts(2)) - 1)
+        ConvTimeUTC = TimeSerialDbl(varParts(0), varParts(1), InValSeconds)
     Else
         ' Fall back to slower RegEx function
         ConvTimeUTC = ConvTimeUTC2(InVal)
