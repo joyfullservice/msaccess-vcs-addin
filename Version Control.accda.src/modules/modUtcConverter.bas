@@ -563,18 +563,38 @@ Public Function ConvertToISO8601Time(ByVal DateIn As Date _
     End If
 
     ConvertToISO8601Time = String_BufferToString(tString_Buffer)
+
 End Function
 
 
 ' Provides a format string to other functions that complies with ISO8601
-Private Function ISOTimeFormatStr(Optional IncludeMilliseconds As Boolean = False _
-                                , Optional includeTimeZone As Boolean = False) As String
-    Dim tString_Buffer As StringBufferCache
+Public Function ISOTimeFormatStr(Optional ByVal IncludeMilliseconds As Boolean = False _
+                                , Optional ByVal IncludeTimeZonePart As Boolean = False _
+                                , Optional ByVal IncludeLocalTimeZone As Boolean = False) As String
 
-    String_BufferAppend tString_Buffer, "yyyy-mm-ddTHH:mm:ss"
-    If IncludeMilliseconds Then String_BufferAppend tString_Buffer, ".000"
-    If includeTimeZone Then String_BufferAppend tString_Buffer, ISOTimezoneOffset
-    ISOTimeFormatStr = String_BufferToString(tString_Buffer)
+    Static f_dFormatString As Scripting.Dictionary
+
+    Dim DictPosition As Long
+
+    If f_dFormatString Is Nothing Then Set f_dFormatString = New Scripting.Dictionary
+
+    DictPosition = (4 And IncludeMilliseconds) + (2 And IncludeTimeZonePart) + (1 And IncludeLocalTimeZone)
+
+    If Not f_dFormatString.Exists(DictPosition) Then
+        With New clsConcat
+            .Add "yyyy-mm-ddTHH:mm:ss"
+            If IncludeMilliseconds Then .Add ".000"
+            If IncludeTimeZonePart And IncludeLocalTimeZone Then
+                .Add CurrentISOTimezoneOffset
+            ElseIf IncludeTimeZonePart Then
+                .Add ISO8601UTCTimeZone
+            End If
+            f_dFormatString.Add DictPosition, .GetStr
+        End With
+    End If
+
+    ISOTimeFormatStr = f_dFormatString.Item(DictPosition)
+
 End Function
 
 
