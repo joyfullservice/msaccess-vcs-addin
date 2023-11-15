@@ -69,7 +69,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                         Case Else
                             With New clsSqlFormatter
                                 Perf.OperationStart "Format SQL"
-                                WriteFile .FormatSQL(strSql), strFile
+                                WriteFile .FormatSQL(strSql, esdAccess), strFile
                                 Perf.OperationEnd
                             End With
                     End Select

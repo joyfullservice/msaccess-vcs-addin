@@ -115,11 +115,8 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
     Perf.CategoryStart "Format SQL"
     Perf.OperationStart "Formating"
 
-    ' Set SQL dialect
-    m_intDialect = intDialect
-
     ' Tokenize the string, if provided
-    If strSql <> vbNullString Then Tokenize strSql
+    If strSql <> vbNullString Then Tokenize strSql, intDialect
 
     ' Set up collection to hold types of indents
     Set colIndents = New Collection
@@ -437,7 +434,7 @@ End Function
 '           : Each token is an array with type(0) and value(1).
 '---------------------------------------------------------------------------------------
 '
-Private Sub Tokenize(strSql As String)
+Private Sub Tokenize(strSql As String, intDialect As eSqlDialect)
 
     Const cstrBreakAfter As String = "LIMIT" & ";;;;"
 
@@ -450,6 +447,9 @@ Private Sub Tokenize(strSql As String)
     m_lngPos = 1
     m_varWordCache(1) = Empty
     m_varWordCache(2) = Empty
+
+    ' Set SQL dialect
+    m_intDialect = intDialect
 
     Perf.CategoryStart "Tokenize SQL"
 
@@ -1297,16 +1297,13 @@ Public Sub SelfTest()
 
     Dim strActual As String
 
-    ' Test performance
-    TestPerformance
-
     ' Test GetNextWords
-    Tokenize "  LEFT " & vbTab & vbCrLf & " JOIN test on 1=2"
+    Tokenize "  LEFT " & vbTab & vbCrLf & " JOIN test on 1=2", esdAccess
     Debug.Assert GetNextWords(2) = "LEFT JOIN"
     Debug.Assert GetNextWords(1) = "LEFT"
 
     ' Test simple query with a few features
-    Tokenize "SELECT  5 AS `TEST`"
+    Tokenize "SELECT  5 AS `TEST`", esdMySQL
 
     ' Verify tokens
     Debug.Assert m_colTokens.Count = 7
@@ -1331,7 +1328,7 @@ Public Sub SelfTest()
 
 
     ' Test Access date literal with MySQL inline comment
-    Tokenize "SELECT (#1/1/2000#) AS SampleDate # MySQL inline ## comment"
+    Tokenize "SELECT (#1/1/2000#) AS SampleDate # MySQL inline ## comment", esdAccess
 
     ' Verify tokens
     Debug.Assert m_colTokens.Count = 11
@@ -1362,7 +1359,7 @@ Public Sub SelfTest()
     ' Example query from https://github.com/doctrine/sql-formatter
     Tokenize "SELECT count(*),`Column1`,`Testing`, `Testing Three` FROM `Table1`" & _
             " WHERE Column1 = 'testing' AND ( (`Column2` = `Column3` OR Column4 >= NOW()) )" & _
-            " GROUP BY Column1 ORDER BY Column3 DESC LIMIT 5,10"
+            " GROUP BY Column1 ORDER BY Column3 DESC LIMIT 5,10", esdMySQL
 
     ' Verify tokens
     Debug.Assert m_colTokens.Count = 66
@@ -1522,7 +1519,7 @@ Private Function BuildTestFromTokens()
     Dim intLine As Integer
 
     Debug.Print vbCrLf & vbCrLf & "    ' Verify tokens"
-    Debug.Print vbCrLf & "    Debug.Assert m_colTokens.Count = " & m_colTokens.Count
+    Debug.Print "    Debug.Assert m_colTokens.Count = " & m_colTokens.Count
 
     ' Loop through tokens
     For intToken = 1 To m_colTokens.Count
@@ -1550,6 +1547,7 @@ Private Function BuildTestFromTokens()
     Debug.Print "        strActual = .GetStr"
     Debug.Print "    End With"
     Debug.Print "    Debug.Assert (strActual = FormatSQL)"
+    Debug.Print "    If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL"
 
 End Function
 
@@ -1661,7 +1659,7 @@ Private Function TestPerformance()
     For lngCnt = 1 To lngMax
         Tokenize "SELECT count(*),`Column1`,`Testing`, `Testing Three` FROM `Table1`" & _
                 " WHERE Column1 = 'testing' AND ( (`Column2` = `Column3` OR Column4 >= NOW()) )" & _
-                " GROUP BY Column1 ORDER BY Column3 DESC LIMIT 5,10"
+                " GROUP BY Column1 ORDER BY Column3 DESC LIMIT 5,10", esdMySQL
     Next lngCnt
 
     ' Test performance of formatting SQL
