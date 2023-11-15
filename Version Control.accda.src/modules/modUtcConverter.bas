@@ -466,14 +466,14 @@ Public Function ParseIso(utc_IsoString As String _
     Exit Function
 #Else
     If UBound(utc_Parts) > 0 Then
-        utc_DateTimeOut = ConvDateUTC2(utc_Parts(0)) + ConvTimeUTC2(utc_Parts(1))
+        utc_DateTimeOut = ConvDateUTC(utc_Parts(0)) + ConvTimeUTC(utc_Parts(1))
         If Not OutputUTCDate Then
             ParseIso = ConvertToLocalDate(utc_DateTimeOut)
         Else
             ParseIso = utc_DateTimeOut
         End If
     Else ' Assume any "Date Only" Text doesn't have a timezone (they aren't converted the other way, either)
-        ParseIso = ConvDateUTC2(utc_Parts(0))
+        ParseIso = ConvDateUTC(utc_Parts(0))
     End If
     Exit Function
 #End If
@@ -713,28 +713,28 @@ End Function
 ' Purpose   : Attempt a higher performance conversion first, then fall back to RegEx.
 '---------------------------------------------------------------------------------------
 '
-Private Function ConvDateUTC2(ByVal InVal As String) As Date
+Private Function ConvDateUTC(ByRef InVal As String) As Date
 
     Dim varParts As Variant
 
     If InVal Like "####-##-##" Then
         ' Use high-performance conversion to date
         varParts = Split(InVal, "-")
-        ConvDateUTC2 = DateSerial(varParts(0), varParts(1), varParts(2))
+        ConvDateUTC = DateSerial(varParts(0), varParts(1), varParts(2))
     Else
         ' Fall back to slower RegEx function
-        ConvDateUTC2 = ConvDateUTC(InVal)
+        ConvDateUTC = ConvDateUTC2(InVal)
     End If
 
 End Function
 
 
-Private Function ConvDateUTC(ByVal InVal As String) As Date
-    Dim RetVal As Variant
+Private Function ConvDateUTC2(ByRef InVal As String) As Date
 
-'    Dim RegEx As Object
+    Dim RetVal As Variant
+    Dim RegEx As New RegExp ' Object
+
 '    Set RegEx = CreateObject("VBScript.RegExp")
-    Dim RegEx As New RegExp
     With RegEx
         .Global = True
         .Multiline = True
@@ -773,7 +773,8 @@ Private Function ConvDateUTC(ByVal InVal As String) As Date
         End If
     End With
 
-    ConvDateUTC = RetVal
+    ConvDateUTC2 = RetVal
+
 End Function
 
 
@@ -784,29 +785,30 @@ End Function
 ' Purpose   : Attempt a higher performance conversion first, then fall back to RegEx.
 '---------------------------------------------------------------------------------------
 '
-Private Function ConvTimeUTC2(ByVal InVal As String) As Date
+Private Function ConvTimeUTC(ByVal InVal As String) As Date
 
     Dim varParts As Variant
+    Dim SecondsInPart As String
 
     If InVal Like "##:##:##.###Z" Then
         ' Use high-performance conversion to date
         varParts = Split(InVal, ":")
-        ConvTimeUTC2 = TimeSerial(varParts(0), varParts(1), Left(varParts(2), 2))
+        SecondsInPart = Mid(varParts(2), 1, Len(varParts(2)) - 1)
+        ConvTimeUTC = TimeSerialDbl(varParts(0), varParts(1), SecondsInPart)
     Else
         ' Fall back to slower RegEx function
-        ConvTimeUTC2 = ConvTimeUTC(InVal)
+        ConvTimeUTC = ConvTimeUTC2(InVal)
     End If
 
 End Function
 
 
-Private Function ConvTimeUTC(ByRef InVal As String) As Date
+Private Function ConvTimeUTC2(ByRef InVal As String) As Date
 
     Dim dblHours As Double
     Dim dblMinutes As Double
     Dim dblSeconds As Double
     Dim dblMilliseconds As Double
-
     Dim RegEx As New RegExp ' Object
     'Set RegEx = CreateObject("VBScript.RegExp")
 
@@ -840,9 +842,10 @@ Private Function ConvTimeUTC(ByRef InVal As String) As Date
         dblSeconds = CDbl(NzEmpty(.SubMatches(2), vbNullString))
     End With
 
-    ConvTimeUTC = TimeSerialDbl(dblHours, dblMinutes, dblSeconds)
+    ConvTimeUTC2 = TimeSerialDbl(dblHours, dblMinutes, dblSeconds)
 
 End Function
+
 
 Private Function NzEmpty(ByVal Value As Variant, Optional ByVal value_when_null As Variant = 0) As Variant
 
