@@ -360,7 +360,8 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
         If strTokenValue = "." _
             Or strTokenValue = "," _
             Or strTokenValue = ";" _
-            Or (strTokenValue = "!" And m_intDialect = esdAccess) Then
+            Or (strTokenValue = "!" And m_intDialect = esdAccess) _
+            Or (strTokenValue = ":" And m_intDialect = esdAccess) Then
             ' Trim any whitespace
             cReturn.RTrim
         End If
@@ -371,7 +372,8 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
         ' If the token shouldn't have a space after it
         If strTokenValue = "(" _
             Or strTokenValue = "." _
-            Or (strTokenValue = "!" And m_intDialect = esdAccess) Then
+            Or (strTokenValue = "!" And m_intDialect = esdAccess) _
+            Or (strTokenValue = ":" And m_intDialect = esdAccess) Then
             cReturn.RTrim
         End If
 
@@ -490,7 +492,8 @@ Private Sub Tokenize(strSql As String, intDialect As eSqlDialect)
             AddToken ttQuote, GetQuotedString
 
         ' User defined variable
-        ElseIf (NextChar("@") Or NextChar(":")) And (RemainingChars > 1) Then
+        ElseIf (NextChar("@") Or NextChar(":")) _
+            And (RemainingChars > 1) And (m_intDialect <> esdAccess) Then
 
             ' Check for quoted variable name
             If PeekChar(1, """") Or PeekChar(1, "`") Or PeekChar(1, "'") Then
@@ -516,7 +519,8 @@ Private Sub Tokenize(strSql As String, intDialect As eSqlDialect)
         ' A reserved word cannot be preceded by a "."
         ' This makes it so in "mytable.from", "from" is not considered a reserved word
         ElseIf PeekChar(-1, ".") _
-            Or (PeekChar(-1, "!") And m_intDialect = esdAccess) Then
+            Or (PeekChar(-1, "!") And m_intDialect = esdAccess) _
+            Or (PeekChar(-1, ":") And m_intDialect = esdAccess) Then
 
             ' Likely an object name
             If HasMatches("^(.*?)($|\s|[""\'`]|" & RegExBoundaries & ")", strMatch) Then
@@ -1521,6 +1525,48 @@ Public Sub SelfTest()
     End With
     Debug.Assert (strActual = FormatSQL)
     If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
+
+
+    ' Test unquoted path (See issue #447)
+    Tokenize "SELECT foo.* INTO (C:\path\to\bar.accdb) fizz FROM bazz;", esdAccess
+
+    ' Verify tokens
+    Debug.Assert m_colTokens.Count = 21
+    Debug.Assert VerifyToken(1, ttReservedTopLevel, "SELECT")
+    Debug.Assert VerifyToken(2, ttWhitespace, " ")
+    Debug.Assert VerifyToken(3, ttWord, "foo")
+    Debug.Assert VerifyToken(4, ttBoundary, ".")
+    Debug.Assert VerifyToken(5, ttBoundary, "*")
+    Debug.Assert VerifyToken(6, ttWhitespace, " ")
+    Debug.Assert VerifyToken(7, ttReserved, "INTO")
+    Debug.Assert VerifyToken(8, ttWhitespace, " ")
+    Debug.Assert VerifyToken(9, ttBoundary, "(")
+    Debug.Assert VerifyToken(10, ttWord, "C")
+    Debug.Assert VerifyToken(11, ttBoundary, ":")
+    Debug.Assert VerifyToken(12, ttWord, "\path\to\bar")
+    Debug.Assert VerifyToken(13, ttBoundary, ".")
+    Debug.Assert VerifyToken(14, ttWord, "accdb")
+    Debug.Assert VerifyToken(15, ttBoundary, ")")
+    Debug.Assert VerifyToken(16, ttWhitespace, " ")
+    Debug.Assert VerifyToken(17, ttWord, "fizz")
+    Debug.Assert VerifyToken(18, ttWhitespace, " ")
+    Debug.Assert VerifyToken(19, ttReservedTopLevel, "FROM")
+    Debug.Assert VerifyToken(20, ttWhitespace, " ")
+    Debug.Assert VerifyToken(21, ttWord, "bazz")
+
+    ' Verify result
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT"
+        .Add "  foo.* INTO (C:\path\to\bar.accdb) fizz"
+        .Add "FROM"
+        .Add "  bazz"
+        .Remove 2
+        strActual = .GetStr
+    End With
+    Debug.Assert (strActual = FormatSQL)
+    If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
+
 
 '    PrintTokens
 '    BuildTestFromTokens
