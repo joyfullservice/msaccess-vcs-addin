@@ -179,7 +179,8 @@ Private Function GetDictionary() As Dictionary
 
     Set dSpec = New Dictionary
 
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
     ' For some reason it throws an error if there is no
     ' description in the specification.
     With dSpec

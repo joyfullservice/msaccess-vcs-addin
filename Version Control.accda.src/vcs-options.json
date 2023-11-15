@@ -1,6 +1,6 @@
 ﻿{
   "Info": {
-    "AddinVersion": "4.0.22",
+    "AddinVersion": "4.0.26",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
@@ -36,6 +36,7 @@
     "FormatSQL": true,
     "ForceImportOriginalQuerySQL": false,
     "SaveTableSQL": true,
+    "SplitLayoutFromVBA": false,
     "StripPublishOption": true,
     "SanitizeColors": 3,
     "SanitizeLevel": 2,

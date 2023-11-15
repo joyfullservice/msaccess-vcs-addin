@@ -15,10 +15,10 @@ Begin Form
     GridY =24
     Width =10080
     DatasheetFontHeight =11
-    ItemSuffix =250
+    ItemSuffix =252
     Left =-25575
     Top =1500
-    Right =-5310
+    Right =-255
     Bottom =14085
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -794,8 +794,8 @@ Begin Form
                                     OverlapFlags =247
                                     Left =1020
                                     Top =3360
-                                    TabIndex =2
-                                    Name ="chkStripPublishOption"
+                                    TabIndex =4
+                                    Name ="chkExtractThemeFiles"
 
                                     LayoutCachedLeft =1020
                                     LayoutCachedTop =3360
@@ -806,14 +806,14 @@ Begin Form
                                             OverlapFlags =247
                                             Left =1320
                                             Top =3300
-                                            Width =2640
+                                            Width =2340
                                             Height =315
                                             ForeColor =5324600
-                                            Name ="Label34"
-                                            Caption ="Strip out Publish Option"
+                                            Name ="Label112"
+                                            Caption ="Extract Theme Files"
                                             LayoutCachedLeft =1320
                                             LayoutCachedTop =3300
-                                            LayoutCachedWidth =3960
+                                            LayoutCachedWidth =3660
                                             LayoutCachedHeight =3615
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
@@ -830,7 +830,7 @@ Begin Form
                                     Top =3720
                                     Width =1980
                                     Height =315
-                                    TabIndex =3
+                                    TabIndex =2
                                     Name ="cboSanitizeLevel"
                                     RowSourceType ="Value List"
                                     ColumnWidths ="0"
@@ -868,7 +868,7 @@ Begin Form
                                     Top =4140
                                     Width =1980
                                     Height =315
-                                    TabIndex =4
+                                    TabIndex =3
                                     Name ="cboSanitizeColors"
                                     RowSourceType ="Value List"
                                     ColumnWidths ="0"
@@ -990,9 +990,39 @@ Begin Form
                                 Begin CheckBox
                                     OverlapFlags =247
                                     Left =5340
-                                    Top =4620
+                                    Top =4200
                                     TabIndex =8
-                                    Name ="chkExtractThemeFiles"
+                                    Name ="chkFormatSQL"
+
+                                    LayoutCachedLeft =5340
+                                    LayoutCachedTop =4200
+                                    LayoutCachedWidth =5600
+                                    LayoutCachedHeight =4440
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =5640
+                                            Top =4140
+                                            Width =2340
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label249"
+                                            Caption ="Format SQL"
+                                            LayoutCachedLeft =5640
+                                            LayoutCachedTop =4140
+                                            LayoutCachedWidth =7980
+                                            LayoutCachedHeight =4455
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin CheckBox
+                                    OverlapFlags =247
+                                    Left =5340
+                                    Top =4620
+                                    TabIndex =9
+                                    Name ="chkSplitLayoutFromVBA"
 
                                     LayoutCachedLeft =5340
                                     LayoutCachedTop =4620
@@ -1006,8 +1036,8 @@ Begin Form
                                             Width =2340
                                             Height =315
                                             ForeColor =5324600
-                                            Name ="Label112"
-                                            Caption ="Extract Theme Files"
+                                            Name ="Label251"
+                                            Caption ="Split Layout from VBA"
                                             LayoutCachedLeft =5640
                                             LayoutCachedTop =4560
                                             LayoutCachedWidth =7980
@@ -1024,7 +1054,7 @@ Begin Form
                                     Top =5100
                                     Width =2700
                                     Height =315
-                                    TabIndex =9
+                                    TabIndex =10
                                     Name ="txtRunBeforeExport"
 
                                     LayoutCachedLeft =3540
@@ -1057,7 +1087,7 @@ Begin Form
                                     Top =5520
                                     Width =2700
                                     Height =315
-                                    TabIndex =10
+                                    TabIndex =11
                                     Name ="txtRunAfterExport"
 
                                     LayoutCachedLeft =3540
@@ -1089,7 +1119,7 @@ Begin Form
                                     Left =7140
                                     Top =5640
                                     Width =2160
-                                    TabIndex =11
+                                    TabIndex =12
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
                                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Documentation#options"
@@ -1153,20 +1183,6 @@ Begin Form
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
                                 End
-                                Begin Label
-                                    OverlapFlags =247
-                                    Left =6120
-                                    Top =2400
-                                    Width =2160
-                                    Height =240
-                                    FontSize =10
-                                    Name ="Label46"
-                                    Caption ="(Blank for default)"
-                                    LayoutCachedLeft =6120
-                                    LayoutCachedTop =2400
-                                    LayoutCachedWidth =8280
-                                    LayoutCachedHeight =2640
-                                End
                                 Begin CommandButton
                                     FontUnderline = NotDefault
                                     TabStop = NotDefault
@@ -1176,7 +1192,7 @@ Begin Form
                                     Width =1140
                                     Height =240
                                     FontSize =10
-                                    TabIndex =12
+                                    TabIndex =13
                                     Name ="cmdPrintSettingsOptions"
                                     Caption ="Options..."
                                     OnClick ="[Event Procedure]"
@@ -1212,35 +1228,19 @@ Begin Form
                                     PressedForeThemeColorIndex =10
                                     PressedForeTint =100.0
                                 End
-                                Begin CheckBox
+                                Begin Label
                                     OverlapFlags =247
-                                    Left =5340
-                                    Top =4200
-                                    TabIndex =13
-                                    Name ="chkFormatSQL"
-
-                                    LayoutCachedLeft =5340
-                                    LayoutCachedTop =4200
-                                    LayoutCachedWidth =5600
-                                    LayoutCachedHeight =4440
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =247
-                                            Left =5640
-                                            Top =4140
-                                            Width =2340
-                                            Height =315
-                                            ForeColor =5324600
-                                            Name ="Label249"
-                                            Caption ="Format SQL"
-                                            LayoutCachedLeft =5640
-                                            LayoutCachedTop =4140
-                                            LayoutCachedWidth =7980
-                                            LayoutCachedHeight =4455
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
+                                    Left =6120
+                                    Top =2400
+                                    Width =2160
+                                    Height =240
+                                    FontSize =10
+                                    Name ="Label46"
+                                    Caption ="(Blank for default)"
+                                    LayoutCachedLeft =6120
+                                    LayoutCachedTop =2400
+                                    LayoutCachedWidth =8280
+                                    LayoutCachedHeight =2640
                                 End
                             End
                         End
@@ -4296,6 +4296,9 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                                 If eAction = emaClassToForm Then
                                     ctl = CallByName(Options, strKey, VbGet)
                                 ElseIf eAction = emaFormToClass Then
+                                    ' Check for any hooks on option change
+                                    OnOptionChange strKey, Nz(ctl.Value)
+                                    ' Set the option value
                                     CallByName Options, strKey, VbLet, Nz(ctl.Value)
                                 End If
                         End Select
@@ -4324,6 +4327,46 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
 
     ' Enable pages based on options.
     chkUseGitIntegration_Click
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OnOptionChange
+' Author    : Adam Waller
+' Date      : 11/9/2023
+' Purpose   : A hook to run special code or processing when specific options are changed
+'           : from their existing values. Add any specific rules here.
+'---------------------------------------------------------------------------------------
+'
+Private Sub OnOptionChange(strName As String, varNewValue As Variant)
+
+    Dim blnChanged As Boolean
+
+    ' Determine if the option was changed
+    blnChanged = Not (CVar(CallByName(Options, strName, VbGet)) = varNewValue)
+    If Not blnChanged Then Exit Sub
+
+    ' Define actual rules here
+    Select Case strName
+
+        ' If a user turns on the option to split files
+        Case "SplitLayoutFromVBA"
+            If varNewValue = True Then
+                If Git.Installed Then
+                    If Git.IsInsideRepository Then
+                        ' Prompt user with suggestion
+                        If MsgBox2("May I make a Suggestion?", _
+                            "This project appears to be within a Git repository. This add-in includes a special utility " & _
+                            "that can split the files (layout and VBA) while preserving this history of previous changes in BOTH files.", _
+                            "Would you like to see additional information on this from the wiki?", vbQuestion + vbYesNo) = vbYes Then
+                            FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Split-Files"
+                        End If
+                    End If
+                End If
+            End If
+
+    End Select
 
 End Sub
 

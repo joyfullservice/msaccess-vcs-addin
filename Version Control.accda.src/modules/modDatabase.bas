@@ -392,9 +392,11 @@ Public Function ObjectExists(intType As AcObjectType, strName As String, Optiona
         Log.Error eelError, "Parent container not supported for this object type: " & intType, ModuleName & ".ObjectExists"
     Else
         ' Attempt to reference the object by name
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         Set objTest = objContainer(strName)
         ObjectExists = Not Catch(2467)
+        If Err Then Err.Clear
     End If
 
 End Function
@@ -573,7 +575,8 @@ Public Function DatabaseFileOpen() As Boolean
     Else
         ' For ADP projects, CurrentProject may be an invalid object reference
         ' after the database file (adp) is closed.
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         strTest = CurrentProject.FullName
         CatchAny eelNoError, vbNullString
         DatabaseFileOpen = (strTest <> vbNullString)
@@ -637,7 +640,8 @@ Public Function DeleteObjectIfExists(intType As AcObjectType, strName As String)
     End Select
 
     ' Trap errors when attempting to delete the object
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
 
     If Not blnExistsInAddIn Then
         ' Nice! We can use a simple call to delete the object
@@ -718,10 +722,12 @@ Public Function FormLoaded(frmMe As Form) As Boolean
     ' If no forms are open, we already have our answer.  :-)
     If Forms.Count > 0 Then
         ' We will throw an error accessing the name property if the form is closed
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         strName = frmMe.Name
         ' Return true if we were able to read the name property
         FormLoaded = strName <> vbNullString
+        If Err Then Err.Clear
     End If
 End Function
 
@@ -747,7 +753,8 @@ Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
     Set frmParent = objParent
 
     ' Ignore any errors with Screen.* functions
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
 
     ' Verify focus of parent form
     Set frmParent = Screen.ActiveForm

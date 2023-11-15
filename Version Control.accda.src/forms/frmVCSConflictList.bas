@@ -16,10 +16,8 @@ Begin Form
     Width =5040
     DatasheetFontHeight =11
     ItemSuffix =31
-    Left =435
-    Top =2250
-    Right =12315
-    Bottom =7335
+    Right =15720
+    Bottom =11745
     RecSrcDt = Begin
         0x9bf1b7f2f3a6e540
     End
@@ -480,6 +478,13 @@ Private Sub txtDiff_Click()
     ' Move focus back to resolution control
     cboResolution.SetFocus
     DoEvents
+
+    ' Make sure we have a valid tool defined
+    If Not (modObjects.Diff.HasValidCompareTool) Then
+        MsgBox2 "No Compare Tool Defined", _
+            "Please specify a compare tool (i.e. WinMerge, VSCode) in the add-in options.", , vbExclamation
+        Exit Sub
+    End If
 
     ' Make sure we have a file name to compare
     strFileName = Nz(txtFileName)

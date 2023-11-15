@@ -70,7 +70,7 @@ Private Sub IDbComponent_Import(strFile As String)
     End If
 
     ' Load the form from the source file
-    LoadComponentFromText acForm, strName, strFile, Me
+    LoadComponentFromText acForm, strName, strFile
     Set m_Form = CurrentProject.AllForms(strName)
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
 
@@ -124,6 +124,7 @@ End Sub
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
     MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
     MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
+    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".cls", strToFolder
 End Sub
 
 
@@ -180,7 +181,7 @@ End Function
 '
 Private Sub IDbComponent_ClearOrphanedSourceFiles()
     If Not Options.SavePrintVars Then ClearFilesByExtension IDbComponent_BaseFolder, "json"
-    ClearOrphanedSourceFiles Me, "bas", "json"
+    ClearOrphanedSourceFiles Me, "bas", "json", "cls"
 End Sub
 
 

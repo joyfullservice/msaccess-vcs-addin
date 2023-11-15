@@ -87,6 +87,9 @@ Public Sub VerifyComAddIn()
             ' Reload the add-in to refresh the ribbon
             UnloadAddIn
             LoadAddIn
+        Else
+            ' Verify that the ribbon is active
+            VerifyRibbon
         End If
     End If
 
@@ -104,6 +107,24 @@ End Sub
 Public Sub ReloadRibbon()
     UnloadAddIn
     LoadAddIn
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VerifyRibbon
+' Author    : Adam Waller
+' Date      : 11/3/2023
+' Purpose   : A lightweight function to verify that the ribbon add-in is active.
+'           : (It may get turned off if Access is opened in administrator mode.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub VerifyRibbon()
+    Dim objAddIn As COMAddIn
+    Set objAddIn = GetCOMAddIn
+    If Not objAddIn Is Nothing Then
+        ' Activate the add-in if it is not currently active
+        If Not objAddIn.Connect Then objAddIn.Connect = True
+    End If
 End Sub
 
 
@@ -285,7 +306,8 @@ Private Function DllIsRegistered() As Boolean
     ' Check HKLM registry key
     With New IWshRuntimeLibrary.WshShell
         ' We should have a value here if the install ran in the past.
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         ' Look up the class ID from the COM registration
         strTest = .RegRead("HKCU\SOFTWARE\Classes\MSAccessVCSLib.AddInRibbon\CLSID\")
         If strTest <> vbNullString Then
@@ -297,6 +319,7 @@ Private Function DllIsRegistered() As Boolean
                 DllIsRegistered = FSO.FileExists(strTest)
             End If
         End If
+        If Err Then Err.Clear
     End With
 
 End Function

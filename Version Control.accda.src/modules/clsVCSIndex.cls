@@ -118,7 +118,7 @@ Public Sub Save(Optional strInFolder As String)
                 varValue = CallByName(Me, CStr(varKey), VbGet)
                 ' Save blank dates as null
                 If Right(varKey, 4) = "Date" Then
-                    m_dIndex(varKey) = ZNDate(CStr(varValue))
+                    m_dIndex(varKey) = ZNDate(varValue)
                 Else
                     m_dIndex(varKey) = CStr(varValue)
                 End If
@@ -222,14 +222,14 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         If dteDateTime = 0 Then dteDateTime = Now
         Select Case intAction
             Case eatExport, eatAltExport
-                .Item("ExportDate") = CStr(dteDateTime)
+                .Item("ExportDate") = dteDateTime
             Case eatImport
-                .Item("ImportDate") = CStr(dteDateTime)
+                .Item("ImportDate") = dteDateTime
         End Select
 
         ' Save timestamp of exported source file.
         dteDateTime = GetLastModifiedDate(cItem.SourceFile)
-        .Item("SourceModified") = ZNDate(CStr(dteDateTime))
+        .Item("SourceModified") = ZNDate(dteDateTime)
 
         ' Save hash of file properties
         .Item("FilePropertiesHash") = GetFilePropertyHash(cItem.SourceFile)
@@ -494,7 +494,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
                     strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "SourceModified"), PathSep)
                     ' Compare modified date of file with modified date in index.
                     ' File is considered not modified if the index date matches the file modification date.
-                    blnModified = Not (dNZ(m_dIndex, strPath) = CStr(GetLastModifiedDate(strFile)))
+                    blnModified = Not (dNZ(m_dIndex, strPath) = GetLastModifiedDate(strFile))
                 End If
                 ' Add modified files to collection
                 If blnModified Then .Add strFile, vbNullString
@@ -776,7 +776,8 @@ End Property
 Public Sub ClearTempExportFolder()
     If m_strTempExportFolderPath <> vbNullString Then
         If FSO.FolderExists(m_strTempExportFolderPath) Then
-            If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+            LogUnhandledErrors
+            On Error Resume Next
             ' Use FSO to delete the folder and contents
             FSO.DeleteFolder m_strTempExportFolderPath, True
             CatchAny eelWarning, "Unable to delete temp folder: '" & m_strTempExportFolderPath & _

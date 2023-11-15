@@ -297,14 +297,43 @@ utc_ErrorHandling:
     Err.Raise 10012, "UtcConverter.ConvertToUtc", "UTC conversion error: " & Err.Number & " - " & Err.Description
 End Function
 
+
+Public Function TimeStampDate(Optional LocalTimeStamp As Boolean = False) As Date
+
+    Dim TimeStampOut As Date
+
+#If Mac Then
+    ' I'm sure there's a way to do this better, but this works for now.
+    TimeStampOut = ConvertToUtc(VBA.Now())
+    If Not LocalTimeStamp Then TimeStampOut = ConvertToUtc(TimeStampOut)
+
+#Else
+    Dim tSysTime As utc_SYSTEMTIME
+
+    If Not LocalTimeStamp Then
+        GetSystemTime tSysTime
+        TimeStampOut = utc_SystemTimeToDate(tSysTime)
+
+    Else
+        GetLocalTime tSysTime
+        TimeStampOut = utc_SystemTimeToDate(tSysTime)
+    End If
+#End If
+
+    TimeStampDate = TimeStampOut
+
+End Function
+
+
 ' NOTE: As of now, "LocalTimeStamp" does nothing on a Mac; need to build "getTimeZoneOffset" for Mac, and I don't have one.
 '       It will, however, output a UTC string that is correct for local time (eg, in the correct UTC for the given local time)
 '       I also don't know how to get millisecond values out of a Mac, so that'll return zero, as well.
 Public Function ISO8601TimeStamp(Optional IncludeMilliseconds As Boolean = True _
                                 , Optional LocalTimeStamp As Boolean = False) As String
-    Dim CurrentTimeVB As Date
 
+    Dim CurrentTimeVB As Date
     Dim tString_Buffer As StringBufferCache
+
 ' Note: This varies slightly from ConvertToISO8601Time because it's faster to do on Windows if you have SYSTEMTIME
 #If Mac Then
     ' I'm sure there's a way to do this better, but this works for now.
@@ -437,14 +466,14 @@ Public Function ParseIso(utc_IsoString As String _
     Exit Function
 #Else
     If UBound(utc_Parts) > 0 Then
-        utc_DateTimeOut = ConvDateUTC(utc_Parts(0)) + ConvTimeUTC(utc_Parts(1))
+        utc_DateTimeOut = ConvDateUTC2(utc_Parts(0)) + ConvTimeUTC2(utc_Parts(1))
         If Not OutputUTCDate Then
             ParseIso = ConvertToLocalDate(utc_DateTimeOut)
         Else
             ParseIso = utc_DateTimeOut
         End If
     Else ' Assume any "Date Only" Text doesn't have a timezone (they aren't converted the other way, either)
-        ParseIso = ConvDateUTC(utc_Parts(0))
+        ParseIso = ConvDateUTC2(utc_Parts(0))
     End If
     Exit Function
 #End If
@@ -677,6 +706,29 @@ Private Function utc_SystemTimeToDate(ByRef utc_Value As utc_SYSTEMTIME) As Date
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : ConvDateUTC2
+' Author    : Adam Waller
+' Date      : 11/14/2023
+' Purpose   : Attempt a higher performance conversion first, then fall back to RegEx.
+'---------------------------------------------------------------------------------------
+'
+Private Function ConvDateUTC2(ByVal InVal As String) As Date
+
+    Dim varParts As Variant
+
+    If InVal Like "####-##-##" Then
+        ' Use high-performance conversion to date
+        varParts = Split(InVal, "-")
+        ConvDateUTC2 = DateSerial(varParts(0), varParts(1), varParts(2))
+    Else
+        ' Fall back to slower RegEx function
+        ConvDateUTC2 = ConvDateUTC(InVal)
+    End If
+
+End Function
+
+
 Private Function ConvDateUTC(ByVal InVal As String) As Date
     Dim RetVal As Variant
 
@@ -723,6 +775,30 @@ Private Function ConvDateUTC(ByVal InVal As String) As Date
 
     ConvDateUTC = RetVal
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ConvTimeUTC2
+' Author    : Adam Waller
+' Date      : 11/14/2023
+' Purpose   : Attempt a higher performance conversion first, then fall back to RegEx.
+'---------------------------------------------------------------------------------------
+'
+Private Function ConvTimeUTC2(ByVal InVal As String) As Date
+
+    Dim varParts As Variant
+
+    If InVal Like "##:##:##.###Z" Then
+        ' Use high-performance conversion to date
+        varParts = Split(InVal, ":")
+        ConvTimeUTC2 = TimeSerial(varParts(0), varParts(1), Left(varParts(2), 2))
+    Else
+        ' Fall back to slower RegEx function
+        ConvTimeUTC2 = ConvTimeUTC(InVal)
+    End If
+
+End Function
+
 
 Private Function ConvTimeUTC(ByRef InVal As String) As Date
 

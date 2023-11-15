@@ -409,8 +409,11 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
                                 Optional cDbObjectClass As IDbComponent = Nothing) As String
 
     Dim strTempFile As String
+    Dim strAltFile As String
+    Dim strContent As String
     Dim strPrintSettingsFile As String
     Dim strHash As String
+    Dim cParser As clsSourceParser
 
     On Error GoTo ErrHandler
 
@@ -421,16 +424,25 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
     Perf.OperationEnd
     VerifyPath strFile
 
+    ' Delete any existing source file
+    If FSO.FileExists(strFile) Then DeleteFile strFile
+
     ' Sanitize certain object types
+    Set cParser = New clsSourceParser
     Select Case intType
         Case acForm, acReport
+
+            ' Load content from file
+            strContent = ReadSourceFile(strTempFile)
+
+            ' Process any saved devmode settings
             With New clsDevMode
                 ' Build print settings file name.
-                strPrintSettingsFile = .GetPrintSettingsFileName(cDbObjectClass)
+                strPrintSettingsFile = SwapExtension(strFile, "json")
                 ' See if we are exporting print vars.
                 If Options.SavePrintVars = True Then
                     ' Grab the printer settings before sanitizing the file.
-                    .LoadFromExportFile strTempFile
+                    .LoadFromExportFile strContent
                     ' Only need to save print settings if they are different
                     ' from the default printer settings.
                     If (.GetHash <> VCSIndex.DefaultDevModeHash) And .HasData Then
@@ -445,25 +457,44 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
                     If FSO.FileExists(strPrintSettingsFile) Then DeleteFile strPrintSettingsFile
                 End If
             End With
+
             ' Sanitizing converts to UTF-8
-            If FSO.FileExists(strFile) Then DeleteFile strFile
-            strHash = SanitizeFile(strTempFile, True)
-            FSO.MoveFile strTempFile, strFile
+            With cParser
+                .LoadString strContent
+                .ObjectName = FSO.GetBaseName(strFile)
+                WriteFile .Sanitize(ectObjectDefinition), strFile
+                strHash = .Hash
+
+                ' Process any VBA
+                strAltFile = SwapExtension(strFile, "cls")
+                If Options.SplitLayoutFromVBA And Len(.GetObjectVBA) Then
+                    ' Write VBA code as separate .cls file.
+                    WriteFile .GetObjectVBA, strAltFile
+                Else
+                    ' Remove any split VBA file
+                    If FSO.FileExists(strAltFile) Then DeleteFile strAltFile
+                End If
+            End With
 
         Case acQuery, acMacro
             ' Sanitizing converts to UTF-8
-            If FSO.FileExists(strFile) Then DeleteFile strFile
-            strHash = SanitizeFile(strTempFile, True)
-            FSO.MoveFile strTempFile, strFile
+            With cParser
+                .LoadSourceFile strTempFile
+                WriteFile .Sanitize(ectObjectDefinition), strFile
+                strHash = .Hash
+            End With
 
         ' Case acModule - Use VBE export instead.
 
         Case acTableDataMacro
             ' Table data macros are stored in XML format
+            ' The file may not exist if no TD Macro was found
             If FSO.FileExists(strTempFile) Then
-                strHash = SanitizeXML(strTempFile, True)
-                If FSO.FileExists(strFile) Then DeleteFile strFile
-                FSO.MoveFile strTempFile, strFile
+                With cParser
+                    .LoadSourceFile strTempFile
+                    WriteFile .Sanitize(ectXML), strFile
+                    strHash = .Hash
+                End With
             End If
 
         Case Else
@@ -471,6 +502,9 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
             ConvertUcs2Utf8 strTempFile, strFile
 
     End Select
+
+    ' Remove any leftover temp file.
+    If FSO.FileExists(strTempFile) Then DeleteFile strTempFile
 
     ' Normal exit
     On Error GoTo 0
@@ -498,41 +532,50 @@ End Function
 ' Purpose   : Load the object into the database from the saved source file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadComponentFromText(intType As AcObjectType, _
-                                strName As String, _
-                                strFile As String, _
-                                Optional cDbObjectClass As IDbComponent = Nothing)
+Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, strFile As String)
 
     Dim strTempFile As String
-    Dim strPrintSettingsFile As String
     Dim strSourceFile As String
+    Dim strAltFile As String
+    Dim strContent As String
+    Dim blnVbaOverlay As Boolean
     Dim blnConvert As Boolean
-    Dim dFile As Dictionary
 
-    ' The path to the source file may change if we add print settings.
+    ' In most cases we are importing/converting the actual source file.
     strSourceFile = strFile
 
-    ' Add DevMode structures back into forms/reports
+    ' Add DevMode structures and VBA code back into forms/reports
     Select Case intType
         Case acForm, acReport
-            'Insert print settings (if needed)
-            If Not (cDbObjectClass Is Nothing) Then
-                With New clsDevMode
-                    ' Manually build the print settings file path since we don't have
-                    ' a database object we can use with the clsDevMode.GetPrintSettingsFileName
-                    strPrintSettingsFile = cDbObjectClass.BaseFolder & GetSafeFileName(strName) & ".json"
-                    Set dFile = ReadJsonFile(strPrintSettingsFile)
-                    ' Check to ensure dictionary was loaded
-                    If Not (dFile Is Nothing) Then
-                    ' Insert DevMode structures into file before importing.
-                        ' Load default printer settings, then overlay
-                        ' settings saved with report.
-                        .ApplySettings dFile("Items")
-                        ' Insert the settings into a combined export file.
-                        strSourceFile = .AddToExportFile(strFile)
-                    End If
-                End With
-            End If
+
+            ' Read file content. (Should be UTF-8)
+            strContent = ReadFile(strFile)
+            With New clsSourceParser
+                .LoadString strContent
+
+                ' Check for print settings file
+                strAltFile = SwapExtension(strFile, "json")
+                If FSO.FileExists(strAltFile) Then
+                    ' Merge the print settings into the source file content
+                    .MergePrintSettings ReadFile(strAltFile)
+                End If
+
+                ' For forms and reports, check for VBA code file that needs to be merged
+                strAltFile = SwapExtension(strFile, "cls")
+                If FSO.FileExists(strAltFile) Then
+                    ' Found a companion class file.
+                    .MergeVBA ReadFile(strAltFile)
+                    blnVbaOverlay = RequiresOverlay(.GetObjectVBA)
+                End If
+
+                ' Write ouput to a new file if anything has changed
+                If .OutputModified Then
+                    strSourceFile = GetTempFile
+                    WriteFile .GetOutput, strSourceFile
+                End If
+
+            End With
+
     End Select
 
     ' Check UCS-2-LE requirement for the current database.
@@ -568,10 +611,117 @@ Public Sub LoadComponentFromText(intType As AcObjectType, _
         Perf.OperationEnd
     End If
 
-    ' Remove any temporary combined source file
-    If strSourceFile <> strFile Then DeleteFile strSourceFile
+    ' Clean up any additional temp file used in the building process
+    If strFile <> strSourceFile Then
+        If FSO.FileExists(strSourceFile) Then DeleteFile strSourceFile
+    End If
+
+    ' Check for VBA overlay
+    If blnVbaOverlay Then OverlayCodeModule strName, SwapExtension(strFile, "cls")
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportVbComponent
+' Author    : Adam Waller
+' Date      : 5/26/2021
+' Purpose   : Export the code module VB component and convert to UTF-8
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportCodeModule(strName As String, strFile As String)
+
+    Dim strTempFile As String
+    Dim strContent As String
+
+    Perf.OperationStart "Export VBE Module"
+
+    ' Export to a temp file so we can convert to UTF-8 encoding
+    strTempFile = GetTempFile
+    CurrentVBProject.VBComponents(strName).Export strTempFile
+
+    ' Sanitize the VBA code while reading the temp file
+    With New clsSourceParser
+        .LoadString ReadFile(strTempFile, GetSystemEncoding)
+        strContent = .Sanitize(ectVBA)
+    End With
+
+    ' Write the content as UTF-8 to the final destination
+    WriteFile strContent, strFile
+    DeleteFile strTempFile
+
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OverlayCodeModule
+' Author    : Adam Waller
+' Date      : 10/24/2023
+' Purpose   : Overlay VBA code from an object's *.cls file to the form or report
+'           : Note that this opens the object in design view, which may slow the build
+'           : process if a large number of items are invovled.
+'---------------------------------------------------------------------------------------
+'
+Public Sub OverlayCodeModule(strName As String, strClassFile As String)
+
+    Dim objModule As VBIDE.CodeModule
+    Dim strContent As String
+    Dim intType As AcObjectType
+    Dim strShortName As String
+    Dim cParser As clsSourceParser
+
+    LogUnhandledErrors
+    'On Error Resume Next
+    Set objModule = CurrentVBProject.VBComponents(strName).CodeModule
+    If CatchAny(eelError, "Could not find code module for " & strName, ModuleName & ".OverlayCodeModule") Then Exit Sub
+
+    ' Read class file content
+    strContent = ReadFile(strClassFile)
+    If strContent = vbNullString Then
+        Log.Error eelError, "Unable to read " & strClassFile, ModuleName & ".OverlayCodeModule"
+        Exit Sub
+    End If
+
+    ' Get object type and short name
+    If strName Like "Form_*" Then
+        intType = acForm
+        strShortName = Mid$(strName, 6)
+        DoCmd.OpenForm strShortName, acDesign, , , , acHidden
+    ElseIf strName Like "Report_*" Then
+        intType = acReport
+        strShortName = Mid$(strName, 8)
+        DoCmd.OpenReport strShortName, acViewDesign, , , acHidden
+    End If
+
+    ' Overlay the VBA code, replacing any existing code.
+    Set cParser = New clsSourceParser
+    objModule.DeleteLines 1, objModule.CountOfLines
+    objModule.AddFromString cParser.StripClassHeader(strContent, False)
+
+    ' Close any form or report object
+    Select Case intType
+        Case acForm, acReport
+            DoCmd.Close intType, strShortName, acSaveYes
+    End Select
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RequiresOverlay
+' Author    : Adam Waller
+' Date      : 11/2/2023
+' Purpose   : Returns true if we need to overlay the VBA code through VBE for a form
+'           : or report object.
+'---------------------------------------------------------------------------------------
+'
+Private Function RequiresOverlay(strVbaCode As String) As Boolean
+    If modEncoding.GetSystemEncoding(True) = "utf-8" Then
+        RequiresOverlay = StringHasExtendedASCII(strVbaCode)
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -773,8 +923,10 @@ End Function
 Public Sub LoadVCSAddIn()
     ' The following lines will load the add-in at the application level,
     ' but will not actually call the function. Ignore the error of function not found.
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
     Application.Run GetAddInFileName & "!DummyFunction"
+    If Err Then Err.Clear
 End Sub
 
 
@@ -956,5 +1108,41 @@ Public Function PassesSchemaFilter(strItem As String, varFilterArray As Variant)
 
     ' Return final result
     PassesSchemaFilter = blnPass
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReadSourceFile
+' Author    : Adam Waller
+' Date      : 11/8/2023
+' Purpose   : Load source file content into a string. (Considers BOM and file type)
+'---------------------------------------------------------------------------------------
+'
+Public Function ReadSourceFile(strPath As String) As String
+
+    Dim strTempFile As String
+
+    ' Read text from file, and split into lines
+    If HasUcs2Bom(strPath) Then
+        ReadSourceFile = ReadFile(strPath, "Unicode")
+    Else
+        ' ADP projects may contain mixed Unicode content
+        If CurrentProject.ProjectType = acADP Then
+            strTempFile = GetTempFile
+            ConvertUcs2Utf8 strPath, strTempFile, False
+            ReadSourceFile = ReadFile(strTempFile)
+            DeleteFile strTempFile
+        Else
+            If DbVersion <= 4 Then
+                ' Access 2000 format exports using system codepage
+                ' See issue #217
+                ReadSourceFile = ReadFile(strPath, GetSystemEncoding)
+            Else
+                ' Newer versions export as UTF-8
+                ReadSourceFile = ReadFile(strPath)
+            End If
+        End If
+    End If
 
 End Function

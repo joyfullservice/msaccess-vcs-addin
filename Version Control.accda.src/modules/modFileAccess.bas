@@ -138,7 +138,8 @@ Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding 
         ' Write to disk
         VerifyPath strPath
         ' Watch out for possible write error
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         .SaveToFile strPath, adSaveCreateOverWrite
         If Catch(3004) Then
             ' File is locked. Try again after 1 second, just in case something

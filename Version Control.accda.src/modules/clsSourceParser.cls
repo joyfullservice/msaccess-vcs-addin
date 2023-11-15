@@ -1,20 +1,230 @@
-﻿Attribute VB_Name = "modSanitize"
+﻿VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "clsSourceParser"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
-' Module    : modSanitize
+' Module    : clsSourceParser
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
 ' Purpose   : Functions to sanitize files to remove non-essential metadata
 '---------------------------------------------------------------------------------------
 Option Compare Database
-Option Private Module
 Option Explicit
 
-Private Const ModuleName = "modSanitize"
+Public ObjectName As String
 
-' Array of lines to skip
-Private m_SkipLines() As Long
-Private m_lngSkipIndex As Long
-Private m_colBlocks As Collection
+Public Enum eContentType
+    ectObjectDefinition
+    ectXML
+    ectVBA
+End Enum
+
+' Private type to handle internal variables
+Private Type udtThis
+    lngSkipLines() As Long  ' Array of lines to skip
+    lngSkipIndex As Long
+    strFilePath As String   ' Path to loaded file
+    blnOutputModified As Boolean
+    strInput As String
+    strOutput As String
+    strVBA As String
+    colBlocks As Collection
+End Type
+Private this As udtThis
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadFile
+' Author    : Adam Waller
+' Date      : 10/25/2023
+' Purpose   : Load a source file to sanitize
+'---------------------------------------------------------------------------------------
+'
+Public Function LoadSourceFile(strPath As String)
+    ResetContent
+    this.strInput = ReadSourceFile(strPath)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadString
+' Author    : Adam Waller
+' Date      : 10/27/2023
+' Purpose   : Load input from a string
+'---------------------------------------------------------------------------------------
+'
+Public Function LoadString(ByVal strContent As String)
+    ResetContent
+    this.strInput = strContent
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetOutput
+' Author    : Adam Waller
+' Date      : 11/8/2023
+' Purpose   : Wrapper to return output string
+'---------------------------------------------------------------------------------------
+'
+Public Function GetOutput() As String
+    GetOutput = this.strOutput
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OutputModified
+' Author    : Adam Waller
+' Date      : 11/8/2023
+' Purpose   : Return true if the output has been modified
+'---------------------------------------------------------------------------------------
+'
+Public Property Get OutputModified() As Boolean
+    OutputModified = this.blnOutputModified
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResetContent
+' Author    : Adam Waller
+' Date      : 10/31/2023
+' Purpose   : Resets the local variables when data is loaded from a new source.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ResetContent()
+    With this
+        .strFilePath = vbNullString
+        .strInput = vbNullString
+        .strOutput = vbNullString
+        .strVBA = vbNullString
+        .blnOutputModified = False
+    End With
+    Me.ObjectName = vbNullString
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Sanitize
+' Author    : Adam Waller
+' Date      : 10/25/2023
+' Purpose   : Public wrapper for sanitize functions
+'---------------------------------------------------------------------------------------
+'
+Public Function Sanitize(intContentType As eContentType) As String
+    Select Case intContentType
+        Case ectObjectDefinition:   SanitizeObject
+        Case ectVBA:                SanitizeVBA
+        Case ectXML:                SanitizeXML
+    End Select
+    Sanitize = this.strOutput
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeVBA
+' Author    : Adam Waller
+' Date      : 10/27/2023
+' Purpose   : Merge VBA into the output content.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeVBA(strVbaCode As String)
+
+    Dim varLines As Variant
+    Dim lngLine As Long
+
+    ' Make sure we have some output
+    If Len(this.strOutput) = 0 Then this.strOutput = this.strInput
+
+    ' Rebuild output using provided VBA code
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+
+        ' Load in existing sanitized content
+        varLines = Split(this.strOutput, vbCrLf)
+        For lngLine = 0 To UBound(varLines)
+            ' Note that the same heading name is used in both forms and reports
+            If varLines(lngLine) = "CodeBehindForm" Then
+                ' Allow merge of empty string to remove VBA code module
+                If Len(strVbaCode) Then .Add CStr(varLines(lngLine))
+                Exit For
+            Else
+                ' Add all other lines
+                .Add CStr(varLines(lngLine))
+            End If
+        Next lngLine
+
+        ' Add the VBA code here, and remove extra vbCrLf
+        .Add strVbaCode
+        .Remove 2
+
+        ' Update output with combined content
+        this.strOutput = .GetStr
+        this.strVBA = strVbaCode
+        this.blnOutputModified = True
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergePrintSettings
+' Author    : Adam Waller
+' Date      : 11/8/2023
+' Purpose   : Merge print settings into the current source file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergePrintSettings(strJson As String)
+
+    Dim dSettings As Dictionary
+
+    ' Make sure we have some output
+    If Len(this.strOutput) = 0 Then this.strOutput = this.strInput
+
+    ' Don't try to parse an empty string
+    If strJson = vbNullString Then Exit Sub
+
+    ' Read settings from JSON
+    Set dSettings = ParseJson(strJson)
+    If dSettings.Exists("Items") Then
+        With New clsDevMode
+            ' Load default printer settings, then overlay
+            ' settings saved with report.
+            .ApplySettings dSettings("Items")
+            ' Write the printer settings to the output content
+            this.strOutput = .AddToExportFile(this.strOutput)
+            this.blnOutputModified = True
+        End With
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveObjectVBA
+' Author    : Adam Waller
+' Date      : 10/31/2023
+' Purpose   : Return the extracted VBA code
+'---------------------------------------------------------------------------------------
+'
+Public Function GetObjectVBA() As String
+    GetObjectVBA = this.strVBA
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Hash
+' Author    : Adam Waller
+' Date      : 10/25/2023
+' Purpose   : Return a hash of the sanitized content
+'---------------------------------------------------------------------------------------
+'
+Public Function Hash(Optional blnWithBom As Boolean = True) As String
+    Hash = GetStringHash(this.strOutput, blnWithBom)
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -25,9 +235,8 @@ Private m_colBlocks As Collection
 '           : as saving to the specified path.
 '---------------------------------------------------------------------------------------
 '
-Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As String
+Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As Boolean, Optional strObjectName As String) As String
 
-    Dim strFile As String
     Dim varLines As Variant
     Dim lngLine As Long
     Dim strLine As String
@@ -37,42 +246,24 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
     Dim blnIsReport As Boolean
     Dim blnIsPassThroughQuery As Boolean
     Dim curStart As Currency
-    Dim strTempFile As String
-    Dim strContent As String
+    Dim cVBA As clsConcat
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    ' Read text from file, and split into lines
-    If HasUcs2Bom(strPath) Then
-        strFile = ReadFile(strPath, "Unicode")
-    Else
-        ' ADP projects may contain mixed Unicode content
-        If CurrentProject.ProjectType = acADP Then
-            strTempFile = GetTempFile
-            ConvertUcs2Utf8 strPath, strTempFile, False
-            strFile = ReadFile(strTempFile)
-            DeleteFile strTempFile
-        Else
-            If DbVersion <= 4 Then
-                ' Access 2000 format exports using system codepage
-                ' See issue #217
-                strFile = ReadFile(strPath, GetSystemEncoding)
-            Else
-                ' Newer versions export as UTF-8
-                strFile = ReadFile(strPath)
-            End If
-        End If
+    ' If not sanitizing, then return output
+    If Options.SanitizeLevel = eslNone Then
+        this.strOutput = this.strInput
+        SanitizeObject = this.strOutput
+        Exit Function
     End If
 
     Perf.OperationStart "Sanitize File"
-    varLines = Split(strFile, vbCrLf)
-
-    If Options.SanitizeLevel = eslNone Then GoTo Build_Output
+    varLines = Split(this.strInput, vbCrLf)
 
     ' Set up index of lines to skip
-    ReDim m_SkipLines(0 To UBound(varLines)) As Long
-    m_lngSkipIndex = 0
-    Set m_colBlocks = New Collection
+    ReDim this.lngSkipLines(0 To UBound(varLines)) As Long
+    this.lngSkipIndex = 0
+    Set this.colBlocks = New Collection
 
     ' Initialize concatenation class to include line breaks
     ' after each line that we add when building new file text.
@@ -164,10 +355,28 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
 
                 ' Code section behind form or report object
                 Case "CodeBehindForm"
-                    ' Apply sanitize rules to VBA code
-                    SanitizeCodeLines lngLine, varLines
-                    ' Keep everything from this point on
-                    Exit Do
+                    If Options.SplitLayoutFromVBA Then
+                        ' Remove the VBA code from the layout file, but add a placeholder
+                        ' comment just in case the user wonders what happened to the VBA
+                        ' source code.
+                        lngLine = lngLine + 1
+                        Set cVBA = New clsConcat
+                        cVBA.AppendOnAdd = vbCrLf
+                        cVBA.Add CStr(varLines(lngLine))
+                        varLines(lngLine) = "' See """ & Nz2(Me.ObjectName, "FileName") & ".cls"""
+                        ' Skip remaining lines
+                        Do While lngLine < UBound(varLines)
+                            lngLine = lngLine + 1
+                            cVBA.Add CStr(varLines(lngLine))
+                            SkipLine lngLine, eslStandard
+                        Loop
+                        Exit Do
+                    Else
+                        ' Apply sanitize rules to VBA code
+                        SanitizeCodeLines lngLine, varLines
+                        ' Keep everything from this point on
+                        Exit Do
+                    End If
 
                 Case Else
                     If blnInsideIgnoredBlock Then
@@ -230,28 +439,34 @@ Public Function SanitizeFile(strPath As String, blnReturnHash As Boolean) As Str
     Loop
 
     ' Ensure that we correctly processed the nested block sequence.
-    If m_colBlocks.Count > 0 Then
-        Log.Error eelWarning, Replace(Replace( _
-        "Found ${BlockCount} unclosed blocks after sanitizing ${File}.", _
-        "${BlockCount}", m_colBlocks.Count), _
-        "${File}", strPath), ModuleName & ".SanitizeFile"
+    If this.colBlocks.Count > 0 Then
+        Log.Error eelWarning, MultiReplace( _
+            "Found ${BlockCount} unclosed blocks after sanitizing ${File}.", _
+            "${BlockCount}", this.colBlocks.Count, _
+            "${File}", Nz2(Me.ObjectName, this.strFilePath)), _
+            ModuleName(Me) & ".SanitizeFile"
     End If
 
-Build_Output:
-    ' Build the final output
-    strContent = BuildOutput(varLines)
-    WriteFile strContent, strPath
+    ' Prepare primary output
+    this.strOutput = BuildOutput(varLines)
+    SanitizeObject = this.strOutput
 
-    ' Return hash of content
-    If blnReturnHash Then SanitizeFile = GetStringHash(strContent, True)
+    ' Prepare VBA output (if used)
+    If Not cVBA Is Nothing Then
+        ' Build sanitized VBA string
+        With New clsSourceParser
+            .LoadString cVBA.GetStr
+            this.strVBA = .Sanitize(ectVBA)
+        End With
+    End If
 
     ' Log performance
-    Set m_colBlocks = Nothing
+    Set this.colBlocks = Nothing
     Perf.OperationEnd
     Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
 
     ' Log any errors
-    CatchAny eelError, "Error sanitizing file " & FSO.GetFileName(strPath), ModuleName & ".SanitizeFile"
+    CatchAny eelError, "Error sanitizing " & Nz2(Me.ObjectName, FSO.GetFileName(this.strFilePath)), ModuleName(Me) & ".SanitizeFile"
 
 End Function
 
@@ -270,14 +485,14 @@ Private Function BuildOutput(varLines As Variant) As String
     Dim lngLine As Long
 
     ' Check index of skipped lines
-    If m_lngSkipIndex = 0 Then
+    If this.lngSkipIndex = 0 Then
         ' No lines to skip
-        ReDim m_SkipLines(0 To 0)
-        m_SkipLines(0) = UBound(varLines) + 1
+        ReDim this.lngSkipLines(0 To 0)
+        this.lngSkipLines(0) = UBound(varLines) + 1
     Else
         ' Trim and sort index array
-        ReDim Preserve m_SkipLines(0 To m_lngSkipIndex - 1)
-        QuickSort m_SkipLines
+        ReDim Preserve this.lngSkipLines(0 To this.lngSkipIndex - 1)
+        QuickSort this.lngSkipLines
     End If
 
     ' Use concatenation class to maximize performance
@@ -290,12 +505,12 @@ Private Function BuildOutput(varLines As Variant) As String
 
             ' Iterate the sorted skipped lines index to keep up with main loop
             ' (Using parallel loops to optimize performance)
-            If m_SkipLines(lngSkip) < lngLine Then
-                If lngSkip < UBound(m_SkipLines) Then lngSkip = lngSkip + 1
+            If this.lngSkipLines(lngSkip) < lngLine Then
+                If lngSkip < UBound(this.lngSkipLines) Then lngSkip = lngSkip + 1
             End If
 
             ' Add content, unless the line is flagged to skip
-            If m_SkipLines(lngSkip) <> lngLine Then .Add CStr(varLines(lngLine))
+            If this.lngSkipLines(lngSkip) <> lngLine Then .Add CStr(varLines(lngLine))
 
         Next lngLine
 
@@ -304,6 +519,64 @@ Private Function BuildOutput(varLines As Variant) As String
 
         ' Return assembled output
         BuildOutput = .GetStr
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StripClassHeader
+' Author    : Adam Waller
+' Date      : 10/24/2023
+' Purpose   : Strip the class header section from the VBA content. (Remove the version
+'           : and VBE attributes lines that come before the actual VBA code.)
+'---------------------------------------------------------------------------------------
+'
+Public Function StripClassHeader(strContent As String, blnStripNameOnly As Boolean) As String
+
+    Dim lngLine As Long
+    Dim varLines As Variant
+    Dim strLine As String
+    Dim blnPastHeader As Boolean
+
+    ' Split code into lines
+    varLines = Split(strContent, vbCrLf)
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+
+        ' Skip the header information saved in the VBA class
+        For lngLine = 0 To UBound(varLines)
+            If Not blnPastHeader Then
+                strLine = varLines(lngLine)
+                If blnStripNameOnly Then
+                    If StartsWith(strLine, "Attribute VB_Name = ") Then
+                        ' Just skip that line. Keep everything else.
+                        blnPastHeader = True
+                    Else
+                        .Add CStr(varLines(lngLine))
+                    End If
+                Else
+                    Select Case True
+                        Case (strLine = "VERSION 1.0 CLASS")
+                        Case (strLine = "BEGIN")
+                        Case (strLine = "  MultiUse = -1  'True")
+                        Case (strLine = "END")
+                        Case StartsWith(strLine, "Attribute VB_")
+                        Case Else
+                            blnPastHeader = True
+                            .Add CStr(varLines(lngLine))
+                    End Select
+                End If
+            Else
+                ' Add remaining lines
+                .Add CStr(varLines(lngLine))
+            End If
+        Next lngLine
+
+        ' remove trailing CrLf and return result
+        .Remove 2
+        StripClassHeader = .GetStr
     End With
 
 End Function
@@ -319,8 +592,8 @@ End Function
 '
 Private Function SkipLine(lngLine As Long, Optional intMinSanitizeLevel As eSanitizeLevel)
     If Options.SanitizeLevel >= intMinSanitizeLevel Then
-        m_SkipLines(m_lngSkipIndex) = lngLine
-        m_lngSkipIndex = m_lngSkipIndex + 1
+        this.lngSkipLines(this.lngSkipIndex) = lngLine
+        this.lngSkipIndex = this.lngSkipIndex + 1
     End If
 End Function
 
@@ -363,10 +636,10 @@ End Function
 '
 Private Sub BeginBlock(Optional strType As String)
     Dim dBlock As Dictionary
-    If m_colBlocks Is Nothing Then Set m_colBlocks = New Collection
+    If this.colBlocks Is Nothing Then Set this.colBlocks = New Collection
     Set dBlock = New Dictionary
     If strType <> vbNullString Then dBlock.Add "Type", strType
-    m_colBlocks.Add dBlock
+    this.colBlocks.Add dBlock
 End Sub
 
 
@@ -389,17 +662,17 @@ Private Sub CloseBlock()
     If Options.SanitizeColors <= eslNone Then Exit Sub
 
     ' Bail out if we don't have a block to review
-    If m_colBlocks.Count = 0 Then Exit Sub
-    Set dBlock = m_colBlocks(m_colBlocks.Count)
+    If this.colBlocks.Count = 0 Then Exit Sub
+    Set dBlock = this.colBlocks(this.colBlocks.Count)
 
     ' Skip if we are not using themes for this control (UseTheme=0)
     ' (Applies to "CommandButton", "Tab", "ToggleButton")
-    If dBlock.Exists("UseTheme") Then 
-		' Remove this block
-        m_colBlocks.Remove m_colBlocks.Count
-		Exit Sub
-	End If
-	
+    If dBlock.Exists("UseTheme") Then
+        ' Remove this block
+        this.colBlocks.Remove this.colBlocks.Count
+        Exit Sub
+    End If
+
     ' Build array of base properties
     varBase = Array("Back", "AlternateBack", "Border", _
             "Fore", "Gridline", "HoverFore", _
@@ -441,7 +714,7 @@ Private Sub CloseBlock()
     Next intCnt
 
     ' Remove this block
-    m_colBlocks.Remove m_colBlocks.Count
+    this.colBlocks.Remove this.colBlocks.Count
 
 End Sub
 
@@ -465,9 +738,9 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     If Options.SanitizeColors <= eslNone Then Exit Sub
 
     ' Exit if we are not inside a block
-    If Not m_colBlocks Is Nothing Then lngCnt = m_colBlocks.Count
+    If Not this.colBlocks Is Nothing Then lngCnt = this.colBlocks.Count
     If lngCnt = 0 Then Exit Sub
-    Set dBlock = m_colBlocks(m_colBlocks.Count)
+    Set dBlock = this.colBlocks(this.colBlocks.Count)
 
     ' Split on property/value
     varParts = Split(strTLine, " =")
@@ -528,7 +801,7 @@ End Sub
 '           :   - Remove extra trailing lines from the end of the module.
 '---------------------------------------------------------------------------------------
 '
-Public Function SanitizeVBA(strCode As String) As String
+Private Function SanitizeVBA() As String
 
     Dim lngLine As Long
     Dim varLines As Variant
@@ -536,14 +809,14 @@ Public Function SanitizeVBA(strCode As String) As String
 
     ' Skip sanitizing if not using that option.
     If Options.SanitizeLevel < eslStandard Then
-        SanitizeVBA = strCode
+        SanitizeVBA = this.strInput
         Exit Function
     End If
 
     Perf.OperationStart "Sanitize VBA Code"
 
     ' Split code into lines
-    varLines = Split(strCode, vbCrLf)
+    varLines = Split(this.strInput, vbCrLf)
 
     ' Build sanitized content
     With New clsConcat
@@ -563,7 +836,9 @@ Public Function SanitizeVBA(strCode As String) As String
         Next lngLine
 
         ' Return standardized code block
-        SanitizeVBA = .GetStr
+        this.strOutput = .GetStr
+        this.strVBA = this.strOutput
+        SanitizeVBA = this.strOutput
         Perf.OperationEnd
     End With
 
@@ -579,11 +854,11 @@ End Function
 '           : back again afterwards to compute the hash.)
 '---------------------------------------------------------------------------------------
 '
-Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As String
+Private Function SanitizeXML() As String
 
     Dim curStart As Currency
     Dim cData As clsConcat
-    Dim strFile As String
+    Dim strXML As String
     Dim rxLine As VBScript_RegExp_55.RegExp
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -592,15 +867,9 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
     cData.AppendOnAdd = vbCrLf
     Set rxLine = New VBScript_RegExp_55.RegExp
 
-    ' Read text from file
-    If HasUcs2Bom(strPath) Then
-        ' Table data macro XML is exported as UTF-16 LE BOM
-        strFile = ReadFile(strPath, "Unicode")
-    Else
-        strFile = ReadFile(strPath)
-    End If
     Perf.OperationStart "Sanitize XML"
     curStart = Perf.MicroTimer
+    strXML = this.strInput
 
     ' Exporting Table Def as XML does not properly encode ampersand character (See #314)
     ' Most likely if any ampersands are encoded correctly, all of them will be.
@@ -609,9 +878,9 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
         .Global = True
         ' Match &amp; &quot; &gt; &lt; etc...
         .Pattern = "&[A-z]{2,6};"
-        If Not .Test(strFile) Then
+        If Not .Test(strXML) Then
             ' Properly encode any embedded ampersand characters to make valid XML
-            strFile = Replace(strFile, "&", "&amp;")
+            strXML = Replace(strXML, "&", "&amp;")
         End If
     End With
 
@@ -622,9 +891,12 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
         Set objXml = New MSXML2.DOMDocument60
     End If
 
-    If objXml.LoadXML(strFile) = False Then
+    If objXml.LoadXML(strXML) = False Then
         Log.Error eelError, _
-                "Unable to parse the XML for file '" & strPath & "'. This may be due to containing malformed XML. Check the source XML document for validity. In some cases, this may be due to table data containing characters not allowed in XML documents.", ModuleName & ".SanitizeXML"
+            "Unable to parse the XML for file '" & Nz2(this.strFilePath, Me.ObjectName) & _
+            "'. This may be due to containing malformed XML. Check the source XML document for validity. " & _
+            "In some cases, this may be due to table data containing characters not allowed in XML documents.", _
+            ModuleName(Me) & ".SanitizeXML"
         Exit Function
     End If
 
@@ -668,17 +940,15 @@ Public Function SanitizeXML(strPath As String, blnReturnHash As Boolean) As Stri
 
     Perf.OperationEnd
 
-    ' Write out sanitized XML file
-    WriteFile FormatXML(objXml), strPath
-
-    ' Return hash, if requested
-    If blnReturnHash Then SanitizeXML = GetStringHash(cData.GetStr, True)
+    ' Save the output
+    this.strOutput = FormatXML(objXml)
+    SanitizeXML = this.strOutput
 
     ' Show stats if debug turned on.
     Log.Add "    Sanitized in " & Format$(Perf.MicroTimer - curStart, "0.000") & " seconds.", Options.ShowDebug
 
     ' Log any errors
-    CatchAny eelError, "Error sanitizing XML file " & FSO.GetFileName(strPath), ModuleName & ".SanitizeXML"
+    CatchAny eelError, "Error sanitizing XML for " & Nz2(FSO.GetFileName(this.strFilePath), Me.ObjectName), ModuleName(Me) & ".SanitizeXML"
 
 End Function
 
@@ -690,7 +960,7 @@ End Function
 ' Purpose   : Trim off tabs from beginning and end of string
 '---------------------------------------------------------------------------------------
 '
-Public Function TrimTabs(strText As String) As String
+Private Function TrimTabs(strText As String) As String
 
     Dim dblStart As Double
     Dim dblEnd As Double
@@ -726,38 +996,13 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : StartsWith
-' Author    : Adam Waller
-' Date      : 11/5/2020
-' Purpose   : See if a string begins with a specified string.
-'---------------------------------------------------------------------------------------
-'
-Public Function StartsWith(strText As String, strStartsWith As String, Optional Compare As VbCompareMethod = vbBinaryCompare) As Boolean
-    StartsWith = (InStr(1, strText, strStartsWith, Compare) = 1)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : EndsWith
-' Author    : Adam Waller
-' Date      : 4/29/2021
-' Purpose   : See if a string ends with a specified string.
-'---------------------------------------------------------------------------------------
-'
-Public Function EndsWith(strText As String, strEndsWith As String, Optional Compare As VbCompareMethod = vbBinaryCompare) As Boolean
-    EndsWith = (StrComp(Right$(strText, Len(strEndsWith)), strEndsWith, Compare) = 0)
-    'EndsWith = (InStr(1, strText, strEndsWith, Compare) = len(strtext len(strendswith) 1)
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetIndent
 ' Author    : Adam Waller
 ' Date      : 11/5/2020
 ' Purpose   : Returns the number of spaces until the first non-space character.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetIndent(strLine As Variant) As Integer
+Private Function GetIndent(strLine As Variant) As Integer
     Dim strChar As String
     strChar = Left$(Trim(strLine), 1)
     If strLine <> vbNullString Then GetIndent = InStr(1, strLine, strChar) - 1
@@ -771,10 +1016,8 @@ End Function
 ' Purpose   : Format XML content for consistent and readable output.
 '---------------------------------------------------------------------------------------
 '
-Private Function FormatXML( _
-    objInput As MSXML2.DOMDocument60, _
-    Optional blnOmitDeclaration As Boolean _
-) As String
+Private Function FormatXML(objInput As MSXML2.DOMDocument60, _
+                            Optional blnOmitDeclaration As Boolean) As String
 
     ' XSLT stylesheet that allow us to control indenting and also get a better indent result.
     ' For testing and adjusting, you can use https://www.online-toolz.com/tools/xslt-validator-tester-online.php
@@ -816,7 +1059,7 @@ Private Function FormatXML( _
     End If
 
     ' Check for any errors parsing the XML
-    If CatchAny(eelError, "Error parsing XML content", ModuleName & ".FormatXML") Then
+    If CatchAny(eelError, "Error parsing XML content", ModuleName(Me) & ".FormatXML") Then
         ' Fall back to input XML
         strOutput = objInput.XML
         ' Output XML to log file
@@ -830,3 +1073,15 @@ Private Function FormatXML( _
     FormatXML = strOutput
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Terminate
+' Author    : Adam Waller
+' Date      : 10/25/2023
+' Purpose   : Release private objects when terminating
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Terminate()
+    Set this.colBlocks = Nothing
+End Sub

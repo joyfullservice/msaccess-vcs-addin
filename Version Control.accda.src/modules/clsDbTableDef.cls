@@ -59,7 +59,12 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         Perf.OperationEnd
 
         ' Rewrite sanitized XML as formatted UTF-8 content
-        strHash = SanitizeXML(strFile, True)
+        With New clsSourceParser
+            .LoadSourceFile strFile
+            DeleteFile strFile
+            WriteFile .Sanitize(ectXML), strFile
+            strHash = .Hash
+        End With
 
     Else
         ' Linked table - Save as JSON
@@ -513,7 +518,8 @@ Private Function IndexAvailable(tdf As TableDef) As Boolean
 
     Dim lngTest As Long
 
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
     lngTest = tdf.Indexes.Count
     If Err Then
         Err.Clear
@@ -542,7 +548,8 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
     Dim strSql As String
     Dim strConnect As String
 
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
 
     ' Read json file
     Set dTable = ReadJsonFile(strFile)

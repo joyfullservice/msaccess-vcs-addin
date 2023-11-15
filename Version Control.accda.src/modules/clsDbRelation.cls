@@ -95,7 +95,8 @@ Private Sub IDbComponent_Import(strFile As String)
         ' Relationships create indexes, so we need to make sure an index
         ' with this name doesn't already exist. (Also check to be sure that
         ' we don't already have a relationship with this name.)
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         With m_Dbs
             .TableDefs(rel.Table).Indexes.Delete rel.Name
             .TableDefs(rel.ForeignTable).Indexes.Delete rel.Name
@@ -134,6 +135,7 @@ Private Sub IDbComponent_Merge(strFile As String)
         On Error Resume Next
         CurrentDb.Relations.Delete FSO.GetBaseName(strFile)
         VCSIndex.Remove Me, strFile
+        If Err Then Err.Clear
     End If
 End Sub
 

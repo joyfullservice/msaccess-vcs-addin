@@ -144,6 +144,7 @@ Private Sub AddProperty(dic As Dictionary, o As Object, strName As Variant)
             ' Use CallByName on object to get value if the property exists
             On Error Resume Next
             dic.Add strName, CallByName(o, strName, VbGet)
+            If Err Then Err.Clear
     End Select
 End Sub
 

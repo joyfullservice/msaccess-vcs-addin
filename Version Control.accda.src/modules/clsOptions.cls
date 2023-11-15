@@ -32,6 +32,7 @@ Public SaveQuerySQL As Boolean
 Public FormatSQL As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
 Public SaveTableSQL As Boolean
+Public SplitLayoutFromVBA As Boolean
 Public StripPublishOption As Boolean
 Public SanitizeColors As eSanitizeLevel
 Public SanitizeLevel As eSanitizeLevel
@@ -78,6 +79,7 @@ Public Sub LoadDefaults()
         .FormatSQL = True
         .ForceImportOriginalQuerySQL = False
         .SaveTableSQL = True
+        .SplitLayoutFromVBA = True
         .StripPublishOption = True
         .SanitizeLevel = eslStandard
         .SanitizeColors = eslMinimal
@@ -285,7 +287,63 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
         End If
     End If
 
+    ' 11/3/2023
+    ' Check option to split VBA from object layout
+    If Not dOptions.Exists("SplitLayoutFromVBA") Then
+        ' The existing options file does not have this option defined.
+        ' See if we have any source files from previous exports.
+        If HasUnifiedLayoutFilesInGit(Me.GetExportFolder) Then
+            ' Set the option as false by default, and let the user
+            ' turn it on explicitly for this project.
+            ' (That way they are not forced to make a decision immediately)
+            Me.SplitLayoutFromVBA = False
+        Else
+            ' If we already have split files, or if this project is
+            ' being exported for the first time, leave the option at
+            ' the default setting.
+        End If
+    End If
+
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasUnifiedLayoutFilesInGit
+' Author    : Adam Waller
+' Date      : 11/3/2023
+' Purpose   : Returns true if the current project seems to have existing form or report
+'           : source files AND appears to be in a .git repository.
+'           : (This function is used when determining the default for splitting VBA
+'           :  from layout files in new projects.)
+'           : For performance reasons this is not a fully comprehensive check of every
+'           : possible source file, but should be a pretty good indication of whether
+'           : existing source files need to be split in git to preserve the history in
+'           : both source files.
+'---------------------------------------------------------------------------------------
+'
+Private Function HasUnifiedLayoutFilesInGit(strExportPath As String) As Boolean
+
+    Dim blnHasFiles As Boolean
+
+    ' See if we have any ".bas" files, but no corresponding ".cls" files in the
+    ' forms and reports export folders.
+    ' Hard-coding the folder names to avoid calling options.
+    If GetFileList(BuildPath2(strExportPath, "forms"), "*.bas").Count > 0 Then
+        blnHasFiles = (GetFileList(BuildPath2(strExportPath, "forms"), "*.cls").Count = 0)
+    ElseIf GetFileList(BuildPath2(strExportPath, "reports"), "*.bas").Count > 0 Then
+        blnHasFiles = (GetFileList(BuildPath2(strExportPath, "reports"), "*.cls").Count = 0)
+    End If
+
+    If blnHasFiles Then
+        ' Check to see if this folder is in a git repository
+        If Git.Installed Then
+            ' Check export path
+            Git.WorkingFolder = strExportPath
+            HasUnifiedLayoutFilesInGit = Git.IsInsideRepository
+        End If
+    End If
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -568,6 +626,7 @@ Private Sub Class_Initialize()
         .Add "FormatSQL"
         .Add "ForceImportOriginalQuerySQL"
         .Add "SaveTableSQL"
+        .Add "SplitLayoutFromVBA"
         .Add "StripPublishOption"
         .Add "SanitizeColors"
         .Add "SanitizeLevel"
@@ -595,6 +654,7 @@ Private Sub Class_Initialize()
 
     ' Other run-time options
     JsonOptions.AllowUnicodeChars = True
+    JsonOptions.ConvertDateToIso = True
 
 End Sub
 

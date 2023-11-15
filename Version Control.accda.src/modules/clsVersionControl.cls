@@ -374,6 +374,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SplitFiles
+' Author    : Adam Waller
+' Date      : 11/14/2023
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Public Sub SplitFiles()
+    DoCmd.OpenForm "frmVCSSplitFiles"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : LocalizeLibraryReferences
 ' Author    : Adam Waller
 ' Date      : 5/4/2022
@@ -437,6 +449,10 @@ End Sub
 '
 Private Sub Class_Initialize()
     SaveState
+    ' When the class is initialized, make sure the ribbon is active (if installed).
+    ' This way if the COM add-in is not active, it will be automatically activated
+    ' when the add-in is opened from the [Database Tools\Add-ins] menu. (See #451)
+    modCOMAddIn.VerifyRibbon
 End Sub
 
 

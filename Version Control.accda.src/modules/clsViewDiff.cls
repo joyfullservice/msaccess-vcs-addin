@@ -140,7 +140,8 @@ Public Sub ClearTempFiles()
     Dim varFile As Variant
 
     If Not m_colTempFiles Is Nothing Then
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         For Each varFile In m_colTempFiles
             If FSO.FileExists(varFile) Then DeleteFile CStr(varFile)
         Next varFile
@@ -185,7 +186,8 @@ Private Sub RunCompare(strFile1 As String, strFile2 As String)
     End Select
 
     ' Run command to launch compare
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
     If strCmd <> vbNullString Then
         With New WshShell
             .Run strCmd
@@ -219,7 +221,7 @@ End Function
 '           : valid for use.
 '---------------------------------------------------------------------------------------
 '
-Private Function HasValidCompareTool() As Boolean
+Public Function HasValidCompareTool() As Boolean
 
     ' Check the current option for compare tool.
     Select Case Me.ToolName

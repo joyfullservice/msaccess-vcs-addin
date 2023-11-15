@@ -789,6 +789,9 @@ Public Function IsEmptyArray(varArray As Variant) As Boolean
     lngLowBound = clngTest
     lngLowBound = LBound(varArray)
 
+    ' Clear any error thrown while attempting to read LBound()
+    If Err Then Err.Clear
+
     ' If the above assignment fails, we have an empty array
     IsEmptyArray = (lngLowBound = clngTest)
 
@@ -878,6 +881,31 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : StartsWith
+' Author    : Adam Waller
+' Date      : 11/5/2020
+' Purpose   : See if a string begins with a specified string.
+'---------------------------------------------------------------------------------------
+'
+Public Function StartsWith(strText As String, strStartsWith As String, Optional Compare As VbCompareMethod = vbBinaryCompare) As Boolean
+    StartsWith = (InStr(1, strText, strStartsWith, Compare) = 1)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EndsWith
+' Author    : Adam Waller
+' Date      : 4/29/2021
+' Purpose   : See if a string ends with a specified string.
+'---------------------------------------------------------------------------------------
+'
+Public Function EndsWith(strText As String, strEndsWith As String, Optional Compare As VbCompareMethod = vbBinaryCompare) As Boolean
+    EndsWith = (StrComp(Right$(strText, Len(strEndsWith)), strEndsWith, Compare) = 0)
+    'EndsWith = (InStr(1, strText, strEndsWith, Compare) = len(strtext len(strendswith) 1)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SwapExtension
 ' Author    : Adam Waller
 ' Date      : 8/9/2023
@@ -885,10 +913,10 @@ End Function
 '           : I.e.  c:\test.bas > c:\test.cls
 '---------------------------------------------------------------------------------------
 '
-Public Function SwapExtension(strFilePath As String, strNewExtension As String) As String
+Public Function SwapExtension(strFilePath As String, strNewExtensionWithoutDelimiter As String) As String
     Dim strCurrentExt As String
     strCurrentExt = FSO.GetExtensionName(strFilePath)
-    SwapExtension = Left(strFilePath, Len(strFilePath) - Len(strCurrentExt)) & strNewExtension
+    SwapExtension = Left(strFilePath, Len(strFilePath) - Len(strCurrentExt)) & strNewExtensionWithoutDelimiter
 End Function
 
 

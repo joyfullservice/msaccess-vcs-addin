@@ -1628,6 +1628,7 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 8/18/2023
 ' Purpose   : Print out AscW indexes of each character in the string.
+'           : (Use this when building case statements)
 '---------------------------------------------------------------------------------------
 '
 Private Function GetAscWFromString(strText As String) As String

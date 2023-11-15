@@ -113,7 +113,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
         .blnTrustAddInFolder = blnTrustFolder
         If .strInstallFolder <> strInstallFolder Then
             ' Attempt to migrate any saved user settings files
-            MigrateUserFiles .strInstallFolder, strInstallFolder, GetFilePathsInFolder(.strInstallFolder)
+            MigrateUserFiles strInstallFolder, GetFilePathsInFolder(.strInstallFolder)
             ' Update install folder to new path
             .strInstallFolder = strInstallFolder
         End If
@@ -305,7 +305,7 @@ End Function
 '           : the source file.
 '---------------------------------------------------------------------------------------
 '
-Private Sub MigrateUserFiles(strFromFolder As String, strToFolder As String, colNames As Dictionary)
+Private Sub MigrateUserFiles(strToFolder As String, colNames As Dictionary)
 
     Dim varKey As Variant
     Dim strFile As String
@@ -439,7 +439,8 @@ Private Sub RemoveMenuItem(ByVal strName As String, Optional Hive As eHive = ehH
     strPath = GetAddinRegPath(Hive) & strName & "\"
     With New IWshRuntimeLibrary.WshShell
         ' Just in case someone changed some of the keys...
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         .RegDelete strPath & "Expression"
         .RegDelete strPath & "Library"
         .RegDelete strPath & "Version"
@@ -552,7 +553,8 @@ Private Sub RunUpgrades()
         ' Check for installation in HKLM hive.
         strOldPath = GetAddinRegPath(ehHKLM) & "&Version Control\Library"
         Set objShell = New IWshRuntimeLibrary.WshShell
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         strTest = objShell.RegRead(strOldPath)
         If Err Then Err.Clear
         On Error GoTo 0
@@ -634,7 +636,8 @@ End Sub
 Public Function HasLegacyRC4Keys()
     Dim strValue As String
     With New IWshRuntimeLibrary.WshShell
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         strValue = .RegRead("HKCU\SOFTWARE\VB and VBA Program Settings\MSAccessVCS\Private Keys\")
         HasLegacyRC4Keys = Not Catch(-2147024894)
         CatchAny eelError, "Checking for legacy RC4 keys", ModuleName & ".HasLegacyRC4Keys"
@@ -797,7 +800,8 @@ Public Sub RemoveTrustedLocation(Optional strName As String)
     strPath = GetTrustedLocationRegPath(strName)
 
     With New IWshRuntimeLibrary.WshShell
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         .RegDelete strPath & "Path"
         .RegDelete strPath & "Date"
         .RegDelete strPath & "Description"
@@ -997,6 +1001,8 @@ Private Function CheckRegKey(strPath As String, ParamArray AllowedValues() As Va
             Exit For
         End If
     Next intCnt
+
+    If Err Then Err.Clear
 
 End Function
 

@@ -73,7 +73,8 @@ Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElem
     strImage = GetImageName(oClient, oElement)
 
     ' Just in case something doesn't work right...
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
 
     ' There are multiple icons for some objects
     If LikeAny(strImage, "Table*", "*Tabelle") Then

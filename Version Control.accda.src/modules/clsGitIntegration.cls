@@ -35,11 +35,12 @@ Private Enum eGitCommand
     egcGetUntrackedFiles
     egcGetHeadCommit
     egcGetBranchName
-    egcSetTaggedCommit
     egcGetReproPath
     egcGetRevision
     egcGetStatusPorcelain
+    egcIsInsideTree
     ' Action commands
+    egcSetTaggedCommit
     egcInitialize
     egcAddAll
     egcCommit
@@ -101,6 +102,7 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
         Case egcCheckoutNewBranch:      strCmd = "git checkout -b {MyArg}"
         Case egcCheckoutHeadToCurrent:  strCmd = "git checkout HEAD~ ."
         Case egcDeleteBranch:           strCmd = "git branch --delete {MyArg}"
+        Case egcIsInsideTree:           strCmd = "git rev-parse --is-inside-work-tree"
         Case Else
             Log.Error eelError, "Unrecognized Git Command Enum: " & intCmd
             Stop
@@ -111,7 +113,7 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
 
     ' Run command, and get result
     Perf.OperationStart "Git Command (id:" & intCmd & ")"
-    strResult = ShellRun(strCmd)
+    strResult = ShellRun(strCmd, intCmd)
     Perf.OperationEnd
 
     ' Trim any trailing vbLf
@@ -170,7 +172,7 @@ End Function
 ' Purpose   : Returns the path to the root of the repository.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetRepositoryRoot() As String
+Public Function GetRepositoryRoot(Optional blnFallBackToWorking As Boolean = True) As String
 
     Static strLastFolder As String  ' Working folder
     Static strLastRoot As String    ' Repository Root
@@ -179,6 +181,12 @@ Public Function GetRepositoryRoot() As String
 
     ' Determine the current working folder
     strWorking = GetWorkingFolder
+
+    ' Make sure git is actually installed
+    If Not Me.Installed Then
+        If blnFallBackToWorking Then GetRepositoryRoot = strWorking
+        Exit Function
+    End If
 
     ' On first call, we will attempt to get the repository root from the working
     ' folder, or the export folder if a working folder is not specified.
@@ -189,16 +197,20 @@ Public Function GetRepositoryRoot() As String
             strLastFolder = strWorking
             strLastRoot = vbNullString
             ' Recursively call this function to verify the path with git
-            GetRepositoryRoot = GetRepositoryRoot()
+            GetRepositoryRoot = GetRepositoryRoot(blnFallBackToWorking)
         Else
             ' Run git command from last folder
             strLastRoot = strLastFolder
             ' Use Git to look up root folder in repository.
             strLastRoot = Replace(RunGitCommand(egcGetReproPath), "/", PathSep) & PathSep
             If strLastRoot = PathSep Then
-                ' Might not be in a git repository. Fall back to working folder.
-                GetRepositoryRoot = strWorking
-                strLastRoot = strWorking
+                If blnFallBackToWorking Then
+                    ' Might not be in a git repository. Fall back to working folder.
+                    GetRepositoryRoot = strWorking
+                    strLastRoot = strWorking
+                Else
+                    GetRepositoryRoot = vbNullString
+                End If
             Else
                 ' Found the root folder. Return to caller.
                 GetRepositoryRoot = strLastRoot
@@ -221,7 +233,20 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetWorkingFolder() As String
-    GetWorkingFolder = StripSlash(Nz2(Me.WorkingFolder, Options.GetExportFolder)) & PathSep
+
+    Dim strWorking As String
+
+    ' Avoid calling Options if the working folder is already defined to prevent
+    ' a possible stack overflow. (That's why we don't use Nz2() here)
+    If Len(Me.WorkingFolder) Then
+        strWorking = Me.WorkingFolder
+    Else
+        strWorking = Options.GetExportFolder
+    End If
+
+    ' Return path in consistent format
+    GetWorkingFolder = StripSlash(strWorking) & PathSep
+
 End Function
 
 
@@ -229,11 +254,27 @@ End Function
 ' Procedure : Version
 ' Author    : Adam Waller
 ' Date      : 3/10/2023
-' Purpose   : Return git version
+' Purpose   : Return git version (Cached between calls)
 '---------------------------------------------------------------------------------------
 '
 Public Function Version() As String
-    Version = Replace(RunGitCommand(egcGetVersion), "git version ", vbNullString)
+    Static strVersion As String
+    If strVersion = vbNullString Then strVersion = Replace(RunGitCommand(egcGetVersion), "git version ", vbNullString)
+    Version = strVersion
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsInsideRepository
+' Author    : Adam Waller
+' Date      : 11/6/2023
+' Purpose   : Returns true if the current working folder is inside a git repository.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsInsideRepository() As Boolean
+    If Me.Installed Then
+        IsInsideRepository = (RunGitCommand(egcIsInsideTree) = "true")
+    End If
 End Function
 
 
@@ -356,7 +397,7 @@ End Sub
 ' Purpose   : Pass a git command to this function to return the result as a string.
 '---------------------------------------------------------------------------------------
 '
-Private Function ShellRun(strCmd As String) As String
+Private Function ShellRun(strCmd As String, intCmd As eGitCommand) As String
 
     Dim oShell As WshShell
     Dim strFile As String
@@ -366,10 +407,16 @@ Private Function ShellRun(strCmd As String) As String
 
     ' Build command line string
     With New clsConcat
-        ' Open command prompt in repository folder
-        .Add "cmd.exe /c cd ", GetRepositoryRoot
-        ' Run git command
-        .Add " & ", strCmd
+        Select Case intCmd
+            Case egcGetVersion
+                ' Run independent of repository
+                .Add "cmd.exe /c ", strCmd
+            Case Else
+                ' Open command prompt in repository folder
+                .Add "cmd.exe /c cd ", GetRepositoryRoot
+                ' Run git command
+                .Add " & ", strCmd
+        End Select
         ' Output to temp file
         .Add " > """, strFile, """"
         ' Execute command
@@ -477,9 +524,8 @@ End Function
 ' Purpose   : Returns true if git is installed.
 '---------------------------------------------------------------------------------------
 '
-Public Function GitInstalled() As Boolean
-    ' Expecting something like "git version 2.29.2.windows.2"
-    GitInstalled = InStr(1, RunGitCommand(egcGetVersion), "git version ") = 1
+Public Function Installed() As Boolean
+    Installed = (Len(Me.Version))
 End Function
 
 

@@ -1489,7 +1489,8 @@ Public Sub InitializeForms(cContainers As Dictionary)
     Dim varKey As Variant
 
     ' Trap any errors that may occur when opening forms
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
 
     ' See if we imported any forms
     For Each cont In cContainers

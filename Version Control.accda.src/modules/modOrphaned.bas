@@ -279,4 +279,7 @@ Public Sub RemoveOrphanedDatabaseObjects(cCategory As IDbComponent)
         End If
     Next varKey
 
+    ' Handle any uncaught errors
+    CatchAny eelError, "Error removing orphaned objects.", ModuleName & ".RemoveOrphanedDatabaseObjects"
+
 End Sub
