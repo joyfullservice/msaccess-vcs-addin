@@ -82,11 +82,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Next prp
 
     ' Read properties from source file
-    ' We don't want to parse the dates here, so turning them off for this operation only.
-    ' See issue #459 for additional details.
-    JsonOptions.ConvertDateToIso = False
     Set dImport = ReadJsonFile(strFile)
-    JsonOptions.ConvertDateToIso = True
     If Not dImport Is Nothing Then
         Set dItems = dImport("Items")
         For Each varKey In dItems.Keys
@@ -100,6 +96,14 @@ Private Sub IDbComponent_Import(strFile As String)
                         varValue = dItems(varKey)("Value")
                         ' Check for relative path
                         If IsRelativePath(CStr(varValue)) Then varValue = GetPathFromRelative(CStr(varValue))
+                        ' Check for UTC date that might need to be converted back to local
+                        If dItems(varKey)("Type") = dbDate Then
+                            If (Not IsDate(varValue)) And (Right(varValue, 1) = "Z") Then
+                                ' Convert UTC date to local date
+                                dItems(varKey)("Value") = modUtcConverter.ParseIso(CStr(varValue))
+                                varValue = CDate(dItems(varKey)("Value"))
+                            End If
+                        End If
                     Else
                         ReDim bArray(0 To dItems(varKey)("Value").Count - 1)
                         For Each varItem In dItems(varKey)("Value")
@@ -148,7 +152,7 @@ Private Sub IDbComponent_Import(strFile As String)
                     End If
 
                     ' Can't add a text property with a null value. See issue #126
-                    If dItems(varKey)("Type") = 10 Then
+                    If dItems(varKey)("Type") = dbText Then
                         If varValue = vbNullChar Then blnAdd = False
                     End If
                     ' Add the property if the flag has been set.
@@ -258,6 +262,13 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                     If Len(varValue) > 0 Then
                         ' Try to use a relative path
                         varValue = GetRelativePath(CStr(varValue))
+                    End If
+                End If
+                ' Convert dates to UTC
+                If prp.Type = dbDate Then
+                    If IsDate(varValue) Then
+                        ' Store dates in JSON as UTC dates.
+                        varValue = modUtcConverter.ConvertToIsoTime(CDate(varValue))
                     End If
                 End If
                 Set dItem = New Dictionary

@@ -158,7 +158,7 @@ Private Type json_Options
     EscapeSolidus As Boolean
 
     ' Before version 2.3.1 dates were converted to UTC in ConvertToJson method, but not when json was parsed.
-    ' Convert datetime values to UTC/ISO8601 (false, slower) or dont change local <-> global times (true, faster)
+    ' Convert datetime values to UTC/ISO8601 (true, slower) or dont change local <-> global times (false, faster)
     ConvertDateToIso As Boolean
 
     ' Allow Unicode characters in JSON text. Set to True to use native Unicode or false for escaped values.

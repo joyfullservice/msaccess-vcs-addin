@@ -106,6 +106,7 @@ Public Sub Save(Optional strInFolder As String)
     Dim varKey As Variant
     Dim varValue As Variant
     Dim strFile As String
+    Dim blnSavedValue As Boolean
 
     ' Exit if we have disabled the index functionality
     If Me.Disabled Then Exit Sub
@@ -139,10 +140,17 @@ Public Sub Save(Optional strInFolder As String)
         strFile = StripSlash(strInFolder) & PathSep & cstrFileName
     End If
 
+    ' Turn on ISO date conversion to save index dates in UTC
+    blnSavedValue = JsonOptions.ConvertDateToIso
+    JsonOptions.ConvertDateToIso = True
+
     ' Save index to file
     If m_strFile <> vbNullString Then
         WriteFile BuildJsonFile(TypeName(Me), m_dIndex, "Version Control System Index"), strFile
     End If
+
+    ' Restore previous setting
+    JsonOptions.ConvertDateToIso = blnSavedValue
 
 End Sub
 
