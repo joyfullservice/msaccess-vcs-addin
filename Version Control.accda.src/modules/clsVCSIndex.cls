@@ -59,6 +59,7 @@ Public Sub LoadFromFile(Optional strFile As String)
     Dim dFile As Dictionary
     Dim dItem As Dictionary
     Dim varKey As Variant
+    Dim blnSavedValue As Boolean
 
     ' Exit if we have disabled the index functionality
     If Me.Disabled Then Exit Sub
@@ -70,7 +71,11 @@ Public Sub LoadFromFile(Optional strFile As String)
     m_strFile = strFile
     If m_strFile = vbNullString Then m_strFile = DefaultFilePath
     If FSO.FileExists(m_strFile) Then
+        ' Convert dates back to local time for processing
+        blnSavedValue = JsonOptions.ConvertDateToIso
+        JsonOptions.ConvertDateToIso = True
         Set dFile = ReadJsonFile(m_strFile)
+        JsonOptions.ConvertDateToIso = blnSavedValue
         If Not dFile Is Nothing Then
             If dFile.Exists("Items") Then
                 ' Load properties from class
