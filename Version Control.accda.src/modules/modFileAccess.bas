@@ -530,10 +530,13 @@ End Function
 ' Purpose   : Returns the UNC path for a network location (if applicable)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetUncPath(strPath As String)
+Public Function GetUncPath(strPath As String) As String
 
     Dim strDrive As String
     Dim strUNC As String
+
+    LogUnhandledErrors
+    On Error Resume Next
 
     strUNC = strPath
     strDrive = FSO.GetDriveName(strPath)
@@ -544,6 +547,11 @@ Public Function GetUncPath(strPath As String)
             End If
         End With
     End If
+
+    ' Log warning if unable to access a drive.
+    CatchAny eelWarning, "Unable to determine UNC path for " & strPath, ModuleName & ".GetUncPath"
+
+    ' Return UNC Path
     GetUncPath = strUNC
 
 End Function
