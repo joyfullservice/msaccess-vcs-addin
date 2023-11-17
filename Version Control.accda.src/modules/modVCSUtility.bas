@@ -938,6 +938,7 @@ End Sub
 '           : it contains a .gitignore and .gitattributes file. If it doesn't, then
 '           : the default files are extracted and added to the project, and the user
 '           : notified that these have been added.
+'           : Checks both the export folder and the current folder.
 '---------------------------------------------------------------------------------------
 '
 Public Sub CheckGitFiles()
@@ -946,35 +947,42 @@ Public Sub CheckGitFiles()
     Dim strFile As String
     Dim blnAdded As Boolean
 
+    ' Check export folder
     strPath = Options.GetExportFolder
-    If FSO.FolderExists(strPath & ".git") Then
-
-        ' gitignore file
-        strFile = strPath & ".gitignore"
-        If Not FSO.FileExists(strFile) Then
-            ExtractResource "Default .gitignore", strPath
-            Name strFile & ".default" As strFile
-            Log.Add "Added default .gitignore file", , , "blue"
-            blnAdded = True
+    If Not FSO.FolderExists(strPath & ".git") Then
+        ' Check current folder for repository root
+        ' (This would be the default usage)
+        strPath = CurrentProject.Path & PathSep
+        If Not FSO.FolderExists(strPath & ".git") Then
+            ' No git folder found.
+            Exit Sub
         End If
-
-        ' gitattributes file
-        strFile = strPath & ".gitattributes"
-        If Not FSO.FileExists(strFile) Then
-            ExtractResource "Default .gitattributes", strPath
-            Name strFile & ".default" As strFile
-            Log.Add "Added default .gitattributes file", , , "blue"
-            blnAdded = True
-        End If
-
-        ' Notify user
-        If blnAdded Then MsgBox2 "Added Default Git File(s)", _
-            "Added a default .gitignore and/or .gitattributes file to your project.", _
-            "By default these files exclude the binary database files from version control," & vbCrLf & _
-            "allowing you to track changes at the source file level." & vbCrLf & vbCrLf & _
-            "You may wish to customize these further for your environment.", vbInformation
-
     End If
+
+    ' gitignore file
+    strFile = strPath & ".gitignore"
+    If Not FSO.FileExists(strFile) Then
+        ExtractResource "Default .gitignore", strPath
+        Name strFile & ".default" As strFile
+        Log.Add "Added default .gitignore file", , , "blue"
+        blnAdded = True
+    End If
+
+    ' gitattributes file
+    strFile = strPath & ".gitattributes"
+    If Not FSO.FileExists(strFile) Then
+        ExtractResource "Default .gitattributes", strPath
+        Name strFile & ".default" As strFile
+        Log.Add "Added default .gitattributes file", , , "blue"
+        blnAdded = True
+    End If
+
+    ' Notify user
+    If blnAdded Then MsgBox2 "Added Default Git File(s)", _
+        "Added a default .gitignore and/or .gitattributes file to your project.", _
+        "By default these files exclude the binary database files from version control," & vbCrLf & _
+        "allowing you to track changes at the source file level." & vbCrLf & vbCrLf & _
+        "You may wish to customize these further for your environment.", vbInformation
 
 End Sub
 
