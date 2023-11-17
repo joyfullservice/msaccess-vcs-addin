@@ -196,11 +196,7 @@ Private Sub IDbComponent_Merge(strFile As String)
 
     ' Remove any document properties that don't exist in the incoming file,
     ' then import the file.
-    ' We don't want to parse the dates here, so turning them off for this operation only.
-    ' See issue #459 for additional details.
-    JsonOptions.ConvertDateToIso = False
     Set dFile = ReadJsonFile(strFile)
-    JsonOptions.ConvertDateToIso = True
     If dFile Is Nothing Then Set dFile = New Dictionary
     RemoveMissing dFile("Items"), GetDictionary
 

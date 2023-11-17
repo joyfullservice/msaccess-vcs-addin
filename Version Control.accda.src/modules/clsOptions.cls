@@ -654,7 +654,6 @@ Private Sub Class_Initialize()
 
     ' Other run-time options
     JsonOptions.AllowUnicodeChars = True
-    JsonOptions.ConvertDateToIso = True
 
 End Sub
 
