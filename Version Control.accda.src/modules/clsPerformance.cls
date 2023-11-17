@@ -607,7 +607,7 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
 
     ' Build our list of records
     For Each varKey In dItems.Keys
-        ' Create a record like this: "00062840.170000|Export Form Objects       ..."
+        ' Create a record like this: "00062840.170000|Export Form Objects"
         strRecord = Format$(dItems(varKey).Total, "00000000.000000") & "|" & CStr(varKey)
         ' Add to array.
         varItems(lngCnt) = strRecord
