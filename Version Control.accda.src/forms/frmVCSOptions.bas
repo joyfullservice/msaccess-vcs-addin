@@ -16,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =252
-    Left =-25575
-    Top =1500
-    Right =-255
-    Bottom =14085
+    Left =3225
+    Top =2430
+    Right =18945
+    Bottom =14175
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -3897,7 +3897,7 @@ Private Sub LoadTableList()
                     rstTableData.AddNew
                         rstTableData!TableName = Nz(!Name)
                         rstTableData!Flags = Nz(!Flags)
-                        rstTableData!IsSystem = ((lngFlags <> 0) And (lngFlags <> 8) And (lngType = 1))
+                        rstTableData!IsSystem = BitSet(lngFlags, 2)
                         rstTableData!IsHidden = BitSet(lngFlags, 8)
                         rstTableData!IsLocal = (lngType = 1)
                         ' Determine table icon
