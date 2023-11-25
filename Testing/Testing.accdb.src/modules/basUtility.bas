@@ -113,3 +113,16 @@ Public Function GetVBProjectForCurrentDB() As VBProject
     End If
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetClassInstancing
+' Author    : Adam Waller
+' Date      : 11/25/2023
+' Purpose   : Set the clsPublic class to use Public Creatable instancing.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetClassInstancing()
+    Const PublicCreatable = 5
+    GetVBProjectForCurrentDB.VBComponents("clsPublic").Properties("Instancing") = PublicCreatable
+End Sub

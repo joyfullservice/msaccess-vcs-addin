@@ -111,6 +111,9 @@ Public Sub cmdRunTests_Click()
     strTest = CurrentProject.AllModules("clsPerson").Name
     ShowResult "Class Module exists", (strTest = "clsPerson")
 
+    strTest = GetVBProjectForCurrentDB.VBComponents("clsPublic").Properties("Instancing")
+    ShowResult "Class with Public Creatable Instancing", (strTest = "5")
+
 
     ' Database properties
     strTest = ""
