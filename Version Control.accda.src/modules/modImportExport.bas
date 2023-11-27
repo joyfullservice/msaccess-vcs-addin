@@ -79,6 +79,25 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
     End With
 
+    ' Check project VCS version
+    Select Case Options.CompareLoadedVersion
+        Case evcNewerVersion
+            Log.Flush
+            If MsgBox2("Newer VCS Version Detected", _
+                "This project uses VCS version " & Options.GetLoadedVersion & _
+                ", but version " & GetVCSVersion & " is currently installed." & vbCrLf & "Would you like to continue anyway?", _
+                "Click YES to continue this operation, or NO to cancel.", _
+                vbExclamation + vbYesNo + vbDefaultButton2) <> vbYes Then
+                    Log.Spacer
+                    Log.Add "Export Canceled", , , "Red", True
+                    Log.Flush
+                    Log.ErrorLevel = eelCritical
+                    Exit Sub
+            End If
+        Case evcOlderVersion
+            Log.Add "Updated VCS (" & Options.GetLoadedVersion & " -> " & GetVCSVersion & ")", , , "blue"
+    End Select
+
     ' Run any custom sub before export
     If Options.RunBeforeExport <> vbNullString Then
         Log.Add "Running " & Options.RunBeforeExport & "..."
@@ -779,6 +798,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
         If FSO.FileExists(strPath) Then
             Log.Add "Saving backup of original database..."
             Name strPath As strBackup
+            If CatchAny(eelCritical, "Unable to rename original file", ModuleName & ".Build") Then GoTo CleanUp
             Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
         End If
     Else

@@ -51,10 +51,19 @@ Public UseShortHash As Boolean
 Public BreakOnError As Boolean
 Public PreserveRubberDuckID As Boolean
 
+' Enum to compare loaded version to installed version.
+Public Enum eVersionCompare
+    evcUnknown
+    evcOlderVersion
+    evcSameVersion
+    evcNewerVersion
+End Enum
+
 ' Private collections for options and enum values.
 Private m_colOptions As Collection
 Private m_dEnum As Dictionary
 Private m_strOptionsFilePath As String
+Private m_strLoadedVersion As String
 
 
 '---------------------------------------------------------------------------------------
@@ -232,6 +241,8 @@ Public Sub LoadOptionsFromFile(strFile As String)
     ' Read in the options from the json file.
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
+        ' Get version of loaded file
+        m_strLoadedVersion = dNZ(dFile, "Info\AddinVersion")
         If dFile.Exists("Options") Then
             Set dOptions = dFile("Options")
             ' Perform any relevant option upgrades
@@ -266,11 +277,77 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetLoadedVersion
+' Author    : Adam Waller
+' Date      : 11/21/2023
+' Purpose   : Return the VCS version that was loaded for this project.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetLoadedVersion() As String
+    GetLoadedVersion = m_strLoadedVersion
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadedVersion
+' Author    : Adam Waller
+' Date      : 11/21/2023
+' Purpose   : Compares the loaded version to the currently installed version of the
+'           : add-in.
+'---------------------------------------------------------------------------------------
+'
+Public Function CompareLoadedVersion() As eVersionCompare
+
+    Dim strLoaded As String
+    Dim strInstalled As String
+
+    ' Build comparison strings
+    strLoaded = BuildVersionCompareString(m_strLoadedVersion)
+    strInstalled = BuildVersionCompareString(GetVCSVersion)
+
+    If Len(strLoaded) And Len(strInstalled) Then
+        If strLoaded < strInstalled Then CompareLoadedVersion = evcOlderVersion
+        If strLoaded = strInstalled Then CompareLoadedVersion = evcSameVersion
+        If strLoaded > strInstalled Then CompareLoadedVersion = evcNewerVersion
+    Else
+        CompareLoadedVersion = evcUnknown
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildVersionCompareString
+' Author    : Adam Waller
+' Date      : 11/21/2023
+' Purpose   : Reformat the string to a padded string that can be used to compare
+'           : versions.  I.e. "4.1.345" becomes "000040000100345"
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildVersionCompareString(strVersion As String) As String
+
+    Dim varParts As Variant
+
+    ' Build version strings to compare
+    varParts = Split(strVersion, ".")
+    If UBound(varParts) = 2 Then
+        BuildVersionCompareString = _
+            Format(varParts(0), "#####") & _
+            Format(varParts(1), "#####") & _
+            Format(varParts(2), "#####")
+    Else
+        ' Unable to parse version
+        BuildVersionCompareString = strVersion
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Upgrade
 ' Author    : Adam Waller
-' Date      : 6/16/2021
-' Purpose   : Perform any upgrades to option names or settings.
-'           : Expects a dictionary of options, as when loaded from a file.
+' Date      : 11/21/2023
+' Purpose   :
 '---------------------------------------------------------------------------------------
 '
 Private Sub Upgrade(ByRef dOptions As Dictionary)
