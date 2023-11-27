@@ -792,6 +792,18 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
         .Flush
     End With
 
+    ' Check project VCS version
+    If Options.CompareLoadedVersion = evcNewerVersion Then
+        If MsgBox2("Newer VCS Version Detected", _
+            "This project uses VCS version " & Options.GetLoadedVersion & _
+            ", but version " & GetVCSVersion & " is currently installed." & vbCrLf & "Would you like to continue anyway?", _
+            "Click YES to continue this operation, or NO to cancel.", _
+            vbExclamation + vbYesNo + vbDefaultButton2) <> vbYes Then
+            Log.ErrorLevel = eelCritical
+            GoTo CleanUp
+        End If
+    End If
+
     ' Rename original file as a backup
     strBackup = GetBackupFileName(strPath)
     If blnFullBuild Then
