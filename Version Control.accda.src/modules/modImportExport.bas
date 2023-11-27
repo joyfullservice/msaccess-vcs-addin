@@ -59,8 +59,12 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Options.LoadProjectOptions
     Log.Clear
     Log.OperationType = eotExport
+    Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
+
+    ' Check error handling mode after loading project options
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' If options (or VCS version) have changed, a full export will be required
     If (VCSIndex.OptionsHash <> Options.GetHash) Then blnFullExport = True
@@ -313,8 +317,12 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     Options.LoadProjectOptions
     Log.Clear
     Log.OperationType = eotExport
+    Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
+
+    ' Check error handling mode after loading project options
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Display heading
     With Log
@@ -482,8 +490,12 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     Options.LoadProjectOptions
     Log.Clear
     Log.OperationType = eotExport
+    Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
+
+    ' Check error handling mode after loading project options
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Display heading
     With Log
@@ -736,10 +748,13 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
         End If
     End If
 
+    ' Load options from project
     Set Options = Nothing
     Options.LoadOptionsFromFile StripSlash(strSourceFolder) & PathSep & "vcs-options.json"
     ' Override the export folder when exporting to an alternate path.
     If Len(strAlternatePath) Then Options.ExportFolder = strSourceFolder
+    ' Update VBA debug mode after loading options
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Build original file name for database
     If blnFullBuild Then
@@ -771,6 +786,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
     ' Start log and performance timers
     Log.Clear
     Log.OperationType = IIf(blnFullBuild, eotBuild, eotMerge)
+    Log.SourcePath = strSourceFolder
     Log.Active = True
     Perf.StartTiming
 
@@ -1120,8 +1136,12 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     Options.LoadProjectOptions
     Log.Clear
     Log.OperationType = eotMerge
+    Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
+
+    ' Check error handling mode after loading project options
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Display heading
     With Log
@@ -1235,8 +1255,12 @@ Public Sub MergeAllSource()
     Options.LoadProjectOptions
     Log.Clear
     Log.OperationType = eotMerge
+    Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
+
+    ' Check error handling mode after loading project options
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Display heading
     With Log

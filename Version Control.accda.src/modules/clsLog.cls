@@ -13,6 +13,7 @@ Option Explicit
 Public PadLength As Integer
 Public ErrorLevel As eErrorLevel
 Public OperationType As eOperationType
+Public SourcePath As String
 
 ' Set this to true when logging an operation such as an export or build
 ' then set back to false after writing the log file. This affects
@@ -308,7 +309,7 @@ Public Property Get LogFilePath() As String
         Case eotMerge:  strFile = "Merge.log"
         Case Else:      strFile = "Other.log"
     End Select
-    LogFilePath = FSO.BuildPath(Options.GetExportFolder, strFile)
+    LogFilePath = FSO.BuildPath(Me.SourcePath, strFile)
 End Property
 
 
