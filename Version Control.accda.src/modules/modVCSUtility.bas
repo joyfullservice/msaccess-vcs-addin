@@ -536,6 +536,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
 
     Dim strTempFile As String
     Dim strSourceFile As String
+    Dim strPrefix As String
     Dim strAltFile As String
     Dim strContent As String
     Dim blnVbaOverlay As Boolean
@@ -617,7 +618,10 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
     End If
 
     ' Check for VBA overlay
-    If blnVbaOverlay Then OverlayCodeModule strName, SwapExtension(strFile, "cls")
+    If blnVbaOverlay Then
+        strPrefix = IIf(intType = acForm, "Form_", "Report_")
+        OverlayCodeModule strPrefix & strName, SwapExtension(strFile, "cls")
+    End If
 
 End Sub
 
