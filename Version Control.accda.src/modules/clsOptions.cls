@@ -498,8 +498,15 @@ Public Function GetExportFolder() As String
     Dim strFullPath As String
 
     If Me.ExportFolder = vbNullString Then
-        ' Build default path using project file name
-        strFullPath = CurrentProject.FullName & ".src" & PathSep
+        If DatabaseFileOpen Then
+            ' Build default path using project file name
+            strFullPath = CurrentProject.FullName & ".src" & PathSep
+        Else
+            ' Check options file path
+            If Len(m_strOptionsFilePath) Then
+                strFullPath = FSO.GetParentFolderName(m_strOptionsFilePath)
+            End If
+        End If
     Else
         If Left$(Me.ExportFolder, 2) = PathSep & PathSep Then
             ' UNC path
