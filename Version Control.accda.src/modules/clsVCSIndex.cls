@@ -483,27 +483,43 @@ End Function
 Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
 
     Dim dAllFiles As Dictionary
+    Dim dItems As Dictionary
     Dim varFile As Variant
     Dim strFile As String
     Dim strPath As String
     Dim blnModified As Boolean
+    Dim blnMissing As Boolean
 
     Set GetModifiedSourceFiles = New Dictionary
     With GetModifiedSourceFiles
+
+        ' Get a full list of source files and database objects
+        Set dAllFiles = cCategory.GetFileList
+        Set dItems = cCategory.GetAllFromDB
+
         ' Loop through files and check modified dates.
         ' Get a list of all the files for this component.
-        Set dAllFiles = cCategory.GetFileList
         For Each varFile In dAllFiles
             strFile = varFile
-            ' Reset flag
+
+            ' Reset flags
             blnModified = True
-            If Me.Exists(cCategory, strFile) Then
+            blnMissing = False
+
+            ' See if the database object currently exists
+            If Not cCategory.SingleFile Then
+                blnMissing = Not dItems.Exists(strFile)
+            End If
+
+            ' Check the index for any existing entry, so we can compare the saved modified date.
+            If (Not blnMissing) And Me.Exists(cCategory, strFile) Then
                 ' Build the path to find the item in the index.
                 strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "SourceModified"), PathSep)
                 ' Compare modified date of file with modified date in index.
                 ' File is considered not modified if the index date matches the file modification date.
                 blnModified = Not (dNZ(m_dIndex, strPath) = GetLastModifiedDate(strFile))
             End If
+
             ' Add modified files to collection
             If blnModified Then .Add strFile, vbNullString
         Next varFile
