@@ -18,13 +18,15 @@ This feature is primarily intended for larger/complex databases where a full bui
 **Testing/Switching Branches** - This is also a faster way to test out slight variations in sets of source files. For example, you might build from the main branch, then switch to a feature branch, and use a merge build to get your database updated to the feature branch. When your review/testing is finished, you can switch back to the main branch and again run a merge build to update your database to match the main branch source files.
 
 # Expected Behavior
-|Source File|Database Object|Resulting Action|
-|---------|:----:|:----:|
-|New      |Missing  |Import|
-|Modified |Exists   |Import|
-|Missing  |Exists   |Delete|
-|Modified |Modified |Conflict (Import)|
-|Missing  |Modified |Conflict (Delete)|
+|Source File|Database Object|Resulting Action |
+|-----------|---------------|-----------------|
+|Unchanged  |Unchanged      |None             |
+|Unchanged  |Modified       |None             |
+|New        |Missing        |Import           |
+|Modified   |Unchanged      |Import           |
+|Missing    |Unchanged      |Delete           |
+|Modified   |Modified       |Conflict (Import)|
+|Missing    |Modified       |Conflict (Delete)|
 
 # Additional Notes
 For the merge build functionality to work correctly, it is very important that the `vcs-index.json` file be paired with the (binary) database file and *not* committed to version control. The recommended (and default) setup is that the binary database file and index file are excluded from version control.
