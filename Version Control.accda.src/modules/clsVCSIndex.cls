@@ -482,7 +482,7 @@ End Function
 '
 Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
 
-    Dim colAllFiles As Dictionary
+    Dim dAllFiles As Dictionary
     Dim varFile As Variant
     Dim strFile As String
     Dim strPath As String
@@ -490,29 +490,23 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
 
     Set GetModifiedSourceFiles = New Dictionary
     With GetModifiedSourceFiles
-        ' Make sure we have a previous commit to reference.
-        If Options.UseGitIntegration And LastMergedCommit <> vbNullString Then
-            ' Return list of any modified files of this type as served by Git.
-            Set GetModifiedSourceFiles = Git.GetModifiedSourceFiles(cCategory)
-        Else
-            ' Loop through files and check modified dates.
-            ' Get a list of all the files for this component.
-            Set colAllFiles = cCategory.GetFileList
-            For Each varFile In colAllFiles
-                strFile = varFile
-                ' Reset flag
-                blnModified = True
-                If Me.Exists(cCategory, strFile) Then
-                    ' Build the path to find the item in the index.
-                    strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "SourceModified"), PathSep)
-                    ' Compare modified date of file with modified date in index.
-                    ' File is considered not modified if the index date matches the file modification date.
-                    blnModified = Not (dNZ(m_dIndex, strPath) = GetLastModifiedDate(strFile))
-                End If
-                ' Add modified files to collection
-                If blnModified Then .Add strFile, vbNullString
-            Next varFile
-        End If
+        ' Loop through files and check modified dates.
+        ' Get a list of all the files for this component.
+        Set dAllFiles = cCategory.GetFileList
+        For Each varFile In dAllFiles
+            strFile = varFile
+            ' Reset flag
+            blnModified = True
+            If Me.Exists(cCategory, strFile) Then
+                ' Build the path to find the item in the index.
+                strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "SourceModified"), PathSep)
+                ' Compare modified date of file with modified date in index.
+                ' File is considered not modified if the index date matches the file modification date.
+                blnModified = Not (dNZ(m_dIndex, strPath) = GetLastModifiedDate(strFile))
+            End If
+            ' Add modified files to collection
+            If blnModified Then .Add strFile, vbNullString
+        Next varFile
     End With
 
 End Function
