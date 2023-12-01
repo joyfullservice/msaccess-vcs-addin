@@ -62,20 +62,18 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             On Error GoTo 0
             If strSql <> vbNullString Then
                 ' Pass-through queries should not be formatted, since they support formatting and comments.
-                If Options.SaveQuerySQL Then
-                    Select Case dbs.QueryDefs(m_Query.Name).Type
-                        Case dbQSQLPassThrough, dbQSPTBulk, dbQSetOperation
-                            'Do not format
-                        Case Else
-                            With New clsSqlFormatter
-                                Perf.OperationStart "Format SQL"
-                                WriteFile .FormatSQL(strSql, esdAccess), strFile
-                                Perf.OperationEnd
-                            End With
-                    End Select
-                Else
-                    WriteFile strSql, strFile
-                End If
+                Select Case dbs.QueryDefs(m_Query.Name).Type
+                    Case dbQSQLPassThrough, dbQSPTBulk, dbQSetOperation
+                        'Do not format
+                    Case Else
+                        With New clsSqlFormatter
+                            Perf.OperationStart "Format SQL"
+                            strSql = .FormatSQL(strSql, esdAccess)
+                            Perf.OperationEnd
+                        End With
+                End Select
+                ' Write SQL to file
+                WriteFile strSql, strFile
             End If
             Perf.OperationEnd
             Log.Add "  " & m_Query.Name & " (SQL)", Options.ShowDebug
