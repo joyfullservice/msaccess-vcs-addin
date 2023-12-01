@@ -283,6 +283,7 @@ Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
     Dim strFolderNoSlash As String
 
     ' While the Dir() function would be simpler, it does not support Unicode.
+    Perf.OperationStart "Clear Files by Ext"
     strFolderNoSlash = StripSlash(strFolder)
     If FSO.FolderExists(strFolderNoSlash) Then
         For Each oFile In FSO.GetFolder(strFolderNoSlash).Files
@@ -293,6 +294,7 @@ Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
             End If
         Next
     End If
+    Perf.OperationEnd
 
 End Sub
 
