@@ -504,6 +504,19 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SourceIsModified
+' Author    : Adam Waller
+' Date      : 12/1/2023
+' Purpose   : Returns true if the source file appears to be modified since the last
+'           : import or export. (When compared to the index)
+'---------------------------------------------------------------------------------------
+'
+Private Function IDbComponent_SourceIsModified(strFile As String) As Boolean
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DateModified
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -518,7 +531,7 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : SourceModified
+' Procedure : SourceModifiedDate
 ' Author    : Adam Waller
 ' Date      : 4/27/2020
 ' Purpose   : The date/time the source object was modified. In most cases, this would
@@ -527,9 +540,10 @@ End Function
 '           : allows either approach to be taken.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_SourceModified() As Date
+Private Function IDbComponent_SourceModifiedDate() As Date
     '// TODO: Recursively identify the most recent file modified date.
-    'If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = GetLastModifiedDate(IDbComponent_SourceFile)
+    'If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModifiedDate = GetLastModifiedDate(IDbComponent_SourceFile)
+
 End Function
 
 

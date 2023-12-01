@@ -358,8 +358,8 @@ End Function
 Public Function HasMoreRecentChanges(objItem As IDbComponent) As Boolean
     ' File dates could be a second off (between exporting the file and saving the report)
     ' so ignore changes that are less than three seconds apart.
-    If objItem.DateModified > 0 And objItem.SourceModified > 0 Then
-        HasMoreRecentChanges = (DateDiff("s", objItem.DateModified, objItem.SourceModified) < -3)
+    If objItem.DateModified > 0 And objItem.SourceModifiedDate > 0 Then
+        HasMoreRecentChanges = (DateDiff("s", objItem.DateModified, objItem.SourceModifiedDate) < -3)
     Else
         ' If we can't determine one or both of the dates, return true so the
         ' item is processed as though more recent changes were detected.

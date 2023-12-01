@@ -125,6 +125,18 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SourceIsModified
+' Author    : Adam Waller
+' Date      : 12/1/2023
+' Purpose   : Returns true if the source file appears to be modified since the last
+'           : import or export. (When compared to the index)
+'---------------------------------------------------------------------------------------
+'
+Public Function SourceIsModified(strFile As String) As Boolean
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DateModified
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -138,7 +150,7 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : SourceModified
+' Procedure : SourceModifiedDateDate
 ' Author    : Adam Waller
 ' Date      : 4/27/2020
 ' Purpose   : The date/time the source object was modified. In most cases, this would
@@ -147,7 +159,7 @@ End Function
 '           : allows either approach to be taken.
 '---------------------------------------------------------------------------------------
 '
-Public Function SourceModified() As Date
+Public Function SourceModifiedDate() As Date
 End Function
 
 

@@ -562,6 +562,7 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 7/30/2020
 ' Purpose   : Get the last modified date on a folder or file with Unicode support.
+'           : Returns 0 (blank date) if the file is not found.
 '---------------------------------------------------------------------------------------
 '
 Public Function GetLastModifiedDate(strPath As String) As Date
