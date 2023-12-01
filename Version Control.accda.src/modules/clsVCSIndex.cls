@@ -245,7 +245,7 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         .Item("SourceModified") = ZNDate(dteDateTime)
 
         ' Save hash of file properties
-        .Item("FilePropertiesHash") = GetFilePropertyHash(cItem.SourceFile)
+        .Item("FilePropertiesHash") = GetSourceFilesPropertyHash(cItem)
 
     End With
 
@@ -444,31 +444,6 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetFilePropertyHash
-' Author    : Adam Waller
-' Date      : 5/27/2021
-' Purpose   : Returns a hash of some file properties used to quickly scan for changes.
-'---------------------------------------------------------------------------------------
-'
-Public Function GetFilePropertyHash(strFile As String) As String
-
-    Dim oFile As Scripting.File
-
-    If FSO.FileExists(strFile) Then
-        Perf.OperationStart "Get File Property Hash"
-        Set oFile = FSO.GetFile(strFile)
-
-        With New clsConcat
-            .Add oFile.DateLastModified, oFile.Size
-            GetFilePropertyHash = GetStringHash(.GetStr)
-        End With
-        Perf.OperationEnd
-    End If
-
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetModifiedSourceFiles
 ' Author    : Adam Waller
 ' Date      : 12/2/2020
@@ -612,7 +587,7 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
     If FSO.FileExists(strFile) Then
 
         ' Get a hash of the file properties
-        strHash = Me.GetFilePropertyHash(strFile)
+        strHash = GetSourceFilesPropertyHash(cItem)
 
         ' Check to see if this object is in the index
         ' (Has been exported/imported before.)
@@ -627,7 +602,7 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
                 ' Doesn't match. This could be a conflict, depending on the dates.
                 ' If the modified date of the source file is NEWER than the
                 ' last export date...
-                If Me.Item(cItem).ExportDate < GetLastModifiedDate(strFile) Then
+                If Me.Item(cItem).ExportDate < GetSourceModifiedDate(cItem) Then
                     ' ...and the content is different, then we have a conflict.
                     blnCompareTemp = True
                 End If

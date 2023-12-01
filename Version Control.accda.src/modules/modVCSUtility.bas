@@ -348,23 +348,124 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : HasMoreRecentChanges
+' Procedure : GetSourceModifiedDate
 ' Author    : Adam Waller
-' Date      : 4/27/2020
-' Purpose   : Returns true if the database object has been modified more recently
-'           : than the exported file or source object.
+' Date      : 12/1/2023
+' Purpose   : Return the largest modified date for the source files associated with
+'           : this component type.
 '---------------------------------------------------------------------------------------
 '
-Public Function HasMoreRecentChanges(objItem As IDbComponent) As Boolean
-    ' File dates could be a second off (between exporting the file and saving the report)
-    ' so ignore changes that are less than three seconds apart.
-    If objItem.DateModified > 0 And objItem.SourceModifiedDate > 0 Then
-        HasMoreRecentChanges = (DateDiff("s", objItem.DateModified, objItem.SourceModifiedDate) < -3)
+Public Function GetSourceModifiedDate(cmp As IDbComponent, Optional strFile As String) As Date
+
+    Dim varExt As Variant
+    Dim dteLatest As Date
+    Dim strBaseFile As String
+
+    ' Build base file path without extension
+    If Len(strFile) Then
+        ' Use provided file name first
+        strBaseFile = FSO.GetBaseName(strFile)
     Else
-        ' If we can't determine one or both of the dates, return true so the
-        ' item is processed as though more recent changes were detected.
-        HasMoreRecentChanges = True
+        ' Otherwise use default source file name
+        strBaseFile = FSO.GetBaseName(cmp.SourceFile)
     End If
+
+    ' Check each possible file extension to find the most recent date
+    For Each varExt In cmp.FileExtensions
+        dteLatest = Largest(dteLatest, GetLastModifiedDate(strBaseFile & "." & varExt))
+    Next varExt
+
+    ' Return most recent date
+    GetSourceModifiedDate = dteLatest
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetLastModifiedSourceFile
+' Author    : Adam Waller
+' Date      : 12/1/2023
+' Purpose   : Return the path of the last modified source file for the specified
+'           : component. (This may not be the primary source file used by the index.)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetLastModifiedSourceFile(cmp As IDbComponent, Optional strFile As String)
+
+    Dim varExt As Variant
+    Dim dteLatest As Date
+    Dim dteTest As Date
+    Dim strSourceFile As String
+    Dim strLastModifiedFile As String
+    Dim strBaseFile As String
+
+    ' Build base file path without extension
+    If Len(strFile) Then
+        ' Use provided file name first
+        strBaseFile = FSO.GetBaseName(strFile)
+    Else
+        ' Otherwise use default source file name
+        strBaseFile = FSO.GetBaseName(cmp.SourceFile)
+    End If
+
+    ' Check each possible file extension to find the most recent date
+    For Each varExt In cmp.FileExtensions
+        strSourceFile = strBaseFile & "." & varExt
+        dteTest = GetLastModifiedDate(strSourceFile)
+        If dteTest > dteLatest Then
+            dteLatest = dteTest
+            strLastModifiedFile = strSourceFile
+        End If
+    Next varExt
+
+    ' Return file path for most recently modified file
+    GetLastModifiedSourceFile = strLastModifiedFile
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSourceFilesPropertyHash
+' Author    : Adam Waller
+' Date      : 12/1/2023
+' Purpose   : Return a has of the source file dates and sizes for this component type.
+'           : (Useful for determining if any of the source files have been modified.)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSourceFilesPropertyHash(cmp As IDbComponent, Optional strFile As String) As String
+
+    Dim varExt As Variant
+    Dim strSourceFile As String
+    Dim strBaseFile As String
+    Dim oFile As Scripting.File
+
+    Perf.OperationStart "Get File Property Hash"
+
+    ' Build base file path without extension
+    If Len(strFile) Then
+        ' Use provided file name first
+        strBaseFile = FSO.GetBaseName(strFile)
+    Else
+        ' Otherwise use default source file name
+        strBaseFile = FSO.GetBaseName(cmp.SourceFile)
+    End If
+
+    ' Build a combined string with all the properties
+    With New clsConcat
+
+        ' Check each possible file extension to find all the source files
+        For Each varExt In cmp.FileExtensions
+            strSourceFile = strBaseFile & "." & varExt
+            If FSO.FileExists(strSourceFile) Then
+                Set oFile = FSO.GetFile(strSourceFile)
+                .Add oFile.DateLastModified, oFile.Size
+            End If
+        Next varExt
+
+        ' Return hash of combined string
+        GetSourceFilesPropertyHash = GetStringHash(.GetStr)
+        Perf.OperationEnd
+    End With
+
 End Function
 
 
