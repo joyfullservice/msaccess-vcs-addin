@@ -150,20 +150,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : SourceModifiedDateDate
-' Author    : Adam Waller
-' Date      : 4/27/2020
-' Purpose   : The date/time the source object was modified. In most cases, this would
-'           : be the date/time of the source file, but it some cases like SQL objects
-'           : the date can be determined through other means, so this function
-'           : allows either approach to be taken.
-'---------------------------------------------------------------------------------------
-'
-Public Function SourceModifiedDate() As Date
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : BaseFolder
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -181,6 +167,18 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get SourceFile() As String
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FileExtensions
+' Author    : Adam Waller
+' Date      : 12/1/2023
+' Purpose   : A collection of the file extensions used in source files for this
+'           : component type.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get FileExtensions() As Collection
 End Property
 
 

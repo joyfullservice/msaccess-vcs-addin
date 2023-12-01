@@ -189,21 +189,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : SourceModifiedDate
-' Author    : Adam Waller
-' Date      : 4/27/2020
-' Purpose   : The date/time the source object was modified. In most cases, this would
-'           : be the date/time of the source file, but it some cases like SQL objects
-'           : the date can be determined through other means, so this function
-'           : allows either approach to be taken.
-'---------------------------------------------------------------------------------------
-'
-Private Function IDbComponent_SourceModifiedDate() As Date
-    IDbComponent_SourceModifiedDate = GetLastModifiedDate(IDbComponent_SourceFile)
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : Category
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -223,6 +208,20 @@ End Property
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
     IDbComponent_BaseFolder = Options.GetExportFolder & "procedures" & PathSep
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FileExtensions
+' Author    : Adam Waller
+' Date      : 12/1/2023
+' Purpose   : A collection of the file extensions used in source files for this
+'           : component type.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_FileExtensions() As Collection
+    Set IDbComponent_FileExtensions = New Collection
+    IDbComponent_FileExtensions.Add "sql"
 End Property
 
 
