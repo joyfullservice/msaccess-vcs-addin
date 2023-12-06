@@ -31,28 +31,6 @@ Public DbObject As Object
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedSourceFiles
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Remove any source files for objects not in the current database.
-'---------------------------------------------------------------------------------------
-'
-Public Sub ClearOrphanedSourceFiles()
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedDatabaseObjects
-' Author    : Adam Waller
-' Date      : 11/3/2021
-' Purpose   : Remove database objects that are not represented by existing source files.
-'---------------------------------------------------------------------------------------
-'
-Public Sub ClearOrphanedDatabaseObjects()
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : Export
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -121,18 +99,6 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IsModified() As Boolean
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SourceIsModified
-' Author    : Adam Waller
-' Date      : 12/1/2023
-' Purpose   : Returns true if the source file appears to be modified since the last
-'           : import or export. (When compared to the index)
-'---------------------------------------------------------------------------------------
-'
-Public Function SourceIsModified(strFile As String) As Boolean
 End Function
 
 

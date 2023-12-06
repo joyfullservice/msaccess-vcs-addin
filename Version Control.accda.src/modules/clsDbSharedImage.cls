@@ -496,30 +496,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedSourceFiles
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Remove any source files for objects not in the current database.
-'           : Matches list of supported image files (in 2010), plus icon image.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFiles Me, "json", "jpg", "jpeg", "jpe", "gif", "png", "ico"
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedDatabaseObjects
-' Author    : Adam Waller
-' Date      : 11/3/2021
-' Purpose   : Remove database objects that are not represented by existing source files.
-'---------------------------------------------------------------------------------------
-'
-Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -540,19 +516,6 @@ Public Function IDbComponent_IsModified() As Boolean
             IDbComponent_IsModified = (.OtherHash <> GetSignatureHash)
         End If
     End With
-
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SourceIsModified
-' Author    : Adam Waller
-' Date      : 12/1/2023
-' Purpose   : Returns true if the source file appears to be modified since the last
-'           : import or export. (When compared to the index)
-'---------------------------------------------------------------------------------------
-'
-Private Function IDbComponent_SourceIsModified(strFile As String) As Boolean
 
 End Function
 

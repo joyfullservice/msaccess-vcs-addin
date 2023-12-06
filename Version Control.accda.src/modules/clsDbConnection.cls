@@ -270,32 +270,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedSourceFiles
-' Author    : Adam Waller
-' Date      : 5/17/2021
-' Purpose   : Remove any source files for objects not in the current database.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    If FSO.FileExists(IDbComponent_SourceFile) Then
-        ' Delete the source file when we no longer have any connection strings
-        If IDbComponent_GetAllFromDB.Count = 0 Then DeleteFile IDbComponent_SourceFile
-    End If
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedDatabaseObjects
-' Author    : Adam Waller
-' Date      : 11/3/2021
-' Purpose   : Remove database objects that are not represented by existing source files.
-'---------------------------------------------------------------------------------------
-'
-Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 5/17/2021
@@ -305,19 +279,6 @@ End Sub
 '
 Public Function IDbComponent_IsModified() As Boolean
     IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SourceIsModified
-' Author    : Adam Waller
-' Date      : 12/1/2023
-' Purpose   : Returns true if the source file appears to be modified since the last
-'           : import or export. (When compared to the index)
-'---------------------------------------------------------------------------------------
-'
-Private Function IDbComponent_SourceIsModified(strFile As String) As Boolean
-
 End Function
 
 

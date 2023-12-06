@@ -276,29 +276,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedSourceFiles
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Remove any source files for objects not in the current database.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFiles Me, "frm", "frx", "json"
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedDatabaseObjects
-' Author    : Adam Waller
-' Date      : 11/3/2021
-' Purpose   : Remove database objects that are not represented by existing source files.
-'---------------------------------------------------------------------------------------
-'
-Public Sub IDbComponent_ClearOrphanedDatabaseObjects()
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : IsModified
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
@@ -310,19 +287,6 @@ Public Function IDbComponent_IsModified() As Boolean
     ' Compare the hash of the serialized JSON output, not the ever-changing binary source file.
     ' NOTE: This will not detect changes in unserialized objects such as ActiveX controls.
     IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SourceIsModified
-' Author    : Adam Waller
-' Date      : 12/1/2023
-' Purpose   : Returns true if the source file appears to be modified since the last
-'           : import or export. (When compared to the index)
-'---------------------------------------------------------------------------------------
-'
-Private Function IDbComponent_SourceIsModified(strFile As String) As Boolean
-
 End Function
 
 
