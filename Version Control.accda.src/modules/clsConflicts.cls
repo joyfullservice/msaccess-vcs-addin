@@ -19,6 +19,7 @@ Option Explicit
 ' Status to approve and continue.
 Public ApproveResolutions As Boolean
 
+Private m_intOperationType As eIndexOperationType
 Private m_dCategories As Dictionary
 Private m_dItems As Dictionary
 
@@ -56,13 +57,17 @@ End Sub
 '           : import/export process.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Resolve(dCategories As Dictionary)
+Public Sub Resolve()
     Dim cItem As clsConflictItem
     Dim varKey As Variant
     For Each varKey In m_dItems.Keys
         Set cItem = m_dItems(varKey)
-        cItem.Resolve dCategories
+        cItem.Resolve
+        ' Clear reference to categories dictionary
+        Set cItem.CategoryList = Nothing
     Next varKey
+    ' Clear additional reference to list
+    Set m_dCategories = Nothing
 End Sub
 
 
@@ -80,8 +85,10 @@ Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Dat
 
     Set cItem = New clsConflictItem
     With cItem
+        .Operation = m_intOperationType
         .CategoryName = cComponent.Category
         .ItemKey = strKey
+        .SingleFile = cComponent.SingleFile
         .FileName = Nz2(strSourceFile, cComponent.SourceFile)
         .ObjectDate = cComponent.DateModified
         .IndexDate = dteIndexDate
@@ -212,8 +219,9 @@ End Function
 '           : Preserve reference to categories dictionary so we can remove items later.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Initialize(ByRef dCategories As Dictionary)
+Public Sub Initialize(ByRef dCategories As Dictionary, intOperationType As eIndexOperationType)
     Set m_dCategories = dCategories
     Set m_dItems = New Dictionary
+    m_intOperationType = intOperationType
     Me.ApproveResolutions = False
 End Sub

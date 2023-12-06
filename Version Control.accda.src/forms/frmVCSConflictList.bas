@@ -16,8 +16,8 @@ Begin Form
     Width =5040
     DatasheetFontHeight =11
     ItemSuffix =31
-    Right =15720
-    Bottom =11745
+    Right =25320
+    Bottom =12585
     RecSrcDt = Begin
         0x9bf1b7f2f3a6e540
     End
@@ -459,11 +459,13 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : txtDiff_Click
 ' Author    : Adam Waller
 ' Date      : 5/27/2021
-' Purpose   : Launch diff program to review changes
+' Purpose   : Launch diff program to review changes.
+'           : Note that the changed file is not always the primary source file.
 '---------------------------------------------------------------------------------------
 '
 Private Sub txtDiff_Click()

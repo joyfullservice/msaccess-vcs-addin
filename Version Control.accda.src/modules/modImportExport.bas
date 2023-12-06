@@ -127,7 +127,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
     ' Scan database objects for changes
     Set dCategories = New Dictionary
-    VCSIndex.Conflicts.Initialize dCategories
+    VCSIndex.Conflicts.Initialize dCategories, eatExport
     Perf.OperationStart "Scan DB Objects"
     For Each cCategory In colCategories
         Perf.CategoryStart cCategory.Category
@@ -143,7 +143,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         dCategories.Add cCategory.Category, dCategory
         VCSIndex.CheckExportConflicts dObjects
         ' Clear any orphaned files in this category
-        cCategory.ClearOrphanedSourceFiles
+        ClearOrphanedSourceFiles cCategory
         Perf.CategoryEnd 0
         ' Handle critical error or cancel during scan
         If Log.ErrorLevel = eelCritical Then
@@ -162,7 +162,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             .ShowDialog
             If .ApproveResolutions Then
                 Log.Add "Resolving source conflicts", False
-                .Resolve dCategories
+                .Resolve
             Else
                 ' Cancel export
                 Log.Spacer
@@ -351,7 +351,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     dCategory.Add "Class", cDbObject
     dCategory.Add "Objects", dObjects
     dCategories.Add cDbObject.Category, dCategory
-    VCSIndex.Conflicts.Initialize dCategories
+    VCSIndex.Conflicts.Initialize dCategories, eatExport
     VCSIndex.CheckExportConflicts dObjects
 
     ' Resolve any outstanding conflict, or allow user to cancel.
@@ -361,7 +361,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
             .ShowDialog
             If .ApproveResolutions Then
                 Log.Add "Resolving source conflicts", False
-                .Resolve dCategories
+                .Resolve
             Else
                 ' Cancel export
                 Log.Spacer
@@ -542,7 +542,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
             dCategories.Item(cDbObject.Category).Item("Objects").Add cDbObject.SourceFile, cDbObject
         End If
 
-        VCSIndex.Conflicts.Initialize dCategories
+        VCSIndex.Conflicts.Initialize dCategories, eatExport
         VCSIndex.CheckExportConflicts dObjects
     Next
 
@@ -553,7 +553,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
             .ShowDialog
             If .ApproveResolutions Then
                 Log.Add "Resolving source conflicts", False
-                .Resolve dCategories
+                .Resolve
             Else
                 ' Cancel export
                 Log.Spacer
@@ -875,7 +875,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
     Log.Add "Scanning source files..."
     Log.Flush
     Set dCategories = New Dictionary
-    VCSIndex.Conflicts.Initialize dCategories
+    VCSIndex.Conflicts.Initialize dCategories, eatImport
     Perf.OperationStart "Scan Source Files"
     For Each cCategory In GetContainers(intFilter)
         Set dCategory = New Dictionary
@@ -891,21 +891,21 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
                 Log.Add "Not merging " & LCase(cCategory.Category) & ". (Imported only on full build)", Options.ShowDebug
                 dCategory.Add "Files", New Dictionary
             Else
-                ' Return just the modified source files for merge
-                ' (Optionally uses the git integration to determine changes.)
+                ' Return just the modified source files for merge, including source file paths
+                ' representing orphaned objects that no longer exist in the database.
                 dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory)
             End If
         End If
+        ' Check count of modified source files.
         If dCategory("Files").Count = 0 Then
             Log.Add IIf(blnFullBuild, "No ", "No modified ") & LCase(cCategory.Category) & " source files found.", Options.ShowDebug
         Else
-            dCategories.Add cCategory, dCategory
-        End If
-        If Not blnFullBuild Then
-            ' Record any conflicts for later review
-            VCSIndex.CheckImportConflicts cCategory, dCategory("Files")
-            ' Clear orphaned database objects (With no corresponding source file)
-            cCategory.ClearOrphanedDatabaseObjects
+            dCategories.Add cCategory.Category, dCategory
+            ' For merge builds, check for import conflicts or orphaned database objects
+            If Not blnFullBuild Then
+                ' Record any conflicts for later review
+                VCSIndex.CheckMergeConflicts cCategory, dCategory("Files")
+            End If
         End If
         ' Check for critical error or cancel
         If Log.ErrorLevel = eelCritical Then
@@ -923,7 +923,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
             .ShowDialog
             If .ApproveResolutions Then
                 Log.Add "Resolving source conflicts", False
-                .Resolve dCategories
+                .Resolve
             Else
                 ' Cancel build/merge
                 Log.Spacer
@@ -952,8 +952,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
     ' Loop through all categories
     For Each varCategory In dCategories.Keys
 
-        ' Set reference to object category class
-        Set cCategory = varCategory
+        ' Set reference to object category class and file list
+        Set cCategory = dCategories(varCategory)("Class")
         Set dFiles = dCategories(varCategory)("Files")
 
         ' Show category header
@@ -1165,8 +1165,8 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     dCategory.Add "Class", cComponentClass
     dCategory.Add "Files", dSourceFiles
     dCategories.Add cComponentClass, dCategory
-    VCSIndex.Conflicts.Initialize dCategories
-    VCSIndex.CheckImportConflicts cComponentClass, dSourceFiles
+    VCSIndex.Conflicts.Initialize dCategories, eatImport
+    VCSIndex.CheckMergeConflicts cComponentClass, dSourceFiles
 
     ' Resolve any outstanding conflict, or allow user to cancel.
     With VCSIndex.Conflicts
@@ -1175,7 +1175,7 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
             .ShowDialog
             If .ApproveResolutions Then
                 Log.Add "Resolving source conflicts", False
-                .Resolve dCategories
+                .Resolve
             Else
                 ' Cancel export
                 Log.Spacer
