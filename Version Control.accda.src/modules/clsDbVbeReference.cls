@@ -471,18 +471,6 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Upgrade
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Run any version specific upgrade processes before importing.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Upgrade()
-    ' No upgrade needed.
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : DbObject
 ' Author    : Adam Waller
 ' Date      : 4/23/2020

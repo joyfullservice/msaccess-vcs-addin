@@ -78,7 +78,6 @@ Private Sub IDbComponent_Import(strFile As String)
 
         ' Upgrade from any previous formats
         Set m_dItems = dFile
-        IDbComponent_Upgrade
 
         ' Remove any existing custom groups (Some may be automatically created with a new database)
         ClearExistingNavGroups
@@ -562,58 +561,6 @@ End Property
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
     IDbComponent_ComponentType = edbNavPaneGroup
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Upgrade
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Run any version specific upgrade processes before importing.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Upgrade()
-
-    Dim dNew As Dictionary
-    Dim dNew2 As Dictionary
-    Dim colNew As Collection
-    Dim dblVersion As Double
-
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-
-    ' Get version
-    If Not m_dItems Is Nothing Then
-        If m_dItems("Info").Exists("Export File Format") Then
-            dblVersion = CDbl(m_dItems("Info")("Export File Format"))
-        End If
-    End If
-
-    ' Add Category section (2/22/2021)
-    If dblVersion < 1.1 Then
-        Set dNew = New Dictionary
-        Set colNew = New Collection
-        ' Build generic Custom category
-        dNew.Add "Name", "Custom"
-        dNew.Add "Flags", 0
-        dNew.Add "Position", 2
-        dNew.Add "Groups", m_dItems("Items")("Groups")
-        colNew.Add dNew
-        Set dNew2 = New Dictionary
-        dNew2.Add "Categories", colNew
-        Set m_dItems = New Dictionary
-        m_dItems.Add "Items", dNew2
-    End If
-
-    ' Check for newer export file that this add-in version doesn't support
-    If dblVersion > FormatVersion Then
-        Log.Error eelError, "Format " & dblVersion & " of " & IDbComponent_SourceFile & _
-            " not supported by this version of the add-in. Please update the add-in to import this file.", _
-            ModuleName(Me) & ".Upgrade"
-    End If
-
-    ' Report any errors during upgrade process
-    CatchAny eelError, "Error upgrading navigation pane groups.", ModuleName(Me) & ".Export", True, True
-
-End Sub
 
 
 '---------------------------------------------------------------------------------------

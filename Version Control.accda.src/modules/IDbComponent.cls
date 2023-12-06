@@ -227,14 +227,3 @@ End Property
 '
 Public Property Get QuickCount() As Long
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Upgrade
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Run any version specific upgrade processes before importing.
-'---------------------------------------------------------------------------------------
-'
-Public Sub Upgrade()
-End Sub
