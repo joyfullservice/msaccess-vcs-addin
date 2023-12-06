@@ -45,6 +45,11 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strHash As String
     Dim strContent As String
 
+    ' Clear any legacy extensions
+    ClearFilesByExtension IDbComponent_BaseFolder, "LNKD"
+    ClearFilesByExtension IDbComponent_BaseFolder, "bas"
+    ClearFilesByExtension IDbComponent_BaseFolder, "tdf"
+
     ' Get the export file name
     strFile = Nz2(strAlternatePath, IDbComponent_SourceFile)
 

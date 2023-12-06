@@ -37,6 +37,7 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strHash As String
+    If Not Options.SavePrintVars Then ClearFilesByExtension IDbComponent_BaseFolder, "json"
     strHash = SaveComponentAsText(acForm, m_Form.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
         strHash, GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
