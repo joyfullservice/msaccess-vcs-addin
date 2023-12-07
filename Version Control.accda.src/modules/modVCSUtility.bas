@@ -443,10 +443,10 @@ Public Function GetSourceFilesPropertyHash(cmp As IDbComponent, Optional strFile
     ' Build base file path without extension
     If Len(strFile) Then
         ' Use provided file name first
-        strBaseFile = FSO.GetBaseName(strFile)
+        strBaseFile = FSO.BuildPath(FSO.GetParentFolderName(strFile), FSO.GetBaseName(strFile))
     Else
         ' Otherwise use default source file name
-        strBaseFile = FSO.GetBaseName(cmp.SourceFile)
+        strBaseFile = FSO.BuildPath(FSO.GetParentFolderName(cmp.SourceFile), FSO.GetBaseName(cmp.SourceFile))
     End If
 
     ' Build a combined string with all the properties

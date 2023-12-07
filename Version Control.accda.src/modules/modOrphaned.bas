@@ -94,7 +94,7 @@ End Sub
 '           : to list this as a possible conflict item.
 '---------------------------------------------------------------------------------------
 '
-Private Sub CompareToIndex(cType As IDbComponent, strFile As String, dExtensions As Dictionary, dBaseNames As Dictionary)
+Private Sub CompareToIndex(cType As IDbComponent, strFilePath As String, dExtensions As Dictionary, dBaseNames As Dictionary)
 
     Dim strFileName As String
     Dim strBaseName As String
@@ -102,7 +102,7 @@ Private Sub CompareToIndex(cType As IDbComponent, strFile As String, dExtensions
     Dim strHash As String
 
     ' Get base name and file extension to build primary source file name
-    strFileName = FSO.GetFileName(strFile)
+    strFileName = FSO.GetFileName(strFilePath)
     strBaseName = FSO.GetBaseName(strFileName)
     strExt = Mid$(strFileName, Len(strBaseName) + 2)
 
@@ -120,35 +120,35 @@ Private Sub CompareToIndex(cType As IDbComponent, strFile As String, dExtensions
 
                     ' If file is unchanged from the index, we can go ahead and delete it.
                     ' (The source file matches the last version imported or exported)
-                    strHash = GetSourceFilesPropertyHash(cType, strFileName)
+                    strHash = GetSourceFilesPropertyHash(cType, strFilePath)
                     If VCSIndex.Item(cType, strFileName).FilePropertiesHash = strHash Then
 
                         ' Remove file and index entry
                         Log.Add "  Removing orphaned file: " & cType.BaseFolder & strFileName, Options.ShowDebug
-                        DeleteFile strFile, True
-                        VCSIndex.Remove cType, strFile
+                        DeleteFile strFilePath, True
+                        VCSIndex.Remove cType, strFileName
                     Else
                         ' File properties different from index. Add as a conflict to resolve.
                         ' (This can happen when the last export was during a different daylight savings time
                         ' setting, as the past file modified date returned by FSO is not adjusted for DST.)
-                        Log.Add "  Orphaned source file does not match last export: " & strFile, Options.ShowDebug
-                        VCSIndex.Conflicts.Add cType, strFile, 0, GetLastModifiedDate(strFile), ercDelete, strFile, ercDelete
+                        Log.Add "  Orphaned source file does not match last export: " & strFilePath, Options.ShowDebug
+                        VCSIndex.Conflicts.Add cType, strFilePath, 0, GetSourceModifiedDate(cType, strFilePath), ercDelete, strFilePath, ercDelete
                     End If
                 Else
                     ' Object does not exist in the index. It might be a new file added
                     ' by another developer. Don't delete it, as it may need to be merged
                     ' into the database. (Defaults to skip deleting the file)
-                    Log.Add "  Found new source file: " & strFile, Options.ShowDebug
-                    VCSIndex.Conflicts.Add cType, strFile, 0, GetLastModifiedDate(strFile), ercDelete, strFile, ercSkip
+                    Log.Add "  Found new source file: " & strFilePath, Options.ShowDebug
+                    VCSIndex.Conflicts.Add cType, strFilePath, 0, GetSourceModifiedDate(cType, strFilePath), ercDelete, strFilePath, ercSkip
                 End If
 
             Else
                 ' Not the primary extension for this component type.
                 ' If the primary source file exists, we will let that file handle evaluate any conflicts
-                If Not FSO.FileExists(SwapExtension(strFile, CStr(dExtensions(0)))) Then
+                If Not FSO.FileExists(SwapExtension(strFilePath, CStr(dExtensions(0)))) Then
                     ' The primary source file does not exist. Go ahead and delete this orphaned file.
                     Log.Add "  Removing orphaned file: " & cType.BaseFolder & strFileName, Options.ShowDebug
-                    DeleteFile strFile, True
+                    DeleteFile strFilePath, True
                 End If
             End If
         End If

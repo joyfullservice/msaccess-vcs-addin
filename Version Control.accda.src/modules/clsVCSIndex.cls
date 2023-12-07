@@ -241,7 +241,7 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         End Select
 
         ' Save timestamp of exported source file.
-        dteDateTime = GetLastModifiedDate(cItem.SourceFile)
+        dteDateTime = GetSourceModifiedDate(cItem, cItem.SourceFile)
         .Item("SourceModified") = ZNDate(dteDateTime)
 
         ' Save hash of file properties
@@ -560,7 +560,7 @@ Public Sub CheckExportConflicts(dDbComponents As Dictionary)
             Me.Conflicts.Add cItem, _
                 CStr(varKey), _
                 Me.Item(cItem).ExportDate, _
-                GetLastModifiedDate(cItem.SourceFile), _
+                GetSourceModifiedDate(cItem, cItem.SourceFile), _
                 ercOverwrite
         End If
         ' Increment the progress bar
@@ -638,7 +638,7 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
         strTempFile = Replace(strFile, Options.GetExportFolder, GetTempExportFolder)
         Log.Add "  Exporting " & cItem.Name, False
         cItem.Export strTempFile
-        blnConflict = Not FileContentsMatch(strFile, strTempFile)
+        blnConflict = Not SourceMatches(cItem, strFile, strTempFile)
     End If
 
     ' Return result
@@ -826,27 +826,6 @@ Private Function SourceMatches(cType As IDbComponent, strFile1 As String, strFil
     ' If we have reached this point without exiting, then the source must match.
     SourceMatches = True
 
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : FileContentsMatch
-' Author    : Adam Waller
-' Date      : 9/15/2021
-' Purpose   : Returns true if the contents of the files match. Starts with the least
-'           : expensive comparison of size, then goes on to compare a hash of the
-'           : full contents.
-'---------------------------------------------------------------------------------------
-'
-Private Function FileContentsMatch(strFile1 As String, strFile2 As String) As Boolean
-    If FSO.FileExists(strFile1) And FSO.FileExists(strFile2) Then
-        If FSO.GetFile(strFile1).Size = FSO.GetFile(strFile2).Size Then
-            If GetFileHash(strFile1) = GetFileHash(strFile2) Then
-                ' The contents of the two files is identical
-                FileContentsMatch = True
-            End If
-        End If
-    End If
 End Function
 
 
