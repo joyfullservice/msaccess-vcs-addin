@@ -751,8 +751,9 @@ Private Function IsMergeConflict(cItemClass As IDbComponent, strSourceFile As St
                     strTempFile = Replace(strSourceFile, Options.GetExportFolder, GetTempExportFolder)
                     Log.Add "  Exporting " & cItem.Name, False
                     cItem.Export strTempFile
-                    If Not (GetSourceFilesPropertyHash(cItem, strSourceFile) = _
-                            GetSourceFilesPropertyHash(cItem, strTempFile)) Then
+                    ' Because we are using a newly exported temp file, the file properties
+                    ' hash won't match, since the file dates are going to be different.
+                    If Not SourceMatches(cItemClass, strSourceFile, strTempFile) Then
                         IsMergeConflict = ercOverwrite
                     End If
                 End If
@@ -767,6 +768,63 @@ Private Function IsMergeConflict(cItemClass As IDbComponent, strSourceFile As St
         End If
 
     End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SourceMatches
+' Author    : Adam Waller
+' Date      : 12/7/2023
+' Purpose   : Returns true if the two represented source components match at a source
+'           : file level, not counting file modification dates.
+'---------------------------------------------------------------------------------------
+'
+Private Function SourceMatches(cType As IDbComponent, strFile1 As String, strFile2 As String) As Boolean
+
+    Dim dPaths(1 To 2) As Dictionary
+    Dim strFiles(1 To 2) As String
+    Dim intCnt As Integer
+    Dim varExt As Variant
+    Dim strPath As String
+    Dim varKey As Variant
+
+    strFiles(1) = strFile1
+    strFiles(2) = strFile2
+
+    ' Start by retrieving the paths of existing files for this component.
+    For intCnt = 1 To 2
+        Set dPaths(intCnt) = New Dictionary
+        For Each varExt In cType.FileExtensions
+            strPath = SwapExtension(strFiles(intCnt), CStr(varExt))
+            If FSO.FileExists(strPath) Then
+                ' Add path to existing source file
+                dPaths(intCnt).Add FSO.GetFileName(strPath), strPath
+            End If
+        Next varExt
+    Next intCnt
+
+    ' Simple comparison of dictionaries
+    If dPaths(1).Count <> dPaths(2).Count Then Exit Function
+    ' Check for matching keys
+    For Each varKey In dPaths(1).Keys
+        If Not dPaths(2).Exists(varKey) Then Exit Function
+    Next varKey
+
+    ' If count and keys match, check file sizes
+    For Each varKey In dPaths(1).Keys
+        If FSO.GetFile(dPaths(1).Item(varKey)).Size _
+        <> FSO.GetFile(dPaths(2).Item(varKey)).Size Then Exit Function
+    Next varKey
+
+    ' Compare hash of content
+    For Each varKey In dPaths(1).Keys
+        If GetFileHash(CStr(dPaths(1).Item(varKey))) _
+        <> GetFileHash(CStr(dPaths(2).Item(varKey))) Then Exit Function
+    Next varKey
+
+    ' If we have reached this point without exiting, then the source must match.
+    SourceMatches = True
 
 End Function
 
