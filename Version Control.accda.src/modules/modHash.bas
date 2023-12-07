@@ -258,6 +258,7 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
     Dim strPrefix As String
     Dim proj As VBProject
     Dim blnNoCode As Boolean
+    Dim strInstancingFlag As String
 
     Perf.OperationStart "Get VBA Hash"
     Select Case intType
@@ -285,8 +286,14 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
 
         ' Output the hash
         If Not cmpItem Is Nothing Then
-            With cmpItem.CodeModule
-                strHash = GetStringHash(.Lines(1, 999999))
+            With cmpItem
+                ' Check for class module
+                If .Type = vbext_ct_ClassModule Then
+                    ' Save instancing property as a flag to include with hash
+                    strInstancingFlag = CStr(.Properties("Instancing"))
+                End If
+                ' Generate hash from code and instancing flag (if applicable)
+                strHash = GetStringHash(.CodeModule.Lines(1, 999999) & strInstancingFlag)
             End With
         End If
 
