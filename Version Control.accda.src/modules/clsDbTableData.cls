@@ -369,6 +369,8 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strTempFile As String
     Dim strTable As String
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     ' Make sure table exists before importing data to it.
     strTable = GetObjectNameFromFileName(strFile)
 
@@ -390,6 +392,9 @@ Private Sub IDbComponent_Import(strFile As String)
                     Else
                         Application.ImportXML strFile, acAppendData
                     End If
+
+                    ' Trap any XML import errors
+                    CatchAny eelError, "Error importing XML data from '" & strFile & "'", ModuleName(Me) & ".Import"
 
             Case etdTabDelimited
                 ImportTableDataTDF strFile
