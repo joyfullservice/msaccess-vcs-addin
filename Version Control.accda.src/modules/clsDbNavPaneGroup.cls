@@ -17,8 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const FormatVersion As Double = 1.1
-
 Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
 
@@ -209,7 +207,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetSource() As String
-    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Navigation Pane Custom Groups", FormatVersion)
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Navigation Pane Custom Groups")
 End Function
 
 
