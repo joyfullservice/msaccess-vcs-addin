@@ -940,8 +940,19 @@ Private Function SanitizeXML() As String
 
     Perf.OperationEnd
 
+    ' Check string length to determine which formatter to use.
+    ' (XSLT does a better job, but may fail on large sets of data)
+    If Len(strXML) < 30000 Then
+        ' Use XSLT to format the XML output.
+        this.strOutput = FormatXML(objXml)
+    Else
+        ' For very large XML strings like exporting data from large tables,
+        ' use an alternate simplified formatting function that avoids
+        ' the memory errors than can occur with XSLT.
+        this.strOutput = FormatXML2(objXml.XML)
+    End If
+
     ' Save the output
-    this.strOutput = FormatXML(objXml)
     SanitizeXML = this.strOutput
 
     ' Show stats if debug turned on.
@@ -1071,6 +1082,63 @@ Private Function FormatXML(objInput As MSXML2.DOMDocument60, _
     ' Return formatted output
     Perf.OperationEnd
     FormatXML = strOutput
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormatXML2
+' Author    : Adam Waller
+' Date      : 12/12/2023
+' Purpose   : Alternate approach to formatting XML for use in large data sets where
+'           : the XSL transformation may encounter memory errors.
+'---------------------------------------------------------------------------------------
+'
+Private Function FormatXML2(strInput As String) As String
+
+    Dim varLines As Variant
+    Dim varLine As Variant
+    Dim lngChar As Long
+
+    Perf.OperationStart "Format XML (alt)"
+
+    ' Split file into lines
+    varLines = Split(strInput, vbCrLf)
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+
+        ' Loop through lines
+        For Each varLine In varLines
+
+            ' Reset position
+            lngChar = 1
+
+            ' Loop through leading characters, watching for tabs.
+            Do While lngChar < Len(varLine)
+                ' See if this is
+                Select Case AscW(Mid(varLine, lngChar, 1))
+                    Case vbKeyTab   ' 9
+                        ' Increment tab counter
+                        lngChar = lngChar + 1
+                    Case Else
+                        ' Some other character.
+                        Exit Do
+                End Select
+            Loop
+
+            ' Add line with any indent
+            .Add Space$((lngChar - 1) * 2), Mid(varLine, lngChar)
+
+        Next varLine
+
+        ' Remove trailing vbCrLf and return result
+        .Remove 2
+        FormatXML2 = .GetStr
+
+    End With
+
+    Perf.OperationEnd
 
 End Function
 
