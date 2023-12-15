@@ -52,6 +52,11 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent)
         If cType.SingleFile Then Exit For
     Next varKey
 
+    ' Build dictionary of included extensions
+    For Each varExt In cType.FileExtensions
+        dExtensions.Add varExt, vbNullString
+    Next varExt
+
     ' Check for single-file exports with no items
     If cType.SingleFile Then
         If dItems.Count = 0 Then
@@ -59,15 +64,10 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent)
             ' (For example, IMEX specs)
             If FSO.FileExists(cType.SourceFile) Then
                 ' Compare to index to check for any source changes.
-                CompareToIndex cType, cType.SourceFile, cType.FileExtensions, dBaseNames
+                CompareToIndex cType, cType.SourceFile, dExtensions, dBaseNames
             End If
         End If
     Else
-        ' Build dictionary of included extensions
-        For Each varExt In cType.FileExtensions
-            dExtensions.Add varExt, vbNullString
-        Next varExt
-
         ' Loop through files in folder
         Set oFolder = FSO.GetFolder(cType.BaseFolder)
         For Each oFile In oFolder.Files
