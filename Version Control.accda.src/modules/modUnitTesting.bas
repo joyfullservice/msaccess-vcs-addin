@@ -3,6 +3,8 @@ Option Compare Database
 Option Explicit
 Option Private Module
 
+Private Const ModuleName As String = "modUnitTesting"
+
 '@TestModule
 '@Folder("Tests")
 
@@ -452,4 +454,36 @@ Public Sub TestSqlFormatter()
     With New clsSqlFormatter
         .SelfTest
     End With
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestCatch
+' Author    : hecon5
+' Date      : 10/20/2023
+' Purpose   : Validates that Catch operates correctly and that LogUnhandledErrors
+'           : doesn't create an infinite loop whether or not log exists.
+'           :
+'           : To use, run normally, after loading options / other core dependancies.
+'           : Then Stop the code (in VBA IDE) and then run again. Stopping code execution
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCatch()
+
+    ' Specifiying a Const FunctionName allows copy/paste code and having the wrong FunctionName
+    ' names if (when) they change.
+    Const FunctionName As String = ModuleName & ".CatchTest"
+
+    On Error Resume Next ' Clear out any errors that may happen, and continue on when errors happen.
+    Err.Raise 24601, "Pre Log Test"
+
+    ' This is the "standard" way of catching errors without losing them.
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+
+    ' "Pretend" code tossing an error.
+    Err.Raise 24602, "Post Log Test"
+    ' Checking for any issues post code execution.
+    CatchAny eelError, "Catch Test Validation", FunctionName
+
 End Sub
