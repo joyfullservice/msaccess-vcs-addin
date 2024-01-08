@@ -59,7 +59,7 @@ Private Sub IDbComponent_Import(strFile As String)
     strName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acMacro, strName, strFile
     Set m_Macro = CurrentProject.AllMacros(strName)
-    VCSIndex.Update Me, eatImport
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile)
 
 End Sub
 

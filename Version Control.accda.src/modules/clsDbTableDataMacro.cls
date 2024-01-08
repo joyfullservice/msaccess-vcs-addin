@@ -72,7 +72,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     ' Update index
     Set m_Table = CurrentData.AllTables(strName)
-    VCSIndex.Update Me, eatImport
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile)
 
 End Sub
 

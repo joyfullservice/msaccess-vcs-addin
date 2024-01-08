@@ -194,7 +194,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, _
-    Optional strFileHash As String, Optional strOtherHash As String, Optional dteDateTime As Date) As Dictionary
+    strFileHash As String, Optional strOtherHash As String, Optional dteDateTime As Date) As Dictionary
 
     Dim dItem As Dictionary
     Dim strSection As String

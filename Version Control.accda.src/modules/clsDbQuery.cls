@@ -107,7 +107,7 @@ Private Sub IDbComponent_Import(strFile As String)
     strQueryName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acQuery, strQueryName, strFile
     Set m_Query = CurrentData.AllQueries(strQueryName)
-    VCSIndex.Update Me, eatImport
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile)
 
     ' In some cases, such as when a query contains a subquery, AND has been modified in the
     ' visual query designer, it may be imported incorrectly and unable to run. For these
