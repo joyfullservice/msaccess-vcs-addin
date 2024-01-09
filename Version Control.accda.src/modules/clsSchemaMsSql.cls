@@ -34,7 +34,7 @@ Private Type udtThis
     blnUtcTime As Boolean
     strUserID As String
     strPassword As String
-    varFilters As Variant
+    colFilters As Collection
 End Type
 Private this As udtThis
 
@@ -408,7 +408,7 @@ Private Sub ScanDatabaseObjects()
             strPath = this.strBaseFolder & strItem
 
             ' See if we pass the filter
-            If PassesSchemaFilter(strItem, this.varFilters) Then
+            If PassesSchemaFilter(strItem, this.colFilters) Then
 
                 ' Add all objects to full collection
                 m_AllItems.Add strItem, Nz(!last_modified)
@@ -570,15 +570,15 @@ Private Sub IDbSchema_Initialize(dInstance As Scripting.IDictionary)
 
     Dim strFilter As String
     Dim varRules As Variant
+    Dim colRules As Collection
 
-    ' Build filters
-    strFilter = dNZ(dInstance, "Filter")
-    If Trim(Replace(strFilter, vbCrLf, vbNullString)) = vbNullString Then
-        ' Blank lines, or nothing defined
-        varRules = Array("*")
+    ' Map filter to collection
+    If dInstance.Exists("Filter") Then
+        ' Create collection of rules (we will skip comments and blank lines later)
+        Set colRules = dInstance("Filter")
     Else
-        ' Create array of rules (we will skip comments and blank lines later)
-        varRules = Split(strFilter, vbCrLf)
+        ' No rules defined
+        Set colRules = New Collection
     End If
 
     ' Set class values
@@ -586,7 +586,7 @@ Private Sub IDbSchema_Initialize(dInstance As Scripting.IDictionary)
         .strName = dNZ(dInstance, "Name")
         .strConnect = dNZ(dInstance, "Connect")
         .strBaseFolder = Options.GetExportFolder & "databases\" & GetSafeFileName(.strName) & PathSep
-        .varFilters = varRules
+        Set .colFilters = colRules
         If dInstance.Exists("UtcDateTime") Then .blnUtcTime = dInstance("UtcDateTime")
         .blnInitialized = (Len(.strConnect))
     End With

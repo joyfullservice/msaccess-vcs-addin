@@ -16,10 +16,10 @@ Begin Form
     Width =10800
     DatasheetFontHeight =11
     ItemSuffix =263
-    Left =20761
-    Top =2250
-    Right =-29055
-    Bottom =13995
+    Left =3225
+    Top =2430
+    Right =18945
+    Bottom =14175
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -904,11 +904,35 @@ Public Sub LoadSchema(strName As String, dSchema As Dictionary)
     cboType = dParams("DatabaseType")
     chkUtcDates = dParams("UtcDateTime")
     txtDescription = dParams("Description")
-    txtFilter = dParams("Filter")
+    txtFilter = ParseFilter(dParams("Filter"))
     cboConnect = dParams("Connect")
     chkSaveDotEnv = dParams("UseDotEnv")
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ParseFilter
+' Author    : Adam Waller
+' Date      : 1/9/2024
+' Purpose   : Parse the filter
+'---------------------------------------------------------------------------------------
+'
+Private Function ParseFilter(varValue As Variant) As String
+
+    Dim varItem As Variant
+
+    ' Convert collection to filter lines
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        For Each varItem In varValue
+            .Add CStr(varItem)
+        Next varItem
+        If .Length > 2 Then .Remove 2
+        ParseFilter = .GetStr
+    End With
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -1067,12 +1091,33 @@ Private Sub SetParamsFromForm(ByRef dParams As Dictionary)
         .Item("Enabled") = CBool(chkEnabled)
         .Item("DatabaseType") = CInt(cboType)
         .Item("Description") = Nz(txtDescription)
-        .Item("Filter") = Nz(txtFilter)
         .Item("UtcDateTime") = CBool(chkUtcDates)
         .Item("Connect") = Nz(cboConnect)
         .Item("UseDotEnv") = CBool(chkSaveDotEnv)
+        Set .Item("Filter") = ToCollection(Nz(txtFilter))
     End With
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ToCollection
+' Author    : Adam Waller
+' Date      : 1/9/2024
+' Purpose   : Convert a string list of items to a collection. (Split on vbCrLf)
+'---------------------------------------------------------------------------------------
+'
+Private Function ToCollection(strFilter) As Collection
+
+    Dim colRules As Collection
+    Dim varLine As Variant
+
+    Set colRules = New Collection
+    For Each varLine In Split(strFilter, vbCrLf)
+        colRules.Add CStr(varLine)
+    Next varLine
+    Set ToCollection = colRules
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -1089,10 +1134,10 @@ Private Function GetDefaults() As Dictionary
         .Item("Enabled") = True
         .Item("DatabaseType") = 1
         .Item("Description") = vbNullString
-        .Item("Filter") = vbNullString
         .Item("UtcDateTime") = False
         .Item("Connect") = vbNullString
         .Item("UseDotEnv") = True
+        Set .Item("Filter") = New Collection
     End With
 End Function
 

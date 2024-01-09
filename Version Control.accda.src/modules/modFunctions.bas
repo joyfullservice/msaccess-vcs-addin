@@ -72,7 +72,11 @@ End Sub
 Public Sub MergeDictionary(ByRef dOriginal As Dictionary, ByVal dToAdd As Dictionary)
     Dim varKey As Variant
     For Each varKey In dToAdd.Keys
-        dOriginal(varKey) = dToAdd(varKey)
+        If IsObject(dToAdd(varKey)) Then
+            Set dOriginal(varKey) = dToAdd(varKey)
+        Else
+            dOriginal(varKey) = dToAdd(varKey)
+        End If
     Next varKey
 End Sub
 

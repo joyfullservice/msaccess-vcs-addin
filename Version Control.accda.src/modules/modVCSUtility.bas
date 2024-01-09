@@ -1198,26 +1198,32 @@ End Function
 '           : rule in order. Last matching rule will apply to the object.
 '---------------------------------------------------------------------------------------
 '
-Public Function PassesSchemaFilter(strItem As String, varFilterArray As Variant) As Boolean
+Public Function PassesSchemaFilter(strItem As String, colFilters As Collection) As Boolean
 
     Dim blnPass As Boolean
-    Dim lngRule As Long
+    Dim varRule As Variant
     Dim strRule As String
 
-    ' Loop through rules
-    For lngRule = 0 To UBound(varFilterArray)
-        strRule = Trim(varFilterArray(lngRule))
-        Select Case Left(strRule, 1)
-            Case "#", vbNullString
-                ' Ignore comments and blank lines
-            Case "!"
-                ' Negative rule (do not include)
-                If strItem Like Mid(strRule, 2) Then blnPass = False
-            Case Else
-                ' Positive rule
-                If strItem Like strRule Then blnPass = True
-        End Select
-    Next lngRule
+    If colFilters Is Nothing Then
+        blnPass = True
+    ElseIf colFilters.Count = 0 Then
+        blnPass = True
+    Else
+        ' Loop through rules
+        For Each varRule In colFilters
+            strRule = CStr(varRule)
+            Select Case Left$(strRule, 1)
+                Case "#", vbNullString
+                    ' Ignore comments and blank lines
+                Case "!"
+                    ' Negative rule (do not include)
+                    If strItem Like Mid$(strRule, 2) Then blnPass = False
+                Case Else
+                    ' Positive rule
+                    If strItem Like strRule Then blnPass = True
+            End Select
+        Next varRule
+    End If
 
     ' Return final result
     PassesSchemaFilter = blnPass

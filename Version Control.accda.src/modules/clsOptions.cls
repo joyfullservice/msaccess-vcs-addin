@@ -352,6 +352,12 @@ End Function
 '
 Private Sub Upgrade(ByRef dOptions As Dictionary)
 
+    Dim varKey As Variant
+    Dim dItem As Dictionary
+    Dim varItems As Variant
+    Dim colItems As Collection
+    Dim varLine As Variant
+
     ' 6/16/2021
     ' Aggressive sanitize to sanitize levels
     If dOptions.Exists("AggressiveSanitize") Then
@@ -378,6 +384,29 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
             ' If we already have split files, or if this project is
             ' being exported for the first time, leave the option at
             ' the default setting.
+        End If
+    End If
+
+    ' 1/9/2024 (4.0.31)
+    ' Use collection to store schema filter entries
+    If dOptions.Exists("SchemaExports") Then
+        If dOptions("SchemaExports").Count > 0 Then
+            For Each varKey In dOptions("SchemaExports").Keys
+                Set dItem = dOptions("SchemaExports").Item(varKey)
+                If dItem.Exists("Filter") Then
+                    ' If this is a string value, upgrade it to a collection
+                    If Not IsObject(dItem("Filter")) Then
+                        Set colItems = New Collection
+                        varItems = Split(dItem("Filter"), "\r\n")
+                        Set dItem("Filter") = New Collection
+                        ' Build collection items
+                        For Each varLine In varItems
+                            colItems.Add CStr(varLine)
+                        Next varLine
+                        Set dItem("Filter") = colItems
+                    End If
+                End If
+            Next varKey
         End If
     End If
 
