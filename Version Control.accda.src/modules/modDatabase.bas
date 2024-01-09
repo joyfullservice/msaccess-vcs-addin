@@ -552,8 +552,15 @@ Public Sub RunSubInCurrentProject(strSubName As String)
     ' Add project name so we can run it from the current datbase
     strCmd = "[" & CurrentVBProject.Name & "]." & strCmd
 
-    ' Run the sub
-    Application.Run strCmd
+    ' Check for add-in project name
+    If StrComp(CurrentVBProject.Name, GetAddInProject.Name, vbTextCompare) = 0 Then
+        ' Temporarily rename the add-in project so the sub runs in the current project.
+        GetAddInProject.Name = "MSAccessVCS-Lib"
+        Application.Run strCmd
+        GetAddInProject.Name = PROJECT_NAME
+    Else
+        Application.Run strCmd
+    End If
 
 End Sub
 
