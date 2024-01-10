@@ -815,12 +815,12 @@ End Function
 Private Function ConvTimeUTC(ByRef InVal As String) As Date
 
     Dim varParts As Variant
-    Dim InValSeconds As String
+    Dim InValSeconds As Double
 
     If InVal Like "##:##:##.###Z" Then
         ' Use high-performance conversion to date
         varParts = Split(InVal, ":")
-        InValSeconds = Mid(varParts(2), 1, Len(varParts(2)) - 1)
+        InValSeconds = Val(Mid(varParts(2), 1, Len(varParts(2)) - 1))
         ConvTimeUTC = TimeSerialDbl(varParts(0), varParts(1), InValSeconds)
     Else
         ' Fall back to slower RegEx function
@@ -866,7 +866,7 @@ Private Function ConvTimeUTC2(ByRef InVal As String) As Date
         If Not (IsEmpty(.SubMatches(3)) Or IsEmpty(.SubMatches(5)) Or NzEmpty(.SubMatches(3), ISO8601UTCTimeZone) = ISO8601UTCTimeZone) Then _
             dblMinutes = dblMinutes - CDbl(NzEmpty(.SubMatches(3), vbNullString) & NzEmpty(.SubMatches(5), vbNullString))
 
-        dblSeconds = CDbl(NzEmpty(.SubMatches(2), vbNullString))
+        dblSeconds = Val(NzEmpty(.SubMatches(2), vbNullString))
     End With
 
     ConvTimeUTC2 = TimeSerialDbl(dblHours, dblMinutes, dblSeconds)
