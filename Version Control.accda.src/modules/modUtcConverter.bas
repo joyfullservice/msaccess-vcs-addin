@@ -806,7 +806,7 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ConvTimeUTC2
+' Procedure : ConvTimeUTC
 ' Author    : Adam Waller
 ' Date      : 11/14/2023
 ' Purpose   : Attempt a higher performance conversion first, then fall back to RegEx.
@@ -815,13 +815,15 @@ End Function
 Private Function ConvTimeUTC(ByRef InVal As String) As Date
 
     Dim varParts As Variant
-    Dim InValSeconds As Double
+    Dim dblSeconds As Double
 
+    ' Check for standard ISO date format
     If InVal Like "##:##:##.###Z" Then
-        ' Use high-performance conversion to date
+        ' Use high-performance conversion from string to date
         varParts = Split(InVal, ":")
-        InValSeconds = Val(Mid(varParts(2), 1, Len(varParts(2)) - 1))
-        ConvTimeUTC = TimeSerialDbl(varParts(0), varParts(1), InValSeconds)
+        ' Use Val() function to avoid regional decimal conversion issues
+        dblSeconds = Val(Mid(varParts(2), 1, Len(varParts(2)) - 1))
+        ConvTimeUTC = TimeSerialDbl(varParts(0), varParts(1), dblSeconds)
     Else
         ' Fall back to slower RegEx function
         ConvTimeUTC = ConvTimeUTC2(InVal)
@@ -830,6 +832,13 @@ Private Function ConvTimeUTC(ByRef InVal As String) As Date
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : ConvTimeUTC2
+' Author    : Adam Waller
+' Date      : 1/10/2024
+' Purpose   : Fallback date conversion using RegEx to parse ISO8601 dates
+'---------------------------------------------------------------------------------------
+'
 Private Function ConvTimeUTC2(ByRef InVal As String) As Date
 
     Dim dblHours As Double
@@ -866,6 +875,7 @@ Private Function ConvTimeUTC2(ByRef InVal As String) As Date
         If Not (IsEmpty(.SubMatches(3)) Or IsEmpty(.SubMatches(5)) Or NzEmpty(.SubMatches(3), ISO8601UTCTimeZone) = ISO8601UTCTimeZone) Then _
             dblMinutes = dblMinutes - CDbl(NzEmpty(.SubMatches(3), vbNullString) & NzEmpty(.SubMatches(5), vbNullString))
 
+        ' Use Val() function to avoid regional decimal conversion issues
         dblSeconds = Val(NzEmpty(.SubMatches(2), vbNullString))
     End With
 
