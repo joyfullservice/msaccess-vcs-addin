@@ -57,6 +57,7 @@ Public Function GetContainers(Optional intFilter As eContainerFilter = ecfAllObj
                 .Add New clsDbVbeForm
                 .Add New clsDbProjProperty
                 .Add New clsDbSavedSpec
+                '.Add New clsDbCommandBar
                 If blnADP Then
                     ' Some types of objects only exist in ADP projects
                     .Add New clsAdpFunction
@@ -172,6 +173,7 @@ Public Function GetComponentClass(intType As eDatabaseComponentType) As IDbCompo
         Case edbVbeForm:            Set cls = New clsDbVbeForm
         Case edbVbeProject:         Set cls = New clsDbVbeProject
         Case edbVbeReference:       Set cls = New clsDbVbeReference
+        Case edbCommandBar:         Set cls = New clsDbCommandBar
         Case Else ' No match, return nothing
     End Select
     Set GetComponentClass = cls
