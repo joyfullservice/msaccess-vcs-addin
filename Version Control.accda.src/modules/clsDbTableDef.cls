@@ -583,6 +583,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
             If tdf.Connect <> strConnect Then
                 tdf.Connect = strConnect
                 tdf.RefreshLink
+                CatchAny eelError, "Error refreshing link for " & tdf.Name, ModuleName(Me) & ".ImportLinkedTable"
             End If
             dbs.TableDefs.Refresh
 
