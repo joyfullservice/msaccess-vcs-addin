@@ -583,6 +583,8 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
             If tdf.Connect <> strConnect Then
                 tdf.Connect = strConnect
                 tdf.RefreshLink
+                If Catch(3283) Then Log.Add "Encountered error 3283 when refreshing link for " & tdf.Name & ". " & _
+                    "You can probably safely ignore this error. (See issue #484)"
                 CatchAny eelError, "Error refreshing link for " & tdf.Name, ModuleName(Me) & ".ImportLinkedTable"
             End If
             dbs.TableDefs.Refresh
