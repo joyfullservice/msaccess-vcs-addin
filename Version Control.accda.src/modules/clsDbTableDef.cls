@@ -344,11 +344,11 @@ Public Sub SaveTableSqlDef(strTable As String, strFolder As String)
             If (fld.Attributes And dbAutoIncrField) Then
                 .Add "AUTOINCREMENT"
             Else
-                .Add GetTypeString(fld.Type), " "
+                .Add GetTypeString(fld.Type)
             End If
             Select Case fld.Type
                 Case dbText, dbVarBinary
-                    .Add "(", fld.Size, ")"
+                    .Add " (", fld.Size, ")"
             End Select
 
             ' Indexes

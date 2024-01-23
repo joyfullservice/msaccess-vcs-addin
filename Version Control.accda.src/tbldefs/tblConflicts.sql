@@ -3,10 +3,10 @@
   [Component] VARCHAR (255),
   [ItemKey] VARCHAR (255),
   [FileName] VARCHAR (255),
-  [ObjectDate] DATETIME ,
-  [IndexDate] DATETIME ,
-  [FileDate] DATETIME ,
-  [Suggestion] LONG ,
-  [Resolution] LONG ,
-  [Diff] LONGTEXT 
+  [ObjectDate] DATETIME,
+  [IndexDate] DATETIME,
+  [FileDate] DATETIME,
+  [Suggestion] LONG,
+  [Resolution] LONG,
+  [Diff] LONGTEXT
 )
