@@ -925,7 +925,7 @@ Private Function GetNextWords(intCount As Integer, Optional ByRef lngEndPos As L
                 Case 32, 9, 10, 13, 0
                     ' Found whitespace
                     If lngStart > 0 Then
-                        ' Complete previous word
+                        ' Complete any previous word
                         If intFoundWords > 0 Then .Add " "
                         intFoundWords = intFoundWords + 1
                         .Add Mid$(m_strSql, lngStart, lngChar - lngStart)
@@ -939,8 +939,9 @@ Private Function GetNextWords(intCount As Integer, Optional ByRef lngEndPos As L
                     If lngStart = 0 Then lngStart = lngChar
                     ' Exit if we reached the boundary
                     If lngChar = lngBoundary - 1 Then
-                        .Add Mid$(m_strSql, lngStart, lngChar - lngStart)
-                        lngEndPos = lngChar - 1
+                        If intFoundWords > 0 Then .Add " "
+                        .Add Mid$(m_strSql, lngStart, (lngChar - lngStart) + 1)
+                        lngEndPos = lngChar + 1
                         Exit For
                     End If
 
