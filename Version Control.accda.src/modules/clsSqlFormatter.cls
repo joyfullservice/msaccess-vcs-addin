@@ -128,6 +128,9 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
         intTokenType = m_colTokens(lngToken)(0)
         strTokenValue = m_colTokens(lngToken)(1)
 
+        ' Breakpoint for debugging
+        If strTokenValue = ";;;" Then Stop
+
         ' Only process non-whitespace tokens
         If intTokenType = ttWhitespace Then GoTo NextToken
 
@@ -178,7 +181,17 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
                 cReturn.RTrim
 
                 If blnInlineIndented Then
-                    DecreaseIndent colIndents, lngIndentLevel
+                    ' Reset indent level
+                    Do While colIndents.Count > 0
+                        ' Get type of current indent
+                        strType = colIndents(1)
+                        ' Reduce the indents
+                        DecreaseIndent colIndents, lngIndentLevel
+                        ' Exit after removing a block indent
+                        If strType = "block" Then Exit Do
+                    Loop
+
+'                    DecreaseIndent colIndents, lngIndentLevel
                     cReturn.Add vbCrLf, StrRepeat(vbTab, lngIndentLevel)
                 End If
 
@@ -250,6 +263,7 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
             ' Look at next token ahead of current position
             Loop
 
+            ' Break long inline parentheses into multiple lines
             If blnInlineParentheses And (lngLength > 30) Then
                 blnIncreateBlockIndent = True
                 blnInlineIndented = True
@@ -263,29 +277,31 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
                 End If
             End If
 
+            ' If this is not an inline parenthetical expression, indent to new line
             If Not blnInlineParentheses Then
-                blnIncreateBlockIndent = True
-                ' Add a newline after the parentheses
+                IncreaseIndent colIndents, lngIndentLevel, "parentheses"
+                ' Add a newline after the opening parentheses
                 blnNewline = True
             End If
 
         ElseIf strTokenValue = ")" Then
-            ' Closing parentheses decrease the block indent level
+            ' Closing parentheses decrease the parentheses indent level
             ' Remove whitespace before the closing parentheses
             cReturn.RTrim
 
-            ' Reset indent level
+            ' Reset indent level back to the opening parenthese
             Do While colIndents.Count > 0
                 ' Get type of current indent
                 strType = colIndents(1)
                 ' Reduce the indents
                 DecreaseIndent colIndents, lngIndentLevel
-                ' Exit after removing a block indent
-                If strType = "block" Then Exit Do
+                ' Exit after removing a parentheses indent
+                If strType = "parentheses" Then Exit Do
             Loop
 
             ' Add a newline before the closing parentheses (if not already added)
             If Not blnAddedNewline Then
+                cReturn.RTrim vbTab
                 cReturn.Add vbCrLf, StrRepeat(vbTab, lngIndentLevel)
             End If
 
@@ -1562,6 +1578,85 @@ Public Sub SelfTest()
         .Add "  foo.* INTO (C:\path\to\bar.accdb) fizz"
         .Add "FROM"
         .Add "  bazz"
+        .Remove 2
+        strActual = .GetStr
+    End With
+    Debug.Assert (strActual = FormatSQL)
+    If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
+
+
+    ' Test nested where clause (Issue #486)
+    Tokenize "SELECT MSysQueries.Attribute, MSysQueries.Flag FROM MSysQueries" & _
+        " WHERE (((MSysQueries.Flag) In (SELECT Flag from [MSysQueries] where flag=0)));", esdAccess
+
+    ' Verify tokens
+    Debug.Assert m_colTokens.Count = 44
+    Debug.Assert VerifyToken(1, ttReservedTopLevel, "SELECT")
+    Debug.Assert VerifyToken(2, ttWhitespace, " ")
+    Debug.Assert VerifyToken(3, ttWord, "MSysQueries")
+    Debug.Assert VerifyToken(4, ttBoundary, ".")
+    Debug.Assert VerifyToken(5, ttWord, "Attribute")
+    Debug.Assert VerifyToken(6, ttBoundary, ",")
+    Debug.Assert VerifyToken(7, ttWhitespace, " ")
+    Debug.Assert VerifyToken(8, ttWord, "MSysQueries")
+    Debug.Assert VerifyToken(9, ttBoundary, ".")
+    Debug.Assert VerifyToken(10, ttWord, "Flag")
+    Debug.Assert VerifyToken(11, ttWhitespace, " ")
+    Debug.Assert VerifyToken(12, ttReservedTopLevel, "FROM")
+    Debug.Assert VerifyToken(13, ttWhitespace, " ")
+    Debug.Assert VerifyToken(14, ttWord, "MSysQueries")
+    Debug.Assert VerifyToken(15, ttWhitespace, " ")
+    Debug.Assert VerifyToken(16, ttReservedTopLevel, "WHERE")
+    Debug.Assert VerifyToken(17, ttWhitespace, " ")
+    Debug.Assert VerifyToken(18, ttBoundary, "(")
+    Debug.Assert VerifyToken(19, ttBoundary, "(")
+    Debug.Assert VerifyToken(20, ttBoundary, "(")
+    Debug.Assert VerifyToken(21, ttWord, "MSysQueries")
+    Debug.Assert VerifyToken(22, ttBoundary, ".")
+    Debug.Assert VerifyToken(23, ttWord, "Flag")
+    Debug.Assert VerifyToken(24, ttBoundary, ")")
+    Debug.Assert VerifyToken(25, ttWhitespace, " ")
+    Debug.Assert VerifyToken(26, ttReserved, "In")
+    Debug.Assert VerifyToken(27, ttWhitespace, " ")
+    Debug.Assert VerifyToken(28, ttBoundary, "(")
+    Debug.Assert VerifyToken(29, ttReservedTopLevel, "SELECT")
+    Debug.Assert VerifyToken(30, ttWhitespace, " ")
+    Debug.Assert VerifyToken(31, ttWord, "Flag")
+    Debug.Assert VerifyToken(32, ttWhitespace, " ")
+    Debug.Assert VerifyToken(33, ttReservedTopLevel, "from")
+    Debug.Assert VerifyToken(34, ttWhitespace, " ")
+    Debug.Assert VerifyToken(35, ttQuote, "[MSysQueries]")
+    Debug.Assert VerifyToken(36, ttWhitespace, " ")
+    Debug.Assert VerifyToken(37, ttReservedTopLevel, "where")
+    Debug.Assert VerifyToken(38, ttWhitespace, " ")
+    Debug.Assert VerifyToken(39, ttWord, "flag")
+    Debug.Assert VerifyToken(40, ttBoundary, "=")
+    Debug.Assert VerifyToken(41, ttNumber, "0")
+    Debug.Assert VerifyToken(42, ttBoundary, ")")
+    Debug.Assert VerifyToken(43, ttBoundary, ")")
+    Debug.Assert VerifyToken(44, ttBoundary, ")")
+
+    ' Verify result
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT"
+        .Add "  MSysQueries.Attribute,"
+        .Add "  MSysQueries.Flag"
+        .Add "FROM"
+        .Add "  MSysQueries"
+        .Add "WHERE"
+        .Add "  ("
+        .Add "    ("
+        .Add "      (MSysQueries.Flag) In ("
+        .Add "        SELECT"
+        .Add "          Flag"
+        .Add "        from"
+        .Add "          [MSysQueries]"
+        .Add "        where"
+        .Add "          flag = 0"
+        .Add "      )"
+        .Add "    )"
+        .Add "  )"
         .Remove 2
         strActual = .GetStr
     End With
