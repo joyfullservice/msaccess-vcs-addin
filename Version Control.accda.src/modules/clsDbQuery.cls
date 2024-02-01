@@ -63,8 +63,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             If strSql <> vbNullString Then
                 ' Pass-through queries should not be formatted, since they support formatting and comments.
                 Select Case dbs.QueryDefs(m_Query.Name).Type
-                    Case dbQSQLPassThrough, dbQSPTBulk, dbQSetOperation
-                        'Do not format
+                    'Case dbQSetOperation - Go ahead and format Union queries
+                    Case dbQSQLPassThrough, dbQSPTBulk
+                        'Do not automatically format these query types
                     Case Else
                         With New clsSqlFormatter
                             Perf.OperationStart "Format SQL"
