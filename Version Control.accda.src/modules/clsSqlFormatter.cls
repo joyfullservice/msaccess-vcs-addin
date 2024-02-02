@@ -38,6 +38,12 @@ Private Const cstrReservedNewline As String = "|LEFT OUTER JOIN|RIGHT OUTER JOIN
 Private Const cstrBoundaries As String = ",;:)(.=<>+-*/!^%|&#"
 Private Const cstrRegExSpecial As String = ".\+*?[^]$(){}=!<>|:-#/"
 
+' Reserved words in Microsoft Access SQL
+' https://support.microsoft.com/en-us/office/sql-reserved-words-b899948b-0e1c-4b56-9622-a03f8f07cfc8
+Private Const cstrReservedAccess As String = _
+    "|ABSOLUTE|ADD|ADMINDB|ALL|Alphanumeric|ALTER|ALTER TABLE|And|ANY|ARE|AS|AS|ASC|ASSERTION|AUTHORIZATION|AUTOINCREMENT|Avg|BEGIN|Between|BINARY|BIT|BIT_LENGTH|BOOLEAN|BOTH|BY|BYTE|CASCADE|CATALOG|CHAR|CHARACTER|CHAR_LENGTH|CHARACTER_LENGTH|CHECK|CLOSE|CLUSTERED|COALESCE|COLLATE|COLLATION|COLUMN|COMMIT|COMP|COMPRESSION|CONNECT|CONNECTION|CONSTRAINT|CONSTRAINTS|CONTAINER|CONTAINS|CONVERT|Count|COUNTER|CREATE|CURRENCY|CURRENT_DATE|CURRENT_TIME|CURRENT_TIMESTAMP|CURRENT_USER|CURSOR|DATABASE|DATE|DATETIME|DAY|DEC|DECIMAL|DECLARE|DELETE|DESC|DISALLOW|DISCONNECT|DISTINCT|DISTINCTROW|DOMAIN|DOUBLE|DROP|Eqv|EXCLUSIVECONNECT|EXEC|EXECUTE|EXISTS|EXTRACT|FETCH|FIRST|FLOAT|FLOAT8|FLOAT4|FOREIGN|FROM|GENERAL|GRANT|GROUP|GUID|HAVING|HOUR|IDENTITY|IEEEDOUBLE|IEEESINGLE|IGNORE|IMAGE|Imp|In|IN|INDEX|INDEXCREATEDB|INNER|INPUT|INSENSITIVE|INSERT|INSERT INTO|INT|INTEGER|INTEGER1|INTEGER2|INTEGER4|INTERVAL|INTO|Is|ISOLATION|JOIN|KEY|LANGUAGE|LAST|LEFT|" & _
+    "Level|Like|LOGICAL|LOGICAL1|LONG|LONGBINARY|LONGCHAR|LONGTEXT|LOWER|MATCH|Max|MEM|Min|MINUTE|Mod|MONEY|MONTH|NATIONAL|NCHAR|NONCLUSTERED|Not|NTEXT|NULL|NUMBER|NUMERIC|NVARCHAR|OCTET_LENGTH|OLEOBJECT|ON|OPEN|OPTION|Or|ORDER|Outer|OUTPUT|OWNERACCESS|PAD|PARAMETERS|PARTIAL|PASSWORD|PERCENT|PIVOT|POSITION|PRECISION|PREPARE|PRIMARY|PRIVILEGES|PROC|PROCEDURE|PUBLIC|REAL|REFERENCES|RESTRICT|REVOKE|RIGHT|ROLLBACK|SCHEMA|SECOND|SELECT|SELECTSCHEMA|SELECTSECURITY|SET|SHORT|SINGLE|SIZE|SMALLDATETIME|SMALLINT|SMALLMONEY|SOME|SPACE|SQL|SQLCODE|SQLERROR|SQLSTATE|StDev|StDevP|STRING|SUBSTRING|Sum|SYSNAME|SYSTEM_USER|TABLE|TableID|TEMPORARY|TEXT|TIME|TIMESTAMP|TIMEZONE_HOUR|TIMEZONE_MINUTE|TINYINT|TO|TOP|TRAILING|TRANSACTION|TRANSFORM|TRANSLATE|TRANSLATION|TRIM|UNION|UNIQUE|UNIQUEIDENTIFIER|UNKNOWN|UPDATE|UPDATEIDENTITY|UPDATEOWNER|UPDATESECURITY|UPPER|USAGE|USER|USING|VALUE|VALUES|Var|VARBINARY|VARCHAR|VarP|VARYING|VIEW|WHEN|WHENEVER|WHERE|WITH|WORK|Xor|YEAR|YESNO|ZONE|FALSE|TRUE|"
+
 ' SQL Dialects
 Public Enum eSqlDialect
     esdUnknown
@@ -54,6 +60,7 @@ Private Enum eListType
     eltReservedNewline
     eltBoundaries
     eltRegExSpecial
+    eltReservedAccess
 End Enum
 
 ' Token types
@@ -856,6 +863,7 @@ Private Function InList(intList As eListType, ByRef strMatch As String) As Boole
     Dim strTest As String
     Dim strWords As String
     Dim lngEndPos As Long
+    Dim blnFound As Boolean
 
     ' Look up list of words
     Select Case intList
@@ -865,6 +873,7 @@ Private Function InList(intList As eListType, ByRef strMatch As String) As Boole
         Case eltReserved:           strList = cstrReserved
         Case eltReservedNewline:    strList = cstrReservedNewline
         Case eltReservedToplevel:   strList = cstrReservedToplevel
+        Case eltReservedAccess:     strList = cstrReservedAccess
     End Select
 
     ' Determine max words to look up (i.e. "LEFT JOIN")
@@ -888,10 +897,20 @@ Private Function InList(intList As eListType, ByRef strMatch As String) As Boole
         ' See if the words exist in the list
         If InStr(1, strList, strTest) > 0 Then
 
-            ' Found a match. Return original string (including any extra whitespace)
-            strMatch = Mid$(m_strSql, m_lngPos, lngEndPos - m_lngPos)
-            InList = True
-            Exit For
+            ' If we are formatting a Microsoft Access query, check against Acccess reserved words.
+            If m_intDialect = esdAccess And intList <> eltReservedAccess Then
+                blnFound = InList(eltReservedAccess, strMatch)
+            Else
+                ' Use full list for other dialects
+                blnFound = True
+            End If
+
+            ' If we found a match, return original string (including any extra whitespace)
+            If blnFound Then
+                strMatch = Mid$(m_strSql, m_lngPos, lngEndPos - m_lngPos)
+                InList = True
+                Exit For
+            End If
         End If
 
     Next intWords
