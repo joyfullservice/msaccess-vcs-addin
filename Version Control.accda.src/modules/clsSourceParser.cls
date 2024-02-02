@@ -965,48 +965,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : TrimTabs
-' Author    : Adam Waller
-' Date      : 4/29/2021
-' Purpose   : Trim off tabs from beginning and end of string
-'---------------------------------------------------------------------------------------
-'
-Private Function TrimTabs(strText As String) As String
-
-    Dim dblStart As Double
-    Dim dblEnd As Double
-    Dim dblPos As Double
-
-    ' Look for leading tabs
-    dblStart = 1
-    For dblPos = 1 To Len(strText)
-        If Mid$(strText, dblPos, 1) <> vbTab Then
-            dblStart = dblPos
-            Exit For
-        End If
-    Next dblPos
-
-    ' Look for trailing tabs
-    dblEnd = 1
-    If Right$(strText, 1) = vbTab Then
-        For dblPos = Len(strText) To 1 Step -1
-            If Mid$(strText, dblPos, 1) <> vbTab Then
-                dblEnd = dblPos + 1
-                Exit For
-            End If
-        Next dblPos
-    Else
-        ' No trailing tabs
-        dblEnd = Len(strText) + 1
-    End If
-
-    ' Return string
-    TrimTabs = Mid$(strText, dblStart, dblEnd - dblStart)
-
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : GetIndent
 ' Author    : Adam Waller
 ' Date      : 11/5/2020

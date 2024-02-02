@@ -507,8 +507,6 @@ End Function
 '
 Private Sub IDbSchema_Initialize(dInstance As Scripting.IDictionary)
 
-    Dim strFilter As String
-    Dim varRules As Variant
     Dim colRules As Collection
 
     ' Map filter to collection

@@ -461,7 +461,6 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
     Dim varItem As Variant
     Dim cItem As IDbComponent
     Dim strHash As String
-    Dim varFile As Variant
     Dim strFile As String
     Dim strPath As String
     Dim blnModified As Boolean
@@ -715,7 +714,6 @@ End Sub
 '
 Private Function IsMergeConflict(cItemClass As IDbComponent, strSourceFile As String) As eResolveConflict
 
-    Dim blnConflict As Boolean
     Dim cItem As IDbComponent
     Dim strTempFile As String
 
