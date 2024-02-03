@@ -16,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =252
-    Left =3225
-    Top =2430
-    Right =18945
-    Bottom =14175
+    Left =2580
+    Top =2400
+    Right =17232
+    Bottom =11664
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -423,16 +423,16 @@ Begin Form
                     Begin
                         Begin Page
                             OverlapFlags =87
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4200
+                            Left =600
+                            Top =1932
+                            Width =8880
+                            Height =4260
                             Name ="pgeGeneral"
                             Caption ="General"
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedLeft =600
+                            LayoutCachedTop =1932
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6192
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =215
@@ -716,16 +716,16 @@ Begin Form
                         End
                         Begin Page
                             OverlapFlags =247
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4205
+                            Left =600
+                            Top =1932
+                            Width =8880
+                            Height =4260
                             Name ="pgeExport"
                             Caption ="Export"
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6185
+                            LayoutCachedLeft =600
+                            LayoutCachedTop =1932
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6192
                             Begin
                                 Begin TextBox
                                     OverlapFlags =247
@@ -1247,16 +1247,16 @@ Begin Form
                         Begin Page
                             Visible = NotDefault
                             OverlapFlags =247
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4200
+                            Left =600
+                            Top =1932
+                            Width =8880
+                            Height =4260
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedLeft =600
+                            LayoutCachedTop =1932
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6192
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -1895,16 +1895,16 @@ Begin Form
                         End
                         Begin Page
                             OverlapFlags =247
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4200
+                            Left =600
+                            Top =1932
+                            Width =8880
+                            Height =4260
                             Name ="pgeDatabases"
                             Caption ="Databases"
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedLeft =600
+                            LayoutCachedTop =1932
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6192
                             Begin
                                 Begin ListBox
                                     ColumnHeads = NotDefault
@@ -2179,16 +2179,16 @@ Begin Form
                         End
                         Begin Page
                             OverlapFlags =247
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4200
+                            Left =600
+                            Top =1932
+                            Width =8880
+                            Height =4260
                             Name ="pgeTable"
                             Caption ="Table Data"
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedLeft =600
+                            LayoutCachedTop =1932
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6192
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -2488,16 +2488,16 @@ Begin Form
                         End
                         Begin Page
                             OverlapFlags =247
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4200
+                            Left =600
+                            Top =1932
+                            Width =8880
+                            Height =4260
                             Name ="pgeBuild"
                             Caption ="Build"
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedLeft =600
+                            LayoutCachedTop =1932
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6192
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -2602,19 +2602,20 @@ Begin Form
                                     Left =1140
                                     Top =2100
                                     Width =7860
-                                    Height =2220
+                                    Height =2388
                                     ForeColor =5324600
                                     Name ="Label105"
-                                    Caption ="PLEASE NOTE:\015\012The build functionality in this tool is fairly new with limi"
-                                        "ted testing in real-world applications. It is very important that you test this "
-                                        "carefully in your environment to make sure everything you need is being created "
-                                        "in your database during the build.\015\012\015\012Please see the online document"
-                                        "ation for additional details on the build process. If you encounter an issue, pl"
-                                        "ease feel free to submit issues and/or pull requests on the GitHub project."
+                                    Caption ="PLEASE NOTE:\015\012Building from source will completely rebuild your database p"
+                                        "roject from source files. It is very important that you test this carefully in y"
+                                        "our environment to make sure everything you need is being created in your databa"
+                                        "se during the build. (A backup copy of your current database will be made as a p"
+                                        "art of the build process.)\015\012\015\012Please see the online documentation fo"
+                                        "r additional details on the build process. If you encounter a problem, please fe"
+                                        "el free to open an issues on the GitHub project."
                                     LayoutCachedLeft =1140
                                     LayoutCachedTop =2100
                                     LayoutCachedWidth =9000
-                                    LayoutCachedHeight =4320
+                                    LayoutCachedHeight =4488
                                     ForeThemeColorIndex =-1
                                     ForeTint =100.0
                                 End
@@ -2665,16 +2666,16 @@ Begin Form
                         Begin Page
                             Visible = NotDefault
                             OverlapFlags =247
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4200
+                            Left =600
+                            Top =1932
+                            Width =8880
+                            Height =4260
                             Name ="pgeGitIntegration"
                             Caption ="Git Integration"
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedLeft =600
+                            LayoutCachedTop =1932
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6192
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -2982,16 +2983,16 @@ Begin Form
                         End
                         Begin Page
                             OverlapFlags =247
-                            Left =615
-                            Top =1980
-                            Width =8850
-                            Height =4200
+                            Left =600
+                            Top =1932
+                            Width =8880
+                            Height =4260
                             Name ="pgeSettings"
                             Caption ="Settings"
-                            LayoutCachedLeft =615
-                            LayoutCachedTop =1980
-                            LayoutCachedWidth =9465
-                            LayoutCachedHeight =6180
+                            LayoutCachedLeft =600
+                            LayoutCachedTop =1932
+                            LayoutCachedWidth =9480
+                            LayoutCachedHeight =6192
                             Begin
                                 Begin OptionGroup
                                     OverlapFlags =255
