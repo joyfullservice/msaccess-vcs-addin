@@ -1,7 +1,7 @@
 - [Is there a way to use a ribbon with this add-in?](#is-there-a-way-to-use-a-ribbon-with-this-add-in)
 - [Why are some issues/ideas considered out of scope for this project?](#why-are-some-issuesideas-considered-out-of-scope-for-this-project)
 - [Why am I seeing a large number of "changed" files after building my project from source?](#why-am-i-seeing-a-large-number-of-changed-files-after-building-my-project-from-source)
-- [Will this fork eventually be merged back into the upstream repository?](#will-this-fork-eventually-be-merged-back-into-the-upstream-repository)
+- [How do I also export data from all the tables in my database?](#how-do-i-also-export-data-from-all-the-tables-in-my-database)
 
 On this page you will find answers and guidance relating to common questions that come up when using this add-in.
 
@@ -64,5 +64,9 @@ Example ("**c**" > "**C**"):
  
 </details>
 
-## Will this fork eventually be merged back into the upstream repository? 
-The **joyfullservice** branch is a near complete rewrite of the original project. It is unlikely that it will ever be merged back into the upstream project of `msaccess-vcs-integration/msaccess-vcs-integration`. This upstream link is primarily maintained to give visibility to this branch for those that may be searching for an add-in based version control solution for Microsoft Access.
+## How do I also export data from all the tables in my database?
+Perhaps a more important question is to ask _**why**_ you want to do this... It's not that you can't, it just usually indicates a misunderstanding on the purpose of this tool. This add-in is designed to work in connection with a version control system like git to save snapshots of the _design structure_ (not the data) of a database application project. This allows you to track changes and build a copy from any point in the project's development history.
+
+Sometimes there are pieces of data that should be included in a build, such as a table that stores configuration settings. But it can actually be very risky to commit a project's data records to version control, as this could inadvertently expose customer information (PII) or other sensitive data. It is because of this risk, and the huge problems this could cause for a well-meaning developer that we intentionally did not include a "select-all" option to easily export data from all tables.
+
+If your underlying need is for a data backup, you might be better off reaching for another tool. (Or you could create a simple VBA script or Macro to automate the process.) If you are one of those rare but legitimate cases where you actually do need to include all the table data in version control, you will just need to go through the list of tables in the Options dialog and select each one and specify the export format. (This selection is saved with the options, and will be used on each subsequent export.) If you have a huge number of tables, you can manually edit the `options.json` file. Just be sure to follow the same format for the new entries.
