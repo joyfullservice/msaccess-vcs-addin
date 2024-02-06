@@ -27,6 +27,10 @@
     "MSForms": {
       "GUID": "{0D452EE1-E08F-101A-852E-02608C4D0BB4}",
       "Version": "2.0"
+    },
+    "Office": {
+      "GUID": "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}",
+      "Version": "2.7"
     }
   }
 }

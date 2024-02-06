@@ -1,5 +1,5 @@
 ﻿CREATE TABLE [tblAttachment] (
   [ID] AUTOINCREMENT CONSTRAINT [PrimaryKey] PRIMARY KEY UNIQUE NOT NULL,
-  [ImageFile] VARCHAR ,
-  [ImageObject] LONGBINARY 
+  [ImageFile] VARCHAR,
+  [ImageObject] LONGBINARY
 )

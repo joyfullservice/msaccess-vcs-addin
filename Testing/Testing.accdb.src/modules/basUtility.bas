@@ -126,3 +126,78 @@ Public Sub SetClassInstancing()
     Const PublicCreatable = 5
     GetVBProjectForCurrentDB.VBComponents("clsPublic").Properties("Instancing") = PublicCreatable
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Menu
+' Author    : Adam Waller
+' Date      : 1/16/2024
+' Purpose   : Wrapper for persistent class instance
+'---------------------------------------------------------------------------------------
+'
+Public Function Menu() As clsPopupMenu
+    Static cMenu As clsPopupMenu
+    If cMenu Is Nothing Then Set cMenu = New clsPopupMenu
+    Set Menu = cMenu
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MenuHandler
+' Author    : Adam Waller
+' Date      : 1/16/2024
+' Purpose   : Global handler for managing command bar events. The single parameter
+'           : is the name of the command bar, followed by the caption of the item.
+'           : I.e. "MyCommandBar.Print Preview"
+'---------------------------------------------------------------------------------------
+'
+Public Function MenuHandler(strSource As String)
+
+    Select Case strSource
+        Case "CRM Navigation General.Contact": MsgBox "Contact"
+        Case Else
+            Debug.Print "Source not defined in MenuHandler: Case """ & strSource & """"
+    End Select
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NZ2
+' Author    : Adam Waller
+' Date      : 2/18/2021
+' Purpose   : Extend the NZ function to also include 0 or empty string.
+'---------------------------------------------------------------------------------------
+'
+Public Function NZ2(varValue, Optional varIfNull) As Variant
+    Select Case varValue
+        Case vbNullString, 0
+            If IsMissing(varIfNull) Then
+                NZ2 = vbNullString
+            Else
+                NZ2 = varIfNull
+            End If
+        Case Else
+            If IsNull(varValue) Then
+                NZ2 = varIfNull
+            Else
+                NZ2 = varValue
+            End If
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MultiReplace
+' Author    : Adam Waller
+' Date      : 1/18/2019
+' Purpose   : Does a string replacement of multiple items in one call.
+'---------------------------------------------------------------------------------------
+'
+Public Function MultiReplace(ByVal strText As String, ParamArray varPairs()) As String
+    Dim intPair As Integer
+    For intPair = 0 To UBound(varPairs) Step 2
+        strText = Replace(strText, varPairs(intPair), varPairs(intPair + 1))
+    Next intPair
+    MultiReplace = strText
+End Function
