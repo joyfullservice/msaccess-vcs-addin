@@ -783,6 +783,7 @@ Private Sub SetBuildPath()
 
     Dim prp As AccessObjectProperty
     Dim proj As CurrentProject
+
     Set proj = CurrentProject
     Set prp = GetPropertyByName(cstrBuildPathProperty)
 
@@ -804,6 +805,7 @@ Private Sub SetBuildPath()
             End If
         End If
     End If
+
 End Sub
 
 

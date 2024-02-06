@@ -13,14 +13,6 @@ This project functions as a **Microsoft Access add-in**, allowing you to use a c
 
 ![Export-All](img/gui-demo.gif)
 
-Coming in Version 4.0 - Ribbon Integration with 64-bit Support!
--------------------
-
-Thanks to some fantastic work by Wayne Phillips on the [twinBASIC](https://www.twinbasic.com/preview.html#sample5) project, we now have a practical (and easy) way to integrate a custom ribbon interface at the application level! This is implemented as a thin COM AddIn wrapper that passes commands to the Access VBA add-in. The ribbon takes this project to a new level in providing a user-friendly experience to developers and works in both 32 ***and 64-bit*** versions of Microsoft Access.
-
-![ribbon](img/ribbon.jpg)
-
-
 Development Focus
 -----------------
 This project was originally developed to manage the in-house development of numerous Microsoft Access database applications and integrations, some of which are very complex with hundreds of components. The development focus of this particular add-in is primarily in the following areas:

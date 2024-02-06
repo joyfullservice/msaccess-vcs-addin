@@ -670,6 +670,7 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     ' releases of Microsoft Access. (See issue #341)
     Dim fld2 As DAO.Field       ' Field2
     Dim rst2 As DAO.Recordset   ' Recordset2
+
     Set m_Rst = RHS
 
     ' Load in the object details.

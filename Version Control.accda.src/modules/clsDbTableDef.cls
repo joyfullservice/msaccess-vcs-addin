@@ -313,21 +313,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : RemoveAlternateFormatSourceFile
-' Author    : Adam Waller
-' Date      : 1/25/2022
-' Purpose   : Remove any existing alternate format source file. (When switching a table
-'           : from local to linked, or vice versa.)
-'---------------------------------------------------------------------------------------
-'
-Private Sub RemoveAlternateFormatSourceFile()
-    Dim strAltFile As String
-    strAltFile = IDbComponent_BaseFolder & GetSourceFileName(m_Table.Name, (m_Table.Connect = vbNullString))
-    If FSO.FileExists(strAltFile) Then DeleteFile strAltFile
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : SaveTableSqlDef
 ' Author    : Adam Waller
 ' Date      : 1/28/2019

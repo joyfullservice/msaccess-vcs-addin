@@ -129,6 +129,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim rstResources As DAO.Recordset   ' Recordset2
     Dim rstAttachment As DAO.Recordset  ' Recordset2
     Dim fldFile As DAO.Field            ' Field2
+
     Dim strZip As String
     Dim strThemeFile As String
     Dim strThemeName As String
