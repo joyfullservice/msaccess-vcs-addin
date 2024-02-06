@@ -26,7 +26,7 @@ This project was originally developed to manage the in-house development of nume
 
 Getting Started
 ---------
- Simply download the add-in from the [**Releases**](/releases) page, and run the file. It will install or update the add-in for you. Additional notes on installation and use can be found on the [project wiki](wiki).
+ Simply download the add-in from the [**Releases**](msaccess-vcs-addin/releases) page, and run the file. It will install or update the add-in for you. Additional notes on installation and use can be found on the [project wiki](wiki).
 
 [Quick Start](wiki/Quick-Start) is a simple overview to help you test out this add-in on your project in less than five minutes.
 
