@@ -604,9 +604,6 @@ Private Sub RunUpgrades()
         If HasTrustedLocationKey(strName) Then RemoveTrustedLocation strName
     End If
 
-    ' Remove legacy RC4 encryption
-    If HasLegacyRC4Keys Then DeleteSetting PROJECT_NAME, "Private Keys"
-
     ' Use standardized options folder (5/7/2021)
     strOldPath = FSO.BuildPath(CodeProject.Path, FSO.GetBaseName(CodeProject.Name)) & ".json"
     strNewPath = FSO.BuildPath(CodeProject.Path, "vcs-options.json")
@@ -624,25 +621,6 @@ Private Sub RunUpgrades()
     CatchAny eelError, "Running upgrades before install", ModuleName & ".RunUpgrades"
 
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : HasLegacyRC4Keys
-' Author    : Adam Waller
-' Date      : 3/17/2021
-' Purpose   : Returns true if legacy RC4 keys were found in the registry.
-'---------------------------------------------------------------------------------------
-'
-Public Function HasLegacyRC4Keys()
-    Dim strValue As String
-    With New IWshRuntimeLibrary.WshShell
-        LogUnhandledErrors
-        On Error Resume Next
-        strValue = .RegRead("HKCU\SOFTWARE\VB and VBA Program Settings\MSAccessVCS\Private Keys\")
-        HasLegacyRC4Keys = Not Catch(-2147024894)
-        CatchAny eelError, "Checking for legacy RC4 keys", ModuleName & ".HasLegacyRC4Keys"
-    End With
-End Function
 
 
 '---------------------------------------------------------------------------------------
