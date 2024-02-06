@@ -18,7 +18,8 @@ Option Compare Database
 Option Explicit
 
 Private m_Property As DAO.Property
-Private m_AllItems As Collection
+Private m_Items(True To False) As Dictionary
+Private m_dItems As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -34,40 +35,11 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-    
-    Dim prp As DAO.Property
-    Dim dCollection As Dictionary
-    Dim dItem As Dictionary
-    Dim varValue As Variant
-    
-    Set dCollection = New Dictionary
-    
-    ' Loop through all properties
-    For Each prp In CurrentDb.Properties
-        Select Case prp.Name
-            Case "Connection"
-                ' Connection object for ODBCDirect workspaces. Not needed.
-            Case "Last VCS Export", "Last VCS Version"
-                ' Legacy properties no longer needed.
-            Case Else
-                varValue = prp.Value
-                If prp.Name = "AppIcon" Or prp.Name = "Name" Then
-                    If Len(varValue) > 0 Then
-                        ' Try to use a relative path
-                        varValue = GetRelativePath(CStr(varValue))
-                    End If
-                End If
-                Set dItem = New Dictionary
-                dItem.Add "Value", varValue
-                dItem.Add "Type", prp.Type
-                dCollection.Add prp.Name, dItem
-        End Select
-    Next prp
-    
-    ' Write to file. The order of properties may change, so sort them to keep the order consistent.
-    WriteJsonFile TypeName(Me), SortDictionaryByKeys(dCollection), IDbComponent_SourceFile, "Database Properties (DAO)"
-    
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    Dim strContent As String
+    strContent = GetSource
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 End Sub
 
 
@@ -79,7 +51,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-    
+
     Dim dExisting As Dictionary
     Dim prp As DAO.Property
     Dim dImport As Dictionary
@@ -87,7 +59,6 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim dbs As DAO.Database
     Dim varKey As Variant
     Dim varValue As Variant
-    Dim strDecrypted As String
     Dim blnAdd As Boolean
     Dim varItem As Variant
     Dim bArray() As Byte
@@ -98,7 +69,7 @@ Private Sub IDbComponent_Import(strFile As String)
     If Not strFile Like "*.json" Then Exit Sub
 
     Set dbs = CurrentDb
-    
+
     ' Pull a list of the existing properties so we know whether
     ' to add or update the existing property.
     Set dExisting = New Dictionary
@@ -125,6 +96,14 @@ Private Sub IDbComponent_Import(strFile As String)
                         varValue = dItems(varKey)("Value")
                         ' Check for relative path
                         If IsRelativePath(CStr(varValue)) Then varValue = GetPathFromRelative(CStr(varValue))
+                        ' Check for UTC date that might need to be converted back to local
+                        If dItems(varKey)("Type") = dbDate Then
+                            If (Not IsDate(varValue)) And (Right(varValue, 1) = "Z") Then
+                                ' Convert UTC date to local date
+                                dItems(varKey)("Value") = modUtcConverter.ParseIso(CStr(varValue))
+                                varValue = CDate(dItems(varKey)("Value"))
+                            End If
+                        End If
                     Else
                         ReDim bArray(0 To dItems(varKey)("Value").Count - 1)
                         For Each varItem In dItems(varKey)("Value")
@@ -171,9 +150,9 @@ Private Sub IDbComponent_Import(strFile As String)
                         ' Add properties that don't exist.
                         blnAdd = True
                     End If
-                    
+
                     ' Can't add a text property with a null value. See issue #126
-                    If dItems(varKey)("Type") = 10 Then
+                    If dItems(varKey)("Type") = dbText Then
                         If varValue = vbNullChar Then blnAdd = False
                     End If
                     ' Add the property if the flag has been set.
@@ -186,14 +165,17 @@ Private Sub IDbComponent_Import(strFile As String)
                             ' Create property from array
                             Set prp = dbs.CreateProperty(varKey, dItems(varKey)("Type"), bArray)
                         End If
-                        
+
                         ' Append property to collection
                         dbs.Properties.Append prp
                     End If
             End Select
         Next varKey
     End If
-    
+
+    ' Update index
+    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
+
 End Sub
 
 
@@ -207,6 +189,133 @@ End Sub
 '
 Private Sub IDbComponent_Merge(strFile As String)
 
+    Dim dFile As Dictionary
+
+    ' Only import files with the correct extension.
+    If Not strFile Like "*.json" Then Exit Sub
+
+    ' Remove any document properties that don't exist in the incoming file,
+    ' then import the file.
+    Set dFile = ReadJsonFile(strFile)
+    If dFile Is Nothing Then Set dFile = New Dictionary
+    RemoveMissing dFile("Items"), GetDictionary
+
+    ' Import if file exists
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 2/14/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, "Database Properties (DAO)")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDictionary
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Return a dictionary of the ordered, unique VBE references
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
+
+    Dim prp As DAO.Property
+    Dim dCollection As Dictionary
+    Dim dItem As Dictionary
+    Dim varValue As Variant
+
+    ' Check cache parameter
+    If blnUseCache And Not m_dItems Is Nothing Then
+        ' Return cached dictionary
+        Set GetDictionary = m_dItems
+        Exit Function
+    End If
+
+    Set dCollection = New Dictionary
+
+    ' Loop through all properties
+    For Each prp In CurrentDb.Properties
+        Select Case prp.Name
+            Case "Connection"
+                ' Connection object for ODBCDirect workspaces. Not needed.
+            Case "Last VCS Export", "Last VCS Version"
+                ' Legacy properties no longer needed.
+            Case Else
+                varValue = prp.Value
+                If prp.Name = "AppIcon" Or prp.Name = "Name" Then
+                    If Len(varValue) > 0 Then
+                        ' Try to use a relative path
+                        varValue = GetRelativePath(CStr(varValue))
+                    End If
+                End If
+                ' Convert dates to UTC
+                If prp.Type = dbDate Then
+                    If IsDate(varValue) Then
+                        ' Store dates in JSON as UTC dates.
+                        varValue = modUtcConverter.ConvertToIsoTime(CDate(varValue))
+                    End If
+                End If
+                Set dItem = New Dictionary
+                dItem.Add "Value", varValue
+                dItem.Add "Type", prp.Type
+                dCollection.Add prp.Name, dItem
+        End Select
+    Next prp
+
+    ' Return sorted dictionary
+    Set GetDictionary = SortDictionaryByKeys(dCollection)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveMissing
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Removes current document properties missing from the master dictionary.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
+
+    Dim dbs As Database
+    Dim varProp As Variant
+
+    ' Go through target dictionary, removing properties that don't exist
+    ' in the master dictionary. (Note that this is only checking the
+    ' properties we are actually interested in tracking.)
+    Set dbs = CurrentDb
+    For Each varProp In dTarget.Keys
+        ' Check to see if this key exists in the master
+        If Not KeyExists(dMaster, varProp) Then
+            ' Remove the property from the current database
+            dbs.Properties.Delete CStr(varProp)
+        End If
+    Next varProp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
 End Sub
 
 
@@ -217,24 +326,28 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
-    
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
+
     Dim prp As DAO.Property
     Dim cProp As IDbComponent
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Collection
-        For Each prp In CurrentDb.Properties
-            Set cProp = New clsDbProperty
-            Set cProp.DbObject = prp
-            m_AllItems.Add cProp, prp.Name
-        Next prp
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
+        If Not blnModifiedOnly Or IDbComponent_IsModified Then
+            ' Return all the properties, since we don't know which ones
+            ' were modified.
+            For Each prp In CurrentDb.Properties
+                Set cProp = New clsDbProperty
+                Set cProp.DbObject = prp
+                m_Items(blnModifiedOnly).Add cProp.SourceFile & ":" & prp.Name, cProp
+            Next prp
+        End If
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
-        
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
+
 End Function
 
 
@@ -245,24 +358,10 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
-    Set IDbComponent_GetFileList = New Collection
-    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile
+Private Function IDbComponent_GetFileList() As Dictionary
+    Set IDbComponent_GetFileList = New Dictionary
+    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile, vbNullString
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedSourceFiles
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Remove any source files for objects not in the current database.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    Dim strFile As String
-    strFile = IDbComponent_BaseFolder & "properties.txt"
-    If FSO.FileExists(strFile) Then DeleteFile strFile, True     ' Remove legacy file
-End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -274,7 +373,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = VCSIndex.Item(Me).FileHash <> GetStringHash(GetSource, True)
 End Function
 
 
@@ -290,21 +389,6 @@ End Function
 Private Function IDbComponent_DateModified() As Date
     ' Modified date unknown.
     IDbComponent_DateModified = 0
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SourceModified
-' Author    : Adam Waller
-' Date      : 4/27/2020
-' Purpose   : The date/time the source object was modified. In most cases, this would
-'           : be the date/time of the source file, but it some cases like SQL objects
-'           : the date can be determined through other means, so this function
-'           : allows either approach to be taken.
-'---------------------------------------------------------------------------------------
-'
-Private Function IDbComponent_SourceModified() As Date
-    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = GetLastModifiedDate(IDbComponent_SourceFile)
 End Function
 
 
@@ -328,6 +412,20 @@ End Property
 '---------------------------------------------------------------------------------------
 Private Property Get IDbComponent_BaseFolder() As String
     IDbComponent_BaseFolder = Options.GetExportFolder
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FileExtensions
+' Author    : Adam Waller
+' Date      : 12/1/2023
+' Purpose   : A collection of the file extensions used in source files for this
+'           : component type.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_FileExtensions() As Collection
+    Set IDbComponent_FileExtensions = New Collection
+    IDbComponent_FileExtensions.Add "json"
 End Property
 
 
@@ -368,6 +466,20 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    IDbComponent_QuickCount = 1
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ComponentType
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -377,18 +489,6 @@ End Property
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
     IDbComponent_ComponentType = edbDbsProperty
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Upgrade
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Run any version specific upgrade processes before importing.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Upgrade()
-    ' No upgrade needed.
-End Sub
 
 
 '---------------------------------------------------------------------------------------

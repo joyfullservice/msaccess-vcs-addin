@@ -10,6 +10,9 @@ Option Private Module
 Option Explicit
 
 
+' VBE Project Name for this Add-In
+Public Const PROJECT_NAME As String = "MSAccessVCS"
+
 ' Read/write chunks of text, rather than the whole thing at once for massive
 ' performance gains when reading large files.
 ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method
@@ -20,7 +23,6 @@ Public Const JSON_WHITESPACE As Integer = 2
 
 ' BOM characters for UTF-8/UTF-16 files
 Public Const UTF8_BOM As String = "ï»¿"
-Public Const UCS2_BOM As String = "ÿþ"
 
 ' Default hashing algorithm
 Public Const DefaultHashAlgorithm As String = "SHA256"
@@ -43,14 +45,13 @@ End Enum
 ' same value.
 Public Enum eDatabaseComponentType
     ' Standard database objects
-    edbForm
-    edbMacro
-    edbModule
-    edbQuery
-    edbReport
-    edbTableDef
-    edbTableDataMacro
-    edbLinkedTable
+    edbForm = acForm
+    edbMacro = acMacro
+    edbModule = acModule
+    edbQuery = acQuery
+    edbReport = acReport
+    edbTableDef = acTable
+    edbTableDataMacro = acTableDataMacro
     ' ADP specific
     edbAdpTable
     edbAdpFunction
@@ -62,7 +63,6 @@ Public Enum eDatabaseComponentType
     edbRelation
     edbDbsProperty
     edbProjectProperty
-    edbFileProperty
     edbSharedImage
     edbDocument
     edbHiddenAttribute
@@ -74,6 +74,19 @@ Public Enum eDatabaseComponentType
     edbVbeProject
     edbVbeReference
     edbProject
+    edbConnection
+    edbCommandBar
+    ' Future implementation?
+    'edbLinkedTable
+    'edbFileProperty
+    [_Last]
+End Enum
+
+' Database server types for external databases
+Public Enum eDatabaseServerType
+    estUnknown
+    estMsSql
+    estMySql
 End Enum
 
 ' Error levels used for logging and monitoring the status
@@ -95,8 +108,40 @@ Public Enum eCompareMethod2
     ecmSourceMethod = 3
 End Enum
 
+' Type of operation in progress
+Public Enum eOperationType
+    eotExport = 1
+    eotBuild = 2
+    eotMerge = 3
+End Enum
+
 ' Options for resolving file conflicts
 Public Enum eResolveConflict
+    ercNone
     ercSkip
     ercOverwrite
+    ercDelete
+End Enum
+
+' Conflict types for import/export conflicts
+Public Enum eConflictType
+    ectOrphanedSourceFile
+    ectNewerDatabaseObject
+    ectNewerSourceFile
+End Enum
+
+' Release type used when updating version
+' or deploying add-in
+Public Enum eReleaseType
+    Major_Vxx = 0
+    Minor_xVx = 1
+    Build_xxV = 2
+    Same_Version = 3
+End Enum
+
+' Types of objects to include in GetContainers()
+Public Enum eContainerFilter
+    ecfAllObjects
+    ecfVBAItems
+    ecfSchemas
 End Enum

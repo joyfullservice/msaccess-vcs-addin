@@ -148,4 +148,3 @@ Private Sub ReApplyValue(colProps As Properties, dProps As Dictionary, strName A
         colProps(strName).Value = colProps(strName).Value
     End If
 End Sub
-

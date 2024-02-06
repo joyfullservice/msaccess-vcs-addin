@@ -16,32 +16,31 @@ Most types of objects can be exported and imported using this tool.
 |Modules  |✔️|✔️|
 |Database Settings|✔️|✔️|
 
-
 ## Detailed List
 
 If you are looking for a specific type of object or property that you want to export or import, you can refer to the following more comprehensive list. (Updates and additions welcome.)
 
 The *Testing* column indicates whether a test item and testing code has been created in the *Testing.accdb* database to verify that particular item after import from source code. *Test location* indicates where to find the object in the database.
 
-|Type                     |Export|Import|VBA Class|
-|-------------------------|:----:|:----:|---------|
+|Type                     |Export|Import|VBA Class|Testing|Test Location|
+|-------------------------|:----:|:----:|---------|:-----:|-------------|
 |💼 **TABLES**
-|Access Table             |✔️|✔️|clsDbTableDef
-|Extended Properties      |✔️|✔️|clsDbTableDef
-|Table SQL                |✔️|✔️|clsDbTableDef
-|Linked Table             |✔️|✔️|clsDbTableDef
-|Linked PrimaryKey        |✔️|✔️|clsDbTableDef
-|ODBC Table               |✔️|✔️|clsDbTableDef
-|Linked Structure         |✔️|✔️|clsDbTableDef
-|Table Data (TDF)         |✔️|✔️|clsDbTableData
-|Table Data (XML)         |✔️|✔️|clsDbTableData
-|Table Data Macros        |✔️|✔️|clsDbTableDataMacro
+|Access Table             |✔️|✔️|clsDbTableDef|✔️|tblInternal|
+|Extended Properties      |✔️|✔️|clsDbTableDef|✔️|tblInternal|
+|Table SQL                |✔️|✔️|clsDbTableDef|✔️|tblInternal|
+|Linked Table             |✔️|✔️|clsDbTableDef|✔️|tblLinkedAccess|
+|Linked PrimaryKey        |✔️|✔️|clsDbTableDef|✔️|tblLinkedAccess|
+|ODBC Table               |✔️|✔️|clsDbTableDef||
+|Linked Structure         |✔️|✔️|clsDbTableDef|✔️|tblLinkedAccess|
+|Table Data (TDF)         |✔️|✔️|clsDbTableData|✔️|tblInternal.txt|
+|Table Data (XML)         |✔️|✔️|clsDbTableData|✔️|tblSaveXML.xml|
+|Table Data Macros        |✔️|✔️|clsDbTableDataMacro|✔️|tblSaveXML|
 |💼 **QUERIES**
-|Designer Layout          |✔️|✔️|clsDbQuery
-|SQL Output               |✔️|✔️|clsDbQuery
-|Pass Through Queries     |✔️|✔️|clsDbQuery
+|Designer Layout          |✔️|✔️|clsDbQuery||
+|SQL Output               |✔️|✔️|clsDbQuery||
+|Pass Through Queries     |✔️|✔️|clsDbQuery||
 |💼 **FORMS**
-|Form objects             |✔️|✔️|clsDbForm
+|Form objects             |✔️|✔️|clsDbForm||
 |Saved print settings     |✔️|✔️|clsDbReport|Optional
 |💼 **REPORTS**
 |Report objects           |✔️|✔️|clsDbReport
@@ -87,5 +86,8 @@ The *Testing* column indicates whether a test item and testing code has been cre
 ## ADP Projects
 
 Working with *.adp files is very similar to working with regular (MDB) Microsoft Access databases. All of the main database objects can be exported and imported just like MDB files. When it comes to SQL server objects, the object definitions are exported for tracking in source control, but this system does not attempt to modify any SQL server objects. (Hence the n/a note on importing SQL objects.)
+
+## Supported Versions
+This add-in is designed to work in Microsoft Access 2010 and newer. Access 2007 users, please see [this issue](https://github.com/joyfullservice/msaccess-vcs-addin/issues/464).
 
 Missing something? Create an issue or a pull request.

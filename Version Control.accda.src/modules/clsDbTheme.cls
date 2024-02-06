@@ -17,15 +17,8 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName As String = "clsDbTheme"
-
-Private m_AllItems As Collection
-Private m_Dbs As DAO.Database
-
-' This is used to pass a reference to the record back
-' into the class for loading the private variables
-' with the actual file information.
-Private m_Rst As DAO.Recordset
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' File details used for exporting/importing
 Private m_Name As String
@@ -48,36 +41,39 @@ Implements IDbComponent
 '           : folder with the theme source files. (Depending on the specified options.)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strFile As String
     Dim strZip As String
     Dim strFolder As String
+    Dim dbs As DAO.Database
     Dim rst As Recordset2
     Dim rstAtc As Recordset2
     Dim strSql As String
-    
+    Dim strHash As String
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Query theme file details
     strSql = "SELECT [Data] FROM MSysResources WHERE [Name]='" & m_Name & "' AND Extension='" & m_Extension & "'"
-    Set m_Dbs = CurrentDb
-    Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
-    
+    Set dbs = CurrentDb
+    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
+
     ' If we get multiple records back we don't know which to use
     If rst.RecordCount > 1 Then
         Log.Error eelCritical, "Multiple records in MSysResources table were found that matched this name. " & _
-            "Compact and repair database and try again. Theme Name: " & LCase(m_Name) & "." & m_Extension, ModuleName & ".Export"
+            "Compact and repair database and try again. Theme Name: " & LCase(m_Name) & "." & m_Extension, ModuleName(Me) & ".Export"
         Exit Sub
     End If
 
     ' Get full name of theme file. (*.thmx)
-    strFile = IDbComponent_SourceFile
-    
+    strFile = Nz2(strAlternatePath, IDbComponent_SourceFile)
+
     ' Save as file
     If Not rst.EOF Then
         Set rstAtc = rst!Data.Value
         If FSO.FileExists(strFile) Then DeleteFile strFile, True
+        If FSO.FolderExists(strFile) Then FSO.DeleteFolder strFile, True
         VerifyPath strFile
         Perf.OperationStart "Export Theme"
         rstAtc!FileData.SaveToFile strFile
@@ -88,7 +84,10 @@ Private Sub IDbComponent_Export()
     rst.Close
     Set rst = Nothing
 
-    CatchAny eelError, "Error exporting theme file: " & strFile, ModuleName & ".Export", True, True
+    CatchAny eelError, "Error exporting theme file: " & strFile, ModuleName(Me) & ".Export", True, True
+
+    ' Get hash before extracting the theme
+    strHash = GetFileHash(strFile)
 
     ' See if we need to extract the theme source files.
     ' (Only really needed when you are tracking themes customizations.)
@@ -100,13 +99,17 @@ Private Sub IDbComponent_Export()
         DoEvents ' Make sure the folder is deleted before we recreate it.
         ' Rename to zip file before extracting
         strZip = strFolder & ".zip"
+        If FSO.FileExists(strZip) Then DeleteFile (strZip)
         Name strFile As strZip
         ExtractFromZip strZip, strFolder, False
         ' Rather than holding up the export while we extract the file,
         ' use a cleanup sub to do this after the export.
         Perf.OperationEnd
-        CatchAny eelError, "Error extracting theme. Folder: " & strFolder, ModuleName & ".Export", True, True
+        CatchAny eelError, "Error extracting theme. Folder: " & strFolder, ModuleName(Me) & ".Export", True, True
     End If
+
+    ' Update index after exporting theme
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash, GetSignatureHash
 
 End Sub
 
@@ -126,15 +129,14 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim rstResources As DAO.Recordset   ' Recordset2
     Dim rstAttachment As DAO.Recordset  ' Recordset2
     Dim fldFile As DAO.Field            ' Field2
-    
     Dim strZip As String
     Dim strThemeFile As String
     Dim strThemeName As String
     Dim strSql As String
     Dim blnIsFolder As Boolean
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Are we dealing with a folder, or a file?
     blnIsFolder = (Right$(strFile, 5) <> ".thmx")
 
@@ -162,7 +164,7 @@ Private Sub IDbComponent_Import(strFile As String)
     End If
 
     ' Log any errors encountered.
-    CatchAny eelError, "Error getting theme file. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName & ".Import", True, True
+    CatchAny eelError, "Error getting theme file. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName(Me) & ".Import", True, True
 
     ' Create/edit record in resources table.
     strThemeName = GetObjectNameFromFileName(FSO.GetBaseName(strFile))
@@ -185,28 +187,37 @@ Private Sub IDbComponent_Import(strFile As String)
                 Set rstAttachment = .Fields("Data").Value
                 If Not rstAttachment.EOF Then rstAttachment.Delete
             End If
-            
+
             ' Upload theme file into OLE field
             DoEvents
             With rstAttachment
                 .AddNew
                 Set fldFile = .Fields("FileData")
                 fldFile.LoadFromFile strThemeFile
+                m_FileData = fldFile
                 .Update
                 .Close
             End With
-            
+
+            ' Update class variables so we can recalculate the index hash
+            m_Name = strThemeName
+            m_FileName = strThemeName & ".thmx"
+            m_Extension = "thmx"
+
             ' Save and close record
             .Update
             .Close
         End With
     End If
-    
+
     ' Remove compressed theme file if we are using a folder.
     If blnIsFolder Then DeleteFile strThemeFile, True
-    
+
+    ' Update index
+    VCSIndex.Update Me, eatImport, GetSignatureHash
+
     ' Log any errors
-    CatchAny eelError, "Error importing theme. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName & ".Import", True, True
+    CatchAny eelError, "Error importing theme. File: " & strThemeFile & ", IsFolder: " & blnIsFolder, ModuleName(Me) & ".Import", True, True
 
     ' Clear object (Important with DAO/ADO)
     Set rstAttachment = Nothing
@@ -224,7 +235,62 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
+    ' Import if file exists
+    If FSO.FileExists(strFile) Then
+        ' The import will replace the existing theme with the same name.
+        IDbComponent_Import strFile
+    Else
+        'TODO: Remove existing theme
+        VCSIndex.Remove Me, strFile
+    End If
+End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSignatureHash
+' Author    : Adam Waller
+' Date      : 5/28/2021
+' Purpose   : Return a simple hash that should give us a pretty good idea if the theme
+'           : has changed since it was last exported.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSignatureHash() As String
+
+    Dim dblCnt As Double
+    Dim dblLen As Double
+
+    ' Get length (bytes) of file data
+    If StrPtr(m_FileData) <> 0 Then dblLen = UBound(m_FileData)
+
+    With New clsConcat
+        ' Compile string with file information
+        .Add m_Name, m_FileName, m_Extension, CStr(dblLen)
+        ' Add in last 100 characters of file content (byte numbers)
+        ' Since this is a compressed (zip) file, we will probably
+        ' see a change here if the contents were modified.
+        If dblLen > 100 Then
+            For dblCnt = dblLen To dblLen - 100 Step -1
+                .Add CStr(m_FileData(dblCnt))
+            Next dblCnt
+        End If
+        ' Return hash of this string
+        GetSignatureHash = GetStringHash(.GetStr)
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+    ' Check for extracted theme files
+    MoveFolderIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile), strToFolder
 End Sub
 
 
@@ -235,35 +301,40 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
-    
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
+
     Dim cTheme As IDbComponent
+    Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     Dim strSql As String
     Dim strKey As String
     Dim dItems As Dictionary
-    
+    Dim blnAdd As Boolean
+
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Collection
-            
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
+
         ' Use dictionary to make sure we don't add duplicate records if we have
         ' both a folder and a theme file for the same theme.
         Set dItems = New Dictionary
-        
+
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
 
-            Set m_Dbs = CurrentDb
+            Set dbs = CurrentDb
             strSql = "SELECT * FROM MSysResources WHERE Type='thmx'"
-            Set rst = m_Dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
+            Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbOpenForwardOnly)
             With rst
                 Do While Not .EOF
-                    Set cTheme = New clsDbTheme
-                    Set cTheme.DbObject = rst    ' Reference to OLE object recordset2
                     strKey = Nz(!Name)
                     If Not dItems.Exists(strKey) Then
-                        m_AllItems.Add cTheme, strKey
+                        ' Load theme details so we can check modified status
+                        Set cTheme = New clsDbTheme
+                        Set cTheme.DbObject = rst    ' Reference to OLE object recordset2
+                        blnAdd = True
+                        If blnModifiedOnly Then blnAdd = cTheme.IsModified
+                        If blnAdd Then m_Items(blnModifiedOnly).Add cTheme.SourceFile, cTheme
                         dItems.Add strKey, strKey
                     End If
                     .MoveNext
@@ -274,7 +345,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
 
 End Function
 
@@ -289,23 +360,22 @@ End Function
 Public Function VerifyResourcesTable() As Boolean
 
     Dim blnExists As Boolean
-    Dim strName As String
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Make sure we actually have a resources table.
     blnExists = TableExists("MSysResources")
     If Not blnExists Then
         CreateResourcesTable
         blnExists = TableExists("MSysResources")
     End If
-     
+
     ' Return true if the table exists
     VerifyResourcesTable = blnExists
 
     ' Log any errors
-    CatchAny eelError, "Error verifying MSysResources table", ModuleName & ".VerifyResourcesTable"
-    
+    CatchAny eelError, "Error verifying MSysResources table", ModuleName(Me) & ".VerifyResourcesTable"
+
 End Function
 
 
@@ -321,14 +391,14 @@ Private Sub CreateResourcesTable()
 
     Dim strTempFile As String
     Dim strName As String
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     Perf.OperationStart "Create MSysResources Table"
-    
+
     ' Create a temporary image file
     strTempFile = GetTempFile("IMG")
     Create1x1pxImage strTempFile
-    
+
     ' Add to database as shared image
     strName = FSO.GetBaseName(strTempFile)
     CurrentProject.AddSharedImage strName, strTempFile
@@ -336,11 +406,11 @@ Private Sub CreateResourcesTable()
     ' Now that we have the table, remove temporary shared image record and temp file.
     CurrentDb.Execute "DELETE * FROM MSysResources WHERE Name='" & strName & "'", dbFailOnError
     DeleteFile strTempFile
-    
+
     ' Log any errors
-    CatchAny eelError, "Error creating MSysResources table", ModuleName & ".CreateResourcesTable"
+    CatchAny eelError, "Error creating MSysResources table", ModuleName(Me) & ".CreateResourcesTable"
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -356,7 +426,7 @@ Private Sub Create1x1pxImage(strPath As String)
     Dim intCnt As Integer
     Dim varBytes As Variant
     Dim bteImg() As Byte
-    
+
     ' Byte array for binary 1x1 pixel png file.
     varBytes = Array((137), (80), (78), (71), (13), (10), (26), (10), (0), (0), (0), (13), (73), (72), (68), _
         (82), (0), (0), (0), (1), (0), (0), (0), (1), (1), (3), (0), (0), (0), (37), (219), (86), (202), (0), _
@@ -364,16 +434,16 @@ Private Sub Create1x1pxImage(strPath As String)
         (116), (82), (78), (83), (0), (64), (230), (216), (102), (0), (0), (0), (10), (73), (68), (65), (84), _
         (8), (215), (99), (96), (0), (0), (0), (2), (0), (1), (226), (33), (188), (51), (0), (0), (0), (0), _
         (73), (69), (78), (68), (174), (66), (96), (130))
-    
+
     ' Convert to byte array
     ReDim bteImg(0 To UBound(varBytes)) As Byte
     For intCnt = 0 To UBound(varBytes)
         bteImg(intCnt) = varBytes(intCnt)
     Next intCnt
-    
+
     ' Write to file
     WriteBinaryFile strPath, bteImg
-    
+
 End Sub
 
 
@@ -384,24 +454,14 @@ End Sub
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Private Function IDbComponent_GetFileList() As Dictionary
     ' Get list of folders (extracted files) as well as zip files.
-    Set IDbComponent_GetFileList = GetSubfolderPaths(IDbComponent_BaseFolder)
-    MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetSubfolderPaths(IDbComponent_BaseFolder)
+        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.thmx")
+    End If
+    Set IDbComponent_GetFileList = m_FileList
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedSourceFiles
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Remove any source files for objects not in the current database.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFiles Me, "thmx"
-    ClearOrphanedSourceFolders Me
-End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -413,7 +473,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    ' Compare the index hash with the current theme signature hash
+    IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetSignatureHash
 End Function
 
 
@@ -428,22 +489,6 @@ End Function
 '
 Private Function IDbComponent_DateModified() As Date
     IDbComponent_DateModified = 0
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SourceModified
-' Author    : Adam Waller
-' Date      : 4/27/2020
-' Purpose   : The date/time the source object was modified. In most cases, this would
-'           : be the date/time of the source file, but it some cases like SQL objects
-'           : the date can be determined through other means, so this function
-'           : allows either approach to be taken.
-'---------------------------------------------------------------------------------------
-'
-Private Function IDbComponent_SourceModified() As Date
-    '// TODO: Recursively identify the most recent file modified date.
-    'If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = GetLastModifiedDate(IDbComponent_SourceFile)
 End Function
 
 
@@ -468,6 +513,21 @@ End Property
 Private Property Get IDbComponent_BaseFolder() As String
     IDbComponent_BaseFolder = Options.GetExportFolder & "themes" & PathSep
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FileExtensions
+' Author    : Adam Waller
+' Date      : 12/1/2023
+' Purpose   : A collection of the file extensions used in source files for this
+'           : component type.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_FileExtensions() As Collection
+    Set IDbComponent_FileExtensions = New Collection
+    IDbComponent_FileExtensions.Add "thmx"
+End Property
+
 
 
 '---------------------------------------------------------------------------------------
@@ -508,6 +568,20 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    IDbComponent_QuickCount = 1
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ComponentType
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -517,18 +591,6 @@ End Property
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
     IDbComponent_ComponentType = edbTheme
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Upgrade
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Run any version specific upgrade processes before importing.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Upgrade()
-    ' No upgrade needed.
-End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -553,27 +615,29 @@ End Property
 '
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
 
+    ' Recordset to handle the incoming reference
+    Dim rst As DAO.Recordset
+
     ' IMPORTANT: These variables must be declared as the
     ' generic parent classes to avoid problems in newer
     ' releases of Microsoft Access. (See issue #341)
     Dim fld2 As DAO.Field       ' Field2
     Dim rst2 As DAO.Recordset   ' Recordset2
 
-    Set m_Rst = RHS
-
     ' Load in the object details.
-    m_Name = m_Rst!Name
-    m_Extension = m_Rst!Extension
+    Set rst = RHS
+    m_Name = Nz(rst!Name)
+    m_Extension = Nz(rst!Extension)
     '@Ignore SetAssignmentWithIncompatibleObjectType
-    Set fld2 = m_Rst!Data
+    Set fld2 = rst!Data
     Set rst2 = fld2.Value
-    m_FileName = rst2.Fields("FileName")
+    m_FileName = Nz(rst2.Fields("FileName"))
     m_FileData = rst2.Fields("FileData")
 
     ' Clear the object references
     Set rst2 = Nothing
     Set fld2 = Nothing
-    Set m_Rst = Nothing
+    Set rst = Nothing
 
 End Property
 
@@ -603,16 +667,3 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Class_Terminate
-' Author    : Adam Waller
-' Date      : 5/13/2020
-' Purpose   : Clear reference to database object.
-'---------------------------------------------------------------------------------------
-'
-Private Sub Class_Terminate()
-    Set m_Dbs = Nothing
-End Sub
-

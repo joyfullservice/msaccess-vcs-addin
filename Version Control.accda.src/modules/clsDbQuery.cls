@@ -18,8 +18,8 @@ Option Compare Database
 Option Explicit
 
 Private m_Query As AccessObject
-Private m_AllItems As Collection
-Private m_blnModifiedOnly As Boolean
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -35,25 +35,55 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-    
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+
     Dim strFile As String
+    Dim strHash As String
+    Dim strSql As String
     Dim dbs As DAO.Database
 
     ' Save and sanitize file
-    SaveComponentAsText acQuery, m_Query.Name, IDbComponent_SourceFile
-    VCSIndex.Update Me, eatExport
-    
-    ' Export as SQL (if using that option)
-    If Options.SaveQuerySQL Then
-        Perf.OperationStart "Save Query SQL"
-        Set dbs = CurrentDb
-        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
-        WriteFile dbs.QueryDefs(m_Query.Name).SQL, strFile
-        Perf.OperationEnd
-        Log.Add "  " & m_Query.Name & " (SQL)", Options.ShowDebug
+    strHash = SaveComponentAsText(acQuery, m_Query.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
+
+    ' If saving in source folder, check SQL option
+    If strAlternatePath = vbNullString Then
+        ' Export as SQL (if using that option)
+        If Options.SaveQuerySQL Then
+            Perf.OperationStart "Save Query SQL"
+            Set dbs = CurrentDb
+            strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
+            On Error Resume Next
+            strSql = dbs.QueryDefs(m_Query.Name).SQL
+            If Catch(3258) Then
+                Log.Error eelWarning, "Unable to access SQL property of query '" & m_Query.Name & "'. SQL view may not be available for this query.", ModuleName(Me) & ".Export"
+            ElseIf Err.Number Then
+                Log.Error eelError, "Unexpected error accessing SQL property of query '" & m_Query.Name & "'. Error " & Err.Number & ": " & Err.Description, ModuleName(Me) & ".Export"
+            End If
+            On Error GoTo 0
+            If strSql <> vbNullString Then
+                ' Pass-through queries should not be formatted, since they support formatting and comments.
+                Select Case dbs.QueryDefs(m_Query.Name).Type
+                    'Case dbQSetOperation - Go ahead and format Union queries
+                    Case dbQSQLPassThrough, dbQSPTBulk
+                        'Do not automatically format these query types
+                    Case Else
+                        With New clsSqlFormatter
+                            Perf.OperationStart "Format SQL"
+                            strSql = .FormatSQL(strSql, esdAccess)
+                            Perf.OperationEnd
+                        End With
+                End Select
+                ' Write SQL to file
+                WriteFile strSql, strFile
+            End If
+            Perf.OperationEnd
+            Log.Add "  " & m_Query.Name & " (SQL)", Options.ShowDebug
+        End If
     End If
-    
+
+    ' Update the index
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
+
 End Sub
 
 
@@ -70,28 +100,28 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strQueryName As String
     Dim strFileSql As String
     Dim strSql As String
-    
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
-    
+
     ' Import query from file
     strQueryName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acQuery, strQueryName, strFile
     Set m_Query = CurrentData.AllQueries(strQueryName)
-    VCSIndex.Update Me, eatImport
-    
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile)
+
     ' In some cases, such as when a query contains a subquery, AND has been modified in the
     ' visual query designer, it may be imported incorrectly and unable to run. For these
     ' cases we have added an option to overwrite the .SQL property with the SQL that we
     ' saved separately during the export. See the following link for further details:
-    ' https://github.com/joyfullservice/msaccess-vcs-integration/issues/76
-    
+    ' https://github.com/joyfullservice/msaccess-vcs-addin/issues/76
+
     ' Check option to import exact query from SQL
     If Options.ForceImportOriginalQuerySQL Then
-    
+
         ' Replace .bas extension with .sql to get file content
         strFileSql = Left$(strFile, Len(strFile) - 4) & ".sql"
-        
+
         ' Tries to get SQL content from the SQL file previously exported
         strSql = ReadFile(strFileSql)
 
@@ -104,7 +134,7 @@ Private Sub IDbComponent_Import(strFile As String)
             Log.Add "  Couldn't get original SQL query for " & strQueryName
         End If
     End If
-    
+
 End Sub
 
 
@@ -118,7 +148,24 @@ End Sub
 '
 Private Sub IDbComponent_Merge(strFile As String)
     DeleteObjectIfExists acQuery, GetObjectNameFromFileName(strFile)
-    IDbComponent_Import strFile
+    If FSO.FileExists(strFile) Then
+        IDbComponent_Import strFile
+    Else
+        VCSIndex.Remove Me, strFile
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".sql", strToFolder
 End Sub
 
 
@@ -129,29 +176,27 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
-    
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
+
     Dim qry As AccessObject
     Dim cQuery As IDbComponent
+    Dim blnAdd As Boolean
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or (blnModifiedOnly <> m_blnModifiedOnly) Then
-        Set m_AllItems = New Collection
-        m_blnModifiedOnly = blnModifiedOnly
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         For Each qry In CurrentData.AllQueries
             Set cQuery = New clsDbQuery
             Set cQuery.DbObject = qry
-            If blnModifiedOnly Then
-                If cQuery.IsModified Then m_AllItems.Add cQuery, qry.Name
-            Else
-                m_AllItems.Add cQuery, qry.Name
-            End If
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cQuery.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cQuery.SourceFile, cQuery
         Next qry
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
-            
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
+
 End Function
 
 
@@ -162,21 +207,10 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+Private Function IDbComponent_GetFileList() As Dictionary
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedSourceFiles
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Remove any source files for objects not in the current database.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFiles Me, "bas", "sql"
-End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -188,7 +222,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = (m_Query.DateModified > VCSIndex.GetExportDate(Me))
+    IDbComponent_IsModified = (m_Query.DateModified > VCSIndex.Item(Me).ExportDate)
 End Function
 
 
@@ -202,22 +236,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Query Is Nothing Then Exit Function
     IDbComponent_DateModified = m_Query.DateModified
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SourceModified
-' Author    : Adam Waller
-' Date      : 4/27/2020
-' Purpose   : The date/time the source object was modified. In most cases, this would
-'           : be the date/time of the source file, but it some cases like SQL objects
-'           : the date can be determined through other means, so this function
-'           : allows either approach to be taken.
-'---------------------------------------------------------------------------------------
-'
-Private Function IDbComponent_SourceModified() As Date
-    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = GetLastModifiedDate(IDbComponent_SourceFile)
 End Function
 
 
@@ -245,6 +265,21 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : FileExtensions
+' Author    : Adam Waller
+' Date      : 12/1/2023
+' Purpose   : A collection of the file extensions used in source files for this
+'           : component type.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_FileExtensions() As Collection
+    Set IDbComponent_FileExtensions = New Collection
+    IDbComponent_FileExtensions.Add "bas"
+    IDbComponent_FileExtensions.Add "sql"
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Name
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -252,6 +287,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Query Is Nothing Then Exit Property
     IDbComponent_Name = m_Query.Name
 End Property
 
@@ -264,6 +300,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Query Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".bas"
 End Property
 
@@ -281,6 +318,22 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    Static lngCount As Long
+    If lngCount = 0 Then lngCount = CurrentData.AllQueries.Count - 1
+    IDbComponent_QuickCount = lngCount + 1
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ComponentType
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -290,18 +343,6 @@ End Property
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
     IDbComponent_ComponentType = edbQuery
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Upgrade
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Run any version specific upgrade processes before importing.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Upgrade()
-    ' No upgrade needed.
-End Sub
 
 
 '---------------------------------------------------------------------------------------

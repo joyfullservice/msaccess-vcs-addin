@@ -17,15 +17,14 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const ModuleName As String = "clsDbModule"
-
 Private m_Module As AccessObject
-Private m_AllItems As Collection
-Private m_blnModifiedOnly As Boolean
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 Private Type udtVbaFileContent
     strContent As String
     blnIsClass As Boolean
+    blnPublicCreatable As Boolean
 End Type
 
 ' This requires us to use all the public methods and properties of the implemented class
@@ -42,26 +41,24 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-    
-    Dim strTempFile As String
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+
     Dim strExt As String
     Dim strAlternateFile As String
 
-    ' Export to temp file and convert to UTF-8 encoding
-    strTempFile = GetTempFile
-    ExportVbComponent strTempFile
-    ConvertAnsiUtf8 strTempFile, IDbComponent_SourceFile
-    
+    ' Export as sanitized UTF-8 file
+    ExportCodeModule m_Module.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
+
     ' Remove any file with the same name but alternate extension
     strExt = IIf(GetExtension = ".bas", ".cls", ".bas")
     strAlternateFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & strExt
     If FSO.FileExists(strAlternateFile) Then DeleteFile strAlternateFile
-    
+
     ' Update the index with the current VBA hash. (Note, this will not show
     ' changes to the hidden VBE properties that might have been added.)
-    VCSIndex.Update Me, eatExport, GetCodeModuleHash(edbModule, m_Module.Name)
-        
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
+        GetFileHash(IDbComponent_SourceFile), GetCodeModuleHash(edbModule, m_Module.Name)
+
 End Sub
 
 
@@ -74,35 +71,51 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Const cintPublicCreateable As Integer = 5   ' Instancing
+
     Dim strName As String
     Dim strTempFile As String
     Dim udtFile As udtVbaFileContent
-    
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     ' Only import files with the correct extension.
     If Not (strFile Like "*.bas" Or strFile Like "*.cls") Then Exit Sub
-    
+
     ' Parse source file
     strName = GetObjectNameFromFileName(strFile)
     udtFile = ParseSourceFile(strFile, strName)
-    
+
     ' Write to a new file using system encoding (converting from UTF-8)
     strTempFile = GetTempFile
     WriteFile udtFile.strContent, strTempFile, GetSystemEncoding
-    
+
     ' Import the source code
     LoadVbeModuleFromFile strTempFile, strName
-    
+
     ' Make sure the correct project is active before saving.
-    Set VBE.ActiveVBProject = GetVBProjectForCurrentDB
+    Set VBE.ActiveVBProject = CurrentVBProject
     DoCmd.Save acModule, strName
-    
+
+    ' Update instancing for public creatable classes
+    If udtFile.blnPublicCreatable Then
+        CurrentVBProject.VBComponents(strName).Properties("Instancing") = cintPublicCreateable
+        DoCmd.Save acModule, strName
+    End If
+
     ' Set reference to object
+    LogUnhandledErrors
+    On Error Resume Next
     Set m_Module = CurrentProject.AllModules(strName)
-        
+    If Catch(2467) Then Log.Error eelCritical, _
+        "Imported module not found after import: " & strName, ModuleName(Me) & ".Import"
+
     ' Save hash, update the index, and remove the temp file
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
     DeleteFile strTempFile
-    
+
+    CatchAny eelError, "Error importing module: " & strName, ModuleName(Me) & ".Import"
+
 End Sub
 
 
@@ -116,42 +129,44 @@ End Sub
 Private Function ParseSourceFile(strFile As String, strName As String) As udtVbaFileContent
 
     Dim strLines() As String
-    Dim strTLine As String
     Dim lngLine As Long
     Dim cData As clsConcat
     Dim blnIsClass As Boolean
     Dim blnHasHeader As Boolean
-        
+    Dim blnCreatable As Boolean
+    Dim blnPublic As Boolean
+
     Perf.OperationStart "Parse VBA Module"
-    
+
     ' Read file contents into array of lines
     strLines = Split(ReadFile(strFile), vbCrLf)
-    
+
     ' Loop through first several lines to determine type and header
     For lngLine = 0 To UBound(strLines)
         If strLines(lngLine) = "VERSION 1.0 CLASS" Then
             ' Class with VBE header
             blnIsClass = True
             blnHasHeader = True
-            Exit For
         ElseIf StartsWith(strLines(lngLine), "Attribute VB_Name = """) Then
             ' Module with VBE header
             blnHasHeader = True
-            Exit For
         ElseIf StartsWith(strLines(lngLine), "Attribute VB_GlobalNameSpace = ") Then
             ' Class with no header
             blnIsClass = True
-            Exit For
+        ElseIf strLines(lngLine) = "Attribute VB_Creatable = True" Then
+            blnCreatable = True
+        ElseIf strLines(lngLine) = "Attribute VB_Exposed = True" Then
+            blnPublic = True
         End If
-        ' Exit after 10 lines
+        ' Exit after 9 lines
         If lngLine > 8 Then Exit For
     Next lngLine
-    
+
     ' Use concatenation class to build file contents
     Set cData = New clsConcat
     With cData
         .AppendOnAdd = vbCrLf
-        
+
         ' Build header, if needed
         If Not blnHasHeader Then
             If blnIsClass Then
@@ -162,24 +177,25 @@ Private Function ParseSourceFile(strFile As String, strName As String) As udtVba
             End If
             .Add "Attribute VB_Name = """, strName, """"
         End If
-    
+
         ' Add in file contents
         For lngLine = 0 To UBound(strLines)
             .Add strLines(lngLine)
         Next lngLine
-        
+
         ' Remove trailing vbCrLf
         .Remove 2
     End With
-    
+
     ' Return values
     With ParseSourceFile
         .blnIsClass = blnIsClass
         .strContent = cData.GetStr
+        .blnPublicCreatable = (blnCreatable And blnPublic)
     End With
-    
+
     Perf.OperationEnd
-    
+
 End Function
 
 
@@ -195,25 +211,26 @@ End Function
 Private Sub LoadVbeModuleFromFile(strFile As String, strName As String)
 
     Dim proj As VBProject
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
-    Set proj = GetVBProjectForCurrentDB
+
+    Set proj = CurrentVBProject
     Perf.OperationStart "Import VBE Module"
     With proj.VBComponents
-        
+
         ' Remove any existing component (In most cases the module will exist)
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         .Remove .Item(strName)
         If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
-        
+
         ' Load from the file
         .Import strFile
     End With
     Perf.OperationEnd
-   
-    CatchAny eelError, "Error importing VBA code for " & strName, ModuleName & ".LoadVbeModuleFromFile"
-    
+
+    CatchAny eelError, "Error importing VBA code for " & strName, ModuleName(Me) & ".LoadVbeModuleFromFile"
+
 End Sub
 
 
@@ -230,22 +247,20 @@ Private Sub IDbComponent_Merge(strFile As String)
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
     Else
-        VCSIndex.Remove Me
+        VCSIndex.Remove Me, strFile
     End If
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ExportVbComponent
+' Procedure : IDbComponent_MoveSource
 ' Author    : Adam Waller
-' Date      : 5/26/2021
-' Purpose   : Export the code module VB component
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
 '---------------------------------------------------------------------------------------
 '
-Private Sub ExportVbComponent(strFile As String)
-    Perf.OperationStart "Export VBE Module"
-    GetVBProjectForCurrentDB.VBComponents(m_Module.Name).Export strFile
-    Perf.OperationEnd
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
 End Sub
 
 
@@ -256,31 +271,29 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
-        
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
+
     Dim oMod As AccessObject
     Dim cModule As IDbComponent
     Dim proj As VBProject
-    
+    Dim blnAdd As Boolean
+
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Or blnModifiedOnly <> m_blnModifiedOnly Then
-        m_blnModifiedOnly = blnModifiedOnly
-        Set m_AllItems = New Collection
-        Set proj = GetVBProjectForCurrentDB
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
+        Set proj = CurrentVBProject
         For Each oMod In CurrentProject.AllModules
             Set cModule = New clsDbModule
             Set cModule.DbObject = oMod
-            If blnModifiedOnly Then
-                If cModule.IsModified Then m_AllItems.Add cModule, oMod.Name
-            Else
-                m_AllItems.Add cModule, oMod.Name
-            End If
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cModule.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cModule.SourceFile, cModule
         Next oMod
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
-        
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
+
 End Function
 
 
@@ -291,22 +304,13 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
-    MergeCollection IDbComponent_GetFileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.cls")
+Private Function IDbComponent_GetFileList() As Dictionary
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.cls")
+    End If
+    Set IDbComponent_GetFileList = m_FileList
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedSourceFiles
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Remove any source files for objects not in the current database.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearOrphanedSourceFiles Me, "bas", "cls"
-End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -321,9 +325,9 @@ Public Function IDbComponent_IsModified() As Boolean
 
     ' The modified date for the object changes frequently with compile/save operations,
     ' so use the hash instead to detect changes.
-    
+
     ' NOTE: This will not detect changes to hidden VBE attributes
-    IDbComponent_IsModified = VCSIndex.Item(Me)("Hash") <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
+    IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
 
 End Function
 
@@ -338,22 +342,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Module Is Nothing Then Exit Function
     IDbComponent_DateModified = CurrentProject.AllModules(m_Module.Name).DateModified
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SourceModified
-' Author    : Adam Waller
-' Date      : 4/27/2020
-' Purpose   : The date/time the source object was modified. In most cases, this would
-'           : be the date/time of the source file, but it some cases like SQL objects
-'           : the date can be determined through other means, so this function
-'           : allows either approach to be taken.
-'---------------------------------------------------------------------------------------
-'
-Private Function IDbComponent_SourceModified() As Date
-    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = GetLastModifiedDate(IDbComponent_SourceFile)
 End Function
 
 
@@ -381,6 +371,21 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : FileExtensions
+' Author    : Adam Waller
+' Date      : 12/1/2023
+' Purpose   : A collection of the file extensions used in source files for this
+'           : component type.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_FileExtensions() As Collection
+    Set IDbComponent_FileExtensions = New Collection
+    IDbComponent_FileExtensions.Add "bas"
+    IDbComponent_FileExtensions.Add "cls"
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Name
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -388,6 +393,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Module Is Nothing Then Exit Property
     IDbComponent_Name = m_Module.Name
 End Property
 
@@ -400,6 +406,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Module Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & GetExtension
 End Property
 
@@ -412,7 +419,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Function GetExtension() As String
-    If GetVBProjectForCurrentDB.VBComponents(m_Module.Name).Type = vbext_ct_StdModule Then
+    If CurrentVBProject.VBComponents(m_Module.Name).Type = vbext_ct_StdModule Then
         GetExtension = ".bas"
     Else
         GetExtension = ".cls"
@@ -433,6 +440,22 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    Static lngCount As Long
+    If lngCount = 0 Then lngCount = CurrentProject.AllModules.Count - 1
+    IDbComponent_QuickCount = lngCount + 1
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ComponentType
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -442,18 +465,6 @@ End Property
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
     IDbComponent_ComponentType = edbModule
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Upgrade
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Run any version specific upgrade processes before importing.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Upgrade()
-    ' No upgrade needed for modules.
-End Sub
 
 
 '---------------------------------------------------------------------------------------

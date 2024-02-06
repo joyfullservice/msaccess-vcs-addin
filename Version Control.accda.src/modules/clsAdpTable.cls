@@ -18,7 +18,8 @@ Option Compare Database
 Option Explicit
 
 Private m_Table As AccessObject
-Private m_AllItems As Collection
+Private m_Items(True To False) As Dictionary
+Private m_FileList As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -34,55 +35,12 @@ Implements IDbComponent
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbComponent_Export()
-
-    Dim strSql As String
-    Dim rst As ADODB.Recordset
-    Dim intRst As Integer
-    Dim fld As ADODB.Field
-    Dim colText As New clsConcat
-    
-    ' Initialize counter
-    intRst = 2
-    
-    ' Get initial table information
-    strSql = "exec sp_help N'" & m_Table.Name & "'"
-    '@Ignore SetAssignmentWithIncompatibleObjectType
-    Set rst = CurrentProject.Connection.Execute(strSql)
-    colText.Add "-- sp_help Recordset 1" & vbCrLf & vbCrLf
-    For Each fld In rst.Fields
-        colText.Add fld.Name
-        colText.Add vbTab
-    Next fld
-    colText.Add vbCrLf
-    colText.Add rst.GetString(, , vbTab, vbCrLf)
-    
-    ' Loop through additional recordsets for columns, keys and other data
-    Do
-        Set rst = rst.NextRecordset
-        If rst Is Nothing Then Exit Do
-        If rst.State = adStateClosed Then Exit Do
-        
-        colText.Add vbCrLf & vbCrLf & "-- sp_help Recordset " & intRst & vbCrLf & vbCrLf
-        For Each fld In rst.Fields
-            colText.Add fld.Name
-            colText.Add vbTab
-        Next fld
-        If Not rst.EOF Then
-            colText.Add vbCrLf
-            colText.Add rst.GetString(, , vbTab, vbCrLf)
-        End If
-        
-        intRst = intRst + 1
-    Loop
-    
-    ' Clear references
-    Set fld = Nothing
-    Set rst = Nothing
-    
-    ' Write SQL text to file
-    WriteFile colText.GetStr, IDbComponent_SourceFile
-    
+Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+    Dim strContent As String
+    ClearFilesByExtension IDbComponent_BaseFolder, "tdf"    ' Legacy extension
+    strContent = GetSource
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 End Sub
 
 
@@ -94,7 +52,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
-
+    ' Not supported
 End Sub
 
 
@@ -107,7 +65,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
+    ' Not supported
+End Sub
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : IDbComponent_MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the component's source file(s) from one folder to another
+'---------------------------------------------------------------------------------------
+'
+Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
 End Sub
 
 
@@ -118,23 +88,85 @@ End Sub
 ' Purpose   : Return a collection of class objects represented by this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
-    
+Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
+
     Dim tbl As AccessObject
     Dim cTable As IDbComponent
+    Dim blnAdd As Boolean
 
     ' Build collection if not already cached
-    If m_AllItems Is Nothing Then
-        Set m_AllItems = New Collection
+    If m_Items(blnModifiedOnly) Is Nothing Then
+        Set m_Items(blnModifiedOnly) = New Dictionary
         For Each tbl In CurrentData.AllTables
             Set cTable = New clsAdpTable
             Set cTable.DbObject = tbl
-            m_AllItems.Add cTable, tbl.Name
+            blnAdd = True
+            If blnModifiedOnly Then blnAdd = cTable.IsModified
+            If blnAdd Then m_Items(blnModifiedOnly).Add cTable.SourceFile, cTable
         Next tbl
     End If
 
     ' Return cached collection
-    Set IDbComponent_GetAllFromDB = m_AllItems
+    Set IDbComponent_GetAllFromDB = m_Items(blnModifiedOnly)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSource
+' Author    : Adam Waller
+' Date      : 9/1/2022
+' Purpose   : Return the full content that will be saved to the source file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSource() As String
+
+    Dim strSql As String
+    Dim rst As ADODB.Recordset
+    Dim intRst As Integer
+    Dim fld As ADODB.Field
+    Dim colText As New clsConcat
+
+    ' Initialize counter
+    intRst = 2
+
+    ' Get initial table information
+    strSql = "exec sp_help N'" & m_Table.Name & "'"
+    '@Ignore SetAssignmentWithIncompatibleObjectType
+    Set rst = CurrentProject.Connection.Execute(strSql)
+    colText.Add "-- sp_help Recordset 1" & vbCrLf & vbCrLf
+    For Each fld In rst.Fields
+        colText.Add fld.Name
+        colText.Add vbTab
+    Next fld
+    colText.Add vbCrLf
+    colText.Add rst.GetString(, , vbTab, vbCrLf)
+
+    ' Loop through additional recordsets for columns, keys and other data
+    Do
+        Set rst = rst.NextRecordset
+        If rst Is Nothing Then Exit Do
+        If rst.State = adStateClosed Then Exit Do
+
+        colText.Add vbCrLf & vbCrLf & "-- sp_help Recordset " & intRst & vbCrLf & vbCrLf
+        For Each fld In rst.Fields
+            colText.Add fld.Name
+            colText.Add vbTab
+        Next fld
+        If Not rst.EOF Then
+            colText.Add vbCrLf
+            colText.Add rst.GetString(, , vbTab, vbCrLf)
+        End If
+
+        intRst = intRst + 1
+    Loop
+
+    ' Clear references
+    Set fld = Nothing
+    Set rst = Nothing
+
+    ' Return SQL content
+    GetSource = colText.GetStr
 
 End Function
 
@@ -146,22 +178,10 @@ End Function
 ' Purpose   : Return a list of file names to import for this component type.
 '---------------------------------------------------------------------------------------
 '
-Private Function IDbComponent_GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
-    Set IDbComponent_GetFileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.txt")
+Private Function IDbComponent_GetFileList() As Dictionary
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.txt")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedSourceFiles
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Remove any source files for objects not in the current database.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_ClearOrphanedSourceFiles()
-    ClearFilesByExtension IDbComponent_BaseFolder, "tdf"    ' Legacy extension
-    ClearOrphanedSourceFiles Me, "txt"
-End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -173,7 +193,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-
+    IDbComponent_IsModified = (GetSQLObjectModifiedDate(m_Table.Name, estTable) > VCSIndex.Item(Me).ExportDate)
 End Function
 
 
@@ -187,22 +207,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_DateModified() As Date
+    If m_Table Is Nothing Then Exit Function
     IDbComponent_DateModified = GetSQLObjectModifiedDate(m_Table.Name, estTable)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SourceModified
-' Author    : Adam Waller
-' Date      : 4/27/2020
-' Purpose   : The date/time the source object was modified. In most cases, this would
-'           : be the date/time of the source file, but it some cases like SQL objects
-'           : the date can be determined through other means, so this function
-'           : allows either approach to be taken.
-'---------------------------------------------------------------------------------------
-'
-Private Function IDbComponent_SourceModified() As Date
-    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_SourceModified = GetLastModifiedDate(IDbComponent_SourceFile)
 End Function
 
 
@@ -230,6 +236,20 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : FileExtensions
+' Author    : Adam Waller
+' Date      : 12/1/2023
+' Purpose   : A collection of the file extensions used in source files for this
+'           : component type.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_FileExtensions() As Collection
+    Set IDbComponent_FileExtensions = New Collection
+    IDbComponent_FileExtensions.Add "txt"
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Name
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -237,6 +257,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
+    If m_Table Is Nothing Then Exit Property
     IDbComponent_Name = m_Table.Name
 End Property
 
@@ -249,6 +270,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_Table Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(StripDboPrefix(m_Table.Name)) & ".txt"
 End Property
 
@@ -266,6 +288,22 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : QuickCount
+' Author    : Adam Waller
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get IDbComponent_QuickCount() As Long
+    Static lngCount As Long
+    If lngCount = 0 Then lngCount = CurrentData.AllTables.Count - 1
+    IDbComponent_QuickCount = lngCount + 1
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ComponentType
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -275,18 +313,6 @@ End Property
 Private Property Get IDbComponent_ComponentType() As eDatabaseComponentType
     IDbComponent_ComponentType = edbAdpTable
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Upgrade
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Run any version specific upgrade processes before importing.
-'---------------------------------------------------------------------------------------
-'
-Private Sub IDbComponent_Upgrade()
-    ' No upgrade needed.
-End Sub
 
 
 '---------------------------------------------------------------------------------------

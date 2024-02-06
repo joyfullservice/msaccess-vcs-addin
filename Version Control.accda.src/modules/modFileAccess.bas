@@ -10,23 +10,24 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+Private Const ModuleName As String = "modFileAccess"
 
 Private Declare PtrSafe Function getTempPath Lib "kernel32" Alias "GetTempPathA" ( _
     ByVal nBufferLength As Long, _
     ByVal lpBuffer As String) As Long
-    
+
 Private Declare PtrSafe Function getTempFileName Lib "kernel32" Alias "GetTempFileNameA" ( _
     ByVal lpszPath As String, _
     ByVal lpPrefixString As String, _
     ByVal wUnique As Long, _
     ByVal lpTempFileName As String) As Long
-    
-    
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTempFile
 ' Author    : Adapted by Adam Waller
 ' Date      : 1/23/2019
-' Purpose   : Generate Random / Unique temporary file name.
+' Purpose   : Generate Random / Unique temporary file name. (Also creates the file)
 '---------------------------------------------------------------------------------------
 '
 Public Function GetTempFile(Optional strPrefix As String = "VBA") As String
@@ -34,11 +35,45 @@ Public Function GetTempFile(Optional strPrefix As String = "VBA") As String
     Dim strPath As String * 512
     Dim strName As String * 576
     Dim lngReturn As Long
-    
+
     lngReturn = getTempPath(512, strPath)
     lngReturn = getTempFileName(strPath, strPrefix, 0, strName)
     If lngReturn <> 0 Then GetTempFile = Left$(strName, InStr(strName, vbNullChar) - 1)
-    
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTempFolder
+' Author    : Adam Waller
+' Date      : 9/24/2021
+' Purpose   : Get a random unique folder name and create the folder.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTempFolder(Optional strPrefix As String = "VBA") As String
+
+    Dim strPath As String
+    Dim strFile As String
+    Dim strFolder As String
+
+    ' Generate a random temporary file name, and delete the temp file
+    strPath = GetTempFile(strPrefix)
+    DeleteFile strPath
+
+    ' Change path to use underscore instead of period.
+    strFile = PathSep & FSO.GetFileName(strPath)
+    strFolder = Replace(strFile, ".", "_")
+    strPath = Replace(strPath, strFile, strFolder)
+
+    If FSO.FolderExists(strPath) Then
+        ' Oops, this folder already exists. Try again.
+        GetTempFolder = GetTempFolder(strPrefix)
+    Else
+        ' Create folder and return path
+        FSO.CreateFolder strPath
+        GetTempFolder = strPath
+    End If
+
 End Function
 
 
@@ -53,9 +88,9 @@ End Function
 Public Function ReadFile(strPath As String, Optional strCharset As String = "utf-8") As String
 
     Dim cData As clsConcat
-    
+
     Set cData = New clsConcat
-    
+
     If FSO.FileExists(strPath) Then
         Perf.OperationStart "Read File"
         With New ADODB.Stream
@@ -72,10 +107,10 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "utf
         End With
         Perf.OperationEnd
     End If
-    
+
     ' Return text contents of file.
     ReadFile = cData.GetStr
-    
+
 End Function
 
 
@@ -90,11 +125,8 @@ End Function
 '
 Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding As String = "utf-8")
 
-    Dim strContent As String
-    Dim dblPos As Double
-    
     Perf.OperationStart "Write File"
-    
+
     ' Write to a UTF-8 eoncoded file
     With New ADODB.Stream
         .Type = adTypeText
@@ -105,12 +137,23 @@ Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding 
         If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
         ' Write to disk
         VerifyPath strPath
+        ' Watch out for possible write error
+        LogUnhandledErrors
+        On Error Resume Next
         .SaveToFile strPath, adSaveCreateOverWrite
+        If Catch(3004) Then
+            ' File is locked. Try again after 1 second, just in case something
+            ' like Google Drive momentarily locked the file.
+            Err.Clear
+            Pause 1
+            .SaveToFile strPath, adSaveCreateOverWrite
+        End If
+        CatchAny eelError, "Error writing file: " & strPath, ModuleName & ".WriteFile"
         .Close
     End With
-    
+
     Perf.OperationEnd
-        
+
 End Sub
 
 
@@ -187,6 +230,47 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MoveFileIfExists
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Moves a file to a specified destination folder, creating the destination
+'           : folder if it does not exist.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MoveFileIfExists(strFilePath As String, strToFolder As String)
+    Dim strNewPath As String
+    If FSO.FileExists(strFilePath) Then
+        Perf.OperationStart "Move File"
+        MkDirIfNotExist strToFolder
+        strNewPath = StripSlash(strToFolder) & PathSep & FSO.GetFileName(strFilePath)
+        If FSO.FileExists(strNewPath) Then DeleteFile strNewPath
+        FSO.MoveFile strFilePath, strNewPath
+        Perf.OperationEnd
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MoveFolderIfExists
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move a folder to a new location, replacing any existing folder.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MoveFolderIfExists(strFolderPath As String, strToParentFolder As String)
+    Dim strNewPath As String
+    If FSO.FolderExists(strFolderPath) Then
+        Perf.OperationStart "Move Folder"
+        MkDirIfNotExist strToParentFolder
+        strNewPath = StripSlash(strToParentFolder) & PathSep & FSO.GetFolder(strFolderPath).Name
+        If FSO.FolderExists(strNewPath) Then FSO.DeleteFolder strNewPath, True
+        FSO.MoveFolder strFolderPath, strNewPath
+        Perf.OperationEnd
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : clearfilesbyextension
 ' Author    : Adam Waller
 ' Date      : 1/25/2019
@@ -197,8 +281,9 @@ Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
 
     Dim oFile As Scripting.File
     Dim strFolderNoSlash As String
-    
+
     ' While the Dir() function would be simpler, it does not support Unicode.
+    Perf.OperationStart "Clear Files by Ext"
     strFolderNoSlash = StripSlash(strFolder)
     If FSO.FolderExists(strFolderNoSlash) Then
         For Each oFile In FSO.GetFolder(strFolderNoSlash).Files
@@ -209,7 +294,8 @@ Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
             End If
         Next
     End If
-    
+    Perf.OperationEnd
+
 End Sub
 
 
@@ -222,16 +308,16 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub VerifyPath(strPath As String)
-    
+
     Dim strFolder As String
     Dim varParts As Variant
     Dim intPart As Integer
     Dim strVerified As String
-    
+
     If strPath = vbNullString Then Exit Sub
-    
+
     Perf.OperationStart "Verify Path"
-    
+
     ' Determine if the path is a file or folder
     If Right$(strPath, 1) = PathSep Then
         ' Folder name. (Folder names can contain periods)
@@ -240,7 +326,7 @@ Public Sub VerifyPath(strPath As String)
         ' File name
         strFolder = FSO.GetParentFolderName(strPath)
     End If
-    
+
     ' Check if full path exists.
     If Not FSO.FolderExists(strFolder) Then
         ' Start from the root, and build out full path, creating folders as needed.
@@ -253,7 +339,7 @@ Public Sub VerifyPath(strPath As String)
         varParts = Split(strFolder, PathSep)
         ' Get the slashes back
         varParts(0) = Replace(varParts(0), "@", PathSep, 1, 3)
-                
+
         ' Make sure the root folder exists. If it doesn't we probably have some other issue.
         If Not FSO.FolderExists(varParts(0)) Then
             MsgBox2 "Path Not Found", "Could not find the path '" & varParts(0) & "' on this system.", _
@@ -268,10 +354,10 @@ Public Sub VerifyPath(strPath As String)
             Next intPart
         End If
     End If
-    
+
     ' End timing of operation
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -299,21 +385,23 @@ End Function
 '           : Wildcards are supported.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFilePathsInFolder(strFolder As String, Optional strFilePattern As String = "*.*") As Collection
-    
+Public Function GetFilePathsInFolder(strFolder As String, Optional strFilePattern As String = "*.*") As Dictionary
+
     Dim oFile As Scripting.File
     Dim strBaseFolder As String
-    
+
     strBaseFolder = StripSlash(strFolder)
-    Set GetFilePathsInFolder = New Collection
-    
+    Set GetFilePathsInFolder = New Dictionary
+
+    Perf.OperationStart "Get File List"
     If FSO.FolderExists(strBaseFolder) Then
         For Each oFile In FSO.GetFolder(strBaseFolder).Files
             ' Add files that match the pattern.
-            If oFile.Name Like strFilePattern Then GetFilePathsInFolder.Add oFile.Path
+            If oFile.Name Like strFilePattern Then GetFilePathsInFolder.Add oFile.Path, vbNullString
         Next oFile
     End If
-    
+    Perf.OperationEnd
+
 End Function
 
 
@@ -324,20 +412,20 @@ End Function
 ' Purpose   : Return a collection of subfolders inside a folder.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSubfolderPaths(strPath As String) As Collection
+Public Function GetSubfolderPaths(strPath As String) As Dictionary
 
     Dim strBase As String
     Dim oFolder As Scripting.Folder
-    
-    Set GetSubfolderPaths = New Collection
-    
+
+    Set GetSubfolderPaths = New Dictionary
+
     strBase = StripSlash(strPath)
     If FSO.FolderExists(strBase) Then
         For Each oFolder In FSO.GetFolder(strBase).SubFolders
-            GetSubfolderPaths.Add oFolder.Path
+            GetSubfolderPaths.Add oFolder.Path, vbNullString
         Next oFolder
     End If
-    
+
 End Function
 
 
@@ -349,15 +437,15 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function ReadJsonFile(strPath As String) As Dictionary
-    
+
     Dim strText As String
     strText = ReadFile(strPath)
-    
+
     ' If it looks like json content, then parse into a dictionary object.
     If Left$(strText, 1) = "{" Then
         Set ReadJsonFile = ParseJson(strText)
     End If
-    
+
 End Function
 
 
@@ -370,18 +458,18 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetRelativePath(strPath As String) As String
-    
+
     Dim strFolder As String
     Dim strUncPath As String
     Dim strUncTest As String
     Dim strRelative As String
-    
+
     ' Check for matching parent folder as relative to the project path.
     strFolder = GetUncPath(CurrentProject.Path) & PathSep
-    
+
     ' Default to original path if no relative path could be resolved.
     strRelative = strPath
-    
+
     ' Compare strPath to the current project path
     If InStr(1, strPath, strFolder, vbTextCompare) = 1 Then
         ' In export folder or subfolder. Simple replacement
@@ -401,7 +489,7 @@ Public Function GetRelativePath(strPath As String) As String
             End If
         End If
     End If
-    
+
     ' Return relative (or original) path
     GetRelativePath = strRelative
 
@@ -444,20 +532,30 @@ End Function
 ' Purpose   : Returns the UNC path for a network location (if applicable)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetUncPath(strPath As String)
+Public Function GetUncPath(strPath As String) As String
 
     Dim strDrive As String
     Dim strUNC As String
-    
+
+    LogUnhandledErrors
+    On Error Resume Next
+
     strUNC = strPath
     strDrive = FSO.GetDriveName(strPath)
-    With FSO.GetDrive(strDrive)
-        If .DriveType = Remote Then
-            strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
-        End If
-    End With
+    If strDrive <> vbNullString Then
+        With FSO.GetDrive(strDrive)
+            If .DriveType = Remote Then
+                strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
+            End If
+        End With
+    End If
+
+    ' Log warning if unable to access a drive.
+    CatchAny eelWarning, "Unable to determine UNC path for " & strPath, ModuleName & ".GetUncPath"
+
+    ' Return UNC Path
     GetUncPath = strUNC
-    
+
 End Function
 
 
@@ -466,13 +564,14 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 7/30/2020
 ' Purpose   : Get the last modified date on a folder or file with Unicode support.
+'           : Returns 0 (blank date) if the file is not found.
 '---------------------------------------------------------------------------------------
 '
 Public Function GetLastModifiedDate(strPath As String) As Date
-    
+
     Dim oFile As Scripting.File
     Dim oFolder As Scripting.Folder
-    
+
     Perf.OperationStart "Get Modified Date"
     If FSO.FileExists(strPath) Then
         Set oFile = FSO.GetFile(strPath)
@@ -482,7 +581,7 @@ Public Function GetLastModifiedDate(strPath As String) As Date
         GetLastModifiedDate = oFolder.DateLastModified
     End If
     Perf.OperationEnd
-        
+
 End Function
 
 
@@ -490,7 +589,7 @@ End Function
 ' Procedure : StripSlash
 ' Author    : Adam Waller
 ' Date      : 1/25/2019
-' Purpose   : Strip the trailing slash
+' Purpose   : Strip the trailing slash (or other path separator)
 '---------------------------------------------------------------------------------------
 '
 Public Function StripSlash(strText As String) As String
@@ -501,3 +600,18 @@ Public Function StripSlash(strText As String) As String
     End If
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddSlash
+' Author    : Adam Waller
+' Date      : 7/28/2023
+' Purpose   : Ensure that the string or path ends with a slash (or path separator)
+'---------------------------------------------------------------------------------------
+'
+Public Function AddSlash(strText As String) As String
+    If Right$(strText, 1) = PathSep Then
+        AddSlash = strText
+    Else
+        AddSlash = strText & PathSep
+    End If
+End Function

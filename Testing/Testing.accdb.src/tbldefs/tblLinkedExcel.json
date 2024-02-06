@@ -1,0 +1,12 @@
+﻿{
+  "Info": {
+    "Class": "clsDbTableDef",
+    "Description": "Linked Table"
+  },
+  "Items": {
+    "Name": "tblLinkedExcel",
+    "Connect": "Excel 12.0 Xml;HDR=YES;IMEX=2;ACCDB=YES;DATABASE=rel:Workbook.xlsx",
+    "SourceTableName": "Sheet1$",
+    "Attributes": 1073741824
+  }
+}

@@ -7,11 +7,24 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
+'---------------------------------------------------------------------------------------
+' Module    : clsGitIntegration
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Commands and functions relating specifically to Git repositories.
+'---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
 
 ' Hash for revision we are diffing from.
 Public FromRevision As String
+
+' Set this to true to output git commands and return to debug window
+Public ShowDebug As Boolean
+Public LogCommands As Boolean
+
+' Working folder for git commands. (Used when operating outside the database project)
+Public WorkingFolder As String
 
 ' Enum for commands we can run with Git.
 Private Enum eGitCommand
@@ -21,9 +34,23 @@ Private Enum eGitCommand
     egcGetAllChangedFiles
     egcGetUntrackedFiles
     egcGetHeadCommit
-    egcSetTaggedCommit
+    egcGetBranchName
     egcGetReproPath
     egcGetRevision
+    egcGetStatusPorcelain
+    egcIsInsideTree
+    ' Action commands
+    egcSetTaggedCommit
+    egcInitialize
+    egcAddAll
+    egcCommit
+    egcResetHard
+    egcMerge
+    egcMergeNoFastFwd
+    egcCheckoutBranch
+    egcCheckoutNewBranch
+    egcCheckoutHeadToCurrent
+    egcDeleteBranch
 End Enum
 
 
@@ -51,7 +78,7 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
 
     Dim strCmd As String
     Dim strResult As String
-    
+
     ' Translate enum to command
     Select Case intCmd
         Case egcGetHeadCommitDate:      strCmd = "git show -s --format=%ci HEAD"
@@ -60,9 +87,25 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
         Case egcGetVersion:             strCmd = "git version"
         Case egcSetTaggedCommit:        strCmd = "git tag {MyArg} HEAD -f"
         Case egcGetAllChangedFiles:     strCmd = "git diff --name-status {MyArg}"
+        Case egcGetBranchName:          strCmd = "git rev-parse --abbrev-ref HEAD"
         Case egcGetHeadCommit:          strCmd = "git show -s --format=%h HEAD"
         Case egcGetReproPath:           strCmd = "git rev-parse --show-toplevel"
         Case egcGetRevision:            strCmd = "git rev-parse --verify {MyArg}"
+        Case egcGetStatusPorcelain:     strCmd = "git status --porcelain"
+        Case egcInitialize:             strCmd = "git init"
+        Case egcAddAll:                 strCmd = "git add --all"
+        Case egcCommit:                 strCmd = "git commit --all --message ""{MyArg}"""
+        Case egcResetHard:              strCmd = "git reset --hard HEAD^"
+        Case egcMerge:                  strCmd = "git merge {MyArg}"
+        Case egcMergeNoFastFwd:         strCmd = "git merge --no-ff {MyArg}"
+        Case egcCheckoutBranch:         strCmd = "git checkout {MyArg}"
+        Case egcCheckoutNewBranch:      strCmd = "git checkout -b {MyArg}"
+        Case egcCheckoutHeadToCurrent:  strCmd = "git checkout HEAD~ ."
+        Case egcDeleteBranch:           strCmd = "git branch --delete {MyArg}"
+        Case egcIsInsideTree:           strCmd = "git rev-parse --is-inside-work-tree"
+        Case Else
+            Log.Error eelError, "Unrecognized Git Command Enum: " & intCmd
+            Stop
     End Select
 
     ' Add argument, if supplied
@@ -70,13 +113,24 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
 
     ' Run command, and get result
     Perf.OperationStart "Git Command (id:" & intCmd & ")"
-    strResult = ShellRun(strCmd)
+    strResult = ShellRun(strCmd, intCmd)
     Perf.OperationEnd
-    
+
     ' Trim any trailing vbLf
     If Right$(strResult, 1) = vbLf Then strResult = Left$(strResult, Len(strResult) - 1)
     RunGitCommand = strResult
-    
+
+    ' Show debug info, if flag is on
+    With New clsConcat
+        .Add "Sent Git Command: ", strCmd
+        If strResult <> vbNullString Then
+            .Add "Returned:"
+            .Add strResult
+        End If
+        If Me.LogCommands Then Log.Add .GetStr, False
+        If Me.ShowDebug Then Debug.Print .GetStr
+    End With
+
 End Function
 
 
@@ -86,10 +140,10 @@ Public Function GetHeadCommitDate() As Date
 
     Dim strDate As String
     Dim varParts As Variant
-    
+
     ' Returns something like "2020-11-23 16:08:47 -0600"
     strDate = RunGitCommand(egcGetHeadCommitDate)
-    
+
     ' convert the result from ISO 8601 to Access,
     ' trimming off the timezone at the end (should be local)
     ' see StackOverflow #38751429
@@ -112,18 +166,228 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetRepositoryPath
+' Procedure : GetRepositoryRoot
 ' Author    : Adam Waller
-' Date      : 1/19/2021
+' Date      : 5/8/2023
 ' Purpose   : Returns the path to the root of the repository.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetRepositoryPath() As String
-    If m_strRepositoryRoot = vbNullString Then
-        m_strRepositoryRoot = Replace(RunGitCommand(egcGetReproPath), "/", PathSep) & PathSep
+Public Function GetRepositoryRoot(Optional blnFallBackToWorking As Boolean = True) As String
+
+    Static strLastFolder As String  ' Working folder
+    Static strLastRoot As String    ' Repository Root
+
+    Dim strWorking As String
+
+    ' Determine the current working folder
+    strWorking = GetWorkingFolder
+
+    ' Make sure git is actually installed
+    If Not Me.Installed Then
+        If blnFallBackToWorking Then GetRepositoryRoot = strWorking
+        Exit Function
     End If
-    GetRepositoryPath = m_strRepositoryRoot
+
+    ' On first call, we will attempt to get the repository root from the working
+    ' folder, or the export folder if a working folder is not specified.
+    If strLastRoot = vbNullString Or (strLastFolder <> strWorking) Then
+        ' Use working folder, if specified, otherwise go with export folder.
+        If strLastFolder <> strWorking Then
+            ' We will verify the repository path on the next call.
+            strLastFolder = strWorking
+            strLastRoot = vbNullString
+            ' Recursively call this function to verify the path with git
+            GetRepositoryRoot = GetRepositoryRoot(blnFallBackToWorking)
+        Else
+            ' Run git command from last folder
+            strLastRoot = strLastFolder
+            ' Use Git to look up root folder in repository.
+            strLastRoot = Replace(RunGitCommand(egcGetReproPath), "/", PathSep) & PathSep
+            If strLastRoot = PathSep Then
+                If blnFallBackToWorking Then
+                    ' Might not be in a git repository. Fall back to working folder.
+                    GetRepositoryRoot = strWorking
+                    strLastRoot = strWorking
+                Else
+                    GetRepositoryRoot = vbNullString
+                End If
+            Else
+                ' Found the root folder. Return to caller.
+                GetRepositoryRoot = strLastRoot
+            End If
+        End If
+    Else
+        ' Return cached root folder
+        GetRepositoryRoot = strLastRoot
+    End If
+
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetWorkingFolder
+' Author    : Adam Waller
+' Date      : 5/8/2023
+' Purpose   : Return the working folder from either the specified folder, or fall back
+'           : to the export path.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetWorkingFolder() As String
+
+    Dim strWorking As String
+
+    ' Avoid calling Options if the working folder is already defined to prevent
+    ' a possible stack overflow. (That's why we don't use Nz2() here)
+    If Len(Me.WorkingFolder) Then
+        strWorking = Me.WorkingFolder
+    Else
+        strWorking = Options.GetExportFolder
+    End If
+
+    ' Return path in consistent format
+    GetWorkingFolder = StripSlash(strWorking) & PathSep
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Version
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Return git version (Cached between calls)
+'---------------------------------------------------------------------------------------
+'
+Public Function Version() As String
+    Static strVersion As String
+    If strVersion = vbNullString Then strVersion = Replace(RunGitCommand(egcGetVersion), "git version ", vbNullString)
+    Version = strVersion
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsInsideRepository
+' Author    : Adam Waller
+' Date      : 11/6/2023
+' Purpose   : Returns true if the current working folder is inside a git repository.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsInsideRepository() As Boolean
+    If Me.Installed Then
+        IsInsideRepository = (RunGitCommand(egcIsInsideTree) = "true")
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsCleanBranch
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Returns true if the branch has no changes or untracked files.
+'           : See discussion on StackOverflow on pros and cons of different approaches
+'           : for this. I went with simple for our purposes.
+'           : See: https://stackoverflow.com/questions/2657935
+'---------------------------------------------------------------------------------------
+'
+Public Function IsCleanBranch() As Boolean
+    IsCleanBranch = (RunGitCommand(egcGetStatusPorcelain) = vbNullString)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BranchName
+' Author    : Adam Waller
+' Date      : 3/21/2023
+' Purpose   : Return the name of the current branch
+'---------------------------------------------------------------------------------------
+'
+Public Function BranchName() As String
+    BranchName = RunGitCommand(egcGetBranchName)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SplitFilesWithHistory
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Accepts two arrays of file paths. The first array represents the existing
+'           : files, and the second represents the new files that will take on the
+'           : content and history of the first files.
+'           : Based on https://devblogs.microsoft.com/oldnewthing/20190919-00/?p=102904
+'---------------------------------------------------------------------------------------
+'
+Public Sub SplitFilesWithHistory(strFilePathsArray() As String, strNewPaths() As String, _
+    strCommitMessage As String, Optional strRunInFolder As String = vbNullString)
+
+    Dim lngCnt As Long
+    Dim strOrig As String
+    Dim strNew As String
+    Dim strBranch As String
+    Dim blnLog As Boolean
+    Dim strBaseFolder As String
+
+    ' Save current value and turn on logging.
+    blnLog = Me.LogCommands
+    strBaseFolder = m_strRepositoryRoot
+    m_strRepositoryRoot = strRunInFolder
+    Me.LogCommands = True
+
+    ' We should be starting with a clean slate (no uncommitted changes)
+    If Not Me.IsCleanBranch Then
+        Log.Error eelCritical, "Cannot split files in Git when changes are present in the branch", _
+            ModuleName(Me) & ".SplitFilesWithHistory"
+        GoTo CleanUp
+    End If
+
+    ' Initialize the repository just to make sure everthing is in order
+    RunGitCommand egcInitialize
+
+    ' Get the current branch name, so we can switch back to it later
+    strBranch = Me.BranchName
+
+    ' Create a new branch to use when splitting the files
+    RunGitCommand egcCheckoutNewBranch, "split-files"
+
+    ' We could use git to move the files individually, but this would be much slower.
+    ' For our purposes, the files should be pretty unique in content, so we should be
+    ' fine to move them in batches. (As passed to this function)
+    For lngCnt = 0 To UBound(strFilePathsArray)
+        strOrig = strFilePathsArray(lngCnt)
+        strNew = strNewPaths(lngCnt)
+        If FSO.FileExists(strOrig) Then
+            If FSO.FileExists(strNew) Then DeleteFile strNew
+            FSO.MoveFile strOrig, strNew
+        End If
+    Next lngCnt
+
+    ' Update the index, and commit the move
+    RunGitCommand egcAddAll
+    RunGitCommand egcCommit, "Rename as new files"
+
+    ' Restore the original files
+    ' (TODO: see if we can do this from a named branch)
+    RunGitCommand egcCheckoutHeadToCurrent
+
+    ' Commit these files (with history) to the temporary branch
+    RunGitCommand egcCommit, "Restore original files"
+
+    ' Move back to original branch
+    RunGitCommand egcCheckoutBranch, strBranch
+
+    ' Merge the temporary branch into the original branch
+    RunGitCommand egcMergeNoFastFwd, "split-files" & " -m """ & strCommitMessage & """"
+
+    ' Delete the temporary branch now that we are finished using it
+    RunGitCommand egcDeleteBranch, "split-files"
+
+    ' Restore original logging
+    Me.LogCommands = blnLog
+
+CleanUp:
+
+    ' Restore base folder
+    m_strRepositoryRoot = strBaseFolder
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -133,28 +397,26 @@ End Function
 ' Purpose   : Pass a git command to this function to return the result as a string.
 '---------------------------------------------------------------------------------------
 '
-Private Function ShellRun(strCmd As String) As String
-    
+Private Function ShellRun(strCmd As String, intCmd As eGitCommand) As String
+
     Dim oShell As WshShell
     Dim strFile As String
-    Dim strWorking As String
-    
-    ' Get working path for command. (Prefer repository root, if available)
-    If m_strRepositoryRoot = vbNullString Then
-        strWorking = Options.GetExportFolder
-    Else
-        strWorking = m_strRepositoryRoot
-    End If
-    
+
     ' Get path to temp file
     strFile = GetTempFile
-    
+
     ' Build command line string
     With New clsConcat
-        ' Open command prompt in export folder
-        .Add "cmd.exe /c cd ", strWorking
-        ' Run git command
-        .Add " & ", strCmd
+        Select Case intCmd
+            Case egcGetVersion
+                ' Run independent of repository
+                .Add "cmd.exe /c ", strCmd
+            Case Else
+                ' Open command prompt in repository folder
+                .Add "cmd.exe /c cd ", GetRepositoryRoot
+                ' Run git command
+                .Add " & ", strCmd
+        End Select
         ' Output to temp file
         .Add " > """, strFile, """"
         ' Execute command
@@ -162,10 +424,10 @@ Private Function ShellRun(strCmd As String) As String
         oShell.Run .GetStr, WshHide, True
         'Debug.Print .GetStr    ' To debug
     End With
-    
+
     ' Read from temp file
     ShellRun = ReadFile(strFile)
-    
+
     ' Remove temp file
     FSO.DeleteFile strFile
 
@@ -262,9 +524,8 @@ End Function
 ' Purpose   : Returns true if git is installed.
 '---------------------------------------------------------------------------------------
 '
-Public Function GitInstalled() As Boolean
-    ' Expecting something like "git version 2.29.2.windows.2"
-    GitInstalled = InStr(1, RunGitCommand(egcGetVersion), "git version ") = 1
+Public Function Installed() As Boolean
+    Installed = (Len(Me.Version))
 End Function
 
 
@@ -278,10 +539,10 @@ End Function
 Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
 
     Dim varKey As Variant
-    
+
     ' Make sure the changes are loaded from Git
     If m_dChangedItems Is Nothing Then Set m_dChangedItems = GetChangedFileIndex(Me.FromRevision)
-    
+
     ' Check for any matching changes.
     Set GetModifiedSourceFiles = New Collection
     With m_dChangedItems
@@ -292,7 +553,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Collection
             Next varKey
         End If
     End With
-    
+
 End Function
 
 
@@ -338,12 +599,12 @@ Public Function GetChangedFileIndex(strFromCommit As String) As Dictionary
     strExportFolder = Options.GetExportFolder
     varParts = Split(strExportFolder, PathSep)
     strBasePath = varParts(UBound(varParts) - 1)
-    strRootPath = GetRepositoryPath
+    strRootPath = GetRepositoryRoot
 
     ' Get base folder list from component types.
     ' (Used to organize the changed files by type)
     Set dFolders = New Dictionary
-    For Each cComp In GetAllContainers
+    For Each cComp In GetContainers
         strCategory = StripSlash(Mid$(cComp.BaseFolder, Len(strRootPath) + 1))
         If strCategory = strBasePath Then
             ' Include file name in category
@@ -424,18 +685,5 @@ Public Function GetChangedFileIndex(strFromCommit As String) As Dictionary
 
     ' Return dictionary of file paths.
     Set GetChangedFileIndex = dIndex
-    
+
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Class_Initialize
-' Author    : Adam Waller
-' Date      : 1/19/2021
-' Purpose   : Load path to root repository
-'---------------------------------------------------------------------------------------
-'
-Private Sub Class_Initialize()
-    GetRepositoryPath
-End Sub
-

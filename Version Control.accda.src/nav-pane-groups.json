@@ -1,8 +1,7 @@
 ﻿{
   "Info": {
     "Class": "clsDbNavPaneGroup",
-    "Description": "Navigation Pane Custom Groups",
-    "Export File Format": 1.1
+    "Description": "Navigation Pane Custom Groups"
   },
   "Items": {
     "Categories": [

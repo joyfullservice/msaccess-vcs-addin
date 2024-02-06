@@ -15,7 +15,6 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
-Private Const ModuleName As String = "clsDevMode"
 
 ' See the following links for additional technical details regarding the DEVMODE strcture:
 ' https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode
@@ -118,11 +117,11 @@ Private Type PRINTER_DEFAULTS
    DesiredAccess As Long
 End Type
 
-Private Declare PtrSafe Function OpenPrinter Lib "winspool.drv" Alias "OpenPrinterA" _
-    (ByVal pPrinterName As String, phPrinter As LongPtr, pDefault As Any) As Long
+Private Declare PtrSafe Function OpenPrinter Lib "winspool.drv" Alias "OpenPrinterA" ( _
+    ByVal pPrinterName As String, phPrinter As LongPtr, pDefault As Any) As Long
 Private Declare PtrSafe Function ClosePrinter Lib "winspool.drv" (ByVal hPrinter As LongPtr) As Long
-Private Declare PtrSafe Function DocumentProperties Lib "winspool.drv" Alias "DocumentPropertiesA" _
-    (ByVal hwnd As Long, ByVal hPrinter As LongPtr, ByVal pDeviceName As String, _
+Private Declare PtrSafe Function DocumentProperties Lib "winspool.drv" Alias "DocumentPropertiesA" ( _
+    ByVal hwnd As Long, ByVal hPrinter As LongPtr, ByVal pDeviceName As String, _
     ByVal pDevModeOutput As LongPtr, ByVal pDevModeInput As LongPtr, ByVal fMode As Long) As Long
 
 ' Enum for types that can be expanded to friendly
@@ -217,7 +216,7 @@ End Function
 ' Purpose   : Load sections from export file
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadFromExportFile(strFile As String)
+Public Sub LoadFromExportFile(strFileContent As String)
 
     Dim varLines As Variant
     Dim lngLine As Long
@@ -233,7 +232,7 @@ Public Sub LoadFromExportFile(strFile As String)
     Dim udtMipBuffer As tMipBuffer
     Dim udtDevModeBuffer As tDevModeBuffer
     Dim udtDevNamesBuffer As tDevNamesBuffer
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Blocks: 1=Mip, 2=DevMode, 3=DevNames
@@ -241,17 +240,11 @@ Public Sub LoadFromExportFile(strFile As String)
     ' Clear existing structures and create block classes.
     ClearStructures
 
-    If Not FSO.FileExists(strFile) Then Exit Sub
-    
-    ' Open the export file, checking to see if it is in UCS format
-    If HasUcs2Bom(strFile) Then
-        varLines = Split(ReadFile(strFile, "Unicode"), vbCrLf)
-    Else
-        varLines = Split(ReadFile(strFile), vbCrLf)
-    End If
-    
+    If Len(strFileContent) = 0 Then Exit Sub
+
     ' Read the text file line by line, loading the block data
     Perf.OperationStart "Read File DevMode"
+    varLines = Split(strFileContent, vbCrLf)
     For lngLine = 0 To UBound(varLines)
         strLine = Trim$(varLines(lngLine))
         ' Look for header if not inside block
@@ -283,7 +276,7 @@ Public Sub LoadFromExportFile(strFile As String)
             End If
         End If
     Next lngLine
-    
+
     ' Convert hex block data to string
     strChar = "&h00"
     For intBlock = 1 To 3
@@ -316,8 +309,8 @@ Public Sub LoadFromExportFile(strFile As String)
     Next intBlock
     Perf.OperationEnd
 
-    CatchAny eelError, "Error loading printer settings from file: " & strFile, _
-        ModuleName & ".LoadFromExportFile", True, True
+    CatchAny eelError, "Error loading printer settings from file content.", _
+        ModuleName(Me) & ".LoadFromExportFile", True, True
 
 End Sub
 
@@ -348,7 +341,6 @@ End Sub
 Public Sub LoadFromPrinter(strPrinter As String)
 
     Dim hPrinter As LongPtr
-    Dim udtDefaults As PRINTER_DEFAULTS
     Dim lngReturn As Long
     Dim strBuffer As String
     Dim udtBuffer As tDevModeBuffer
@@ -358,11 +350,11 @@ Public Sub LoadFromPrinter(strPrinter As String)
 
     ' Clear our existing devmode structures
     ClearStructures
-    
+
     ' Open a handle to read the default printer
     lngReturn = OpenPrinter(strPrinter, hPrinter, ByVal 0&)
 
-    CatchAny eelError, "Error getting printer pointer " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
+    CatchAny eelError, "Error getting printer pointer " & strPrinter, ModuleName(Me) & ".LoadFromPrinter", True, True
     If lngReturn <> 0 And hPrinter <> 0 Then
 
         ' Check size of DevMode structure to make sure it fits in our buffer.
@@ -371,40 +363,40 @@ Public Sub LoadFromPrinter(strPrinter As String)
             ' Read the devmode structure
             strBuffer = NullPad(lngReturn + 100)
             lngReturn = DocumentProperties(0, hPrinter, strPrinter, StrPtr(strBuffer), 0, DM_OUT_BUFFER)
-            
+
             If lngReturn > 0 Then
                 ' Load into DevMode type
                 udtBuffer.strBuffer = strBuffer
                 LSet m_tDevMode = udtBuffer
-            
+
             End If
         Else
             Log.Error eelWarning, "There has been an error with loading DevMode structure. lngReturn:'" & lngReturn & "'", _
-                ModuleName & ".LoadFromPrinter"
+                ModuleName(Me) & ".LoadFromPrinter"
         End If
     End If
 
-    CatchAny eelError, "Error getting printer devMode " & strPrinter, ModuleName & ".LoadFromPrinter", True, True
+    CatchAny eelError, "Error getting printer devMode " & strPrinter, ModuleName(Me) & ".LoadFromPrinter", True, True
     ' Close printer handle
     If hPrinter <> 0 Then ClosePrinter hPrinter
-    
+
     ' Attempt to load the printer object
     Set objPrinter = GetPrinterByName(strPrinter)
 
     If objPrinter Is Nothing Then
         Log.Error eelWarning, "Could not find printer '" & strPrinter & "' on this system.", _
-            ModuleName & ".LoadFromPrinter"
+            ModuleName(Me) & ".LoadFromPrinter"
     Else
         ' Load in the DevNames structure
         If Options.ShowDebug Then Log.Add "Loading Printer info for: '" & strPrinter & "'."
-        
+
         SetDevNames objPrinter
         ' Load in the margin defaults
         SetMipFromPrinter objPrinter
     End If
 
     CatchAny eelError, "Error with printer devMode " & strPrinter, _
-        ModuleName & ".LoadFromPrinter", True, True
+        ModuleName(Me) & ".LoadFromPrinter", True, True
 
 End Sub
 
@@ -456,7 +448,7 @@ Private Function DevModeToExport() As Dictionary
     Dim varKey As Variant
     Dim dDM As Dictionary
     Dim dOpt As Dictionary
-    
+
     Set dDM = DevModeToDictionary
     Set dOpt = Options.ExportPrintSettings
     Set DevModeToExport = New Dictionary
@@ -470,7 +462,7 @@ Private Function DevModeToExport() As Dictionary
             End If
         Next varKey
     End With
-    
+
 End Function
 
 
@@ -530,7 +522,7 @@ Private Sub LoadFromObject(objSource As Object)
         udtDevModeBuffer.strBuffer = objSource.PrtDevMode
         LSet m_tDevMode = udtDevModeBuffer
     End If
-        
+
     ' DevNames
     If Not IsNull(objSource.PrtDevNames) Then
         With udtDevNamesBuffer
@@ -539,7 +531,7 @@ Private Sub LoadFromObject(objSource As Object)
         End With
         LSet m_tDevNames = udtDevNamesBuffer
     End If
-    
+
     ' Mip (Margins)
     If Not IsNull(objSource.PrtMip) Then
         udtMipBuffer.strBuffer = objSource.PrtMip
@@ -565,7 +557,7 @@ Private Sub ClearStructures()
     m_tDevMode = tDevModeBlank
     m_tMip = tMipBlank
     m_tDevNames = tDevNamesBlank
-    
+
 End Sub
 
 
@@ -577,16 +569,16 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function DevModeToDictionary() As Dictionary
-    
+
     Dim strName As String
     Dim lngFld As Long
     Dim cDM As tDevMode
 
     LSet cDM = m_tDevMode
     lngFld = cDM.lngFields
-    
+
     Set DevModeToDictionary = New Dictionary
-    
+
     With DevModeToDictionary
         strName = NTrim(StrConv(cDM.strDeviceName, vbUnicode))
         ' Only save the printer name here if it is not the default printer.
@@ -623,7 +615,7 @@ Private Function DevModeToDictionary() As Dictionary
         '.Add "Reserved1", cDM.lngReserved1
         '.Add "Reserved2", cDM.lngReserved2
     End With
-    
+
 End Function
 
 
@@ -641,7 +633,7 @@ Private Function MipToDictionary() As Dictionary
 
     LSet cMip = m_tMip
     Set MipToDictionary = New Dictionary
-    
+
     With MipToDictionary
         .Add "LeftMargin", GetInch(cMip.xLeftMargin)
         .Add "TopMargin", GetInch(cMip.yTopMargin)
@@ -675,7 +667,7 @@ Private Function DevNamesToDictionary() As Dictionary
 
     LSet cDN = m_tDevNames
     Set DevNamesToDictionary = New Dictionary
-    
+
     With DevNamesToDictionary
         .Add "DriverName", NTrim(Mid$(StrConv(cDN.strData, vbUnicode), cDN.intDriverOffset - 7))
         .Add "DeviceName", NTrim(Mid$(StrConv(cDN.strData, vbUnicode), cDN.intDeviceOffset - 7))
@@ -702,12 +694,12 @@ End Function
 Public Sub SetPrinterMargins(oPrinter As Access.Printer, dMargins As Dictionary)
 
     Dim varKey As Variant
-    
+
     ' Loop through properties.
     With oPrinter
         For Each varKey In dMargins.Keys
             Select Case varKey
-            
+
                 ' Set margins from dictionary values
                 Case "LeftMargin": .LeftMargin = GetTwips(dMargins(varKey))
                 Case "TopMargin": .TopMargin = GetTwips(dMargins(varKey))
@@ -718,7 +710,7 @@ Public Sub SetPrinterMargins(oPrinter As Access.Printer, dMargins As Dictionary)
                 Case "ColumnSpacing": .ColumnSpacing = GetTwips(dMargins(varKey))
                 Case "RowSpacing": .RowSpacing = GetTwips(dMargins(varKey))
                 Case "ItemLayout": .ItemLayout = GetEnum(epeColumnLayout, dMargins(varKey))
-                
+
                 ' Special handling for paper size
                 Case "DefaultSize": .DefaultSize = dMargins(varKey)
                 Case "Width":
@@ -731,14 +723,14 @@ Public Sub SetPrinterMargins(oPrinter As Access.Printer, dMargins As Dictionary)
                         If .DefaultSize Then .DefaultSize = False
                         .ItemSizeHeight = GetTwips(dMargins(varKey))
                     End If
-            
+
                 Case Else
                     ' Could not find that property.
                     MsgBox "Margin property " & CStr(varKey) & " not found.", vbExclamation
             End Select
         Next varKey
     End With
-    
+
 End Sub
 
 
@@ -764,7 +756,7 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
     Dim blnSetDevMode As Boolean
     Dim strDevModeExtra As String
     Dim tBuffer As tDevModeBuffer
-    
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Make sure we are using the correct object type
@@ -774,16 +766,16 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
         intType = acForm
     Else
         Log.Error eelCritical, "Can only set printer options for a form or report object: " & _
-            objFormOrReport.Name, ModuleName & ".SetPrinterOptions"
+            objFormOrReport.Name, ModuleName(Me) & ".SetPrinterOptions"
         Exit Sub
     End If
-    
+
     ' Check printer device to see if we are using a specific printer
     If dSettings.Exists("DeviceName") Then
         Set oPrinter = GetPrinterByName(dSettings("DeviceName"))
         If oPrinter Is Nothing Then
             Log.Error eelWarning, "Printer " & dSettings("DeviceName") & " not found for " & objFormOrReport.Name, _
-                ModuleName & ":SetPrinterOptions"
+                ModuleName(Me) & ":SetPrinterOptions"
             Exit Sub
         End If
         ' Set as printer for this report or form.
@@ -795,7 +787,7 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
         ' Use default printer (If not already set)
         objFormOrReport.UseDefaultPrinter = True
     End If
-    
+
     ' Apply regular printer options
     Set oPrinter = objFormOrReport.Printer
     With oPrinter
@@ -811,12 +803,12 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
             End Select
         Next varKey
     End With
-    
+
     ' Other properties will require some more work, since we need to interact
     ' with the DevMode structure.
     LoadFromObject objFormOrReport
     strDevModeExtra = objFormOrReport.PrtDevMode
-    
+
     ' Loop through properties again, this time applying change to DevMode structure.
     With m_tDevMode
         For Each varKey In dSettings.Keys
@@ -852,7 +844,7 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
             End Select
         Next varKey
     End With
-    
+
     ' Check flag to see if we have changed anything
     If blnSetDevMode Then
         tBuffer.strBuffer = Replace(tBuffer.strBuffer, " ", vbNullChar)
@@ -862,13 +854,13 @@ Public Sub SetPrinterOptions(objFormOrReport As Object, dSettings As Dictionary)
         Mid(strDevModeExtra, 1, 94) = tBuffer.strBuffer
         objFormOrReport.PrtDevMode = strDevModeExtra
     End If
-    
+
     ' Tweak a property so the report knows it needs to be saved.
     With objFormOrReport
         .Caption = .Caption
     End With
     CatchAny eelError, "Error setting print settings for: " & objFormOrReport.Name, _
-        ModuleName & ".SetPrinterOptions", True, True
+        ModuleName(Me) & ".SetPrinterOptions", True, True
 End Sub
 
 
@@ -892,7 +884,7 @@ Public Sub ApplySettings(dSettings As Dictionary)
     Dim strPrinter As String
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    
+
     ' Set the properties in the DevNames structure.
     ' Note that this simply sets the printer to one with a matching name. It doesn't try to reconstruct
     ' an identical share and port name or install a missing printer.
@@ -918,7 +910,7 @@ Public Sub ApplySettings(dSettings As Dictionary)
                 Select Case varKey
                     ' Note that any specified DeviceName in m_tDevMode would have already been set through
                     ' the intial call that loaded the DevMode structure directly from the printer using the Windows API.
-                
+
                     ' These properties can be set on the report/form object, or through PrtDevMode
                     Case "Orientation": SetDmProp .intOrientation, DM_ORIENTATION, GetEnum(epeOrientation, dItems(varKey)), .lngFields, blnSetDevMode
                     Case "PaperSize":   SetDmProp .intPaperSize, DM_PAPERSIZE, GetEnum(epePaperSize, dItems(varKey)), .lngFields, blnSetDevMode
@@ -927,7 +919,7 @@ Public Sub ApplySettings(dSettings As Dictionary)
                     Case "Color":       SetDmProp .intColor, DM_COLOR, GetEnum(epeColor, dItems(varKey)), .lngFields, blnSetDevMode
                     Case "Duplex":      SetDmProp .intDuplex, DM_DUPLEX, GetEnum(epeDuplex, dItems(varKey)), .lngFields, blnSetDevMode
                     Case "DefaultSource":   SetDmProp .intDefaultSource, DM_DEFAULTSOURCE, GetEnum(epePaperBin, dItems(varKey)), .lngFields, blnSetDevMode
-                
+
                     ' These can only be set through PrtDevMode
                     Case "PaperLength": SetDmProp .intPaperLength, DM_PAPERLENGTH, Round(dItems(varKey) / TEN_MIL, 0), .lngFields, blnSetDevMode
                     Case "PaperWidth":  SetDmProp .intPaperWidth, DM_PAPERWIDTH, Round(dItems(varKey) / TEN_MIL, 0), .lngFields, blnSetDevMode
@@ -941,7 +933,7 @@ Public Sub ApplySettings(dSettings As Dictionary)
                     Case "ICMIntent":   SetDmProp .lngICMIntent, DM_ICMINTENT, GetEnum(epeICMIntent, dItems(varKey)), .lngFields, blnSetDevMode
                     Case "MediaType":   SetDmProp .lngMediaType, DM_MEDIATYPE, GetEnum(epeMediaType, dItems(varKey)), .lngFields, blnSetDevMode
                     Case "DitherType":  SetDmProp .lngDitherType, DM_DITHERTYPE, GetEnum(epeDitherType, dItems(varKey)), .lngFields, blnSetDevMode
-                    
+
                     ' String values are a little more fun...
                     Case "FormName"
                         If (Not BitSet(.lngFields, DM_FORMNAME)) _
@@ -962,14 +954,14 @@ Public Sub ApplySettings(dSettings As Dictionary)
             Next varKey
         End With
     End If
-    
+
     ' Set the printer margins in the MIP structure
     If IsObject(dSettings("Margins")) Then
         With m_tMip
             Set dItems = dSettings("Margins")
             For Each varKey In dItems.Keys
                 Select Case varKey
-                
+
                     ' Set margins from dictionary values
                     Case "LeftMargin": .xLeftMargin = GetTwips(dItems(varKey))
                     Case "TopMargin": .yTopMargin = GetTwips(dItems(varKey))
@@ -995,30 +987,18 @@ Public Sub ApplySettings(dSettings As Dictionary)
                             If CBool(.fDefaultSize) Then .fDefaultSize = Abs(False)
                             .yHeight = GetTwips(dItems(varKey))
                         End If
-                
+
                     Case Else
                         ' Could not find that property.
                         Log.Error eelWarning, "Margin property " & CStr(varKey) & " not found.", _
-                            ModuleName & ":ApplySettings"
+                            ModuleName(Me) & ":ApplySettings"
                 End Select
             Next varKey
         End With
     End If
     CatchAny eelError, "Error applying print settings for: " & strPrinter, _
-        ModuleName & ".ApplySettings", True, True
+        ModuleName(Me) & ".ApplySettings", True, True
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetPrintSettingsFileName
-' Author    : Adam Waller
-' Date      : 1/14/2021
-' Purpose   : Return the file name for the print vars json file.
-'---------------------------------------------------------------------------------------
-'
-Public Function GetPrintSettingsFileName(cDbObject As IDbComponent) As String
-    GetPrintSettingsFileName = cDbObject.BaseFolder & GetSafeFileName(cDbObject.Name) & ".json"
-End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -1030,32 +1010,27 @@ End Function
 '           : file for import into the database using the loaded print settings.
 '---------------------------------------------------------------------------------------
 '
-Public Function AddToExportFile(strFile As String) As String
+Public Function AddToExportFile(strFileContent As String) As String
 
-    Dim strTempFile As String
     Dim strLine As String
     Dim varLines As Variant
-    Dim strData As String
     Dim lngLine As Long
     Dim blnFound As Boolean
     Dim blnInBlock As Boolean
-    
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    ' Load data from export file
-    strData = ReadFile(strFile)
-    varLines = Split(strData, vbCrLf)
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Use concatenation class for performance reasons.
     With New clsConcat
         .AppendOnAdd = vbCrLf
-        
+
         ' Loop through lines in file, searching for location to insert blocks.
+        varLines = Split(strFileContent, vbCrLf)
         For lngLine = LBound(varLines) To UBound(varLines)
-            
+
             ' Get single line
             strLine = varLines(lngLine)
-            
+
             ' Check line contents till we reach the insertion point.
             If Not blnFound Then
                 Select Case Trim$(strLine)
@@ -1089,17 +1064,14 @@ Public Function AddToExportFile(strFile As String) As String
                 .Add strLine
             End If
         Next lngLine
-    
-        ' Write to new file
-        strTempFile = GetTempFile
-        WriteFile .GetStr, strTempFile
-        
+
+        ' Return content
+        AddToExportFile = .GetStr
     End With
 
-    ' Return path to temp file
-    AddToExportFile = strTempFile
-    CatchAny eelError, "Error adding to export file: " & strFile, _
-        ModuleName & ".AddToExportFile", True, True
+    CatchAny eelError, "Error adding print settings to export file.", _
+        ModuleName(Me) & ".AddToExportFile", True, True
+
 End Function
 
 
@@ -1149,7 +1121,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub SetDmProp(ByRef cDMProp As Variant, lngFlag As edmFlags, varValue As Variant, ByRef lngFields As Long, ByRef blnChanged As Boolean)
-    
+
     ' Check existing flag
     If Not BitSet(lngFields, lngFlag) Then
         blnChanged = True
@@ -1161,10 +1133,10 @@ Private Sub SetDmProp(ByRef cDMProp As Variant, lngFlag As edmFlags, varValue As
             blnChanged = True
         End If
     End If
-    
+
     ' Check fields flag, and update flag if we have made a change.
     If blnChanged And Not BitSet(lngFields, lngFlag) Then lngFields = lngFields Or lngFlag
-    
+
 End Sub
 
 
@@ -1200,7 +1172,7 @@ Private Sub SetDevNames(objPrinter As Access.Printer)
         End If
         strPort = .Port & vbNullChar
     End With
-    
+
     ' Fill in DevNames structure
     With m_tDevNames
         strData = strDriver & strDevice & strPort
@@ -1285,10 +1257,10 @@ Public Function GetEnum(eType As ePrintEnum, varValue As Variant, Optional Conve
 
     Dim varKey As Variant
     Dim varReturn As Variant
-    
+
     ' Build cached enum on first request
     If m_dEnum(eType) Is Nothing Then BuildEnum eType
-    
+
     ' Determine conversion type
     If Convert = eecAuto Then
         If IsNumeric(varValue) Then
@@ -1297,10 +1269,10 @@ Public Function GetEnum(eType As ePrintEnum, varValue As Variant, Optional Conve
             Convert = eecToEnum
         End If
     End If
-    
+
     ' By default, just return the original value if we don't find a match.
     varReturn = varValue
-    
+
     ' See if we are trying to return the description or the enum value
     If Convert = eecToName Then
         If m_dEnum(eType).Exists(varValue) Then varReturn = m_dEnum(eType)(varValue)
@@ -1313,10 +1285,10 @@ Public Function GetEnum(eType As ePrintEnum, varValue As Variant, Optional Conve
             End If
         Next varKey
     End If
-    
+
     ' Return value (if found)
     GetEnum = varReturn
-    
+
 End Function
 
 
@@ -1336,27 +1308,27 @@ Private Sub BuildEnum(eType As ePrintEnum)
 
     Set m_dEnum(eType) = New Dictionary
     With m_dEnum(eType)
-        
+
         Select Case eType
             Case epeColor
                 .Add acPRCMColor, "Color"
                 .Add acPRCMMonochrome, "Monochrome"
-                
+
             Case epeDuplex
                 .Add acPRDPHorizontal, "Horizontal"
                 .Add acPRDPSimplex, "Simplex"
                 .Add acPRDPVertical, "Vertical"
-                
+
             Case epePrintQuality
                 .Add acPRPQDraft, "Draft"
                 .Add acPRPQHigh, "High"
                 .Add acPRPQLow, "Low"
                 .Add acPRPQMedium, "Medium"
-                
+
             Case epeOrientation
                 .Add acPRORLandscape, "Landscape"
                 .Add acPRORPortrait, "Portrait"
-                
+
             Case epePaperBin
                 .Add acPRBNAuto, "Auto"
                 .Add acPRBNCassette, "Cassette"
@@ -1371,7 +1343,7 @@ Private Sub BuildEnum(eType As ePrintEnum)
                 .Add acPRBNSmallFmt, "Small Format"
                 .Add acPRBNTractor, "Tractor"
                 .Add acPRBNUpper, "Upper"
-                
+
             Case epePaperSize
                 .Add acPRPS10x14, "10x14"
                 .Add acPRPS11x17, "11x17"
@@ -1415,52 +1387,52 @@ Private Sub BuildEnum(eType As ePrintEnum)
                 .Add acPRPSStatement, "Statement"
                 .Add acPRPSTabloid, "Tabloid"
                 .Add acPRPSUser, "User-Defined"
-                
+
             Case epeColumnLayout
                 .Add acPRHorizontalColumnLayout, "Horizontal Columns"
                 .Add acPRVerticalColumnLayout, "Vertical Columns"
-                
+
             '--------------------
             ' API constants
             '--------------------
-            
+
             Case epeTTOption
                 .Add 1, "Bitmap"
                 .Add 2, "Download"
                 .Add 3, "Substitute Device Font"
                 .Add 4, "Download Outline"
-            
+
             Case epeCollate
                 .Add 0, "False"
                 .Add 1, "True"
-            
+
             Case epeDisplayFlags
                 .Add 1, "Grayscale"
                 .Add 2, "Interlaced"
-                
+
             Case epeICMMethod
                 .Add 1, "None"
                 .Add 2, "System"
                 .Add 3, "Driver"
                 .Add 4, "Device"
-            
+
             Case epeICMIntent
                 .Add 1, "Saturate"
                 .Add 2, "Contrast"
                 .Add 3, "Colormetric"
-                
+
             Case epeMediaType
                 .Add 1, "Standard"
                 .Add 2, "Glossy"
                 .Add 3, "Transparency"
-            
+
             Case epeDitherType
                 .Add 1, "None"
                 .Add 2, "Coarse"
                 .Add 3, "Fine"
                 .Add 4, "Line Art"
                 .Add 5, "Grayscale"
-            
+
         End Select
     End With
 
@@ -1497,9 +1469,9 @@ End Function
 Public Function GetHash()
 
     Dim dSettings As Dictionary
-    
+
     Set dSettings = Me.GetDictionary
-    
+
     ' Remove the reserved settings, which are Access specific and may not match the
     ' settings retrieved from the default printer.
     If dSettings.Exists("Margins") Then
@@ -1508,10 +1480,10 @@ Public Function GetHash()
             If .Exists("Datasheet") Then .Remove "Datasheet"
         End With
     End If
-    
+
     'Debug.Print ConvertToJson(dSettings, "  ")
     GetHash = GetDictionaryHash(dSettings)
-    
+
 End Function
 
 
@@ -1575,17 +1547,17 @@ Private Function GetBlobFromString(strSection As String, strContent As String, O
     Dim bteContent() As Byte
     Dim lngLen As Long
     Dim strBte As String
-    
+
     ' Use concatenation class to drastically improve string handling performance.
     With New clsConcat
 
         ' Start with section beginning
         .Add Space$(intIndent), strSection, " = Begin", vbCrLf
-        
+
         ' Convert string to byte array
         bteContent = strContent
         lngLen = Len(strContent) * 2
-        
+
         ' Build content lines
         Do While lngPos < lngLen
             .Add Space$(intIndent + 4), "0x"
@@ -1606,7 +1578,7 @@ Private Function GetBlobFromString(strSection As String, strContent As String, O
         ' Add section closing
         .Add vbCrLf
         .Add Space$(intIndent), "End"
-        
+
         ' Return blob string
         GetBlobFromString = .GetStr
     End With
@@ -1638,7 +1610,7 @@ Private Function RTrimNulls(strData As String, lngLeaveCount As Long) As String
 
     Dim lngCnt As Long
     Dim strTrimmed As String
-    
+
     ' Walk backwards through the string, looking for the first non-null character.
     If InStr(1, strData, vbNullChar) > 0 Then
         For lngCnt = Len(strData) To 1 Step -1
@@ -1649,7 +1621,7 @@ Private Function RTrimNulls(strData As String, lngLeaveCount As Long) As String
             End If
         Next lngCnt
     End If
-    
+
     ' Return result
     If strTrimmed = vbNullString Then
         ' If no nulls found, then return original data.
@@ -1657,6 +1629,5 @@ Private Function RTrimNulls(strData As String, lngLeaveCount As Long) As String
     Else
         RTrimNulls = strTrimmed
     End If
-    
-End Function
 
+End Function

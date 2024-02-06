@@ -16,7 +16,6 @@ Attribute VB_Exposed = False
 '           : implemented into the classes defined for each object type to be exported
 '           : and imported as a part of the database source code.
 '---------------------------------------------------------------------------------------
-
 Option Compare Database
 Option Explicit
 
@@ -32,24 +31,13 @@ Public DbObject As Object
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ClearOrphanedSourceFiles
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Remove any source files for objects not in the current database.
-'---------------------------------------------------------------------------------------
-'
-Public Sub ClearOrphanedSourceFiles()
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : Export
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Export the individual database component (table, form, query, etc...)
 '---------------------------------------------------------------------------------------
 '
-Public Sub Export()
+Public Sub Export(Optional strAlternatePath As String)
 End Sub
 
 
@@ -77,6 +65,19 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MoveSource
+' Author    : Adam Waller
+' Date      : 9/10/2022
+' Purpose   : Move the source file(s) associated with this component from one folder
+'           : to another. This is especially important for components that produce more
+'           : than one source file, such as VBE Forms, themes, and queries.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MoveSource(strFromFolder As String, strToFolder As String)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAllFromDB
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -85,7 +86,7 @@ End Sub
 '           : modified will be returned.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Collection
+Public Function GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
 End Function
 
 
@@ -115,20 +116,6 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : SourceModified
-' Author    : Adam Waller
-' Date      : 4/27/2020
-' Purpose   : The date/time the source object was modified. In most cases, this would
-'           : be the date/time of the source file, but it some cases like SQL objects
-'           : the date can be determined through other means, so this function
-'           : allows either approach to be taken.
-'---------------------------------------------------------------------------------------
-'
-Public Function SourceModified() As Date
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : BaseFolder
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -150,6 +137,18 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : FileExtensions
+' Author    : Adam Waller
+' Date      : 12/1/2023
+' Purpose   : A collection of the file extensions used in source files for this
+'           : component type.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get FileExtensions() As Collection
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetFileList
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
@@ -157,7 +156,7 @@ End Property
 '           : Based on the export folder defined in options.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFileList(Optional blnModifiedOnly As Boolean = False) As Collection
+Public Function GetFileList() As Dictionary
 End Function
 
 
@@ -218,11 +217,13 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Upgrade
+' Procedure : QuickCount
 ' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Run any version specific upgrade processes before importing.
+' Date      : 6/14/2022
+' Purpose   : Return a cached, non-iterative approximate count of database objects
+'           : for use with progress indicators when scanning for changes. Single file
+'           : objects like database properties can simply return 1.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Upgrade()
-End Sub
+Public Property Get QuickCount() As Long
+End Property

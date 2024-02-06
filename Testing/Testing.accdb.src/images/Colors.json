@@ -6,6 +6,7 @@
   "Items": {
     "Name": "Colors",
     "FileName": "Colors.jpg",
-    "Extension": "jpg"
+    "Extension": "jpg",
+    "ContentHash": "a9d4adf"
   }
 }

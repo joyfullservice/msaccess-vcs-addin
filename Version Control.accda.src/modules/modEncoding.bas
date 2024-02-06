@@ -36,13 +36,13 @@ Public Function RequiresUcs2(Optional blnUseCache As Boolean = True) As Boolean
     Dim frm As Access.Form
     Dim strName As String
     Dim dbs As DAO.Database
-    
+
     ' See if we already have a cached value
     If (m_strDbPath <> CurrentProject.FullName) Or Not blnUseCache Then
-    
+
         ' Get temp file name
         strTempFile = GetTempFile
-        
+
         ' Can't create querydef objects in ADP databases, so we have to use something else.
         If CurrentProject.ProjectType = acADP Then
             ' Create and export a blank form object.
@@ -68,7 +68,7 @@ Public Function RequiresUcs2(Optional blnUseCache As Boolean = True) As Boolean
             Perf.OperationEnd
             dbs.QueryDefs.Delete strName
         End If
-        
+
         ' Test and delete temp file
         m_strDbPath = CurrentProject.FullName
         m_blnUcs2 = HasUcs2Bom(strTempFile)
@@ -78,7 +78,7 @@ Public Function RequiresUcs2(Optional blnUseCache As Boolean = True) As Boolean
 
     ' Return cached value
     RequiresUcs2 = m_blnUcs2
-    
+
 End Function
 
 
@@ -96,25 +96,25 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
     Dim cData As clsConcat
     Dim blnIsAdp As Boolean
     Dim intTristate As Tristate
-    
+
     ' Remove any existing file.
     If FSO.FileExists(strDestinationFile) Then DeleteFile strDestinationFile, True
-    
+
     ' ADP Projects do not use the UCS BOM, but may contain mixed UTF-16 content
     ' representing unicode characters.
     blnIsAdp = (CurrentProject.ProjectType = acADP)
-    
+
     ' Check the first couple characters in the file for a UCS BOM.
     If HasUcs2Bom(strSourceFile) Or blnIsAdp Then
-    
+
         ' Determine format
         If blnIsAdp Then
             ' Possible mixed UTF-16 content
             intTristate = TristateMixed
-            
+
             ' Log performance
             Perf.OperationStart "Unicode Conversion"
-            
+
             ' Read file contents and delete (temp) source file
             Set cData = New clsConcat
             With FSO.OpenTextFile(strSourceFile, ForReading, False, intTristate)
@@ -126,17 +126,17 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
                 Loop
                 .Close
             End With
-            
+
             ' Write as UTF-8 in the destination file.
             ' (Path will be verified before writing)
             WriteFile cData.GetStr, strDestinationFile
             Perf.OperationEnd
-                
+
         Else
             ' Fully encoded as UTF-16
             ReEncodeFile strSourceFile, "utf-16", strDestinationFile, "utf-8"
         End If
-        
+
         ' Remove the source (temp) file if specified
         If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile, True
     Else
@@ -148,7 +148,7 @@ Public Sub ConvertUcs2Utf8(strSourceFile As String, strDestinationFile As String
             FSO.CopyFile strSourceFile, strDestinationFile
         End If
     End If
-    
+
 End Sub
 
 
@@ -163,13 +163,10 @@ End Sub
 Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String, _
     Optional blnDeleteSourceFileAfterConversion As Boolean = True)
 
-    Dim strText As String
-    Dim utf8Bytes() As Byte
-
     ' Make sure the path exists before we write a file.
     VerifyPath strDestinationFile
     If FSO.FileExists(strDestinationFile) Then DeleteFile strDestinationFile, True
-    
+
     If HasUcs2Bom(strSourceFile) Then
         ' No conversion needed, move/copy to destination.
         If blnDeleteSourceFileAfterConversion Then
@@ -180,11 +177,11 @@ Public Sub ConvertUtf8Ucs2(strSourceFile As String, strDestinationFile As String
     Else
         ' Encode as UCS2-LE (UTF-16 LE)
         ReEncodeFile strSourceFile, "utf-8", strDestinationFile, "utf-16"
-    
+
         ' Remove original file if specified.
         If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile, True
     End If
-    
+
 End Sub
 
 
@@ -198,13 +195,13 @@ End Sub
 '
 Public Sub ConvertAnsiUtf8(strSourceFile As String, strDestinationFile As String, _
     Optional blnDeleteSourceFileAfterConversion As Boolean = True)
-    
+
     ' Perform file conversion
     ReEncodeFile strSourceFile, GetSystemEncoding, strDestinationFile, "utf-8", adSaveCreateOverWrite
 
     ' Remove original file if specified.
     If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile
-    
+
 End Sub
 
 
@@ -217,13 +214,13 @@ End Sub
 '
 Public Sub ConvertUtf8Ansi(strSourceFile As String, strDestinationFile As String, _
     Optional blnDeleteSourceFileAfterConversion As Boolean = True)
-    
+
     ' Perform file conversion
     ReEncodeFile strSourceFile, "utf-8", strDestinationFile, GetSystemEncoding, adSaveCreateOverWrite
-    
+
     ' Remove original file if specified.
     If blnDeleteSourceFileAfterConversion Then DeleteFile strSourceFile
-    
+
 End Sub
 
 
@@ -235,7 +232,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function HasUtf8Bom(strFilePath As String) As Boolean
-    HasUtf8Bom = FileHasBom(strFilePath, UTF8_BOM)
+    Dim bte() As Byte
+    bte = GetFileBytes(strFilePath, 3)
+    HasUtf8Bom = ((bte(0) = &HEF) And (bte(1) = &HBB) And (bte(2) = &HBF))
 End Function
 
 
@@ -243,23 +242,15 @@ End Function
 ' Procedure : HasUcs2Bom
 ' Author    : Adam Waller
 ' Date      : 8/1/2020
-' Purpose   : Returns true if the file begins with
+' Purpose   : Returns true if the file begins with the bytes `FF FE` (ÿþ)
+'           : Note that these must be read as bytes, not compared to a string value
+'           : if the system is using the UTF-8 (beta) option in Windows 10. See #378
 '---------------------------------------------------------------------------------------
 '
 Public Function HasUcs2Bom(strFilePath As String) As Boolean
-    HasUcs2Bom = FileHasBom(strFilePath, UCS2_BOM)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : FileHasBom
-' Author    : Adam Waller
-' Date      : 8/1/2020
-' Purpose   : Check for the specified BOM by reading the first few bytes in the file.
-'---------------------------------------------------------------------------------------
-'
-Private Function FileHasBom(strFilePath As String, strBom As String) As Boolean
-    FileHasBom = (strBom = StrConv(GetFileBytes(strFilePath, Len(strBom)), vbUnicode))
+    Dim bte() As Byte
+    bte = GetFileBytes(strFilePath, 2)
+    HasUcs2Bom = ((bte(0) = &HFF) And (bte(1) = &HFE))
 End Function
 
 
@@ -279,7 +270,7 @@ Public Function StringHasExtendedASCII(strText As String) As Boolean
         StringHasExtendedASCII = .Test(strText)
     End With
     Perf.OperationEnd
-    
+
 End Function
 
 
@@ -295,29 +286,35 @@ Public Sub ReEncodeFile(strInputFile As String, strInputCharset As String, _
     Optional intOverwriteMode As SaveOptionsEnum = adSaveCreateOverWrite)
 
     Dim objOutputStream As ADODB.Stream
-    
+
     ' Open streams and copy data
     Perf.OperationStart "Enc. " & strInputCharset & " as " & strOutputCharset
     Set objOutputStream = New ADODB.Stream
     With New ADODB.Stream
         .Open
         .Type = adTypeBinary
+        Perf.OperationStart "Load Stream from File"
         .LoadFromFile strInputFile
+        Perf.OperationEnd
         .Type = adTypeText
         .Charset = strInputCharset
         objOutputStream.Open
         objOutputStream.Charset = strOutputCharset
         ' Copy from one stream to the other
+        Perf.OperationStart "Copy Stream"
         .CopyTo objOutputStream
+        Perf.OperationEnd
         .Close
     End With
-    
+
     ' Save file and log performance
     VerifyPath strOutputFile
+    Perf.OperationStart "Save Stream to File"
     objOutputStream.SaveToFile strOutputFile, intOverwriteMode
+    Perf.OperationEnd
     objOutputStream.Close
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -332,17 +329,17 @@ End Sub
 '           : * Note that using utf-8 as a default system encoding may not work
 '           : correctly with some extended characters in VBA code modules. The VBA IDE
 '           : does not support Unicode characters, and requires code pages to display
-'           : extended/non-English characters. See Issues #60, #186, #180, #246
+'           : extended/non-English characters. See Issues #60, #186, #180, #246, #377
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSystemEncoding() As String
-    
+Public Function GetSystemEncoding(Optional blnAllowUtf8 As Boolean = False) As String
+
     Static lngEncoding As Long
-    
+
     ' Call API to determine active code page, caching return value.
     If lngEncoding = 0 Then lngEncoding = GetACP
     Select Case lngEncoding
-    
+
         ' Language encoding mappings are defined here, based on the following sources:
         ' https://docs.microsoft.com/en-us/office/vba/api/office.msoencoding
         ' https://docs.microsoft.com/en-us/dotnet/api/system.text.encoding?view=net-5.0
@@ -465,11 +462,19 @@ Public Function GetSystemEncoding() As String
         Case msoEncodingISCIIGujarati:                  GetSystemEncoding = "x-iscii-gu"
         Case msoEncodingISCIIPunjabi:                   GetSystemEncoding = "x-iscii-pa"
         Case msoEncodingUTF7:                           GetSystemEncoding = "utf-7"
-        Case msoEncodingUTF8:                           GetSystemEncoding = "utf-8" '* See note
-        
-        ' *In Windows 10, this is a checkbox in Region settings for
+
+        ' In Windows 10, this is shown as a checkbox in Region settings for
         ' "Beta: Use Unicode UTF-8 for worldwide language support"
-        
+        Case msoEncodingUTF8:
+            If blnAllowUtf8 Then
+                GetSystemEncoding = "utf-8"
+            Else
+                ' If UTF-8 is not allowed (such as for code modules), then fall back
+                ' to most commonly used codepage, supporting most Western Euorpean
+                ' languages, but not Cyrillic. https://www.wikiwand.com/en/Windows-1252
+                GetSystemEncoding = "Windows-1252"
+            End If
+
         ' Any other language encoding not defined above (should be very rare)
         Case Else
             ' Attempt to autodetect the language based on the content.
@@ -477,6 +482,5 @@ Public Function GetSystemEncoding() As String
             '  with normal written language. See issue #186)
             GetSystemEncoding = "_autodetect_all"
     End Select
-    
-End Function
 
+End Function

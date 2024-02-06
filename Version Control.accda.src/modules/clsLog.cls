@@ -11,8 +11,9 @@ Option Compare Database
 Option Explicit
 
 Public PadLength As Integer
-Public LogFilePath As String
 Public ErrorLevel As eErrorLevel
+Public OperationType As eOperationType
+Public SourcePath As String
 
 ' Set this to true when logging an operation such as an export or build
 ' then set back to false after writing the log file. This affects
@@ -33,7 +34,7 @@ Private m_sngLastUpdate As Single
 ' Procedure : Clear
 ' Author    : Adam Waller
 ' Date      : 4/16/2020
-' Purpose   : Clear the log buffers
+' Purpose   : Clear the log buffers and release object references
 '---------------------------------------------------------------------------------------
 '
 Public Sub Clear()
@@ -63,13 +64,12 @@ End Sub
 Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
     Optional blnNextOutputOnNewLine As Boolean = True, _
     Optional strColor As String = vbNullString, _
-    Optional blnBold As Boolean = False)
+    Optional blnBold As Boolean = False, _
+    Optional blnItalic As Boolean = False)
 
-    Dim strHtml As String
-    
     ' Add to log file output
     m_Log.Add strText, vbCrLf
-    
+
     ' See if we want to print the output of this message.
     If blnPrint Then
         ' Remove existing progress indicator if in use.
@@ -77,27 +77,29 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             m_blnProgressActive = False
             m_Prog.Hide
         End If
-    
+
         ' Build HTML output for console
         With m_Console
-        
+
             ' Opening tags
             If blnBold Then .Add "<strong>"
+            If blnItalic Then .Add "<i>"
             If strColor <> vbNullString Then .Add "<font color=", strColor, ">"
-            
+
             ' Content
             .Add MultiReplace(strText, _
                 " ", "&nbsp;", _
                 vbCrLf, "<br>")
-            
+
             ' Closing tags
             If strColor <> vbNullString Then .Add "</font>"
-            If blnBold Then m_Console.Add "</strong>"
-            
+            If blnItalic Then .Add "</i>"
+            If blnBold Then .Add "</strong>"
+
             ' Add line break for HTML
             If blnNextOutputOnNewLine Then m_Console.Add "<br>"
         End With
-        
+
         ' Run debug output
         If m_RichText Is Nothing Then
             ' Only print debug output if not running from the GUI.
@@ -109,7 +111,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
                 Debug.Print strText;
             End If
         End If
-        
+
         ' Allow an update to the screen every second.
         ' (This keeps the aplication from an apparent hang while
         '  running intensive export processes.)
@@ -118,7 +120,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             m_sngLastUpdate = Timer
         End If
     End If
- 
+
 End Sub
 
 
@@ -148,12 +150,12 @@ Public Sub Flush()
             Echo True
             'Form_frmVCSMain.Repaint
         End With
+    Else
+        ' Update display in immediate window if not using console
+        DoEvents
     End If
-    
-    ' Update the display (especially for immediate window)
-    DoEvents
     Perf.OperationEnd
-    
+
 End Sub
 
 
@@ -169,36 +171,34 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
 
     Dim strPrefix As String
     Dim strDisplay As String
-    
+
     Select Case eLevel
         Case eelWarning:    strPrefix = "WARNING: "
         Case eelError:      strPrefix = "ERROR: "
         Case eelCritical:   strPrefix = "CRITICAL: "
     End Select
-    
+
     ' Build the error message string.
     With New clsConcat
-    
+
         ' Sometimes the error description is sufficient for the description
         If strDescription = vbNullString And Err.Number <> 0 Then
             strDisplay = strPrefix & Err.Description
         Else
             strDisplay = strPrefix & strDescription
         End If
-        
-        ' Display on the output screen anything higher than a warning
-        If eLevel > eelWarning Then
-            Me.Add vbNullString
-            Me.Spacer
-            Me.Add strDisplay, , , "red"
-            Me.Spacer
-        End If
-        
-        ' Log the full detail to the log file
+
+        ' Log all errors, and display on the output screen anything higher than a warning
+        Me.Add vbNullString, (eLevel > eelWarning)
+        Me.Spacer (eLevel > eelWarning)
+        Me.Add strDisplay, (eLevel > eelWarning), , "red"
+
+        ' Log the additional error and source details to the log file
         If Err Then .Add "Error ", Err.Number, ": ", Err.Description, " "
         If strSource <> vbNullString Then .Add "Source: ", strSource
         Me.Add .GetStr, False
-        
+        Me.Spacer (eLevel > eelWarning)
+
         ' See if we are actively logging an operation
         If Log.Active Then
             ' Show message box for fatal error.
@@ -216,10 +216,10 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
             End Select
         End If
     End With
-    
+
     ' Update error level if higher.
     If Me.ErrorLevel < eLevel Then Me.ErrorLevel = eLevel
-    
+
 End Sub
 
 
@@ -227,14 +227,30 @@ End Sub
 ' Procedure : SetConsole
 ' Author    : Adam Waller
 ' Date      : 4/28/2020
-' Purpose   : Set a reference to the text box.
+' Purpose   : Set a reference to the rich text box for output display, and the
+'           : associated progress bar for logging progress.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SetConsole(txtRichText As TextBox)
+Public Sub SetConsole(txtRichText As TextBox, cProg As clsLblProg)
+    Set m_Prog = cProg
     Set m_RichText = txtRichText
     If Not m_RichText Is Nothing Then
         m_RichText.AllowAutoCorrect = False
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReleaseConsole
+' Author    : Adam Waller
+' Date      : 5/5/2022
+' Purpose   : Releases object references to the console form that were created with
+'           : the SetConsole sub.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReleaseConsole()
+    Set m_RichText = Nothing
+    Set m_Prog = Nothing
 End Sub
 
 
@@ -269,14 +285,32 @@ End Property
 ' Procedure : SaveFile
 ' Author    : Adam Waller
 ' Date      : 1/18/2019
-' Purpose   : Saves the log data to a file, and resets the log buffer.
+' Purpose   : Saves the current log data to a file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveFile(strPath As String)
-    WriteFile m_Log.GetStr, strPath
-    Set m_Log = New clsConcat
-    LogFilePath = strPath
+Public Sub SaveFile(Optional strAlternatePath As String)
+    If Len(strAlternatePath) Then VerifyPath strAlternatePath
+    WriteFile m_Log.GetStr, Nz2(strAlternatePath, Me.LogFilePath)
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogFilePath
+' Author    : Adam Waller
+' Date      : 5/13/2023
+' Purpose   : Return the (default) full path to the current log file.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get LogFilePath() As String
+    Dim strFile As String
+    Select Case Me.OperationType
+        Case eotExport: strFile = "Export.log"
+        Case eotBuild:  strFile = "Build.log"
+        Case eotMerge:  strFile = "Merge.log"
+        Case Else:      strFile = "Other.log"
+    End Select
+    LogFilePath = FSO.BuildPath(Me.SourcePath, strFile)
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -294,7 +328,6 @@ Private Sub Class_Initialize()
     Me.PadLength = 30
     Me.ErrorLevel = eelNoError
     Me.Active = False
-    Me.LogFilePath = vbNullString
 End Sub
 
 
@@ -319,35 +352,16 @@ End Sub
 ' Procedure : Increment
 ' Author    : Adam Waller
 ' Date      : 4/28/2020
-' Purpose   : Increment the progress bar
+' Purpose   : Increment the progress bar/output display
 '---------------------------------------------------------------------------------------
 '
 Public Sub Increment()
-    
-    ' Track the last time we did an increment
-    Static sngLastIncrement As Single
-    Static lngProgress As Long
-    
+
     ' Ignore if we are not using the form
     If m_Prog Is Nothing Then Exit Sub
-    
-    ' Increment value, even if we don't display it.
-    lngProgress = lngProgress + 1
-    
-    ' Don't run the incrementer unless it has been 1
-    ' second since the last displayed output refresh.
-    If m_sngLastUpdate > Timer - 1 Then Exit Sub
-    
-    ' Allow an update to the screen every x seconds.
-    ' Find the balance between good progress feedback
-    ' without slowing down the overall export time.
-    If sngLastIncrement > Timer - 0.5 Then Exit Sub
-
     ' Check the current status.
     Perf.OperationStart "Increment Progress"
     If Not m_blnProgressActive Then
-        ' Show the progress bar
-        lngProgress = 1
         ' Flush any pending output
         With m_RichText
             Echo False
@@ -359,12 +373,10 @@ Public Sub Increment()
             Echo True
         End With
     End If
-    
-    ' Status is now active
-    sngLastIncrement = Timer
-    m_blnProgressActive = True
-    m_Prog.Value = lngProgress
-    Perf.OperationEnd
-    
-End Sub
+    Me.ProgressBar.Increment
 
+    ' Status is now active
+    m_blnProgressActive = True
+    Perf.OperationEnd
+
+End Sub

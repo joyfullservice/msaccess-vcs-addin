@@ -9,18 +9,44 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
-
 Private Const ModuleName = "modObjects"
 
-' Logging and options classes
-Private m_Perf As clsPerformance
-Private m_Log As clsLog
-Private m_Options As clsOptions
-Private m_VCSIndex As clsVCSIndex
+' Use a private type to manage instances of object classes
+Private Type udtObjects
+    Perf As clsPerformance
+    Log As clsLog
+    Options As clsOptions
+    VCSIndex As clsVCSIndex
+    Worker As clsWorker
+    Git As clsGitIntegration
 
-' Keep a persistent reference to file system object after initializing version control.
-' This way we don't have to recreate this object dozens of times while using VCS.
-Private m_FSO As Scripting.FileSystemObject
+    ' Keep a persistent reference to file system object after initializing version control.
+    ' This way we don't have to recreate this object dozens of times while using VCS.
+    FSO As Scripting.FileSystemObject
+End Type
+Private this As udtObjects
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReleaseObjects
+' Author    : Adam Waller
+' Date      : 3/28/2022
+' Purpose   : Release references to objects for a clean exit.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReleaseObjects()
+    Set this.Perf = Nothing
+    Set this.Log = Nothing
+    Set this.Options = Nothing
+    Set this.VCSIndex = Nothing
+    Set this.Worker = Nothing
+    Set this.Git = Nothing
+    Set this.FSO = Nothing
+
+    Dim udtEmpty As udtObjects
+    ' Reassign "this" to blank, clearing any saved data.
+    LSet this = udtEmpty
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -50,11 +76,25 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Options() As clsOptions
-    If m_Options Is Nothing Then Set m_Options = LoadOptions
-    Set Options = m_Options
+    If this.Options Is Nothing Then Set this.Options = LoadOptions
+    Set Options = this.Options
 End Property
 Public Property Set Options(cNewOptions As clsOptions)
-    Set m_Options = cNewOptions
+    Set this.Options = cNewOptions
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OptionsLoaded
+' Author    : Adam Waller
+' Date      : 5/13/2023
+' Purpose   : Return true if the options object has been loaded. (It is loaded on first
+'           : access, but in some cases we might want to avoid loading the options if
+'           : they are not already loaded.)
+'---------------------------------------------------------------------------------------
+'
+Public Property Get OptionsLoaded() As Boolean
+    OptionsLoaded = (Not this.Options Is Nothing)
 End Property
 
 
@@ -66,8 +106,8 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Function Perf() As clsPerformance
-    If m_Perf Is Nothing Then Set m_Perf = New clsPerformance
-    Set Perf = m_Perf
+    If this.Perf Is Nothing Then Set this.Perf = New clsPerformance
+    Set Perf = this.Perf
 End Function
 
 
@@ -78,9 +118,9 @@ End Function
 ' Purpose   : Wrapper for log file class
 '---------------------------------------------------------------------------------------
 '
-Public Function Log() As clsLog
-    If m_Log Is Nothing Then Set m_Log = New clsLog
-    Set Log = m_Log
+Public Function Log(Optional blnCreateInstance As Boolean = True) As clsLog
+    If this.Log Is Nothing Then If blnCreateInstance Then Set this.Log = New clsLog
+    Set Log = this.Log
 End Function
 
 
@@ -93,13 +133,12 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get FSO() As Scripting.FileSystemObject
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-    If m_FSO Is Nothing Then Set m_FSO = New Scripting.FileSystemObject
-    Set FSO = m_FSO
-    CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", ModuleName & ".FSO"
-End Property
-Public Property Set FSO(ByVal RHS As Scripting.FileSystemObject)
-    Set m_FSO = RHS
+    If this.FSO Is Nothing Then
+        If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+        Set this.FSO = New Scripting.FileSystemObject
+        CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", ModuleName & ".FSO"
+    End If
+    Set FSO = this.FSO
 End Property
 
 
@@ -111,72 +150,52 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get VCSIndex() As clsVCSIndex
-    If m_VCSIndex Is Nothing Then
-        Set m_VCSIndex = New clsVCSIndex
-        m_VCSIndex.LoadFromFile
+    If this.VCSIndex Is Nothing Then
+        Set this.VCSIndex = New clsVCSIndex
+        this.VCSIndex.LoadFromFile
     End If
-    Set VCSIndex = m_VCSIndex
+    Set VCSIndex = this.VCSIndex
 End Property
 Public Property Set VCSIndex(cIndex As clsVCSIndex)
-    Set m_VCSIndex = cIndex
+    Set this.VCSIndex = cIndex
 End Property
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : DebugMode
+' Procedure : Worker
 ' Author    : Adam Waller
-' Date      : 3/9/2021
-' Purpose   : Wrapper for use in error handling.
+' Date      : 3/2/2023
+' Purpose   : Expose worker class
 '---------------------------------------------------------------------------------------
 '
-Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
-    
-    Dim blnBreak As Boolean
-    
-    ' Don't reference the property this till we have loaded the options.
-    If Not m_Options Is Nothing Then blnBreak = m_Options.BreakOnError
-    
-    ' Check for any unhandled errors
-    If (Err.Number <> 0) And blnTrapUnhandledErrors Then
-    
-        ' Check current BreakOnError mode
-        If blnBreak Then
-            ' Stop the code here so we can investigate the source of the error.
-            Debug.Print "Error " & Err.Number & ": " & Err.Description
-            Stop
-            '===========================================================================
-            '   NOTE: IF THE CODE STOPS HERE, PLEASE READ BEFORE CONTINUING
-            '===========================================================================
-            '   An unhandled error was (probably) found just before an `On Error ...`
-            '   statement. Since any existing errors are cleared when the On Error
-            '   statement is executed, this is your chance to identify the source of the
-            '   unhandled error.
-            '
-            '   Note that the error will typically be from the THIRD item in the call
-            '   stack, if the On Error statement is at the beginning of the calling
-            '   procedure. Use CTL+L to view the call stack. For example:
-            '
-            '   (1) MSAccessVCS.modObjects.DebugMode    <--- This function
-            '   (2) MSAccessVCS.clsLog.Flush            <--- Calling function
-            '   (3) MSAccessVCS.clsLog.Add              <--- Likely origin of error
-            '
-            '   You can use standard VBA debugging techniques to inspect variables and
-            '   step through code to pinpoint the source and cause of the error.
-            '   For additional information, please see the add-in wiki on GitHub at:
-            '   https://github.com/joyfullservice/msaccess-vcs-integration/wiki
-            '===========================================================================
-        Else
-            ' Log otherwise unhandled error
-            If Not m_Log Is Nothing Then
-                ' We don't know the procedure that it originated from, but we should at least
-                ' log that the error occurred. A review of the log file may help identify the source.
-                Log.Error eelError, "Unhandled error found before `On Error` directive", "Unknown"
-            End If
-        End If
-    
-    End If
-    
-    ' Return debug mode
-    DebugMode = blnBreak
-    
-End Function
+Public Property Get Worker() As clsWorker
+    If this.Worker Is Nothing Then Set this.Worker = New clsWorker
+    Set Worker = this.Worker
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Diff
+' Author    : Adam Waller
+' Date      : 2/23/2022
+' Purpose   : Wrapper for class to view diff between string and file content
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Diff() As clsViewDiff
+    Static cDiff As clsViewDiff
+    If cDiff Is Nothing Then Set cDiff = New clsViewDiff
+    Set Diff = cDiff
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Git
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Return Git integration class
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Git() As clsGitIntegration
+    If this.Git Is Nothing Then Set this.Git = New clsGitIntegration
+    Set Git = this.Git
+End Property
