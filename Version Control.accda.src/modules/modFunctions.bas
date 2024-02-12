@@ -1064,3 +1064,49 @@ Public Sub ScaleColumns(frmDatasheet As Form, Optional lngScrollWidthTwips As Lo
     Next ctl
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExpandEnvironmentVariables
+' Author    : Adam Waller
+' Date      : 2/12/2024
+' Purpose   : Expand out environment variables in a string.
+'---------------------------------------------------------------------------------------
+'
+Public Function ExpandEnvironmentVariables(strString) As String
+
+    Dim lngPos As Long
+    Dim lngEnd As Long
+    Dim strVariable As String
+    Dim strNew As String
+    Dim strValue As String
+
+    ' Prepare return value
+    strNew = strString
+
+    ' Find pairs of % characters
+    Do
+        lngPos = InStr(lngPos + 1, strString, "%")
+        If lngPos = 0 Then
+            Exit Do
+        Else
+            lngEnd = InStr(lngPos + 2, strString, "%")
+            If lngEnd > 0 Then
+                ' Found a pair of delimiters. Check the value
+                strVariable = Mid$(strString, lngPos + 1, (lngEnd - lngPos) - 1)
+                strValue = Environ$(strVariable)
+                If Len(strValue) Then
+                    ' Replace with expanded value
+                    strNew = Replace(strNew, "%" & strVariable & "%", strValue)
+                End If
+            Else
+                lngEnd = lngPos
+            End If
+        End If
+        lngPos = lngEnd
+    Loop
+
+    ' Return string with any changes
+    ExpandEnvironmentVariables = strNew
+
+End Function

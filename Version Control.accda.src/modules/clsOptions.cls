@@ -547,9 +547,13 @@ Public Function GetExportFolder() As String
             ' Other absolute path (i.e. c:\myfiles\)
             strFullPath = Me.ExportFolder
         End If
-        ' Placeholder replacements
-        If InStr(1, strFullPath, "%dbName%", vbTextCompare) > 0 Then
-            strFullPath = Replace(strFullPath, "%dbName%", CurrentProject.Name, , , vbTextCompare)
+        ' Environment variable replacements
+        If InStr(1, strFullPath, "%") > 0 Then
+            strFullPath = ExpandEnvironmentVariables(strFullPath)
+            ' Other placeholder replacements
+            If InStr(1, strFullPath, "%dbName%", vbTextCompare) > 0 Then
+                strFullPath = Replace(strFullPath, "%dbName%", CurrentProject.Name, , , vbTextCompare)
+            End If
         End If
     End If
 
