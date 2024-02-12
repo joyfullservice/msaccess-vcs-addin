@@ -111,6 +111,8 @@ Public Sub cmdRunTests_Click()
     strTest = CurrentProject.AllModules("clsPerson").Name
     ShowResult "Class Module exists", (strTest = "clsPerson")
 
+    ' Access the code module first to correctly load the instancing property
+    strTest = GetVBProjectForCurrentDB.VBComponents("clsPublic").CodeModule.CountOfLines
     strTest = GetVBProjectForCurrentDB.VBComponents("clsPublic").Properties("Instancing")
     ShowResult "Class with Public Creatable Instancing", (strTest = "5")
 
