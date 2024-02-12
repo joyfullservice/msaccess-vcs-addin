@@ -202,8 +202,6 @@ Public Sub cmdRunTests_Click()
 End Sub
 
 
-
-
 '---------------------------------------------------------------------------------------
 ' Procedure : ShowResult
 ' Author    : Adam Waller
@@ -218,8 +216,12 @@ Private Function ShowResult(strText As String, blnPassed As Boolean)
     Else
         strIcon = ChrW(10060)   ' X
     End If
-    lstResults.AddItem strIcon & ";" & strText
     m_Totals(blnPassed) = m_Totals(blnPassed) + 1
+    With lstResults
+        .SetFocus
+        .AddItem strIcon & ";" & strText
+        .ListIndex = .ListCount - 1
+    End With
     DoEvents
 End Function
 
