@@ -1,5 +1,5 @@
 # gitattributes template for Microsoft Access database source files
-# Website: https://github.com/joyfullservice/msaccess-vcs-integration
+# Website: https://github.com/joyfullservice/msaccess-vcs-addin
 #
 
 # Ignore Microsoft Access database binary files (Build these from source)
