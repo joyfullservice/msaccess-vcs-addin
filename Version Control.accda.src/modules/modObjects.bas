@@ -19,7 +19,7 @@ Private Type udtObjects
     VCSIndex As clsVCSIndex
     Worker As clsWorker
     Git As clsGitIntegration
-    Translation as clsTranslation
+    Translation As clsTranslation
 
     ' Keep a persistent reference to file system object after initializing version control.
     ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -132,8 +132,8 @@ End Function
 ' Purpose   : Wrapper for commonly-used translation functions
 '---------------------------------------------------------------------------------------
 '
-Public Function T(strText As String, Optional strContext As String)
-    T = Translation.T(strText, strContext)
+Public Function t(strText As String, Optional strContext As String)
+    t = Translation.t(strText, strContext)
 End Function
 
 

@@ -59,17 +59,17 @@ End Function
 ' Purpose   : Return the translated version of the string.
 '---------------------------------------------------------------------------------------
 '
-Public Function T(strText As String, Optional strContext As String, Optional strComments As String) As String
+Public Function t(strText As String, Optional strContext As String, Optional strComments As String) As String
 
     Dim strNew As String
     Dim strKey As String
-    
+
     ' Skip processing if no value is passed
     If strText = vbNullString Then Exit Function
-    
+
     ' Make sure the language has been initialized
     CheckInit
-    
+
     ' Check for the master string
     strKey = BuildKey(strText, strContext)
     If dStrings.Exists(strKey) Then
@@ -83,9 +83,9 @@ Public Function T(strText As String, Optional strContext As String, Optional str
         ' Add to strings table
         SaveString strText, strContext, strComments
     End If
-    
+
     ' Return translated string
-    T = Coalesce(strNew, strText)
+    t = Coalesce(strNew, strText)
 
 End Function
 
@@ -98,26 +98,26 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub ApplyTo(frmObject As Form)
-   
+
     Dim ctl As Control
     Dim ctl2 As Control
     Dim ctlAsc As Control
     Dim strContext As String
     Dim strName As String
-    
+
     ' No translation needed for English
     'If m_strCurrentLanguage = en_US Then Exit Sub
-    
+
     ' Loop through all controls
     For Each ctl In frmObject.Controls
-        
+
         ' Only check certain types of controls
         Select Case TypeName(ctl)
             Case "Label"
-            
+
                 ' Build base context
                 strContext = frmObject.Name & "." & ctl.Name
-                
+
                 ' Check for associated control
                 ' (It is easier to go from the object to the label, but not
                 '  all labels may have objects, so we loop through other controls
@@ -133,24 +133,24 @@ Public Sub ApplyTo(frmObject As Form)
                     End If
                 Next ctl2
                 If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
-                
+
                 ' Translation caption
-                ctl.Caption = T(ctl.Caption, strContext)
-                
+                ctl.Caption = t(ctl.Caption, strContext)
+
             Case "TextBox"
                 ' Nothing to translate
-                
+
             Case "Page"
                 ' Tab control page caption
                 strContext = frmObject.Name & "." & ctl.Parent.Name & "." & ctl.Name
-                ctl.Caption = T(ctl.Caption, strContext)
-        
+                ctl.Caption = t(ctl.Caption, strContext)
+
         End Select
-        
+
     Next ctl
-    
+
     ' Other properties
-    frmObject.Caption = T(frmObject.Caption, frmObject.Name & ".Caption")
+    frmObject.Caption = t(frmObject.Caption, frmObject.Name & ".Caption")
 
 End Sub
 
@@ -169,10 +169,10 @@ Public Sub ExportTranslations()
     Dim strLanguage As String
     Dim strFolder As String
     Dim strFile As String
-    
+
     strFolder = TranslationsPath
     If strFolder = vbNullString Then Exit Sub
-    
+
     Set dbs = CodeDb
     Set rst = dbs.OpenRecordset("tblLanguages", dbOpenSnapshot)
     With rst
@@ -206,7 +206,7 @@ End Sub
 Public Sub LoadTranslations()
 
     ' Load English translation
-    
+
 
 End Sub
 
@@ -276,13 +276,13 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub SaveString(strText As String, strContext As String, strComments As String, ParamArray varParams() As Variant)
-    
+
     Dim dbs As Database
     Dim rst As Recordset
-    
+
     Set dbs = CodeDb
     Set rst = dbs.OpenRecordset("tblStrings")
-    
+
     With rst
         .AddNew
             !msgid = strText
@@ -291,13 +291,13 @@ Private Sub SaveString(strText As String, strContext As String, strComments As S
         .Update
         .Close
     End With
-    
+
 End Sub
 
 
 
 Private Sub LoadStrings()
-    
+
 End Sub
 
 
@@ -337,15 +337,15 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub LoadLanguage(strLanguage As String)
-    
+
     Dim dbs As Database
     Dim rst As Recordset
     Dim strSql As String
-        
+
     m_strCurrentLanguage = strLanguage
     Set dStrings = New Dictionary
     Set dTranslation = New Dictionary
-    
+
     ' Load strings and translations
     Set dbs = CodeDb
     strSql = "select * from qryStrings where (Language = '" & strLanguage & "' or Language Is Null)"
@@ -359,7 +359,7 @@ Private Sub LoadLanguage(strLanguage As String)
         Loop
         .Close
     End With
-    
+
 End Sub
 
 
@@ -418,11 +418,11 @@ Private Sub ImportTranslation(strFile As String)
     Dim cHeader As clsConcat
     Dim blnInHeader As Boolean
     Dim dbs As Database
-    
+
     ' Read file contents
     strContent = ReadFile(strFile)
     If strContent = vbNullString Then Exit Sub
-    
+
     ' Get language from file name, and remove existing entries
     Set dbs = CodeDb
     strName = FSO.GetFileName(strFile)
@@ -437,39 +437,39 @@ Private Sub ImportTranslation(strFile As String)
         strLanguage = FSO.GetBaseName(strName)
         dbs.Execute "delete from tblTranslation where LanguageID='" & strLanguage & "'", dbFailOnError
     End If
-    
+
     ' Split into lines
     varLines = Split(strContent, vbCrLf)
-    
+
     ' Prepare header class
     cHeader.AppendOnAdd = vbCrLf
     blnInHeader = True
-    
+
     ' Loop through lines
     For lngLine = 0 To UBound(varLines)
         strLine = Trim(varLines(lngLine))
-        
+
         ' Add header till we reach first entry
         If blnInHeader And strLine = vbNullString Then
             blnInHeader = False
             AddLanguage strLanguage, cHeader.GetStr
         End If
         If blnInHeader Then cHeader.Add strLine
-        
+
         ' Watch for new section
         If strLine = vbNullString Then
             cHeader.Clear
             tStr = tBlank
         End If
-        
+
         ' Look for headings
         If StartsWith(strLine, "msgctxt ") Then
             'tstr.strContext=
-        
+
         End If
-        
+
     Next lngLine
-    
+
 End Sub
 
 
@@ -493,15 +493,15 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub AddLanguage(strLanguage As String, strHeader As String)
-    
+
     Dim dbs As Database
     Dim rst As Recordset
-    
+
     Set dbs = CodeDb
-    
+
     ' Clear any existing record
     dbs.Execute "delete from tblLanguages where ID='" & strLanguage & "'", dbFailOnError
-    
+
     ' Add new/replacement record
     Set rst = dbs.OpenRecordset("tblLanguages")
     With rst
@@ -512,7 +512,7 @@ Private Sub AddLanguage(strLanguage As String, strHeader As String)
         .Update
         .Close
     End With
-    
+
 End Sub
 
 
@@ -540,20 +540,20 @@ Private Function BuildFileContent(strLanguage As String) As String
     Dim dbs As Database
     Dim rst As Recordset
     Dim strHeader As String
-    
+
     With New clsConcat
         .AppendOnAdd = vbCrLf
-    
+
         ' Add header section
         strHeader = Nz(DLookup("Header", "tblLanguages", "ID='" & strLanguage & "'"))
         .Add strHeader
-        
+
         ' Load strings from database
         Set dbs = CodeDb
         Set rst = dbs.OpenRecordset( _
             "select * from qryStrings where language='" & strLanguage & "' or language is null", _
             dbOpenSnapshot)
-    
+
         ' Loop through strings
         Do While Not rst.EOF
             .Add vbNullString ' (blank line)
@@ -567,7 +567,7 @@ Private Function BuildFileContent(strLanguage As String) As String
             rst.MoveNext
         Loop
         rst.Close
-        
+
         ' Return assembled content
         BuildFileContent = .GetStr
     End With
@@ -591,23 +591,23 @@ Private Function Q(strText As String) As String
     Dim strNew As String
     Dim intPos As Integer
     Dim intStart As Integer
-    
+
     ' Replace newlines and quotes with placeholder
     strNew = Replace(strText, vbCrLf, "\n")
     strNew = Replace(strNew, """", "\""")
-    
+
     ' Add line breaks for over 70 characters.
     ' (80 characters is standard for PO files)
     If Len(strNew) > 70 Then
-        
+
         With New clsConcat
-            
+
             ' Start with blank string
             .Add """"""
-            
+
             ' Begin at first character
             intStart = 1
-            
+
             ' Continue while
             Do While intStart < Len(strNew)
                 intPos = MAX_LEN
@@ -630,11 +630,11 @@ Private Function Q(strText As String) As String
                     .Add vbCrLf, """", Mid$(strNew, intStart), """"
                     Exit Do
                 End If
-                
+
                 ' for debugging
                 DoEvents
             Loop
-            
+
             ' Return multi-line result
             Q = .GetStr
         End With
@@ -642,12 +642,10 @@ Private Function Q(strText As String) As String
         ' Return single line
         Q = """" & strNew & """"
     End If
-    
+
 End Function
 
 
 Private Function UnQ(strLine As String, strHeading As String)
 
 End Function
-
-
