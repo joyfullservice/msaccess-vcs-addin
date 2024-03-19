@@ -1,8 +1,7 @@
 ﻿{
   "Info": {
     "Class": "clsDbNavPaneGroup",
-    "Description": "Navigation Pane Custom Groups",
-    "Export File Format": 1.1
+    "Description": "Navigation Pane Custom Groups"
   },
   "Items": {
     "Categories": [
@@ -44,13 +43,6 @@
             "Flags": 0,
             "Position": 2,
             "Objects": [
-              {
-                "Name": "basUtility",
-                "Type": -32761,
-                "Flags": 0,
-                "Icon": 0,
-                "Position": 0
-              },
               {
                 "Name": "Module1",
                 "Type": -32761,

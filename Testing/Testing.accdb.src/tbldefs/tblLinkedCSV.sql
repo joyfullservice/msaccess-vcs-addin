@@ -1,4 +1,4 @@
 ﻿CREATE TABLE [tblLinkedCSV] (
-  [ID] LONG ,
+  [ID] LONG,
   [Color] VARCHAR (255)
 )

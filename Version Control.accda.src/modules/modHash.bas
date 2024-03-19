@@ -14,7 +14,7 @@
 '           : References: https://docs.microsoft.com/en-us/windows/win32/seccng/cng-algorithm-identifiers
 '           : https://docs.microsoft.com/en-us/windows/win32/seccng/cng-portal
 '           :
-'           : See also: https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Encryption
+'           : See also: https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Encryption
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Private Module
@@ -65,7 +65,7 @@ Private Const ModuleName As String = "modHash"
 
 
 Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgorithm As String = DefaultHashAlgorithm) As Byte()
-    
+
     'Erik A, 2019, adapted by Adam Waller
     'Hash data by using the Next Generation Cryptography API
     'Loosely based on https://docs.microsoft.com/en-us/windows/desktop/SecCNG/creating-a-hash-with-cng
@@ -120,7 +120,7 @@ VBErrHandler:
 ErrHandler:
     CatchAny eelCritical, "Error hashing! " & errorMessage & ". Algorithm: " & HashingAlgorithm, ModuleName & ".NGHash", True, True
     GoTo ExitHandler
-    
+
 End Function
 
 
@@ -132,14 +132,16 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function HashBytes(Data() As Byte, Optional HashingAlgorithm As String = DefaultHashAlgorithm) As Byte()
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
     HashBytes = NGHash(VarPtr(Data(LBound(Data))), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
     If Catch(9) Then HashBytes = NGHash(VarPtr(Null), UBound(Data) - LBound(Data) + 1, HashingAlgorithm)
     CatchAny eelCritical, "Error hashing data!", ModuleName & ".HashBytes", True, True
 End Function
 
 Private Function HashString(str As String, Optional HashingAlgorithm As String = DefaultHashAlgorithm) As Byte()
-    If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+    LogUnhandledErrors
+    On Error Resume Next
     HashString = NGHash(StrPtr(str), Len(str) * 2, HashingAlgorithm)
     If Catch(9) Then HashString = NGHash(StrPtr(vbNullString), Len(str) * 2, HashingAlgorithm)
     CatchAny eelCritical, "Error hashing string!", ModuleName & ".HashString", True, True
@@ -150,13 +152,17 @@ End Function
 ' Procedure : GetStringHash
 ' Author    : Adam Waller
 ' Date      : 11/30/2020
-' Purpose   : Convert string to byte array, and return a hash.
+' Purpose   : Convert string to byte array, and return a hash. Optionally include the
+'           : UTF-8 BOM. (Useful when comparing to a file hash)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetStringHash(strText As String) As String
-    Dim bteText() As Byte
-    bteText = strText
-    GetStringHash = GetHash(bteText)
+Public Function GetStringHash(ByVal strText As String, Optional blnWithBom As Boolean = False) As String
+    If blnWithBom Then
+        ' Ensure that we are ending the content with a vbCrLf
+        ' (To match the behavior of the WriteFile function)
+        If Right(strText, 2) <> vbCrLf Then strText = strText & vbCrLf
+    End If
+    GetStringHash = GetHash(GetUTF8Bytes(strText, blnWithBom))
 End Function
 
 
@@ -169,6 +175,18 @@ End Function
 '
 Public Function GetFileHash(strPath As String) As String
     GetFileHash = GetHash(GetFileBytes(strPath))
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetBytesHash
+' Author    : Adam Waller
+' Date      : 11/1/2021
+' Purpose   : Return hash from byte array
+'---------------------------------------------------------------------------------------
+'
+Public Function GetBytesHash(bteData() As Byte) As String
+    GetBytesHash = GetHash(bteData())
 End Function
 
 
@@ -192,30 +210,29 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetHash(bteContent() As Byte) As String
-    
-    Dim objEnc As Object
+
     Dim bteHash As Variant
     Dim strHash As String
     Dim intPos As Integer
     Dim intLength As Integer
     Dim strAlgorithm As String
-    
+
     ' Get hashing options
     strAlgorithm = Nz2(Options.HashAlgorithm, DefaultHashAlgorithm)
     If Options.UseShortHash Then intLength = 7
-    
+
     ' Start performance timer and compute the hash
     Perf.OperationStart "Compute " & strAlgorithm
     bteHash = HashBytes(bteContent, strAlgorithm)
-    
+
     ' Create string buffer to avoid concatenation
     strHash = Space(LenB(bteHash) * 2)
-    
+
     ' Convert full hash to hexidecimal string
     For intPos = 1 To LenB(bteHash)
         Mid$(strHash, (intPos * 2) - 1, 2) = LCase(Right("0" & Hex(AscB(MidB(bteHash, intPos, 1))), 2))
     Next
-    
+
     ' Return hash, truncating if needed.
     If intLength > 0 And intLength < Len(strHash) Then
         GetHash = Left$(strHash, intLength)
@@ -223,7 +240,7 @@ Private Function GetHash(bteContent() As Byte) As String
         GetHash = strHash
     End If
     Perf.OperationEnd
-    
+
 End Function
 
 
@@ -234,14 +251,15 @@ End Function
 ' Purpose   : Return a hash from the VBA code module behind an object.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As String, Optional intLength As Integer = 7) As String
+Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As String) As String
 
     Dim strHash As String
     Dim cmpItem As VBComponent
     Dim strPrefix As String
     Dim proj As VBProject
     Dim blnNoCode As Boolean
-    
+    Dim strInstancingFlag As String
+
     Perf.OperationStart "Get VBA Hash"
     Select Case intType
         Case edbForm:   strPrefix = "Form_"
@@ -251,32 +269,131 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
             ' No code module
             blnNoCode = True
     End Select
-        
+
     ' Get the hash from the VBA code module content.
     If Not blnNoCode Then
-        
+
         ' Get a reference for the VBProject in the current (not code) database.
-        Set proj = GetVBProjectForCurrentDB
-        
+        Set proj = CurrentVBProject
+
         ' Attempt to locate the object in the VBComponents collection
-        If DebugMode(True) Then On Error Resume Next Else On Error Resume Next
+        LogUnhandledErrors
+        On Error Resume Next
         Set cmpItem = proj.VBComponents(strPrefix & strName)
         Catch 9 ' Component not found. (Could be an object with no code module)
         CatchAny eelError, "Error accessing VBComponent for '" & strPrefix & strName & "'", ModuleName & ".GetCodeModuleHash"
         If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-                
+
         ' Output the hash
         If Not cmpItem Is Nothing Then
-            With cmpItem.CodeModule
-                strHash = GetStringHash(.Lines(1, 999999))
+            With cmpItem
+                ' Check for class module
+                If .Type = vbext_ct_ClassModule Then
+                    ' Save instancing property as a flag to include with hash
+                    strInstancingFlag = CStr(.Properties("Instancing"))
+                End If
+                ' Generate hash from code and instancing flag (if applicable)
+                strHash = GetStringHash(.CodeModule.Lines(1, 999999) & strInstancingFlag)
             End With
         End If
-    
+
     End If
-    
+
     ' Return hash (if any)
     GetCodeModuleHash = strHash
     Perf.OperationEnd
-    
+
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetUTF8Bytes
+' Author    : Adam Waller
+' Date      : 11/2/2021
+' Purpose   : Return a UTF-8 (wide) byte array from a string. Optionally include the
+'           : UTF-8 BOM. (Useful when comparing to a file hash)
+'---------------------------------------------------------------------------------------
+'
+Private Function GetUTF8Bytes(strText As String, Optional blnWithBom As Boolean = False) As Byte()
+
+    Dim stmBinary As ADODB.Stream
+
+    ' Check for empty string
+    If (Len(strText) = 0) And Not blnWithBom Then
+        GetUTF8Bytes = vbNullString
+        Exit Function
+    End If
+
+    ' Set up binary stream
+    Set stmBinary = New ADODB.Stream
+    stmBinary.Open
+    stmBinary.Charset = "utf-8"
+    stmBinary.Type = adTypeBinary
+
+    ' Load text into text stream
+    With New ADODB.Stream
+        .Open
+        .Charset = "utf-8"
+        .Type = adTypeText
+        .WriteText strText
+        .Position = 0
+        ' Copy to binary stream
+        .CopyTo stmBinary, adReadAll
+        If blnWithBom Then
+            ' Include BOM
+            stmBinary.Position = 0
+        Else
+            ' Move past BOM
+            stmBinary.Position = 3
+        End If
+        ' Return binary stream
+        GetUTF8Bytes = stmBinary.Read(adReadAll)
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SimpleHash
+' Author    : Adam Waller
+' Date      : 7/24/2023
+' Purpose   : Return a simple SHA256 hash from a file without any Windows API calls.
+'           : (This function can be ported to VBScript as a worker process)
+'           : Adapted from https://en.wikibooks.org/wiki/Visual_Basic_for_Applications/String_Hashing_in_VBA
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSimpleHash(strText As String) As String
+
+    Dim objEnc As Object
+    Dim objSHA256 As Object
+    Dim objDoc As Object
+    Dim bteText() As Byte
+    Dim bteHash() As Byte
+    Dim strHash As String
+
+    On Error Resume Next
+
+    ' Create objects
+    Set objEnc = CreateObject("System.Text.UTF8Encoding")
+    Set objSHA256 = CreateObject("System.Security.Cryptography.SHA256Managed")
+
+    ' Compute hash
+    bteText = objEnc.GetBytes_4(strText)
+    bteHash = objSHA256.ComputeHash_2((bteText))
+
+    ' Convert to hex string
+    Set objDoc = CreateObject("MSXML2.DOMDocument")
+    objDoc.LoadXML "<root />"
+    With objDoc.DocumentElement
+        .DataType = "bin.Hex"
+        .nodeTypedValue = bteHash
+        strHash = Replace(.Text, vbLf, vbNullString)
+    End With
+
+    ' Return short hash
+    GetSimpleHash = Left(strHash, 7)
+
+    ' Clear any errors
+    If Err Then Err.Clear
+
+End Function

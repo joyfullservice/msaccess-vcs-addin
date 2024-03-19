@@ -1,12 +1,12 @@
-{
+﻿{
   "Info": {
     "Class": "clsDbSharedImage",
-    "Description": "Shared Image Gallery Item",
-    "VCS Version": "3.1.25"
+    "Description": "Shared Image Gallery Item"
   },
   "Items": {
     "Name": "button_ok",
     "FileName": "1_1370126936_button_ok.png",
-    "Extension": "png"
+    "Extension": "png",
+    "ContentHash": "01a9f08"
   }
 }

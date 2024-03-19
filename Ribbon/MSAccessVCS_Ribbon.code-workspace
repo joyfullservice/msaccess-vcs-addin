@@ -1,0 +1,495 @@
+{
+    "folders": [
+        {
+            "name": "BUILD CONFIGURATIONS",
+            "uri": "twinbasic-builds:/___BUILDS/"
+        },
+        {
+            "name": "PROJECT: MSAccessVCSLib",
+            "uri": "twinbasic:/MSAccessVCSLib/"
+        }
+    ],
+    "settings": {
+        "window.title": "${dirty}MSAccessVCSLib${separator}twinBASIC",
+        "files.associations": {
+            "*.module": "php",
+            "*.mht": "html",
+            "*.pwmacro": "powershell",
+            "/___BUILDS/*": "twinbasicBuildConfig",
+            "/___BUILDS/win64": "twinbasicBuildConfigACTIVE",
+            "/*/Settings": "twinbasicProjectConfig"
+        },
+        "files.defaultLanguage": "twinbasic",
+        "editor.trimAutoWhitespace": false,
+        "editor.wordBasedSuggestions": false,
+        "editor.quickSuggestionsDelay": 350,
+        "editor.semanticTokenColorCustomizations": {
+            "[Monokai Dimmed]": {
+                "enabled": true,
+                "rules": {
+                    "basicClass": {
+                        "foreground": "#e4c685"
+                    },
+                    "basicLibrary": {
+                        "foreground": "#bb6464"
+                    },
+                    "basicParameterByVal": {
+                        "foreground": "#9b79b3"
+                    },
+                    "basicParameterByRef": {
+                        "foreground": "#9b79b3"
+                    },
+                    "basicUDT": {
+                        "foreground": "#a5630d"
+                    },
+                    "basicModule": {
+                        "foreground": "#a8a887"
+                    },
+                    "basicBuiltInDataType": {
+                        "foreground": "#b1551f"
+                    },
+                    "basicVariable": {
+                        "foreground": "#8b8b52"
+                    },
+                    "basicField": {
+                        "foreground": "#f59e1b"
+                    },
+                    "basicEnum": {
+                        "foreground": "#738dc5"
+                    },
+                    "basicEnumMember": {
+                        "foreground": "#a1adc7"
+                    },
+                    "basicKeyword": {
+                        "foreground": "#6c8eda"
+                    },
+                    "basicLiteralString": {
+                        "foreground": "#aeca89",
+                        "fontStyle": "italic"
+                    },
+                    "basicOperator": {
+                        "foreground": "#80a1a5"
+                    },
+                    "basicGenericDataType": {
+                        "foreground": "#eeda83"
+                    },
+                    "basicGenericValue": {
+                        "foreground": "#86ee83"
+                    },
+                    "basicReturnValue": {
+                        "foreground": "#ee8391"
+                    },
+                    "basicMe": {
+                        "foreground": "#a13838"
+                    },
+                    "basicComment": {
+                        "foreground": "#448a63"
+                    },
+                    "basicNamedArgument": {
+                        "foreground": "#74384c"
+                    },
+                    "basicMultiLineSeperator": {
+                        "foreground": "#74384c"
+                    },
+                    "basicLateBoundFunction": {
+                        "foreground": "#e7ac5f"
+                    },
+                    "basicLineLabel": {
+                        "foreground": "#ccc6be",
+                        "underline": true
+                    },
+                    "basicLineNumber": {
+                        "foreground": "#ccc6be",
+                        "underline": true
+                    },
+                    "basicLiteralNumeric": {
+                        "foreground": "#aeca89"
+                    },
+                    "basicLiteralBoolean": {
+                        "foreground": "#c495d3"
+                    },
+                    "basicLiteralNull": {
+                        "foreground": "#c495d3"
+                    },
+                    "basicLiteralNothing": {
+                        "foreground": "#c495d3"
+                    },
+                    "basicLiteralEmpty": {
+                        "foreground": "#c495d3"
+                    },
+                    "basicLiteralDate": {
+                        "foreground": "#c495d3"
+                    },
+                    "basicConditionalCompilationDirective": {
+                        "foreground": "#ad8c98"
+                    },
+                    "basicConditionalCompilationExcludedCode": {
+                        "foreground": "#989599",
+                        "italic": true
+                    },
+                    "basicVariableUndeclared": {
+                        "foreground": "#b9929c"
+                    },
+                    "basicFunction": {
+                        "foreground": "#cf9a5d"
+                    },
+                    "basicDeclareFunction": {
+                        "foreground": "#bb956a"
+                    },
+                    "basicSub": {
+                        "foreground": "#cf9a5d"
+                    },
+                    "basicDeclareSub": {
+                        "foreground": "#bb956a"
+                    },
+                    "basicPropertyGet": {
+                        "foreground": "#864f0f"
+                    },
+                    "basicPropertyLet": {
+                        "foreground": "#864f0f"
+                    },
+                    "basicPropertySet": {
+                        "foreground": "#864f0f"
+                    },
+                    "basicGlobalVariablePrivate": {
+                        "foreground": "#f38096"
+                    },
+                    "basicGlobalVariablePublic": {
+                        "foreground": "#d34056"
+                    },
+                    "basicAttribute": {
+                        "foreground": "#5c5c53",
+                        "italic": false
+                    },
+                    "basicLineContinuationCharacter": {
+                        "foreground": "#808080"
+                    }
+                }
+            },
+            "[Default Dark+]": {
+                "enabled": true,
+                "rules": {
+                    "basicClass": {
+                        "foreground": "#e4c685"
+                    },
+                    "basicLibrary": {
+                        "foreground": "#bb6464"
+                    },
+                    "basicParameterByVal": {
+                        "foreground": "#9b79b3"
+                    },
+                    "basicParameterByRef": {
+                        "foreground": "#9b79b3"
+                    },
+                    "basicUDT": {
+                        "foreground": "#a5630d"
+                    },
+                    "basicModule": {
+                        "foreground": "#a8a887"
+                    },
+                    "basicBuiltInDataType": {
+                        "foreground": "#b1551f"
+                    },
+                    "basicVariable": {
+                        "foreground": "#8b8b52"
+                    },
+                    "basicField": {
+                        "foreground": "#f59e1b"
+                    },
+                    "basicEnum": {
+                        "foreground": "#738dc5"
+                    },
+                    "basicEnumMember": {
+                        "foreground": "#a1adc7"
+                    },
+                    "basicKeyword": {
+                        "foreground": "#6c8eda"
+                    },
+                    "basicLiteralString": {
+                        "foreground": "#aeca89",
+                        "fontStyle": "italic"
+                    },
+                    "basicOperator": {
+                        "foreground": "#80a1a5"
+                    },
+                    "basicGenericDataType": {
+                        "foreground": "#eeda83"
+                    },
+                    "basicGenericValue": {
+                        "foreground": "#86ee83"
+                    },
+                    "basicReturnValue": {
+                        "foreground": "#ee8391"
+                    },
+                    "basicMe": {
+                        "foreground": "#a13838"
+                    },
+                    "basicComment": {
+                        "foreground": "#448a63"
+                    },
+                    "basicNamedArgument": {
+                        "foreground": "#74384c"
+                    },
+                    "basicMultiLineSeperator": {
+                        "foreground": "#74384c"
+                    },
+                    "basicLateBoundFunction": {
+                        "foreground": "#e7ac5f"
+                    },
+                    "basicLineLabel": {
+                        "foreground": "#ccc6be",
+                        "underline": true
+                    },
+                    "basicLineNumber": {
+                        "foreground": "#ccc6be",
+                        "underline": true
+                    },
+                    "basicLiteralNumeric": {
+                        "foreground": "#aeca89"
+                    },
+                    "basicLiteralBoolean": {
+                        "foreground": "#c495d3"
+                    },
+                    "basicLiteralNull": {
+                        "foreground": "#c495d3"
+                    },
+                    "basicLiteralNothing": {
+                        "foreground": "#c495d3"
+                    },
+                    "basicLiteralEmpty": {
+                        "foreground": "#c495d3"
+                    },
+                    "basicLiteralDate": {
+                        "foreground": "#c495d3"
+                    },
+                    "basicConditionalCompilationDirective": {
+                        "foreground": "#ad8c98"
+                    },
+                    "basicConditionalCompilationExcludedCode": {
+                        "foreground": "#989599",
+                        "italic": true
+                    },
+                    "basicVariableUndeclared": {
+                        "foreground": "#b9929c"
+                    },
+                    "basicFunction": {
+                        "foreground": "#cf9a5d"
+                    },
+                    "basicDeclareFunction": {
+                        "foreground": "#bb956a"
+                    },
+                    "basicSub": {
+                        "foreground": "#cf9a5d"
+                    },
+                    "basicDeclareSub": {
+                        "foreground": "#bb956a"
+                    },
+                    "basicPropertyGet": {
+                        "foreground": "#864f0f"
+                    },
+                    "basicPropertyLet": {
+                        "foreground": "#864f0f"
+                    },
+                    "basicPropertySet": {
+                        "foreground": "#864f0f"
+                    },
+                    "basicGlobalVariablePrivate": {
+                        "foreground": "#f38096"
+                    },
+                    "basicGlobalVariablePublic": {
+                        "foreground": "#d34056"
+                    },
+                    "basicAttribute": {
+                        "foreground": "#5c5c53",
+                        "italic": false
+                    },
+                    "basicLineContinuationCharacter": {
+                        "foreground": "#808080"
+                    }
+                }
+            },
+            "[Default Light+]": {
+                "enabled": true,
+                "rules": {
+                    "basicClass": {
+                        "foreground": "#000000"
+                    },
+                    "basicLibrary": {
+                        "foreground": "#000000"
+                    },
+                    "basicParameterByVal": {
+                        "foreground": "#000000"
+                    },
+                    "basicParameterByRef": {
+                        "foreground": "#000000"
+                    },
+                    "basicUDT": {
+                        "foreground": "#000000"
+                    },
+                    "basicModule": {
+                        "foreground": "#000000"
+                    },
+                    "basicBuiltInDataType": {
+                        "foreground": "#315dbb"
+                    },
+                    "basicVariable": {
+                        "foreground": "#000000"
+                    },
+                    "basicField": {
+                        "foreground": "#000000"
+                    },
+                    "basicEnum": {
+                        "foreground": "#000000"
+                    },
+                    "basicEnumMember": {
+                        "foreground": "#000000"
+                    },
+                    "basicKeyword": {
+                        "foreground": "#315dbb"
+                    },
+                    "basicLiteralString": {
+                        "foreground": "#000000"
+                    },
+                    "basicOperator": {
+                        "foreground": "#315dbb"
+                    },
+                    "basicGenericDataType": {
+                        "foreground": "#000000"
+                    },
+                    "basicGenericValue": {
+                        "foreground": "#000000"
+                    },
+                    "basicReturnValue": {
+                        "foreground": "#000000"
+                    },
+                    "basicMe": {
+                        "foreground": "#315dbb"
+                    },
+                    "basicComment": {
+                        "foreground": "#26774a"
+                    },
+                    "basicNamedArgument": {
+                        "foreground": "#000000"
+                    },
+                    "basicMultiLineSeperator": {
+                        "foreground": "#000000"
+                    },
+                    "basicLateBoundFunction": {
+                        "foreground": "#000000"
+                    },
+                    "basicLineLabel": {
+                        "foreground": "#000000",
+                        "italic": true
+                    },
+                    "basicLineNumber": {
+                        "foreground": "#000000",
+                        "italic": true
+                    },
+                    "basicLiteralNumeric": {
+                        "foreground": "#000000"
+                    },
+                    "basicLiteralBoolean": {
+                        "foreground": "#315dbb"
+                    },
+                    "basicLiteralNull": {
+                        "foreground": "#315dbb"
+                    },
+                    "basicLiteralNothing": {
+                        "foreground": "#315dbb"
+                    },
+                    "basicLiteralEmpty": {
+                        "foreground": "#315dbb"
+                    },
+                    "basicLiteralDate": {
+                        "foreground": "#000000"
+                    },
+                    "basicConditionalCompilationDirective": {
+                        "foreground": "#315dbb"
+                    },
+                    "basicConditionalCompilationExcludedCode": {
+                        "foreground": "#d2cdd3"
+                    },
+                    "basicVariableUndeclared": {
+                        "foreground": "#000000"
+                    },
+                    "basicFunction": {
+                        "foreground": "#000000"
+                    },
+                    "basicDeclareFunction": {
+                        "foreground": "#000000"
+                    },
+                    "basicSub": {
+                        "foreground": "#000000"
+                    },
+                    "basicDeclareSub": {
+                        "foreground": "#000000"
+                    },
+                    "basicPropertyGet": {
+                        "foreground": "#000000"
+                    },
+                    "basicPropertyLet": {
+                        "foreground": "#000000"
+                    },
+                    "basicPropertySet": {
+                        "foreground": "#000000"
+                    }
+                }
+            }
+        },
+        
+        
+        "workbench.colorCustomizations": {
+            "separators.classes.borderColor": "#ffffff54",
+            "separators.constructors.borderColor": "#ffffff54",
+            "separators.enums.borderColor": "#ffffff54",
+            "separators.functions.borderColor": "#ffffff54",
+            "separators.interfaces.borderColor": "#ffffff54",
+            "separators.methods.borderColor": "#ffffff54",
+            "separators.namespaces.borderColor": "#ffffff54",
+        },
+        "twinbasic.buildConfigurationData": {
+            "buildConfigurations": [
+                {
+                    "configuration.name": "win32",
+                    "configuration.inherits": "Defaults",
+                    "compiler.target": "win32",
+                    "compiler.autoRestart": true,
+                    "project.warnings": {
+                        "ignored": [],
+                        "errors": []
+                    }
+                },
+                {
+                    "configuration.name": "win64",
+                    "configuration.inherits": "Defaults",
+                    "compiler.target": "win64",
+                    "compiler.autoRestart": true
+                }
+            ]
+        },
+        "twinbasic.projectPaths": [
+            "\\helloworld.twinproj"
+        ],
+        "workbench.tree.indent": 20,
+        "workbench.iconTheme": "twinbasic",
+        "debug.openDebug": "neverOpen",
+        "twinbasic.hasCheckedOpenDebugSetting": true,
+        "twinbasic.hasCheckedCompactFolders": true,
+        "twinbasic.hasCheckedOpenDebugSetting2": true,
+        "debug.console.historySuggestions": false,
+        "twinbasic.hasSetDebugConsoleHistorySuggestionsOff": true,
+        "editor.formatOnType": true,
+        "twinbasic.hasCheckedFormatOnType": true,
+        "debug.saveBeforeStart": "none",
+        "twinbasic.hasCheckedSaveBeforeStart": true
+    },
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            {
+                "type": "twindebug",
+                "request": "launch"
+            }
+        ]
+    }
+}

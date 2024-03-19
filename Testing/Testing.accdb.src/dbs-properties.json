@@ -72,6 +72,10 @@
       "Value": "DAO",
       "Type": 10
     },
+    "Date stored as Text": {
+      "Value": "11/17/2023 2:15:08 PM",
+      "Type": 10
+    },
     "DesignMasterID": {
       "Value": "",
       "Type": 15
@@ -83,6 +87,10 @@
     "HasOfflineLists": {
       "Value": 70,
       "Type": 3
+    },
+    "ISO8601 Date as Text": {
+      "Value": "2023-11-17T17:51:00.000Z",
+      "Type": 10
     },
     "Name": {
       "Value": "rel:Testing.accdb",
@@ -132,6 +140,10 @@
       "Value": "",
       "Type": 15
     },
+    "SavedDateValue": {
+      "Value": "2023-11-17T19:35:41.000Z",
+      "Type": 8
+    },
     "Show Navigation Pane Search Bar": {
       "Value": 1,
       "Type": 4
@@ -165,7 +177,7 @@
       "Type": 1
     },
     "Theme Resource Name": {
-      "Value": "Office Theme",
+      "Value": "Angles",
       "Type": 10
     },
     "Themed Form Controls": {

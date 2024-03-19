@@ -1,0 +1,42 @@
+# gitattributes template for Microsoft Access database source files
+# Source: https://github.com/joyfullservice/msaccess-vcs-integration
+#
+
+###############################################################################
+# Set default behavior to automatically normalize line endings.
+###############################################################################
+* text=auto
+
+###############################################################################
+# Ensure that source files use CRLF for newlines, in case they are downloaded
+# in a compressed archive directly from GitHub. (Otherwise class modules may
+# not be imported correctly. See issue #150 for more details.)
+###############################################################################
+# Most source files use this extension
+*.bas text eol=crlf
+# Class modules
+*.cls text eol=crlf
+# Some object definitions
+*.xml text eol=crlf
+# SQL output
+*.sql text eol=crlf
+# Forms 2.0 form definitions (rarely used)
+*.frm text eol=crlf
+# Common source file
+*.json text eol=crlf
+
+###############################################################################
+# Clarify that the source language is VBA (Auto-detection not always accurate)
+# https://github.com/github/linguist/blob/master/docs/overrides.md
+###############################################################################
+*.bas linguist-language=VBA
+*.cls linguist-language=VBA
+*.twin linguist-language=VBA
+
+# Git files
+*.gitattributes text
+*.gitattributes linguist-language=gitattributes
+
+# Ignore files (like .npmignore or .gitignore)
+*.*ignore       text
+*.*ignore       export-ignore

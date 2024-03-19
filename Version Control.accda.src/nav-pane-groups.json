@@ -1,15 +1,14 @@
 ﻿{
   "Info": {
     "Class": "clsDbNavPaneGroup",
-    "Description": "Navigation Pane Custom Groups",
-    "Export File Format": 1.1
+    "Description": "Navigation Pane Custom Groups"
   },
   "Items": {
     "Categories": [
       {
         "Name": "Custom",
         "Flags": 0,
-        "Position": 3,
+        "Position": 2,
         "Groups": [
           {
             "Name": "Custom Group 1",

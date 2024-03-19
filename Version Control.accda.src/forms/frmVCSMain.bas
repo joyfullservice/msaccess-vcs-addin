@@ -15,12 +15,12 @@ Begin Form
     GridY =24
     Width =9360
     DatasheetFontHeight =11
-    ItemSuffix =32
-    Left =3225
-    Top =2430
-    Right =22695
-    Bottom =15015
-    DatasheetGridlinesColor =15132391
+    ItemSuffix =33
+    Left =20761
+    Top =2250
+    Right =-29055
+    Bottom =13995
+    OnUnload ="[Event Procedure]"
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -77,8 +77,6 @@ Begin Form
             BorderLineStyle =0
             SizeMode =3
             PictureAlignment =2
-            BorderColor =16777215
-            GridlineColor =16777215
             BackThemeColorIndex =1
             BorderThemeColorIndex =1
             BorderShade =65.0
@@ -99,7 +97,6 @@ Begin Form
             BackThemeColorIndex =4
             BackTint =60.0
             BorderLineStyle =0
-            BorderColor =16777215
             BorderThemeColorIndex =4
             BorderTint =60.0
             ThemeFontIndex =1
@@ -151,7 +148,6 @@ Begin Form
                     Width =9360
                     BorderColor =15321539
                     Name ="Line10"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     LayoutCachedTop =1725
                     LayoutCachedWidth =9360
@@ -166,9 +162,7 @@ Begin Form
                     Width =9360
                     Height =1680
                     BackColor =5324600
-                    BorderColor =10921638
                     Name ="Box1"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     LayoutCachedWidth =9360
                     LayoutCachedHeight =1680
@@ -178,18 +172,15 @@ Begin Form
                     OverlapFlags =223
                     Left =360
                     Top =300
-                    Width =4260
+                    Width =4290
                     Height =540
                     FontSize =18
                     FontWeight =700
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="Label4"
                     Caption ="Version Control System"
-                    GridlineColor =10921638
                     LayoutCachedLeft =360
                     LayoutCachedTop =300
-                    LayoutCachedWidth =4620
+                    LayoutCachedWidth =4650
                     LayoutCachedHeight =840
                     ForeThemeColorIndex =1
                     ForeTint =100.0
@@ -201,12 +192,10 @@ Begin Form
                     Width =2880
                     Height =900
                     TabIndex =1
-                    ForeColor =4210752
                     Name ="cmdExport"
                     Caption ="   Export All Source"
                     OnClick ="[Event Procedure]"
                     Picture ="Export.png"
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x89504e470d0a1a0a0000000d494844520000001e0000001e08060000003b30ae ,
                         0xa2000031697a5458745261772070726f66696c65207479706520657869660000 ,
@@ -702,12 +691,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
-                    WebImagePaddingLeft =2
-                    WebImagePaddingTop =2
-                    WebImagePaddingRight =1
-                    WebImagePaddingBottom =1
                     Overlaps =1
                 End
                 Begin Label
@@ -718,11 +701,9 @@ Begin Form
                     Height =360
                     FontSize =14
                     FontWeight =700
-                    BorderColor =8355711
                     ForeColor =5324600
                     Name ="lblHeading"
                     Caption ="Choose Action"
-                    GridlineColor =10921638
                     LayoutCachedLeft =540
                     LayoutCachedTop =2100
                     LayoutCachedWidth =2640
@@ -737,7 +718,6 @@ Begin Form
                     Width =2880
                     Height =900
                     TabIndex =2
-                    ForeColor =4210752
                     Name ="cmdBuild"
                     Caption ="  Build From Source"
                     OnClick ="[Event Procedure]"
@@ -746,7 +726,6 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x89504e470d0a1a0a0000000d494844520000001e0000001e08060000003b30ae ,
                         0xa2000035447a5458745261772070726f66696c65207479706520657869660000 ,
@@ -1256,12 +1235,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =9
-                    WebImagePaddingBottom =9
                     Overlaps =1
                 End
                 Begin Label
@@ -1271,11 +1244,9 @@ Begin Form
                     Width =2400
                     Height =540
                     FontSize =10
-                    BorderColor =8355711
                     ForeColor =5324600
                     Name ="lblSubheading"
                     Caption ="What would you like to do?"
-                    GridlineColor =10921638
                     LayoutCachedLeft =540
                     LayoutCachedTop =2580
                     LayoutCachedWidth =2940
@@ -1290,11 +1261,8 @@ Begin Form
                     Width =1800
                     Height =465
                     FontSize =10
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="Label9"
                     Caption ="Designed for \015\012GitHub && GitLab"
-                    GridlineColor =10921638
                     LayoutCachedLeft =540
                     LayoutCachedTop =840
                     LayoutCachedWidth =2340
@@ -1303,6 +1271,7 @@ Begin Form
                     ForeTint =100.0
                 End
                 Begin TextBox
+                    Locked = NotDefault
                     TabStop = NotDefault
                     OldBorderStyle =0
                     OverlapFlags =85
@@ -1314,10 +1283,9 @@ Begin Form
                     Height =2400
                     FontSize =10
                     TabIndex =3
-                    BorderColor =8355711
+                    BackColor =15130848
                     ForeColor =5324600
                     Name ="txtDescription"
-                    GridlineColor =10921638
                     TextFormat =1
                     VerticalAnchor =2
 
@@ -1325,6 +1293,7 @@ Begin Form
                     LayoutCachedTop =3300
                     LayoutCachedWidth =2760
                     LayoutCachedHeight =5700
+                    BackThemeColorIndex =-1
                     BorderThemeColorIndex =0
                     BorderTint =50.0
                     BorderShade =100.0
@@ -1339,7 +1308,6 @@ Begin Form
                     Width =1500
                     Height =420
                     TabIndex =4
-                    ForeColor =4210752
                     Name ="cmdClose"
                     Caption ="Close"
                     OnClick ="[Event Procedure]"
@@ -1347,7 +1315,6 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     VerticalAnchor =1
 
@@ -1367,12 +1334,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =9
-                    WebImagePaddingBottom =9
                     Overlaps =1
                 End
                 Begin CommandButton
@@ -1381,7 +1342,6 @@ Begin Form
                     Top =1200
                     Width =1560
                     TabIndex =5
-                    ForeColor =16777215
                     Name ="cmdOptions"
                     Caption =" Options..."
                     OnClick ="[Event Procedure]"
@@ -1389,7 +1349,6 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -1448,12 +1407,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =10
-                    WebImagePaddingBottom =10
                     Overlaps =1
                 End
                 Begin Label
@@ -1463,11 +1416,8 @@ Begin Form
                     Width =3375
                     Height =240
                     FontSize =10
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="Label32"
-                    Caption ="joyfullservice/msaccess-vcs-integration"
-                    GridlineColor =10921638
+                    Caption ="joyfullservice/msaccess-vcs-addin"
                     VerticalAnchor =1
                     LayoutCachedLeft =300
                     LayoutCachedTop =5940
@@ -1486,7 +1436,6 @@ Begin Form
                     Top =1200
                     Width =1080
                     TabIndex =6
-                    ForeColor =16777215
                     Name ="cmdHelp"
                     Caption =" Help"
                     OnClick ="[Event Procedure]"
@@ -1494,7 +1443,6 @@ Begin Form
                     TopPadding =135
                     RightPadding =150
                     BottomPadding =150
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
@@ -1554,12 +1502,6 @@ Begin Form
                     PressedColor =13072231
                     PressedThemeColorIndex =-1
                     PressedShade =100.0
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
-                    WebImagePaddingLeft =9
-                    WebImagePaddingTop =9
-                    WebImagePaddingRight =10
-                    WebImagePaddingBottom =10
                     Overlaps =1
                 End
                 Begin Label
@@ -1570,10 +1512,7 @@ Begin Form
                     Width =3180
                     Height =240
                     FontSize =10
-                    BorderColor =8355711
-                    ForeColor =16777215
                     Name ="lblVersion"
-                    GridlineColor =10921638
                     HorizontalAnchor =1
                     LayoutCachedLeft =5820
                     LayoutCachedTop =480
@@ -1589,10 +1528,7 @@ Begin Form
                     Top =5640
                     Width =5160
                     Height =180
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="lblProgBack"
-                    GridlineColor =10921638
                     HorizontalAnchor =2
                     VerticalAnchor =1
                     LayoutCachedLeft =3120
@@ -1607,10 +1543,7 @@ Begin Form
                     Top =6000
                     Width =2220
                     Height =180
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="lblProgFront"
-                    GridlineColor =10921638
                     LayoutCachedLeft =4500
                     LayoutCachedTop =6000
                     LayoutCachedWidth =6720
@@ -1624,40 +1557,11 @@ Begin Form
                     Width =1260
                     Height =180
                     FontSize =8
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="lblProgCaption"
-                    GridlineColor =10921638
                     LayoutCachedLeft =4980
                     LayoutCachedTop =6120
                     LayoutCachedWidth =6240
                     LayoutCachedHeight =6300
-                End
-                Begin Label
-                    Visible = NotDefault
-                    FontUnderline = NotDefault
-                    OverlapFlags =215
-                    Left =3120
-                    Top =5640
-                    Width =1320
-                    Height =240
-                    FontSize =10
-                    BorderColor =10921638
-                    ForeColor =12673797
-                    Name ="lblOpenLogFile"
-                    Caption ="Open Log File..."
-                    OnClick ="[Event Procedure]"
-                    HyperlinkAddress ="#"
-                    GridlineColor =10921638
-                    LayoutCachedLeft =3120
-                    LayoutCachedTop =5640
-                    LayoutCachedWidth =4440
-                    LayoutCachedHeight =5880
-                    BorderThemeColorIndex =1
-                    BorderTint =100.0
-                    BorderShade =65.0
-                    ForeThemeColorIndex =10
-                    ForeTint =100.0
                 End
                 Begin Line
                     Visible = NotDefault
@@ -1665,9 +1569,7 @@ Begin Form
                     Left =2460
                     Top =1080
                     Width =660
-                    BorderColor =16777215
                     Name ="Line27"
-                    GridlineColor =10921638
                     LayoutCachedLeft =2460
                     LayoutCachedTop =1080
                     LayoutCachedWidth =3120
@@ -1679,9 +1581,7 @@ Begin Form
                     Left =5700
                     Top =3390
                     TabIndex =7
-                    BorderColor =10921638
                     Name ="chkFullExport"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =5700
                     LayoutCachedTop =3390
@@ -1695,11 +1595,9 @@ Begin Form
                             Width =1335
                             Height =270
                             FontSize =10
-                            BorderColor =8355711
                             ForeColor =5324600
                             Name ="Label29"
                             Caption ="Full Export"
-                            GridlineColor =10921638
                             LayoutCachedLeft =5925
                             LayoutCachedTop =3360
                             LayoutCachedWidth =7260
@@ -1710,15 +1608,13 @@ Begin Form
                     End
                 End
                 Begin CheckBox
-                    Enabled = NotDefault
                     OverlapFlags =93
                     Left =5700
                     Top =4950
                     TabIndex =8
-                    BorderColor =10921638
                     Name ="chkFullBuild"
                     DefaultValue ="True"
-                    GridlineColor =10921638
+                    OnClick ="[Event Procedure]"
 
                     LayoutCachedLeft =5700
                     LayoutCachedTop =4950
@@ -1732,11 +1628,9 @@ Begin Form
                             Width =1335
                             Height =270
                             FontSize =10
-                            BorderColor =8355711
                             ForeColor =5324600
                             Name ="Label31"
                             Caption ="Full Build"
-                            GridlineColor =10921638
                             LayoutCachedLeft =5925
                             LayoutCachedTop =4920
                             LayoutCachedWidth =7260
@@ -1763,10 +1657,8 @@ Begin Form
                     TopMargin =144
                     RightMargin =144
                     BottomMargin =144
-                    BorderColor =10921638
                     Name ="txtLog"
                     FontName ="Lucida Console"
-                    GridlineColor =10921638
                     TextFormat =1
                     HorizontalAnchor =2
                     VerticalAnchor =2
@@ -1778,382 +1670,56 @@ Begin Form
                     ThemeFontIndex =-1
                     ForeTint =100.0
                 End
+                Begin CommandButton
+                    Visible = NotDefault
+                    FontUnderline = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =215
+                    Left =3120
+                    Top =5640
+                    Width =1860
+                    Height =240
+                    FontSize =10
+                    TabIndex =9
+                    Name ="cmdOpenLogFile"
+                    Caption ="Open Log File..."
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    VerticalAnchor =1
+                    BackStyle =0
+
+                    CursorOnHover =1
+                    LayoutCachedLeft =3120
+                    LayoutCachedTop =5640
+                    LayoutCachedWidth =4980
+                    LayoutCachedHeight =5880
+                    Alignment =1
+                    ForeThemeColorIndex =10
+                    ForeTint =100.0
+                    Gradient =0
+                    BackColor =5324600
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    OldBorderStyle =0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverThemeColorIndex =10
+                    HoverTint =100.0
+                    PressedThemeColorIndex =10
+                    PressedShade =100.0
+                    HoverForeThemeColorIndex =10
+                    HoverForeTint =100.0
+                    PressedForeThemeColorIndex =10
+                    PressedForeTint =100.0
+                    Overlaps =1
+                End
             End
         End
     End
 End
 CodeBehindForm
-Attribute VB_GlobalNameSpace = False
-Attribute VB_Creatable = True
-Attribute VB_PredeclaredId = True
-Attribute VB_Exposed = False
-' This color scheme can be changed, I just wanted something more aesthetically
-' pleasing than the default wizards and forms.
-' Color scheme: https://coolors.co/383f51-e0e0e6-ffffff-ef8354-d3d7ef
-
-Option Compare Database
-Option Explicit
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : cmdBuild_Click
-' Author    : Adam Waller
-' Date      : 5/4/2020
-' Purpose   :
-'---------------------------------------------------------------------------------------
-'
-Private Sub cmdBuild_Click()
-
-    Dim strFolder As String
-    Dim strMsg(0 To 2) As String
-    Dim intChoice As VbMsgBoxResult
-    
-    DoCmd.Hourglass True
-    DoEvents
-    
-    ' Make sure we use the add-in to build the add-in.
-    If CodeProject.FullName = CurrentProject.FullName Then
-        MsgBox2 "Build must be run from Add-In", "Instead of opening this form to build the add-in," & vbCrLf & _
-            "please install and use the Version Control add-in from the Add-in menu", , vbExclamation
-        DoCmd.Hourglass False
-        Exit Sub
-    End If
-    
-    ' Close the current database if it is currently open.
-    If Not (CurrentDb Is Nothing And CurrentProject.Connection Is Nothing) Then
-        If FolderHasVcsOptionsFile(Options.GetExportFolder) Then
-            strMsg(0) = "Build " & GetVBProjectForCurrentDB.Name & " (" & CurrentProject.Name & ") from source?"
-            strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
-                "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)"
-            strMsg(2) = "Click 'No' to select another project, or 'Cancel' to go back to the previous screen."
-            intChoice = MsgBox2(strMsg(0), strMsg(1), strMsg(2), vbYesNoCancel + vbQuestion + vbDefaultButton3)
-            If intChoice = vbYes Then
-                ' Rebuild the open project
-                strFolder = Options.GetExportFolder
-            ElseIf intChoice = vbCancel Then
-                ' Canceled out of build option.
-                DoCmd.Hourglass False
-                Exit Sub
-            End If
-        End If
-    End If
-    
-    ' If we aren't doing the current database, then prompt user to find a folder
-    ' with source files to use for the build.
-    If strFolder = vbNullString Then
-    
-        ' Show a folder picker to select the file with source code.
-        With Application.FileDialog(msoFileDialogFolderPicker)
-            .AllowMultiSelect = False
-            .ButtonName = "Select Source Files Folder"
-            '.InitialFileName = Options.GetExportFolder
-            .Title = "Select Source Folder"
-            .Show
-            If .SelectedItems.Count > 0 Then
-                ' Selected a folder
-                If FolderHasVcsOptionsFile(.SelectedItems(1)) Then
-                    ' Has source files
-                    strFolder = .SelectedItems(1) & PathSep
-                    ' Relaunch build if building the add-in from source.
-                    If FSO.GetFileName(strFolder) = "Version Control.accda.src" Then
-                        DoCmd.Close acForm, Me.Name
-                        RunBuildAfterClose strFolder
-                        Exit Sub
-                    End If
-                Else
-                    MsgBox2 "Source files not found", "Required source files were not found in this folder.", _
-                        "You selected: " & .SelectedItems(1), vbExclamation
-                    DoCmd.Hourglass False
-                    Exit Sub
-                End If
-            End If
-        End With
-    End If
-
-    ' Build using selected folder
-    Build strFolder, chkFullBuild
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : BuildFromSource
-' Author    : Adam Waller
-' Date      : 5/4/2020
-' Purpose   : Show the GUI for building the database from source.
-'---------------------------------------------------------------------------------------
-'
-Public Sub StartBuild()
-
-    cmdClose.SetFocus
-    HideActionButtons
-    DoEvents
-    With txtLog
-        .ScrollBars = 0
-        .Visible = True
-        .SetFocus
-    End With
-    Log.SetConsole Me.txtLog
-    Set Log.ProgressBar = GetProgressBar
-    Me.Visible = True
-    
-    ' Show the status
-    SetStatusText "Running...", "Building From Source", "A summary of the build progress can be seen on this screen, and additional details are included in the log file."
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : FinishBuild
-' Author    : Adam Waller
-' Date      : 5/4/2020
-' Purpose   : Finish the build process
-'---------------------------------------------------------------------------------------
-'
-Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "Build")
-
-    Dim strType As String
-    
-    ' Turn on scroll bars in case the user wants to scroll back through the log.
-    txtLog.ScrollBars = 2
-    
-    ' Display final UI messages.
-    Log.Flush
-    strType = IIf(blnFullBuild, "Build", "Merge")
-    SetStatusText "Finished", strType & " Complete", "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
-    lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : cmdClose_Click
-' Author    : Adam Waller
-' Date      : 1/14/2020
-' Purpose   : Close the form
-'---------------------------------------------------------------------------------------
-'
-Private Sub cmdClose_Click()
-    Log.SetConsole Nothing
-    Set Log.ProgressBar = Nothing
-    DoCmd.Close acForm, Me.Name
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : cmdExport_Click
-' Author    : Adam Waller
-' Date      : 1/14/2020
-' Purpose   : Export source code from current database
-'---------------------------------------------------------------------------------------
-'
-Private Sub cmdExport_Click()
-    
-    cmdClose.SetFocus
-    HideActionButtons
-    DoEvents
-    With txtLog
-        .ScrollBars = 0
-        .Visible = True
-        .SetFocus
-    End With
-    Log.SetConsole Me.txtLog
-    Set Log.ProgressBar = GetProgressBar
-    
-    ' Show the status
-    SetStatusText "Running...", "Exporting source code", "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
-    
-    ' Export the source code
-    modImportExport.ExportSource chkFullExport
-    ' Turn on scroll bars in case the user wants to scroll back through the log.
-    txtLog.ScrollBars = 2
-    Log.Flush
-    
-    SetStatusText "Finished", "Export Complete", "Additional details can be found in the project export log file.<br><br>You may now close this window."
-    lblOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
-    DoEvents
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : HideActionButtons
-' Author    : Adam Waller
-' Date      : 1/14/2020
-' Purpose   : Hide the action buttons when running a command.
-'---------------------------------------------------------------------------------------
-'
-Private Sub HideActionButtons()
-    cmdExport.Visible = False
-    chkFullExport.Visible = False
-    cmdBuild.Visible = False
-    chkFullBuild.Visible = False
-    cmdOptions.Visible = False
-    cmdHelp.Visible = False
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : cmdHelp_Click
-' Author    : Adam Waller
-' Date      : 4/14/2020
-' Purpose   : Go to the GitHub documentation page.
-'---------------------------------------------------------------------------------------
-'
-Private Sub cmdHelp_Click()
-    Application.FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-integration/wiki/Documentation"
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : cmdOptions_Click
-' Author    : Adam Waller
-' Date      : 4/14/2020
-' Purpose   : Open options dialog (for this project)
-'---------------------------------------------------------------------------------------
-'
-Private Sub cmdOptions_Click()
-    ' Force reload of options from current project before opening the form.
-    Set Options = Nothing
-    DoCmd.OpenForm "frmVCSOptions"
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Form_Load
-' Author    : Adam Waller
-' Date      : 4/15/2020
-' Purpose   : Setting the control source causes delayed display. This way the display
-'           : is instant when the form is opened.
-'---------------------------------------------------------------------------------------
-'
-Public Sub Form_Load()
-    
-    Translation.ApplyTo Me
-
-    ' Display version (better performance than bound control)
-    lblVersion.Caption = "Version " & GetVCSVersion()
-    
-    SetStatusText "Choose Action", "What would you like to do?", _
-        "<strong><em>Export</em></strong> source to generate source files from the current database." & _
-        "<br><br><strong><em>Import</em></strong> source files to rebuild this database from source."
-    
-    ' Set defaults based on current options.
-    chkFullBuild = True ' Not Options.UseFastSave (Till we finish merge build functionality)
-    chkFullExport = Not Options.UseFastSave
-    
-    ' You can only export if you have a database open.
-    cmdExport.Enabled = DatabaseOpen
-    chkFullExport.Enabled = DatabaseOpen
-    
-    ' Require full export after options change
-    If DatabaseOpen Then
-        If VCSIndex.OptionsHash <> Options.GetHash Then
-            chkFullExport = True
-            chkFullExport.Enabled = False
-        End If
-    End If
-    
-    ' Run any incomming commands
-    HandleCmd
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : HandleCmd
-' Author    : Adam Waller
-' Date      : 2/17/2021
-' Purpose   : Support automation of the form
-'---------------------------------------------------------------------------------------
-'
-Public Sub HandleCmd(Optional ByVal RibbonCmdIn As Long = erlVCSOpen)
-    Select Case RibbonCmdIn
-        Case erlVCSOpen
-            Me.Visible = True
-            'PlaceHolder; do nothing.
-        Case erlVCSOptions
-            'Open Settings
-            Me.Visible = True
-            cmdOptions_Click
-        Case erlExportAllRibbon
-            'Start export, then close if no errors.
-            Me.Visible = True
-            cmdExport_Click
-            If Log.ErrorLevel = eelNoError Then AutoClose
-        Case Else
-            'default to export and close if no errors.
-            Me.Visible = True
-            cmdExport_Click
-            If Log.ErrorLevel = eelNoError Then cmdClose_Click
-    End Select
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : AutoClose
-' Author    : Adam Waller
-' Date      : 5/6/2021
-' Purpose   : Use the timer to automatically close the form in 2 seconds.
-'           : (This keeps the application from "hanging" during the pause between
-'           :  completion and close.)
-'---------------------------------------------------------------------------------------
-'
-Private Sub AutoClose()
-    Me.TimerInterval = 2000
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Form_Timer
-' Author    : Adam Waller
-' Date      : 5/6/2021
-' Purpose   : Automatically close form.
-'---------------------------------------------------------------------------------------
-'
-Private Sub Form_Timer()
-    Me.TimerInterval = 0
-    cmdClose_Click
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SetStatusText
-' Author    : Adam Waller
-' Date      : 4/21/2020
-' Purpose   : Update the status text to direct the user to the next task, or show the
-'           : status of the current operation.
-'---------------------------------------------------------------------------------------
-'
-Private Sub SetStatusText(strHeading As String, strSubHeading As String, strDescriptionHtml As String)
-    lblHeading.Caption = strHeading
-    lblSubheading.Caption = strSubHeading
-    txtDescription.Value = strDescriptionHtml
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : GetProgressBar
-' Author    : Adam Waller
-' Date      : 11/6/2020
-' Purpose   : Set up the progress bar.
-'---------------------------------------------------------------------------------------
-'
-Private Function GetProgressBar() As clsLblProg
-    Set GetProgressBar = New clsLblProg
-    GetProgressBar.Initialize lblProgBack, lblProgFront, lblProgCaption
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : lblOpenLogFile_Click
-' Author    : Adam Waller
-' Date      : 11/6/2020
-' Purpose   : Open the log file
-'---------------------------------------------------------------------------------------
-'
-Private Sub lblOpenLogFile_Click()
-    If FSO.FileExists(Log.LogFilePath) Then
-        CreateObject("Shell.Application").Open Log.LogFilePath
-    End If
-End Sub
+' See "frmVCSMain.cls"

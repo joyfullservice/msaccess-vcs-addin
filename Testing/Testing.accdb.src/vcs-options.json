@@ -1,12 +1,13 @@
 ﻿{
   "Info": {
-    "AddinVersion": "3.3.29",
+    "AddinVersion": "4.0.34",
     "AccessVersion": "14.0 32-bit"
   },
   "Options": {
     "ExportFolder": "",
     "ShowDebug": false,
     "UseFastSave": false,
+    "UseMergeBuild": false,
     "UseGitIntegration": false,
     "SavePrintVars": true,
     "ExportPrintSettings": {
@@ -32,14 +33,20 @@
       "TTOption": false
     },
     "SaveQuerySQL": true,
+    "FormatSQL": true,
     "ForceImportOriginalQuerySQL": false,
     "SaveTableSQL": true,
+    "SplitLayoutFromVBA": true,
     "StripPublishOption": true,
-    "AggressiveSanitize": true,
+    "SanitizeColors": 1,
+    "SanitizeLevel": 2,
     "ExtractThemeFiles": false,
     "TablesToExportData": {
       "tblInternal": {
         "Format": "Tab Delimited"
+      },
+      "tblLinkedAccess": {
+        "Format": "XML Format"
       },
       "tblSaveXML": {
         "Format": "XML Format"
@@ -51,10 +58,14 @@
         "Format": "Tab Delimited"
       }
     },
+    "SchemaExports": {
+    },
     "RunBeforeExport": "",
     "RunAfterExport": "",
     "RunBeforeBuild": "",
     "RunAfterBuild": "RunAfterBuild",
+    "RunBeforeMerge": "",
+    "RunAfterMerge": "",
     "ShowVCSLegacy": true,
     "HashAlgorithm": "SHA256",
     "UseShortHash": true,

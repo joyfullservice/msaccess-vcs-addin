@@ -39,6 +39,14 @@
     "MSXML2": {
       "GUID": "{F5078F18-C551-11D3-89B9-0000F81FE221}",
       "Version": "6.0"
+    },
+    "MSForms": {
+      "GUID": "{0D452EE1-E08F-101A-852E-02608C4D0BB4}",
+      "Version": "2.0"
+    },
+    "UIAutomationClient": {
+      "GUID": "{944DE083-8FB8-45CF-BCB7-C477ACB2F897}",
+      "Version": "1.0"
     }
   }
 }

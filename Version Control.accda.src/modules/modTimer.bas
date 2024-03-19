@@ -9,90 +9,108 @@ Option Compare Database
 Option Private Module
 Option Explicit
 
+' Windows API calls for Timer functionality
+Private Declare PtrSafe Function ApiSetTimer Lib "user32" Alias "SetTimer" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr, ByVal uElapse As Long, ByVal lpTimerFunc As LongPtr) As LongPtr
+Private Declare PtrSafe Function ApiKillTimer Lib "user32" Alias "KillTimer" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr) As Long
 
-Private Declare PtrSafe Function SetTimer Lib "user32" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr, ByVal uElapse As Long, ByVal lpTimerFunc As LongPtr) As LongPtr
-Private Declare PtrSafe Function KillTimer Lib "user32" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr) As Long
-
-Private m_lngBuildTimerID As LongPtr
-Private m_lngExportTimerID As LongPtr
+Private m_lngTimerID As LongPtr
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : RunBuildAfterClose
+' Procedure : WinAPITimerCallback
 ' Author    : Adam Waller
-' Date      : 5/4/2020
-' Purpose   : Schedule a timer to fire 1 second after closing the current database.
+' Date      : 2/25/2022
+' Purpose   : Generic callback function to handle timer requests to resume operations.
 '---------------------------------------------------------------------------------------
 '
-Public Sub RunBuildAfterClose(strSourceFolder As String)
-    m_lngBuildTimerID = SetTimer(0, 0, 1000, AddressOf BuildTimerCallback)
-    ' We will also lose the TimerID private variable value, so save it to registry as well.
-    SaveSetting GetCodeVBProject.Name, "Build", "TimerID", m_lngBuildTimerID
-    SaveSetting GetCodeVBProject.Name, "Build", "SourceFolder", strSourceFolder
-    ' Now we should be ready to close the current database
-    If Not CurrentDb Is Nothing Then Application.CloseCurrentDatabase
+Public Sub WinAPITimerCallback()
+
+    Dim strParam1 As String
+    Dim strParam2 As String
+    Dim strCommand As String
+
+    ' First, make sure we kill the timer!
+    KillTimer
+
+    ' Read in parameter values
+    strCommand = GetSetting(PROJECT_NAME, "Timer", "Operation")
+    strParam1 = GetSetting(PROJECT_NAME, "Timer", "Param1")
+    strParam2 = GetSetting(PROJECT_NAME, "Timer", "Param2")
+
+    ' Clear values from registry (In case an operation sets another timer)
+    SaveSetting PROJECT_NAME, "Timer", "Operation", vbNullString
+    SaveSetting PROJECT_NAME, "Timer", "Param1", vbNullString
+    SaveSetting PROJECT_NAME, "Timer", "Param2", vbNullString
+
+    ' Now, run the desired operation
+    Select Case strCommand
+
+        Case "HandleRibbonCommand"
+            HandleRibbonCommand strParam1
+
+        Case "Build"
+            ' Build from source (full or merge build)
+            Build strParam1, CBool(strParam2)
+
+        Case Else
+            ' Use the Run command to execute the specified operation with supplied parameters
+            If strParam2 <> vbNullString Then
+                Application.Run strCommand, strParam1, strParam2
+            ElseIf strParam1 <> vbNullString Then
+                Application.Run strCommand, strParam1
+            Else
+                Application.Run strCommand
+            End If
+
+    End Select
+
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : BuildTimerCallback
+' Procedure : SetTimer
 ' Author    : Adam Waller
-' Date      : 5/4/2020
-' Purpose   : This is called by the API to resume our build process after closing the
-'           : current database. (CloseCurrentDatabase ends all executing code.)
+' Date      : 2/25/2022
+' Purpose   : Set the API timer to trigger the desired operation
 '---------------------------------------------------------------------------------------
 '
-Public Sub BuildTimerCallback()
+Public Sub SetTimer(strOperation As String, _
+    Optional strParam1 As String, Optional strParam2 As String, _
+    Optional sngSeconds As Single = 0.5)
 
-    Dim strFolder As String
-    
-    ' Look up the existing timer to make sure we kill it properly.
-    If m_lngBuildTimerID = 0 Then m_lngBuildTimerID = GetSetting(GetCodeVBProject.Name, "Build", "TimerID", 0)
-    If m_lngBuildTimerID <> 0 Then
-        KillTimer 0, m_lngBuildTimerID
-        Debug.Print "Killed build timer " & m_lngBuildTimerID
-        m_lngBuildTimerID = 0
-        SaveSetting GetCodeVBProject.Name, "Build", "TimerID", 0
+    ' Make sure we are not trying to stack timer operations
+    If m_lngTimerID <> 0 Then
+        MsgBox2 "Failed to Set Callback Timer", _
+            "Multiple callback timers are not currently supported.", _
+            "Please ensure that any previous timer was completed or killed first.", vbExclamation
+        Exit Sub
     End If
-    
-    ' Now, with the timer killed, we can clear the saved value and relaunch the build.
-    strFolder = GetSetting(GetCodeVBProject.Name, "Build", "SourceFolder")
-    SaveSetting GetCodeVBProject.Name, "Build", "SourceFolder", vbNullString
-    If strFolder <> vbNullString Then
-        ' We would only do a full build with the callback.
-        Build strFolder, True
+
+    ' Save parameter values
+    SaveSetting PROJECT_NAME, "Timer", "Param1", strParam1
+    SaveSetting PROJECT_NAME, "Timer", "Param2", strParam2
+
+    ' Save ID to registry before setting the timer
+    SaveSetting PROJECT_NAME, "Timer", "Operation", strOperation
+    SaveSetting PROJECT_NAME, "Timer", "TimerID", m_lngTimerID
+    m_lngTimerID = ApiSetTimer(0, 0, 1000 * sngSeconds, AddressOf WinAPITimerCallback)
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : KillTimer
+' Author    : Adam Waller
+' Date      : 2/25/2022
+' Purpose   : Kill any existing timer
+'---------------------------------------------------------------------------------------
+'
+Private Sub KillTimer()
+    If m_lngTimerID = 0 Then m_lngTimerID = GetSetting(PROJECT_NAME, "Timer", "TimerID", 0)
+    If m_lngTimerID <> 0 Then
+        ApiKillTimer 0, m_lngTimerID
+        Debug.Print "Killed API Timer " & m_lngTimerID
+        m_lngTimerID = 0
+        SaveSetting PROJECT_NAME, "Timer", "TimerID", 0
     End If
-    
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : LaunchExportAfterTimer
-' Author    : Adam Waller
-' Date      : 11/10/2020
-' Purpose   : Allows the calling code to finish running before relaunching the export
-'           : process from the add-in project without any parent call stack.
-'---------------------------------------------------------------------------------------
-'
-Public Sub LaunchExportAfterTimer(Optional sngSeconds As Single = 0.5)
-    m_lngExportTimerID = SetTimer(0, 0, 1000 * sngSeconds, AddressOf ExportTimerCallback)
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ExportTimerCallback
-' Author    : Adam Waller
-' Date      : 11/10/2020
-' Purpose   : Launch the code export process. (See modAddIn.RunExportForCurrentDB)
-'---------------------------------------------------------------------------------------
-'
-Public Sub ExportTimerCallback()
-
-    ' Kill the timer so it doesn't fire again.
-    KillTimer 0, m_lngExportTimerID
-    m_lngExportTimerID = 0
-    
-    ' Launch the export process.
-    modAddIn.AddInMenuItemExport
-    
 End Sub

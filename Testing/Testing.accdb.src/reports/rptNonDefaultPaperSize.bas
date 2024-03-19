@@ -13,11 +13,10 @@ Begin Report
     Width =8884
     DatasheetFontHeight =11
     ItemSuffix =1
-    DatasheetGridlinesColor =14806254
     RecSrcDt = Begin
         0xe05ff061b477e540
     End
-    DatasheetFontName ="Calibri"
+    DatasheetFontName ="Franklin Gothic Book"
     FilterOnLoad =0
     FitToPage =1
     DisplayOnSharePointSite =1
@@ -57,12 +56,12 @@ Begin Report
             Height =7560
             Name ="Detail"
             AutoHeight =1
-            AlternateBackColor =15921906
             AlternateBackThemeColorIndex =1
             AlternateBackShade =95.0
             BackThemeColorIndex =1
             Begin
                 Begin Label
+                    TextFontFamily =0
                     Left =1260
                     Top =240
                     Width =4800
@@ -71,6 +70,7 @@ Begin Report
                     ForeColor =8355711
                     Name ="Label0"
                     Caption ="This report uses A4 landscape paper size"
+                    FontName ="Franklin Gothic Book"
                     GridlineColor =10921638
                     LayoutCachedLeft =1260
                     LayoutCachedTop =240
@@ -90,9 +90,4 @@ Begin Report
     End
 End
 CodeBehindForm
-Attribute VB_GlobalNameSpace = False
-Attribute VB_Creatable = True
-Attribute VB_PredeclaredId = True
-Attribute VB_Exposed = False
-Option Compare Database
-Option Explicit
+' See "rptNonDefaultPaperSize.cls"
