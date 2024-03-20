@@ -162,10 +162,10 @@ End Function
 Private Function GetTabs(ByVal Tabs As Tabs) As Collection
     Dim coll As New Collection
     Dim i As Long
-    Dim t As MSForms.Tab
+    Dim T As MSForms.Tab
     For i = 0 To Tabs.Count - 1
-        Set t = Tabs(i)
-        coll.Add GetControl(t)
+        Set T = Tabs(i)
+        coll.Add GetControl(T)
     Next i
     Set GetTabs = coll
 End Function

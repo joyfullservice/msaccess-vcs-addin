@@ -17,7 +17,6 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
-Private Const en_US As String = "en_US"
 
 ' Cache strings to dictionary objects so we don't have to do database lookups
 ' each time we need to return translated strings
@@ -44,8 +43,9 @@ End Type
 '
 Private Function GetLanguageName(strIdentifier As String) As String
     Select Case strIdentifier
-        Case en_US:     GetLanguageName = "English"
+        Case "en_US":   GetLanguageName = "English"
         Case "pt_BR":   GetLanguageName = "Brazilian Portuguese"
+        Case "en_TEST": GetLanguageName = "English (Localization Testing)"
         ' For undefined languages, use the identifier for now.
         Case Else:      GetLanguageName = strIdentifier
     End Select
@@ -59,7 +59,9 @@ End Function
 ' Purpose   : Return the translated version of the string.
 '---------------------------------------------------------------------------------------
 '
-Public Function t(strText As String, Optional strContext As String, Optional strComments As String) As String
+Public Function T(strText As String, Optional strComments As String, Optional strContext As String, _
+    Optional var0, Optional var1, Optional var2, Optional var3, Optional var4, _
+    Optional var5, Optional var6, Optional var7, Optional var8, Optional var9) As String
 
     Dim strNew As String
     Dim strKey As String
@@ -82,10 +84,26 @@ Public Function t(strText As String, Optional strContext As String, Optional str
         dStrings.Add strKey, strKey
         ' Add to strings table
         SaveString strText, strContext, strComments
+        ' Return current string
+        strNew = strText
+    End If
+
+    ' Fill in any replacements
+    If InStr(1, strNew, "{") > 0 Then
+        If Not IsMissing(var0) Then strNew = Replace(strNew, "{0}", CStr(var0))
+        If Not IsMissing(var1) Then strNew = Replace(strNew, "{1}", CStr(var1))
+        If Not IsMissing(var2) Then strNew = Replace(strNew, "{2}", CStr(var2))
+        If Not IsMissing(var3) Then strNew = Replace(strNew, "{3}", CStr(var3))
+        If Not IsMissing(var4) Then strNew = Replace(strNew, "{4}", CStr(var4))
+        If Not IsMissing(var5) Then strNew = Replace(strNew, "{5}", CStr(var5))
+        If Not IsMissing(var6) Then strNew = Replace(strNew, "{6}", CStr(var6))
+        If Not IsMissing(var7) Then strNew = Replace(strNew, "{7}", CStr(var7))
+        If Not IsMissing(var8) Then strNew = Replace(strNew, "{8}", CStr(var8))
+        If Not IsMissing(var9) Then strNew = Replace(strNew, "{9}", CStr(var9))
     End If
 
     ' Return translated string
-    t = Coalesce(strNew, strText)
+    T = strNew
 
 End Function
 
@@ -95,6 +113,7 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 5/17/2021
 ' Purpose   : Apply language translation to a form object (From English values)
+'           : This also includes placeholder replacements. (Use tag property for {0})
 '---------------------------------------------------------------------------------------
 '
 Public Sub ApplyTo(frmObject As Form)
@@ -104,9 +123,6 @@ Public Sub ApplyTo(frmObject As Form)
     Dim ctlAsc As Control
     Dim strContext As String
     Dim strName As String
-
-    ' No translation needed for English
-    'If m_strCurrentLanguage = en_US Then Exit Sub
 
     ' Loop through all controls
     For Each ctl In frmObject.Controls
@@ -135,7 +151,7 @@ Public Sub ApplyTo(frmObject As Form)
                 If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
 
                 ' Translation caption
-                ctl.Caption = t(ctl.Caption, strContext)
+                ctl.Caption = T(ctl.Caption, strContext)
 
             Case "TextBox"
                 ' Nothing to translate
@@ -143,14 +159,14 @@ Public Sub ApplyTo(frmObject As Form)
             Case "Page"
                 ' Tab control page caption
                 strContext = frmObject.Name & "." & ctl.Parent.Name & "." & ctl.Name
-                ctl.Caption = t(ctl.Caption, strContext)
+                ctl.Caption = T(ctl.Caption, strContext)
 
         End Select
 
     Next ctl
 
     ' Other properties
-    frmObject.Caption = t(frmObject.Caption, frmObject.Name & ".Caption")
+    frmObject.Caption = T(frmObject.Caption, frmObject.Name & ".Caption")
 
 End Sub
 
@@ -179,9 +195,9 @@ Public Sub ExportTranslations()
         Do While Not .EOF
             strLanguage = Nz(!ID)
             If strLanguage <> vbNullString Then
-                If strLanguage = en_US Then
+                If strLanguage = "en_US" Then
                     ' Template file (master list of strings)
-                    strFile = FSO.BuildPath(strFolder, GetVBProjectForCurrentDB.Name & ".pot")
+                    strFile = FSO.BuildPath(strFolder, CurrentVBProject.Name & ".pot")
                 Else
                     ' Translation work file
                     strFile = FSO.BuildPath(strFolder, strLanguage & ".po")
@@ -249,7 +265,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Language() As String
-    Language = GetSetting(GetCodeVBProject.Name, "Language", "Language", en_US)
+    Language = GetSetting(GetCodeVBProject.Name, "Language", "Language", "en_US")
 End Property
 Public Property Let Language(strLanguage As String)
     SaveSetting GetCodeVBProject.Name, "Language", "Language", strLanguage
@@ -372,7 +388,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function GetCurrentLanguage() As String
-    GetCurrentLanguage = Coalesce(m_strCurrentLanguage, GetSavedLanguage, GetOsLanguage, en_US)
+    GetCurrentLanguage = Coalesce(m_strCurrentLanguage, GetSavedLanguage, GetOsLanguage, "en_US")
 End Function
 
 
@@ -426,9 +442,9 @@ Private Sub ImportTranslation(strFile As String)
     ' Get language from file name, and remove existing entries
     Set dbs = CodeDb
     strName = FSO.GetFileName(strFile)
-    If strName = GetVBProjectForCurrentDB.Name & ".pot" Then
+    If strName = CurrentVBProject.Name & ".pot" Then
         ' Template file (English strings)
-        strLanguage = en_US
+        strLanguage = "en_US"
         dbs.Execute "delete from tblStrings", dbFailOnError
         ' Remove all translations, since we are resetting IDs
         dbs.Execute "delete from tblTranslation", dbFailOnError
