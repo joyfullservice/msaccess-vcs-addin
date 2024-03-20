@@ -274,9 +274,6 @@ CleanUp:
         .Save
     End With
 
-    ' Clear object references
-    modObjects.ReleaseObjects
-
 End Sub
 
 
@@ -409,9 +406,6 @@ CleanUp:
 
     ' Save index file (don't change export date for single item export)
     VCSIndex.Save
-
-    ' Clear object references
-    modObjects.ReleaseObjects
 
 End Sub
 
@@ -609,9 +603,6 @@ CleanUp:
 
     ' Save index file (don't change export date for multiple items export)
     VCSIndex.Save
-
-    ' Clear object references
-    modObjects.ReleaseObjects
 
 End Sub
 
@@ -1091,9 +1082,6 @@ CleanUp:
             "A backup of the previous build was saved as '" & FSO.GetFileName(strBackup) & "'.", vbInformation
     End If
 
-    ' Clear object references
-    modObjects.ReleaseObjects
-
 End Sub
 
 
@@ -1217,9 +1205,6 @@ CleanUp:
 
     ' Save index file (don't change export date for single item export)
     VCSIndex.Save
-
-    ' Clear object references
-    modObjects.ReleaseObjects
 
 End Sub
 
@@ -1346,9 +1331,6 @@ CleanUp:
 
     ' Save index file (don't change export date for single item export)
     VCSIndex.Save
-
-    ' Clear object references
-    modObjects.ReleaseObjects
 
 End Sub
 
