@@ -175,7 +175,12 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
             If Not ref.BuiltIn Then
                 ' A broken reference doesn't necessarily trigger an error.
                 If ref.IsBroken Then
-                    strName = IIf(ref.Type = vbext_rk_Project, ref.Name, ref.Guid)
+                    If ref.Type = vbext_rk_Project Then
+                        strName = ref.Name
+                    Else
+                        ' Can't access .Name property on broken type lib reference.
+                        strName = ref.Guid
+                    End If
                     Log.Error eelWarning, "Broken reference for " & strName & _
                         "This may cause errors in the export process.", ModuleName(Me) & ".GetDictionary"
                     ' Continue export, as this may not affect the actual output files.
