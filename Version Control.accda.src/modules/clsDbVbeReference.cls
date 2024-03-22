@@ -161,6 +161,9 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
         Exit Function
     End If
 
+    LogUnhandledErrors
+    On Error Resume Next
+
     Set proj = CurrentVBProject
     Set dNames = New Dictionary
     Set GetDictionary = New Dictionary
@@ -168,6 +171,12 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
         ' Loop through cached references (Duplicates have already been removed)
         For Each ref In proj.References
             If Not ref.BuiltIn Then
+                ' A broken reference doesn't necessarily trigger an error.
+                If ref.IsBroken Then
+                    Log.Error eelWarning, "Broken reference for " & ref.Name & " (" & ref.FullPath & "). " & _
+                        "This may cause errors in the export process.", ModuleName(Me) & ".GetDictionary"
+                    ' Continue export, as this may not affect the actual output files.
+                End If
                 If Not dNames.Exists(ref.Name) Then
                     Set dRef = New Dictionary
                     With dRef
@@ -184,6 +193,9 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                     ' circular references to nested library database files.
                     dNames.Add ref.Name, vbNullString
                 End If
+                ' Log any errors encountered.
+                CatchAny eelError, "Exporting reference " & ref.Name & _
+                    " (" & Trim(ref.FullPath & " " & ref.Guid), ModuleName(Me) & ".GetDictionary"
             End If
         Next ref
     End With
