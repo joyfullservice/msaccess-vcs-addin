@@ -45,6 +45,14 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strHash As String
     Dim strContent As String
 
+    ' Make sure the table exists, and is accessible
+    If Not TableExists(m_Table.Name) Then
+        Log.Error eelError, "Unable to access table " & m_Table.Name & _
+            ". Please ensure that this table exists and is accessible in the current database.", _
+            ModuleName(Me) & ".Export"
+        Exit Sub
+    End If
+
     ' Clear any legacy extensions
     ClearFilesByExtension IDbComponent_BaseFolder, "LNKD"
     ClearFilesByExtension IDbComponent_BaseFolder, "bas"

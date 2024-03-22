@@ -602,8 +602,37 @@ End Function
 '           : (Includes both local and linked tables, including system tables.)
 '---------------------------------------------------------------------------------------
 '
-Public Function TableExists(strName As String) As Boolean
-    TableExists = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type in (1,4,6)") = 0)
+Public Function TableExists(strName As String, Optional dbs As DAO.Database) As Boolean
+
+    Dim lngType As Long
+    Dim tdf As TableDef
+
+    ' Read type of table from internal system table
+    lngType = Nz(DLookup("Type", "MSysObjects", "Name=""" & strName & """ AND Type in (1,4,6)"), 0)
+
+    ' Watch for errors connecting to linked tables
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    Select Case lngType
+        Case 0  ' Does not exist
+            TableExists = False
+        Case 1  ' Local table
+            TableExists = True
+        Case Else
+            ' For linked tables, also check availability of target
+            If dbs Is Nothing Then Set dbs = CurrentDb
+            Set tdf = dbs.TableDefs(strName)
+            ' Return true if we find fields in the table
+            TableExists = (tdf.Fields.Count > 0)
+    End Select
+
+    Exit Function
+
+ErrHandler:
+    ' Encountered a problem accessing the table
+    TableExists = False
+
 End Function
 
 

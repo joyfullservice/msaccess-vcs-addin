@@ -47,6 +47,14 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Use error handling in case we encouter errors during export
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
+    ' Make sure the table exists, and is accessible
+    If Not TableExists(m_Table.Name) Then
+        Log.Error eelError, "Unable to access table " & m_Table.Name & _
+            ". Please ensure that this table exists and is accessible in the current database.", _
+            ModuleName(Me) & ".Export"
+        Exit Sub
+    End If
+
     ' Save as selected format, and remove other formats if they exist.
     For intFormat = 1 To eTableDataExportFormat.[_Last]
         ' Build file name for this format
