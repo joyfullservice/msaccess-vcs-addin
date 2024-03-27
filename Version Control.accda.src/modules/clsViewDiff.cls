@@ -207,9 +207,24 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function VSCodePath() As String
+
     Dim strPath As String
-    strPath = Environ("AppData") & "\..\Local\Programs\Microsoft VS Code\Code.exe"
-    If FSO.FileExists(strPath) Then VSCodePath = """" & strPath & """"
+
+    ' Check User Local App Data Folder
+    strPath = Environ("LocalAppData") & "\Programs\Microsoft VS Code\Code.exe"
+
+    If FSO.FileExists(strPath) Then
+        VSCodePath = """" & strPath & """"
+    Else
+        ' Not found, check Program Files
+        strPath = Environ("ProgramFiles") & "\Microsoft VS Code\Code.exe"
+        If FSO.FileExists(strPath) Then VSCodePath = """" & strPath & """"
+    End If
+
+Exit_Here:
+
+    Exit Function
+
 End Function
 
 
