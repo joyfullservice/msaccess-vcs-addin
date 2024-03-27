@@ -26,7 +26,7 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Public Sub Show()
-    DoCmd.OpenForm "frmVCSMain"
+    OpenVCSMainForm acWindowNormal
 End Sub
 
 
@@ -76,7 +76,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportSelected()
+
     Dim objSelected As AccessObject
+
     Set objSelected = GetSelectedNavPaneObject
     If objSelected Is Nothing Then
         MsgBox2 "Please Select an Object First", _
@@ -86,6 +88,7 @@ Public Sub ExportSelected()
         ' Export the item
         RunExport , objSelected
     End If
+
 End Sub
 
 
@@ -96,9 +99,10 @@ End Sub
 ' Purpose   : Handle different kinds of exports based on filter
 '---------------------------------------------------------------------------------------
 '
-Private Sub RunExport(Optional intFilter As eContainerFilter = ecfAllObjects, Optional objItem As AccessObject)
-    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-    With Form_frmVCSMain
+Private Sub RunExport(Optional intFilter As eContainerFilter = ecfAllObjects _
+                    , Optional objItem As AccessObject)
+
+    With OpenVCSMainForm
         If objItem Is Nothing Then
             .intContainerFilter = intFilter
         Else
@@ -108,6 +112,7 @@ Private Sub RunExport(Optional intFilter As eContainerFilter = ecfAllObjects, Op
         .cmdExport_Click
         If Log.ErrorLevel < eelError Then .AutoClose
     End With
+
 End Sub
 
 
@@ -119,13 +124,14 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Build(Optional strSourceFolder As String)
-    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-    With Form_frmVCSMain
+
+    With OpenVCSMainForm
         ' Make sure we are doing a full build.
         If Not .chkFullBuild Then .chkFullBuild = True
         .strSourcePath = strSourceFolder
         .cmdBuild_Click
     End With
+
 End Sub
 
 
@@ -137,8 +143,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeBuild()
-    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-    With Form_frmVCSMain
+
+    With OpenVCSMainForm
         ' See if merge build is available
         If .chkFullBuild.Enabled Then
             ' Initiate the merge build
@@ -150,7 +156,31 @@ Public Sub MergeBuild()
                 "Please perform a full build of this database first.", vbInformation
         End If
     End With
+
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OpenVCSMainForm
+' Author    : hecon5
+' Date      : 2024 MAR 27
+' Purpose   : Open frmVCSMain and set external flag.
+'---------------------------------------------------------------------------------------
+'
+Private Function OpenVCSMainForm(Optional ByVal OpenMode As AcWindowMode = acHidden) As Access.Form
+
+    If Not IsLoaded(acForm, "frmVCSMain", False) Then
+
+        DoCmd.OpenForm "frmVCSMain", , , , , OpenMode
+        With Form_frmVCSMain
+            .FormOpenedExternally = True
+        End With
+
+    End If
+
+    Set OpenVCSMainForm = Form_frmVCSMain
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -270,10 +300,11 @@ Public Sub LoadSelected()
         Set objSelected = Nothing
 
         ' Import the object from source files
-        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-        Form_frmVCSMain.StartBuild False
-        LoadSingleObject cComponentClass, strObjectName, strSourceFilePath
-        Form_frmVCSMain.FinishBuild False
+        With OpenVCSMainForm
+            .StartBuild False
+            LoadSingleObject cComponentClass, strObjectName, strSourceFilePath
+            .FinishBuild False
+        End With
     End If
 
 End Sub
