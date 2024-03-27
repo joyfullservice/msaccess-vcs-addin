@@ -28,6 +28,7 @@ Public strLastLogFilePath As String
 ' Use this property to set the path to the source files (such as a build triggered from the API)
 Public strSourcePath As String
 
+Public FormOpenedExternally As Boolean ' Set True externally when opened by other entity.
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdBuild_Click
@@ -419,6 +420,9 @@ Public Sub AutoClose()
     'In this case, a VBA error may occur, so we check if the
     'form is loaded before setting the property. We do not use
     'the Me.Name because that would be also an error.
+
+    If Not FormOpenedExternally Then Exit Sub
+
     If IsLoaded(acForm, "frmVCSMain", False) Then
         Me.TimerInterval = 2000
     End If
