@@ -26,6 +26,7 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Public Sub Show()
+    If HasFormOpen Then Exit Sub
     DoCmd.OpenForm "frmVCSMain"
 End Sub
 
@@ -38,6 +39,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ShowOptions()
+    If HasFormOpen Then Exit Sub
     ' Force reload of options from current project before opening the form.
     Set modObjects.Options = Nothing
     DoCmd.OpenForm "frmVCSOptions"
@@ -52,6 +54,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Export()
+    If HasFormOpen Then Exit Sub
     RunExport ecfAllObjects
 End Sub
 
@@ -64,6 +67,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportVBA()
+    If HasFormOpen Then Exit Sub
     RunExport ecfVBAItems
 End Sub
 
@@ -76,7 +80,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportSelected()
+
     Dim objSelected As AccessObject
+
+    If HasFormOpen Then Exit Sub
+
     Set objSelected = GetSelectedNavPaneObject
     If objSelected Is Nothing Then
         MsgBox2 "Please Select an Object First", _
@@ -86,6 +94,7 @@ Public Sub ExportSelected()
         ' Export the item
         RunExport , objSelected
     End If
+
 End Sub
 
 
@@ -119,6 +128,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Build(Optional strSourceFolder As String)
+    If HasFormOpen Then Exit Sub
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     With Form_frmVCSMain
         ' Make sure we are doing a full build.
@@ -137,6 +147,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeBuild()
+    If HasFormOpen Then Exit Sub
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     With Form_frmVCSMain
         ' See if merge build is available
@@ -167,6 +178,8 @@ Public Sub BuildAs()
 
     Dim strNewDbPath As String
     Dim strSourceFolder As String
+
+    If HasFormOpen Then Exit Sub
 
     ' See if we can find source files for the currently open database.
     If DatabaseFileOpen Then
@@ -236,6 +249,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeAllSource()
+    If HasFormOpen Then Exit Sub
     modImportExport.MergeAllSource
 End Sub
 
@@ -253,6 +267,8 @@ Public Sub LoadSelected()
     Dim cComponentClass As IDbComponent
     Dim strObjectName As String
     Dim strSourceFilePath As String
+
+    If HasFormOpen Then Exit Sub
 
     Set objSelected = GetSelectedNavPaneObject
     If objSelected Is Nothing Then
@@ -369,6 +385,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub RepairColors()
+    If HasFormOpen Then Exit Sub
     RepairColorDefinitionBlocks
 End Sub
 
@@ -381,6 +398,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub SplitFiles()
+    If HasFormOpen Then Exit Sub
     DoCmd.OpenForm "frmVCSSplitFiles"
 End Sub
 
@@ -394,6 +412,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LocalizeLibraryReferences()
+    If HasFormOpen Then Exit Sub
     modLibReference.LocalizeLibraryReferences True
 End Sub
 
@@ -434,6 +453,7 @@ Public Sub GoToLinkDownload()
     FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/releases"
 End Sub
 Public Sub ActivateHook()
+    If HasFormOpen Then Exit Sub
     If modExportOnSaveHook.ActivateHook = False Then
         MsgBox "Error activating the hook", vbCritical, "Unable to activate hook"
     End If
@@ -533,4 +553,59 @@ Private Sub PreserveSetting(strName As String, strSetting As String)
 End Sub
 Private Function ReadSetting(strName As String, Optional strDefault As String) As String
     ReadSetting = GetSetting(PROJECT_NAME, "State", strName, strDefault)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasFormOpen
+' Author    : Adam Waller
+' Date      : 3/29/2024
+' Purpose   : Make sure no other forms are currently loaded before initiating a new
+'           : operation. (Force linear usage of one operation at a time.)
+'           : Also warns user that they must close the form before they can proceed.
+'
+'---------------------------------------------------------------------------------------
+'
+Private Function HasFormOpen(Optional blnWarnUser As Boolean = True) As Boolean
+
+    Dim objForm As AccessObject
+    Dim frm As Access.Form
+    Dim strCaption As String
+
+    ' Cache collection of form names used by this add-in
+    Static dFormNames As Dictionary
+
+    ' Build cached list of form names
+    If dFormNames Is Nothing Then
+        Set dFormNames = New Dictionary
+        For Each objForm In CodeProject.AllForms
+            dFormNames.Add objForm.Name, vbNullString
+        Next objForm
+    End If
+
+    ' Check for open forms (from current database, add-in, or library database)
+    For Each frm In Application.Forms
+        If dFormNames.Exists(frm.Name) Then
+            ' Found a matching form name.
+            If frm.CurrentView = acCurViewDesign Then
+                ' Design view is okay, since the add-in won't have a form in design
+                ' view when running as an add-in. (No conflict)
+            Else
+                ' A form with the same name. This could be a problem.
+                If blnWarnUser Then
+                    If frm.Caption = vbNullString Then
+                        strCaption = frm.Name
+                    Else
+                        ' Users may recognize caption better than name
+                        strCaption = frm.Caption & " (" & frm.Name & ")"
+                    End If
+                    MsgBox2 "Add-in Form Already Open", _
+                        "Please close '" & strCaption & "' before running this action.", , vbInformation
+                    HasFormOpen = True
+                    Exit Function
+                End If
+            End If
+        End If
+    Next
+
 End Function
