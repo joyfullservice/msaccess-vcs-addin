@@ -654,7 +654,7 @@ Public Sub Reset()
     Set this.Categories = Nothing
     this.OperationName = vbNullString
     Set this.Operations = Nothing
-    Enabled = True
+    Me.Enabled = True
 End Sub
 
 
@@ -670,5 +670,5 @@ Private Sub Class_Initialize()
     ' https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
     GetFrequencyAPI this.Frequency
     this.intDigitsAfterDecimal = 2
-    Enabled = True
+    Me.Enabled = True
 End Sub
