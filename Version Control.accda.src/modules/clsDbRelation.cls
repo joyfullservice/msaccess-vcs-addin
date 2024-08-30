@@ -411,7 +411,8 @@ End Property
 '
 Private Property Get IDbComponent_QuickCount() As Long
     Static lngCount As Long
-    If lngCount = 0 Then lngCount = CurrentDb.Relations.Count - 1
+    ' DCount is much faster than CurrentDb.Relations.Count in some cases.
+    If lngCount = 0 Then lngCount = DCount("*", "MSysRelationships") - 1
     IDbComponent_QuickCount = lngCount + 1
 End Property
 
