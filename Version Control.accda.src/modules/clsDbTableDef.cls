@@ -504,7 +504,7 @@ Private Function GetTypeString(intType As DAO.DataTypeEnum) As String
         Case dbMemo:            GetTypeString = "LONGTEXT"
         Case dbDouble:          GetTypeString = "DOUBLE"
         Case dbSingle:          GetTypeString = "SINGLE"
-        Case dbByte:            GetTypeString = "UNSIGNED BYTE"
+        Case dbByte:            GetTypeString = "BYTE"
         Case dbInteger:         GetTypeString = "SHORT"
         Case dbLong:            GetTypeString = "LONG"
         Case dbNumeric:         GetTypeString = "NUMERIC"
