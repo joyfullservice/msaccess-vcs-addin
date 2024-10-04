@@ -802,6 +802,7 @@ Private Property Get IDbComponent_FileExtensions() As Collection
     Set IDbComponent_FileExtensions = New Collection
     IDbComponent_FileExtensions.Add "xml"
     IDbComponent_FileExtensions.Add "json"
+    IDbComponent_FileExtensions.Add "sql"
 End Property
 
 
