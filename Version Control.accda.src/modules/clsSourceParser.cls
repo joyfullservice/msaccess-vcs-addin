@@ -809,7 +809,9 @@ Private Function SanitizeVBA() As String
 
     ' Skip sanitizing if not using that option.
     If Options.SanitizeLevel < eslStandard Then
-        SanitizeVBA = this.strInput
+        this.strOutput = this.strInput
+        this.strVBA = this.strOutput
+        SanitizeVBA = this.strOutput
         Exit Function
     End If
 
