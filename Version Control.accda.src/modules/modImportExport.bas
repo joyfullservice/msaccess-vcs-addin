@@ -102,6 +102,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             Log.Add "Updated VCS (" & Options.GetLoadedVersion & " -> " & GetVCSVersion & ")", , , "blue"
     End Select
 
+    ' Perform any needed upgrades to source files
+    If blnFullExport Then UpgradeSourceFiles
+
     ' Run any custom sub before export
     If Options.RunBeforeExport <> vbNullString Then
         Log.Add "Running " & Options.RunBeforeExport & "..."
@@ -1432,6 +1435,36 @@ Private Sub CheckForLegacyModules()
                 "a simpler, cleaner code base for ongoing development.  :-)", _
                 "NOTE: This message can be disabled in 'Options -> Show Legacy Prompt'.", vbInformation, "Just a Suggestion..."
         End If
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpgradeSourceFiles
+' Author    : Adam Waller
+' Date      : 8/7/2024
+' Purpose   : Removes any legacy file formats used by earlier versions of this add-in.
+'---------------------------------------------------------------------------------------
+'
+Private Sub UpgradeSourceFiles()
+
+    Dim strBase As String
+
+    strBase = Options.GetExportFolder
+
+    ' Remove legacy files by extension
+    ClearFilesByExtension strBase & "sqltables", "tdf"
+    ClearFilesByExtension strBase & "relations", "txt"      ' Relationships (pre-json)
+    ClearFilesByExtension strBase & "report", "pv"          ' Print vars text file (pre-json)
+    ClearFilesByExtension strBase & "tbldefs", "LNKD"       ' Formerly used for linked tables
+    ClearFilesByExtension strBase & "tbldefs", "bas"        ' Moved to XML format
+    ClearFilesByExtension strBase & "tbldefs", "tdf"
+
+    ' Clear any print settings files if not using this option
+    If Not Options.SavePrintVars Then
+        ClearFilesByExtension "forms", "json"
+        ClearFilesByExtension "reports", "json"
     End If
 
 End Sub

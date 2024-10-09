@@ -53,11 +53,6 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         Exit Sub
     End If
 
-    ' Clear any legacy extensions
-    ClearFilesByExtension IDbComponent_BaseFolder, "LNKD"
-    ClearFilesByExtension IDbComponent_BaseFolder, "bas"
-    ClearFilesByExtension IDbComponent_BaseFolder, "tdf"
-
     ' Get the export file name
     strFile = Nz2(strAlternatePath, IDbComponent_SourceFile)
 
@@ -509,7 +504,7 @@ Private Function GetTypeString(intType As DAO.DataTypeEnum) As String
         Case dbMemo:            GetTypeString = "LONGTEXT"
         Case dbDouble:          GetTypeString = "DOUBLE"
         Case dbSingle:          GetTypeString = "SINGLE"
-        Case dbByte:            GetTypeString = "UNSIGNED BYTE"
+        Case dbByte:            GetTypeString = "BYTE"
         Case dbInteger:         GetTypeString = "SHORT"
         Case dbLong:            GetTypeString = "LONG"
         Case dbNumeric:         GetTypeString = "NUMERIC"
@@ -807,6 +802,7 @@ Private Property Get IDbComponent_FileExtensions() As Collection
     Set IDbComponent_FileExtensions = New Collection
     IDbComponent_FileExtensions.Add "xml"
     IDbComponent_FileExtensions.Add "json"
+    IDbComponent_FileExtensions.Add "sql"
 End Property
 
 
