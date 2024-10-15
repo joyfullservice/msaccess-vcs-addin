@@ -111,9 +111,13 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         RemoveAlternateFormatSourceFile
 
         ' Optionally save in SQL format
-        If Options.SaveTableSQL Then
+        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".sql"
+        If Options.SaveTableSQL And (Not IsLinkedTable) Then
             Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
             SaveTableSqlDef m_Table.Name, IDbComponent_BaseFolder
+        Else
+            ' Remove file if it exists
+            If FSO.FileExists(strFile) Then DeleteFile strFile
         End If
     End If
 
