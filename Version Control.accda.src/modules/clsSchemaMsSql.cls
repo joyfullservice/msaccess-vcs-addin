@@ -384,6 +384,10 @@ Private Sub ScanDatabaseObjects()
     ' Make sure we initialize before running the scan
     If Not this.blnInitialized Then Exit Sub
 
+    ' Initialize dictionaries
+    Set m_AllItems = New Dictionary
+    Set m_ModifiedItems = New Dictionary
+
     ' Open database connection
     Set conn = GetNewOpenConnection
     If conn Is Nothing Then Exit Sub
@@ -392,10 +396,6 @@ Private Sub ScanDatabaseObjects()
     Perf.OperationStart "Retrieve SQL Objects"
     Set rstObjects = conn.Execute(CodeDb.QueryDefs("qryMsSqlServerObjects").SQL)
     Perf.OperationEnd
-
-    ' Initialize dictionaries
-    Set m_AllItems = New Dictionary
-    Set m_ModifiedItems = New Dictionary
 
     ' Loop through objects, building dictionary of items that match our filter.
     Perf.OperationStart "Loop through SQL objects"
