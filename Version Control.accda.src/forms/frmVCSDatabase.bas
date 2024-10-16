@@ -15,11 +15,11 @@ Begin Form
     GridY =24
     Width =10800
     DatasheetFontHeight =11
-    ItemSuffix =263
-    Left =3225
-    Top =2430
-    Right =18945
-    Bottom =14175
+    ItemSuffix =269
+    Left =5220
+    Top =5085
+    Right =25530
+    Bottom =20400
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -176,8 +176,9 @@ Begin Form
             GridlineShade =65.0
         End
         Begin Tab
+            TextFontFamily =18
             FontSize =11
-            FontName ="Calibri"
+            FontName ="Cambria"
             ThemeFontIndex =0
             GridlineThemeColorIndex =1
             GridlineShade =65.0
@@ -255,21 +256,19 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    Left =7500
-                    Top =1560
-                    Width =2760
-                    Height =3360
+                    Left =7200
+                    Top =1500
+                    Width =3435
+                    Height =1140
                     ForeColor =5324600
                     Name ="Label227"
                     Caption ="This add-in provides limited support for exporting object definitions from exter"
-                        "nal databases for use in version control.\015\012\015\012* If the connection str"
-                        "ing contains a password, please use the .env option, and exclude this file from "
-                        "version control."
+                        "nal databases for use in version control."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =7500
-                    LayoutCachedTop =1560
-                    LayoutCachedWidth =10260
-                    LayoutCachedHeight =4920
+                    LayoutCachedLeft =7200
+                    LayoutCachedTop =1500
+                    LayoutCachedWidth =10635
+                    LayoutCachedHeight =2640
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -277,21 +276,21 @@ Begin Form
                     OverlapFlags =215
                     IMESentenceMode =3
                     Left =720
-                    Top =1800
+                    Top =1740
                     Width =3720
                     Height =315
                     Name ="txtName"
                     HorizontalAnchor =2
 
                     LayoutCachedLeft =720
-                    LayoutCachedTop =1800
+                    LayoutCachedTop =1740
                     LayoutCachedWidth =4440
-                    LayoutCachedHeight =2115
+                    LayoutCachedHeight =2055
                     Begin
                         Begin Label
                             OverlapFlags =93
                             Left =720
-                            Top =1500
+                            Top =1440
                             Width =2160
                             Height =315
                             ForeColor =5324600
@@ -299,9 +298,9 @@ Begin Form
                             Caption ="Connection Name:"
                             HorizontalAnchor =2
                             LayoutCachedLeft =720
-                            LayoutCachedTop =1500
+                            LayoutCachedTop =1440
                             LayoutCachedWidth =2880
-                            LayoutCachedHeight =1815
+                            LayoutCachedHeight =1755
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -311,7 +310,7 @@ Begin Form
                     OverlapFlags =215
                     IMESentenceMode =3
                     Left =720
-                    Top =3480
+                    Top =3300
                     Width =6060
                     Height =315
                     TabIndex =4
@@ -319,14 +318,14 @@ Begin Form
                     HorizontalAnchor =2
 
                     LayoutCachedLeft =720
-                    LayoutCachedTop =3480
+                    LayoutCachedTop =3300
                     LayoutCachedWidth =6780
-                    LayoutCachedHeight =3795
+                    LayoutCachedHeight =3615
                     Begin
                         Begin Label
                             OverlapFlags =93
                             Left =720
-                            Top =3180
+                            Top =3000
                             Width =1920
                             Height =315
                             ForeColor =5324600
@@ -334,9 +333,9 @@ Begin Form
                             Caption ="Description:"
                             HorizontalAnchor =2
                             LayoutCachedLeft =720
-                            LayoutCachedTop =3180
+                            LayoutCachedTop =3000
                             LayoutCachedWidth =2640
-                            LayoutCachedHeight =3495
+                            LayoutCachedHeight =3315
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -347,7 +346,7 @@ Begin Form
                     OverlapFlags =215
                     IMESentenceMode =3
                     Left =720
-                    Top =5160
+                    Top =5220
                     Width =6060
                     Height =1380
                     TabIndex =8
@@ -356,23 +355,23 @@ Begin Form
                     VerticalAnchor =2
 
                     LayoutCachedLeft =720
-                    LayoutCachedTop =5160
+                    LayoutCachedTop =5220
                     LayoutCachedWidth =6780
-                    LayoutCachedHeight =6540
+                    LayoutCachedHeight =6600
                     Begin
                         Begin Label
                             OverlapFlags =93
                             Left =720
-                            Top =4860
+                            Top =4920
                             Width =4620
                             Height =315
                             ForeColor =5324600
                             Name ="Label250"
                             Caption ="Filter for database objects (source file paths):"
                             LayoutCachedLeft =720
-                            LayoutCachedTop =4860
+                            LayoutCachedTop =4920
                             LayoutCachedWidth =5340
-                            LayoutCachedHeight =5175
+                            LayoutCachedHeight =5235
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -581,7 +580,7 @@ Begin Form
                     IMESentenceMode =3
                     ColumnCount =2
                     Left =720
-                    Top =2640
+                    Top =2520
                     Width =3720
                     Height =315
                     TabIndex =1
@@ -592,23 +591,23 @@ Begin Form
                     HorizontalAnchor =2
 
                     LayoutCachedLeft =720
-                    LayoutCachedTop =2640
+                    LayoutCachedTop =2520
                     LayoutCachedWidth =4440
-                    LayoutCachedHeight =2955
+                    LayoutCachedHeight =2835
                     Begin
                         Begin Label
                             OverlapFlags =93
                             Left =720
-                            Top =2340
+                            Top =2220
                             Width =2340
                             Height =315
                             ForeColor =5324600
                             Name ="Label252"
                             Caption ="Database Type:"
                             LayoutCachedLeft =720
-                            LayoutCachedTop =2340
+                            LayoutCachedTop =2220
                             LayoutCachedWidth =3060
-                            LayoutCachedHeight =2655
+                            LayoutCachedHeight =2535
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -616,18 +615,18 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
-                    Left =7500
+                    Left =7200
                     Top =5100
-                    Width =2760
+                    Width =3420
                     Height =1380
                     ForeColor =5324600
                     Name ="Label253"
                     Caption ="Filter paths to source files. Start line with ! to exclude match. Use * for wild"
                         "card matches (LIKE comparison)."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =7500
+                    LayoutCachedLeft =7200
                     LayoutCachedTop =5100
-                    LayoutCachedWidth =10260
+                    LayoutCachedWidth =10620
                     LayoutCachedHeight =6480
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
@@ -635,9 +634,9 @@ Begin Form
                 Begin CommandButton
                     FontUnderline = NotDefault
                     TabStop = NotDefault
-                    OverlapFlags =87
-                    Left =5340
-                    Top =4860
+                    OverlapFlags =85
+                    Left =5580
+                    Top =4920
                     Width =1140
                     Height =240
                     FontSize =10
@@ -653,10 +652,10 @@ Begin Form
                     BackStyle =0
 
                     CursorOnHover =1
-                    LayoutCachedLeft =5340
-                    LayoutCachedTop =4860
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =5100
+                    LayoutCachedLeft =5580
+                    LayoutCachedTop =4920
+                    LayoutCachedWidth =6720
+                    LayoutCachedHeight =5160
                     Alignment =1
                     ForeThemeColorIndex =10
                     ForeTint =100.0
@@ -680,32 +679,32 @@ Begin Form
                 End
                 Begin CheckBox
                     OverlapFlags =85
-                    Left =4740
-                    Top =4050
+                    Left =780
+                    Top =4470
                     TabIndex =5
                     Name ="chkSaveDotEnv"
                     DefaultValue ="True"
                     HorizontalAnchor =1
 
-                    LayoutCachedLeft =4740
-                    LayoutCachedTop =4050
-                    LayoutCachedWidth =5000
-                    LayoutCachedHeight =4290
+                    LayoutCachedLeft =780
+                    LayoutCachedTop =4470
+                    LayoutCachedWidth =1040
+                    LayoutCachedHeight =4710
                     Begin
                         Begin Label
-                            OverlapFlags =93
-                            Left =5040
-                            Top =4020
+                            OverlapFlags =85
+                            Left =1080
+                            Top =4440
                             Width =1740
                             Height =315
                             ForeColor =5324600
                             Name ="Label257"
                             Caption ="Save in .env file*"
                             HorizontalAnchor =1
-                            LayoutCachedLeft =5040
-                            LayoutCachedTop =4020
-                            LayoutCachedWidth =6780
-                            LayoutCachedHeight =4335
+                            LayoutCachedLeft =1080
+                            LayoutCachedTop =4440
+                            LayoutCachedWidth =2820
+                            LayoutCachedHeight =4755
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -714,21 +713,21 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =4740
-                    Top =2250
+                    Top =2190
                     TabIndex =3
                     Name ="chkUtcDates"
                     DefaultValue ="False"
                     HorizontalAnchor =1
 
                     LayoutCachedLeft =4740
-                    LayoutCachedTop =2250
+                    LayoutCachedTop =2190
                     LayoutCachedWidth =5000
-                    LayoutCachedHeight =2490
+                    LayoutCachedHeight =2430
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =5040
-                            Top =2220
+                            Top =2160
                             Width =1620
                             Height =315
                             ForeColor =5324600
@@ -736,9 +735,9 @@ Begin Form
                             Caption ="Use UTC Dates"
                             HorizontalAnchor =1
                             LayoutCachedLeft =5040
-                            LayoutCachedTop =2220
+                            LayoutCachedTop =2160
                             LayoutCachedWidth =6660
-                            LayoutCachedHeight =2535
+                            LayoutCachedHeight =2475
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -747,21 +746,21 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =4740
-                    Top =1830
+                    Top =1770
                     TabIndex =2
                     Name ="chkEnabled"
                     DefaultValue ="True"
                     HorizontalAnchor =1
 
                     LayoutCachedLeft =4740
-                    LayoutCachedTop =1830
+                    LayoutCachedTop =1770
                     LayoutCachedWidth =5000
-                    LayoutCachedHeight =2070
+                    LayoutCachedHeight =2010
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =5040
-                            Top =1800
+                            Top =1740
                             Width =1080
                             Height =315
                             ForeColor =5324600
@@ -769,9 +768,9 @@ Begin Form
                             Caption ="Enabled"
                             HorizontalAnchor =1
                             LayoutCachedLeft =5040
-                            LayoutCachedTop =1800
+                            LayoutCachedTop =1740
                             LayoutCachedWidth =6120
-                            LayoutCachedHeight =2115
+                            LayoutCachedHeight =2055
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -782,7 +781,7 @@ Begin Form
                     OverlapFlags =215
                     IMESentenceMode =3
                     Left =720
-                    Top =4320
+                    Top =4080
                     Width =6060
                     Height =315
                     TabIndex =6
@@ -791,9 +790,9 @@ Begin Form
                     HorizontalAnchor =2
 
                     LayoutCachedLeft =720
-                    LayoutCachedTop =4320
+                    LayoutCachedTop =4080
                     LayoutCachedWidth =6780
-                    LayoutCachedHeight =4635
+                    LayoutCachedHeight =4395
                     ForeThemeColorIndex =0
                     ForeTint =75.0
                     ForeShade =100.0
@@ -801,17 +800,17 @@ Begin Form
                         Begin Label
                             OverlapFlags =93
                             Left =720
-                            Top =4020
-                            Width =2940
+                            Top =3780
+                            Width =2790
                             Height =315
                             ForeColor =5324600
                             Name ="Label248"
-                            Caption ="Connection String:"
+                            Caption ="ADO (OLE) Connection String:"
                             HorizontalAnchor =2
                             LayoutCachedLeft =720
-                            LayoutCachedTop =4020
-                            LayoutCachedWidth =3660
-                            LayoutCachedHeight =4335
+                            LayoutCachedTop =3780
+                            LayoutCachedWidth =3510
+                            LayoutCachedHeight =4095
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -822,7 +821,7 @@ Begin Form
                     TabStop = NotDefault
                     OverlapFlags =85
                     Left =720
-                    Top =6600
+                    Top =6660
                     Width =1140
                     Height =240
                     FontSize =10
@@ -839,9 +838,9 @@ Begin Form
 
                     CursorOnHover =1
                     LayoutCachedLeft =720
-                    LayoutCachedTop =6600
+                    LayoutCachedTop =6660
                     LayoutCachedWidth =1860
-                    LayoutCachedHeight =6840
+                    LayoutCachedHeight =6900
                     Alignment =1
                     ForeThemeColorIndex =10
                     ForeTint =100.0
@@ -861,6 +860,76 @@ Begin Form
                     HoverForeTint =100.0
                     PressedForeThemeColorIndex =10
                     PressedForeTint =100.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =7200
+                    Top =2760
+                    Width =3195
+                    Height =1125
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label264"
+                    Caption ="Provide an ADO (OLE) connection string or check \"attempt conversion\" if you on"
+                        "ly have an ODBC string."
+                    HorizontalAnchor =1
+                    LayoutCachedLeft =7200
+                    LayoutCachedTop =2760
+                    LayoutCachedWidth =10395
+                    LayoutCachedHeight =3885
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =7200
+                    Top =3960
+                    Width =3420
+                    Height =1080
+                    ForeColor =5324600
+                    Name ="Label266"
+                    Caption ="* If the connection string contains a password, please use the .env option, and "
+                        "exclude this file from version control."
+                    HorizontalAnchor =1
+                    LayoutCachedLeft =7200
+                    LayoutCachedTop =3960
+                    LayoutCachedWidth =10620
+                    LayoutCachedHeight =5040
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =3000
+                    Top =4470
+                    TabIndex =13
+                    Name ="chkAttemptADOConvert"
+                    DefaultValue ="True"
+                    HorizontalAnchor =1
+
+                    LayoutCachedLeft =3000
+                    LayoutCachedTop =4470
+                    LayoutCachedWidth =3260
+                    LayoutCachedHeight =4710
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =3300
+                            Top =4440
+                            Width =3840
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label268"
+                            Caption ="Attempt Conversion to ADO (OLE) String"
+                            HorizontalAnchor =1
+                            LayoutCachedLeft =3300
+                            LayoutCachedTop =4440
+                            LayoutCachedWidth =7140
+                            LayoutCachedHeight =4755
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
                 End
             End
         End
