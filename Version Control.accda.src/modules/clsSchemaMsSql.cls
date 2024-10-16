@@ -34,6 +34,7 @@ Private Type udtThis
     blnUtcTime As Boolean
     strUserID As String
     strPassword As String
+    blnAttemptConvert As Boolean
     colFilters As Collection
 End Type
 Private this As udtThis
@@ -74,6 +75,9 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
     ' Make sure we have already performed a scan of the database objects
     If m_Files Is Nothing Then ScanFiles
     If m_AllItems Is Nothing Then ScanDatabaseObjects
+
+    ' Bail out if critical Error
+    If Log.ErrorLevel = eelCritical Then Exit Sub
 
     ' If there are no new changes found, we may not need to export anything
     If (m_ModifiedItems.Count = 0) And (m_Files.Count = m_AllItems.Count) Then
@@ -586,6 +590,7 @@ Private Sub IDbSchema_Initialize(dInstance As Scripting.IDictionary)
         .strBaseFolder = Options.GetExportFolder & "databases\" & GetSafeFileName(.strName) & PathSep
         Set .colFilters = colRules
         If dInstance.Exists("UtcDateTime") Then .blnUtcTime = dInstance("UtcDateTime")
+        If dInstance.Exists("AttemptConvert") Then .blnAttemptConvert = dInstance("AttemptConvert")
         .blnInitialized = (Len(.strConnect))
     End With
 
