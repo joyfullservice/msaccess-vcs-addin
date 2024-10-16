@@ -66,6 +66,7 @@ The *Testing* column indicates whether a test item and testing code has been cre
 |Relationships            |✔️|✔️|clsDbRelation
 |Nav. Pane Groups         |✔️|✔️|clsDbNavPaneGroup
 |Embedded Office Theme(s) |✔️|✔️|clsDbTheme
+|CommandBars              |||
 |💼 **VBE PROJECT**
 |Project Properties       |✔️|✔️|clsDbVbeProject
 |Compilation Arguments    |✔️|✔️|clsDbVbeProject
