@@ -470,7 +470,7 @@ Private Function GetNewOpenConnection() As ADODB.Connection
     End With
 
     ' Check for any connection error
-    If CatchAny(eelError, "Unable to connect to " & this.strName, ModuleName(Me)) Then
+    If CatchAny(eelError, "Unable to connect to " & this.strName, ModuleName(Me) & ".GetNewOpenConnection") Then
         Log.Add "Connection string: " & this.strConnect, False
     Else
         ' Return open connection
