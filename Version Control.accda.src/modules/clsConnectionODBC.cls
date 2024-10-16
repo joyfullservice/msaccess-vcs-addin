@@ -38,6 +38,7 @@ Private Type udtData
     Server As String
     Port As String ' Should be either an integer between 0 to 65535 or empty
     Database As String
+    Encrypt As String
 
     ' The rest of members below are for class' use and is not related to
     ' the ODBC connection string specifications.
@@ -157,6 +158,19 @@ End Property
 '
 Public Property Get Database() As String
     Database = this.Database
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Database
+' Author    : bclothier
+' Date      : 4/1/2023
+' Purpose   : Returns the value for the Database key in the connection string if present.
+'           : This is not a generic key but Access does uses it for comparison.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Encrypt() As String
+    Encrypt = this.Encrypt
 End Property
 
 
@@ -320,6 +334,9 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
                     If Len(this.Port) = 0 Then
                         this.Port = strValue
                     End If
+                Case "Encrypt"
+
+                    this.Encrypt = CBool(strValue)
             End Select
         End With
     Next
@@ -381,6 +398,10 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
 
     If Len(this.PWD) Then
         objConcat.Add ";PWD=", this.PWD
+    End If
+
+    If this.Encrypt Then
+        objConcat.Add ";ENCRYPT=", this.Encrypt
     End If
 
     this.SanitizedConnectionString = "ODBC" & objConcat.GetStr

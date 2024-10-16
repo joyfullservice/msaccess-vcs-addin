@@ -460,27 +460,120 @@ End Sub
 '
 Private Function GetNewOpenConnection() As ADODB.Connection
 
+    Static f_FailCount As Long
+
     Dim oConn As ADODB.Connection
 
     Set oConn = New ADODB.Connection
+
+Retry:
     With oConn
         LogUnhandledErrors
         On Error Resume Next
         If Len(this.strUserID) Then
-            .Open this.strConnect, this.strUserID, this.strPassword
+            .Open GetADOConnectionString(this.strConnect, f_FailCount), this.strUserID, this.strPassword
         Else
-            .Open this.strConnect
+            .Open GetADOConnectionString(this.strConnect, f_FailCount)
         End If
     End With
+
+    If f_FailCount <= ADODBConnectRetryMaximum And (oConn.State And adStateOpen) <> adStateOpen Then GoTo Retry
 
     ' Check for any connection error
     If CatchAny(eelError, "Unable to connect to " & this.strName, ModuleName(Me) & ".GetNewOpenConnection") Then
         Log.Add "Connection string: " & this.strConnect, False
+
     Else
         ' Return open connection
         Set GetNewOpenConnection = oConn
     End If
 
+End Function
+
+
+Public Function GetADOConnectionString(ByRef ODBCConnString As String _
+                                       , Optional ByRef FailCount As Long = 0) As String
+
+    ' Returns with an ADODB connection string based on existing ODBC Connection.
+
+    Dim FunctionName As String
+    Dim currConnString As String
+    Dim ConnectionProperties() As String
+    Dim PropertyCount As Long
+    Dim strProperty As String
+    Dim ConStrParsed As New clsConnectionODBC
+
+    If Not this.blnAttemptConvert Then
+        GetADOConnectionString = ODBCConnString
+        Exit Function
+    End If
+
+    FunctionName = ModuleName(Me) & ".GetADOConnectionString"
+    Perf.OperationStart FunctionName
+
+    ConStrParsed.ParseOdbcConnectionString ODBCConnString
+
+    currConnString = ConStrParsed.OriginalConnectionString
+    ConnectionProperties = Split(currConnString, ";")
+
+    With New clsConcat
+        .AppendOnAdd = ";"
+        ' Add some beginning properties that are specific to ADO (OLE) connection strings.
+            Select Case FailCount
+                Case 0 To 2
+                    .Add "Provider=MSOLEDBSQL19"
+                    .Add "Connect Retry Count=3"
+                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
+
+                Case 3
+                    .Add "Provider=MSOLEDBSQL"
+                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
+                    .Add "Trusted_Connection=yes"
+                    .Add "Connect Retry Count=3"
+
+                Case 4
+                    .Add "Provider=SQLNCLI11"
+                    .Add "Trusted_Connection=yes"
+                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
+
+                Case ADODBConnectRetryMaximum
+                    .Add "Provider=SQLOLEDB"
+                    .Add "Trusted_Connection=True"
+                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
+
+                Case Else
+                    .Add "Provider=SQLOLEDB"
+                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=true"
+                    .Add "Trusted_Connection=True"
+            End Select
+
+        For PropertyCount = 0 To UBound(ConnectionProperties)
+            strProperty = ConnectionProperties(PropertyCount)
+            Select Case True ' This looks odd, yes, but it really just means we can use the comma delimited feature of "case"
+            Case StartsWith(strProperty, "Provider=", vbTextCompare), _
+                 StartsWith(strProperty, "ODBC", vbTextCompare), _
+                 StartsWith(strProperty, "DataTypeCompatibility=", vbTextCompare), _
+                 StartsWith(strProperty, "Driver=", vbTextCompare), _
+                 StartsWith(strProperty, "Trusted_Connection=", vbTextCompare), _
+                 StartsWith(strProperty, "Encrypt=", vbTextCompare), _
+                 Len(strProperty) < 1
+                ' Don't include these; they aren't needed (or are specified elsewhere).
+
+            Case Else
+                .Add strProperty
+            End Select
+        Next PropertyCount
+
+        ' These properties should go at the end.
+        If Len(ConStrParsed.Encrypt) Then .Add "Use Encryption for Data=true"
+        .Add "MARS Connection=True"
+        .Add "Integrated Security=SSPI"
+        .Add "DataTypeCompatibility=80"
+
+        Log.Add FunctionName & "ConnectionString: " & .GetStr  ', eelDebugInfo
+        GetADOConnectionString = .GetStr
+    End With
+    Perf.OperationEnd
 End Function
 
 
