@@ -491,7 +491,8 @@ Retry:
         Set GetNewOpenConnection = oConn
     End If
 
-End Function
+    ' Reset failure count
+    lngFailCount = 0
 
 End Function
 
