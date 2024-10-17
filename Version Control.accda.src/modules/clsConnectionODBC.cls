@@ -182,6 +182,12 @@ End Property
 '           : ParseOdbcConnectionString.
 '---------------------------------------------------------------------------------------
 '
+Public Property Let OriginalConnectionString(ByRef NewValue As String)
+' Setting properyty triggers the parsing when setting the original connection string 
+' as an overload of sorts.
+    ParseOdbcConnectionString NewValue
+End Property
+
 Public Property Get OriginalConnectionString() As String
     OriginalConnectionString = this.OriginalConnectionString
 End Property
@@ -211,16 +217,29 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Function GetKeyValues() As Dictionary
+
     Set GetKeyValues = New Dictionary
     GetKeyValues.CompareMode = TextCompare
 
     Dim varKey As Variant
+
     For Each varKey In this.KeyValues
         GetKeyValues.Add varKey, this.KeyValues(varKey)
     Next
+
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : ParseOdbcConnectionString
+' Author    : bclothier, hecon5
+' Date      : 4/1/2023,
+' Purpose   : Parses the connection string objects into the elements and builds a
+'           : sanitized string for comparison.
+'---------------------------------------------------------------------------------------
+'
 Public Sub ParseOdbcConnectionString(strConnect As String)
+
     If StartsWith(strConnect, "ODBC;", vbTextCompare) = False Then
         Exit Sub
     End If
@@ -335,15 +354,28 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
                         this.Port = strValue
                     End If
                 Case "Encrypt"
+                    If Len(this.Encrypt) = 0 Then this.Encrypt = strValue
 
-                    this.Encrypt = CBool(strValue)
             End Select
         End With
     Next
 
-    ' Build the sanitized connection string based on key parameters that Access will use
-    ' to differeniate one connection string from another. This is based on experience
-    ' because there is no formal documentation for how Access treats one connection string.
+    GetSanitizedConnectionString
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSanitizedConnectionString
+' Author    : bclothier
+' Date      : 4/1/2023
+' Purpose   : Build the sanitized connection string based on key parameters that Access will use
+'           : to differeniate one connection string from another. This is based on experience
+'           : because there is no formal documentation for how Access treats one connection string.
+'---------------------------------------------------------------------------------------
+'
+Private Sub GetSanitizedConnectionString()
+    '
     ' WizHook provides IsMatchToDbcConnectString but that does not seem to suit our needs.
     ' What is known:
     '   Access pays attention to the following keywords: Driver, Server, Database and Port
@@ -401,6 +433,7 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
     End If
 
     this.SanitizedConnectionString = "ODBC" & objConcat.GetStr
+
 End Sub
 
 
@@ -413,6 +446,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IsGenericKey(strKey As String) As Boolean
+
     Select Case strKey
         Case "Driver", _
              "DSN", _
@@ -422,6 +456,7 @@ Public Function IsGenericKey(strKey As String) As Boolean
              "SaveFile"
             IsGenericKey = True
     End Select
+
 End Function
 
 
@@ -433,10 +468,12 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub ResetData()
+
     Dim blank As udtData
 
     ' Not necessary but best to ensure proper de-referencing
     Set this.KeyValues = Nothing
 
     LSet this = blank
+
 End Sub
