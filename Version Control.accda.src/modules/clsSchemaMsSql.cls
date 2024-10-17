@@ -18,6 +18,9 @@ Option Compare Database
 Option Explicit
 
 
+' How many times to retry connecting to ADODB.
+Private Const ADODB_MAX_RETRIES As Long = 5
+
 ' Status of GetDDL stored procedure
 Private Enum eSpStatus
     essUnknown
@@ -34,6 +37,7 @@ Private Type udtThis
     blnUtcTime As Boolean
     strUserID As String
     strPassword As String
+    blnAttemptConvert As Boolean
     colFilters As Collection
 End Type
 Private this As udtThis
@@ -74,6 +78,9 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
     ' Make sure we have already performed a scan of the database objects
     If m_Files Is Nothing Then ScanFiles
     If m_AllItems Is Nothing Then ScanDatabaseObjects
+
+    ' Bail out if critical Error
+    If Log.ErrorLevel = eelCritical Then Exit Sub
 
     ' If there are no new changes found, we may not need to export anything
     If (m_ModifiedItems.Count = 0) And (m_Files.Count = m_AllItems.Count) Then
@@ -384,6 +391,10 @@ Private Sub ScanDatabaseObjects()
     ' Make sure we initialize before running the scan
     If Not this.blnInitialized Then Exit Sub
 
+    ' Initialize dictionaries
+    Set m_AllItems = New Dictionary
+    Set m_ModifiedItems = New Dictionary
+
     ' Open database connection
     Set conn = GetNewOpenConnection
     If conn Is Nothing Then Exit Sub
@@ -392,10 +403,6 @@ Private Sub ScanDatabaseObjects()
     Perf.OperationStart "Retrieve SQL Objects"
     Set rstObjects = conn.Execute(CodeDb.QueryDefs("qryMsSqlServerObjects").SQL)
     Perf.OperationEnd
-
-    ' Initialize dictionaries
-    Set m_AllItems = New Dictionary
-    Set m_ModifiedItems = New Dictionary
 
     ' Loop through objects, building dictionary of items that match our filter.
     Perf.OperationStart "Loop through SQL objects"
@@ -449,33 +456,134 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetNewOpenConnection
-' Author    : Adam Waller
+' Author    : Adam Waller, hecon5
 ' Date      : 8/3/2023
 ' Purpose   : Return a new, open ADODB connection
 '---------------------------------------------------------------------------------------
 '
 Private Function GetNewOpenConnection() As ADODB.Connection
 
+    Static lngFailCount As Long
+
     Dim oConn As ADODB.Connection
 
     Set oConn = New ADODB.Connection
+
+Retry:
     With oConn
         LogUnhandledErrors
         On Error Resume Next
         If Len(this.strUserID) Then
-            .Open this.strConnect, this.strUserID, this.strPassword
+            .Open GetADOConnectionString(this.strConnect, lngFailCount), this.strUserID, this.strPassword
         Else
-            .Open this.strConnect
+            .Open GetADOConnectionString(this.strConnect, lngFailCount)
         End If
     End With
 
+    If lngFailCount <= ADODB_MAX_RETRIES And (oConn.State And adStateOpen) <> adStateOpen Then GoTo Retry
+
     ' Check for any connection error
-    If CatchAny(eelError, "Unable to connect to " & this.strName, ModuleName(Me)) Then
+    If CatchAny(eelError, "Unable to connect to " & this.strName, ModuleName(Me) & ".GetNewOpenConnection") Then
         Log.Add "Connection string: " & this.strConnect, False
+
     Else
         ' Return open connection
         Set GetNewOpenConnection = oConn
     End If
+
+    ' Reset failure count
+    lngFailCount = 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetADOConnectionString
+' Author    : hecon5
+' Date      : 10/17/2024
+' Purpose   : Returns with an ADODB connection string based on existing ODBC Connection.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetADOConnectionString(ByRef ODBCConnString As String, Optional ByRef FailCount As Long = 0) As String
+
+    Dim FunctionName As String
+    Dim currConnString As String
+    Dim ConnectionProperties() As String
+    Dim PropertyCount As Long
+    Dim strProperty As String
+    Dim ConStrParsed As New clsConnectionODBC
+
+    If Not this.blnAttemptConvert Then
+        GetADOConnectionString = ODBCConnString
+        Exit Function
+    End If
+
+    FunctionName = ModuleName(Me) & ".GetADOConnectionString"
+    Perf.OperationStart FunctionName
+
+    ConStrParsed.ParseOdbcConnectionString ODBCConnString
+
+    currConnString = ConStrParsed.OriginalConnectionString
+    ConnectionProperties = Split(currConnString, ";")
+
+    With New clsConcat
+        .AppendOnAdd = ";"
+        ' Add some beginning properties that are specific to ADO (OLE) connection strings.
+            Select Case FailCount
+                Case 0 To 2
+                    .Add "Provider=MSOLEDBSQL19"
+                    .Add "Connect Retry Count=3"
+                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
+
+                Case 3
+                    .Add "Provider=MSOLEDBSQL"
+                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
+                    .Add "Trusted_Connection=yes"
+                    .Add "Connect Retry Count=3"
+
+                Case 4
+                    .Add "Provider=SQLNCLI11"
+                    .Add "Trusted_Connection=yes"
+                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
+
+                Case ADODB_MAX_RETRIES
+                    .Add "Provider=SQLOLEDB"
+                    .Add "Trusted_Connection=True"
+                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
+
+                Case Else
+                    .Add "Provider=SQLOLEDB"
+                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=true"
+                    .Add "Trusted_Connection=True"
+            End Select
+
+        For PropertyCount = 0 To UBound(ConnectionProperties)
+            strProperty = ConnectionProperties(PropertyCount)
+            Select Case True ' This looks odd, yes, but it really just means we can use the comma delimited feature of "case"
+                Case StartsWith(strProperty, "Provider=", vbTextCompare), _
+                     StartsWith(strProperty, "ODBC", vbTextCompare), _
+                     StartsWith(strProperty, "DataTypeCompatibility=", vbTextCompare), _
+                     StartsWith(strProperty, "Driver=", vbTextCompare), _
+                     StartsWith(strProperty, "Trusted_Connection=", vbTextCompare), _
+                     StartsWith(strProperty, "Encrypt=", vbTextCompare), _
+                     Len(strProperty) < 1
+                    ' Don't include these; they aren't needed (or are specified elsewhere).
+
+                Case Else
+                    .Add strProperty
+            End Select
+        Next PropertyCount
+
+        ' These properties should go at the end.
+        If Len(ConStrParsed.Encrypt) Then .Add "Use Encryption for Data=true"
+        .Add "MARS Connection=True"
+        .Add "Integrated Security=SSPI"
+        .Add "DataTypeCompatibility=80"
+
+        Log.Add FunctionName & "ConnectionString: " & .GetStr  ', eelDebugInfo
+        GetADOConnectionString = .GetStr
+    End With
+    Perf.OperationEnd
 
 End Function
 
@@ -586,6 +694,7 @@ Private Sub IDbSchema_Initialize(dInstance As Scripting.IDictionary)
         .strBaseFolder = Options.GetExportFolder & "databases\" & GetSafeFileName(.strName) & PathSep
         Set .colFilters = colRules
         If dInstance.Exists("UtcDateTime") Then .blnUtcTime = dInstance("UtcDateTime")
+        If dInstance.Exists("AttemptConvert") Then .blnAttemptConvert = dInstance("AttemptConvert")
         .blnInitialized = (Len(.strConnect))
     End With
 
