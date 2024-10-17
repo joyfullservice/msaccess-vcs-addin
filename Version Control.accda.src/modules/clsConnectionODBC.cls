@@ -400,10 +400,6 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
         objConcat.Add ";PWD=", this.PWD
     End If
 
-    If this.Encrypt Then
-        objConcat.Add ";ENCRYPT=", this.Encrypt
-    End If
-
     this.SanitizedConnectionString = "ODBC" & objConcat.GetStr
 End Sub
 
