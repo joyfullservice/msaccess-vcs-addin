@@ -162,11 +162,10 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : Database
-' Author    : bclothier
-' Date      : 4/1/2023
-' Purpose   : Returns the value for the Database key in the connection string if present.
-'           : This is not a generic key but Access does uses it for comparison.
+' Procedure : Encrypt
+' Author    : hecon5
+' Date      : 10/17/2024
+' Purpose   : Returns the value for the Encrypt key in the connection string if present.
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Encrypt() As String
