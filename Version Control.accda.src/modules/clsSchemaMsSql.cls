@@ -456,14 +456,14 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetNewOpenConnection
-' Author    : Adam Waller
+' Author    : Adam Waller, hecon5
 ' Date      : 8/3/2023
 ' Purpose   : Return a new, open ADODB connection
 '---------------------------------------------------------------------------------------
 '
 Private Function GetNewOpenConnection() As ADODB.Connection
 
-    Static f_FailCount As Long
+    Static lngFailCount As Long
 
     Dim oConn As ADODB.Connection
 
@@ -474,13 +474,13 @@ Retry:
         LogUnhandledErrors
         On Error Resume Next
         If Len(this.strUserID) Then
-            .Open GetADOConnectionString(this.strConnect, f_FailCount), this.strUserID, this.strPassword
+            .Open GetADOConnectionString(this.strConnect, lngFailCount), this.strUserID, this.strPassword
         Else
-            .Open GetADOConnectionString(this.strConnect, f_FailCount)
+            .Open GetADOConnectionString(this.strConnect, lngFailCount)
         End If
     End With
 
-    If f_FailCount <= ADODB_MAX_RETRIES And (oConn.State And adStateOpen) <> adStateOpen Then GoTo Retry
+    If lngFailCount <= ADODB_MAX_RETRIES And (oConn.State And adStateOpen) <> adStateOpen Then GoTo Retry
 
     ' Check for any connection error
     If CatchAny(eelError, "Unable to connect to " & this.strName, ModuleName(Me) & ".GetNewOpenConnection") Then
@@ -493,11 +493,17 @@ Retry:
 
 End Function
 
+End Function
 
-Public Function GetADOConnectionString(ByRef ODBCConnString As String _
-                                       , Optional ByRef FailCount As Long = 0) As String
 
-    ' Returns with an ADODB connection string based on existing ODBC Connection.
+'---------------------------------------------------------------------------------------
+' Procedure : GetADOConnectionString
+' Author    : hecon5
+' Date      : 10/17/2024
+' Purpose   : Returns with an ADODB connection string based on existing ODBC Connection.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetADOConnectionString(ByRef ODBCConnString As String, Optional ByRef FailCount As Long = 0) As String
 
     Dim FunctionName As String
     Dim currConnString As String
@@ -553,17 +559,17 @@ Public Function GetADOConnectionString(ByRef ODBCConnString As String _
         For PropertyCount = 0 To UBound(ConnectionProperties)
             strProperty = ConnectionProperties(PropertyCount)
             Select Case True ' This looks odd, yes, but it really just means we can use the comma delimited feature of "case"
-            Case StartsWith(strProperty, "Provider=", vbTextCompare), _
-                 StartsWith(strProperty, "ODBC", vbTextCompare), _
-                 StartsWith(strProperty, "DataTypeCompatibility=", vbTextCompare), _
-                 StartsWith(strProperty, "Driver=", vbTextCompare), _
-                 StartsWith(strProperty, "Trusted_Connection=", vbTextCompare), _
-                 StartsWith(strProperty, "Encrypt=", vbTextCompare), _
-                 Len(strProperty) < 1
-                ' Don't include these; they aren't needed (or are specified elsewhere).
+                Case StartsWith(strProperty, "Provider=", vbTextCompare), _
+                     StartsWith(strProperty, "ODBC", vbTextCompare), _
+                     StartsWith(strProperty, "DataTypeCompatibility=", vbTextCompare), _
+                     StartsWith(strProperty, "Driver=", vbTextCompare), _
+                     StartsWith(strProperty, "Trusted_Connection=", vbTextCompare), _
+                     StartsWith(strProperty, "Encrypt=", vbTextCompare), _
+                     Len(strProperty) < 1
+                    ' Don't include these; they aren't needed (or are specified elsewhere).
 
-            Case Else
-                .Add strProperty
+                Case Else
+                    .Add strProperty
             End Select
         Next PropertyCount
 
@@ -577,6 +583,7 @@ Public Function GetADOConnectionString(ByRef ODBCConnString As String _
         GetADOConnectionString = .GetStr
     End With
     Perf.OperationEnd
+
 End Function
 
 
