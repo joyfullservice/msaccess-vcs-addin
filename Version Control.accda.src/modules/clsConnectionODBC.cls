@@ -182,8 +182,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Let OriginalConnectionString(ByRef NewValue As String)
-' Setting properyty triggers the parsing when setting the original connection string 
-' as an overload of sorts.
+' Setting property triggers parsing as an overload of sorts.
     ParseOdbcConnectionString NewValue
 End Property
 
