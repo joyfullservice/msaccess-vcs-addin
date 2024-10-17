@@ -18,6 +18,9 @@ Option Compare Database
 Option Explicit
 
 
+' How many times to retry connecting to ADODB.
+Private Const ADODB_MAX_RETRIES As Long = 5
+
 ' Status of GetDDL stored procedure
 Private Enum eSpStatus
     essUnknown
@@ -477,7 +480,7 @@ Retry:
         End If
     End With
 
-    If f_FailCount <= ADODBConnectRetryMaximum And (oConn.State And adStateOpen) <> adStateOpen Then GoTo Retry
+    If f_FailCount <= ADODB_MAX_RETRIES And (oConn.State And adStateOpen) <> adStateOpen Then GoTo Retry
 
     ' Check for any connection error
     If CatchAny(eelError, "Unable to connect to " & this.strName, ModuleName(Me) & ".GetNewOpenConnection") Then
@@ -536,7 +539,7 @@ Public Function GetADOConnectionString(ByRef ODBCConnString As String _
                     .Add "Trusted_Connection=yes"
                     If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
 
-                Case ADODBConnectRetryMaximum
+                Case ADODB_MAX_RETRIES
                     .Add "Provider=SQLOLEDB"
                     .Add "Trusted_Connection=True"
                     If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"

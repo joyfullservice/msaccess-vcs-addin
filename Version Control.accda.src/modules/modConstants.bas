@@ -4,6 +4,9 @@
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
 ' Purpose   : Constants and enums used throughout the project, but not exposed publicly.
+'           : If constants are only used in a single module, then they should be
+'           : declared in that module. If they are shared among multiple modules, they
+'           : should be declared here.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Private Module
@@ -29,9 +32,6 @@ Public Const DefaultHashAlgorithm As String = "SHA256"
 
 ' This value seems to indicate that the theme was not used.
 Public Const NO_THEME_INDEX As Integer = -1
-
-' How many times to retry connecting to ADODB.
-Public Const ADODBConnectRetryMaximum As Long = 5
 
 ' Object types used when determining SQL modification date.
 Public Enum eSqlObjectType
