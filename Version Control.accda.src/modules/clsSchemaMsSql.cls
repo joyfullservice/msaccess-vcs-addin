@@ -482,8 +482,6 @@ Private Function GetNewOpenConnection() As ADODB.Connection
     Perf.OperationStart FunctionName
 
 Rebuild_Connection:
-    Perf.OperationStart FunctionName & ".Create"
-
     Set oConn = New ADODB.Connection
 
 Retry_Connection:
@@ -502,14 +500,11 @@ Retry_Connection:
                 GoTo Retry_Connection
             Else
                 Log.Error eelError, "Could not establish connection to " & this.strName, FunctionName
-                Perf.OperationEnd ' Close out the Create operation.
                 Perf.OperationEnd ' Close out the Function operation.
                 Exit Function
             End If
         End If
     End With
-
-    Perf.OperationEnd
 
     If lngFailCount <= ADODB_MAX_RETRIES And (oConn.State And adStateOpen) <> adStateOpen Then GoTo Rebuild_Connection
 
