@@ -47,9 +47,6 @@ Private m_Files As Dictionary
 Private m_AllItems As Dictionary
 Private m_ModifiedItems As Dictionary
 
-' Cached connection; don't use the directly
-Private m_ADOConnCached As ADODB.Connection
-
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the server classes consistent in how they are used in the export
 ' process. The implemented functions should be kept private as they are called
@@ -64,7 +61,8 @@ Implements IDbSchema
 ' Purpose   : Export DDL representations of the external database objects.
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath As String)
+Private Sub IDbSchema_Export(blnFullExport As Boolean _
+                            , Optional strAlternatePath As String)
 
     Dim conn As ADODB.Connection
     Dim strItem As String
@@ -119,6 +117,8 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
         Next varItem
 
         ' Close database connection
+        conn.Close
+        Set conn = Nothing
     End If
 
     ' --------------------------------------------------
@@ -163,7 +163,12 @@ End Sub
 ' Purpose   : Export the object definition to a file
 '---------------------------------------------------------------------------------------
 '
-Private Function ExportObject(strType, strSchema As String, strName As String, dteModified As Date, strPath As String, ByRef oConn As ADODB.Connection) As String
+Private Function ExportObject(strType _
+                            , strSchema As String _
+                            , strName As String _
+                            , dteModified As Date _
+                            , strPath As String _
+                            , ByRef oConn As ADODB.Connection) As String
 
     Dim strSqlDef
     Dim strDefinition As String
@@ -292,6 +297,7 @@ Private Function CanUseGetDDL() As Boolean
         End With
 
         ' Close connection
+        conn.Close
 
         ' Add log entries if the tool is not available
         If intUseSP = essUnavailable Then
@@ -314,7 +320,8 @@ End Function
 '           : sp_GetDDL.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetTableDefFallback(strTable As String, oConn As ADODB.Connection) As String
+Private Function GetTableDefFallback(strTable As String _
+                                    , oConn As ADODB.Connection) As String
 
     Dim strSql As String
     Dim rst As ADODB.Recordset
@@ -444,10 +451,12 @@ Private Sub ScanDatabaseObjects()
             lngCount = lngCount + 1
             .MoveNext
         Loop
+        .Close
     End With
     Perf.OperationEnd lngCount
 
     ' Close connection
+    conn.Close
 
 End Sub
 
@@ -464,6 +473,7 @@ Private Function GetNewOpenConnection(Optional ByVal Reset As Boolean = False) A
     Static lngFailCount As Long
 
     Dim FunctionName As String
+    Dim oConn As ADODB.Connection
 
     FunctionName = ModuleName(Me) & ".GetNewOpenConnection"
 
@@ -471,43 +481,37 @@ Private Function GetNewOpenConnection(Optional ByVal Reset As Boolean = False) A
     On Error Resume Next
     Perf.OperationStart FunctionName
 
-    If m_ADOConnCached Is Nothing Or Reset Then
-
 Rebuild_Connection:
-        Perf.OperationStart FunctionName & ".Create"
+    Perf.OperationStart FunctionName & ".Create"
 
-        Set m_ADOConnCached = New ADODB.Connection
+    Set oConn = New ADODB.Connection
 
 Retry_Connection:
-        With m_ADOConnCached
-            If Len(this.strUserID) Then
-                .Open GetADOConnectionString(this.strConnect, lngFailCount), this.strUserID, this.strPassword
+    With oConn
+        If Len(this.strUserID) Then
+            .Open GetADOConnectionString(this.strConnect, lngFailCount), this.strUserID, this.strPassword
+        Else
+            .Open GetADOConnectionString(this.strConnect, lngFailCount)
+        End If
+
+        CatchAny eelError, "Error Connecting to " & this.strName, FunctionName
+        If (.State And adStateOpen) <> adStateOpen Then
+
+            If lngFailCount <= ADODB_MAX_RETRIES Then
+                lngFailCount = lngFailCount + 1
+                GoTo Retry_Connection
             Else
-                .Open GetADOConnectionString(this.strConnect, lngFailCount)
+                Log.Error eelError, "Could not establish connection to " & this.strName, FunctionName
+                Perf.OperationEnd ' Close out the Create operation.
+                Perf.OperationEnd ' Close out the Function operation.
+                Exit Function
             End If
+        End If
+    End With
 
-            CatchAny eelError, "Error Connecting to " & this.strName, FunctionName
-            If (.State And adStateOpen) <> adStateOpen Then
+    Perf.OperationEnd
 
-                If lngFailCount <= ADODB_MAX_RETRIES Then
-                    lngFailCount = lngFailCount + 1
-                    GoTo Retry_Connection
-                Else
-                    Log.Error eelError, "Could not establish connection to " & this.strName, FunctionName
-                    Perf.OperationEnd ' Close out the Create operation.
-                    Perf.OperationEnd ' Close out the Function operation.
-                    Exit Function
-                End If
-            End If
-        End With
-
-        Perf.OperationEnd
-    End If
-
-    ' If the connection is already built but just not connected, try to connect.
-    If (m_ADOConnCached.State And adStateOpen) <> adStateOpen Then m_ADOConnCached.Open
-
-    If lngFailCount <= ADODB_MAX_RETRIES And (m_ADOConnCached.State And adStateOpen) <> adStateOpen Then GoTo Rebuild_Connection
+    If lngFailCount <= ADODB_MAX_RETRIES And (oConn.State And adStateOpen) <> adStateOpen Then GoTo Rebuild_Connection
 
     ' Check for any connection error
     If CatchAny(eelError, "Unable to connect to " & this.strName, FunctionName) Then
@@ -515,7 +519,7 @@ Retry_Connection:
 
     Else
         ' Return open connection
-        Set GetNewOpenConnection = m_ADOConnCached
+        Set GetNewOpenConnection = oConn
     End If
 
     Perf.OperationEnd
@@ -530,7 +534,8 @@ End Function
 ' Purpose   : Returns with an ADODB connection string based on existing ODBC Connection.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetADOConnectionString(ByRef ODBCConnString As String, Optional ByRef FailCount As Long = 0) As String
+Private Function GetADOConnectionString(ByRef ODBCConnString As String _
+                                        , Optional ByRef FailCount As Long = 0) As String
 
     Dim FunctionName As String
     Dim currConnString As String
@@ -664,6 +669,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetBaseFolders() As Dictionary
+
     Set GetBaseFolders = New Dictionary
     With GetBaseFolders
         .CompareMode = TextCompare
@@ -675,6 +681,7 @@ Private Function GetBaseFolders() As Dictionary
         .Add "sequences", Null
         .Add "synonymns", Null
     End With
+
 End Function
 
 
@@ -686,10 +693,12 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbSchema_ObjectCount(blnModifiedOnly As Boolean) As Long
+
     If m_Files Is Nothing Then ScanFiles
     If m_AllItems Is Nothing Then ScanDatabaseObjects
     If m_AllItems Is Nothing Then Exit Function
     IDbSchema_ObjectCount = IIf(blnModifiedOnly, m_ModifiedItems.Count, m_AllItems.Count)
+
 End Function
 
 
@@ -773,19 +782,3 @@ End Property
 Private Property Get IDbSchema_TypeDescription() As Variant
     IDbSchema_TypeDescription = "Microsoft SQL Server"
 End Property
-
-
-Private Sub Class_Terminate()
-
-    Dim FunctionName As String
-
-    FunctionName = ModuleName(Me) & ".Terminate"
-    LogUnhandledErrors FunctionName
-    On Error Resume Next
-
-    Perf.OperationStart FunctionName
-    m_ADOConnCached.Close
-    Set m_ADOConnCached = Nothing
-    Perf.OperationEnd
-
-End Sub
