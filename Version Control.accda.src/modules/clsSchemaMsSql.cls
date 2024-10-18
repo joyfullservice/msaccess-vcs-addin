@@ -47,6 +47,9 @@ Private m_Files As Dictionary
 Private m_AllItems As Dictionary
 Private m_ModifiedItems As Dictionary
 
+' Cached connection; don't use the directly
+Private m_ADOConnCached As ADODB.Connection
+
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the server classes consistent in how they are used in the export
 ' process. The implemented functions should be kept private as they are called
@@ -80,7 +83,7 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
     If m_AllItems Is Nothing Then ScanDatabaseObjects
 
     ' Bail out if critical Error
-    If Log.ErrorLevel = eelCritical Then Exit Sub
+    If Log.ErrorLevel >= eelError Then Exit Sub
 
     ' If there are no new changes found, we may not need to export anything
     If (m_ModifiedItems.Count = 0) And (m_Files.Count = m_AllItems.Count) Then
@@ -116,8 +119,6 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
         Next varItem
 
         ' Close database connection
-        conn.Close
-        Set conn = Nothing
     End If
 
     ' --------------------------------------------------
@@ -291,7 +292,6 @@ Private Function CanUseGetDDL() As Boolean
         End With
 
         ' Close connection
-        conn.Close
 
         ' Add log entries if the tool is not available
         If intUseSP = essUnavailable Then
@@ -444,12 +444,10 @@ Private Sub ScanDatabaseObjects()
             lngCount = lngCount + 1
             .MoveNext
         Loop
-        .Close
     End With
     Perf.OperationEnd lngCount
 
     ' Close connection
-    conn.Close
 
 End Sub
 
@@ -461,38 +459,66 @@ End Sub
 ' Purpose   : Return a new, open ADODB connection
 '---------------------------------------------------------------------------------------
 '
-Private Function GetNewOpenConnection() As ADODB.Connection
+Private Function GetNewOpenConnection(Optional ByVal Reset As Boolean = False) As ADODB.Connection
 
     Static lngFailCount As Long
 
-    Dim oConn As ADODB.Connection
+    Dim FunctionName As String
 
-    Set oConn = New ADODB.Connection
+    FunctionName = ModuleName(Me) & ".GetNewOpenConnection"
 
-Retry:
-    With oConn
-        LogUnhandledErrors
-        On Error Resume Next
-        If Len(this.strUserID) Then
-            .Open GetADOConnectionString(this.strConnect, lngFailCount), this.strUserID, this.strPassword
-        Else
-            .Open GetADOConnectionString(this.strConnect, lngFailCount)
-        End If
-    End With
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+    Perf.OperationStart FunctionName
 
-    If lngFailCount <= ADODB_MAX_RETRIES And (oConn.State And adStateOpen) <> adStateOpen Then GoTo Retry
+    If m_ADOConnCached Is Nothing Or Reset Then
+
+Rebuild_Connection:
+        Perf.OperationStart FunctionName & ".Create"
+
+        Set m_ADOConnCached = New ADODB.Connection
+
+Retry_Connection:
+        With m_ADOConnCached
+            If Len(this.strUserID) Then
+                .Open GetADOConnectionString(this.strConnect, lngFailCount), this.strUserID, this.strPassword
+            Else
+                .Open GetADOConnectionString(this.strConnect, lngFailCount)
+            End If
+
+            CatchAny eelError, "Error Connecting to " & this.strName, FunctionName
+            If (.State And adStateOpen) <> adStateOpen Then
+
+                If lngFailCount <= ADODB_MAX_RETRIES Then
+                    lngFailCount = lngFailCount + 1
+                    GoTo Retry_Connection
+                Else
+                    Log.Error eelError, "Could not establish connection to " & this.strName, FunctionName
+                    Perf.OperationEnd ' Close out the Create operation.
+                    Perf.OperationEnd ' Close out the Function operation.
+                    Exit Function
+                End If
+            End If
+        End With
+
+        Perf.OperationEnd
+    End If
+
+    ' If the connection is already built but just not connected, try to connect.
+    If (m_ADOConnCached.State And adStateOpen) <> adStateOpen Then m_ADOConnCached.Open
+
+    If lngFailCount <= ADODB_MAX_RETRIES And (m_ADOConnCached.State And adStateOpen) <> adStateOpen Then GoTo Rebuild_Connection
 
     ' Check for any connection error
-    If CatchAny(eelError, "Unable to connect to " & this.strName, ModuleName(Me) & ".GetNewOpenConnection") Then
+    If CatchAny(eelError, "Unable to connect to " & this.strName, FunctionName) Then
         Log.Add "Connection string: " & this.strConnect, False
 
     Else
         ' Return open connection
-        Set GetNewOpenConnection = oConn
+        Set GetNewOpenConnection = m_ADOConnCached
     End If
 
-    ' Reset failure count
-    lngFailCount = 0
+    Perf.OperationEnd
 
 End Function
 
@@ -747,3 +773,19 @@ End Property
 Private Property Get IDbSchema_TypeDescription() As Variant
     IDbSchema_TypeDescription = "Microsoft SQL Server"
 End Property
+
+
+Private Sub Class_Terminate()
+
+    Dim FunctionName As String
+
+    FunctionName = ModuleName(Me) & ".Terminate"
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+
+    Perf.OperationStart FunctionName
+    m_ADOConnCached.Close
+    Set m_ADOConnCached = Nothing
+    Perf.OperationEnd
+
+End Sub
