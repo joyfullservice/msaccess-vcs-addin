@@ -606,7 +606,7 @@ Private Function GetADOConnectionString(ByRef ODBCConnString As String, Optional
         .Add "Integrated Security=SSPI"
         .Add "DataTypeCompatibility=80"
 
-        Log.Add FunctionName & "ConnectionString: " & .GetStr  ', eelDebugInfo
+        Log.Add FunctionName & "ConnectionString: " & .GetStr, False
         GetADOConnectionString = .GetStr
     End With
     Perf.OperationEnd
