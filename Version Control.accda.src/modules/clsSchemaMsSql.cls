@@ -468,7 +468,7 @@ End Sub
 ' Purpose   : Return a new, open ADODB connection
 '---------------------------------------------------------------------------------------
 '
-Private Function GetNewOpenConnection(Optional ByVal Reset As Boolean = False) As ADODB.Connection
+Private Function GetNewOpenConnection() As ADODB.Connection
 
     Static lngFailCount As Long
 
