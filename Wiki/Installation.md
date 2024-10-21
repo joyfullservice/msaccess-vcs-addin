@@ -1,8 +1,9 @@
 # Install
  1. Download the [latest **Version_Control_vX.X.X.zip**](https://github.com/joyfullservice/msaccess-vcs-integration/releases/latest).
  2. Extract `Version Control.accda` from the zip archive.
- 3. *(Optional)* Adjust install options (see below).
- 4. Click **Install Add-In**.
+ 3. Remove "Mark of the Web (MOTW)", if needed. See [this blog post](https://nolongerset.com/install-vcs-addin/) for additional information. <p>*NOTE:* MOTW does not always get set on files, and won't if you extract with 7Zip.
+ 4. *(Optional)* Adjust install options (see below).
+ 5. Click **Install Add-In**.
 
 ![Install Form Image](img/install.jpg)
 
