@@ -1,5 +1,5 @@
 
-click **Options** to open the **Options dialog**. Internally options are stored in a `vcs-options.json` file in the path of the exported source code. Options are loaded and used when exporting to source files, or when building a project from source.
+Click **Options** to open the **Options dialog**. Internally options are stored in a `vcs-options.json` file in the path of the exported source code. Options are loaded and used when exporting to source files, or when building a project from source.
 
 ## General Tab
 ![General Options Tab](img/options-general.jpg)
@@ -32,18 +32,20 @@ Note that these options only determine what is *Exported* and saved to the JSON 
 ||*Absolute Path* |You may also use a full path name to a folder. I.e. `W:\Git\Projects\Vehicles Database` 
 ||*Placeholder* |In combination with the above options, you may also use a `%dbName%` [placeholder](https://github.com/joyfullservice/msaccess-vcs-integration/issues/139) to use the database filename in a custom path. I.e. `\src\%dbName%.src\`
 |**Use Fast Save**|**Default: On**|Major performance gain with small changes to large projects. This attempts to only export the objects that have changed since the last export. This especially helps to not have to export forms and reports if they have not changed.
-|**Sanitize Level**|**Default: Aggressive**|Set level for sanitize routines to remove noise. Sanitizing allows you to remove noise from your exported files. Turn off to export raw file outputs. Sanitization routines are checked to ensure most do not affect building of exported files.
-||*None (Off)* | Turn off sanitization, export raw files. These may not import properly, but they may be useful when trying to troubleshoot. <p>_**Note:** Files will still be converted to UTF-8 or System Codepage encoding depending on Access Version in this mode._ <p>**_NOTE:_ If you set Sanitize level to "*None (Off)*", none of the Sanitize Options (Sanitize Color, Strip out publish, etc.) will be used.**
-||*Basic*| Only basic sanitization to ensure reliable rebuilding of files.
-|| *Aggressive*| Remove most exported noise (GUIDs, the like). Removes object GUIDs, name maps, and other data that changes from build to build. (These values are recreated automatically when importing source files.) From a development perspective, these are more like binary artifacts that just add noise to the version control commits, reducing clarity on actual code changes.
-||*Advanced (Beta)*|Remove as much as possible. This may lead to unexpected changes upon rebuilding. Features that are still in testing or confirmed to be temperamental may be introduced here prior to being implemented. **_User beware!_**<p>
-|**Sanitize Colors**|**Default: Basic**|Removes color exports on forms where themes are used, or other situations where the color can be correctly set upon rebuild. These colors export differently in different machines, or different settings and are largely noise. <P> ***NOTE:* The most aggressive options may lead to unexpected color changes on forms!**
-|**Strip out Publish Option**|**Default: On**|Strips out some *Publish to Web* settings from source files that are irrelevant to most projects.
+|**Extract Theme Files**|**Default: Off**|Extract the contents of the `*.thmx` files. Microsoft Office Theme files `*.thmx` are actually zip files containing XML and other files that define the specifics of a theme. You can use Theme Files for form style and color consistency. If you are customizing a theme, you may wish to extract these files so your changes can be tracked in Version Control. <p> **_Note:_** _Extracting Theme files may create noise in your database due to slight variations in rendering machine to machine._
+|**Sanitize Level**|**Default: Standard**|Set level for sanitize routines to remove noise. Sanitizing allows you to remove noise from your exported files. Turn off to export raw file outputs. Sanitization routines are checked to ensure most do not affect building of exported files.
+||*None (Off)* | Turn off sanitization, export raw files. These may not import properly, but they may be useful when trying to troubleshoot. <p>_**Note:** Files will still be converted to UTF-8 or System Codepage encoding depending on Access Version in this mode._ <p>**_NOTE:_ If you set Sanitize level to "*None (Off)*", none of the Sanitize Options will be used.**
+||*Minimal*| Only basic sanitization to ensure reliable rebuilding of files.
+|| *Standard*| Remove most exported noise (GUIDs, the like). Removes object GUIDs, name maps, and other data that changes from build to build. (These values are recreated automatically when importing source files.) From a development perspective, these are more like binary artifacts that just add noise to the version control commits, reducing clarity on actual code changes.
+||*Extended*|Remove as much as possible. This may lead to unexpected changes upon rebuilding. Features that are still in testing or confirmed to be temperamental may be introduced here prior to being implemented. **_User beware!_**<p>
+|**Sanitize Colors**|**Default: Minimal**|Removes color exports on forms where themes are used, or other situations where the color can be correctly set upon rebuild. These colors export differently in different machines, or different settings and are largely noise. <P> ***NOTE:* The most aggressive options may lead to unexpected color changes on forms!**
 |**Save Printer Settings**|**Default: On**|Saves a copy of the print configuration for reports and forms. This is especially useful when you are using specific printer settings. The output is stored in human-readable json. By default, page orientation and paper size are saved with each report, but additional options are also available. <details><summary>Show Advanced Printer Options...</summary> ![Printer Settings Options Screen Image](img/options-printer-settings.jpg)<p></details>
  |**Save Query SQL**|**Default: On**|In addition to the Access object, this option exports a copy of just the SQL code from queries. I find this much more readable than the source of the Access Object when reviewing what I actually changed on the SQL side. (The Access object includes other information relating to the layout of the query designer.)
 |**Save Table SQL**|**Default: On**|In addition to the Access object, this creates a SQL statement like what you would use to create the table. Here again I find this easier to see at a glance what changed in the actual structure of the table between versions.
-|**Extract Theme Files**|**Default: Off**|Extract the contents of the `*.thmx` files. Microsoft Office Theme files `*.thmx` are actually zip files containing XML and other files that define the specifics of a theme. If you are customizing a theme, you may wish to extract these files so your changes can be tracked in Version Control.
-|**Use git integration**|**Default: Off** |Work in Progress, only part of dev at the moment.
+|**Format SQL**|**Default: On**|While exporting SQL for Tables and Queries attempt to format the SQL using common indentation and conventions. See [Issue #426](https://github.com/joyfullservice/msaccess-vcs-addin/issues/426) for some additional discussion and information.
+|**Split Layout from VBA**|**Default: On**|Split Forms and Reports into a layout and code files. This can improve readability and reduce code noise when developing code only changes. <p> **_Note:_** If you also select `Save Printer Settings` an additional printer setting `.json` file will be exported as well; this option is separate from printer exports. <p> **Note:** See [Split Files Wiki page](https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Split-Files) for additional documentation on the feature and how to migrate to it if your source code did not start with this option set.
+||_On_|The layout and colors of Forms and Reports will be exported to a `.bas` file and the code components will be exported to `.cls` file.
+||_Off_|Forms and reports will be exported as a single `.bas` file.
 |**Run Sub Before Export**|**Default: [Blank]**|Run a VBA subroutine before exporting the source code. This can be used to clean up temporary data, mask sensitive information, or anything else you want to do. This will be called using  `Application.Run`.
 |**Run Sub After Export**|**Default: [Blank]**|Similar to the option above, this allows you to specify a VBA subroutine to run *after* exporting the source code.
 
@@ -52,9 +54,13 @@ Note that these options only determine what is *Exported* and saved to the JSON 
 
 The Table Data tab allows you to selectively include certain tables from which to include table ***data*** in version control. The *structure* of the tables is already being saved, but this gives you the additional option of saving the *data* itself.
 
-An example of where you might use this would be a table that defines options or settings in your database application. You might want to track when these settings change. Another example would be a `USysRibbons` table that defines the layout of a custom application ribbon.
+The dialog box shows tables in the database. If the column does not show an option in *Export As* the data is not exported for that table. The example screenshot shows the tables in the Addin.
+
+An example of where you might use this would be a table that defines options or settings in your database application. You might want to track when these settings change. Another example would be a `USysRibbons` table that defines the layout of a custom application ribbon. Note `USysRibbons` is stored by default.
 
 The concept here is that you are selecting the table from which you want to save data, choosing the format to use, and clicking Update to save the changes.
+
+**Note:** See [This FAQ](https://github.com/joyfullservice/msaccess-vcs-addin/wiki/FAQs#how-do-i-also-export-data-from-all-the-tables-in-my-database) for discussion on exporting all tables. Putting production data into version control may have significant PII/Cybersecurity/other consequences and is generally frowned upon.
 
 |Setting <img width = 175> |**Default** <p> *(Setting)*|Description
 |-|:-:|:-
@@ -63,11 +69,20 @@ The concept here is that you are selecting the table from which you want to save
 |**Show Other**|**Default: Off**|List table names that are saved in the options, but do not exist in the current database. You can also manually add table names to your `vcs-options.json` file. (Add a table through the interface first, and use the same syntax.)
 |**Selected Table**||This highlights which table you have selected to set the export format. To add a table that is not listed, click the [*Other...*](#table-data) link.
 |Selected Table: **<u>Other...</u>**||Click [*Other...*](#table-data) to enter a table name that doesn't exist in the database but you want to export if found.
-|**Data to Export**|**Default: Tab Delimited**|Select the format to use for the exported data.
+|**Export As**|**Default: Tab Delimited**|Select the format to use for the exported data.
 ||*Tab Delimited*|Separate values with tab character. This is a good format to use when importing to Microsoft Excel, or reading the values in Version Control files.
-||*XML Format*|Select this option for the most complete and robust representation of the data. It is harder to read in source files, but should import back in to accurate recreate the original data.
-||*No Data*|Don't save data for this table.
-|**Update**||Save output specification changes for the selected table. You should see the Save Data column update in the list of tables when you click the Update button.
+||*XML Format* (Suggested)|Select this option for the most complete and robust representation of the data. It is harder to read in source files, but should import back in to accurate recreate the original data.
+||*No Data* (BLANK) |Don't save data for this table.
+|**Other Table Name**||Enter a table name to directly save output specification changes for the table. You should see the Save Data column update in the list of tables when you click the Update button. See [Issue 250](https://github.com/joyfullservice/msaccess-vcs-addin/issues/250) for additional discussion on this feature.
+|**Export As**||Select the export format to export table.
+
+### Default Tables
+The following tables are added to the default list, but can be removed (if you desire...we strongly suggest you keep them).
+
+   | Table Name   | Type | Explanation  
+   |-|-|-
+   | `USysRegInfo` |System | Stores registry information about Access (such as installed tooling). Exports as _Tab Delimited_.
+   | `USysRibbons` |System | Stores custom ribbon information. Exports as _Tab Delimited_.
 
 **NOTE:** The following tables should not be added to the export list, as they are already handled by this tool elsewhere.
 
@@ -99,5 +114,6 @@ These affect your system at large; not just the currently open Access Project.
 |**Save as Default**|Save the current options as default for new projects. Anytime you export source and a `vcs-options.json` file does not already exist, it will use the default options you have specified.
 |**Restore Defaults**|In the current project (open database), restore options to default values based on saved system defaults.
 |**Clear Defaults**|Reset options to default the settings specified in the add-in source code. If you click this button, then the **Save as Default** button, it will reset all user customizations to the default options.
+|**Open Install Folder**|Opens the directory the Addin is installed in. This can be handy to verify installation location, especially if your environment requires you to install in a non-standard location. See [Installation](https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Installation) for more information.
 |***Remove Add-In***
 |**Uninstall**|Uninstalls the add-in from your user profile, including all saved defaults and encryption keys. <p> [Click here for Install / Uninstall Instructions](Installation)
