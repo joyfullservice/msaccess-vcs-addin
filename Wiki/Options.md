@@ -49,6 +49,39 @@ Note that these options only determine what is *Exported* and saved to the JSON 
 |**Run Sub Before Export**|**Default: [Blank]**|Run a VBA subroutine before exporting the source code. This can be used to clean up temporary data, mask sensitive information, or anything else you want to do. This will be called using  `Application.Run`.
 |**Run Sub After Export**|**Default: [Blank]**|Similar to the option above, this allows you to specify a VBA subroutine to run *after* exporting the source code.
 
+## Databases (External)
+![Databases Options Tab Image](img/options-Databases.jpg)
+
+The Databases Tab allows you to use this tool to export externally backend connected databases from MySQL or Microsoft SQL Server (MSSQL). This can allow new developers without other version control tools to track changes on the backend and "sync" them to front end tools.
+
+This tool is limited, and does not have the full featured tools of other Database tools such as SSMS.
+
+**This is an _EXPORT ONLY_ feature: this will not send data to your database.**
+
+*This tool only provides a 'quick export' fuction due to the significant time required to perform the SQL export. To perform a full export, delete the `\Databases\` folder in your VCS folder. Changes are tracked in the index, so you shouldn't miss anything.
+
+|Setting <img width = 175> |**Default** <p> *(Setting)*|Description
+|-|:-:|:-
+|**Database List**||Lists database connections which will be exported by this tool. Double click on database connection to edit.
+|**Delete**||Delete selected database connection.
+|**Edit**||Edit selected database connection information.
+|**Add**||Add a new database connection.
+
+
+### Database External Connection Editing
+![Databases Options Tab Image](img/options-Databases-Connection.jpg)
+
+|Setting <img width = 175> |**Default** <p> *(Setting)*|Description
+|-|:-:|:-
+|**Connection Name:**||Human readible name for the database connection. The Database Name is typical for this.
+|**Database Type:**|**Default: Microsoft SQL Server**|The backend server type for the external database.
+||_Microsoft SQL Server_|Select this if your external database is hosted on a Microsoft SQL Server instance.
+||_MySQL Server_|Select this if your external database is hosted on a MySQL Server instance.
+|**Description:**||If you wish to provide additional context to the Connection Name, type it here. Examples might be "Production", or "Test", or "Staging1"
+|**ADO (OLE) Connection String:**||The ADO (OLE) Connection string. This needs to be an OLE connection string as this tool is built on the ADODB functions. The examples which populate automatically are based on linked tables in your database, and are generally ODBC connection strings. If you have an MSSQL type database backend, this tool can attempt to create a compliant OLE connection string.
+|**Filter for database objects (source file paths):**||Use this to exclude objects from export. An example might be that you do not want the code for a login check to be exported, or you do not want some views exported.
+
+
 ## Table Data
 ![Table Data Options Tab Image](img/options-table-data.jpg)
 
