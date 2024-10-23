@@ -726,18 +726,38 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
     End If
 
     ' Verify that the source files are being merged into the correct database.
-    If Not blnFullBuild Then
-        strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
-        ' Resolve any relative directives (i.e. "\..\") to actual path
-        If FSO.FileExists(strPath) Then strPath = FSO.GetFile(strPath).Path
-        If strPath = vbNullString Then
-            MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
-            GoTo CleanUp
-        ElseIf StrComp(strPath, CurrentProject.FullName, vbTextCompare) <> 0 Then
-            MsgBox2 "Cannot merge to a different database", _
+    strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
+    ' Resolve any relative directives (i.e. "\..\") to actual path
+    If FSO.FileExists(strPath) Then strPath = FSO.GetFile(strPath).Path
+    If strPath = vbNullString Then
+        MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
+        GoTo CleanUp
+    ElseIf StrComp(strPath, CurrentProject.FullName, vbTextCompare) <> 0 Then
+        If blnFullBuild Then
+            ' Full build allows you to use source file name.
+            If Not MsgBox2("Current Database filename does not match source filename." _
+                            , "Do you want to " & strType & " to the Source Defined Filename?" & _
+                            vbNewLine & vbNewLine & "Current: " & CurrentProject.FullName & vbNewLine & _
+                            "Source: " & strPath _
+                            , "[Ok] = Build with Source Configured Name" & vbNewLine & vbNewLine & _
+                                "Otherwise cancel and select 'Build As...' from the ribbon to change build name. " & _
+                                "Performing an export from this file name will also reset the file name, but will " & _
+                                "overwrite source. If this file stared as a copy of an existing source controlled " & _
+                                "database, select build as to avoid overwriting." _
+                            , vbQuestion + vbOKCancel + vbDefaultButton1 _
+                            , strType & " Name Conflict" _
+                            , vbOK) = vbOK Then
+                GoTo CleanUp
+            End If
+
+        Else
+            MsgBox2 "Cannot " & strType & " to a different database", _
                 "The database file name for the source files must match the currently open database.", _
-                "Current: " & CurrentProject.FullName & vbCrLf & _
-                "Source: " & strPath, vbExclamation
+                "Current: " & CurrentProject.FullName & vbNewLine & _
+                "Source: " & strPath, vbExclamation _
+                , strType & " Name Conflict" _
+                , vbOK
+
             GoTo CleanUp
         End If
     End If
