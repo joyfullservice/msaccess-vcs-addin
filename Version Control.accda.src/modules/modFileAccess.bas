@@ -22,6 +22,10 @@ Private Declare PtrSafe Function getTempFileName Lib "kernel32" Alias "GetTempFi
     ByVal wUnique As Long, _
     ByVal lpTempFileName As String) As Long
 
+Private Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" Alias "SHCreateDirectoryExW" ( _
+    ByVal hwnd As LongPtr _
+    , ByVal pszPath As LongPtr _
+    , ByVal psa As Any) As Long
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTempFile
@@ -299,66 +303,73 @@ Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
 End Sub
 
 
-'---------------------------------------------------------------------------------------
-' Procedure : VerifyPath
-' Author    : Adam Waller
-' Date      : 8/3/2020
-' Purpose   : Verifies that the folder path to a folder or file exists.
-'           : Use this to verify the folder path before attempting to write a file.
-'---------------------------------------------------------------------------------------
-'
-Public Sub VerifyPath(strPath As String)
+' ----------------------------------------------------------------
+' Procedure : VerifyPath (Renamed from EnsurePathExists)
+' DateTime  : 8/15/2022, 10/24/2024
+' Author    : Mike Wolfe, hecon5
+' Source    : https://nolongerset.com/ensurepathexists/
+' Purpose   : Unicode-safe method to ensure a folder exists and 
+'           : create the folder (and all subfolders) if it does not.
+'           : Added in additional error handling and logging.
+' ----------------------------------------------------------------
+Public Function VerifyPath(ByRef PathToCheck As String _
+                        , Optional ByVal EnableLongPath As Boolean = True) As Boolean
 
+    Const FunctionName As String = ModuleName & ".VerifyPath"
+
+    Const ERROR_SUCCESS As Long = &H0
+    Const ERROR_ACCESS_DENIED As Long = &H5         'Could not create directory; access denied.
+    Const ERROR_BAD_PATHNAME As Long = &HA1         'The pszPath parameter was set to a relative path.
+    Const ERROR_FILENAME_EXCED_RANGE As Long = &HCE 'The path pointed to by pszPath is too long.
+    Const ERROR_FILE_EXISTS As Long = &H50          'The directory exists.
+    Const ERROR_ALREADY_EXISTS As Long = &HB7       'The directory exists.
+    Const ERROR_CANCELLED As Long = &H4C7           'The user canceled the operation.
+    Const ERROR_INVALID_NAME As Long = &H7B         'Unicode path passed when SHCreateDirectoryEx passes PathToCheck as string.
+
+    Const LONG_PATH_PREFIX As String = "\\?\"
+
+    Dim ReturnCode As Long
     Dim strFolder As String
-    Dim varParts As Variant
-    Dim intPart As Integer
-    Dim strVerified As String
 
-    If strPath = vbNullString Then Exit Sub
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
 
-    Perf.OperationStart "Verify Path"
+    Perf.OperationStart FunctionName
 
-    ' Determine if the path is a file or folder
-    If Right$(strPath, 1) = PathSep Then
+    If PathToCheck = vbNullString Then GoTo Exit_Here
+
+    If Right$(PathToCheck, 1) = PathSep Then
         ' Folder name. (Folder names can contain periods)
-        strFolder = Left$(strPath, Len(strPath) - 1)
+        strFolder = Left$(PathToCheck, Len(PathToCheck) - 1)
     Else
         ' File name
-        strFolder = FSO.GetParentFolderName(strPath)
+        strFolder = FSO.GetParentFolderName(PathToCheck)
     End If
 
-    ' Check if full path exists.
-    If Not FSO.FolderExists(strFolder) Then
-        ' Start from the root, and build out full path, creating folders as needed.
-        ' UNC path? change 3 "\" into 3 "@"
-        If strFolder Like PathSep & PathSep & "*" & PathSep & "*" Then
-            strFolder = Replace(strFolder, PathSep, "@", 1, 3)
-        End If
-
-        ' Separate folders from server name
-        varParts = Split(strFolder, PathSep)
-        ' Get the slashes back
-        varParts(0) = Replace(varParts(0), "@", PathSep, 1, 3)
-
-        ' Make sure the root folder exists. If it doesn't we probably have some other issue.
-        If Not FSO.FolderExists(varParts(0)) Then
-            MsgBox2 "Path Not Found", "Could not find the path '" & varParts(0) & "' on this system.", _
-                    "While trying to verify this path: " & strFolder, vbExclamation
-        Else
-            ' Loop through folder structure, creating as needed.
-            strVerified = varParts(0) & PathSep
-            For intPart = 1 To UBound(varParts)
-                strVerified = FSO.BuildPath(strVerified, varParts(intPart))
-                MkDirIfNotExist strVerified
-
-            Next intPart
-        End If
+    If EnableLongPath And Not StartsWith(strFolder, ".") Then ' Can't use relative paths for LongPaths.
+        ReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(LONG_PATH_PREFIX & strFolder), ByVal 0&)
+    Else
+        ReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(strFolder), ByVal 0&)
     End If
 
-    ' End timing of operation
+    Select Case ReturnCode
+    Case ERROR_SUCCESS, _
+         ERROR_FILE_EXISTS, _
+         ERROR_ALREADY_EXISTS
+        VerifyPath = True
+    Case ERROR_ACCESS_DENIED: Log.Error eelError, "Could not create path: Access denied. Path: " & PathToCheck
+    Case ERROR_BAD_PATHNAME: Log.Error eelError, "Cannot use relative path. Path: " & PathToCheck, FunctionName
+    Case ERROR_FILENAME_EXCED_RANGE: Log.Error eelError, "Path too long. Path: " & PathToCheck, FunctionName
+    Case ERROR_CANCELLED: Log.Error eelError, "User cancelled CreateDirectory operation. Path: " & PathToCheck, FunctionName
+    Case ERROR_INVALID_NAME: Log.Error eelError, "Invalid path name. Path: " & PathToCheck, FunctionName
+    Case Else: Log.Error eelError, "Unexpected error verifying path. Return Code: " & CStr(ReturnCode) & vbNewLine & vbNewLine & "Path: " & PathToCheck, FunctionName
+    End Select
+
+Exit_Here:
+    CatchAny eelError, "Unexpected Error verifying path: " & vbNewLine & vbNewLine & PathToCheck, FunctionName
     Perf.OperationEnd
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
