@@ -522,34 +522,62 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetUncPath
-' Author    : Adam Waller
-' Date      : 7/14/2020
+' Author    : Adam Waller, hecon5
+' Date      : 7/14/2020, 2022 Sept 27
 ' Purpose   : Returns the UNC path for a network location (if applicable)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetUncPath(strPath As String) As String
+Public Function GetUNCPath(ByRef PathIn As String)
 
-    Dim strDrive As String
-    Dim strUNC As String
+    Const FunctionName As String = ModuleName & ".GetUNCPath"
+    Dim DriveLetter As String
+    Dim UNCPath As String
 
-    LogUnhandledErrors
+    LogUnhandledErrors FunctionName
     On Error Resume Next
 
-    strUNC = strPath
-    strDrive = FSO.GetDriveName(strPath)
-    If strDrive <> vbNullString Then
-        With FSO.GetDrive(strDrive)
-            If .DriveType = Remote Then
-                strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
+    Perf.OperationStart FunctionName
+    UNCPath = PathIn
+
+Retry:
+    DriveLetter = FSO.GetDriveName(PathIn)
+    If Catch(68) Then GoTo HandleDriveLoss
+    CatchAny eelError, "Issue getting drive paths.", FunctionName
+    With FSO.GetDrive(DriveLetter)
+        If Catch(68) Then GoTo HandleDriveLoss
+        If .DriveType = Remote Then
+            If .IsReady Then
+                UNCPath = Replace(PathIn, DriveLetter, .ShareName, , 1, vbTextCompare)
+            Else
+                GoTo HandleDriveLoss
             End If
-        End With
-    End If
+        End If
+    End With
+    GetUNCPath = UNCPath
 
-    ' Log warning if unable to access a drive.
-    CatchAny eelWarning, "Unable to determine UNC path for " & strPath, ModuleName & ".GetUncPath"
+Exit_Here:
+    Perf.OperationEnd
+    CatchAny eelError, "Issue getting drive paths.", FunctionName
+    Exit Function
 
-    ' Return UNC Path
-    GetUncPath = strUNC
+HandleDriveLoss:
+    ' This was borrowed from our applicaion, which has more error handling, so we're doing this in two steps now.
+    Log.Error eelError, "Your drive isn't ready! Reconnect " & DriveLetter & " to continue." _
+                        , FunctionName
+    
+    Select Case MsgBox2("Click [Retry] AFTER reconnecting drive " & DriveLetter & " to continue." _
+                        , "This usually just means you need to simply open the drive in File Explorer. " _
+                        , "Click Cancel to stop operation." _
+                        , vbRetryCancel + vbDefaultButton1 + vbExclamation _
+                        , "Drive not ready.")
+
+        Case vbRetry
+            GoTo Retry
+
+        Case Else
+            ' Log error, quit operation.
+            GoTo Exit_Here
+    End Select
 
 End Function
 
