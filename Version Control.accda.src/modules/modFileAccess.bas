@@ -218,22 +218,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : MkDirIfNotExist
-' Author    : Adam Waller
-' Date      : 1/25/2019
-' Purpose   : Create folder `Path`. Silently do nothing if it already exists.
-'---------------------------------------------------------------------------------------
-'
-Public Sub MkDirIfNotExist(strPath As String)
-    If Not FSO.FolderExists(StripSlash(strPath)) Then
-        Perf.OperationStart "Create Folder"
-        FSO.CreateFolder StripSlash(strPath)
-        Perf.OperationEnd
-    End If
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : MoveFileIfExists
 ' Author    : Adam Waller
 ' Date      : 9/10/2022
@@ -245,7 +229,7 @@ Public Sub MoveFileIfExists(strFilePath As String, strToFolder As String)
     Dim strNewPath As String
     If FSO.FileExists(strFilePath) Then
         Perf.OperationStart "Move File"
-        MkDirIfNotExist strToFolder
+        VerifyPath strToFolder
         strNewPath = StripSlash(strToFolder) & PathSep & FSO.GetFileName(strFilePath)
         If FSO.FileExists(strNewPath) Then DeleteFile strNewPath
         FSO.MoveFile strFilePath, strNewPath
@@ -265,7 +249,7 @@ Public Sub MoveFolderIfExists(strFolderPath As String, strToParentFolder As Stri
     Dim strNewPath As String
     If FSO.FolderExists(strFolderPath) Then
         Perf.OperationStart "Move Folder"
-        MkDirIfNotExist strToParentFolder
+        VerifyPath strToParentFolder
         strNewPath = StripSlash(strToParentFolder) & PathSep & FSO.GetFolder(strFolderPath).Name
         If FSO.FolderExists(strNewPath) Then FSO.DeleteFolder strNewPath, True
         FSO.MoveFolder strFolderPath, strNewPath
