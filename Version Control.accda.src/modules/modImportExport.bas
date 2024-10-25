@@ -683,11 +683,16 @@ End Sub
 ' Purpose   : Build the project from source files.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
-    Optional intFilter As eContainerFilter = ecfAllObjects, Optional strAlternatePath As String)
+Public Sub Build(strSourceFolder As String _
+                , blnFullBuild As Boolean _
+                , Optional intFilter As eContainerFilter = ecfAllObjects _
+                , Optional strAlternatePath As String)
+
+    Const FunctionName As String = ModuleName & ".Build"
 
     Dim strPath As String
     Dim strBackup As String
+    Dim strCurrentDbFilename As String
     Dim cCategory As IDbComponent
     Dim dCategories As Dictionary
     Dim varCategory As Variant
@@ -707,17 +712,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
     ' The type of build will be used in various messages and log entries.
     strType = IIf(blnFullBuild, "Build", "Merge")
 
-    ' For full builds, close the current database if it is currently open.
-    If blnFullBuild Then
-        If DatabaseFileOpen Then
-            CloseCurrentDatabase2
-            If DatabaseFileOpen Then
-                MsgBox2 "Unable to Close Database", _
-                    "The current database must be closed to perform a full build.", , vbExclamation
-                GoTo CleanUp
-            End If
-        End If
-    End If
+    ' We need to check the current db name later, so we need to cache it (especially for builds).
+    strCurrentDbFilename = CurrentProject.FullName
 
     ' Make sure we can find the source files
     If Not FolderHasVcsOptionsFile(strSourceFolder) Then
@@ -732,12 +728,13 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
     If strPath = vbNullString Then
         MsgBox2 "Unable to determine database file name", "Required source files were not found or could not be decrypted:", strSourceFolder, vbExclamation
         GoTo CleanUp
-    ElseIf StrComp(strPath, CurrentProject.FullName, vbTextCompare) <> 0 Then
+
+    ElseIf StrComp(strPath, strCurrentDbFilename, vbTextCompare) <> 0 Then
         If blnFullBuild Then
             ' Full build allows you to use source file name.
             If Not MsgBox2("Current Database filename does not match source filename." _
                             , "Do you want to " & strType & " to the Source Defined Filename?" & _
-                            vbNewLine & vbNewLine & "Current: " & CurrentProject.FullName & vbNewLine & _
+                            vbNewLine & vbNewLine & "Current: " & strCurrentDbFilename & vbNewLine & _
                             "Source: " & strPath _
                             , "[Ok] = Build with Source Configured Name" & vbNewLine & vbNewLine & _
                                 "Otherwise cancel and select 'Build As...' from the ribbon to change build name. " & _
@@ -747,6 +744,11 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
                             , vbQuestion + vbOKCancel + vbDefaultButton1 _
                             , strType & " Name Conflict" _
                             , vbOK) = vbOK Then
+
+                ' Launch the GUI form (it was closed a moment ago)
+                DoCmd.OpenForm "frmVCSMain"
+                Form_frmVCSMain.StartBuild blnFullBuild
+                Log.Error eelCritical, strType & " aborted. Name mismatch.", FunctionName
                 GoTo CleanUp
             End If
 
@@ -759,6 +761,18 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
                 , vbOK
 
             GoTo CleanUp
+        End If
+    End If
+
+    ' For full builds, close the current database if it is currently open.
+    If blnFullBuild Then
+        If DatabaseFileOpen Then
+            CloseCurrentDatabase2
+            If DatabaseFileOpen Then
+                MsgBox2 "Unable to Close Database", _
+                    "The current database must be closed to perform a full build.", , vbExclamation
+                GoTo CleanUp
+            End If
         End If
     End If
 
@@ -840,7 +854,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
         If FSO.FileExists(strPath) Then
             Log.Add "Saving backup of original database..."
             Name strPath As strBackup
-            If CatchAny(eelCritical, "Unable to rename original file", ModuleName & ".Build") Then GoTo CleanUp
+            If CatchAny(eelCritical, "Unable to rename original file", FunctionName) Then GoTo CleanUp
             Log.Add "Saved as " & FSO.GetFileName(strBackup) & "."
         End If
     Else
@@ -862,7 +876,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
         If DatabaseFileOpen Then
             Log.Add "Created blank database for import. (v" & CurrentProject.FileFormat & ")"
         Else
-            CatchAny eelCritical, "Unable to create database file", ModuleName & ".Build"
+            CatchAny eelCritical, "Unable to create database file", FunctionName
             Log.Add "This may occur when building an older database version if the 'New database sort order' (collation) option is not set to 'Legacy'"
             GoTo CleanUp
         End If
@@ -1048,7 +1062,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
     End If
 
     ' Log any errors after build/merge
-    CatchAny eelError, "Error running " & CallByName(Options, "RunAfter" & strType, VbGet), ModuleName & ".Build", True, True
+    CatchAny eelError, "Error running " & CallByName(Options, "RunAfter" & strType, VbGet), FunctionName, True, True
 
     ' Show final output and save log
     Log.Spacer
@@ -1086,7 +1100,8 @@ CleanUp:
     End If
 
     ' Save index file after build is complete, or discard index for "Build As..."
-    If strAlternatePath = vbNullString Then
+    ' discard update if build failed.
+    If strAlternatePath = vbNullString And blnSuccess Then
         If blnFullBuild Then
             ' NOTE: Add a couple seconds since some items may still be in the process of saving.
             VCSIndex.FullBuildDate = DateAdd("s", 2, Now)
