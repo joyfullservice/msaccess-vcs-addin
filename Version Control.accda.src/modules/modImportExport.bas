@@ -704,7 +704,8 @@ Public Sub Build(strSourceFolder As String _
 
     Dim strText As String   ' Remove later
 
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
 
     ' Close the previous cached connections, if any
     CloseCachedConnections
@@ -755,7 +756,7 @@ Public Sub Build(strSourceFolder As String _
         Else
             MsgBox2 "Cannot " & strType & " to a different database", _
                 "The database file name for the source files must match the currently open database.", _
-                "Current: " & CurrentProject.FullName & vbNewLine & _
+                "Current: " & strCurrentDbFilename & vbNewLine & _
                 "Source: " & strPath, vbExclamation _
                 , strType & " Name Conflict" _
                 , vbOK
@@ -781,8 +782,10 @@ Public Sub Build(strSourceFolder As String _
     Options.LoadOptionsFromFile StripSlash(strSourceFolder) & PathSep & "vcs-options.json"
     ' Override the export folder when exporting to an alternate path.
     If Len(strAlternatePath) Then Options.ExportFolder = strSourceFolder
+
     ' Update VBA debug mode after loading options
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
 
     ' Build original file name for database
     If blnFullBuild Then
@@ -886,7 +889,6 @@ Public Sub Build(strSourceFolder As String _
     Set VCSIndex = Nothing
 
     If blnFullBuild Then
-
         ' Remove any non-built-in references before importing from source.
         Log.Add "Removing non built-in references...", False
         RemoveNonBuiltInReferences
@@ -896,7 +898,6 @@ Public Sub Build(strSourceFolder As String _
             ' Run any pre-build bootstrapping code
             PrepareRunBootstrap
         End If
-
     End If
 
     ' Build collections of files to import/merge
