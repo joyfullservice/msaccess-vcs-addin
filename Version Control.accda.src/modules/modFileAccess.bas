@@ -292,7 +292,7 @@ End Sub
 ' DateTime  : 8/15/2022, 10/24/2024
 ' Author    : Mike Wolfe, hecon5
 ' Source    : https://nolongerset.com/ensurepathexists/
-' Purpose   : Unicode-safe method to ensure a folder exists and 
+' Purpose   : Unicode-safe method to ensure a folder exists and
 '           : create the folder (and all subfolders) if it does not.
 '           : Added in additional error handling and logging.
 ' ----------------------------------------------------------------
@@ -445,6 +445,25 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : BuildPath2
+' Author    : Adam Waller
+' Date      : 3/3/2021
+' Purpose   : Like FSO.BuildPath, but with unlimited arguments)
+'---------------------------------------------------------------------------------------
+'
+Public Function BuildPath2(ParamArray Segments())
+    Dim lngPart As Long
+    With New clsConcat
+        For lngPart = LBound(Segments) To UBound(Segments)
+            .Add CStr(Segments(lngPart))
+            If lngPart < UBound(Segments) Then .Add PathSep
+        Next lngPart
+    BuildPath2 = .GetStr
+    End With
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetRelativePath
 ' Author    : Adam Waller
 ' Date      : 5/11/2020
@@ -564,7 +583,7 @@ HandleDriveLoss:
     ' This was borrowed from our applicaion, which has more error handling, so we're doing this in two steps now.
     Log.Error eelError, "Your drive isn't ready! Reconnect " & DriveLetter & " to continue." _
                         , FunctionName
-    
+
     Select Case MsgBox2("Click [Retry] AFTER reconnecting drive " & DriveLetter & " to continue." _
                         , "This usually just means you need to simply open the drive in File Explorer. " _
                         , "Click Cancel to stop operation." _
@@ -637,4 +656,19 @@ Public Function AddSlash(strText As String) As String
     Else
         AddSlash = strText & PathSep
     End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PathSep
+' Author    : Adam Waller
+' Date      : 3/3/2021
+' Purpose   : Return the current path separator, based on language settings.
+'           : Caches value to avoid extra calls to FSO object.
+'---------------------------------------------------------------------------------------
+'
+Public Function PathSep() As String
+    Static strSeparator As String
+    If strSeparator = vbNullString Then strSeparator = Mid$(FSO.BuildPath("a", "b"), 2, 1)
+    PathSep = strSeparator
 End Function
