@@ -1094,7 +1094,7 @@ CleanUp:
     DoCmd.Hourglass False
     If Forms.Count > 0 Then
         ' Finish up on GUI
-        Form_frmVCSMain.FinishBuild blnFullBuild
+        Form_frmVCSMain.FinishBuild blnFullBuild, blnSuccess
     Else
         ' Allow navigation pane to refresh list of objects.
         DoEvents
