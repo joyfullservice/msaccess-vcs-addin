@@ -1255,6 +1255,7 @@ End Function
 Public Function ReadSourceFile(strPath As String) As String
 
     Dim strTempFile As String
+    Dim strExt As String
 
     ' Read text from file, and split into lines
     If HasUcs2Bom(strPath) Then
@@ -1267,7 +1268,9 @@ Public Function ReadSourceFile(strPath As String) As String
             ReadSourceFile = ReadFile(strTempFile)
             DeleteFile strTempFile
         Else
-            If DbVersion <= 4 Then
+            strExt = LCase(Right(strPath, 4))
+            ' ExportXML defaults to UTF-8 regardless of DB version
+            If DbVersion <= 4 And strExt <> ".xml" Then
                 ' Access 2000 format exports using system codepage
                 ' See issue #217
                 ReadSourceFile = ReadFile(strPath, GetSystemEncoding)
