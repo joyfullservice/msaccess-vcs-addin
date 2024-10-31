@@ -123,7 +123,12 @@ Public Sub VerifyRibbon()
     Set objAddIn = GetCOMAddIn
     If Not objAddIn Is Nothing Then
         ' Activate the add-in if it is not currently active
-        If Not objAddIn.Connect Then objAddIn.Connect = True
+        If Not objAddIn.Connect Then
+            LogUnhandledErrors
+            On Error Resume Next
+            objAddIn.Connect = True
+            CatchAny eelError, "Unable to load Ribbon COM add-in", ModuleName & ".LoadAddIn", False
+        End If
     End If
 End Sub
 
