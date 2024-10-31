@@ -98,6 +98,22 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Form_Open
+' Author    : Adam Waller
+' Date      : 10/31/2024
+' Purpose   : Check for scenario that may crash Access
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Open(Cancel As Integer)
+    If Not DatabaseFileOpen Then
+        ' The table data subform may crash Access when the options form is closed with no database open.
+        MsgBox2 "No Database Open", "Please open a database file before configuring VCS options.", , vbInformation
+        Cancel = True
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : lstDatabases_DblClick
 ' Author    : Adam Waller
 ' Date      : 7/20/2023

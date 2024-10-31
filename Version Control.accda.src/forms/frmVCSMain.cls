@@ -347,9 +347,14 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdOptions_Click()
-    ' Force reload of options from current project before opening the form.
-    Set Options = Nothing
-    Form_frmVCSOptions.Visible = True
+    If DatabaseFileOpen Then
+        ' Force reload of options from current project before opening the form.
+        Set Options = Nothing
+        Form_frmVCSOptions.Visible = True
+    Else
+        ' The table data subform may crash Access when the options form is closed with no database open.
+        MsgBox2 "No Database Open", "Please open a database file before configuring VCS options.", , vbInformation
+    End If
 End Sub
 
 
