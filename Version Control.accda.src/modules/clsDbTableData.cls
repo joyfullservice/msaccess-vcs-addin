@@ -243,14 +243,18 @@ Private Sub ImportTableDataTDF(strFile As String)
                         If varLine(intCol) = vbNullString Then
                             ' The field could have a default value, but the imported
                             ' data may still be a null value.
-                            If Not IsNull(rst.Fields(varHeader(intCol)).Value) Then
-                                ' Could possibly hit a problem with the storage of
-                                ' zero length strings instead of nulls. Since we can't
-                                ' really differentiate between these in a TDF file,
-                                ' we will go with NULL for now.
-                                'rst.Fields(varHeader(intCol)).AllowZeroLength
-                                rst.Fields(varHeader(intCol)).Value = Null
-                            End If
+                            With rst.Fields(varHeader(intCol))
+                                If IsNull(.Value) Then
+                                    ' Could possibly hit a problem with the storage of
+                                    ' zero length strings instead of nulls. Since we can't
+                                    ' really differentiate between these in a TDF file,
+                                    ' we will do some additional probing...
+                                    If .AllowZeroLength And .Required Then
+                                        ' Use empty string instead of null value
+                                        .Value = vbNullString
+                                    End If
+                                End If
+                            End With
                         Else
                             ' Perform any needed replacements
                             strValue = FormatStringFromTDF(CStr(varLine(intCol)))
