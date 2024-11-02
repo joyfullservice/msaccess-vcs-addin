@@ -185,7 +185,8 @@ End Sub
 ' Purpose   : Finish the build process
 '---------------------------------------------------------------------------------------
 '
-Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "Build")
+Public Sub FinishBuild(blnFullBuild As Boolean _
+                        , Optional blnSuccess As Boolean = True)
 
     Dim strType As String
 
@@ -194,8 +195,8 @@ Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "B
 
     ' Display final UI messages.
     Log.Flush
-    strType = IIf(blnFullBuild, "Build", "Merge")
-    SetStatusText "Finished", strType & " Complete", _
+    strType = IIf(blnFullBuild, "Build", "Merge") & IIf(blnSuccess, " Complete", " FAILED")
+    SetStatusText "Finished", strType, _
         "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
     cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     Me.strLastLogFilePath = Log.LogFilePath
