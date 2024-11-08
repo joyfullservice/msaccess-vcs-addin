@@ -676,11 +676,13 @@ Private Sub ImportTranslation(strFile As String)
         ElseIf StartsWith(strLine, "msgctxt ") Then
             intSection = efsContext
             dItem("Context") = Mid$(strLine, 9)
+            lngStart = 9
 
         ' Check for reference entry
         ElseIf StartsWith(strLine, "#: ") Then
             intSection = efsReference
             dItem("Reference") = Mid$(strLine, 4)
+            lngStart = 4
 
         ' Header
         ElseIf StartsWith(strLine, "# ") Then
