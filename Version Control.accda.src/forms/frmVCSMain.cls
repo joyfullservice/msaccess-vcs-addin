@@ -91,15 +91,15 @@ Private Function GetSourceFolder() As String
     ' Close the current database if it is currently open.
     If DatabaseFileOpen Then
         If FolderHasVcsOptionsFile(Options.GetExportFolder) Then
-            strMsg(0) = "Build " & CurrentVBProject.Name & " (" & CurrentProject.Name & ") from source?"
+            strMsg(0) = T("Build {0} ({1}) from source?", var0:=CurrentVBProject.Name, var1:=CurrentProject.Name)
             If chkFullBuild Then
-                strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
-                    "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)"
+                strMsg(1) = T("Click 'Yes' to rebuild* this database from source files in this folder:") & vbCrLf & Options.GetExportFolder & vbCrLf & _
+                    T("* (This database will be renamed as a backup before building {0} from source.)", var0:=CurrentProject.Name)
             Else
-                strMsg(1) = "Click 'Yes' to merge* any changed source files into this database." & vbCrLf & _
-                    "* (A backup of this database will be created before importing any source files.)"
+                strMsg(1) = T("Click 'Yes' to merge* any changed source files into this database." & vbCrLf & _
+                    "* (A backup of this database will be created before importing any source files.)")
             End If
-            strMsg(2) = "Click 'No' to select another project, or 'Cancel' to go back to the previous screen."
+            strMsg(2) = T("Click 'No' to select another project, or 'Cancel' to go back to the previous screen.")
             If Not chkFullBuild And Not Me.Visible Then
                 ' Skip confirmation for merge build initiated from Ribbon
                 intChoice = vbYes
