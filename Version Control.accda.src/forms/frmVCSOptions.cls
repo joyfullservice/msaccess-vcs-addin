@@ -55,18 +55,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : chkUseGitIntegration_Click
-' Author    : Adam Waller
-' Date      : 11/25/2020
-' Purpose   : Show the git integration page if using this option.
-'---------------------------------------------------------------------------------------
-'
-Private Sub chkUseGitIntegration_Click()
-    pgeGitIntegration.Visible = chkUseGitIntegration
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : cmdAddDatabase_Click
 ' Author    : Adam Waller
 ' Date      : 7/20/2023
@@ -75,6 +63,72 @@ End Sub
 '
 Private Sub cmdAddDatabase_Click()
     DoCmd.OpenForm "frmVCSDatabase"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : chkContributeTranslations_Click
+' Author    : Adam Waller
+' Date      : 9/2/2024
+' Purpose   : Set flag on whether to actively contribute to translation files.
+'---------------------------------------------------------------------------------------
+'
+Private Sub chkContributeTranslations_Click()
+    Translation.Contribute = True
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cboLanguage_Click
+' Author    : Adam Waller
+' Date      : 5/19/2021
+' Purpose   : Set language
+'---------------------------------------------------------------------------------------
+'
+Private Sub cboLanguage_Click()
+    With Translation
+        .Language = Nz2(cboLanguage, "en_US")
+        .SetLanguage .Language
+        MsgBox2 "Language Set", "Changes to language settings will take effect " & _
+            "the next time you open this form.", , vbInformation
+    End With
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdBrowseTranslationsPath_Click
+' Author    : Adam Waller
+' Date      : 5/19/2021
+' Purpose   : Set path for translation files
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdBrowseTranslationsPath_Click()
+
+    Dim strFolder As String
+
+    ' Show a folder picker to select the file with source code.
+    With Application.FileDialog(msoFileDialogFolderPicker)
+        .AllowMultiSelect = False
+        .ButtonName = "Select Translations Folder"
+        .InitialFileName = StripSlash(txtTranslationsPath) & PathSep
+        .Title = "Select Translations Files Folder"
+        .Show
+        If .SelectedItems.Count > 0 Then
+            ' Selected a folder
+            strFolder = .SelectedItems(1) & PathSep
+            If FSO.FileExists(strFolder & PROJECT_NAME & ".pot") Then
+                ' Has translation files
+                txtTranslationsPath = strFolder
+                Translation.TranslationsPath = strFolder
+            Else
+                MsgBox2 "Translation files not found", "Required translation files were not found in this folder.", _
+                    "You selected: " & .SelectedItems(1), vbExclamation
+                DoCmd.Hourglass False
+                Exit Sub
+            End If
+        End If
+    End With
+
 End Sub
 
 
@@ -94,6 +148,52 @@ Private Sub cmdEditDatabase_Click()
             .Visible = True
         End With
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdSyncTranslations_Click
+' Author    : Adam Waller
+' Date      : 8/23/2024
+' Purpose   : Load the translation files (other languages, not the master file),
+'           : then export all the translations, including the master file.
+'           : Changes to the master file are loaded during a build from source.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdSyncTranslations_Click()
+
+    With Translation
+        DoCmd.Hourglass True
+
+        ' Make sure we have strings in the current database before exporting the template.
+        If .StringCount > 200 Then .ExportTemplate
+
+        ' Load template, then other translation files
+        .LoadTranslations
+
+        ' Export all translations to include new strings from master
+        .ExportTranslations
+
+        DoCmd.Hourglass False
+    End With
+
+    MsgBox2 "Translations Updated", "Translation files have been syncronized with the add-in.", , vbInformation
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdTranslations_Click
+' Author    : Adam Waller
+' Date      : 8/7/2024
+' Purpose   : Show the translations tab
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdTranslations_Click()
+    With pgeTranslations
+        .Visible = True
+        .SetFocus
+    End With
 End Sub
 
 
@@ -563,6 +663,9 @@ Private Sub Form_Load()
     Dim intFormat As eTableDataExportFormat
     Dim intSanitizeLevel As eSanitizeLevel
 
+    ' Set version
+    lblVersion.Caption = GetVCSVersion
+
     ' Apply translation
     cboLanguage = Translation.Language
     Translation.ApplyTo Me
@@ -597,6 +700,13 @@ Private Sub Form_Load()
         For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
             .AddItem intSanitizeLevel & ";" & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
+    End With
+
+    ' Load language options
+    With Translation
+        cboLanguage = .Language
+        chkContributeTranslations = .Contribute
+        txtTranslationsPath = .TranslationsPath
     End With
 
     ' Make form resizable (helpful with table selection when many tables are listed)
@@ -637,18 +747,11 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                             Set dSettings = Options.ExportPrintSettings
                             dSettings(strKey) = CBool(ctl)
                         End If
-                    ElseIf pge Is pgeGitIntegration Then
-                        ' Saved in Git Settings
-                        If eAction = emaClassToForm Then
-                            ctl = Options.GitSettings(strKey)
-                        ElseIf eAction = emaFormToClass Then
-                            Set dSettings = Options.GitSettings
-                            dSettings(strKey) = ctl.Value
-                        End If
                     Else
                         Select Case ctl.Name
                             Case Me.chkTableShowHidden.Name, Me.chkTableShowSystem.Name, Me.chkTableShowOther.Name, _
-                                Me.cboFormatTypeForOther.Name, Me.txtOtherTableName.Name
+                                Me.cboFormatTypeForOther.Name, Me.txtOtherTableName.Name, _
+                                Me.cboLanguage.Name, Me.chkContributeTranslations.Name, Me.txtTranslationsPath.Name
                                 ' Skip these exceptions.
                             Case Me.cboDiffTool.Name
                                 ' This is saved on the computer profile (registry)
@@ -690,9 +793,6 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
     ElseIf eAction = emaFormToClass Then
         Set Options.SchemaExports = CloneDictionary(DatabaseSchemas)
     End If
-
-    ' Enable pages based on options.
-    chkUseGitIntegration_Click
 
 End Sub
 
