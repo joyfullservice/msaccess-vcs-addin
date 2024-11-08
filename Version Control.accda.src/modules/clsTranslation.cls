@@ -353,6 +353,19 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ShowStrings
+' Author    : Adam Waller
+' Date      : 11/8/2024
+' Purpose   : Open the strings table directly for review.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ShowStrings()
+    DoCmd.OpenTable "tblStrings"
+    DoCmd.OpenTable "tblTranslation"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : TranslationsPath
 ' Author    : Adam Waller
 ' Date      : 3/23/2024
