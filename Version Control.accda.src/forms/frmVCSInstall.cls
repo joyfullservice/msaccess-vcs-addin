@@ -139,6 +139,9 @@ Private Sub Form_Load()
     tabInstallType.Style = STYLE_NO_TABS
     tabInstallType.BorderStyle = 0
 
+    ' Load translations
+    Translation.ApplyTo Me
+
     ' Display version (better performance than bound control)
     lblVersion.Caption = "Version " & GetVCSVersion()
 

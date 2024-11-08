@@ -563,6 +563,10 @@ Private Sub Form_Load()
     Dim intFormat As eTableDataExportFormat
     Dim intSanitizeLevel As eSanitizeLevel
 
+    ' Apply translation
+    cboLanguage = Translation.Language
+    Translation.ApplyTo Me
+
     MapControlsToOptions emaClassToForm
     RefreshTableDisplay
     RefreshSchemaList

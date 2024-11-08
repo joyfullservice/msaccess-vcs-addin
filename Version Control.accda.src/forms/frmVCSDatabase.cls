@@ -382,6 +382,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Form_Load()
+    Translation.ApplyTo Me
     LoadSampleConnectionStrings
 End Sub
 

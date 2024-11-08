@@ -227,8 +227,8 @@ End Sub
 '
 Private Sub SetBuildCaption()
     cmdBuild.Caption = IIf(chkFullBuild, _
-        " Build from Source", _
-        " Merge from Source")
+        T("  Build From Source"), _
+        T("  Merge From Source"))
 End Sub
 
 
@@ -367,6 +367,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Form_Load()
+
+    ' Load translations
+    Translation.ApplyTo Me
 
     ' Display version (better performance than bound control)
     lblVersion.Caption = "Version " & GetVCSVersion()
