@@ -6,7 +6,13 @@
   tblTranslation.Translation,
   qryStrings.LanguageID AS Lang,
   qryStrings.Reference,
-  IIf([msgid] = "", 1, 2) AS SortRank,
+  IIf(
+    (
+      Len([msgid])= 0
+    ),
+    1,
+    2
+  ) AS SortRank,
   [Context] & "|" & [msgid] AS [Key]
 FROM
   qryStrings
@@ -17,5 +23,11 @@ FROM
     qryStrings.ID = tblTranslation.StringID
   )
 ORDER BY
-  IIf([msgid] = "", 1, 2),
+  IIf(
+    (
+      Len([msgid])= 0
+    ),
+    1,
+    2
+  ),
   qryStrings.msgid;

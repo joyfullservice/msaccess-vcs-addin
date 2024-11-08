@@ -14,7 +14,7 @@ Begin OutputColumns
     Expression ="qryStrings.LanguageID"
     Expression ="qryStrings.Reference"
     Alias ="SortRank"
-    Expression ="IIf([msgid]=\"\",1,2)"
+    Expression ="IIf((Len([msgid])=0),1,2)"
     Alias ="Key"
     Expression ="[Context] & \"|\" & [msgid]"
 End
@@ -29,7 +29,7 @@ Begin Joins
     Flag =2
 End
 Begin OrderBy
-    Expression ="IIf([msgid]=\"\",1,2)"
+    Expression ="IIf((Len([msgid])=0),1,2)"
     Flag =0
     Expression ="qryStrings.msgid"
     Flag =0
@@ -90,6 +90,10 @@ Begin
         dbBoolean "ColumnHidden" ="0"
         dbLong "AggregateType" ="-1"
     End
+    Begin
+        dbText "Name" ="test"
+        dbLong "AggregateType" ="-1"
+    End
 End
 Begin
     State =0
@@ -100,7 +104,7 @@ Begin
     Left =-1
     Top =-1
     Right =1289
-    Bottom =603
+    Bottom =586
     Left =0
     Top =0
     ColumnsShown =539

@@ -47,6 +47,21 @@ Begin
         dbText "Name" ="tblStrings.Reference"
         dbLong "AggregateType" ="-1"
     End
+    Begin
+        dbText "Name" ="ID"
+    End
+    Begin
+        dbText "Name" ="msgid"
+    End
+    Begin
+        dbText "Name" ="Context"
+    End
+    Begin
+        dbText "Name" ="Reference"
+    End
+    Begin
+        dbText "Name" ="Comments"
+    End
 End
 Begin
     State =0
