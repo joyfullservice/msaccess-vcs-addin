@@ -51,6 +51,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Form_Load()
+
+    ' Load translations
+    Translation.ApplyTo Me
+
     ' Display version (better performance than bound control)
     lblVersion.Caption = Replace(lblVersion.Caption, "${version}", GetVCSVersion())
 

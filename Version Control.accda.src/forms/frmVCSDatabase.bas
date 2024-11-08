@@ -15,11 +15,11 @@ Begin Form
     GridY =24
     Width =10800
     DatasheetFontHeight =11
-    ItemSuffix =269
-    Left =5220
-    Top =5085
-    Right =25530
-    Bottom =20400
+    ItemSuffix =263
+    Left =3225
+    Top =2430
+    Right =28545
+    Bottom =14895
     RecSrcDt = Begin
         0x79e78b777268e540
     End

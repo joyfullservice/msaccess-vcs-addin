@@ -55,18 +55,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : chkUseGitIntegration_Click
-' Author    : Adam Waller
-' Date      : 11/25/2020
-' Purpose   : Show the git integration page if using this option.
-'---------------------------------------------------------------------------------------
-'
-Private Sub chkUseGitIntegration_Click()
-    pgeGitIntegration.Visible = chkUseGitIntegration
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : cmdAddDatabase_Click
 ' Author    : Adam Waller
 ' Date      : 7/20/2023
@@ -75,6 +63,72 @@ End Sub
 '
 Private Sub cmdAddDatabase_Click()
     DoCmd.OpenForm "frmVCSDatabase"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : chkContributeTranslations_Click
+' Author    : Adam Waller
+' Date      : 9/2/2024
+' Purpose   : Set flag on whether to actively contribute to translation files.
+'---------------------------------------------------------------------------------------
+'
+Private Sub chkContributeTranslations_Click()
+    Translation.Contribute = True
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cboLanguage_Click
+' Author    : Adam Waller
+' Date      : 5/19/2021
+' Purpose   : Set language
+'---------------------------------------------------------------------------------------
+'
+Private Sub cboLanguage_Click()
+    With Translation
+        .Language = Nz2(cboLanguage, "en_US")
+        .SetLanguage .Language
+        MsgBox2 "Language Set", "Changes to language settings will take effect " & _
+            "the next time you open this form.", , vbInformation
+    End With
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdBrowseTranslationsPath_Click
+' Author    : Adam Waller
+' Date      : 5/19/2021
+' Purpose   : Set path for translation files
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdBrowseTranslationsPath_Click()
+
+    Dim strFolder As String
+
+    ' Show a folder picker to select the file with source code.
+    With Application.FileDialog(msoFileDialogFolderPicker)
+        .AllowMultiSelect = False
+        .ButtonName = "Select Translations Folder"
+        .InitialFileName = StripSlash(txtTranslationsPath) & PathSep
+        .Title = "Select Translations Files Folder"
+        .Show
+        If .SelectedItems.Count > 0 Then
+            ' Selected a folder
+            strFolder = .SelectedItems(1) & PathSep
+            If FSO.FileExists(strFolder & PROJECT_NAME & ".pot") Then
+                ' Has translation files
+                txtTranslationsPath = strFolder
+                Translation.TranslationsPath = strFolder
+            Else
+                MsgBox2 "Translation files not found", "Required translation files were not found in this folder.", _
+                    "You selected: " & .SelectedItems(1), vbExclamation
+                DoCmd.Hourglass False
+                Exit Sub
+            End If
+        End If
+    End With
+
 End Sub
 
 
@@ -93,6 +147,74 @@ Private Sub cmdEditDatabase_Click()
             .LoadSchema lstDatabases, Me.DatabaseSchemas(Nz(lstDatabases))
             .Visible = True
         End With
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdSyncTranslations_Click
+' Author    : Adam Waller
+' Date      : 8/23/2024
+' Purpose   : Load the translation files (other languages, not the master file),
+'           : then export all the translations, including the master file.
+'           : Changes to the master file are loaded during a build from source.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdSyncTranslations_Click()
+
+    With Translation
+        DoCmd.Hourglass True
+
+        ' Only export strings from the installed add-in project. This is where the
+        ' majority of the run-time strings will be generated. We don't want to
+        ' export the template from the development project because it may not
+        ' include these additional strings.
+        If CodeProject.FullName = GetAddInFileName Then
+            ' Make sure we have strings in the current database before exporting the template.
+            If .StringCount > 200 Then .ExportTemplate
+        End If
+
+        ' Load template, then other translation files
+        .LoadTranslations
+
+        ' Export all translations to include new strings from master
+        .ExportTranslations
+
+        DoCmd.Hourglass False
+    End With
+
+    MsgBox2 T("Translations Updated"), T("Translation files have been syncronized with the add-in."), , vbInformation
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdTranslations_Click
+' Author    : Adam Waller
+' Date      : 8/7/2024
+' Purpose   : Show the translations tab
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdTranslations_Click()
+    With pgeTranslations
+        .Visible = True
+        .SetFocus
+    End With
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Form_Open
+' Author    : Adam Waller
+' Date      : 10/31/2024
+' Purpose   : Check for scenario that may crash Access
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Open(Cancel As Integer)
+    If Not DatabaseFileOpen Then
+        ' The table data subform may crash Access when the options form is closed with no database open.
+        MsgBox2 T("No Database Open"), T("Please open a database file before configuring VCS options."), , vbInformation
+        Cancel = True
     End If
 End Sub
 
@@ -120,12 +242,12 @@ Private Sub cmdDeleteDatabase_Click()
     Dim strName As String
     strName = Nz(lstDatabases)
     If Len(strName) = 0 Then
-        MsgBox2 "Select a connection to delete", , , vbExclamation
+        MsgBox2 T("Select a connection to delete"), , , vbExclamation
     Else
         With Me.DatabaseSchemas
             If .Exists(strName) Then
-                If MsgBox2("Remove Connection?", "Are you sure you want to delete '" & strName & "'?", _
-                    "Click YES to remove or NO to cancel.", vbQuestion + vbYesNo) = vbYes Then
+                If MsgBox2(T("Remove Connection?"), T("Are you sure you want to delete '{0}'?", var0:=strName), _
+                    T("Click YES to remove or NO to cancel."), vbQuestion + vbYesNo) = vbYes Then
                     .Remove strName
                     RefreshSchemaList
                 End If
@@ -149,7 +271,7 @@ Public Sub RefreshSchemaList()
     With lstDatabases
         .RowSource = vbNullString
         ' Add header row
-        .AddItem "Name;Description"
+        .AddItem T("Name;Description", "lstDatabases.RefreshSchemaList", , "Do not remove the semicolon")
         ' Update list from dictionary
         For Each varKey In Me.DatabaseSchemas.Keys
             .AddItem CStr(varKey) & ";" & Me.DatabaseSchemas(varKey)("Description")
@@ -182,10 +304,10 @@ Private Sub cmdClearDefaults_Click()
     Dim cDefaults As clsOptions
     Set cDefaults = New clsOptions
     cDefaults.SaveOptionsAsDefault
-    If MsgBox2("Apply to this Project?", _
-        "The default options have been reset. Would you like these applied to this project as well?", _
-        "Click 'Yes' to apply the default options, or 'No' to leave the current options.", _
-        vbQuestion + vbYesNo, "Version Control System") = VbMsgBoxResult.vbYes Then
+    If MsgBox2(T("Apply to this Project?"), _
+        T("The default options have been reset. Would you like these applied to this project as well?"), _
+        T("Click 'Yes' to apply the default options, or 'No' to leave the current options."), _
+        vbQuestion + vbYesNo, T("Version Control System")) = VbMsgBoxResult.vbYes Then
         cmdRestoreDefaults_Click
     End If
 End Sub
@@ -419,9 +541,9 @@ Private Sub RefreshTableDisplay()
     Me.sfrmTableData.Form.RecordSource = strSql
 
     ' Update captions with counts
-    Me.lblTableShowHidden.Caption = GetCaptionWithCount("Show Hidden", "d.IsHidden = True AND d.IsSystem = " & chkTableShowSystem)
-    Me.lblTableShowSystem.Caption = GetCaptionWithCount("Show System", "d.IsSystem = True AND d.IsHidden = " & chkTableShowHidden)
-    Me.lblTableShowOther.Caption = GetCaptionWithCount("Show Other  ", "d.IsOther  = True")
+    Me.lblTableShowHidden.Caption = GetCaptionWithCount(T("Show Hidden"), "d.IsHidden = True AND d.IsSystem = " & chkTableShowSystem)
+    Me.lblTableShowSystem.Caption = GetCaptionWithCount(T("Show System"), "d.IsSystem = True AND d.IsHidden = " & chkTableShowHidden)
+    Me.lblTableShowOther.Caption = GetCaptionWithCount(T("Show Other  "), "d.IsOther  = True")
 
 End Sub
 
@@ -469,10 +591,10 @@ End Sub
 Private Sub cmdRestoreDefaults_Click()
     Options.LoadDefaultOptions
     MapControlsToOptions emaClassToForm
-    MsgBox2 "Default Options Restored", _
-        "The system default options have been restored to this project.", _
-        "Be sure to click Save and Close when you are finished making changes.", _
-        vbInformation, "Version Control System"
+    MsgBox2 T("Default Options Restored"), _
+        T("The system default options have been restored to this project."), _
+        T("Be sure to click Save and Close when you are finished making changes."), _
+        vbInformation, T("Version Control System")
 End Sub
 
 
@@ -487,9 +609,9 @@ Private Sub cmdSaveAndClose_Click()
 
     ' Make sure we actually have a file open
     If Not DatabaseFileOpen Then
-        MsgBox2 "No Database File Open", _
-            "You must have a database file open to save VCS options to a source folder.", _
-            "Please open a database file before saving options for a project.", vbExclamation
+        MsgBox2 T("No Database File Open"), _
+            T("You must have a database file open to save VCS options to a source folder."), _
+            T("Please open a database file before saving options for a project."), vbExclamation
         Exit Sub
     End If
 
@@ -520,10 +642,10 @@ Private Sub cmdSaveAsDefault_Click()
     strPath = Nz(txtExportFolder)
     If strPath <> vbNullString Then
         If InStr(1, strPath, "%dbName%", vbTextCompare) < 1 Then
-            MsgBox2 "Invalid Export Path for Default", _
-                "If you specify an absolute or relative Export Path as a default option," & vbCrLf & _
-                "you must include the %dbName% placeholder to keep the paths unique.", _
-                "Please update the Export Path and try again.", vbExclamation
+            MsgBox2 T("Invalid Export Path for Default"), _
+                T("If you specify an absolute or relative Export Path as a default option," & vbCrLf & _
+                "you must include the %dbName% placeholder to keep the paths unique."), _
+                T("Please update the Export Path and try again."), vbExclamation
             Exit Sub
         End If
     End If
@@ -546,6 +668,13 @@ Private Sub Form_Load()
 
     Dim intFormat As eTableDataExportFormat
     Dim intSanitizeLevel As eSanitizeLevel
+
+    ' Set version
+    lblVersion.Caption = GetVCSVersion
+
+    ' Apply translation
+    cboLanguage = Translation.Language
+    Translation.ApplyTo Me
 
     MapControlsToOptions emaClassToForm
     RefreshTableDisplay
@@ -577,6 +706,13 @@ Private Sub Form_Load()
         For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
             .AddItem intSanitizeLevel & ";" & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
+    End With
+
+    ' Load language options
+    With Translation
+        cboLanguage = .Language
+        chkContributeTranslations = .Contribute
+        txtTranslationsPath = .TranslationsPath
     End With
 
     ' Make form resizable (helpful with table selection when many tables are listed)
@@ -617,18 +753,11 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                             Set dSettings = Options.ExportPrintSettings
                             dSettings(strKey) = CBool(ctl)
                         End If
-                    ElseIf pge Is pgeGitIntegration Then
-                        ' Saved in Git Settings
-                        If eAction = emaClassToForm Then
-                            ctl = Options.GitSettings(strKey)
-                        ElseIf eAction = emaFormToClass Then
-                            Set dSettings = Options.GitSettings
-                            dSettings(strKey) = ctl.Value
-                        End If
                     Else
                         Select Case ctl.Name
                             Case Me.chkTableShowHidden.Name, Me.chkTableShowSystem.Name, Me.chkTableShowOther.Name, _
-                                Me.cboFormatTypeForOther.Name, Me.txtOtherTableName.Name
+                                Me.cboFormatTypeForOther.Name, Me.txtOtherTableName.Name, _
+                                Me.cboLanguage.Name, Me.chkContributeTranslations.Name, Me.txtTranslationsPath.Name
                                 ' Skip these exceptions.
                             Case Me.cboDiffTool.Name
                                 ' This is saved on the computer profile (registry)
@@ -671,9 +800,6 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
         Set Options.SchemaExports = CloneDictionary(DatabaseSchemas)
     End If
 
-    ' Enable pages based on options.
-    chkUseGitIntegration_Click
-
 End Sub
 
 
@@ -702,10 +828,10 @@ Private Sub OnOptionChange(strName As String, varNewValue As Variant)
                 If Git.Installed Then
                     If Git.IsInsideRepository Then
                         ' Prompt user with suggestion
-                        If MsgBox2("May I make a Suggestion?", _
-                            "This project appears to be within a Git repository. This add-in includes a special utility " & _
-                            "that can split the files (layout and VBA) while preserving this history of previous changes in BOTH files.", _
-                            "Would you like to see additional information on this from the wiki?", vbQuestion + vbYesNo) = vbYes Then
+                        If MsgBox2(T("May I make a Suggestion?"), _
+                            T("This project appears to be within a Git repository. This add-in includes a special utility " & _
+                            "that can split the files (layout and VBA) while preserving this history of previous changes in BOTH files."), _
+                            T("Would you like to see additional information on this from the wiki?"), vbQuestion + vbYesNo) = vbYes Then
                             FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Split-Files"
                         End If
                     End If
@@ -726,8 +852,8 @@ End Sub
 '
 Private Sub cmdAddOtherTableData_Click()
     Dim strTable As String
-    If Nz(Me.cboFormatTypeForOther.Value, "No Data") = "No Data" Then
-        MsgBox2 "Please select format", "Select the format to save table data before adding the table to the list.", , vbInformation
+    If Nz(Me.cboFormatTypeForOther.Value, "No Data") = T("No Data") Then
+        MsgBox2 T("Please select format"), T("Select the format to save table data before adding the table to the list."), , vbInformation
     Else
         strTable = Nz(Me.txtOtherTableName.Value, vbNullString)
         If strTable <> vbNullString Then
@@ -783,9 +909,9 @@ Private Sub txtExportFolder_BeforeUpdate(Cancel As Integer)
             (InStr(2, strPath, ":" & PathSep) > 0) Then
             ' Looks like a valid path
         Else
-            MsgBox2 "Invalid Export Folder", _
-                "This does not appear to be a valid relative or absolute path.", _
-                "Please see the wiki documentation for more detail and examples.", vbExclamation
+            MsgBox2 T("Invalid Export Folder"), _
+                T("This does not appear to be a valid relative or absolute path."), _
+                T("Please see the wiki documentation for more detail and examples."), vbExclamation
             Cancel = True
         End If
     End If
