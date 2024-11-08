@@ -1,11 +1,10 @@
 ﻿SELECT
+  tblLanguages.ID AS LanguageID,
   tblStrings.ID,
-  [Context] & "|" & [msgid] AS [Key],
   tblStrings.msgid,
   tblStrings.Context,
-  tblStrings.Comments,
-  tblTranslation.Translation,
-  tblTranslation.Language
+  tblStrings.Reference,
+  tblStrings.Comments
 FROM
-  tblStrings
-  LEFT JOIN tblTranslation ON tblStrings.ID = tblTranslation.StringID;
+  tblLanguages,
+  tblStrings;

@@ -2,5 +2,6 @@
   [ID] AUTOINCREMENT CONSTRAINT [PrimaryKey] PRIMARY KEY UNIQUE NOT NULL,
   [msgid] LONGTEXT,
   [Context] LONGTEXT,
+  [Reference] LONGTEXT,
   [Comments] LONGTEXT
 )
