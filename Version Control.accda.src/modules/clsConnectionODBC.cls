@@ -358,13 +358,13 @@ Public Sub ParseOdbcConnectionString(strConnect As String)
         End With
     Next
 
-    GetSanitizedConnectionString
+    BuildSanitizedConnectionString
 
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetSanitizedConnectionString
+' Procedure : BuildSanitizedConnectionString
 ' Author    : bclothier
 ' Date      : 4/1/2023
 ' Purpose   : Build the sanitized connection string based on key parameters that Access will use
@@ -372,7 +372,7 @@ End Sub
 '           : because there is no formal documentation for how Access treats one connection string.
 '---------------------------------------------------------------------------------------
 '
-Private Sub GetSanitizedConnectionString()
+Private Sub BuildSanitizedConnectionString()
     '
     ' WizHook provides IsMatchToDbcConnectString but that does not seem to suit our needs.
     ' What is known:
