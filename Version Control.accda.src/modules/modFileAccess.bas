@@ -158,6 +158,55 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : WriteFileNoBom
+' Author    : Adam Waller
+' Date      : 11/7/2024
+' Purpose   : Save a string to a text file without a BOM. (Needed for exporting *.po
+'           : files for translation since editors are not expecting a UTF-8 BOM.)
+'           : See: https://stackoverflow.com/a/31436631/4121863
+'---------------------------------------------------------------------------------------
+'
+Public Sub WriteFileNoBom(strText As String, strPath As String, Optional strEncoding As String = "utf-8")
+
+    Dim stmNoBom As ADODB.Stream
+
+    ' Write to a UTF-8 eoncoded file
+    With New ADODB.Stream
+        .Type = adTypeText
+        .Open
+        .Charset = strEncoding
+        .WriteText strText
+        ' Ensure that we are ending the content with a vbcrlf
+        If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
+
+        ' Now, create a new BINARY stream and copy over the content.
+        Set stmNoBom = New ADODB.Stream
+        stmNoBom.Type = adTypeBinary
+        stmNoBom.Open
+        .Position = 3
+        .CopyTo stmNoBom
+
+        ' Write to disk
+        VerifyPath strPath
+        ' Watch out for possible write error
+        LogUnhandledErrors
+        On Error Resume Next
+        stmNoBom.SaveToFile strPath, adSaveCreateOverWrite
+        If Catch(3004) Then
+            ' File is locked. Try again after 1 second, just in case something
+            ' like Google Drive momentarily locked the file.
+            Err.Clear
+            Pause 1
+            stmNoBom.SaveToFile strPath, adSaveCreateOverWrite
+        End If
+        CatchAny eelError, "Error writing file: " & strPath, ModuleName & ".WriteFile"
+        .Close
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetFileBytes
 ' Author    : Adam Waller
 ' Date      : 7/31/2020
