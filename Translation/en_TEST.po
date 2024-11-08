@@ -103,13 +103,36 @@ msgstr "(BLANK FOR DEFAULT)"
 msgid "(Module name optional)"
 msgstr "(MODULE NAME OPTIONAL)"
 
+msgid ""
+"* (This database will be renamed as a backup before building {0} from "
+"source.)"
+msgstr ""
+"* (THIS DATABASE WILL BE RENAMED AS A BACKUP BEFORE BUILDING {0} FROM "
+"SOURCE.)"
+
 #: frmVCSInstall.cmdChangeInstallFolder
 msgid "..."
 msgstr "..."
 
+msgid ""
+"<strong><em>Export</em></strong> source to generate source files from the "
+"current database.<br><br><strong><em>Import</em></strong> source files to "
+"rebuild this database from source."
+msgstr ""
+"<STRONG><EM>EXPORT</EM></STRONG> SOURCE TO GENERATE SOURCE FILES FROM THE "
+"CURRENT DATABASE.<BR><BR><STRONG><EM>IMPORT</EM></STRONG> SOURCE FILES TO "
+"REBUILD THIS DATABASE FROM SOURCE."
+
 #: frmVCSOptions.lblVersion
 msgid "4.0.37"
 msgstr "4.0.37"
+
+msgid ""
+"A summary of the build progress can be seen on this screen, and "
+"additional details are included in the log file."
+msgstr ""
+"A SUMMARY OF THE BUILD PROGRESS CAN BE SEEN ON THIS SCREEN, AND "
+"ADDITIONAL DETAILS ARE INCLUDED IN THE LOG FILE."
 
 #: Ribbon.grpActions.Label
 msgid "Actions"
@@ -122,6 +145,13 @@ msgstr "ACTIVATE HOOK"
 #: frmVCSSplitFiles.cmdAddFormsAndReports
 msgid "Add Forms and Reports..."
 msgstr "ADD FORMS AND REPORTS..."
+
+msgid ""
+"Additional details can be found in the project log file.<br><br>You may "
+"now close this window."
+msgstr ""
+"ADDITIONAL DETAILS CAN BE FOUND IN THE PROJECT LOG FILE.<BR><BR>YOU MAY "
+"NOW CLOSE THIS WINDOW."
 
 #: frmVCSInstall.tabInstallType.Page41
 msgid "Advanced Install"
@@ -147,13 +177,25 @@ msgstr "APPLY SYSTEM DEFAULTS TO THIS PROJECT."
 msgid "Basic Install"
 msgstr "BASIC INSTALL"
 
+msgid "Beginning build from Source"
+msgstr "BEGINNING BUILD FROM SOURCE"
+
 #: frmVCSOptions.tabOptions.pgeBuild
 msgid "Build"
 msgstr "BUILD"
 
+msgid "Build {0} ({1}) from source?"
+msgstr "BUILD {0} ({1}) FROM SOURCE?"
+
 #: Ribbon.btnBuildAs.Label
 msgid "Build As…"
 msgstr "BUILD AS…"
+
+msgid "Build Complete"
+msgstr "BUILD COMPLETE"
+
+msgid "Build error in: {0}"
+msgstr "BUILD ERROR IN: {0}"
 
 #: Ribbon.btnBuild.Label
 msgid "Build From Source"
@@ -167,9 +209,15 @@ msgstr "BUILD FROM SOURCE FILES TO A NEW NAME OR LOCATION."
 msgid "Build Log"
 msgstr "BUILD LOG"
 
+msgid "Build must be run from Add-In"
+msgstr "BUILD MUST BE RUN FROM ADD-IN"
+
 #: Ribbon.btnBuild.Supertip
 msgid "Build the current project from source files."
 msgstr "BUILD THE CURRENT PROJECT FROM SOURCE FILES."
+
+msgid "Building From Source"
+msgstr "BUILDING FROM SOURCE"
 
 #: frmVCSOptions.cmdCancel
 msgid "Cancel"
@@ -178,6 +226,13 @@ msgstr "CANCEL"
 #: frmVCSMain.lblHeading
 msgid "Choose Action"
 msgstr "CHOOSE ACTION"
+
+msgid ""
+"Click 'No' to select another project, or 'Cancel' to go back to the "
+"previous screen."
+msgstr ""
+"CLICK 'NO' TO SELECT ANOTHER PROJECT, OR 'CANCEL' TO GO BACK TO THE "
+"PREVIOUS SCREEN."
 
 #: frmVCSOptions.Label303(cmdSyncTranslations)
 msgid ""
@@ -200,6 +255,25 @@ msgstr ""
 "\n"
 "IN SOME MORE SECURE ENVIRONMENTS, YOU MAY NEED TO ADJUST ADDITIONAL "
 "OPTIONS TO USE THIS ADDIN."
+
+#: frmVCSInstall.lblSubheading
+msgid ""
+"Click the Install button to install or update the add-in.\n"
+"\n"
+"In some more secure environments,\n"
+"you may need to adjust additional\n"
+"options to use this addin."
+msgstr ""
+"CLICK THE INSTALL BUTTON TO INSTALL OR UPDATE THE ADD-IN.\n"
+"\n"
+"IN SOME MORE SECURE ENVIRONMENTS,\n"
+"YOU MAY NEED TO ADJUST ADDITIONAL\n"
+"OPTIONS TO USE THIS ADDIN."
+
+msgid ""
+"Click 'Yes' to rebuild* this database from source files in this folder:"
+msgstr ""
+"CLICK 'YES' TO REBUILD* THIS DATABASE FROM SOURCE FILES IN THIS FOLDER:"
 
 #: frmVCSMain.cmdClose
 msgid "Close"
@@ -225,6 +299,9 @@ msgstr "CONNECTION STRING:"
 msgid "Contribute to Translations"
 msgstr "CONTRIBUTE TO TRANSLATIONS"
 
+msgid "Created blank database for import. (v{0})"
+msgstr "CREATED BLANK DATABASE FOR IMPORT. (V{0})"
+
 #: frmVCSOptions.Label119(chkPaperLength)
 msgid "Custom Length"
 msgstr "CUSTOM LENGTH"
@@ -240,6 +317,12 @@ msgstr "DATABASE TYPE:"
 #: frmVCSOptions.tabOptions.pgeDatabases
 msgid "Databases"
 msgstr "DATABASES"
+
+msgid "db connections"
+msgstr "DB CONNECTIONS"
+
+msgid "db properties"
+msgstr "DB PROPERTIES"
 
 #: frmVCSOptions.Label219(chkBreakOnError)
 msgid "Debug VBA Errors"
@@ -273,6 +356,12 @@ msgstr "DISPLAY FREQ."
 msgid "Dither Type"
 msgstr "DITHER TYPE"
 
+msgid "doc properties"
+msgstr "DOC PROPERTIES"
+
+msgid "Done. ({0} seconds)"
+msgstr "DONE. ({0} SECONDS)"
+
 #: Ribbon.btnGoToLinkDownload.Label
 msgid "Download Latest Version"
 msgstr "DOWNLOAD LATEST VERSION"
@@ -296,6 +385,9 @@ msgstr ""
 #: frmVCSDatabase.Label261(chkEnabled)
 msgid "Enabled"
 msgstr "ENABLED"
+
+msgid "Error running {0}"
+msgstr "ERROR RUNNING {0}"
 
 #: frmVCSDatabase.cmdExamples
 msgid "Examples..."
@@ -322,6 +414,9 @@ msgstr "EXPORT AS"
 #: frmVCSOptions.Label31(txtExportFolder)
 msgid "Export Folder:"
 msgstr "EXPORT FOLDER:"
+
+msgid "Export Folder: {0}"
+msgstr "EXPORT FOLDER: {0}"
 
 #: Ribbon.btnOpenExportLog.Label
 msgid "Export Log"
@@ -381,6 +476,9 @@ msgstr ""
 msgid "Final Commit Message:"
 msgstr "FINAL COMMIT MESSAGE:"
 
+msgid "Finished"
+msgstr "FINISHED"
+
 #: frmVCSOptions.lblForceImportOriginalQuerySQL(chkForceImportOriginalQuerySQL)
 msgid "Force import of original SQL for queries"
 msgstr "FORCE IMPORT OF ORIGINAL SQL FOR QUERIES"
@@ -393,6 +491,9 @@ msgstr "FORM NAME"
 msgid "Format SQL"
 msgstr "FORMAT SQL"
 
+msgid "forms"
+msgstr "FORMS"
+
 #: frmVCSMain.Label31(chkFullBuild)
 msgid "Full Build"
 msgstr "FULL BUILD"
@@ -400,6 +501,9 @@ msgstr "FULL BUILD"
 #: frmVCSMain.Label29(chkFullExport)
 msgid "Full Export"
 msgstr "FULL EXPORT"
+
+msgid "Full Path: {0}"
+msgstr "FULL PATH: {0}"
 
 #: frmVCSOptions.tabOptions.pgeGeneral
 msgid "General"
@@ -413,6 +517,9 @@ msgstr "GITHUB COMMUNITY"
 msgid "Hash Algorithm:"
 msgstr "HASH ALGORITHM:"
 
+msgid "hidden attributes"
+msgstr "HIDDEN ATTRIBUTES"
+
 #: frmVCSOptions.Label152(chkICMIntent)
 msgid "ICM Intent"
 msgstr "ICM INTENT"
@@ -420,6 +527,9 @@ msgstr "ICM INTENT"
 #: frmVCSOptions.Label150(chkICMMethod)
 msgid "ICM Method"
 msgstr "ICM METHOD"
+
+msgid "imex specs"
+msgstr "IMEX SPECS"
 
 #: Ribbon.btnLoadSelected.Supertip
 msgid ""
@@ -429,6 +539,9 @@ msgstr ""
 "IMPORT FROM SOURCE FILES THE DATABASE COMPONENT CURRENTLY SELECTED IN THE "
 "NAVIGATION PANE."
 
+msgid "Importing {0}..."
+msgstr "IMPORTING {0}..."
+
 #: frmVCSInstall.lblHeading(Page40)
 msgid "Install Add-In"
 msgstr "INSTALL ADD-IN"
@@ -436,6 +549,13 @@ msgstr "INSTALL ADD-IN"
 #: frmVCSInstall.Label63(txtInstallFolder)
 msgid "Install Folder:   "
 msgstr "INSTALL FOLDER:   "
+
+msgid ""
+"Instead of opening this form to build the add-in,\n"
+"please install and use the Version Control add-in from the Add-in menu"
+msgstr ""
+"INSTEAD OF OPENING THIS FORM TO BUILD THE ADD-IN,\n"
+"PLEASE INSTALL AND USE THE VERSION CONTROL ADD-IN FROM THE ADD-IN MENU"
 
 #: frmVCSInstall.Label32
 msgid "joyfullservice/msaccess-vcs-addin"
@@ -457,9 +577,15 @@ msgstr "LOAD SELECTED"
 msgid "Localize Library References"
 msgstr "LOCALIZE LIBRARY REFERENCES"
 
+msgid "macros"
+msgstr "MACROS"
+
 #: frmVCSOptions.Label154(chkMediaType)
 msgid "Media Type"
 msgstr "MEDIA TYPE"
+
+msgid "Merge"
+msgstr "MERGE"
 
 #: Ribbon.btnMergeBuild.Label
 msgid "Merge Build"
@@ -469,9 +595,29 @@ msgstr "MERGE BUILD"
 msgid "Merge changed source files into the current database."
 msgstr "MERGE CHANGED SOURCE FILES INTO THE CURRENT DATABASE."
 
+msgid "Merge Complete"
+msgstr "MERGE COMPLETE"
+
+msgid "Merging From Source"
+msgstr "MERGING FROM SOURCE"
+
+msgid "modules"
+msgstr "MODULES"
+
 #: frmVCSInstall.Caption
 msgid "MSAccessVCS"
 msgstr "MSACCESSVCS"
+
+# Do not remove the semicolon
+#: lstDatabases.RefreshSchemaList
+msgid "Name;Description"
+msgstr "NAME;DESCRIPTION"
+
+msgid "nav pane groups"
+msgstr "NAV PANE GROUPS"
+
+msgid "No {0} source files found."
+msgstr "NO {0} SOURCE FILES FOUND."
 
 #: frmVCSOptions.Label123(chkCopies)
 msgid "Number of Copies"
@@ -591,9 +737,18 @@ msgstr "PRINT SCALE"
 msgid "Printer Settings"
 msgstr "PRINTER SETTINGS"
 
+msgid "proj properties"
+msgstr "PROJ PROPERTIES"
+
+msgid "project"
+msgstr "PROJECT"
+
 #: Ribbon.btnGoToLinkHome.Label
 msgid "Project Home"
 msgstr "PROJECT HOME"
+
+msgid "queries"
+msgstr "QUERIES"
 
 #: Ribbon.btnRepairColors.Description
 msgid ""
@@ -607,6 +762,9 @@ msgstr ""
 msgid "Refresh the add-in ribbon menu to reflect changes in XML source"
 msgstr "REFRESH THE ADD-IN RIBBON MENU TO REFLECT CHANGES IN XML SOURCE"
 
+msgid "relations"
+msgstr "RELATIONS"
+
 #: Ribbon.btnLocalizeLibraryReferences.Description
 msgid ""
 "Relink add-in library databases to the files located in the same folder "
@@ -619,9 +777,15 @@ msgstr ""
 msgid "Reload Ribbon"
 msgstr "RELOAD RIBBON"
 
+msgid "Removing non built-in references..."
+msgstr "REMOVING NON BUILT-IN REFERENCES..."
+
 #: Ribbon.btnRepairColors.Label
 msgid "Repair Colors"
 msgstr "REPAIR COLORS"
+
+msgid "reports"
+msgstr "REPORTS"
 
 #: frmVCSOptions.Label59(cmdClearDefaults)
 msgid "Reset all default settings to original values."
@@ -651,6 +815,12 @@ msgstr "RUN SUB BEFORE BUILD:"
 msgid "Run Sub Before Export:"
 msgstr "RUN SUB BEFORE EXPORT:"
 
+msgid "Running {0}..."
+msgstr "RUNNING {0}..."
+
+msgid "Running..."
+msgstr "RUNNING..."
+
 #: frmVCSOptions.Label233(cboSanitizeColors)
 msgid "Sanitize Colors"
 msgstr "SANITIZE COLORS"
@@ -679,6 +849,18 @@ msgstr "SAVE TABLE SQL"
 msgid "Save these settings as default for new projects."
 msgstr "SAVE THESE SETTINGS AS DEFAULT FOR NEW PROJECTS."
 
+msgid "Saved as {0}."
+msgstr "SAVED AS {0}."
+
+msgid "saved specs"
+msgstr "SAVED SPECS"
+
+msgid "Saving backup of original database..."
+msgstr "SAVING BACKUP OF ORIGINAL DATABASE..."
+
+msgid "Scanning source files..."
+msgstr "SCANNING SOURCE FILES..."
+
 #: frmVCSOptions.cmdSeeDocs
 msgid "See Docs..."
 msgstr "SEE DOCS..."
@@ -699,6 +881,9 @@ msgstr ""
 msgid "Settings"
 msgstr "SETTINGS"
 
+msgid "shared images"
+msgstr "SHARED IMAGES"
+
 #: frmVCSOptions.Label23(chkShowDebug)
 msgid "Show Detailed Output"
 msgstr "SHOW DETAILED OUTPUT"
@@ -714,6 +899,9 @@ msgstr "SHOW LEGACY PROMPTS"
 #: frmVCSOptions.lblTableShowOther(chkTableShowOther)
 msgid "Show Other"
 msgstr "SHOW OTHER"
+
+msgid "Show Other  "
+msgstr "SHOW OTHER  "
 
 #: frmVCSOptions.lblTableShowSystem(chkTableShowSystem)
 msgid "Show System"
@@ -751,13 +939,25 @@ msgstr "SUPPORT ISSUES"
 msgid "Table Data"
 msgstr "TABLE DATA"
 
+msgid "table data"
+msgstr "TABLE DATA"
+
+msgid "table data macros"
+msgstr "TABLE DATA MACROS"
+
 #: frmVCSTableData.Label3(txtTableName)
 msgid "Table Name"
 msgstr "TABLE NAME"
 
+msgid "tables"
+msgstr "TABLES"
+
 #: frmVCSDatabase.cmdTest
 msgid "Test Filter..."
 msgstr "TEST FILTER..."
+
+msgid "themes"
+msgstr "THEMES"
 
 #: frmVCSConflict.lblHeading(sfrmConflictList)
 msgid "These source files have changed since the last export"
@@ -816,6 +1016,12 @@ msgstr "TRUST ADD-IN FOLDER"
 #: frmVCSOptions.Label140(chkTTOption)
 msgid "TT Font Handling"
 msgstr "TT FONT HANDLING"
+
+msgid "Unable to load Ribbon COM add-in"
+msgstr "UNABLE TO LOAD RIBBON COM ADD-IN"
+
+msgid "Unable to rename original file"
+msgstr "UNABLE TO RENAME ORIGINAL FILE"
 
 #: frmVCSOptions.Label108(cmdUninstall)
 msgid "Uninstall this add-in"
@@ -889,6 +1095,24 @@ msgstr ""
 msgid "Use UTC Dates"
 msgstr "USE UTC DATES"
 
+msgid "vb project"
+msgstr "VB PROJECT"
+
+msgid "vbe forms"
+msgstr "VBE FORMS"
+
+msgid "vbe references"
+msgstr "VBE REFERENCES"
+
+msgid "VCS Version {0}"
+msgstr "VCS VERSION {0}"
+
+msgid "Version {0}"
+msgstr "VERSION {0}"
+
+msgid "Version {0} currently installed."
+msgstr "VERSION {0} CURRENTLY INSTALLED."
+
 #: frmVCSInstall.lblInstalled
 msgid "Version 4.0.11 currently installed."
 msgstr "VERSION 4.0.11 CURRENTLY INSTALLED."
@@ -901,13 +1125,13 @@ msgstr "VERSION 4.0.12"
 msgid "Version Control"
 msgstr "VERSION CONTROL"
 
-#: frmVCSInstall.Label4
-msgid "Version Control System"
-msgstr "VERSION CONTROL SYSTEM"
-
 #: frmVCSOptions.Label9
 msgid "Version Control System "
 msgstr "VERSION CONTROL SYSTEM "
+
+#: frmVCSInstall.Label4
+msgid "Version Control System"
+msgstr "VERSION CONTROL SYSTEM"
 
 #: frmVCSConflict.lblVersion
 msgid "Version Control System ${version}"
