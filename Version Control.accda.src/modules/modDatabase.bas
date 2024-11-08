@@ -325,7 +325,7 @@ ErrHandler:
     blnSuccess = False
 
     ' Handle any error message in calling function
-    CatchAny eelNoError, "Unable to close database object", ModuleName & ".CloseDatabaseObjects", False
+    CatchAny eelNoError, T("Unable to close database object"), ModuleName & ".CloseDatabaseObjects", False
 
 End Function
 
@@ -371,7 +371,7 @@ Private Function CloseAllFormsReports() As Boolean
     Exit Function
 
 ErrorHandler:
-    Debug.Print "Error closing " & strName & ": " & Err.Number & vbCrLf & Err.Description
+    Debug.Print T("Error closing {0}: {1}" & vbCrLf & "{2}", , , , strName, Err.Number, Err.Description)
 End Function
 
 
@@ -389,7 +389,7 @@ Public Function ObjectExists(intType As AcObjectType, strName As String, Optiona
 
     Set objContainer = GetParentContainer(intType, blnInCodeDb)
     If objContainer Is Nothing Then
-        Log.Error eelError, "Parent container not supported for this object type: " & intType, ModuleName & ".ObjectExists"
+        Log.Error eelError, T("Parent container not supported for this object type: {0}", var0:=intType), ModuleName & ".ObjectExists"
     Else
         ' Attempt to reference the object by name
         LogUnhandledErrors
@@ -535,17 +535,17 @@ Public Sub RunSubInCurrentProject(strSubName As String)
 
     ' Make sure we are not trying to run a function with arguments
     If InStr(strCmd, "(") > 0 Then
-        MsgBox2 "Unable to Run Command", _
-            "Parameters are not supported for this command.", _
-            "If you need to use parameters, please create a wrapper sub or function with" & vbCrLf & _
-            "no parameters that you can call instead of " & strSubName & ".", vbExclamation
+        MsgBox2 T("Unable to Run Command"), _
+            T("Parameters are not supported for this command."), _
+            T("If you need to use parameters, please create a wrapper sub or function with" & vbCrLf & _
+            "no parameters that you can call instead of {0}.", var0:=strSubName), vbExclamation
         Exit Sub
     End If
 
     ' Make sure procedure exists in current database
     If Not GlobalProcExists(strSubName) Then
-        Log.Error eelError, "The procedure """ & strSubName & """ not found.", ModuleName & ".RunSubInCurrentProject"
-        Log.Add "The procedure must be declared as public in a standard module.", False
+        Log.Error eelError, T("The procedure ""{0}"" not found.", var0:=strSubName), ModuleName & ".RunSubInCurrentProject"
+        Log.Add T("The procedure must be declared as public in a standard module."), False
         Exit Sub
     End If
 
@@ -698,7 +698,7 @@ Public Function DeleteObjectIfExists(intType As AcObjectType, strName As String)
         ' We need to avoid using DoCmd.Rename for the same reasons
         Select Case intType
             Case acForm
-                Log.Error eelError, "Cannot delete a form with the same name as an add-in form.", _
+                Log.Error eelError, T("Cannot delete a form with the same name as an add-in form."), _
                     ModuleName & ".DeleteObjectIfExists"
                     Exit Function   ' (Returns False)
             Case acMacro
@@ -717,14 +717,14 @@ Public Function DeleteObjectIfExists(intType As AcObjectType, strName As String)
         End Select
 
         ' Trap any errors involved in renaming the object
-        If Not CatchAny(eelError, "Error renaming object: " & strName, ModuleName & ".DeleteObjectIfExists") Then
+        If Not CatchAny(eelError, T("Error renaming object: {0}", var0:=strName), ModuleName & ".DeleteObjectIfExists") Then
             ' Delete object using the temp name
             DoCmd.DeleteObject intType, strTempName
         End If
     End If
 
     ' Catch any errors with deleting the object
-    CatchAny eelError, "Error deleting object: " & strName, ModuleName & ".DeleteObjectIfExists"
+    CatchAny eelError, T("Error deleting object: {0}", var0:=strName), ModuleName & ".DeleteObjectIfExists"
 
     ' Return success if the object no longer exists
     DeleteObjectIfExists = Not ObjectExists(intType, strName)

@@ -151,7 +151,7 @@ Public Sub VerifyRibbon()
             LogUnhandledErrors
             On Error Resume Next
             objAddIn.Connect = True
-            CatchAny eelError, "Unable to load Ribbon COM add-in", ModuleName & ".LoadAddIn", False
+            CatchAny eelError, T("Unable to load Ribbon COM add-in"), ModuleName & ".LoadAddIn", False
         End If
     End If
 End Sub
@@ -302,7 +302,7 @@ Private Sub LoadAddIn()
         LogUnhandledErrors
         On Error Resume Next
         addVCS.Connect = True
-        CatchAny eelError, "Unable to load Ribbon COM add-in", ModuleName & ".LoadAddIn", False
+        CatchAny eelError, T("Unable to load Ribbon COM add-in"), ModuleName & ".LoadAddIn", False
     End If
 End Sub
 

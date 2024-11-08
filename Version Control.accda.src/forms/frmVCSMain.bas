@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =33
     Left =3225
     Top =2430
-    Right =22545
+    Right =28545
     Bottom =14895
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin

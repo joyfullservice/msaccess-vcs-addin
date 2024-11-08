@@ -42,8 +42,8 @@ Public Sub cmdBuild_Click()
 
     ' Make sure we use the add-in to build the add-in.
     If CodeProject.FullName = CurrentProject.FullName Then
-        MsgBox2 "Build must be run from Add-In", "Instead of opening this form to build the add-in," & vbCrLf & _
-            "please install and use the Version Control add-in from the Add-in menu", , vbExclamation
+        MsgBox2 T("Build must be run from Add-In"), T("Instead of opening this form to build the add-in," & vbCrLf & _
+            "please install and use the Version Control add-in from the Add-in menu"), , vbExclamation
         DoCmd.Hourglass False
         Exit Sub
     End If
@@ -57,7 +57,10 @@ Public Sub cmdBuild_Click()
         ' a folder picker dialog.
         strFolder = GetSourceFolder
         ' Exit out of build if the user cancelled any of the confirmations.
-        If strFolder = vbNullString Then Exit Sub
+        If strFolder = vbNullString Then
+            DoCmd.Close acForm, Me.Name
+            Exit Sub
+        End If
     End If
 
     ' Build project using the selected source folder
@@ -123,9 +126,9 @@ Private Function GetSourceFolder() As String
         DoCmd.Hourglass False
         With Application.FileDialog(msoFileDialogFolderPicker)
             .AllowMultiSelect = False
-            .ButtonName = "Select Source Files Folder"
+            .ButtonName = T("Select Source Files Folder")
             '.InitialFileName = Options.GetExportFolder
-            .Title = "Select Source Folder"
+            .Title = T("Select Source Folder")
             .Show
             If .SelectedItems.Count > 0 Then
                 ' Selected a folder
@@ -134,8 +137,8 @@ Private Function GetSourceFolder() As String
                     GetSourceFolder = .SelectedItems(1) & PathSep
                     DoCmd.Hourglass True
                 Else
-                    MsgBox2 "Source files not found", "Required source files were not found in this folder.", _
-                        "You selected: " & .SelectedItems(1), vbExclamation
+                    MsgBox2 T("Source files not found"), T("Required source files were not found in this folder."), _
+                        T("You selected: {0}", var0:=.SelectedItems(1)), vbExclamation
                     Exit Function
                 End If
             Else
@@ -171,9 +174,8 @@ Public Sub StartBuild(blnFullBuild As Boolean)
     Me.Visible = True
 
     ' Show the status
-    strType = IIf(blnFullBuild, "Building", "Merging")
-    SetStatusText "Running...", strType & " From Source", _
-        "A summary of the build progress can be seen on this screen, and additional details are included in the log file."
+    SetStatusText T("Running..."), IIf(blnFullBuild, T("Building From Source"), T("Merging From Source")), _
+        T("A summary of the build progress can be seen on this screen, and additional details are included in the log file.")
 
 End Sub
 
@@ -194,9 +196,8 @@ Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "B
 
     ' Display final UI messages.
     Log.Flush
-    strType = IIf(blnFullBuild, "Build", "Merge")
-    SetStatusText "Finished", strType & " Complete", _
-        "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
+    SetStatusText T("Finished"), IIf(blnFullBuild, T("Build Complete"), T("Merge Complete")), _
+        T("Additional details can be found in the project log file.<br><br>You may now close this window.")
     cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     Me.strLastLogFilePath = Log.LogFilePath
 
@@ -256,9 +257,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function ConfirmCancel() As Boolean
-    ConfirmCancel = MsgBox2("Cancel Current Operation?", _
-        "You are in the midst of a running process. Are you sure you want to cancel?", _
-        "Click [Yes] to cancel the process, or [No] to resume.", _
+    ConfirmCancel = MsgBox2(T("Cancel Current Operation?"), _
+        T("You are in the midst of a running process. Are you sure you want to cancel?"), _
+        T("Click [Yes] to cancel the process, or [No] to resume."), _
         vbYesNo + vbDefaultButton2 + vbExclamation, , vbYes) = vbYes
 End Function
 
@@ -283,8 +284,9 @@ Public Sub cmdExport_Click()
     Log.SetConsole Me.txtLog, GetProgressBar
 
     ' Show the status
-    SetStatusText "Running...", "Exporting source code", _
-        "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
+    SetStatusText T("Running..."), T("Exporting source code"), _
+        T("A summary of the export progress can be seen on this screen, " & _
+            "and additional details are included in the log file.")
 
     ' See if we are exporting a single object, or everything.
     If Me.objSingleObject Is Nothing Then
@@ -300,8 +302,8 @@ Public Sub cmdExport_Click()
 
     ' Don't attempt to access controls if we are in the process of closing the form.
     If FormLoaded(Me) Then
-        SetStatusText "Finished", "Export Complete", _
-            "Additional details can be found in the project export log file.<br><br>You may now close this window."
+        SetStatusText T("Finished"), T("Export Complete"), _
+            T("Additional details can be found in the project log file.<br><br>You may now close this window.")
         cmdOpenLogFile.Visible = (Me.strLastLogFilePath <> vbNullString)
         Me.strLastLogFilePath = Me.strLastLogFilePath
         DoEvents
@@ -353,7 +355,7 @@ Private Sub cmdOptions_Click()
         Form_frmVCSOptions.Visible = True
     Else
         ' The table data subform may crash Access when the options form is closed with no database open.
-        MsgBox2 "No Database Open", "Please open a database file before configuring VCS options.", , vbInformation
+        MsgBox2 T("No Database Open"), T("Please open a database file before configuring VCS options."), , vbInformation
     End If
 End Sub
 
@@ -372,11 +374,11 @@ Public Sub Form_Load()
     Translation.ApplyTo Me
 
     ' Display version (better performance than bound control)
-    lblVersion.Caption = "Version " & GetVCSVersion()
+    lblVersion.Caption = T("Version {0}", var0:=GetVCSVersion())
 
-    SetStatusText "Choose Action", "What would you like to do?", _
-        "<strong><em>Export</em></strong> source to generate source files from the current database." & _
-        "<br><br><strong><em>Import</em></strong> source files to rebuild this database from source."
+    SetStatusText T("Choose Action"), T("What would you like to do?"), _
+        T("<strong><em>Export</em></strong> source to generate source files from the current database." & _
+        "<br><br><strong><em>Import</em></strong> source files to rebuild this database from source.")
 
     ' Set defaults based on current options.
     chkFullBuild = Not Options.UseMergeBuild
@@ -504,7 +506,7 @@ Private Sub Form_Unload(Cancel As Integer)
 
     ' Check to see if we have an active job running.
     If Log.Active Then
-        If ConfirmCancel Then Log.Error eelCritical, "Canceled Operation", Me.Name & ".Form_Unload"
+        If ConfirmCancel Then Log.Error eelCritical, T("Canceled Operation"), Me.Name & ".Form_Unload"
         ' Either way, we want the log to complete first.
         Cancel = True
         intAttempt = intAttempt + 1
