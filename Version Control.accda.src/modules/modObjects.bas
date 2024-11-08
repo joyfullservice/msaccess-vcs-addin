@@ -36,6 +36,7 @@ Private this As udtObjects
 '---------------------------------------------------------------------------------------
 '
 Public Sub ReleaseObjects()
+
     Set this.Perf = Nothing
     Set this.Log = Nothing
     Set this.Options = Nothing
@@ -43,10 +44,12 @@ Public Sub ReleaseObjects()
     Set this.Worker = Nothing
     Set this.Git = Nothing
     Set this.FSO = Nothing
+    Set this.Translation = Nothing
 
     Dim udtEmpty As udtObjects
     ' Reassign "this" to blank, clearing any saved data.
     LSet this = udtEmpty
+
 End Sub
 
 
@@ -132,10 +135,11 @@ End Function
 ' Purpose   : Wrapper function to translate to current language
 '---------------------------------------------------------------------------------------
 '
-Public Function T(strText As String, Optional strComments As String, Optional strContext As String, _
+Public Function T(strText As String, Optional strReference As String, _
+    Optional strContext As String, Optional strComments As String, _
     Optional var0, Optional var1, Optional var2, Optional var3, Optional var4, _
     Optional var5, Optional var6, Optional var7, Optional var8, Optional var9)
-    T = Translation.T(strText, strComments, strContext, _
+    T = Translation.T(strText, strReference, strContext, strComments, _
         var0, var1, var2, var3, var4, var5, var6, var7, var8, var9)
 End Function
 
