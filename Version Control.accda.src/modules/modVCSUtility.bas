@@ -1046,6 +1046,7 @@ End Sub
 '
 Public Sub AfterBuild()
     modResource.VerifyResources
+    Translation.LoadTranslations
 End Sub
 
 
