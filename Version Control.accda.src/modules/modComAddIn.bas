@@ -52,6 +52,10 @@ Public Sub VerifyComAddIn()
         End If
     End If
 
+    ' Ribbon json strings
+    strFile = strPath & "Ribbon.json"
+    WriteFile ConvertToJson(GetRibbonStrings, 2), strFile
+
     ' COM Add-in
     strFile = strPath & GetComAddInFileName
     strKey = "COM Addin x" & GetOfficeBitness
@@ -81,7 +85,11 @@ Public Sub VerifyComAddIn()
         ' Register the add-in file
         RegisterCOMAddIn
         ' Now we should be able to load the add-in
-        LoadAddIn
+        ' Note, if the ribbon XML file is not compatible with
+        ' the previous version of the COM add-in, we should not
+        ' load it immediately, since the old add-in may attemp
+        ' to load the incompatible file.
+        'LoadAddIn
     Else
         If blnUpdateRibbon Then
             ' Reload the add-in to refresh the ribbon
@@ -108,6 +116,22 @@ Public Sub ReloadRibbon()
     UnloadAddIn
     LoadAddIn
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RibbonLoaded
+' Author    : Adam Waller
+' Date      : 9/2/2024
+' Purpose   : Returns true if the ribbon is currently loaded
+'---------------------------------------------------------------------------------------
+'
+Public Function RibbonLoaded() As Boolean
+    Dim objAddIn As COMAddIn
+    Set objAddIn = GetCOMAddIn
+    If Not GetCOMAddIn Is Nothing Then
+        RibbonLoaded = objAddIn.Connect
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -155,6 +179,10 @@ Public Sub UninstallComAddIn()
 
     ' Remove ribbon XML file
     strPath = GetAddInPath & "Ribbon.xml"
+    If FSO.FileExists(strPath) Then DeleteFile strPath
+
+    ' Remove the json strings file
+    strPath = GetAddInPath & "Ribbon.json"
     If FSO.FileExists(strPath) Then DeleteFile strPath
 
     ' Update the list of COM add-ins
@@ -271,7 +299,10 @@ Private Sub LoadAddIn()
         ' Add-in not found. May need to be registered
     Else
         ' Load the add-in
+        LogUnhandledErrors
+        On Error Resume Next
         addVCS.Connect = True
+        CatchAny eelError, "Unable to load Ribbon COM add-in", ModuleName & ".LoadAddIn", False
     End If
 End Sub
 
