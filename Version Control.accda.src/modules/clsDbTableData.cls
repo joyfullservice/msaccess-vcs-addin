@@ -241,8 +241,6 @@ Private Sub ImportTableDataTDF(strFile As String)
                     If dCols.Exists(varHeader(intCol)) Then
                         ' Check for empty string or null.
                         If varLine(intCol) = vbNullString Then
-                            ' The field could have a default value, but the imported
-                            ' data may still be a null value.
                             With rst.Fields(varHeader(intCol))
                                 If IsNull(.Value) Then
                                     ' Could possibly hit a problem with the storage of

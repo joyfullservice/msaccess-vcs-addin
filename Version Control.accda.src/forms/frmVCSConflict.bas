@@ -19,8 +19,8 @@ Begin Form
     ItemSuffix =48
     Left =3225
     Top =2430
-    Right =22695
-    Bottom =16815
+    Right =28545
+    Bottom =14895
     RecSrcDt = Begin
         0x79e78b777268e540
     End
