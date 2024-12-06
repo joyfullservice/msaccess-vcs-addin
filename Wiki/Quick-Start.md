@@ -6,7 +6,8 @@ This add-in performs two primary functions to support rapid application developm
 
 ## Install Add-in
  1. Download the [latest release](https://github.com/joyfullservice/msaccess-vcs-integration/releases/latest) from GitHub.
- 1. Extract and open `Version Control.accda` from the zip archive.
+ 1. Extract `Version Control.accda` from the downloaded zip archive to a trusted[^1] location.
+ 1. Open `Version Control.accda` to launch the installer.
  1. Click **Install Add-In**.
 
 ![Install Form Image](img/install.jpg)
@@ -43,3 +44,5 @@ All set! Your freshly built database is ready to use and continue development. (
 Feel free to check out other wiki pages to learn about [additional options](Options), [merge builds](Merge-Build), [FAQs](FAQs), and more.
 
 Enjoy!!
+
+[^1]: This location must be trusted by Microsoft Access, or the add-in file must be trusted to allow the VBA installercode to run correctly. See `Microsoft Access` -> `Options` -> `Trust Center` -> `Trusted Locations`.
