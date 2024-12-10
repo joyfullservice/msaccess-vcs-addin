@@ -189,6 +189,7 @@ Private Sub ImportTableDataTDF(strFile As String)
     Dim varLine As Variant
     Dim varHeader As Variant
     Dim intCol As Integer
+    Dim strColName As String
     Dim strValue As String
 
     Perf.OperationStart "Import TDF Data"
@@ -229,30 +230,38 @@ Private Sub ImportTableDataTDF(strFile As String)
             rst.AddNew
                 ' Loop through fields
                 For intCol = 0 To UBound(varHeader)
+                    strColName = varHeader(intCol)
                     ' Check to see if field exists in the table
-                    If dCols.Exists(varHeader(intCol)) Then
-                        ' Check for empty string or null.
+                    If dCols.Exists(strColName) Then
+                        ' Check for empty string in input.
                         If varLine(intCol) = vbNullString Then
-                            ' The field could have a default value, but the imported
-                            ' data may still be a null value.
-                            If Not IsNull(rst.Fields(varHeader(intCol)).Value) Then
-                                ' Could possibly hit a problem with the storage of
-                                ' zero length strings instead of nulls. Since we can't
-                                ' really differentiate between these in a TDF file,
-                                ' we will go with NULL for now.
-                                'rst.Fields(varHeader(intCol)).AllowZeroLength
-                                rst.Fields(varHeader(intCol)).Value = Null
+                            ' The file format does not distinguish
+                            ' between null (no value) and empty string
+                            fld = rst.Fields(strColName)
+                            If fld.Type = dbText Or fld.Type = dbMemo Then
+                                If Not fld.AllowZeroLength Then
+                                    ' Error: field is required but no value provided
+                                Else
+                                    If fld.Required Then
+                                        ' We know in this particular case,
+                                        ' null is not permitted, therefore
+                                        ' empty string must be intended
+                                        rst.Fields(strColName).Value = ""
+                                    End If
+                                End If
                             End If
+                            ' Otherwise, assume null was intended:
+                            ' leave result .Value unset
                         Else
                             ' Perform any needed replacements
                             strValue = FormatStringFromTDF(CStr(varLine(intCol)))
                             If strValue <> CStr(varLine(intCol)) Then
                                 ' Use replaced string value
-                                rst.Fields(varHeader(intCol)).Value = strValue
+                                rst.Fields(strColName).Value = strValue
                             Else
                                 If strValue <> UNSUPPORTED_DATA_TYPE Then
                                     ' Use variant value without the string conversion
-                                    rst.Fields(varHeader(intCol)).Value = varLine(intCol)
+                                    rst.Fields(strColName).Value = varLine(intCol)
                                 End If
                             End If
                         End If
