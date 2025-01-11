@@ -314,18 +314,21 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
         Else
             ' Check for picture
             Set picItem = objItem.Picture
-            If Not picItem Is Nothing Then
-                strPath = GetImagePath(objItem)
-                ' Check path for possible duplicates (menu items with the same name)
-                If this.dImages.Exists(strPath) Then
-                    ' Add a number to make the path unique.
-                    strPath = strPath & this.dImages.Count & "_"
+            ' Not all command bar controls have picture
+            If Not CatchAny(eelNoError, vbNullString) Then
+                If Not picItem Is Nothing Then
+                    strPath = GetImagePath(objItem)
+                    ' Check path for possible duplicates (menu items with the same name)
+                    If this.dImages.Exists(strPath) Then
+                        ' Add a number to make the path unique.
+                        strPath = strPath & this.dImages.Count & "_"
+                    End If
+                    ' Save reference to image objects to use when
+                    ' exporting images to files.
+                    this.dImages.Add strPath, objItem
+                    ' Save path to images in element dictionary
+                    dParent.Add "ImagePath", GetRelativePath(strPath)
                 End If
-                ' Save reference to image objects to use when
-                ' exporting images to files.
-                this.dImages.Add strPath, objItem
-                ' Save path to images in element dictionary
-                dParent.Add "ImagePath", GetRelativePath(strPath)
             End If
         End If
     Else

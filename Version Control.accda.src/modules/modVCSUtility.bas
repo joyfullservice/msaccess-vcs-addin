@@ -57,7 +57,7 @@ Public Function GetContainers(Optional intFilter As eContainerFilter = ecfAllObj
                 .Add New clsDbVbeForm
                 .Add New clsDbProjProperty
                 .Add New clsDbSavedSpec
-                '.Add New clsDbCommandBar
+                .Add New clsDbCommandBar
                 If blnADP Then
                     ' Some types of objects only exist in ADP projects
                     .Add New clsAdpFunction
