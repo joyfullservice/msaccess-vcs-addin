@@ -343,41 +343,43 @@ Private Sub LoadTableList()
 
     ' Get list of tables if we have a database file open.
     If DatabaseFileOpen Then
+        ' ADP does not have local tables. Export data is probably best handled with SQL Server tools.
+        If Not (CurrentProject.ProjectType = acADP) Then
+            ' Note that Access SQL does not support bitwise "and" operator
+            ' (Also known as BAND in ADO) so we will check the bit flags in VBA instead.
+            strSql = _
+                "SELECT o.Name, o.Type, o.Flags " & _
+                "FROM MSysObjects AS o " & _
+                "WHERE o.Type IN (1, 4, 6) " & _
+                "ORDER BY o.Name;"
 
-        ' Note that Access SQL does not support bitwise "and" operator
-        ' (Also known as BAND in ADO) so we will check the bit flags in VBA instead.
-        strSql = _
-            "SELECT o.Name, o.Type, o.Flags " & _
-            "FROM MSysObjects AS o " & _
-            "WHERE o.Type IN (1, 4, 6) " & _
-            "ORDER BY o.Name;"
-
-        Set rstSource = CurrentDb.OpenRecordset(strSql, dbOpenSnapshot)
-        With rstSource
-            Do While Not .EOF
-                ' Determine type of table
-                lngFlags = Nz(!Flags, 0)
-                lngType = Nz(!Type, 0)
-                If (lngFlags < 0) Or BitSet(lngFlags, 1) Then
-                    ' Don't include read-only or deeply hidden system tables.
-                    ' https://isladogs.co.uk/purpose-of-system-tables-2/index.html#TFE
-                Else
-                    rstTableData.AddNew
-                        rstTableData!TableName = Nz(!Name)
-                        rstTableData!Flags = Nz(!Flags)
-                        rstTableData!IsSystem = BitSet(lngFlags, 2)
-                        rstTableData!IsHidden = BitSet(lngFlags, 8)
-                        rstTableData!IsLocal = (lngType = 1)
-                        ' Determine table icon
-                        rstTableData!TableIcon = GetTableIcon(etcLinked)    ' Default to linked table if no match.
-                        If rstTableData!IsLocal Then rstTableData!TableIcon = GetTableIcon(etcLocal)
-                        If rstTableData!IsSystem Then rstTableData!TableIcon = GetTableIcon(etcSystem)
-                    rstTableData.Update
-                End If
-                .MoveNext
-            Loop
-            .Close
-        End With
+            Set rstSource = CurrentDb.OpenRecordset(strSql, dbOpenSnapshot)
+            With rstSource
+                Do While Not .EOF
+                    ' Determine type of table
+                    lngFlags = Nz(!Flags, 0)
+                    lngType = Nz(!Type, 0)
+                    If (lngFlags < 0) Or BitSet(lngFlags, 1) Then
+                        ' Don't include read-only or deeply hidden system tables.
+                        ' https://isladogs.co.uk/purpose-of-system-tables-2/index.html#TFE
+                    Else
+                        rstTableData.AddNew
+                            rstTableData!TableName = Nz(!Name)
+                            rstTableData!Flags = Nz(!Flags)
+                            rstTableData!IsSystem = BitSet(lngFlags, 2)
+                            rstTableData!IsHidden = BitSet(lngFlags, 8)
+                            rstTableData!IsLocal = (lngType = 1)
+                            ' Determine table icon
+                            rstTableData!TableIcon = GetTableIcon(etcLinked)    ' Default to linked table if no match.
+                            If rstTableData!IsLocal Then rstTableData!TableIcon = GetTableIcon(etcLocal)
+                            If rstTableData!IsSystem Then rstTableData!TableIcon = GetTableIcon(etcSystem)
+                        rstTableData.Update
+                    End If
+                    .MoveNext
+                Loop
+                .Close
+            End With
+        End If
     End If
 
     ' Add in the list of saved tables, adding into the sorted location
@@ -429,22 +431,24 @@ Private Sub SaveTableList()
     Set dTables = New Dictionary
     dTables.CompareMode = TextCompare
 
-    Set rstTableData = CodeDb.OpenRecordset( _
-        "SELECT TableName, FormatType FROM tblTableData " & _
-        "WHERE FormatType <> 0 ORDER BY TableName;", dbOpenForwardOnly)
-    With rstTableData
-        Do Until .EOF
-            Set dTable = New Dictionary
-            dTable.CompareMode = TextCompare
-            dTable("Format") = Options.GetTableExportFormatName(Nz(!FormatType, 0))
-            dTables.Add Nz(!TableName), dTable
-            .MoveNext
-        Loop
-        .Close
-    End With
+    ' ADP project type shouldn't export data; set it as an empty list.
+    If Not (CurrentProject.ProjectType = acADP) Then
+        Set rstTableData = CodeDb.OpenRecordset( _
+            "SELECT TableName, FormatType FROM tblTableData " & _
+            "WHERE FormatType <> 0 ORDER BY TableName;", dbOpenForwardOnly)
+        With rstTableData
+            Do Until .EOF
+                Set dTable = New Dictionary
+                dTable.CompareMode = TextCompare
+                dTable("Format") = Options.GetTableExportFormatName(Nz(!FormatType, 0))
+                dTables.Add Nz(!TableName), dTable
+                .MoveNext
+            Loop
+            .Close
+        End With
+    End If
 
     Set Options.TablesToExportData = dTables
-
 End Sub
 
 
