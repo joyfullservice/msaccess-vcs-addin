@@ -488,6 +488,12 @@ Retry_Connection:
     With oConn
         If Len(this.strUserID) Then
             .Open GetADOConnectionString(this.strConnect, lngFailCount), this.strUserID, this.strPassword
+
+        ElseIf this.blnAttemptConvert Then
+            .Provider = "MSDASQL"
+            .ConnectionString = "Persist Security Info=False; Extended Properties=" & GetADOConnectionString(this.strConnect, lngFailCount)
+            .Open
+
         Else
             .Open GetADOConnectionString(this.strConnect, lngFailCount)
         End If
@@ -554,44 +560,12 @@ Private Function GetADOConnectionString(ByRef ODBCConnString As String _
 
     With New clsConcat
         .AppendOnAdd = ";"
-        ' Add some beginning properties that are specific to ADO (OLE) connection strings.
-            Select Case FailCount
-                Case 0 To 2
-                    .Add "Provider=MSOLEDBSQL19"
-                    .Add "Connect Retry Count=3"
-                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
-
-                Case 3
-                    .Add "Provider=MSOLEDBSQL"
-                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
-                    .Add "Trusted_Connection=yes"
-                    .Add "Connect Retry Count=3"
-
-                Case 4
-                    .Add "Provider=SQLNCLI11"
-                    .Add "Trusted_Connection=yes"
-                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
-
-                Case ADODB_MAX_RETRIES
-                    .Add "Provider=SQLOLEDB"
-                    .Add "Trusted_Connection=True"
-                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=yes"
-
-                Case Else
-                    .Add "Provider=SQLOLEDB"
-                    If Len(ConStrParsed.Encrypt) Then .Add "Encrypt=true"
-                    .Add "Trusted_Connection=True"
-            End Select
 
         For PropertyCount = 0 To UBound(ConnectionProperties)
             strProperty = ConnectionProperties(PropertyCount)
             Select Case True ' This looks odd, yes, but it really just means we can use the comma delimited feature of "case"
                 Case StartsWith(strProperty, "Provider=", vbTextCompare), _
                      StartsWith(strProperty, "ODBC", vbTextCompare), _
-                     StartsWith(strProperty, "DataTypeCompatibility=", vbTextCompare), _
-                     StartsWith(strProperty, "Driver=", vbTextCompare), _
-                     StartsWith(strProperty, "Trusted_Connection=", vbTextCompare), _
-                     StartsWith(strProperty, "Encrypt=", vbTextCompare), _
                      Len(strProperty) < 1
                     ' Don't include these; they aren't needed (or are specified elsewhere).
 
@@ -601,10 +575,7 @@ Private Function GetADOConnectionString(ByRef ODBCConnString As String _
         Next PropertyCount
 
         ' These properties should go at the end.
-        If Len(ConStrParsed.Encrypt) Then .Add "Use Encryption for Data=true"
-        .Add "MARS Connection=True"
-        .Add "Integrated Security=SSPI"
-        .Add "DataTypeCompatibility=80"
+        ' N/A
 
         Log.Add FunctionName & "ConnectionString: " & .GetStr, False
         GetADOConnectionString = .GetStr
