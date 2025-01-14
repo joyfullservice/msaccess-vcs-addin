@@ -486,16 +486,20 @@ Rebuild_Connection:
 
 Retry_Connection:
     With oConn
-        If Len(this.strUserID) Then
-            .Open GetADOConnectionString(this.strConnect, lngFailCount), this.strUserID, this.strPassword
-
-        ElseIf this.blnAttemptConvert Then
+        If this.blnAttemptConvert Then
             .Provider = "MSDASQL"
-            .ConnectionString = "Persist Security Info=False; Extended Properties=" & GetADOConnectionString(this.strConnect, lngFailCount)
-            .Open
+
+            If Len(this.strUserID) Then
+                .Open "Persist Security Info=False; Extended Properties=" & GetADOConnectionString(this.strConnect), this.strUserID, this.strPassword
+
+            Else
+                .Provider = "MSDASQL"
+                .ConnectionString = "Persist Security Info=False; Extended Properties=" & GetADOConnectionString(this.strConnect)
+                .Open
+            End If
 
         Else
-            .Open GetADOConnectionString(this.strConnect, lngFailCount)
+            .Open this.strConnect
         End If
 
         CatchAny eelError, "Error Connecting to " & this.strName, FunctionName
@@ -535,8 +539,7 @@ End Function
 ' Purpose   : Returns with an ADODB connection string based on existing ODBC Connection.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetADOConnectionString(ByRef ODBCConnString As String _
-                                        , Optional ByRef FailCount As Long = 0) As String
+Private Function GetADOConnectionString(ByRef ODBCConnString As String) As String
 
     Dim FunctionName As String
     Dim currConnString As String
@@ -564,8 +567,7 @@ Private Function GetADOConnectionString(ByRef ODBCConnString As String _
         For PropertyCount = 0 To UBound(ConnectionProperties)
             strProperty = ConnectionProperties(PropertyCount)
             Select Case True ' This looks odd, yes, but it really just means we can use the comma delimited feature of "case"
-                Case StartsWith(strProperty, "Provider=", vbTextCompare), _
-                     StartsWith(strProperty, "ODBC", vbTextCompare), _
+                Case StartsWith(strProperty, "ODBC", vbTextCompare), _
                      Len(strProperty) < 1
                     ' Don't include these; they aren't needed (or are specified elsewhere).
 
