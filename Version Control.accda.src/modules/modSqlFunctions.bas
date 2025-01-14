@@ -132,7 +132,7 @@ Public Function GetSQLObjectDefinitionForADP(strName As String) As String
     ' Simple validation on object name
     strObject = Replace(strName, ";", vbNullString)
 
-    strSql = "SELECT object_definition (OBJECT_ID(N'" & strObject & "'))"
+    strSql = "SELECT object_definition (OBJECT_ID(N'" & Replace$(strObject, "'", "''") & "'))"
     '@Ignore SetAssignmentWithIncompatibleObjectType
     Set rst = CurrentProject.Connection.Execute(strSql)
     If Not rst.EOF Then
