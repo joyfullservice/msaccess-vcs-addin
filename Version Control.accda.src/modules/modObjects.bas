@@ -164,7 +164,7 @@ End Function
 Public Property Get FSO() As Scripting.FileSystemObject
 
     Const FunctionName As String = ModuleName & ".FSO"
-    Static RetryCount As Long
+    Dim RetryCount As Long
 
     LogUnhandledErrors FunctionName
     On Error Resume Next
@@ -173,8 +173,10 @@ Retry:
     If this.FSO Is Nothing Then Set this.FSO = New Scripting.FileSystemObject
     Set FSO = this.FSO
     If CatchAny(eelError, "Retry FSO Check", FunctionName, False, True) And RetryCount < 2 Then
-        ' Some machines in some environments may fail to generate the FileSystemObject the first time
-        ' 99% of the time, the second attempt will work. This may be due to a race condition in the OS.
+        ' Some machines in some environments may fail to generate the FileSystemObject the first time.
+        ' 99% of retries the second attempt will work. This may be due to a race condition in the OS.
+        ' RetryCount prevents a permanent loop if for some reason the second attempt fails out, and in 
+        ' those cases additional tries are also likely to fail.
         RetryCount = RetryCount + 1
         GoTo Retry
     End If
