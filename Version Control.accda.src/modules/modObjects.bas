@@ -36,6 +36,7 @@ Private this As udtObjects
 '---------------------------------------------------------------------------------------
 '
 Public Sub ReleaseObjects()
+
     Set this.Perf = Nothing
     Set this.Log = Nothing
     Set this.Options = Nothing
@@ -43,10 +44,12 @@ Public Sub ReleaseObjects()
     Set this.Worker = Nothing
     Set this.Git = Nothing
     Set this.FSO = Nothing
+    Set this.Translation = Nothing
 
     Dim udtEmpty As udtObjects
     ' Reassign "this" to blank, clearing any saved data.
     LSet this = udtEmpty
+
 End Sub
 
 
@@ -132,10 +135,11 @@ End Function
 ' Purpose   : Wrapper function to translate to current language
 '---------------------------------------------------------------------------------------
 '
-Public Function T(strText As String, Optional strComments As String, Optional strContext As String, _
+Public Function T(strText As String, Optional strReference As String, _
+    Optional strContext As String, Optional strComments As String, _
     Optional var0, Optional var1, Optional var2, Optional var3, Optional var4, _
     Optional var5, Optional var6, Optional var7, Optional var8, Optional var9)
-    T = Translation.T(strText, strComments, strContext, _
+    T = Translation.T(strText, strReference, strContext, strComments, _
         var0, var1, var2, var3, var4, var5, var6, var7, var8, var9)
 End Function
 
@@ -155,19 +159,33 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : FSO
-' Author    : Adam Waller
-' Date      : 1/18/2019
+' Author    : Adam Waller, hecon5
+' Date      : 1/18/2019, 10/24/2024
 ' Purpose   : Wrapper for file system object. A property allows us to clear the object
 '           : reference when we have completed an export or import operation.
 '---------------------------------------------------------------------------------------
 '
 Public Property Get FSO() As Scripting.FileSystemObject
-    If this.FSO Is Nothing Then
-        If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-        Set this.FSO = New Scripting.FileSystemObject
-        CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", ModuleName & ".FSO"
-    End If
+
+    Const FunctionName As String = ModuleName & ".FSO"
+    Dim RetryCount As Long
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+
+Retry:
+    If this.FSO Is Nothing Then Set this.FSO = New Scripting.FileSystemObject
     Set FSO = this.FSO
+    If CatchAny(eelError, "Retry FSO Check", FunctionName, False, True) And RetryCount < 2 Then
+        ' Some machines in some environments may fail to generate the FileSystemObject the first time.
+        ' 99% of retries the second attempt will work. This may be due to a race condition in the OS.
+        ' RetryCount prevents a permanent loop if for some reason the second attempt fails out, and in 
+        ' those cases additional tries are also likely to fail.
+        RetryCount = RetryCount + 1
+        GoTo Retry
+    End If
+    CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", FunctionName
+
 End Property
 
 

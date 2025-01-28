@@ -2,6 +2,7 @@
 	"configuration.inherits": "Defaults",
 	"project.appTitle": "Microsoft Access Version Control Ribbon Add-in",
 	"project.buildPath": "${SourcePath}\\Build\\${ProjectName}_${Architecture}.${FileExtension}",
+	"project.buildStackReserveSize": 4096,
 	"project.buildType": "ActiveX DLL",
 	"project.description": "Microsoft Access Version Control Ribbon Add-in",
 	"project.dllRegisterAfterBuild": false,
@@ -19,6 +20,7 @@
 			"name": "OLE Automation",
 			"path32": "C:\\Windows\\SysWOW64\\stdole2.tlb",
 			"path64": "C:\\Windows\\System32\\stdole2.tlb",
+			"symbolId": "stdole",
 			"versionMajor": 2,
 			"versionMinor": 0
 		},
@@ -28,6 +30,7 @@
 			"name": "Microsoft Add-In Designer",
 			"path32": "C:\\Program Files (x86)\\Common Files\\Designer\\MSADDNDR.DLL",
 			"path64": "",
+			"symbolId": "AddInDesignerObjects",
 			"versionMajor": 1,
 			"versionMinor": 0
 		},
@@ -37,6 +40,7 @@
 			"name": "Microsoft Office 14.0 Object Library",
 			"path32": "C:\\Program Files (x86)\\Common Files\\Microsoft Shared\\OFFICE14\\MSO.DLL",
 			"path64": "",
+			"symbolId": "Office",
 			"versionMajor": 2,
 			"versionMinor": 5
 		},
@@ -46,6 +50,7 @@
 			"name": "Microsoft Scripting Runtime",
 			"path32": "C:\\Windows\\SysWOW64\\scrrun.dll",
 			"path64": "C:\\Windows\\System32\\scrrun.dll",
+			"symbolId": "Scripting",
 			"versionMajor": 1,
 			"versionMinor": 0
 		},
@@ -55,6 +60,7 @@
 			"name": "Microsoft ActiveX Data Objects 6.1 Library",
 			"path32": "C:\\Program Files (x86)\\Common Files\\System\\ado\\msado15.dll",
 			"path64": "C:\\Program Files\\Common Files\\System\\ado\\msado15.dll",
+			"symbolId": "ADODB",
 			"versionMajor": 6,
 			"versionMinor": 1
 		},
@@ -62,7 +68,7 @@
 			"id": "{F50B82D0-DCAB-43FE-9631-11959D4A4728}",
 			"isCompilerPackage": true,
 			"licence": "MIT",
-			"name": "[COMPILER PACKAGE] WinNativeForms Package",
+			"name": "[COMPILER PACKAGE] twinBASIC - VB Compatibility Package (Forms)",
 			"path32": "",
 			"path64": "",
 			"publisher": "TWINBASIC-COMPILER",
@@ -81,7 +87,10 @@
 	"project.versionRevision": 0,
 	"project.warnings": {
 		"errors": [],
-		"ignored": []
+		"hints": [],
+		"ignored": [],
+		"info": [],
+		"warnings": []
 	},
 	"runtime.useUnicodeStandardLibrary": true
 }

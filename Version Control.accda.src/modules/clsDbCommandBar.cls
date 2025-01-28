@@ -20,6 +20,7 @@ Option Explicit
 Private m_CommandBar As CommandBar
 Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
+Private m_FileList As Dictionary
 
 Private Type udtThis
     BarProperties As Collection
@@ -119,7 +120,24 @@ Private Sub IDbComponent_Import(strFile As String)
 
     ' Now, create a new command bar, and add controls to it.
     Perf.OperationStart "Building CommandBar"
-    Set m_CommandBar = CommandBars.Add(strName, msoBarPopup, , False)
+    Dim IsMenu As Boolean
+    Dim Position As MsoBarPosition
+
+    Position = -1 'set to invalid value to simulate the "missing" value which cannot be directly set in VBA...
+    IsMenu = (dBar("Items").Item("Type") = msoBarTypeMenuBar)
+    If CatchAny(eelNoError, vbNullString) Then
+        IsMenu = False
+    End If
+    Position = dBar("Items").Item("Position")
+    If CatchAny(eelNoError, vbNullString) Then
+        Position = -1
+    End If
+
+    If Position = -1 Then
+        Set m_CommandBar = CommandBars.Add(strName, , IsMenu, False)
+    Else
+        Set m_CommandBar = CommandBars.Add(strName, Position, IsMenu, False)
+    End If
     BuildControls dBar("Items"), m_CommandBar
     Perf.OperationEnd
 
@@ -133,7 +151,7 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : BuildMenu
+' Procedure : BuildControls
 ' Author    : Adam Waller
 ' Date      : 1/13/2024
 ' Purpose   : Recursive function to build the controls on the popup menu
@@ -266,7 +284,7 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : BuildElements
+' Procedure : BuildElementDictionary
 ' Author    : Adam Waller
 ' Date      : 1/12/2024
 ' Purpose   : A recursive function to build out the dictionary elements representing
@@ -314,18 +332,21 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
         Else
             ' Check for picture
             Set picItem = objItem.Picture
-            If Not picItem Is Nothing Then
-                strPath = GetImagePath(objItem)
-                ' Check path for possible duplicates (menu items with the same name)
-                If this.dImages.Exists(strPath) Then
-                    ' Add a number to make the path unique.
-                    strPath = strPath & this.dImages.Count & "_"
+            ' Not all command bar controls have picture
+            If Not CatchAny(eelNoError, vbNullString) Then
+                If Not picItem Is Nothing Then
+                    strPath = GetImagePath(objItem)
+                    ' Check path for possible duplicates (menu items with the same name)
+                    If this.dImages.Exists(strPath) Then
+                        ' Add a number to make the path unique.
+                        strPath = strPath & this.dImages.Count & "_"
+                    End If
+                    ' Save reference to image objects to use when
+                    ' exporting images to files.
+                    this.dImages.Add strPath, objItem
+                    ' Save path to images in element dictionary
+                    dParent.Add "ImagePath", GetRelativePath(strPath)
                 End If
-                ' Save reference to image objects to use when
-                ' exporting images to files.
-                this.dImages.Add strPath, objItem
-                ' Save path to images in element dictionary
-                dParent.Add "ImagePath", GetRelativePath(strPath)
             End If
         End If
     Else
@@ -481,8 +502,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    Set IDbComponent_GetFileList = New Dictionary
-    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile, vbNullString
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    Set IDbComponent_GetFileList = m_FileList
 End Function
 
 
@@ -668,6 +689,7 @@ Private Sub Class_Initialize()
         .Add "Top"
         .Add "Type"
         .Add "Width"
+        .Add "Position"
     End With
 
     ' CommmandBarControl Properties

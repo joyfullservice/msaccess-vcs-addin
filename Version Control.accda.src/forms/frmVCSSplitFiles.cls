@@ -147,3 +147,16 @@ Private Sub cmdSplitFiles_Click()
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Form_Load
+' Author    : Adam Waller
+' Date      : 3/22/2024
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Load()
+    Translation.ApplyTo Me
+    MakeDialogResizable Me
+End Sub

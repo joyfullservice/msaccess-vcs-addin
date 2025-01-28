@@ -17,10 +17,10 @@ Begin Form
     GridY =24
     DatasheetFontHeight =11
     ItemSuffix =67
-    Left =-25575
-    Top =1500
-    Right =-255
-    Bottom =14085
+    Left =3225
+    Top =2430
+    Right =22545
+    Bottom =14895
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -871,17 +871,17 @@ Begin Form
                                     TextAlign =1
                                     Left =540
                                     Top =2100
-                                    Width =3060
+                                    Width =3480
                                     Height =1440
                                     FontSize =10
                                     ForeColor =5324600
                                     Name ="lblSubheading"
                                     Caption ="Click the Install button to install or update the add-in.\015\012\015\012In some"
-                                        " more secure environments, you may need to adjust additional options to use this"
-                                        " addin."
+                                        " more secure environments,\015\012you may need to adjust additional\015\012optio"
+                                        "ns to use this addin."
                                     LayoutCachedLeft =540
                                     LayoutCachedTop =2100
-                                    LayoutCachedWidth =3600
+                                    LayoutCachedWidth =4020
                                     LayoutCachedHeight =3540
                                     ForeThemeColorIndex =-1
                                     ForeTint =100.0

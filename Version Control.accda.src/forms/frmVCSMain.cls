@@ -42,8 +42,8 @@ Public Sub cmdBuild_Click()
 
     ' Make sure we use the add-in to build the add-in.
     If CodeProject.FullName = CurrentProject.FullName Then
-        MsgBox2 "Build must be run from Add-In", "Instead of opening this form to build the add-in," & vbCrLf & _
-            "please install and use the Version Control add-in from the Add-in menu", , vbExclamation
+        MsgBox2 T("Build must be run from Add-In"), T("Instead of opening this form to build the add-in," & vbCrLf & _
+            "please install and use the Version Control add-in from the Add-in menu"), , vbExclamation
         DoCmd.Hourglass False
         Exit Sub
     End If
@@ -57,7 +57,10 @@ Public Sub cmdBuild_Click()
         ' a folder picker dialog.
         strFolder = GetSourceFolder
         ' Exit out of build if the user cancelled any of the confirmations.
-        If strFolder = vbNullString Then Exit Sub
+        If strFolder = vbNullString Then
+            DoCmd.Close acForm, Me.Name
+            Exit Sub
+        End If
     End If
 
     ' Build project using the selected source folder
@@ -88,15 +91,15 @@ Private Function GetSourceFolder() As String
     ' Close the current database if it is currently open.
     If DatabaseFileOpen Then
         If FolderHasVcsOptionsFile(Options.GetExportFolder) Then
-            strMsg(0) = "Build " & CurrentVBProject.Name & " (" & CurrentProject.Name & ") from source?"
+            strMsg(0) = T("Build {0} ({1}) from source?", var0:=CurrentVBProject.Name, var1:=CurrentProject.Name)
             If chkFullBuild Then
-                strMsg(1) = "Click 'Yes' to rebuild* this database from source files in this folder:" & vbCrLf & Options.GetExportFolder & vbCrLf & _
-                    "* (This database will be renamed as a backup before building " & CurrentProject.Name & " from source.)"
+                strMsg(1) = T("Click 'Yes' to rebuild* this database from source files in this folder:") & vbCrLf & Options.GetExportFolder & vbCrLf & _
+                    T("* (This database will be renamed as a backup before building {0} from source.)", var0:=CurrentProject.Name)
             Else
-                strMsg(1) = "Click 'Yes' to merge* any changed source files into this database." & vbCrLf & _
-                    "* (A backup of this database will be created before importing any source files.)"
+                strMsg(1) = T("Click 'Yes' to merge* any changed source files into this database." & vbCrLf & _
+                    "* (A backup of this database will be created before importing any source files.)")
             End If
-            strMsg(2) = "Click 'No' to select another project, or 'Cancel' to go back to the previous screen."
+            strMsg(2) = T("Click 'No' to select another project, or 'Cancel' to go back to the previous screen.")
             If Not chkFullBuild And Not Me.Visible Then
                 ' Skip confirmation for merge build initiated from Ribbon
                 intChoice = vbYes
@@ -123,9 +126,9 @@ Private Function GetSourceFolder() As String
         DoCmd.Hourglass False
         With Application.FileDialog(msoFileDialogFolderPicker)
             .AllowMultiSelect = False
-            .ButtonName = "Select Source Files Folder"
+            .ButtonName = T("Select Source Files Folder")
             '.InitialFileName = Options.GetExportFolder
-            .Title = "Select Source Folder"
+            .Title = T("Select Source Folder")
             .Show
             If .SelectedItems.Count > 0 Then
                 ' Selected a folder
@@ -134,8 +137,8 @@ Private Function GetSourceFolder() As String
                     GetSourceFolder = .SelectedItems(1) & PathSep
                     DoCmd.Hourglass True
                 Else
-                    MsgBox2 "Source files not found", "Required source files were not found in this folder.", _
-                        "You selected: " & .SelectedItems(1), vbExclamation
+                    MsgBox2 T("Source files not found"), T("Required source files were not found in this folder."), _
+                        T("You selected: {0}", var0:=.SelectedItems(1)), vbExclamation
                     Exit Function
                 End If
             Else
@@ -171,9 +174,8 @@ Public Sub StartBuild(blnFullBuild As Boolean)
     Me.Visible = True
 
     ' Show the status
-    strType = IIf(blnFullBuild, "Building", "Merging")
-    SetStatusText "Running...", strType & " From Source", _
-        "A summary of the build progress can be seen on this screen, and additional details are included in the log file."
+    SetStatusText T("Running..."), IIf(blnFullBuild, T("Building From Source"), T("Merging From Source")), _
+        T("A summary of the build progress can be seen on this screen, and additional details are included in the log file.")
 
 End Sub
 
@@ -188,16 +190,16 @@ End Sub
 Public Sub FinishBuild(blnFullBuild As Boolean _
                         , Optional blnSuccess As Boolean = True)
 
-    Dim strType As String
+    Dim strMessage As String
 
     ' Turn on scroll bars in case the user wants to scroll back through the log.
     txtLog.ScrollBars = 2
 
     ' Display final UI messages.
     Log.Flush
-    strType = IIf(blnFullBuild, "Build", "Merge") & IIf(blnSuccess, " Complete", " FAILED")
-    SetStatusText "Finished", strType, _
-        "Additional details can be found in the project " & LCase(strType) & " log file.<br><br>You may now close this window."
+    strMessage = T(IIf(blnFullBuild, "Build", "Merge")) & " " & T(IIf(blnSuccess, "Complete", "FAILED"))
+    SetStatusText T("Finished"), strMessage _
+        , T("Additional details can be found in the project log file.<br><br>You may now close this window.")
     cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     Me.strLastLogFilePath = Log.LogFilePath
 
@@ -228,8 +230,8 @@ End Sub
 '
 Private Sub SetBuildCaption()
     cmdBuild.Caption = IIf(chkFullBuild, _
-        " Build from Source", _
-        " Merge from Source")
+        T("  Build From Source"), _
+        T("  Merge From Source"))
 End Sub
 
 
@@ -257,9 +259,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function ConfirmCancel() As Boolean
-    ConfirmCancel = MsgBox2("Cancel Current Operation?", _
-        "You are in the midst of a running process. Are you sure you want to cancel?", _
-        "Click [Yes] to cancel the process, or [No] to resume.", _
+    ConfirmCancel = MsgBox2(T("Cancel Current Operation?"), _
+        T("You are in the midst of a running process. Are you sure you want to cancel?"), _
+        T("Click [Yes] to cancel the process, or [No] to resume."), _
         vbYesNo + vbDefaultButton2 + vbExclamation, , vbYes) = vbYes
 End Function
 
@@ -284,8 +286,9 @@ Public Sub cmdExport_Click()
     Log.SetConsole Me.txtLog, GetProgressBar
 
     ' Show the status
-    SetStatusText "Running...", "Exporting source code", _
-        "A summary of the export progress can be seen on this screen, and additional details are included in the log file."
+    SetStatusText T("Running..."), T("Exporting source code"), _
+        T("A summary of the export progress can be seen on this screen, " & _
+            "and additional details are included in the log file.")
 
     ' See if we are exporting a single object, or everything.
     If Me.objSingleObject Is Nothing Then
@@ -301,8 +304,8 @@ Public Sub cmdExport_Click()
 
     ' Don't attempt to access controls if we are in the process of closing the form.
     If FormLoaded(Me) Then
-        SetStatusText "Finished", "Export Complete", _
-            "Additional details can be found in the project export log file.<br><br>You may now close this window."
+        SetStatusText T("Finished"), T("Export Complete"), _
+            T("Additional details can be found in the project log file.<br><br>You may now close this window.")
         cmdOpenLogFile.Visible = (Me.strLastLogFilePath <> vbNullString)
         Me.strLastLogFilePath = Me.strLastLogFilePath
         DoEvents
@@ -348,9 +351,14 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdOptions_Click()
-    ' Force reload of options from current project before opening the form.
-    Set Options = Nothing
-    Form_frmVCSOptions.Visible = True
+    If DatabaseFileOpen Then
+        ' Force reload of options from current project before opening the form.
+        Set Options = Nothing
+        Form_frmVCSOptions.Visible = True
+    Else
+        ' The table data subform may crash Access when the options form is closed with no database open.
+        MsgBox2 T("No Database Open"), T("Please open a database file before configuring VCS options."), , vbInformation
+    End If
 End Sub
 
 
@@ -364,12 +372,15 @@ End Sub
 '
 Public Sub Form_Load()
 
-    ' Display version (better performance than bound control)
-    lblVersion.Caption = "Version " & GetVCSVersion()
+    ' Load translations
+    Translation.ApplyTo Me
 
-    SetStatusText "Choose Action", "What would you like to do?", _
-        "<strong><em>Export</em></strong> source to generate source files from the current database." & _
-        "<br><br><strong><em>Import</em></strong> source files to rebuild this database from source."
+    ' Display version (better performance than bound control)
+    lblVersion.Caption = T("Version {0}", var0:=GetVCSVersion())
+
+    SetStatusText T("Choose Action"), T("What would you like to do?"), _
+        T("<strong><em>Export</em></strong> source to generate source files from the current database." & _
+        "<br><br><strong><em>Import</em></strong> source files to rebuild this database from source.")
 
     ' Set defaults based on current options.
     chkFullBuild = Not Options.UseMergeBuild
@@ -497,7 +508,7 @@ Private Sub Form_Unload(Cancel As Integer)
 
     ' Check to see if we have an active job running.
     If Log.Active Then
-        If ConfirmCancel Then Log.Error eelCritical, "Canceled Operation", Me.Name & ".Form_Unload"
+        If ConfirmCancel Then Log.Error eelCritical, T("Canceled Operation"), Me.Name & ".Form_Unload"
         ' Either way, we want the log to complete first.
         Cancel = True
         intAttempt = intAttempt + 1

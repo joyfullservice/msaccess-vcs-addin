@@ -40,9 +40,14 @@ End Sub
 '
 Public Sub ShowOptions()
     If HasFormOpen Then Exit Sub
-    ' Force reload of options from current project before opening the form.
-    Set modObjects.Options = Nothing
-    DoCmd.OpenForm "frmVCSOptions"
+    If DatabaseFileOpen Then
+        ' Force reload of options from current project before opening the form.
+        Set modObjects.Options = Nothing
+        DoCmd.OpenForm "frmVCSOptions"
+    Else
+        ' The table data subform may crash Access when the options form is closed with no database open.
+        MsgBox2 "No Database Open", "Please open a database file before configuring VCS options.", , vbInformation
+    End If
 End Sub
 
 
@@ -472,7 +477,7 @@ Private Sub Class_Initialize()
     ' When the class is initialized, make sure the ribbon is active (if installed).
     ' This way if the COM add-in is not active, it will be automatically activated
     ' when the add-in is opened from the [Database Tools\Add-ins] menu. (See #451)
-    modCOMAddIn.VerifyRibbon
+    If GetInstallSettings.blnUseRibbonAddIn Then modCOMAddIn.VerifyRibbon
 End Sub
 
 
