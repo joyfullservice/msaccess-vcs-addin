@@ -179,7 +179,7 @@ Retry:
     If CatchAny(eelError, "Retry FSO Check", FunctionName, False, True) And RetryCount < 2 Then
         ' Some machines in some environments may fail to generate the FileSystemObject the first time.
         ' 99% of retries the second attempt will work. This may be due to a race condition in the OS.
-        ' RetryCount prevents a permanent loop if for some reason the second attempt fails out, and in 
+        ' RetryCount prevents a permanent loop if for some reason the second attempt fails out, and in
         ' those cases additional tries are also likely to fail.
         RetryCount = RetryCount + 1
         GoTo Retry
