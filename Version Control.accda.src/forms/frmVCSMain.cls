@@ -187,17 +187,19 @@ End Sub
 ' Purpose   : Finish the build process
 '---------------------------------------------------------------------------------------
 '
-Public Sub FinishBuild(blnFullBuild As Boolean) 'Optional strType As String = "Build")
+Public Sub FinishBuild(blnFullBuild As Boolean _
+                        , Optional blnSuccess As Boolean = True)
 
-    Dim strType As String
+    Dim strMessage As String
 
     ' Turn on scroll bars in case the user wants to scroll back through the log.
     txtLog.ScrollBars = 2
 
     ' Display final UI messages.
     Log.Flush
-    SetStatusText T("Finished"), IIf(blnFullBuild, T("Build Complete"), T("Merge Complete")), _
-        T("Additional details can be found in the project log file.<br><br>You may now close this window.")
+    strMessage = T(IIf(blnFullBuild, "Build", "Merge")) & " " & T(IIf(blnSuccess, "Complete", "FAILED"))
+    SetStatusText T("Finished"), strMessage _
+        , T("Additional details can be found in the project log file.<br><br>You may now close this window.")
     cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     Me.strLastLogFilePath = Log.LogFilePath
 

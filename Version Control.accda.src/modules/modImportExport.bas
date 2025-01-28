@@ -89,7 +89,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             Log.Flush
             If MsgBox2(T("Newer VCS Version Detected"), _
                 T("This project uses VCS version {0}, but version {1} is currently installed." & _
-                    vbCrLf & "Would you like to continue anyway?", _
+                    vbNewLine & "Would you like to continue anyway?", _
                     var0:=Options.GetLoadedVersion, var1:=GetVCSVersion), _
                 T("Click YES to continue this operation, or NO to cancel."), _
                 vbExclamation + vbYesNo + vbDefaultButton2) <> vbYes Then
@@ -264,7 +264,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbCrLf & Perf.GetReports, False
+        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
         .Active = False
         .Flush
@@ -408,7 +408,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbCrLf & Perf.GetReports, False
+        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
         .Active = False
         .Flush
@@ -605,7 +605,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbCrLf & Perf.GetReports, False
+        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
         .Active = False
         .Flush
@@ -690,11 +690,16 @@ End Sub
 ' Purpose   : Build the project from source files.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
-    Optional intFilter As eContainerFilter = ecfAllObjects, Optional strAlternatePath As String)
+Public Sub Build(strSourceFolder As String _
+                , blnFullBuild As Boolean _
+                , Optional intFilter As eContainerFilter = ecfAllObjects _
+                , Optional strAlternatePath As String)
+
+    Const FunctionName As String = ModuleName & ".Build"
 
     Dim strPath As String
     Dim strBackup As String
+    Dim strCurrentDbFilename As String
     Dim cCategory As IDbComponent
     Dim dCategories As Dictionary
     Dim varCategory As Variant
@@ -706,13 +711,68 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
 
     Dim strText As String   ' Remove later
 
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
 
     ' Close the previous cached connections, if any
     CloseCachedConnections
 
     ' The type of build will be used in various messages and log entries.
     strType = IIf(blnFullBuild, T("Build"), T("Merge"))
+
+    ' We need to check the current db name later, so we need to cache it (especially for builds).
+    strCurrentDbFilename = CurrentProject.FullName
+
+    ' Make sure we can find the source files
+    If Not FolderHasVcsOptionsFile(strSourceFolder) Then
+        MsgBox2 T("Source files not found") _
+            , T("Required source files were not found in the following folder:"), strSourceFolder, vbExclamation
+        GoTo CleanUp
+    End If
+
+    ' Verify that the source files are being merged into the correct database.
+    strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
+    ' Resolve any relative directives (i.e. "\..\") to actual path
+    If FSO.FileExists(strPath) Then strPath = FSO.GetFile(strPath).Path
+    If strPath = vbNullString Then
+        MsgBox2 T("Unable to determine database file name.") _
+            , T("Required source files were not found or could not be parsed: "), strSourceFolder, vbExclamation
+        GoTo CleanUp
+
+    ElseIf StrComp(strPath, strCurrentDbFilename, vbTextCompare) <> 0 Then
+        If blnFullBuild Then
+            ' Full build allows you to use source file name.
+            If Not MsgBox2(T("Current Database filename does not match source filename.") _
+                            , T("Do you want to {0} to the Source Defined Filename?" & vbNewLine & vbNewLine & _
+                                "Current: {1}" & vbNewLine & _
+                                "Source: {2}", var0:=strType, var1:=strCurrentDbFilename, var2:=strPath) _
+                            , T("[Ok] = Build with Source Configured Name") & vbNewLine & vbNewLine & _
+                                T("Otherwise cancel and select 'Build As...' from the ribbon to change build name. " & _
+                                "Performing an export from this file name will also reset the file name, but will " & _
+                                "overwrite source. If this file stared as a copy of an existing source controlled " & _
+                                "database, select 'Build As...' to avoid overwriting.") _
+                            , vbQuestion + vbOKCancel + vbDefaultButton1 _
+                            , T("{0} Name Conflict", var0:=strType) _
+                            , vbOK) = vbOK Then
+
+                ' Launch the GUI form (it was closed a moment ago)
+                DoCmd.OpenForm "frmVCSMain"
+                Form_frmVCSMain.StartBuild blnFullBuild
+                Log.Error eelCritical, T("{0} aborted. Name mismatch.", var0:=strType), FunctionName
+                GoTo CleanUp
+            End If
+
+        Else
+            MsgBox2 T("Cannot {0} to a different database.", var0:=strType) _
+                , T("The database file name for the source files must match the currently open database.") _
+                , T("Current: {0}" & vbNewLine & _
+                    "Source: {1}", var0:=strCurrentDbFilename, var1:=strPath), vbExclamation _
+                , T("{0} Name Conflict", var0:=strType) _
+                , vbOK
+
+            GoTo CleanUp
+        End If
+    End If
 
     ' For full builds, close the current database if it is currently open.
     If blnFullBuild Then
@@ -726,42 +786,23 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
         End If
     End If
 
-    ' Make sure we can find the source files
-    If Not FolderHasVcsOptionsFile(strSourceFolder) Then
-        MsgBox2 T("Source files not found"), T("Required source files were not found in the following folder:"), strSourceFolder, vbExclamation
-        GoTo CleanUp
-    End If
-
-    ' Verify that the source files are being merged into the correct database.
-    If Not blnFullBuild Then
-        strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
-        ' Resolve any relative directives (i.e. "\..\") to actual path
-        If FSO.FileExists(strPath) Then strPath = FSO.GetFile(strPath).Path
-        If strPath = vbNullString Then
-            MsgBox2 T("Unable to determine database file name"), T("Required source files were not found or could not be parsed:"), strSourceFolder, vbExclamation
-            GoTo CleanUp
-        ElseIf StrComp(strPath, CurrentProject.FullName, vbTextCompare) <> 0 Then
-            MsgBox2 T("Cannot merge to a different database"), _
-                T("The database file name for the source files must match the currently open database."), _
-                T("Current: {0}" & vbCrLf & "Source: {1}", var0:=CurrentProject.FullName, var1:=strPath), vbExclamation
-            GoTo CleanUp
-        End If
-    End If
-
     ' Load options from project
     Set Options = Nothing
     Options.LoadOptionsFromFile StripSlash(strSourceFolder) & PathSep & "vcs-options.json"
     ' Override the export folder when exporting to an alternate path.
     If Len(strAlternatePath) Then Options.ExportFolder = strSourceFolder
+
     ' Update VBA debug mode after loading options
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
 
     ' Build original file name for database
     If blnFullBuild Then
         ' Use alternate path if provided, otherwise extract the original database path from the source files.
         strPath = Nz2(strAlternatePath, GetOriginalDbFullPathFromSource(strSourceFolder))
         If strPath = vbNullString Then
-            MsgBox2 T("Unable to determine database file name"), T("Required source files were not found or could not be parsed:"), strSourceFolder, vbExclamation
+            MsgBox2 T("Unable to determine database file name") _
+                , T("Required source files were not found or could not be parsed:"), strSourceFolder, vbExclamation
             GoTo CleanUp
         End If
     Else
@@ -816,8 +857,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
     If Options.CompareLoadedVersion = evcNewerVersion Then
         If MsgBox2(T("Newer VCS Version Detected"), _
             T("This project uses VCS version {0} but version {1} is currently installed." & _
-                vbCrLf & "Would you like to continue anyway?", _
-            var0:=Options.GetLoadedVersion, var1:=GetVCSVersion), _
+                    vbNewLine & "Would you like to continue anyway?" _
+                , var0:=Options.GetLoadedVersion, var1:=GetVCSVersion), _
             T("Click YES to continue this operation, or NO to cancel."), _
             vbExclamation + vbYesNo + vbDefaultButton2) <> vbYes Then
             Log.ErrorLevel = eelCritical
@@ -831,7 +872,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
         If FSO.FileExists(strPath) Then
             Log.Add T("Saving backup of original database...")
             Name strPath As strBackup
-            If CatchAny(eelCritical, T("Unable to rename original file"), ModuleName & ".Build") Then GoTo CleanUp
+            If CatchAny(eelCritical, T("Unable to rename original file"), FunctionName) Then GoTo CleanUp
             Log.Add T("Saved as {0}.", var0:=FSO.GetFileName(strBackup))
         End If
     Else
@@ -853,7 +894,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
         If DatabaseFileOpen Then
             Log.Add T("Created blank database for import. (v{0})", var0:=CurrentProject.FileFormat)
         Else
-            CatchAny eelCritical, T("Unable to create database file"), ModuleName & ".Build"
+            CatchAny eelCritical, T("Unable to create database file"), FunctionName
             Log.Add T("This may occur when building an older database version if the " & _
                 "'New database sort order' (collation) option is not set to 'Legacy'")
             GoTo CleanUp
@@ -864,7 +905,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
     Set VCSIndex = Nothing
 
     If blnFullBuild Then
-
         ' Remove any non-built-in references before importing from source.
         Log.Add T("Removing non built-in references..."), False
         RemoveNonBuiltInReferences
@@ -874,7 +914,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
             ' Run any pre-build bootstrapping code
             PrepareRunBootstrap
         End If
-
     End If
 
     ' Build collections of files to import/merge
@@ -951,7 +990,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
             LogUnhandledErrors
             Log.Add T("Saving backup of original database...")
             FSO.CopyFile strPath, strBackup
-            If CatchAny(eelCritical, T("Unable to back up current database"), ModuleName & ".Build") Then GoTo CleanUp
+            If CatchAny(eelCritical, T("Unable to back up current database"), FunctionName) Then GoTo CleanUp
             Log.Add T("Saved as {0}.", var0:=FSO.GetFileName(strBackup))
         End If
         Log.Spacer
@@ -982,7 +1021,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
                 cCategory.Merge CStr(varFile)
             End If
             CatchAny eelError, T(IIf(blnFullBuild, "Build error in: {0}", "Merge error in: {0}"), _
-                var0:=varFile), ModuleName & ".Build", True, True
+                var0:=varFile), FunctionName, True, True
 
             ' Bail out if we hit a critical error.
             If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
@@ -1048,7 +1087,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean, _
     End If
 
     ' Log any errors after build/merge
-    CatchAny eelError, T("Error running {0}", var0:=CallByName(Options, "RunAfter" & strType, VbGet)), ModuleName & ".Build", True, True
+    CatchAny eelError, T("Error running {0}", var0:=CallByName(Options, "RunAfter" & strType, VbGet)), FunctionName, True, True
 
     ' Show final output and save log
     Log.Spacer
@@ -1063,7 +1102,7 @@ CleanUp:
     ' Add performance data to log file and save file.
     Perf.EndTiming
     With Log
-        .Add vbCrLf & Perf.GetReports, False
+        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
         .Active = False
     End With
@@ -1079,14 +1118,15 @@ CleanUp:
     DoCmd.Hourglass False
     If Forms.Count > 0 Then
         ' Finish up on GUI
-        Form_frmVCSMain.FinishBuild blnFullBuild
+        Form_frmVCSMain.FinishBuild blnFullBuild, blnSuccess
     Else
         ' Allow navigation pane to refresh list of objects.
         DoEvents
     End If
 
     ' Save index file after build is complete, or discard index for "Build As..."
-    If strAlternatePath = vbNullString Then
+    ' discard update if build failed.
+    If strAlternatePath = vbNullString And blnSuccess Then
         If blnFullBuild Then
             ' NOTE: Add a couple seconds since some items may still be in the process of saving.
             VCSIndex.FullBuildDate = DateAdd("s", 2, Now)
@@ -1220,7 +1260,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbCrLf & Perf.GetReports, False
+        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
         .Active = False
         .Flush
@@ -1273,14 +1313,14 @@ Public Sub MergeAllSource()
     ' Display heading
     With Log
         .Spacer
-        .Add "Beginning Merge of All Source Files", False
+        .Add T("Beginning Merge of All Source Files"), False
         .Add CurrentProject.Name
-        .Add "VCS Version " & GetVCSVersion
-        .Add "Full Path: " & CurrentProject.FullName, False
-        .Add "Export Folder: " & Options.GetExportFolder, False
+        .Add T("VCS Version {0}", var0:=GetVCSVersion)
+        .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
+        .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
         .Add Now
         .Spacer
-        .Add "Scanning source files..."
+        .Add T("Scanning source files...")
         .Flush
     End With
 
@@ -1308,11 +1348,11 @@ Public Sub MergeAllSource()
         ' Only show category details when source files are found
         If dFiles.Count = 0 Then
             Log.Spacer Options.ShowDebug
-            Log.Add "No " & LCase(cCategory.Category) & " source files found.", Options.ShowDebug
+            Log.Add T("No {0} source files found.", var0:=LCase(cCategory.Category)), Options.ShowDebug
         Else
             ' Show category header
             Log.Spacer Options.ShowDebug
-            Log.PadRight "Merging " & LCase(cCategory.Category) & "...", , Options.ShowDebug
+            Log.PadRight T("Merging ") & LCase(cCategory.Category) & "...", , Options.ShowDebug
             Log.ProgMax = dFiles.Count
             Perf.CategoryStart cCategory.Category
 
@@ -1322,21 +1362,21 @@ Public Sub MergeAllSource()
                 Log.Increment
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
                 cCategory.Merge CStr(varFile)
-                CatchAny eelError, "Merge error in: " & varFile, ModuleName & ".Build", True, True
+                CatchAny eelError, T("Merge error in: {0}", var0:=varFile), ModuleName & ".MergeAllSource", True, True
 
                 ' Bail out if we hit a critical error.
                 If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
             Next varFile
 
             ' Show category wrap-up.
-            Log.Add "[" & dFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & " processed.", vbNullString)
+            Log.Add "[" & dFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & T(" processed."), vbNullString)
             Perf.CategoryEnd dFiles.Count
         End If
     Next varCategory
 
     ' Show final output and save log
     Log.Spacer
-    Log.Add "Done. (" & Round(Perf.TotalTime, 2) & " seconds)", , False, "green", True
+    Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
 
 CleanUp:
 
@@ -1346,7 +1386,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbCrLf & Perf.GetReports, False
+        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
         .Active = False
         .Flush
@@ -1449,9 +1489,9 @@ Private Sub CheckForLegacyModules()
     If Options.ShowVCSLegacy Then
         If FSO.FileExists(Options.GetExportFolder & FSO.BuildPath("modules", "VCS_ImportExport.bas")) Then
             MsgBox2 T("Legacy Files not Needed"), _
-                T("Other forks of the MSAccessVCS project used additional VBA modules to export code.") & vbCrLf & _
-                T("This is no longer needed when using the installed Version Control Add-in.") & vbCrLf & vbCrLf & _
-                T("Feel free to remove the legacy VCS_* modules from your database project and enjoy" & vbCrLf & _
+                T("Other forks of the MSAccessVCS project used additional VBA modules to export code.") & vbNewLine & _
+                T("This is no longer needed when using the installed Version Control Add-in.") & vbNewLine & vbNewLine & _
+                T("Feel free to remove the legacy VCS_* modules from your database project and enjoy" & vbNewLine & _
                 "a simpler, cleaner code base for ongoing development.  :-)"), _
                 T("NOTE: This message can be disabled in 'Options -> Show Legacy Prompt'."), _
                 vbInformation, T("Just a Suggestion...")

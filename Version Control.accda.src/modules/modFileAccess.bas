@@ -595,9 +595,9 @@ End Function
 ' Purpose   : Returns the UNC path for a network location (if applicable)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetUNCPath(ByRef PathIn As String)
+Public Function GetUncPath(ByRef PathIn As String)
 
-    Const FunctionName As String = ModuleName & ".GetUNCPath"
+    Const FunctionName As String = ModuleName & ".GetUncPath"
     Dim DriveLetter As String
     Dim UNCPath As String
 
@@ -621,7 +621,7 @@ Retry:
             End If
         End If
     End With
-    GetUNCPath = UNCPath
+    GetUncPath = UNCPath
 
 Exit_Here:
     Perf.OperationEnd
