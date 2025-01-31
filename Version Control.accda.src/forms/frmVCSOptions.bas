@@ -1102,7 +1102,7 @@ Begin Form
                                     OverlapFlags =247
                                     Left =1020
                                     Top =3360
-                                    TabIndex =4
+                                    TabIndex =2
                                     Name ="chkExtractThemeFiles"
 
                                     LayoutCachedLeft =1020
@@ -1138,7 +1138,7 @@ Begin Form
                                     Top =3720
                                     Width =1980
                                     Height =315
-                                    TabIndex =2
+                                    TabIndex =3
                                     Name ="cboSanitizeLevel"
                                     RowSourceType ="Value List"
                                     ColumnWidths ="0"
@@ -1176,7 +1176,7 @@ Begin Form
                                     Top =4140
                                     Width =1980
                                     Height =315
-                                    TabIndex =3
+                                    TabIndex =4
                                     Name ="cboSanitizeColors"
                                     RowSourceType ="Value List"
                                     ColumnWidths ="0"

@@ -28,7 +28,7 @@ End Enum
 ' Sanitize levels used for sanitizing general and color elements in source files.
 Public Enum eSanitizeLevel
     eslNone = 0     ' Don't sanitize anything.
-    eslMinimal      ' Sanitize minimal things like GUIDs.
+    eslMinimal = 1  ' Sanitize minimal things like GUIDs.
     eslStandard     ' Remove non-critical elements that cause VCS noise between builds.
     eslExtended     ' Remove as much as possible. May have possible negative effects.
     [_Last]         ' Placeholder for the end of the list.

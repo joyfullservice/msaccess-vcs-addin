@@ -65,6 +65,8 @@ Private m_dEnum As Dictionary
 Private m_strOptionsFilePath As String
 Private m_strLoadedVersion As String
 
+'
+Private m_SaveAfterInitializeUpgrade As Boolean ' Used to indicate a save operation should occur after upgrade.
 
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadDefaults
@@ -227,12 +229,17 @@ End Sub
 '
 Public Sub LoadOptionsFromFile(strFile As String)
 
+    Dim FunctionName As String
+
     Dim dFile As Dictionary
     Dim dOptions As Dictionary
     Dim varOption As Variant
     Dim strKey As String
 
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    FunctionName = ModuleName(Me) & ".LoadOptionsFromFile"
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
 
     ' Save file path, in case we need to use it to determine
     ' the export folder location with no database open.
@@ -271,7 +278,7 @@ Public Sub LoadOptionsFromFile(strFile As String)
     ' Set the build path property when loading options
     SetBuildPath
 
-    CatchAny eelError, "Loading options from " & strFile, ModuleName(Me) & ".LoadOptionsFromFile"
+    CatchAny eelError, "Loading options from " & strFile, FunctionName
 
 End Sub
 
@@ -352,11 +359,18 @@ End Function
 '
 Private Sub Upgrade(ByRef dOptions As Dictionary)
 
+    Dim FunctionName As String
+
     Dim varKey As Variant
     Dim dItem As Dictionary
     Dim varItems As Variant
     Dim colItems As Collection
     Dim varLine As Variant
+
+    FunctionName = ModuleName(Me) & ".Upgrade"
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
 
     ' 6/16/2021
     ' Aggressive sanitize to sanitize levels
@@ -369,6 +383,11 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
             End If
         End If
     End If
+    CatchAny eelError, "Error upgrading legacy sanitize setting.", FunctionName
+
+    ' 2025-Jan-31
+    If dOptions.Exists("SanitizeLevel") Then dOptions("SanitizeLevel") = CheckSanitizeLevel(dOptions("SanitizeLevel"))
+    If dOptions.Exists("SanitizeColors") Then dOptions("SanitizeColors") = CheckSanitizeLevel(dOptions("SanitizeColors"))
 
     ' 11/3/2023
     ' Check option to split VBA from object layout
@@ -386,6 +405,7 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
             ' the default setting.
         End If
     End If
+    CatchAny eelError, "Error upgrading Color Options.", FunctionName
 
     ' 1/9/2024 (4.0.31)
     ' Use collection to store schema filter entries
@@ -409,6 +429,8 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
             Next varKey
         End If
     End If
+
+    CatchAny eelError, "Upgrading options.", FunctionName
 
 End Sub
 
@@ -642,6 +664,51 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CheckSanitizeLevel
+' Author    : Hecon5
+' Date      : 2024-Jan-31
+' Purpose   : Check Sanitize level and warn if off.
+'---------------------------------------------------------------------------------------
+'
+Public Function CheckSanitizeLevel(ByVal intNewSanitizeLevel As eSanitizeLevel _
+                                    , Optional ByVal intPriorSanitizeLevel As eSanitizeLevel = eSanitizeLevel.eslMinimal)
+    ' strongly suggest eslNone is not used as it causes significant problems with
+    ' building.
+    ' Ask user every options load to upgrade.
+    Dim intTempPriorSanitizeLevel As eSanitizeLevel
+
+    intTempPriorSanitizeLevel = IIf(intPriorSanitizeLevel >= eslMinimal, intPriorSanitizeLevel, eslMinimal)
+
+    If intNewSanitizeLevel = eslNone Then
+        If MsgBox2(T("Warning: Sanitize level set to {0}. This will likely cause problems with building from source." _
+                    , var0:=GetSanitizeLevelName(intNewSanitizeLevel)) _
+                , T("It is recommended to set sanitization to at least {1}. Find Sanitization settings in Options > Export Tab." _
+                    , var1:=GetSanitizeLevelName(eslMinimal)) _
+                , T("Set to '{0}'?" & vbNewLine & vbNewLine & _
+                   "[Yes] = Set to '{0}'." & vbNewLine & vbNewLine & _
+                   "[No] = Leave setting. I understand this may cause problems on build." _
+                    , var0:=GetSanitizeLevelName(intTempPriorSanitizeLevel)) _
+                , vbDefaultButton1 + vbExclamation + vbYesNo _
+                , T("Sanitization Level Alert")) = vbYes Then
+
+                If intPriorSanitizeLevel > eslNone Then
+                    CheckSanitizeLevel = intPriorSanitizeLevel
+                Else
+                    CheckSanitizeLevel = eSanitizeLevel.eslMinimal
+                End If
+                m_SaveAfterInitializeUpgrade = True ' request a save if this is a class initialization.
+        Else
+            CheckSanitizeLevel = intNewSanitizeLevel
+        End If
+
+    Else
+        CheckSanitizeLevel = intNewSanitizeLevel
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetSanitizeLevelName
 ' Author    : Hecon5 (as adapted from Adam Waller's below)
 ' Date      : 6/09/2021
@@ -768,6 +835,7 @@ Private Sub Class_Initialize()
 
     ' Load saved defaults
     LoadDefaultOptions
+    If m_SaveAfterInitializeUpgrade Then Me.SaveOptionsForProject
 
     ' Other run-time options
     JsonOptions.AllowUnicodeChars = True

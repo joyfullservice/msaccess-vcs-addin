@@ -699,7 +699,7 @@ Private Sub Form_Load()
     ' Load general sanitize options
     With Me.cboSanitizeLevel
         .RowSource = vbNullString
-        For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
+        For intSanitizeLevel = eSanitizeLevel.eslNone To (eSanitizeLevel.[_Last] - 1)
             .AddItem intSanitizeLevel & ";" & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
     End With
@@ -707,7 +707,7 @@ Private Sub Form_Load()
     ' Load color sanitize options
     With Me.cboSanitizeColors
         .RowSource = vbNullString
-        For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
+        For intSanitizeLevel = eSanitizeLevel.eslNone To (eSanitizeLevel.[_Last] - 1)
             .AddItem intSanitizeLevel & ";" & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
     End With
@@ -776,7 +776,7 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                                     ctl = CallByName(Options, strKey, VbGet)
                                 ElseIf eAction = emaFormToClass Then
                                     ' Check for any hooks on option change
-                                    OnOptionChange strKey, Nz(ctl.Value)
+                                    OnOptionChange strKey, Nz(ctl.Value), ctl
                                     ' Set the option value
                                     CallByName Options, strKey, VbLet, Nz(ctl.Value)
                                 End If
@@ -815,7 +815,9 @@ End Sub
 '           : from their existing values. Add any specific rules here.
 '---------------------------------------------------------------------------------------
 '
-Private Sub OnOptionChange(strName As String, varNewValue As Variant)
+Private Sub OnOptionChange(ByVal strName As String _
+                            , ByRef varNewValue As Variant _
+                            , Optional ByRef ctlChecked As Control)
 
     Dim blnChanged As Boolean
 
@@ -826,6 +828,9 @@ Private Sub OnOptionChange(strName As String, varNewValue As Variant)
     ' Define actual rules here
     Select Case strName
 
+        Case "SanitizeColors", "SanitizeLevel"
+            CallByName Options, strName, VbLet, Options.CheckSanitizeLevel(varNewValue, CallByName(Options, strName, VbGet))
+            ctlChecked.Value = CallByName(Options, strName, VbGet)
         ' If a user turns on the option to split files
         Case "SplitLayoutFromVBA"
             If varNewValue = True Then
