@@ -233,7 +233,8 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 2/23/2022
 ' Purpose   : Returns true if a compare tool has been selected, and appears to be
-'           : valid for use.
+'           : valid for use. (This can be extended to validate the presence of specific
+'           : tools in the current environment.)
 '---------------------------------------------------------------------------------------
 '
 Public Function HasValidCompareTool() As Boolean
@@ -241,12 +242,18 @@ Public Function HasValidCompareTool() As Boolean
     ' Check the current option for compare tool.
     Select Case Me.ToolName
 
-        Case "WinMerge", "VSCode"
+        Case vbNullString
+            ' No tool selected in options
+            HasValidCompareTool = False
+
+        Case "WinMerge", "VSCode", "TortoiseGitDiff"
             ' These tools probably exist in the environment path
             HasValidCompareTool = True
 
         Case Else
-            ' No tool selected.
+            ' A custom file path was likely used. Assume it is valid.
+            HasValidCompareTool = True
+
     End Select
 
 End Function
