@@ -57,6 +57,7 @@ Public Function GetContainers(Optional intFilter As eContainerFilter = ecfAllObj
                 .Add New clsDbVbeForm
                 .Add New clsDbProjProperty
                 .Add New clsDbSavedSpec
+                .Add New clsDbModule
                 .Add New clsDbCommandBar
                 If blnADP Then
                     ' Some types of objects only exist in ADP projects
@@ -79,7 +80,6 @@ Public Function GetContainers(Optional intFilter As eContainerFilter = ecfAllObj
                 .Add New clsDbMacro
                 .Add New clsDbReport
                 .Add New clsDbTableData
-                .Add New clsDbModule
                 If blnMDB Then
                     .Add New clsDbTableDataMacro
                     .Add New clsDbRelation
@@ -91,9 +91,9 @@ Public Function GetContainers(Optional intFilter As eContainerFilter = ecfAllObj
             ' Process only items that may contain VBA code
             Case ecfVBAItems
 
+                .Add New clsDbModule
                 .Add New clsDbForm
                 .Add New clsDbReport
-                .Add New clsDbModule
 
         End Select
     End With
