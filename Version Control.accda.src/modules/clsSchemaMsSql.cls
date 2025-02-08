@@ -303,6 +303,7 @@ Private Function CanUseGetDDL() As Boolean
         If intUseSP = essUnavailable Then
             Log.Add "   Note: sp_GetDDL was not available for generating object definitions. Using built-in SQL functions instead.", False
             Log.Add "   This system stored procedure can be found at: http://www.stormrage.com/2022/03/16/sp_getddla-and-sp_getddl/", False
+            Log.Add "   or at https://web.archive.org/web/20230928112439/https://stormrage.com/SQLStuff/sp_GetDDL_Latest.txt", False
         End If
     End If
 
