@@ -180,7 +180,7 @@ Private Sub RunCompare(strFile1 As String, strFile2 As String)
             strCmd = strCmd & " --diff ""{file1}"" ""{file2}"""
 
         Case "TortoiseGitDiff"
-            strCmd = "TortoiseGitProc.exe /Command:diff -path ""{file1}"" -path2 ""{file2}"""
+            strCmd = "TortoiseGitProc.exe /Command:diff -path ""{file1}"" -path2 ""{file2}"" -closeonend 2"
 
         Case Else
             ' Assume they have a custom path defined
