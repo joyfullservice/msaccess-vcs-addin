@@ -410,6 +410,14 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
         End If
     End If
 
+    ' 2/8/2025 (4.0.39)
+    ' Remove UI option for SanitizeLevel = None (#554)
+    If dOptions.Exists("SanitizeLevel") Then
+        If dOptions("SanitizeLevel") = eSanitizeLevel.eslNone Then
+            dOptions("SanitizeLevel") = eSanitizeLevel.eslMinimal
+        End If
+    End If
+
 End Sub
 
 

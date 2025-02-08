@@ -699,7 +699,7 @@ Private Sub Form_Load()
     ' Load general sanitize options
     With Me.cboSanitizeLevel
         .RowSource = vbNullString
-        For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
+        For intSanitizeLevel = eslMinimal To (eSanitizeLevel.[_Last] - 1)
             .AddItem intSanitizeLevel & ";" & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
     End With
