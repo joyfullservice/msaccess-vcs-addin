@@ -172,18 +172,26 @@ Private Sub RunCompare(strFile1 As String, strFile2 As String)
             Exit Sub
 
         Case "WinMerge"
-            strCmd = "WinMerge """ & strFile1 & """ """ & strFile2 & """"
+            strCmd = "WinMerge ""{file1}"" ""{file2}"""
 
         Case "VSCode"
             strCmd = VSCodePath
             If strCmd = vbNullString Then strCmd = "code"
-            strCmd = strCmd & " --diff """ & strFile1 & """ """ & strFile2 & """"
+            strCmd = strCmd & " --diff ""{file1}"" ""{file2}"""
+
+        Case "TortoiseGitDiff"
+            strCmd = "TortoiseGitProc.exe /Command:diff -path ""{file1}"" -path2 ""{file2}"""
 
         Case Else
             ' Assume they have a custom path defined
-            strCmd = Me.ToolName & " """ & strFile1 & """ """ & strFile2 & """"
+            strCmd = Me.ToolName & " ""{file1}"" ""{file2}"""
 
     End Select
+
+    ' Fill in file name placeholders
+    strCmd = MultiReplace(strCmd, Array( _
+        "{file1}", strFile1, _
+        "{file2}", strFile2))
 
     ' Run command to launch compare
     LogUnhandledErrors
