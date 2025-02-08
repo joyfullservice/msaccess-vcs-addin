@@ -10,6 +10,8 @@ Option Explicit
 
 ' Note, some enums are listed here when they are directly exposed
 ' through the Options and VCS classes. (Allowing them to be used externally)
+' Use hard-coded enum index values to preserve user settings in existing projects
+' if new values are added in the future.
 
 ' Control the interaction mode
 Public Enum eInteractionMode
@@ -22,15 +24,15 @@ Public Enum eTableDataExportFormat
     etdNoData = 0
     etdTabDelimited = 1
     etdXML = 2
-    [_Last] = 2
+    [_Last]
 End Enum
 
 ' Sanitize levels used for sanitizing general and color elements in source files.
 Public Enum eSanitizeLevel
     eslNone = 0     ' Don't sanitize anything.
-    eslMinimal      ' Sanitize minimal things like GUIDs.
-    eslStandard     ' Remove non-critical elements that cause VCS noise between builds.
-    eslExtended     ' Remove as much as possible. May have possible negative effects.
+    eslMinimal = 1  ' Sanitize minimal things like GUIDs.
+    eslStandard = 2 ' Remove non-critical elements that cause VCS noise between builds.
+    eslExtended = 3 ' Remove as much as possible. May have possible negative effects.
     [_Last]         ' Placeholder for the end of the list.
 End Enum
 

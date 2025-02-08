@@ -56,7 +56,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     End If
 
     ' Save as selected format, and remove other formats if they exist.
-    For intFormat = 1 To eTableDataExportFormat.[_Last]
+    For intFormat = 1 To eTableDataExportFormat.[_Last] - 1
         ' Build file name for this format
         strFile = Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat))
         If FSO.FileExists(strFile) Then DeleteFile strFile, True

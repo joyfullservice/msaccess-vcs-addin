@@ -689,7 +689,7 @@ Private Sub Form_Load()
     Set frmTableData = Me.sfrmTableData.Form
     With frmTableData.cboFormatType
         .RowSource = vbNullString
-        For intFormat = eTableDataExportFormat.etdNoData To eTableDataExportFormat.[_Last]
+        For intFormat = eTableDataExportFormat.etdNoData To eTableDataExportFormat.[_Last] - 1
             .AddItem intFormat & ";""" & Options.GetTableExportFormatName(intFormat) & """", intFormat
         Next intFormat
         Me.cboFormatTypeForOther.RowSource = .RowSource
@@ -707,7 +707,7 @@ Private Sub Form_Load()
     ' Load color sanitize options
     With Me.cboSanitizeColors
         .RowSource = vbNullString
-        For intSanitizeLevel = 0 To (eSanitizeLevel.[_Last] - 1)
+        For intSanitizeLevel = eslNone To (eSanitizeLevel.[_Last] - 1)
             .AddItem intSanitizeLevel & ";" & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
     End With
