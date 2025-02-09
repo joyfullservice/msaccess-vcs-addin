@@ -61,6 +61,9 @@ Public Function GetRibbonStrings() As Dictionary
     ' Tools group
     AddCtl "grpTools", "Tools"
 
+        AddCtl "btnOpenRepository", "Open Repository", _
+            strSupertip:="Open the source code repository using the application specified in the add-in options"
+
         AddCtl "btnOpenSourceFolder", "Source Folder", _
             strSupertip:="Open the source folder for the current project."
 

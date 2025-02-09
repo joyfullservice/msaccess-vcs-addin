@@ -313,6 +313,28 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : OpenRepository
+' Author    : Adam Waller
+' Date      : 2/8/2025
+' Purpose   : Open the configured tool for interacting with the repository.
+'           : (I.e GitHub Desktop or SourceTree)
+'---------------------------------------------------------------------------------------
+'
+Public Sub OpenRepository()
+    Select Case Options.RepositoryApp
+        Case eraGitHubDesktop
+            ' Open GitHub Desktop, and switch to the relevant repository.
+            ' Utilizes a built-in batch file installed as a part of GitHub Desktop
+            ShellEx "GitHub.bat", """" & StripSlash(Options.GetExportFolder) & """", , False
+        Case eraSourceTree
+            ' TODO
+        Case eraTortoiseGit
+            ' TODO
+    End Select
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : OpenSourceFolder
 ' Author    : Adam Waller
 ' Date      : 4/1/2022

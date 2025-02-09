@@ -136,6 +136,17 @@
 		  getVisible ="GetVisible"
 		  getLabel="GetLabel"
 		>
+		  <button
+			id="btnOpenRepository"
+			size="large"
+			imageMso="FileServerTransferDatabase"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
           <button
 			id="btnOpenSourceFolder"
 			size="large"

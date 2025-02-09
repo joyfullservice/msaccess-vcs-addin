@@ -36,6 +36,13 @@ Public Enum eSanitizeLevel
     [_Last]         ' Placeholder for the end of the list.
 End Enum
 
+' Applications used to interact with source code repository
+Public Enum eRepositoryApp
+    eraGitHubDesktop = 0
+    eraSourceTree = 1
+    eraTortoiseGit = 2
+End Enum
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : HandleRibbonCommand
