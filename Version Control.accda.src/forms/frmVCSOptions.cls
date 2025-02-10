@@ -820,17 +820,21 @@ Private Sub OnOptionChange(ByVal strName As String _
                             , Optional ByRef ctlChecked As Control)
 
     Dim blnChanged As Boolean
+    Dim varOldValue As Variant
 
     ' Determine if the option was changed
-    blnChanged = Not (CVar(CallByName(Options, strName, VbGet)) = varNewValue)
+    ' We use the old value a few times (namely for Sanization checks), and this can help other checks
+    ' and avoid additional calls to Options.
+    varOldValue = CVar(CallByName(Options, strName, VbGet))
+    blnChanged = Not (varOldValue = varNewValue)
     If Not blnChanged Then Exit Sub
 
     ' Define actual rules here
     Select Case strName
 
         Case "SanitizeColors", "SanitizeLevel"
-            CallByName Options, strName, VbLet, Options.CheckSanitizeLevel(varNewValue, CallByName(Options, strName, VbGet))
-            ctlChecked.Value = CallByName(Options, strName, VbGet)
+            'CallByName Options, strName, VbLet, Options.CheckSanitizeLevel(varNewValue, )
+            ctlChecked = Options.CheckSanitizeLevel(varNewValue, varOldValue)
         ' If a user turns on the option to split files
         Case "SplitLayoutFromVBA"
             If varNewValue = True Then

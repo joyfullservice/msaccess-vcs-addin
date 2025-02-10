@@ -65,8 +65,9 @@ Private m_dEnum As Dictionary
 Private m_strOptionsFilePath As String
 Private m_strLoadedVersion As String
 
-'
-Private m_SaveAfterInitializeUpgrade As Boolean ' Used to indicate a save operation should occur after upgrade.
+' Used to indicate a save operation should occur after upgrade.
+Private m_SaveAfterInitializeUpgrade As Boolean
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadDefaults
@@ -386,8 +387,8 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
     CatchAny eelError, "Error upgrading legacy sanitize setting.", FunctionName
 
     ' 2025-Jan-31
-    If dOptions.Exists("SanitizeLevel") Then dOptions("SanitizeLevel") = CheckSanitizeLevel(dOptions("SanitizeLevel"))
-    If dOptions.Exists("SanitizeColors") Then dOptions("SanitizeColors") = CheckSanitizeLevel(dOptions("SanitizeColors"))
+    If dOptions.Exists("SanitizeLevel") And Not OptionsLoaded Then dOptions("SanitizeLevel") = CheckSanitizeLevel(dOptions("SanitizeLevel"))
+    If dOptions.Exists("SanitizeColors") And Not OptionsLoaded Then dOptions("SanitizeColors") = CheckSanitizeLevel(dOptions("SanitizeColors"))
 
     ' 11/3/2023
     ' Check option to split VBA from object layout
@@ -697,6 +698,7 @@ Public Function CheckSanitizeLevel(ByVal intNewSanitizeLevel As eSanitizeLevel _
                     CheckSanitizeLevel = eSanitizeLevel.eslMinimal
                 End If
                 m_SaveAfterInitializeUpgrade = True ' request a save if this is a class initialization.
+
         Else
             CheckSanitizeLevel = intNewSanitizeLevel
         End If
