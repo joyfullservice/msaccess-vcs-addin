@@ -474,6 +474,23 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RegRead
+' Author    : Adam Waller
+' Date      : 2/10/2025
+' Purpose   : Simple wrapper to read a registry value.
+'---------------------------------------------------------------------------------------
+'
+Public Function RegRead(strPath As String) As String
+    LogUnhandledErrors
+    On Error Resume Next
+    With New IWshRuntimeLibrary.WshShell
+        RegRead = .RegRead(strPath)
+    End With
+    If Err Then Err.Clear
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ReadJsonFile
 ' Author    : Adam Waller
 ' Date      : 5/5/2020

@@ -770,6 +770,13 @@ Private Sub MapControlsToOptions(eAction As eMapAction)
                                 Else
                                     Diff.ToolName = Nz(ctl)
                                 End If
+                            Case Me.cboOpenRepository.Name
+                                ' Also saved to registry
+                                If eAction = emaClassToForm Then
+                                    ctl = Nz2(GetSetting(PROJECT_NAME, "Options", "Open Repository Tool"), 0)
+                                Else
+                                    SaveSetting PROJECT_NAME, "Options", "Open Repository Tool", CStr(Nz(cboOpenRepository, 0))
+                                End If
                             Case Else
                                 ' Get option name from control name following prefix.
                                 If eAction = emaClassToForm Then
