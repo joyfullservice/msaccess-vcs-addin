@@ -38,6 +38,8 @@ Begin
     Begin
         dbText "Name" ="tblStrings.msgid"
         dbLong "AggregateType" ="-1"
+        dbInteger "ColumnWidth" ="3765"
+        dbBoolean "ColumnHidden" ="0"
     End
     Begin
         dbText "Name" ="tblStrings.Context"
@@ -46,21 +48,6 @@ Begin
     Begin
         dbText "Name" ="tblStrings.Reference"
         dbLong "AggregateType" ="-1"
-    End
-    Begin
-        dbText "Name" ="ID"
-    End
-    Begin
-        dbText "Name" ="msgid"
-    End
-    Begin
-        dbText "Name" ="Context"
-    End
-    Begin
-        dbText "Name" ="Reference"
-    End
-    Begin
-        dbText "Name" ="Comments"
     End
 End
 Begin
@@ -72,7 +59,7 @@ Begin
     Left =-1
     Top =-1
     Right =1689
-    Bottom =552
+    Bottom =535
     Left =0
     Top =0
     ColumnsShown =539
