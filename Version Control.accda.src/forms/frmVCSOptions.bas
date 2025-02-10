@@ -18,7 +18,7 @@ Begin Form
     ItemSuffix =310
     Left =32025
     Top =2430
-    Right =-8191
+    Right =-14191
     Bottom =14895
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -524,70 +524,31 @@ Begin Form
                                         End
                                     End
                                 End
-                                Begin ComboBox
-                                    RowSourceTypeInt =1
-                                    OverlapFlags =223
-                                    IMESentenceMode =3
-                                    ListWidth =1440
-                                    Left =7080
-                                    Top =4320
-                                    Width =1740
-                                    Height =315
-                                    TabIndex =3
-                                    Name ="cboDiffTool"
-                                    RowSourceType ="Value List"
-                                    RowSource ="\"WinMerge\";\"VSCode\";\"TortoiseGitDiff\""
-                                    AllowValueListEdits =0
-
-                                    LayoutCachedLeft =7080
-                                    LayoutCachedTop =4320
-                                    LayoutCachedWidth =8820
-                                    LayoutCachedHeight =4635
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =223
-                                            Left =5040
-                                            Top =4320
-                                            Width =1980
-                                            Height =315
-                                            ForeColor =5324600
-                                            Name ="Label239"
-                                            Caption ="File Diff Tool:"
-                                            LayoutCachedLeft =5040
-                                            LayoutCachedTop =4320
-                                            LayoutCachedWidth =7020
-                                            LayoutCachedHeight =4635
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
-                                End
                                 Begin CheckBox
-                                    Visible = NotDefault
                                     OverlapFlags =215
-                                    Left =6060
-                                    Top =2100
-                                    TabIndex =4
-                                    Name ="chkUseGitIntegration"
+                                    Left =1020
+                                    Top =5280
+                                    TabIndex =6
+                                    Name ="chkUseShortHash"
 
-                                    LayoutCachedLeft =6060
-                                    LayoutCachedTop =2100
-                                    LayoutCachedWidth =6320
-                                    LayoutCachedHeight =2340
+                                    LayoutCachedLeft =1020
+                                    LayoutCachedTop =5280
+                                    LayoutCachedWidth =1280
+                                    LayoutCachedHeight =5520
                                     Begin
                                         Begin Label
-                                            OverlapFlags =223
-                                            Left =6360
-                                            Top =2040
+                                            OverlapFlags =215
+                                            Left =1320
+                                            Top =5220
                                             Width =2640
                                             Height =315
                                             ForeColor =5324600
-                                            Name ="Label163"
-                                            Caption ="Use Git Integration"
-                                            LayoutCachedLeft =6360
-                                            LayoutCachedTop =2040
-                                            LayoutCachedWidth =9000
-                                            LayoutCachedHeight =2355
+                                            Name ="Label223"
+                                            Caption ="Use short hashes in index"
+                                            LayoutCachedLeft =1320
+                                            LayoutCachedTop =5220
+                                            LayoutCachedWidth =3960
+                                            LayoutCachedHeight =5535
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -631,70 +592,83 @@ Begin Form
                                         End
                                     End
                                 End
-                                Begin CheckBox
-                                    OverlapFlags =215
-                                    Left =1020
-                                    Top =5280
-                                    TabIndex =6
-                                    Name ="chkUseShortHash"
+                                Begin ComboBox
+                                    RowSourceTypeInt =1
+                                    OverlapFlags =223
+                                    IMESentenceMode =3
+                                    ListWidth =1440
+                                    Left =7080
+                                    Top =4320
+                                    Width =1740
+                                    Height =315
+                                    TabIndex =3
+                                    Name ="cboDiffTool"
+                                    RowSourceType ="Value List"
+                                    RowSource ="\"WinMerge\";\"VSCode\";\"TortoiseGitDiff\""
+                                    AllowValueListEdits =0
 
-                                    LayoutCachedLeft =1020
-                                    LayoutCachedTop =5280
-                                    LayoutCachedWidth =1280
-                                    LayoutCachedHeight =5520
+                                    LayoutCachedLeft =7080
+                                    LayoutCachedTop =4320
+                                    LayoutCachedWidth =8820
+                                    LayoutCachedHeight =4635
                                     Begin
                                         Begin Label
-                                            OverlapFlags =215
-                                            Left =1320
-                                            Top =5220
-                                            Width =2640
+                                            OverlapFlags =223
+                                            Left =5040
+                                            Top =4320
+                                            Width =1980
                                             Height =315
                                             ForeColor =5324600
-                                            Name ="Label223"
-                                            Caption ="Use short hashes in index"
-                                            LayoutCachedLeft =1320
-                                            LayoutCachedTop =5220
-                                            LayoutCachedWidth =3960
-                                            LayoutCachedHeight =5535
+                                            Name ="Label239"
+                                            Caption ="File Diff Tool:"
+                                            LayoutCachedLeft =5040
+                                            LayoutCachedTop =4320
+                                            LayoutCachedWidth =7020
+                                            LayoutCachedHeight =4635
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
                                     End
                                 End
-                                Begin Line
-                                    LineSlant = NotDefault
-                                    BorderWidth =1
-                                    OverlapFlags =87
-                                    Left =960
-                                    Top =3600
-                                    Width =8160
-                                    Name ="Line226"
-                                    HorizontalAnchor =2
-                                    LayoutCachedLeft =960
-                                    LayoutCachedTop =3600
-                                    LayoutCachedWidth =9120
-                                    LayoutCachedHeight =3600
-                                    BorderThemeColorIndex =1
-                                    BorderShade =65.0
-                                End
-                                Begin Label
-                                    OverlapFlags =215
-                                    Left =1020
-                                    Top =2340
-                                    Width =8160
-                                    Height =1095
-                                    ForeColor =5324600
-                                    Name ="Label227"
-                                    Caption ="Use this form to set your preferred options for exporting and building your data"
-                                        "base project to and from source files. Note that you can have different options "
-                                        "for different projects, and can save a set of options as default for new project"
-                                        "s."
-                                    LayoutCachedLeft =1020
-                                    LayoutCachedTop =2340
-                                    LayoutCachedWidth =9180
-                                    LayoutCachedHeight =3435
-                                    ForeThemeColorIndex =-1
-                                    ForeTint =100.0
+                                Begin ComboBox
+                                    RowSourceTypeInt =1
+                                    OverlapFlags =223
+                                    IMESentenceMode =3
+                                    ColumnCount =2
+                                    ListWidth =1440
+                                    Left =7080
+                                    Top =4740
+                                    Width =1740
+                                    Height =315
+                                    TabIndex =9
+                                    Name ="cboOpenRepository"
+                                    RowSourceType ="Value List"
+                                    RowSource ="0;\"\";1;\"Github Desktop\";2;\"VSCode\";3;\"Sourcetree\";4;\"Tortoise Git\""
+                                    ColumnWidths ="0"
+                                    AllowValueListEdits =0
+
+                                    LayoutCachedLeft =7080
+                                    LayoutCachedTop =4740
+                                    LayoutCachedWidth =8820
+                                    LayoutCachedHeight =5055
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =223
+                                            Left =5040
+                                            Top =4740
+                                            Width =1980
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label305"
+                                            Caption ="Open Repository:"
+                                            LayoutCachedLeft =5040
+                                            LayoutCachedTop =4740
+                                            LayoutCachedWidth =7020
+                                            LayoutCachedHeight =5055
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
                                 End
                                 Begin ComboBox
                                     LimitToList = NotDefault
@@ -782,46 +756,6 @@ Begin Form
                                     PressedForeThemeColorIndex =10
                                     PressedForeTint =100.0
                                 End
-                                Begin ComboBox
-                                    RowSourceTypeInt =1
-                                    OverlapFlags =223
-                                    IMESentenceMode =3
-                                    ColumnCount =2
-                                    ListWidth =1440
-                                    Left =7080
-                                    Top =4740
-                                    Width =1740
-                                    Height =315
-                                    TabIndex =9
-                                    Name ="cboOpenRepository"
-                                    RowSourceType ="Value List"
-                                    RowSource ="0;\"\";1;\"Github Desktop\";2;\"VSCode\";3;\"Sourcetree\";4;\"Tortoise Git\""
-                                    ColumnWidths ="0"
-                                    AllowValueListEdits =0
-
-                                    LayoutCachedLeft =7080
-                                    LayoutCachedTop =4740
-                                    LayoutCachedWidth =8820
-                                    LayoutCachedHeight =5055
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =223
-                                            Left =5040
-                                            Top =4740
-                                            Width =1980
-                                            Height =315
-                                            ForeColor =5324600
-                                            Name ="Label305"
-                                            Caption ="Open Repository:"
-                                            LayoutCachedLeft =5040
-                                            LayoutCachedTop =4740
-                                            LayoutCachedWidth =7020
-                                            LayoutCachedHeight =5055
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
-                                End
                                 Begin OptionGroup
                                     OverlapFlags =255
                                     Left =4620
@@ -856,6 +790,72 @@ Begin Form
                                             ForeTint =100.0
                                         End
                                     End
+                                End
+                                Begin CheckBox
+                                    Visible = NotDefault
+                                    OverlapFlags =215
+                                    Left =6060
+                                    Top =2100
+                                    TabIndex =4
+                                    Name ="chkUseGitIntegration"
+
+                                    LayoutCachedLeft =6060
+                                    LayoutCachedTop =2100
+                                    LayoutCachedWidth =6320
+                                    LayoutCachedHeight =2340
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =223
+                                            Left =6360
+                                            Top =2040
+                                            Width =2640
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label163"
+                                            Caption ="Use Git Integration"
+                                            LayoutCachedLeft =6360
+                                            LayoutCachedTop =2040
+                                            LayoutCachedWidth =9000
+                                            LayoutCachedHeight =2355
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin Line
+                                    LineSlant = NotDefault
+                                    BorderWidth =1
+                                    OverlapFlags =87
+                                    Left =960
+                                    Top =3600
+                                    Width =8160
+                                    Name ="Line226"
+                                    HorizontalAnchor =2
+                                    LayoutCachedLeft =960
+                                    LayoutCachedTop =3600
+                                    LayoutCachedWidth =9120
+                                    LayoutCachedHeight =3600
+                                    BorderThemeColorIndex =1
+                                    BorderShade =65.0
+                                End
+                                Begin Label
+                                    OverlapFlags =215
+                                    Left =1020
+                                    Top =2340
+                                    Width =8160
+                                    Height =1095
+                                    ForeColor =5324600
+                                    Name ="Label227"
+                                    Caption ="Use this form to set your preferred options for exporting and building your data"
+                                        "base project to and from source files. Note that you can have different options "
+                                        "for different projects, and can save a set of options as default for new project"
+                                        "s."
+                                    LayoutCachedLeft =1020
+                                    LayoutCachedTop =2340
+                                    LayoutCachedWidth =9180
+                                    LayoutCachedHeight =3435
+                                    ForeThemeColorIndex =-1
+                                    ForeTint =100.0
                                 End
                                 Begin Label
                                     OverlapFlags =247
