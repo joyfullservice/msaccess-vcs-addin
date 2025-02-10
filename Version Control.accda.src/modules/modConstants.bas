@@ -4,6 +4,9 @@
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
 ' Purpose   : Constants and enums used throughout the project, but not exposed publicly.
+'           : If constants are only used in a single module, then they should be
+'           : declared in that module. If they are shared among multiple modules, they
+'           : should be declared here.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Private Module
@@ -87,6 +90,16 @@ Public Enum eDatabaseServerType
     estUnknown
     estMsSql
     estMySql
+End Enum
+
+' Applications used to interact with source code repository
+' (This list is also hard-coded as a drop-down in the options form)
+Public Enum eRepositoryApp
+    eraUndefined = 0
+    eraGitHubDesktop = 1
+    eraVSCode = 2
+    eraSourceTree = 3
+    eraTortoiseGit = 4
 End Enum
 
 ' Error levels used for logging and monitoring the status

@@ -198,7 +198,7 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
         If strSource <> vbNullString Then .Add "Source: ", strSource
         Me.Add .GetStr, False
         Me.Spacer (eLevel > eelWarning)
-
+        Me.Flush ' Force a screen update.
         ' See if we are actively logging an operation
         If Log.Active Then
             ' Show message box for fatal error.

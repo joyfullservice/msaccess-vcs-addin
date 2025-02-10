@@ -47,8 +47,16 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Use error handling in case we encouter errors during export
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
+    ' Make sure the table exists, and is accessible
+    If Not TableExists(m_Table.Name) Then
+        Log.Error eelError, "Unable to access table " & m_Table.Name & _
+            ". Please ensure that this table exists and is accessible in the current database.", _
+            ModuleName(Me) & ".Export"
+        Exit Sub
+    End If
+
     ' Save as selected format, and remove other formats if they exist.
-    For intFormat = 1 To eTableDataExportFormat.[_Last]
+    For intFormat = 1 To eTableDataExportFormat.[_Last] - 1
         ' Build file name for this format
         strFile = Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat))
         If FSO.FileExists(strFile) Then DeleteFile strFile, True
@@ -233,16 +241,18 @@ Private Sub ImportTableDataTDF(strFile As String)
                     If dCols.Exists(varHeader(intCol)) Then
                         ' Check for empty string or null.
                         If varLine(intCol) = vbNullString Then
-                            ' The field could have a default value, but the imported
-                            ' data may still be a null value.
-                            If Not IsNull(rst.Fields(varHeader(intCol)).Value) Then
-                                ' Could possibly hit a problem with the storage of
-                                ' zero length strings instead of nulls. Since we can't
-                                ' really differentiate between these in a TDF file,
-                                ' we will go with NULL for now.
-                                'rst.Fields(varHeader(intCol)).AllowZeroLength
-                                rst.Fields(varHeader(intCol)).Value = Null
-                            End If
+                            With rst.Fields(varHeader(intCol))
+                                If IsNull(.Value) Then
+                                    ' Could possibly hit a problem with the storage of
+                                    ' zero length strings instead of nulls. Since we can't
+                                    ' really differentiate between these in a TDF file,
+                                    ' we will do some additional probing...
+                                    If .AllowZeroLength And .Required Then
+                                        ' Use empty string instead of null value
+                                        .Value = vbNullString
+                                    End If
+                                End If
+                            End With
                         Else
                             ' Perform any needed replacements
                             strValue = FormatStringFromTDF(CStr(varLine(intCol)))

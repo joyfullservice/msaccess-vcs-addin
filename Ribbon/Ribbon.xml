@@ -1,45 +1,307 @@
 ﻿<!-- Created with IDBE Ribbon Creator (Version: 1.1041) -->
 <!--            http://www.RibbonCreator.com            -->
-<!--             http://www.RibbonCreator.de            -->
+<!-- Additional modifications and formatting added      -->
 
-<customUI xmlns="http://schemas.microsoft.com/office/2006/01/customui" onLoad="OnRibbonLoad" loadImage="LoadImages">
+<customUI 
+  xmlns="http://schemas.microsoft.com/office/2006/01/customui" 
+  onLoad="OnRibbonLoad" 
+  >
   <ribbon startFromScratch="false">
     <tabs>
-      <tab id="tabVersionControl" label="Version Control" getVisible ="GetVisible">
-        <group id="grpActions" label="Actions" getVisible ="GetVisible">
-          <button id="btnShow" size="large" label="Open Add-in" supertip="Open the main form for the add-in. From the main form you can run an export or build a project from source." imageMso="AccessFormWizard" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <separator id="sep1" getVisible="GetVisible" />
-          <button id="btnExport" size="large" label="Export Source Files" supertip="Export all source files for the current project using the current options." imageMso="SourceControlCheckIn" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <button id="btnExportVBA" size="large" label="Export VBA Code" supertip="Export only the components that may contain VBA code. Includes forms, reports, and VBA code modules." imageMso="GroupMacro" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <button id="btnExportSelected" size="large" label="Export Selected" supertip="Export the database component currently selected in the navigation pane." imageMso="SelectionPane" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <separator id="sep2" getVisible="GetVisible" />
-          <button id="btnBuild" size="large" label="Build From Source" supertip="Build the current project from source files." imageMso="FileCompactAndRepairDatabase" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <button id="btnMergeBuild" size="large" label="Merge Build" supertip="Merge changed source files into the current database." imageMso="CellsInsertDialog" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <button id="btnBuildAs" size="large" label="Build As․․․" supertip="Build from source files to a new name or location." imageMso="FileSaveAs" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <button id="btnLoadSelected" size="large" label="Load Selected" supertip="Import from source files the database component currently selected in the navigation pane." imageMso="AlignDialog" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+      <tab 
+		id="tabVersionControl"
+		getVisible ="GetVisible"
+		getLabel="GetLabel"
+	  >
+        <group
+		  id="grpActions"
+		  getVisible ="GetVisible"
+		  getLabel="GetLabel"
+		>
+          <button 
+			id="btnShow"
+			size="large"
+			imageMso="AccessFormWizard"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <separator 
+			id="sep1"
+			getVisible="GetVisible" 
+		  />
+          <button
+			id="btnExport"
+			size="large"
+			imageMso="SourceControlCheckIn" 
+			onAction="OnActionButton" 
+			getVisible="GetVisible" 
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <button 
+			id="btnExportVBA" 
+			size="large" 
+			imageMso="GroupMacro" 
+			onAction="OnActionButton" 
+			getVisible="GetVisible" 
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <button
+			id="btnExportSelected"
+			size="large"
+			imageMso="SelectionPane"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <separator
+			id="sep2"
+			getVisible="GetVisible" />
+          <button
+			id="btnBuild"
+			size="large"
+			imageMso="FileCompactAndRepairDatabase"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <button
+			id="btnMergeBuild"
+			size="large"
+			imageMso="CellsInsertDialog"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <button
+			id="btnBuildAs"
+			size="large"
+			imageMso="FileSaveAs"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <button
+			id="btnLoadSelected"
+			size="large"
+			imageMso="AlignDialog"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
         </group>
-        <group id="grpOptions" label="Options" getVisible ="GetVisible">
-          <button id="btnShowOptions" size="large" label="View Options" supertip="Open the Options form to view or change options for the current project." imageMso="AdvancedFileProperties" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+        <group
+		  id="grpOptions"
+		  getVisible ="GetVisible"
+		  getLabel="GetLabel"
+		>
+          <button
+			id="btnShowOptions"
+			size="large"
+			imageMso="AdvancedFileProperties"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
         </group>
-        <group id="grpTools" label="Tools" getVisible ="GetVisible">
-          <button id="btnOpenSourceFolder" size="large" label="Source Folder" supertip="Open the source folder for the current project." imageMso="BlogOpenExisting" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <button id="btnOpenExportLog" size="large" label="Export Log" supertip="Open the most recent export log file." imageMso="ExportTextFile" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <button id="btnOpenBuildLog" size="large" label="Build Log" supertip="Open the most recent build log file." imageMso="ImportTextFile" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <menu id="mnuAdvancedTools" size="large" itemSize="large" label="Advanced Tools" supertip="These tools are intended for more advanced development purposes. Please review the documentation for these tools before using them." imageMso="GroupDesign" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" getVisible="GetVisible" getEnabled="GetEnabled" >
-            <button id="btnGoToLinkAdvancedTools" label="View Documentation" description="See documentation on the purpose and usage of these custom tools..." imageMso="TentativeAcceptInvitation" tag="RibbonName:=;inMenu:=mnu15;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-            <button id="btnLocalizeLibraryReferences" label="Localize Library References" description="Relink add-in library databases to the files located in the same folder as the current database" imageMso="MacroShowAllActions" tag="RibbonName:=;inMenu:=mnu15;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-            <button id="btnRepairColors" label="Repair Colors" description="Rebuild color definition blocks in form objects (See documentation for more info)" supertip="test2" imageMso="SmartArtChangeColorsGallery" tag="RibbonName:=;inMenu:=mnu15;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-            <button id="btnSplitFiles" label="Split Files" description="Duplicate files while preserving Git line history" imageMso="AdpDiagramArrangeTables" tag="RibbonName:=;inMenu:=mnuAdvancedTools;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-            <button id="btnActivateHook" label="Activate Hook" description="Enable Access Application hook to report saving of objects and enabling automatic export on save." supertip="Activate Hook" imageMso="Call" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-            <button id="btnReloadRibbon" label="Reload Ribbon" description="Refresh the add-in ribbon menu to reflect changes in XML source" imageMso="DataRefreshAll" tag="RibbonName:=;inMenu:=mnuAdvancedTools;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+        <group
+		  id="grpTools"
+		  getVisible ="GetVisible"
+		  getLabel="GetLabel"
+		>
+		  <button
+			id="btnOpenRepository"
+			size="large"
+			imageMso="FileServerTransferDatabase"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <button
+			id="btnOpenSourceFolder"
+			size="large"
+			imageMso="BlogOpenExisting"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <button
+			id="btnOpenExportLog"
+			size="large"
+			imageMso="ExportTextFile"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <button
+			id="btnOpenBuildLog"
+			size="large"
+			imageMso="ImportTextFile"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <menu
+			id="mnuAdvancedTools"
+			size="large" itemSize="large"
+			imageMso="GroupDesign"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+			>
+			  <button
+				id="btnGoToLinkAdvancedTools"
+				imageMso="TentativeAcceptInvitation"
+				onAction="OnActionButton"
+				getVisible="GetVisible"
+				getEnabled="GetEnabled"
+				getLabel="GetLabel"
+				getDescription="GetDescription"
+				getSupertip="GetSupertip"
+			  />
+			  <button
+				id="btnLocalizeLibraryReferences"
+				imageMso="MacroShowAllActions"
+				onAction="OnActionButton"
+				getVisible="GetVisible"
+				getEnabled="GetEnabled"
+				getLabel="GetLabel"
+				getDescription="GetDescription"
+				getSupertip="GetSupertip"
+			  />
+			  <button
+				id="btnRepairColors"
+				imageMso="SmartArtChangeColorsGallery"
+				onAction="OnActionButton"
+				getVisible="GetVisible"
+				getEnabled="GetEnabled"
+				getLabel="GetLabel"
+				getDescription="GetDescription"
+				getSupertip="GetSupertip"
+			  />
+			  <button
+				id="btnSplitFiles"
+				imageMso="AdpDiagramArrangeTables"
+				onAction="OnActionButton"
+				getVisible="GetVisible"
+				getEnabled="GetEnabled"
+				getLabel="GetLabel"
+				getDescription="GetDescription"
+				getSupertip="GetSupertip"
+			  />
+			  <button
+				id="btnActivateHook"
+				imageMso="Call"
+				onAction="OnActionButton"
+				getVisible="GetVisible"
+				getEnabled="GetEnabled"
+				getLabel="GetLabel"
+				getDescription="GetDescription"
+				getSupertip="GetSupertip"
+			  />
+			  <button
+				id="btnReloadRibbon"
+				imageMso="DataRefreshAll"
+				onAction="OnActionButton"
+				getVisible="GetVisible"
+				getEnabled="GetEnabled"
+				getLabel="GetLabel"
+				getDescription="GetDescription"
+				getSupertip="GetSupertip"
+			  />
           </menu>
           <!--End menu (mnuAdvancedTools) NOT delete this remark-->
         </group>
-        <group id="grpGitHub" label="GitHub Community" getVisible ="GetVisible">
-          <button id="btnGoToLinkHome" size="large" label="Project Home" supertip="View the add-in project home on GitHub." imageMso="BlogHomePage" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <button id="btnGoToLinkDocumentation" size="large" label="Online Documentation" supertip="View the documentation Wiki on GitHub." imageMso="ViewMasterDocumentViewClassic" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <button id="btnGoToLinkSupport" size="large" label="Support Issues" supertip="View the add-in project support issues on GitHub." imageMso="FileCreateDocumentWorkspace" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
-          <button id="btnGoToLinkDownload" size="large" label="Download Latest Version" supertip="View the GitHub download page for this add-in project." imageMso="GetExternalDataFromWeb" tag="RibbonName:=;inMenu:=;CustomTagValue1:=;CustomTagValue2:=;CustomTagValue3:=;CustomPicture:=;CustomPicturePath:=" onAction="OnActionButton" getVisible="GetVisible" getEnabled="GetEnabled" />
+        <group
+		  id="grpGitHub"
+		  getVisible ="GetVisible"
+		  getLabel="GetLabel"
+		>
+          <button
+			id="btnGoToLinkHome"
+			size="large"
+			imageMso="BlogHomePage"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <button
+			id="btnGoToLinkDocumentation"
+			size="large"
+			imageMso="ViewMasterDocumentViewClassic"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <button
+			id="btnGoToLinkSupport"
+			size="large"
+			imageMso="FileCreateDocumentWorkspace"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
+          <button
+			id="btnGoToLinkDownload"
+			size="large"
+			imageMso="GetExternalDataFromWeb"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
         </group>
       </tab>
     </tabs>

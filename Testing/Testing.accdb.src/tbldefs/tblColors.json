@@ -1,0 +1,13 @@
+﻿{
+  "Info": {
+    "Class": "clsDbTableDef",
+    "Description": "Linked Table"
+  },
+  "Items": {
+    "Name": "tblColors",
+    "Connect": ";DATABASE=rel:Test2.accdb",
+    "SourceTableName": "tblColors",
+    "Attributes": 1073741824,
+    "PrimaryKey": "[ID]"
+  }
+}

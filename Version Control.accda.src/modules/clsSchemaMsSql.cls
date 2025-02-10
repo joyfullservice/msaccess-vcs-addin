@@ -18,6 +18,9 @@ Option Compare Database
 Option Explicit
 
 
+' How many times to retry connecting to ADODB.
+Private Const ADODB_MAX_RETRIES As Long = 5
+
 ' Status of GetDDL stored procedure
 Private Enum eSpStatus
     essUnknown
@@ -34,6 +37,7 @@ Private Type udtThis
     blnUtcTime As Boolean
     strUserID As String
     strPassword As String
+    blnAttemptConvert As Boolean
     colFilters As Collection
 End Type
 Private this As udtThis
@@ -57,7 +61,8 @@ Implements IDbSchema
 ' Purpose   : Export DDL representations of the external database objects.
 '---------------------------------------------------------------------------------------
 '
-Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath As String)
+Private Sub IDbSchema_Export(blnFullExport As Boolean _
+                            , Optional strAlternatePath As String)
 
     Dim conn As ADODB.Connection
     Dim strItem As String
@@ -74,6 +79,9 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
     ' Make sure we have already performed a scan of the database objects
     If m_Files Is Nothing Then ScanFiles
     If m_AllItems Is Nothing Then ScanDatabaseObjects
+
+    ' Bail out if critical Error
+    If Log.ErrorLevel >= eelError Then Exit Sub
 
     ' If there are no new changes found, we may not need to export anything
     If (m_ModifiedItems.Count = 0) And (m_Files.Count = m_AllItems.Count) Then
@@ -155,7 +163,12 @@ End Sub
 ' Purpose   : Export the object definition to a file
 '---------------------------------------------------------------------------------------
 '
-Private Function ExportObject(strType, strSchema As String, strName As String, dteModified As Date, strPath As String, ByRef oConn As ADODB.Connection) As String
+Private Function ExportObject(strType _
+                            , strSchema As String _
+                            , strName As String _
+                            , dteModified As Date _
+                            , strPath As String _
+                            , ByRef oConn As ADODB.Connection) As String
 
     Dim strSqlDef
     Dim strDefinition As String
@@ -290,6 +303,7 @@ Private Function CanUseGetDDL() As Boolean
         If intUseSP = essUnavailable Then
             Log.Add "   Note: sp_GetDDL was not available for generating object definitions. Using built-in SQL functions instead.", False
             Log.Add "   This system stored procedure can be found at: http://www.stormrage.com/2022/03/16/sp_getddla-and-sp_getddl/", False
+            Log.Add "   or at https://web.archive.org/web/20230928112439/https://stormrage.com/SQLStuff/sp_GetDDL_Latest.txt", False
         End If
     End If
 
@@ -307,7 +321,8 @@ End Function
 '           : sp_GetDDL.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetTableDefFallback(strTable As String, oConn As ADODB.Connection) As String
+Private Function GetTableDefFallback(strTable As String _
+                                    , oConn As ADODB.Connection) As String
 
     Dim strSql As String
     Dim rst As ADODB.Recordset
@@ -384,6 +399,10 @@ Private Sub ScanDatabaseObjects()
     ' Make sure we initialize before running the scan
     If Not this.blnInitialized Then Exit Sub
 
+    ' Initialize dictionaries
+    Set m_AllItems = New Dictionary
+    Set m_ModifiedItems = New Dictionary
+
     ' Open database connection
     Set conn = GetNewOpenConnection
     If conn Is Nothing Then Exit Sub
@@ -392,10 +411,6 @@ Private Sub ScanDatabaseObjects()
     Perf.OperationStart "Retrieve SQL Objects"
     Set rstObjects = conn.Execute(CodeDb.QueryDefs("qryMsSqlServerObjects").SQL)
     Perf.OperationEnd
-
-    ' Initialize dictionaries
-    Set m_AllItems = New Dictionary
-    Set m_ModifiedItems = New Dictionary
 
     ' Loop through objects, building dictionary of items that match our filter.
     Perf.OperationStart "Loop through SQL objects"
@@ -449,33 +464,126 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetNewOpenConnection
-' Author    : Adam Waller
+' Author    : Adam Waller, hecon5
 ' Date      : 8/3/2023
 ' Purpose   : Return a new, open ADODB connection
 '---------------------------------------------------------------------------------------
 '
 Private Function GetNewOpenConnection() As ADODB.Connection
 
+    Static lngFailCount As Long
+
+    Dim FunctionName As String
     Dim oConn As ADODB.Connection
 
+    FunctionName = ModuleName(Me) & ".GetNewOpenConnection"
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+    Perf.OperationStart FunctionName
+
+Rebuild_Connection:
     Set oConn = New ADODB.Connection
+
+Retry_Connection:
     With oConn
-        LogUnhandledErrors
-        On Error Resume Next
-        If Len(this.strUserID) Then
-            .Open this.strConnect, this.strUserID, this.strPassword
+        If this.blnAttemptConvert Then
+            .Provider = "MSDASQL"
+
+            If Len(this.strUserID) Then
+                .Open "Persist Security Info=False; Extended Properties=" & GetADOConnectionString(this.strConnect), this.strUserID, this.strPassword
+
+            Else
+                .Provider = "MSDASQL"
+                .ConnectionString = "Persist Security Info=False; Extended Properties=" & GetADOConnectionString(this.strConnect)
+                .Open
+            End If
+
         Else
             .Open this.strConnect
         End If
+
+        CatchAny eelError, "Error Connecting to " & this.strName, FunctionName
+        If (.State And adStateOpen) <> adStateOpen Then
+
+            If lngFailCount <= ADODB_MAX_RETRIES Then
+                lngFailCount = lngFailCount + 1
+                GoTo Retry_Connection
+            Else
+                Log.Error eelError, "Could not establish connection to " & this.strName, FunctionName
+                Perf.OperationEnd ' Close out the Function operation.
+                Exit Function
+            End If
+        End If
     End With
 
+    If lngFailCount <= ADODB_MAX_RETRIES And (oConn.State And adStateOpen) <> adStateOpen Then GoTo Rebuild_Connection
+
     ' Check for any connection error
-    If CatchAny(eelError, "Unable to connect to " & this.strName, ModuleName(Me)) Then
+    If CatchAny(eelError, "Unable to connect to " & this.strName, FunctionName) Then
         Log.Add "Connection string: " & this.strConnect, False
+
     Else
         ' Return open connection
         Set GetNewOpenConnection = oConn
     End If
+
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetADOConnectionString
+' Author    : hecon5
+' Date      : 10/17/2024
+' Purpose   : Returns with an ADODB connection string based on existing ODBC Connection.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetADOConnectionString(ByRef ODBCConnString As String) As String
+
+    Dim FunctionName As String
+    Dim currConnString As String
+    Dim ConnectionProperties() As String
+    Dim PropertyCount As Long
+    Dim strProperty As String
+    Dim ConStrParsed As New clsConnectionODBC
+
+    If Not this.blnAttemptConvert Then
+        GetADOConnectionString = ODBCConnString
+        Exit Function
+    End If
+
+    FunctionName = ModuleName(Me) & ".GetADOConnectionString"
+    Perf.OperationStart FunctionName
+
+    ConStrParsed.ParseOdbcConnectionString ODBCConnString
+
+    currConnString = ConStrParsed.OriginalConnectionString
+    ConnectionProperties = Split(currConnString, ";")
+
+    With New clsConcat
+        .AppendOnAdd = ";"
+
+        For PropertyCount = 0 To UBound(ConnectionProperties)
+            strProperty = ConnectionProperties(PropertyCount)
+            Select Case True ' This looks odd, yes, but it really just means we can use the comma delimited feature of "case"
+                Case StartsWith(strProperty, "ODBC", vbTextCompare), _
+                     Len(strProperty) < 1
+                    ' Don't include these; they aren't needed (or are specified elsewhere).
+
+                Case Else
+                    .Add strProperty
+            End Select
+        Next PropertyCount
+
+        ' These properties should go at the end.
+        ' N/A
+
+        Log.Add FunctionName & "ConnectionString: " & .GetStr, False
+        GetADOConnectionString = .GetStr
+    End With
+    Perf.OperationEnd
 
 End Function
 
@@ -530,6 +638,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetBaseFolders() As Dictionary
+
     Set GetBaseFolders = New Dictionary
     With GetBaseFolders
         .CompareMode = TextCompare
@@ -541,6 +650,7 @@ Private Function GetBaseFolders() As Dictionary
         .Add "sequences", Null
         .Add "synonymns", Null
     End With
+
 End Function
 
 
@@ -552,10 +662,12 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbSchema_ObjectCount(blnModifiedOnly As Boolean) As Long
+
     If m_Files Is Nothing Then ScanFiles
     If m_AllItems Is Nothing Then ScanDatabaseObjects
     If m_AllItems Is Nothing Then Exit Function
     IDbSchema_ObjectCount = IIf(blnModifiedOnly, m_ModifiedItems.Count, m_AllItems.Count)
+
 End Function
 
 
@@ -586,6 +698,7 @@ Private Sub IDbSchema_Initialize(dInstance As Scripting.IDictionary)
         .strBaseFolder = Options.GetExportFolder & "databases\" & GetSafeFileName(.strName) & PathSep
         Set .colFilters = colRules
         If dInstance.Exists("UtcDateTime") Then .blnUtcTime = dInstance("UtcDateTime")
+        If dInstance.Exists("AttemptConvert") Then .blnAttemptConvert = dInstance("AttemptConvert")
         .blnInitialized = (Len(.strConnect))
     End With
 

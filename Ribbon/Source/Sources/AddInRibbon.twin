@@ -8,7 +8,7 @@ Class AddInRibbon
 		(e.g. if you're using the 64-bit version of VBA, make sure you change the 'Active Build' in the twinBASIC panel to 'win64')
 	*/
 	
-	[ WithDispatchForwarding ]
+	[WithDispatchForwarding]
 	Implements IRibbonExtensibility
 	
 	/* 
@@ -16,15 +16,22 @@ Class AddInRibbon
 		on the IRibbonExtensibility interface get routed to our default interface.
 		Without it, events will not fire.
 	*/
+    
+    ' This corresponds to the name of the Access Add-in Project
+    Const PROJECT_NAME As String = "MSAccessVCS"
  
 	' Cached copy of the ribbon XML as loaded from the Ribbon.xml file.
-	Private strRibbonXML As string
+	Private strRibbonXML As String
 	
 	' A reference to the Microsoft Access application
 	Private applicationObject As Object
 	
 	' A reference to the ribbon object
 	Private activeRibbon As IRibbonUI
+    
+    ' Dictionary of menu Labels, Descriptions and Supertips loaded from Ribbon.json
+    Private ribbonStrings As Dictionary
+
 	
     /* 
 		Firstly we implement the IDTExtensibility2 interface members
@@ -73,36 +80,63 @@ Class AddInRibbon
 	*/
 	Private Function GetCustomUI(ByVal RibbonID As String) As String Implements IRibbonExtensibility.GetCustomUI
 		
+		Dim strPath As String
+        Dim strContent As String
+        Dim dStrings As Dictionary
+        
+        On Error GoTo ErrHandler
+        
+        ' Load translation strings
+        strPath = App.Path & "\Ribbon.json"
+		If Me.ribbonStrings Is Nothing Then
+        	If FSO.FileExists(strPath) Then
+                strContent = ReadFile(strPath)
+                If Len(strContent) Then
+                    Set dStrings = ParseJson(strContent)
+                    If Not dStrings Is Nothing Then Set Me.ribbonStrings = dStrings
+                End If
+            End If
+        End If
+        
 		' Load XML to cached variable if needed
-		If Me.strRibbonXML = vbNullString Then Me.strRibbonXML = LoadXMLFile
+        strPath = App.Path & "\Ribbon.xml"
+        If Me.strRibbonXML = vbNullString Then
+			If FSO.FileExists(strPath) Then Me.strRibbonXML = ReadFile(strPath)
+        End If
 		
 		Return Me.strRibbonXML
+		Exit Function
+     
+	ErrHandler:
+		MsgBox "Error: " & Err.Number & vbCrLf & Err.Description, vbExclamation
+		Resume Next
+     
 	End Function
+
+    
+    /*
+		Read content from text file
+    */
+    Private Function ReadFile(strPath As String) As String
 	
-	
-	/* 
-		Load the XML ribbon content from a file.
-	*/
-	Private Function LoadXMLFile() As String
-		' Expects the XML file to be in the add-in folder.
-		Dim strPath As String = App.Path & "\Ribbon.xml"
-		Dim strContent As String
-		
-		' If the file exists, load the XML
-		If FSO.FileExists(strPath) Then
-			With New ADODB.Stream
-				.Charset = "utf-8"
-				.Open
-				.LoadFromFile strPath
-				strContent = .ReadText
-				.Close
-			End With
-		End If
-		
-		Return strContent
-	End Function
-	
-	
+        Dim strContent As String
+        
+        ' If the file exists, load content as string
+        On Error Resume Next
+        If FSO.FileExists(strPath) Then
+            With New ADODB.Stream
+                .Charset = "utf-8"
+                .Open
+                .LoadFromFile strPath
+                strContent = .ReadText
+                .Close
+            End With
+        End If
+        
+        Return strContent
+    End Function
+    
+    
 	/*
 		Ensure that the add-in project is loaded in VBE
 	*/
@@ -163,7 +197,7 @@ Class AddInRibbon
 		' Clean up any temporary database
 		If applicationObject.CurrentProject.FullName = strTempDbPath Then applicationObject.CloseCurrentDatabase
 		If FSO.FileExists(strTempDbPath) Then FSO.DeleteFile(strTempDbPath)
-	
+
 		' Returns true if the project was found
 		Return (Not addInProject Is Nothing)
 
@@ -190,7 +224,32 @@ Class AddInRibbon
 		End If
 	End Sub
 	
+    /*
+		Functions to dynamically load labels and descriptions
+    */
+    Public Function GetLabel(control As IRibbonControl) As String
+        Return GetString(control, "Label")
+    End Function
+    
+    Public Function GetDescription(control As IRibbonControl) As String
+        Return GetString(control, "Description")
+    End Function
+    
+    Public Function GetSupertip(control As IRibbonControl) As String
+        Return GetString(control, "Supertip")
+    End Function
 	
+    ' Wrapper to look up a string value from the dictionary loaded from `Ribbon.json`
+    Private Function GetString(control As IRibbonControl, strKey As String) As String
+        Dim strValue As String
+        If Not Me.ribbonStrings Is Nothing Then
+			If Me.ribbonStrings.Exists(control.Id) Then
+				strValue = Me.ribbonStrings(control.Id)(strKey)
+			End If
+        End If
+        Return strValue
+    End Function
+    
 	/*
 		Stub functions for default ribbon callbacks. (Not currently used)
 	*/
@@ -198,7 +257,6 @@ Class AddInRibbon
 		' Always show all buttons for now.
 		Return True
 	End Function
-	
 	
 	Public Function GetEnabled(control As IRibbonControl) As Boolean
 		' Always enable all buttons for now.

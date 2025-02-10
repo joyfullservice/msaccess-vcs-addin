@@ -45,10 +45,13 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strHash As String
     Dim strContent As String
 
-    ' Clear any legacy extensions
-    ClearFilesByExtension IDbComponent_BaseFolder, "LNKD"
-    ClearFilesByExtension IDbComponent_BaseFolder, "bas"
-    ClearFilesByExtension IDbComponent_BaseFolder, "tdf"
+    ' Make sure the table exists, and is accessible
+    If Not TableExists(m_Table.Name) Then
+        Log.Error eelError, "Unable to access table " & m_Table.Name & _
+            ". Please ensure that this table exists and is accessible in the current database.", _
+            ModuleName(Me) & ".Export"
+        Exit Sub
+    End If
 
     ' Get the export file name
     strFile = Nz2(strAlternatePath, IDbComponent_SourceFile)
@@ -108,9 +111,13 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         RemoveAlternateFormatSourceFile
 
         ' Optionally save in SQL format
-        If Options.SaveTableSQL Then
+        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".sql"
+        If Options.SaveTableSQL And (Not IsLinkedTable) Then
             Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
             SaveTableSqlDef m_Table.Name, IDbComponent_BaseFolder
+        Else
+            ' Remove file if it exists
+            If FSO.FileExists(strFile) Then DeleteFile strFile
         End If
     End If
 
@@ -501,7 +508,7 @@ Private Function GetTypeString(intType As DAO.DataTypeEnum) As String
         Case dbMemo:            GetTypeString = "LONGTEXT"
         Case dbDouble:          GetTypeString = "DOUBLE"
         Case dbSingle:          GetTypeString = "SINGLE"
-        Case dbByte:            GetTypeString = "UNSIGNED BYTE"
+        Case dbByte:            GetTypeString = "BYTE"
         Case dbInteger:         GetTypeString = "SHORT"
         Case dbLong:            GetTypeString = "LONG"
         Case dbNumeric:         GetTypeString = "NUMERIC"
@@ -799,6 +806,7 @@ Private Property Get IDbComponent_FileExtensions() As Collection
     Set IDbComponent_FileExtensions = New Collection
     IDbComponent_FileExtensions.Add "xml"
     IDbComponent_FileExtensions.Add "json"
+    IDbComponent_FileExtensions.Add "sql"
 End Property
 
 

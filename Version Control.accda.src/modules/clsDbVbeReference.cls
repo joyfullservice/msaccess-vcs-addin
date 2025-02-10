@@ -152,6 +152,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
     Dim proj As VBProject
     Dim dRef As Dictionary
     Dim ref As VBIDE.Reference
+    Dim strName As String
     Dim dNames As Dictionary
 
     ' Check cache parameter
@@ -161,14 +162,34 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
         Exit Function
     End If
 
+    LogUnhandledErrors
+    On Error Resume Next
+
     Set proj = CurrentVBProject
     Set dNames = New Dictionary
     Set GetDictionary = New Dictionary
+
     With GetDictionary
         ' Loop through cached references (Duplicates have already been removed)
         For Each ref In proj.References
             If Not ref.BuiltIn Then
-                If Not dNames.Exists(ref.Name) Then
+                ' A broken reference doesn't necessarily trigger an error.
+                If ref.IsBroken Then
+                    If ref.Type = vbext_rk_Project Then
+                        strName = ref.Name
+                    Else
+                        ' Can't access .Name property on broken type lib reference.
+                        strName = ref.Guid
+                    End If
+                    Log.Error eelWarning, "Broken reference for " & strName & _
+                        "This may cause errors in the export process.", ModuleName(Me) & ".GetDictionary"
+                    ' Continue export, as this may not affect the actual output files.
+                Else
+                    ' Use name for unbroken reference
+                    strName = ref.Name
+                End If
+                ' Add new unique entries to dictionary
+                If Not dNames.Exists(strName) Then
                     Set dRef = New Dictionary
                     With dRef
                         If ref.Type = vbext_rk_Project Then
@@ -179,11 +200,13 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                             .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
                         End If
                     End With
-                    .Add ref.Name, dRef
+                    .Add strName, dRef
                     ' Don't attempt add two references with the same name, such as
                     ' circular references to nested library database files.
-                    dNames.Add ref.Name, vbNullString
+                    dNames.Add strName, vbNullString
                 End If
+                ' Log any errors encountered.
+                CatchAny eelError, "Exporting reference " & strName, ModuleName(Me) & ".GetDictionary"
             End If
         Next ref
     End With

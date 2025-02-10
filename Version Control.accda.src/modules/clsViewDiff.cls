@@ -172,18 +172,26 @@ Private Sub RunCompare(strFile1 As String, strFile2 As String)
             Exit Sub
 
         Case "WinMerge"
-            strCmd = "WinMerge """ & strFile1 & """ """ & strFile2 & """"
+            strCmd = "WinMerge ""{file1}"" ""{file2}"""
 
         Case "VSCode"
             strCmd = VSCodePath
             If strCmd = vbNullString Then strCmd = "code"
-            strCmd = strCmd & " --diff """ & strFile1 & """ """ & strFile2 & """"
+            strCmd = strCmd & " --diff ""{file1}"" ""{file2}"""
+
+        Case "TortoiseGitDiff"
+            strCmd = "TortoiseGitProc.exe /Command:diff -path ""{file1}"" -path2 ""{file2}"" -closeonend 2"
 
         Case Else
             ' Assume they have a custom path defined
-            strCmd = Me.ToolName & " """ & strFile1 & """ """ & strFile2 & """"
+            strCmd = Me.ToolName & " ""{file1}"" ""{file2}"""
 
     End Select
+
+    ' Fill in file name placeholders
+    strCmd = MultiReplace(strCmd, Array( _
+        "{file1}", strFile1, _
+        "{file2}", strFile2))
 
     ' Run command to launch compare
     LogUnhandledErrors
@@ -207,9 +215,24 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function VSCodePath() As String
+
     Dim strPath As String
-    strPath = Environ("AppData") & "\..\Local\Programs\Microsoft VS Code\Code.exe"
-    If FSO.FileExists(strPath) Then VSCodePath = """" & strPath & """"
+
+    ' Check User Local App Data Folder
+    strPath = Environ("LocalAppData") & "\Programs\Microsoft VS Code\Code.exe"
+
+    If FSO.FileExists(strPath) Then
+        VSCodePath = """" & strPath & """"
+    Else
+        ' Not found, check Program Files
+        strPath = Environ("ProgramFiles") & "\Microsoft VS Code\Code.exe"
+        If FSO.FileExists(strPath) Then VSCodePath = """" & strPath & """"
+    End If
+
+Exit_Here:
+
+    Exit Function
+
 End Function
 
 
@@ -218,7 +241,8 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 2/23/2022
 ' Purpose   : Returns true if a compare tool has been selected, and appears to be
-'           : valid for use.
+'           : valid for use. (This can be extended to validate the presence of specific
+'           : tools in the current environment.)
 '---------------------------------------------------------------------------------------
 '
 Public Function HasValidCompareTool() As Boolean
@@ -226,12 +250,18 @@ Public Function HasValidCompareTool() As Boolean
     ' Check the current option for compare tool.
     Select Case Me.ToolName
 
-        Case "WinMerge", "VSCode"
+        Case vbNullString
+            ' No tool selected in options
+            HasValidCompareTool = False
+
+        Case "WinMerge", "VSCode", "TortoiseGitDiff"
             ' These tools probably exist in the environment path
             HasValidCompareTool = True
 
         Case Else
-            ' No tool selected.
+            ' A custom file path was likely used. Assume it is valid.
+            HasValidCompareTool = True
+
     End Select
 
 End Function

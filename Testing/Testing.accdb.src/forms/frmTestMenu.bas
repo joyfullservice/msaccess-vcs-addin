@@ -114,6 +114,7 @@ Begin Form
             Begin
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =720
                     Top =840
                     Width =2580
@@ -131,6 +132,7 @@ Begin Form
                 End
                 Begin CommandButton
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =720
                     Top =1620
                     Width =2340

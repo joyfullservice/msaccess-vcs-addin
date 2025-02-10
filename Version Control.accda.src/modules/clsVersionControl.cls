@@ -26,6 +26,7 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Public Sub Show()
+    If HasFormOpen Then Exit Sub
     DoCmd.OpenForm "frmVCSMain"
 End Sub
 
@@ -38,9 +39,15 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ShowOptions()
-    ' Force reload of options from current project before opening the form.
-    Set modObjects.Options = Nothing
-    DoCmd.OpenForm "frmVCSOptions"
+    If HasFormOpen Then Exit Sub
+    If DatabaseFileOpen Then
+        ' Force reload of options from current project before opening the form.
+        Set modObjects.Options = Nothing
+        DoCmd.OpenForm "frmVCSOptions"
+    Else
+        ' The table data subform may crash Access when the options form is closed with no database open.
+        MsgBox2 "No Database Open", "Please open a database file before configuring VCS options.", , vbInformation
+    End If
 End Sub
 
 
@@ -52,6 +59,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Export()
+    If HasFormOpen Then Exit Sub
     RunExport ecfAllObjects
 End Sub
 
@@ -64,6 +72,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportVBA()
+    If HasFormOpen Then Exit Sub
     RunExport ecfVBAItems
 End Sub
 
@@ -76,7 +85,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportSelected()
+
     Dim objSelected As AccessObject
+
+    If HasFormOpen Then Exit Sub
+
     Set objSelected = GetSelectedNavPaneObject
     If objSelected Is Nothing Then
         MsgBox2 "Please Select an Object First", _
@@ -86,6 +99,7 @@ Public Sub ExportSelected()
         ' Export the item
         RunExport , objSelected
     End If
+
 End Sub
 
 
@@ -119,6 +133,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Build(Optional strSourceFolder As String)
+    If HasFormOpen Then Exit Sub
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     With Form_frmVCSMain
         ' Make sure we are doing a full build.
@@ -137,6 +152,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeBuild()
+    If HasFormOpen Then Exit Sub
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     With Form_frmVCSMain
         ' See if merge build is available
@@ -167,6 +183,8 @@ Public Sub BuildAs()
 
     Dim strNewDbPath As String
     Dim strSourceFolder As String
+
+    If HasFormOpen Then Exit Sub
 
     ' See if we can find source files for the currently open database.
     If DatabaseFileOpen Then
@@ -236,6 +254,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeAllSource()
+    If HasFormOpen Then Exit Sub
     modImportExport.MergeAllSource
 End Sub
 
@@ -253,6 +272,8 @@ Public Sub LoadSelected()
     Dim cComponentClass As IDbComponent
     Dim strObjectName As String
     Dim strSourceFilePath As String
+
+    If HasFormOpen Then Exit Sub
 
     Set objSelected = GetSelectedNavPaneObject
     If objSelected Is Nothing Then
@@ -289,6 +310,59 @@ End Sub
 Public Function Options() As clsOptions
     Set Options = modObjects.Options
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OpenRepository
+' Author    : Adam Waller
+' Date      : 2/8/2025
+' Purpose   : Open the configured tool for interacting with the repository.
+'           : (I.e GitHub Desktop or SourceTree)
+'---------------------------------------------------------------------------------------
+'
+Public Sub OpenRepository()
+
+    Dim strFolder As String
+    Dim strPath As String
+
+    ' Build quoted path to source folder
+    strFolder = """" & StripSlash(Options.GetExportFolder) & """"
+
+    ' Launch user-specified tool
+    Select Case Nz2(GetSetting(PROJECT_NAME, "Options", "Open Repository Tool"), 0)
+        Case eraUndefined
+            MsgBox2 "No Repository Tool Selected", _
+                "Please choose a program to launch in the add-in Options", _
+                "GitHub Desktop is a great choice for most users", vbInformation
+
+        Case eraGitHubDesktop
+            ' Open GitHub Desktop, and switch to the relevant repository.
+            ' Utilizes a built-in batch file installed as a part of GitHub Desktop
+            ShellEx "GitHub.bat", strFolder, , False
+
+        Case eraVSCode  ' Visual Studio Code
+            ShellEx "code", "--reuse-window " & strFolder, , False
+
+        Case eraSourceTree
+            ' Look up install path for SourceTree
+            strPath = RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\SourceTree\InstallLocation")
+            ' Check install for all users
+            If strPath = vbNullString Then strPath = RegRead("HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\SourceTree\InstallLocation")
+            If Len(strPath) Then
+                Shell FSO.BuildPath(strPath, "SourceTree.exe") & " -f " & strFolder
+                AppActivate "Sourcetree", True  ' Try to switch to this window
+            Else
+                MsgBox2 "SourceTree Not Found", "Path to SourceTree.exe could not be found in the Windows Registry", , vbExclamation
+            End If
+
+        Case eraTortoiseGit
+            ShellEx "TortoiseGitProc.exe", "/path:" & strFolder
+            ' Could also go directly to commit:
+            'ShellEx "TortoiseGitProc.exe", "/command:commit /path:" & strFolder
+
+    End Select
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -369,6 +443,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub RepairColors()
+    If HasFormOpen Then Exit Sub
     RepairColorDefinitionBlocks
 End Sub
 
@@ -381,6 +456,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub SplitFiles()
+    If HasFormOpen Then Exit Sub
     DoCmd.OpenForm "frmVCSSplitFiles"
 End Sub
 
@@ -394,6 +470,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LocalizeLibraryReferences()
+    If HasFormOpen Then Exit Sub
     modLibReference.LocalizeLibraryReferences True
 End Sub
 
@@ -434,6 +511,7 @@ Public Sub GoToLinkDownload()
     FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/releases"
 End Sub
 Public Sub ActivateHook()
+    If HasFormOpen Then Exit Sub
     If modExportOnSaveHook.ActivateHook = False Then
         MsgBox "Error activating the hook", vbCritical, "Unable to activate hook"
     End If
@@ -452,7 +530,7 @@ Private Sub Class_Initialize()
     ' When the class is initialized, make sure the ribbon is active (if installed).
     ' This way if the COM add-in is not active, it will be automatically activated
     ' when the add-in is opened from the [Database Tools\Add-ins] menu. (See #451)
-    modCOMAddIn.VerifyRibbon
+    If GetInstallSettings.blnUseRibbonAddIn Then modCOMAddIn.VerifyRibbon
 End Sub
 
 
@@ -533,4 +611,59 @@ Private Sub PreserveSetting(strName As String, strSetting As String)
 End Sub
 Private Function ReadSetting(strName As String, Optional strDefault As String) As String
     ReadSetting = GetSetting(PROJECT_NAME, "State", strName, strDefault)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasFormOpen
+' Author    : Adam Waller
+' Date      : 3/29/2024
+' Purpose   : Make sure no other forms are currently loaded before initiating a new
+'           : operation. (Force linear usage of one operation at a time.)
+'           : Also warns user that they must close the form before they can proceed.
+'
+'---------------------------------------------------------------------------------------
+'
+Private Function HasFormOpen(Optional blnWarnUser As Boolean = True) As Boolean
+
+    Dim objForm As AccessObject
+    Dim frm As Access.Form
+    Dim strCaption As String
+
+    ' Cache collection of form names used by this add-in
+    Static dFormNames As Dictionary
+
+    ' Build cached list of form names
+    If dFormNames Is Nothing Then
+        Set dFormNames = New Dictionary
+        For Each objForm In CodeProject.AllForms
+            dFormNames.Add objForm.Name, vbNullString
+        Next objForm
+    End If
+
+    ' Check for open forms (from current database, add-in, or library database)
+    For Each frm In Application.Forms
+        If dFormNames.Exists(frm.Name) Then
+            ' Found a matching form name.
+            If frm.CurrentView = acCurViewDesign Then
+                ' Design view is okay, since the add-in won't have a form in design
+                ' view when running as an add-in. (No conflict)
+            Else
+                ' A form with the same name. This could be a problem.
+                If blnWarnUser Then
+                    If frm.Caption = vbNullString Then
+                        strCaption = frm.Name
+                    Else
+                        ' Users may recognize caption better than name
+                        strCaption = frm.Caption & " (" & frm.Name & ")"
+                    End If
+                    MsgBox2 "Add-in Form Already Open", _
+                        "Please close '" & strCaption & "' before running this action.", , vbInformation
+                    HasFormOpen = True
+                    Exit Function
+                End If
+            End If
+        End If
+    Next
+
 End Function

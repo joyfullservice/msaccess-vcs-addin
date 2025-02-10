@@ -332,9 +332,9 @@ Private Function BuildVersionCompareString(strVersion As String) As String
     varParts = Split(strVersion, ".")
     If UBound(varParts) = 2 Then
         BuildVersionCompareString = _
-            Format(varParts(0), "#####") & _
-            Format(varParts(1), "#####") & _
-            Format(varParts(2), "#####")
+            Format(varParts(0), "00000") & _
+            Format(varParts(1), "00000") & _
+            Format(varParts(2), "00000")
     Else
         ' Unable to parse version
         BuildVersionCompareString = strVersion
@@ -407,6 +407,14 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
                     End If
                 End If
             Next varKey
+        End If
+    End If
+
+    ' 2/8/2025 (4.0.39)
+    ' Remove UI option for SanitizeLevel = None (#554)
+    If dOptions.Exists("SanitizeLevel") Then
+        If dOptions("SanitizeLevel") = eSanitizeLevel.eslNone Then
+            dOptions("SanitizeLevel") = eSanitizeLevel.eslMinimal
         End If
     End If
 
@@ -547,9 +555,13 @@ Public Function GetExportFolder() As String
             ' Other absolute path (i.e. c:\myfiles\)
             strFullPath = Me.ExportFolder
         End If
-        ' Placeholder replacements
-        If InStr(1, strFullPath, "%dbName%", vbTextCompare) > 0 Then
-            strFullPath = Replace(strFullPath, "%dbName%", CurrentProject.Name, , , vbTextCompare)
+        ' Environment variable replacements
+        If InStr(1, strFullPath, "%") > 0 Then
+            strFullPath = ExpandEnvironmentVariables(strFullPath)
+            ' Other placeholder replacements
+            If InStr(1, strFullPath, "%dbName%", vbTextCompare) > 0 Then
+                strFullPath = Replace(strFullPath, "%dbName%", CurrentProject.Name, , , vbTextCompare)
+            End If
         End If
     End If
 
@@ -701,7 +713,7 @@ End Function
 Public Function GetTableExportFormat(strKey As String) As eTableDataExportFormat
     Dim intFormat As eTableDataExportFormat
     Dim strName As String
-    For intFormat = etdNoData To eTableDataExportFormat.[_Last]
+    For intFormat = etdNoData To eTableDataExportFormat.[_Last] - 1
         strName = Me.GetTableExportFormatName(intFormat)
         If strName = strKey Then
             GetTableExportFormat = intFormat

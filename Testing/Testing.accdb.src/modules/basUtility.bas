@@ -201,3 +201,15 @@ Public Function MultiReplace(ByVal strText As String, ParamArray varPairs()) As 
     Next intPair
     MultiReplace = strText
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDatabaseFileName
+' Author    : Adam Waller
+' Date      : 2/8/2025
+' Purpose   : Function for use in queries
+'---------------------------------------------------------------------------------------
+'
+Public Function GetDatabaseFileName() As String
+    GetDatabaseFileName = CurrentDb.Name
+End Function

@@ -231,7 +231,6 @@ Public Property Get CurrentOperationName() As String
     CurrentOperationName = this.OperationName
 End Property
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : DigitsAfterDecimal
 ' Author    : Eugen Albiker
@@ -239,6 +238,10 @@ End Property
 ' Purpose   : Set Number of Digits after Decimal for the Elapsed Time
 '---------------------------------------------------------------------------------------
 '
+Public Property Get DigitsAfterDecimal() As Integer
+    DigitsAfterDecimal = this.intDigitsAfterDecimal
+End Property
+
 Public Property Let DigitsAfterDecimal(intDigitsAfterDecimal As Integer)
     If intDigitsAfterDecimal > 4 Then intDigitsAfterDecimal = 4
     this.intDigitsAfterDecimal = intDigitsAfterDecimal
@@ -651,7 +654,7 @@ Public Sub Reset()
     Set this.Categories = Nothing
     this.OperationName = vbNullString
     Set this.Operations = Nothing
-    Enabled = True
+    Me.Enabled = True
 End Sub
 
 
@@ -667,5 +670,5 @@ Private Sub Class_Initialize()
     ' https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
     GetFrequencyAPI this.Frequency
     this.intDigitsAfterDecimal = 2
-    Enabled = True
+    Me.Enabled = True
 End Sub

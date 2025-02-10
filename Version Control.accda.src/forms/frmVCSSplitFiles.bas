@@ -16,15 +16,16 @@ Begin Form
     Width =10800
     DatasheetFontHeight =11
     ItemSuffix =245
-    Left =-25575
-    Top =1500
-    Right =-255
-    Bottom =14085
+    Left =3225
+    Top =2430
+    Right =28545
+    Bottom =14895
     RecSrcDt = Begin
         0x79e78b777268e540
     End
     Caption ="Version Control System"
     DatasheetFontName ="Calibri"
+    OnLoad ="[Event Procedure]"
     AllowDatasheetView =0
     FilterOnLoad =0
     ShowPageMargins =0

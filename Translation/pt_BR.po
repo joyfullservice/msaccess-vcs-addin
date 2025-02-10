@@ -1,0 +1,1133 @@
+# Version Control System Add-in for Microsoft Access
+# https://github.com/joyfullservice/msaccess-vcs-addin
+# This file is distributed under the project's BSD-style license.
+msgid ""
+msgstr ""
+"Project-Id-Version: 4.0.27\n"
+"POT-Creation-Date: 2021-05-19 19:50\n"
+"PO-Revision-Date: 2024-11-08 09:00-0600\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Poedit 3.4.4\n"
+
+#: frmVCSTableData.Label40(txtTableIcon)
+msgid " "
+msgstr ""
+
+#: frmVCSMain.cmdExport
+msgid "   Export All Source"
+msgstr ""
+
+#: frmVCSInstall.cmdInstall
+msgid "   Install Add-In"
+msgstr ""
+
+#: frmVCSSplitFiles.cmdSplitFiles
+msgid "   Split Files"
+msgstr ""
+
+#: frmVCSMain.cmdBuild
+msgid "  Build From Source"
+msgstr ""
+
+#: frmVCSConflict.cmdCancel
+msgid "  Cancel"
+msgstr ""
+
+#: frmVCSConflict.cmdContinue
+msgid "  Continue"
+msgstr ""
+
+msgid "  Merge From Source"
+msgstr ""
+
+#: frmVCSOptions.cmdAddDatabase
+msgid " Add"
+msgstr ""
+
+#: frmVCSOptions.cmdAddOtherTableData
+msgid " Add Other"
+msgstr ""
+
+#: frmVCSOptions.cmdClearDefaults
+msgid " Clear Defaults"
+msgstr ""
+
+#: frmVCSOptions.cmdDeleteDatabase
+msgid " Delete"
+msgstr ""
+
+#: frmVCSOptions.cmdEditDatabase
+msgid " Edit..."
+msgstr ""
+
+#: frmVCSMain.cmdHelp
+msgid " Help"
+msgstr ""
+
+#: frmVCSMain.cmdOptions
+msgid " Options..."
+msgstr ""
+
+#: frmVCSOptions.Label66(Frame65)
+msgid " Remove Add-In"
+msgstr " Remover suplemento"
+
+#: frmVCSOptions.cmdRestoreDefaults
+msgid " Restore Defaults"
+msgstr ""
+
+#: frmVCSOptions.cmdSaveAndClose
+msgid " Save && Close"
+msgstr ""
+
+#: frmVCSOptions.cmdSaveAsDefault
+msgid " Save as Default"
+msgstr ""
+
+#: frmVCSOptions.cmdSyncTranslations
+msgid " Sync Files"
+msgstr ""
+
+#: frmVCSOptions.Label63(Frame62)
+msgid " System Defaults"
+msgstr " Configuração padrão do sistema"
+
+#: frmVCSOptions.cmdUninstall
+msgid " Uninstall"
+msgstr ""
+
+#: frmVCSOptions.lblForceImportSQLNote
+msgid "(\"Save Query SQL\" option needed when exporting)"
+msgstr "(\"Salvar consulta SQL\" opção necessária quando exportar)"
+
+#: frmVCSOptions.Label46
+msgid "(Blank for default)"
+msgstr "(Deixado em branco por padrão)"
+
+#: frmVCSOptions.Label231
+msgid "(Module name optional)"
+msgstr "(Nome do módulo opcional)"
+
+msgid ""
+"* (This database will be renamed as a backup before building {0} from "
+"source.)"
+msgstr ""
+
+#: frmVCSInstall.cmdChangeInstallFolder
+msgid "..."
+msgstr ""
+
+msgid ""
+"<strong><em>Export</em></strong> source to generate source files from the "
+"current database.<br><br><strong><em>Import</em></strong> source files to "
+"rebuild this database from source."
+msgstr ""
+
+#: frmVCSOptions.lblVersion
+msgid "4.0.37"
+msgstr ""
+
+msgid ""
+"A summary of the build progress can be seen on this screen, and "
+"additional details are included in the log file."
+msgstr ""
+
+#: Ribbon.grpActions.Label
+msgid "Actions"
+msgstr ""
+
+#: Ribbon.btnActivateHook.Label
+msgid "Activate Hook"
+msgstr ""
+
+#: frmVCSSplitFiles.cmdAddFormsAndReports
+msgid "Add Forms and Reports..."
+msgstr ""
+
+msgid ""
+"Additional details can be found in the project log file.<br><br>You may "
+"now close this window."
+msgstr ""
+
+#: frmVCSInstall.tabInstallType.Page41
+msgid "Advanced Install"
+msgstr ""
+
+#: frmVCSInstall.Label61
+msgid "Advanced Options"
+msgstr ""
+
+#: frmVCSInstall.Label65(chkAdvancedOptions)
+msgid "Advanced Options..."
+msgstr ""
+
+#: Ribbon.mnuAdvancedTools.Label
+msgid "Advanced Tools"
+msgstr ""
+
+#: frmVCSOptions.Label57(cmdRestoreDefaults)
+msgid "Apply system defaults to this project."
+msgstr "Aplicar configurações padrão para este projeto."
+
+#: frmVCSInstall.tabInstallType.Page40
+msgid "Basic Install"
+msgstr ""
+
+msgid "Beginning build from Source"
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeBuild
+msgid "Build"
+msgstr "Gerar"
+
+msgid "Build {0} ({1}) from source?"
+msgstr ""
+
+#: Ribbon.btnBuildAs.Label
+msgid "Build As…"
+msgstr ""
+
+msgid "Build Complete"
+msgstr ""
+
+msgid "Build error in: {0}"
+msgstr ""
+
+#: Ribbon.btnBuild.Label
+msgid "Build From Source"
+msgstr ""
+
+#: Ribbon.btnBuildAs.Supertip
+msgid "Build from source files to a new name or location."
+msgstr ""
+
+#: Ribbon.btnOpenBuildLog.Label
+msgid "Build Log"
+msgstr ""
+
+msgid "Build must be run from Add-In"
+msgstr ""
+
+#: Ribbon.btnBuild.Supertip
+msgid "Build the current project from source files."
+msgstr ""
+
+msgid "Building From Source"
+msgstr ""
+
+#: frmVCSOptions.cmdCancel
+msgid "Cancel"
+msgstr ""
+
+#: frmVCSMain.lblHeading
+msgid "Choose Action"
+msgstr "Escolha a ação"
+
+msgid ""
+"Click 'No' to select another project, or 'Cancel' to go back to the "
+"previous screen."
+msgstr ""
+
+#: frmVCSOptions.Label303(cmdSyncTranslations)
+msgid ""
+"Click the \"Sync Files\" button to load the updated translations into the "
+"add-in, and then update the master template and language files with the "
+"latest strings from the database."
+msgstr ""
+
+#: frmVCSInstall.lblSubheading
+msgid ""
+"Click the Install button to install or update the add-in.\n"
+"\n"
+"In some more secure environments, you may need to adjust additional "
+"options to use this addin."
+msgstr ""
+
+#: frmVCSInstall.lblSubheading
+msgid ""
+"Click the Install button to install or update the add-in.\n"
+"\n"
+"In some more secure environments,\n"
+"you may need to adjust additional\n"
+"options to use this addin."
+msgstr ""
+
+msgid ""
+"Click 'Yes' to rebuild* this database from source files in this folder:"
+msgstr ""
+
+#: frmVCSMain.cmdClose
+msgid "Close"
+msgstr ""
+
+#: frmVCSOptions.Label134(chkCollate)
+msgid "Collate"
+msgstr "Ordenar"
+
+#: frmVCSOptions.Label144(chkColor)
+msgid "Color or B/W"
+msgstr "Preto e Branco ou Colorido"
+
+#: frmVCSDatabase.Label244(txtName)
+msgid "Connection Name:"
+msgstr ""
+
+#: frmVCSDatabase.Label248(cboConnect)
+msgid "Connection String:"
+msgstr ""
+
+#: frmVCSOptions.Label256(chkContributeTranslations)
+msgid "Contribute to Translations"
+msgstr "Contribuir com traduções"
+
+msgid "Created blank database for import. (v{0})"
+msgstr ""
+
+#: frmVCSOptions.Label119(chkPaperLength)
+msgid "Custom Length"
+msgstr "Comprimento personalizado"
+
+#: frmVCSOptions.Label158(chkPaperWidth)
+msgid "Custom Width"
+msgstr "Largura personalizada"
+
+#: frmVCSDatabase.Label252(cboType)
+msgid "Database Type:"
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeDatabases
+msgid "Databases"
+msgstr ""
+
+msgid "db connections"
+msgstr ""
+
+msgid "db properties"
+msgstr ""
+
+#: frmVCSOptions.Label219(chkBreakOnError)
+msgid "Debug VBA Errors"
+msgstr "Debugar erros VBA"
+
+#: frmVCSDatabase.Label246(txtDescription)
+msgid "Description:"
+msgstr ""
+
+#: frmVCSMain.Label9
+msgid ""
+"Designed for \n"
+"GitHub && GitLab"
+msgstr ""
+"Desenvolvido para \n"
+"GitHub && GitLab"
+
+#: frmVCSOptions.Label239(cboDiffTool)
+msgid "Diff Tool:"
+msgstr ""
+
+#: frmVCSOptions.Label146(chkDisplayFlags)
+msgid "Display Flags"
+msgstr "Mostrar sinalizadores"
+
+#: frmVCSOptions.Label148(chkDisplayFrequency)
+msgid "Display Freq."
+msgstr "Mostrar Freq."
+
+#: frmVCSOptions.Label156(chkDitherType)
+msgid "Dither Type"
+msgstr "Tipo Dither"
+
+msgid "doc properties"
+msgstr ""
+
+msgid "Done. ({0} seconds)"
+msgstr ""
+
+#: Ribbon.btnGoToLinkDownload.Label
+msgid "Download Latest Version"
+msgstr ""
+
+#: frmVCSOptions.Label130(chkDuplex)
+msgid "Duplex"
+msgstr "Duplex"
+
+#: Ribbon.btnSplitFiles.Description
+msgid "Duplicate files while preserving Git line history"
+msgstr ""
+
+#: Ribbon.btnActivateHook.Description
+msgid ""
+"Enable Access Application hook to report saving of objects and enabling "
+"automatic export on save."
+msgstr ""
+
+#: frmVCSDatabase.Label261(chkEnabled)
+msgid "Enabled"
+msgstr ""
+
+msgid "Error running {0}"
+msgstr ""
+
+#: frmVCSDatabase.cmdExamples
+msgid "Examples..."
+msgstr ""
+
+#: frmVCSInstall.cmdExplainOptions
+msgid "Explain options..."
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeExport
+msgid "Export"
+msgstr "Exportar"
+
+#: Ribbon.btnExport.Supertip
+msgid ""
+"Export all source files for the current project using the current options."
+msgstr ""
+
+#: frmVCSTableData.Label15(cboFormatType)
+msgid "Export As"
+msgstr ""
+
+#: frmVCSOptions.Label31(txtExportFolder)
+msgid "Export Folder:"
+msgstr "Exportar pasta:"
+
+msgid "Export Folder: {0}"
+msgstr ""
+
+#: Ribbon.btnOpenExportLog.Label
+msgid "Export Log"
+msgstr ""
+
+#: Ribbon.btnExportVBA.Supertip
+msgid ""
+"Export only the components that may contain VBA code. Includes forms, "
+"reports, and VBA code modules."
+msgstr ""
+
+#: Ribbon.btnExportSelected.Label
+msgid "Export Selected"
+msgstr ""
+
+#: Ribbon.btnExport.Label
+msgid "Export Source Files"
+msgstr ""
+
+#: Ribbon.btnExportSelected.Supertip
+msgid ""
+"Export the database component currently selected in the navigation pane."
+msgstr ""
+
+#: Ribbon.btnExportVBA.Label
+msgid "Export VBA Code"
+msgstr ""
+
+#: frmVCSDatabase.lblOptions
+msgid "External Database Connection"
+msgstr ""
+
+#: frmVCSOptions.Label243(lstDatabases)
+msgid "External Databases:"
+msgstr ""
+
+#: frmVCSOptions.Label112(chkExtractThemeFiles)
+msgid "Extract Theme Files"
+msgstr "Extrair arquivos de temas"
+
+#: frmVCSDatabase.Label250(txtFilter)
+msgid "Filter for database objects (source file paths):"
+msgstr ""
+
+#: frmVCSDatabase.Label253
+msgid ""
+"Filter paths to source files. Start line with ! to exclude match. Use * "
+"for wildcard matches (LIKE comparison)."
+msgstr ""
+
+#: frmVCSSplitFiles.Label244(txtCommitMessage)
+msgid "Final Commit Message:"
+msgstr ""
+
+msgid "Finished"
+msgstr ""
+
+#: frmVCSOptions.lblForceImportOriginalQuerySQL(chkForceImportOriginalQuerySQL)
+msgid "Force import of original SQL for queries"
+msgstr "Forçar importação das consultas SQLs originais"
+
+#: frmVCSOptions.Label142(chkFormName)
+msgid "Form Name"
+msgstr "Nome do formulário"
+
+#: frmVCSOptions.Label249(chkFormatSQL)
+msgid "Format SQL"
+msgstr ""
+
+msgid "forms"
+msgstr ""
+
+#: frmVCSMain.Label31(chkFullBuild)
+msgid "Full Build"
+msgstr "Criação completa"
+
+#: frmVCSMain.Label29(chkFullExport)
+msgid "Full Export"
+msgstr "Exportação completa"
+
+msgid "Full Path: {0}"
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeGeneral
+msgid "General"
+msgstr "Geral"
+
+#: Ribbon.grpGitHub.Label
+msgid "GitHub Community"
+msgstr ""
+
+#: frmVCSOptions.Label221(cboHashAlgorithm)
+msgid "Hash Algorithm:"
+msgstr "Algoritmo Hash:"
+
+msgid "hidden attributes"
+msgstr ""
+
+#: frmVCSOptions.Label152(chkICMIntent)
+msgid "ICM Intent"
+msgstr "ICM Intent"
+
+#: frmVCSOptions.Label150(chkICMMethod)
+msgid "ICM Method"
+msgstr "Método ICM"
+
+msgid "imex specs"
+msgstr ""
+
+#: Ribbon.btnLoadSelected.Supertip
+msgid ""
+"Import from source files the database component currently selected in the "
+"navigation pane."
+msgstr ""
+
+msgid "Importing {0}..."
+msgstr ""
+
+#: frmVCSInstall.lblHeading(Page40)
+msgid "Install Add-In"
+msgstr "Instalar Suplemento"
+
+#: frmVCSInstall.Label63(txtInstallFolder)
+msgid "Install Folder:   "
+msgstr ""
+
+msgid ""
+"Instead of opening this form to build the add-in,\n"
+"please install and use the Version Control add-in from the Add-in menu"
+msgstr ""
+
+#: frmVCSInstall.Label32
+msgid "joyfullservice/msaccess-vcs-addin"
+msgstr ""
+
+#: frmVCSOptions.Label252(cboLanguage)
+msgid "Language:"
+msgstr "Idioma:"
+
+#: frmVCSSplitFiles.Label241(txtFileList)
+msgid "List of files to split:"
+msgstr ""
+
+#: Ribbon.btnLoadSelected.Label
+msgid "Load Selected"
+msgstr ""
+
+#: Ribbon.btnLocalizeLibraryReferences.Label
+msgid "Localize Library References"
+msgstr ""
+
+msgid "macros"
+msgstr ""
+
+#: frmVCSOptions.Label154(chkMediaType)
+msgid "Media Type"
+msgstr "Tipo de mídia"
+
+msgid "Merge"
+msgstr ""
+
+#: Ribbon.btnMergeBuild.Label
+msgid "Merge Build"
+msgstr ""
+
+#: Ribbon.btnMergeBuild.Supertip
+msgid "Merge changed source files into the current database."
+msgstr ""
+
+msgid "Merge Complete"
+msgstr ""
+
+msgid "Merging From Source"
+msgstr ""
+
+msgid "modules"
+msgstr ""
+
+#: frmVCSInstall.Caption
+msgid "MSAccessVCS"
+msgstr "MSAccessVCS"
+
+# Do not remove the semicolon
+#: lstDatabases.RefreshSchemaList
+msgid "Name;Description"
+msgstr ""
+
+msgid "nav pane groups"
+msgstr ""
+
+msgid "No {0} source files found."
+msgstr ""
+
+#: frmVCSOptions.Label123(chkCopies)
+msgid "Number of Copies"
+msgstr "Número de cópias"
+
+#: Ribbon.btnGoToLinkDocumentation.Label
+msgid "Online Documentation"
+msgstr ""
+
+#: Ribbon.btnShow.Label
+msgid "Open Add-in"
+msgstr ""
+
+#: frmVCSInstall.Label36(chkOpenAfterInstall)
+msgid "Open add-in after installing to trust the add-in file"
+msgstr ""
+
+#: frmVCSOptions.cmdOpenInstallFolder
+msgid "Open Install Folder"
+msgstr ""
+
+#: frmVCSMain.cmdOpenLogFile
+msgid "Open Log File..."
+msgstr "Abrir arquivo de Log..."
+
+#: Ribbon.btnShow.Supertip
+msgid ""
+"Open the main form for the add-in. From the main form you can run an "
+"export or build a project from source."
+msgstr ""
+
+#: Ribbon.btnOpenBuildLog.Supertip
+msgid "Open the most recent build log file."
+msgstr ""
+
+#: Ribbon.btnOpenExportLog.Supertip
+msgid "Open the most recent export log file."
+msgstr ""
+
+#: Ribbon.btnShowOptions.Supertip
+msgid ""
+"Open the Options form to view or change options for the current project."
+msgstr ""
+
+#: Ribbon.btnOpenSourceFolder.Supertip
+msgid "Open the source folder for the current project."
+msgstr ""
+
+#: frmVCSOptions.Label241(cmdOpenInstallFolder)
+msgid "Open VCS add-In Install Folder."
+msgstr ""
+
+#: Ribbon.grpOptions.Label
+msgid "Options"
+msgstr "Opções"
+
+#: frmVCSOptions.cmdPrintSettingsOptions
+msgid "Options..."
+msgstr "Opções..."
+
+#: frmVCSOptions.Label79(txtOtherTableName)
+msgid "Other Table Name:"
+msgstr ""
+
+#: frmVCSConflict.cmdOverwriteAll
+msgid "Overwrite All"
+msgstr ""
+
+#: frmVCSOptions.Label115(chkOrientation)
+msgid "Page Orientation"
+msgstr "Orientação de página"
+
+#: frmVCSOptions.Label117(chkPaperSize)
+msgid "Paper Size"
+msgstr "Tamanho do papel"
+
+#: frmVCSOptions.Label125(chkDefaultSource)
+msgid "Paper Tray"
+msgstr "Bandeja"
+
+#: frmVCSOptions.Label105
+msgid ""
+"PLEASE NOTE:\n"
+"Building from source will completely rebuild your database project from "
+"source files. It is very important that you test this carefully in your "
+"environment to make sure everything you need is being created in your "
+"database during the build. (A backup copy of your current database will "
+"be made as a part of the build process.)\n"
+"\n"
+"Please see the online documentation for additional details on the build "
+"process. If you encounter a problem, please feel free to open an issues "
+"on the GitHub project."
+msgstr ""
+
+#: frmVCSOptions.Label128(chkPrintQuality)
+msgid "Print Quality"
+msgstr "Qualidade da impressão"
+
+#: frmVCSOptions.Label121(chkScale)
+msgid "Print Scale"
+msgstr "Imprimir Escala"
+
+#: frmVCSOptions.tabOptions.pgePrinterSettings
+msgid "Printer Settings"
+msgstr "Configurações de impressão"
+
+msgid "proj properties"
+msgstr ""
+
+msgid "project"
+msgstr ""
+
+#: Ribbon.btnGoToLinkHome.Label
+msgid "Project Home"
+msgstr ""
+
+msgid "queries"
+msgstr ""
+
+#: Ribbon.btnRepairColors.Description
+msgid ""
+"Rebuild color definition blocks in form objects (See documentation for "
+"more info)"
+msgstr ""
+
+#: Ribbon.btnReloadRibbon.Description
+msgid "Refresh the add-in ribbon menu to reflect changes in XML source"
+msgstr ""
+
+msgid "relations"
+msgstr ""
+
+#: Ribbon.btnLocalizeLibraryReferences.Description
+msgid ""
+"Relink add-in library databases to the files located in the same folder "
+"as the current database"
+msgstr ""
+
+#: Ribbon.btnReloadRibbon.Label
+msgid "Reload Ribbon"
+msgstr ""
+
+msgid "Removing non built-in references..."
+msgstr ""
+
+#: Ribbon.btnRepairColors.Label
+msgid "Repair Colors"
+msgstr ""
+
+msgid "reports"
+msgstr ""
+
+#: frmVCSOptions.Label59(cmdClearDefaults)
+msgid "Reset all default settings to original values."
+msgstr "Retornar todas as configurações padrão para seus valores originais."
+
+#: frmVCSOptions.Label132(chkResolution)
+msgid "Resolution"
+msgstr "Resolução"
+
+#: frmVCSConflict.Label4
+msgid "Resolve Conflicts to Continue..."
+msgstr ""
+
+#: frmVCSOptions.Label104(txtRunAfterBuild)
+msgid "Run Sub After Build:"
+msgstr "Rodar Rotina após gerar:"
+
+#: frmVCSOptions.Label48(txtRunAfterExport)
+msgid "Run Sub After Export:"
+msgstr "Rodar rotina após exportar:"
+
+#: frmVCSOptions.Label229(txtRunBeforeBuild)
+msgid "Run Sub Before Build:"
+msgstr "Rodar Rotina antes de gerar:"
+
+#: frmVCSOptions.Label44(txtRunBeforeExport)
+msgid "Run Sub Before Export:"
+msgstr "Rodar rotina antes de exportar:"
+
+msgid "Running {0}..."
+msgstr ""
+
+msgid "Running..."
+msgstr ""
+
+#: frmVCSOptions.Label233(cboSanitizeColors)
+msgid "Sanitize Colors"
+msgstr ""
+
+#: frmVCSOptions.Label235(cboSanitizeLevel)
+msgid "Sanitize Level"
+msgstr ""
+
+#: frmVCSDatabase.Label257(chkSaveDotEnv)
+msgid "Save in .env file*"
+msgstr ""
+
+#: frmVCSOptions.Label27(chkSavePrintVars)
+msgid "Save Printer Settings"
+msgstr ""
+
+#: frmVCSOptions.Label29(chkSaveQuerySQL)
+msgid "Save Query SQL"
+msgstr "Salvar consulta SQL"
+
+#: frmVCSOptions.Label38(chkSaveTableSQL)
+msgid "Save Table SQL"
+msgstr "Salvar Tabela SQL"
+
+#: frmVCSOptions.Label53(cmdSaveAsDefault)
+msgid "Save these settings as default for new projects."
+msgstr "Salvar essas configurações como padrão para novos projetos."
+
+msgid "Saved as {0}."
+msgstr ""
+
+msgid "saved specs"
+msgstr ""
+
+msgid "Saving backup of original database..."
+msgstr ""
+
+msgid "Scanning source files..."
+msgstr ""
+
+#: frmVCSOptions.cmdSeeDocs
+msgid "See Docs..."
+msgstr ""
+
+#: Ribbon.btnGoToLinkAdvancedTools.Description
+msgid "See documentation on the purpose and usage of these custom tools..."
+msgstr ""
+
+#: frmVCSOptions.Label126
+msgid ""
+"Select any additional settings that you would like saved to version "
+"control and used when building a database from source files."
+msgstr ""
+"Selecione qualquer configuração adicional que queira salvar no controle "
+"de versões e as use quando criando um banco de dados de uma fonte de "
+"arquivos."
+
+#: frmVCSOptions.tabOptions.pgeSettings
+msgid "Settings"
+msgstr "Configurações"
+
+msgid "shared images"
+msgstr ""
+
+#: frmVCSOptions.Label23(chkShowDebug)
+msgid "Show Detailed Output"
+msgstr "Mostrar saída detalhada"
+
+#: frmVCSOptions.lblTableShowHidden(chkTableShowHidden)
+msgid "Show Hidden"
+msgstr "Mostrar Ocultos"
+
+#: frmVCSOptions.Label215(chkShowVCSLegacy)
+msgid "Show Legacy Prompts"
+msgstr "Mostrar Legacy Prompts"
+
+#: frmVCSOptions.lblTableShowOther(chkTableShowOther)
+msgid "Show Other"
+msgstr "Mostrar outros"
+
+msgid "Show Other  "
+msgstr ""
+
+#: frmVCSOptions.lblTableShowSystem(chkTableShowSystem)
+msgid "Show System"
+msgstr "Mostrar objetos do Sistema"
+
+#: frmVCSConflict.cmdSkipAll
+msgid "Skip All"
+msgstr ""
+
+#: Ribbon.btnOpenSourceFolder.Label
+msgid "Source Folder"
+msgstr ""
+
+#: frmVCSOptions.lblWorkingPathExplanation
+msgid "Specify the path for the working language files."
+msgstr ""
+
+#: Ribbon.btnSplitFiles.Label
+msgid "Split Files"
+msgstr ""
+
+#: frmVCSSplitFiles.lblOptions
+msgid "Split Files and Preserve History"
+msgstr ""
+
+#: frmVCSOptions.Label251(chkSplitLayoutFromVBA)
+msgid "Split Layout from VBA"
+msgstr ""
+
+#: Ribbon.btnGoToLinkSupport.Label
+msgid "Support Issues"
+msgstr ""
+
+#: frmVCSTableData.Caption
+msgid "Table Data"
+msgstr "Dados da tabela"
+
+msgid "table data"
+msgstr ""
+
+msgid "table data macros"
+msgstr ""
+
+#: frmVCSTableData.Label3(txtTableName)
+msgid "Table Name"
+msgstr ""
+
+msgid "tables"
+msgstr ""
+
+#: frmVCSDatabase.cmdTest
+msgid "Test Filter..."
+msgstr ""
+
+msgid "themes"
+msgstr ""
+
+#: frmVCSConflict.lblHeading(sfrmConflictList)
+msgid "These source files have changed since the last export"
+msgstr ""
+
+#: Ribbon.mnuAdvancedTools.Supertip
+msgid ""
+"These tools are intended for more advanced development purposes. Please "
+"review the documentation for these tools before using them."
+msgstr ""
+
+#: frmVCSDatabase.Label227
+msgid ""
+"This add-in provides limited support for exporting object definitions "
+"from external databases for use in version control.\n"
+"\n"
+"* If the connection string contains a password, please use the .env "
+"option, and exclude this file from version control."
+msgstr ""
+
+#: Ribbon.PLEASE NOTE:.Label
+msgid ""
+"This file is automatically generated by the add-in. Please do not "
+"translate or edit this file directly."
+msgstr ""
+
+#: Ribbon.grpTools.Label
+msgid "Tools"
+msgstr ""
+
+#: frmVCSOptions.tabOptions.pgeTranslations
+msgid "Translation"
+msgstr ""
+
+#: frmVCSOptions.Label297(txtTranslationsPath)
+msgid "Translations Path: "
+msgstr "Caminho das traduções: "
+
+#: frmVCSOptions.cmdTranslations
+msgid "Translations..."
+msgstr ""
+
+#: frmVCSInstall.Label34(chkAddTrustedLocation)
+msgid "Trust Add-In Folder"
+msgstr "Pasta de suplementos"
+
+#: frmVCSOptions.Label140(chkTTOption)
+msgid "TT Font Handling"
+msgstr "Tratamento de Fontes TT"
+
+msgid "Unable to load Ribbon COM add-in"
+msgstr ""
+
+msgid "Unable to rename original file"
+msgstr ""
+
+#: frmVCSOptions.Label108(cmdUninstall)
+msgid "Uninstall this add-in"
+msgstr "Desinstalar este suplemento"
+
+#: frmVCSOptions.Label230
+msgid "Use \"module.sub\" to specify module"
+msgstr "Utilize \"module.sub\" para especificar o módulo"
+
+#: frmVCSOptions.Label25(chkUseFastSave)
+msgid "Use Fast Save"
+msgstr "Utilizar salvamento rápido"
+
+#: frmVCSSplitFiles.Label242
+msgid ""
+"Use full file paths with a pipe character (|) between the original and "
+"new file paths.\n"
+"\n"
+"Each entry should be on a new line. The list will be validated before "
+"running the operation."
+msgstr ""
+
+#: frmVCSOptions.Label163(chkUseGitIntegration)
+msgid "Use Git Integration"
+msgstr "Integração com Git"
+
+#: frmVCSInstall.Label40(chkUseRibbon)
+msgid "Use Ribbbon Addin"
+msgstr ""
+
+#: frmVCSOptions.Label223(chkUseShortHash)
+msgid "Use short hashes in index"
+msgstr "Utilizar hashes curtos no índice"
+
+#: frmVCSOptions.Label227
+msgid ""
+"Use this form to set your preferred options for exporting and building "
+"your database project to and from source files. Note that you can have "
+"different options for different projects, and can save a set of options "
+"as default for new projects."
+msgstr ""
+"Utilize esse formulário para configurar suas opções preferidas para "
+"exportação e criação do seu projeto de banco de dados. Arquivos fonte "
+"'De' > 'Para'. Repare que você poderá ter diferentes opções para "
+"diferentes projetos e poderá salvar um grupo de opções como sendo padrão "
+"para novos projetos."
+
+#: frmVCSOptions.lblTranslationExplanation
+msgid ""
+"Use this page to manage language translations for this add-in. Check this "
+"box if you would like to help improve the translations."
+msgstr ""
+
+#: frmVCSSplitFiles.Label227
+msgid ""
+"Use this tool to duplicate files while preserving commit history in Git.\n"
+"\n"
+"Paste in a list of Pipe delimited paths and click the button below."
+msgstr ""
+
+#: frmVCSDatabase.Label259(chkUtcDates)
+msgid "Use UTC Dates"
+msgstr ""
+
+msgid "vb project"
+msgstr ""
+
+msgid "vbe forms"
+msgstr ""
+
+msgid "vbe references"
+msgstr ""
+
+msgid "VCS Version {0}"
+msgstr ""
+
+msgid "Version {0}"
+msgstr ""
+
+msgid "Version {0} currently installed."
+msgstr ""
+
+#: frmVCSInstall.lblInstalled
+msgid "Version 4.0.11 currently installed."
+msgstr ""
+
+#: frmVCSInstall.lblVersion
+msgid "Version 4.0.12"
+msgstr ""
+
+#: Ribbon.tabVersionControl.Label
+msgid "Version Control"
+msgstr ""
+
+#: frmVCSOptions.Label9
+msgid "Version Control System "
+msgstr "Sistema de controle de versionamento "
+
+#: frmVCSInstall.Label4
+msgid "Version Control System"
+msgstr "Sistema de controle de versionamento"
+
+#: frmVCSConflict.lblVersion
+msgid "Version Control System ${version}"
+msgstr ""
+
+#: Ribbon.btnGoToLinkAdvancedTools.Label
+msgid "View Documentation"
+msgstr ""
+
+#: Ribbon.btnShowOptions.Label
+msgid "View Options"
+msgstr ""
+
+#: Ribbon.btnGoToLinkHome.Supertip
+msgid "View the add-in project home on GitHub."
+msgstr ""
+
+#: Ribbon.btnGoToLinkSupport.Supertip
+msgid "View the add-in project support issues on GitHub."
+msgstr ""
+
+#: Ribbon.btnGoToLinkDocumentation.Supertip
+msgid "View the documentation Wiki on GitHub."
+msgstr ""
+
+#: Ribbon.btnGoToLinkDownload.Supertip
+msgid "View the GitHub download page for this add-in project."
+msgstr ""
+
+#: frmVCSConflict.lblHeaderExplain
+msgid ""
+"WARNING: The following changes may be overwritten. Please select how you "
+"would \n"
+"like to proceed."
+msgstr ""
+
+#: frmVCSMain.lblSubheading
+msgid "What would you like to do?"
+msgstr "O que gostaria de fazer?"
+
+#: frmVCSOptions.Label82
+msgid ""
+"You may optionally include data from specific tables as part of the "
+"export process."
+msgstr ""
+"Você pode optar por incluir dados oriundos de tabelas específicas como "
+"parte do processo de exportação."
+
+#: frmVCSOptions.Label244
+msgid ""
+"Your database application may connect to external database systems such "
+"as Microsoft SQL Server.\n"
+"\n"
+"If you define a connection to an external database, you can use version "
+"control to track changes in those external database objects.\n"
+"\n"
+"Please see documentation for additional notes."
+msgstr ""

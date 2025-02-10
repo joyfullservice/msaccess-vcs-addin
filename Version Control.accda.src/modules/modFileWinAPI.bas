@@ -20,6 +20,15 @@ Private Declare PtrSafe Function FileTimeToLocalFileTime Lib "kernel32" (lpFileT
 Private Declare PtrSafe Sub GetSystemTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)
 Private Declare PtrSafe Sub GetLocalTime Lib "kernel32" (lpSystemTime As SYSTEMTIME)
 
+' Used to relaunch Access as an administrator to install the addin.
+Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
+    ByVal hwnd As LongPtr, _
+    ByVal lpOperation As String, _
+    ByVal lpFile As String, _
+    ByVal lpParameters As String, _
+    ByVal lpDirectory As String, _
+    ByVal nShowCmd As Long) As LongPtr
+
 ' Time zone conversions
 Private Declare PtrSafe Function GetTimeZoneInformation Lib "kernel32" (lpTimeZoneInformation As TIME_ZONE_INFORMATION) As Long
 Private Declare PtrSafe Function FileTimeToSystemTime Lib "kernel32" (lpFileTime As FILETIME, lpSystemTime As SYSTEMTIME) As Long
@@ -112,6 +121,19 @@ Private Type WIN32_FIND_DATA
     cFileName        As String * MAX_PATH
     cAlternate       As String * ALTERNATE
 End Type
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ShellEx
+' Author    : Adam Waller
+' Date      : 2/8/2025
+' Purpose   : Wrapper for the ShellExecute API call (resolves file names automatically)
+'---------------------------------------------------------------------------------------
+'
+Public Sub ShellEx(strFile As String, Optional strParams As String, _
+    Optional strOperation As String = "open", Optional blnVisible As Boolean = True)
+    ShellExecute 0, strOperation, strFile, strParams, vbNullString, IIf(blnVisible, 1, 0)
+End Sub
 
 
 '---------------------------------------------------------------------------------------

@@ -38,6 +38,7 @@ Public Sub LoadSchema(strName As String, dSchema As Dictionary)
     txtFilter = ParseFilter(dParams("Filter"))
     cboConnect = dParams("Connect")
     chkSaveDotEnv = dParams("UseDotEnv")
+    chkAttemptADOConvert = dParams("AttemptConvert")
 
 End Sub
 
@@ -225,6 +226,7 @@ Private Sub SetParamsFromForm(ByRef dParams As Dictionary)
         .Item("UtcDateTime") = CBool(chkUtcDates)
         .Item("Connect") = Nz(cboConnect)
         .Item("UseDotEnv") = CBool(chkSaveDotEnv)
+        .Item("AttemptConvert") = CBool(chkAttemptADOConvert)
         Set .Item("Filter") = ToCollection(Nz(txtFilter))
     End With
 End Sub
@@ -268,6 +270,7 @@ Private Function GetDefaults() As Dictionary
         .Item("UtcDateTime") = False
         .Item("Connect") = vbNullString
         .Item("UseDotEnv") = True
+        .Item("AttemptConvert") = True
         Set .Item("Filter") = New Collection
     End With
 End Function
@@ -382,6 +385,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Form_Load()
+    Translation.ApplyTo Me
     LoadSampleConnectionStrings
 End Sub
 

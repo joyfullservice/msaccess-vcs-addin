@@ -51,7 +51,6 @@ End Sub
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strContent As String
-    ClearFilesByExtension IDbComponent_BaseFolder, "txt"    ' Legacy extension
     strContent = GetSource
     WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
@@ -412,7 +411,8 @@ End Property
 '
 Private Property Get IDbComponent_QuickCount() As Long
     Static lngCount As Long
-    If lngCount = 0 Then lngCount = CurrentDb.Relations.Count - 1
+    ' DCount is much faster than CurrentDb.Relations.Count in some cases.
+    If lngCount = 0 Then lngCount = DCount("*", "MSysRelationships") - 1
     IDbComponent_QuickCount = lngCount + 1
 End Property
 

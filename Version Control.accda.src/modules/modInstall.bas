@@ -20,16 +20,6 @@ End Enum
 ' Used to determine if Access is running as administrator. (Required for installing the add-in)
 Private Declare PtrSafe Function IsUserAnAdmin Lib "shell32" () As Long
 
-' Used to relaunch Access as an administrator to install the addin.
-Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExecuteA" ( _
-    ByVal hwnd As LongPtr, _
-    ByVal lpOperation As String, _
-    ByVal lpFile As String, _
-    ByVal lpParameters As String, _
-    ByVal lpDirectory As String, _
-    ByVal nShowCmd As Long) As LongPtr
-
-Private Const SW_SHOWNORMAL = 1
 Private Const ModuleName As String = "modInstall"
 
 ' Used to add a trusted location for the add-in path (when necessary)
@@ -459,7 +449,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub RelaunchAsAdmin()
-    ShellExecute 0, "runas", FSO.BuildPath(SysCmd(acSysCmdAccessDir), "msaccess.exe"), """" & GetAddInFileName & """", vbNullString, SW_SHOWNORMAL
+    ShellEx FSO.BuildPath(SysCmd(acSysCmdAccessDir), "msaccess.exe"), """" & GetAddInFileName & """", "runas"
 End Sub
 
 

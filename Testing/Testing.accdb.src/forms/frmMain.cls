@@ -69,8 +69,6 @@ Public Sub cmdRunTests_Click()
 
     ShowResult "Linked Table JSON", FSO.FileExists(ExportFolder & "tbldefs\tblLinkedCSV.json")
 
-    ShowResult "Linked Table structure", FSO.FileExists(ExportFolder & "tbldefs\tblLinkedCSV.sql")
-
     intTest = 0
     intTest = dbs.Relations("tblInternaltblSaveXML").Fields.Count
     ShowResult "Table Relationship", (intTest = 1)
@@ -84,6 +82,8 @@ Public Sub cmdRunTests_Click()
     strTest = dbs.QueryDefs("qryNavigationPaneGroups").Name
     ShowResult "Query exists", (strTest = "qryNavigationPaneGroups")
 
+    strTest = DLookup("DatabaseFile", "qryVBAFunction")
+    ShowResult "VBA Function in Query", (strTest = CurrentDb.Name)
 
     ' Forms
     strTest = CurrentProject.AllForms("frmMain").Name
@@ -111,6 +111,8 @@ Public Sub cmdRunTests_Click()
     strTest = CurrentProject.AllModules("clsPerson").Name
     ShowResult "Class Module exists", (strTest = "clsPerson")
 
+    ' Access the code module first to correctly load the instancing property
+    strTest = GetVBProjectForCurrentDB.VBComponents("clsPublic").CodeModule.CountOfLines
     strTest = GetVBProjectForCurrentDB.VBComponents("clsPublic").Properties("Instancing")
     ShowResult "Class with Public Creatable Instancing", (strTest = "5")
 
@@ -200,8 +202,6 @@ Public Sub cmdRunTests_Click()
 End Sub
 
 
-
-
 '---------------------------------------------------------------------------------------
 ' Procedure : ShowResult
 ' Author    : Adam Waller
@@ -216,8 +216,12 @@ Private Function ShowResult(strText As String, blnPassed As Boolean)
     Else
         strIcon = ChrW(10060)   ' X
     End If
-    lstResults.AddItem strIcon & ";" & strText
     m_Totals(blnPassed) = m_Totals(blnPassed) + 1
+    With lstResults
+        .SetFocus
+        .AddItem strIcon & ";" & strText
+        .ListIndex = .ListCount - 1
+    End With
     DoEvents
 End Function
 

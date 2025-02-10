@@ -22,6 +22,10 @@ Private Declare PtrSafe Function getTempFileName Lib "kernel32" Alias "GetTempFi
     ByVal wUnique As Long, _
     ByVal lpTempFileName As String) As Long
 
+Private Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" Alias "SHCreateDirectoryExW" ( _
+    ByVal hwnd As LongPtr _
+    , ByVal pszPath As LongPtr _
+    , ByVal psa As Any) As Long
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTempFile
@@ -158,6 +162,55 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : WriteFileNoBom
+' Author    : Adam Waller
+' Date      : 11/7/2024
+' Purpose   : Save a string to a text file without a BOM. (Needed for exporting *.po
+'           : files for translation since editors are not expecting a UTF-8 BOM.)
+'           : See: https://stackoverflow.com/a/31436631/4121863
+'---------------------------------------------------------------------------------------
+'
+Public Sub WriteFileNoBom(strText As String, strPath As String, Optional strEncoding As String = "utf-8")
+
+    Dim stmNoBom As ADODB.Stream
+
+    ' Write to a UTF-8 eoncoded file
+    With New ADODB.Stream
+        .Type = adTypeText
+        .Open
+        .Charset = strEncoding
+        .WriteText strText
+        ' Ensure that we are ending the content with a vbcrlf
+        If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
+
+        ' Now, create a new BINARY stream and copy over the content.
+        Set stmNoBom = New ADODB.Stream
+        stmNoBom.Type = adTypeBinary
+        stmNoBom.Open
+        .Position = 3
+        .CopyTo stmNoBom
+
+        ' Write to disk
+        VerifyPath strPath
+        ' Watch out for possible write error
+        LogUnhandledErrors
+        On Error Resume Next
+        stmNoBom.SaveToFile strPath, adSaveCreateOverWrite
+        If Catch(3004) Then
+            ' File is locked. Try again after 1 second, just in case something
+            ' like Google Drive momentarily locked the file.
+            Err.Clear
+            Pause 1
+            stmNoBom.SaveToFile strPath, adSaveCreateOverWrite
+        End If
+        CatchAny eelError, "Error writing file: " & strPath, ModuleName & ".WriteFile"
+        .Close
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetFileBytes
 ' Author    : Adam Waller
 ' Date      : 7/31/2020
@@ -214,22 +267,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : MkDirIfNotExist
-' Author    : Adam Waller
-' Date      : 1/25/2019
-' Purpose   : Create folder `Path`. Silently do nothing if it already exists.
-'---------------------------------------------------------------------------------------
-'
-Public Sub MkDirIfNotExist(strPath As String)
-    If Not FSO.FolderExists(StripSlash(strPath)) Then
-        Perf.OperationStart "Create Folder"
-        FSO.CreateFolder StripSlash(strPath)
-        Perf.OperationEnd
-    End If
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : MoveFileIfExists
 ' Author    : Adam Waller
 ' Date      : 9/10/2022
@@ -241,7 +278,7 @@ Public Sub MoveFileIfExists(strFilePath As String, strToFolder As String)
     Dim strNewPath As String
     If FSO.FileExists(strFilePath) Then
         Perf.OperationStart "Move File"
-        MkDirIfNotExist strToFolder
+        VerifyPath strToFolder
         strNewPath = StripSlash(strToFolder) & PathSep & FSO.GetFileName(strFilePath)
         If FSO.FileExists(strNewPath) Then DeleteFile strNewPath
         FSO.MoveFile strFilePath, strNewPath
@@ -261,7 +298,7 @@ Public Sub MoveFolderIfExists(strFolderPath As String, strToParentFolder As Stri
     Dim strNewPath As String
     If FSO.FolderExists(strFolderPath) Then
         Perf.OperationStart "Move Folder"
-        MkDirIfNotExist strToParentFolder
+        VerifyPath strToParentFolder
         strNewPath = StripSlash(strToParentFolder) & PathSep & FSO.GetFolder(strFolderPath).Name
         If FSO.FolderExists(strNewPath) Then FSO.DeleteFolder strNewPath, True
         FSO.MoveFolder strFolderPath, strNewPath
@@ -299,66 +336,73 @@ Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
 End Sub
 
 
-'---------------------------------------------------------------------------------------
-' Procedure : VerifyPath
-' Author    : Adam Waller
-' Date      : 8/3/2020
-' Purpose   : Verifies that the folder path to a folder or file exists.
-'           : Use this to verify the folder path before attempting to write a file.
-'---------------------------------------------------------------------------------------
-'
-Public Sub VerifyPath(strPath As String)
+' ----------------------------------------------------------------
+' Procedure : VerifyPath (Renamed from EnsurePathExists)
+' DateTime  : 8/15/2022, 10/24/2024
+' Author    : Mike Wolfe, hecon5
+' Source    : https://nolongerset.com/ensurepathexists/
+' Purpose   : Unicode-safe method to ensure a folder exists and
+'           : create the folder (and all subfolders) if it does not.
+'           : Added in additional error handling and logging.
+' ----------------------------------------------------------------
+Public Function VerifyPath(ByRef PathToCheck As String _
+                        , Optional ByVal EnableLongPath As Boolean = True) As Boolean
 
+    Const FunctionName As String = ModuleName & ".VerifyPath"
+
+    Const ERROR_SUCCESS As Long = &H0
+    Const ERROR_ACCESS_DENIED As Long = &H5         'Could not create directory; access denied.
+    Const ERROR_BAD_PATHNAME As Long = &HA1         'The pszPath parameter was set to a relative path.
+    Const ERROR_FILENAME_EXCED_RANGE As Long = &HCE 'The path pointed to by pszPath is too long.
+    Const ERROR_FILE_EXISTS As Long = &H50          'The directory exists.
+    Const ERROR_ALREADY_EXISTS As Long = &HB7       'The directory exists.
+    Const ERROR_CANCELLED As Long = &H4C7           'The user canceled the operation.
+    Const ERROR_INVALID_NAME As Long = &H7B         'Unicode path passed when SHCreateDirectoryEx passes PathToCheck as string.
+
+    Const LONG_PATH_PREFIX As String = "\\?\"
+
+    Dim ReturnCode As Long
     Dim strFolder As String
-    Dim varParts As Variant
-    Dim intPart As Integer
-    Dim strVerified As String
 
-    If strPath = vbNullString Then Exit Sub
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
 
-    Perf.OperationStart "Verify Path"
+    Perf.OperationStart FunctionName
 
-    ' Determine if the path is a file or folder
-    If Right$(strPath, 1) = PathSep Then
+    If PathToCheck = vbNullString Then GoTo Exit_Here
+
+    If Right$(PathToCheck, 1) = PathSep Then
         ' Folder name. (Folder names can contain periods)
-        strFolder = Left$(strPath, Len(strPath) - 1)
+        strFolder = Left$(PathToCheck, Len(PathToCheck) - 1)
     Else
         ' File name
-        strFolder = FSO.GetParentFolderName(strPath)
+        strFolder = FSO.GetParentFolderName(PathToCheck)
     End If
 
-    ' Check if full path exists.
-    If Not FSO.FolderExists(strFolder) Then
-        ' Start from the root, and build out full path, creating folders as needed.
-        ' UNC path? change 3 "\" into 3 "@"
-        If strFolder Like PathSep & PathSep & "*" & PathSep & "*" Then
-            strFolder = Replace(strFolder, PathSep, "@", 1, 3)
-        End If
-
-        ' Separate folders from server name
-        varParts = Split(strFolder, PathSep)
-        ' Get the slashes back
-        varParts(0) = Replace(varParts(0), "@", PathSep, 1, 3)
-
-        ' Make sure the root folder exists. If it doesn't we probably have some other issue.
-        If Not FSO.FolderExists(varParts(0)) Then
-            MsgBox2 "Path Not Found", "Could not find the path '" & varParts(0) & "' on this system.", _
-                    "While trying to verify this path: " & strFolder, vbExclamation
-        Else
-            ' Loop through folder structure, creating as needed.
-            strVerified = varParts(0) & PathSep
-            For intPart = 1 To UBound(varParts)
-                strVerified = FSO.BuildPath(strVerified, varParts(intPart))
-                MkDirIfNotExist strVerified
-
-            Next intPart
-        End If
+    If EnableLongPath And Not StartsWith(strFolder, ".") Then ' Can't use relative paths for LongPaths.
+        ReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(LONG_PATH_PREFIX & strFolder), ByVal 0&)
+    Else
+        ReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(strFolder), ByVal 0&)
     End If
 
-    ' End timing of operation
+    Select Case ReturnCode
+    Case ERROR_SUCCESS, _
+         ERROR_FILE_EXISTS, _
+         ERROR_ALREADY_EXISTS
+        VerifyPath = True
+    Case ERROR_ACCESS_DENIED: Log.Error eelError, "Could not create path: Access denied. Path: " & PathToCheck
+    Case ERROR_BAD_PATHNAME: Log.Error eelError, "Cannot use relative path. Path: " & PathToCheck, FunctionName
+    Case ERROR_FILENAME_EXCED_RANGE: Log.Error eelError, "Path too long. Path: " & PathToCheck, FunctionName
+    Case ERROR_CANCELLED: Log.Error eelError, "User cancelled CreateDirectory operation. Path: " & PathToCheck, FunctionName
+    Case ERROR_INVALID_NAME: Log.Error eelError, "Invalid path name. Path: " & PathToCheck, FunctionName
+    Case Else: Log.Error eelError, "Unexpected error verifying path. Return Code: " & CStr(ReturnCode) & vbNewLine & vbNewLine & "Path: " & PathToCheck, FunctionName
+    End Select
+
+Exit_Here:
+    CatchAny eelError, "Unexpected Error verifying path: " & vbNewLine & vbNewLine & PathToCheck, FunctionName
     Perf.OperationEnd
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -430,6 +474,23 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RegRead
+' Author    : Adam Waller
+' Date      : 2/10/2025
+' Purpose   : Simple wrapper to read a registry value.
+'---------------------------------------------------------------------------------------
+'
+Public Function RegRead(strPath As String) As String
+    LogUnhandledErrors
+    On Error Resume Next
+    With New IWshRuntimeLibrary.WshShell
+        RegRead = .RegRead(strPath)
+    End With
+    If Err Then Err.Clear
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ReadJsonFile
 ' Author    : Adam Waller
 ' Date      : 5/5/2020
@@ -446,6 +507,25 @@ Public Function ReadJsonFile(strPath As String) As Dictionary
         Set ReadJsonFile = ParseJson(strText)
     End If
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildPath2
+' Author    : Adam Waller
+' Date      : 3/3/2021
+' Purpose   : Like FSO.BuildPath, but with unlimited arguments)
+'---------------------------------------------------------------------------------------
+'
+Public Function BuildPath2(ParamArray Segments())
+    Dim lngPart As Long
+    With New clsConcat
+        For lngPart = LBound(Segments) To UBound(Segments)
+            .Add CStr(Segments(lngPart))
+            If lngPart < UBound(Segments) Then .Add PathSep
+        Next lngPart
+    BuildPath2 = .GetStr
+    End With
 End Function
 
 
@@ -527,34 +607,62 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetUncPath
-' Author    : Adam Waller
-' Date      : 7/14/2020
+' Author    : Adam Waller, hecon5
+' Date      : 7/14/2020, 2022 Sept 27
 ' Purpose   : Returns the UNC path for a network location (if applicable)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetUncPath(strPath As String) As String
+Public Function GetUncPath(ByRef PathIn As String)
 
-    Dim strDrive As String
-    Dim strUNC As String
+    Const FunctionName As String = ModuleName & ".GetUncPath"
+    Dim DriveLetter As String
+    Dim UNCPath As String
 
-    LogUnhandledErrors
+    LogUnhandledErrors FunctionName
     On Error Resume Next
 
-    strUNC = strPath
-    strDrive = FSO.GetDriveName(strPath)
-    If strDrive <> vbNullString Then
-        With FSO.GetDrive(strDrive)
-            If .DriveType = Remote Then
-                strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
+    Perf.OperationStart FunctionName
+    UNCPath = PathIn
+
+Retry:
+    DriveLetter = FSO.GetDriveName(PathIn)
+    If Catch(68) Then GoTo HandleDriveLoss
+    CatchAny eelError, "Issue getting drive paths.", FunctionName
+    With FSO.GetDrive(DriveLetter)
+        If Catch(68) Then GoTo HandleDriveLoss
+        If .DriveType = Remote Then
+            If .IsReady Then
+                UNCPath = Replace(PathIn, DriveLetter, .ShareName, , 1, vbTextCompare)
+            Else
+                GoTo HandleDriveLoss
             End If
-        End With
-    End If
+        End If
+    End With
+    GetUncPath = UNCPath
 
-    ' Log warning if unable to access a drive.
-    CatchAny eelWarning, "Unable to determine UNC path for " & strPath, ModuleName & ".GetUncPath"
+Exit_Here:
+    Perf.OperationEnd
+    CatchAny eelError, "Issue getting drive paths.", FunctionName
+    Exit Function
 
-    ' Return UNC Path
-    GetUncPath = strUNC
+HandleDriveLoss:
+    ' This was borrowed from our applicaion, which has more error handling, so we're doing this in two steps now.
+    Log.Error eelError, "Your drive isn't ready! Reconnect " & DriveLetter & " to continue." _
+                        , FunctionName
+
+    Select Case MsgBox2("Click [Retry] AFTER reconnecting drive " & DriveLetter & " to continue." _
+                        , "This usually just means you need to simply open the drive in File Explorer. " _
+                        , "Click Cancel to stop operation." _
+                        , vbRetryCancel + vbDefaultButton1 + vbExclamation _
+                        , "Drive not ready.")
+
+        Case vbRetry
+            GoTo Retry
+
+        Case Else
+            ' Log error, quit operation.
+            GoTo Exit_Here
+    End Select
 
 End Function
 
@@ -614,4 +722,19 @@ Public Function AddSlash(strText As String) As String
     Else
         AddSlash = strText & PathSep
     End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PathSep
+' Author    : Adam Waller
+' Date      : 3/3/2021
+' Purpose   : Return the current path separator, based on language settings.
+'           : Caches value to avoid extra calls to FSO object.
+'---------------------------------------------------------------------------------------
+'
+Public Function PathSep() As String
+    Static strSeparator As String
+    If strSeparator = vbNullString Then strSeparator = Mid$(FSO.BuildPath("a", "b"), 2, 1)
+    PathSep = strSeparator
 End Function
