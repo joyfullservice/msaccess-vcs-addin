@@ -332,9 +332,9 @@ Private Function BuildVersionCompareString(strVersion As String) As String
     varParts = Split(strVersion, ".")
     If UBound(varParts) = 2 Then
         BuildVersionCompareString = _
-            Format(varParts(0), "#####") & _
-            Format(varParts(1), "#####") & _
-            Format(varParts(2), "#####")
+            Format(varParts(0), "00000") & _
+            Format(varParts(1), "00000") & _
+            Format(varParts(2), "00000")
     Else
         ' Unable to parse version
         BuildVersionCompareString = strVersion
