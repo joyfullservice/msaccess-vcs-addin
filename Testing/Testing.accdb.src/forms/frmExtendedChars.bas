@@ -54,6 +54,7 @@ Begin Form
             Begin
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =1080
                     Top =1140
                     Width =3420
@@ -72,6 +73,7 @@ Begin Form
                 End
                 Begin Label
                     OverlapFlags =85
+                    TextFontFamily =0
                     Left =1080
                     Top =2220
                     Width =3420
