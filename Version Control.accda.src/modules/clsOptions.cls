@@ -26,7 +26,6 @@ Public UseFastSave As Boolean
 Public UseMergeBuild As Boolean
 Public UseGitIntegration As Boolean
 Public GitSettings As Dictionary
-Public RepositoryApp As eRepositoryApp
 Public SavePrintVars As Boolean
 Public ExportPrintSettings As Dictionary
 Public SaveQuerySQL As Boolean
@@ -84,7 +83,6 @@ Public Sub LoadDefaults()
         .UseFastSave = True
         .UseMergeBuild = False
         .UseGitIntegration = False
-        .RepositoryApp = eraGitHubDesktop
         .SavePrintVars = True
         .SaveQuerySQL = True
         .FormatSQL = True
@@ -747,7 +745,6 @@ Private Sub Class_Initialize()
         .Add "UseFastSave"
         .Add "UseMergeBuild"
         .Add "UseGitIntegration"
-        .Add "RepositoryApp"
         .Add "SavePrintVars"
         .Add "ExportPrintSettings"
         .Add "SaveQuerySQL"
