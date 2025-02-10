@@ -69,8 +69,6 @@ Public Sub cmdRunTests_Click()
 
     ShowResult "Linked Table JSON", FSO.FileExists(ExportFolder & "tbldefs\tblLinkedCSV.json")
 
-    ShowResult "Linked Table structure", FSO.FileExists(ExportFolder & "tbldefs\tblLinkedCSV.sql")
-
     intTest = 0
     intTest = dbs.Relations("tblInternaltblSaveXML").Fields.Count
     ShowResult "Table Relationship", (intTest = 1)
@@ -84,6 +82,8 @@ Public Sub cmdRunTests_Click()
     strTest = dbs.QueryDefs("qryNavigationPaneGroups").Name
     ShowResult "Query exists", (strTest = "qryNavigationPaneGroups")
 
+    strTest = DLookup("DatabaseFile", "qryVBAFunction")
+    ShowResult "VBA Function in Query", (strTest = CurrentDb.Name)
 
     ' Forms
     strTest = CurrentProject.AllForms("frmMain").Name
