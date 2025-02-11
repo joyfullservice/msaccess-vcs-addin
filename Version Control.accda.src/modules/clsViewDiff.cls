@@ -189,9 +189,9 @@ Private Sub RunCompare(strFile1 As String, strFile2 As String)
     End Select
 
     ' Fill in file name placeholders
-    strCmd = MultiReplace(strCmd, Array( _
+    strCmd = MultiReplace(strCmd, _
         "{file1}", strFile1, _
-        "{file2}", strFile2))
+        "{file2}", strFile2)
 
     ' Run command to launch compare
     LogUnhandledErrors
