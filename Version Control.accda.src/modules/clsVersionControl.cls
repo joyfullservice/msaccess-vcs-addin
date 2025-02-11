@@ -356,9 +356,8 @@ Public Sub OpenRepository()
             End If
 
         Case eraTortoiseGit
-            ShellEx "TortoiseGitProc.exe", "/path:" & strFolder
-            ' Could also go directly to commit:
-            'ShellEx "TortoiseGitProc.exe", "/command:commit /path:" & strFolder
+            ' See discussion in #580 regarding command to use here
+            ShellEx "TortoiseGitProc.exe", "/command:repostatus /closeonend:0 /path:" & strFolder
 
     End Select
 
