@@ -114,6 +114,33 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : cboConnect_Click
+' Author    : Adam Waller
+' Date      : 2/11/2025
+' Purpose   : Encourage the use of a .env file if passwords are identified in the
+'           : connection string.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cboConnect_Click()
+    Dim strTest As String
+    strTest = Nz(cboConnect)
+    If Len(strTest) Then
+        If strTest Like "*password=*" Or strTest Like "*pwd=*" Then
+            ' Appears to have a saved password
+            If Not Me.chkSaveDotEnv Then
+                If MsgBox2("Use .env File for Connection String?", _
+                    "Using a .env file to store sensitive credentials is highly recommended " & _
+                    "when your connection string contains a password.", _
+                    "This .env file should be excluded from version control.", vbQuestion + vbYesNo) = vbYes Then
+                    Me.chkSaveDotEnv = True
+                End If
+            End If
+        End If
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : cmdCancel_Click
 ' Author    : Adam Waller
 ' Date      : 7/20/2023

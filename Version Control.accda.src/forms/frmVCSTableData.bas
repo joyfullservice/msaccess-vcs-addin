@@ -18,8 +18,8 @@ Begin Form
     ItemSuffix =49
     Left =6915
     Top =2850
-    Right =13005
-    Bottom =6135
+    Right =17865
+    Bottom =9675
     RecSrcDt = Begin
         0xb0f4ef174201e640
     End
@@ -112,7 +112,7 @@ Begin Form
                     Top =900
                     Width =2625
                     Height =360
-                    ColumnWidth =3510
+                    ColumnWidth =8370
                     ColumnOrder =1
                     TabIndex =1
                     LeftMargin =44

@@ -16,9 +16,9 @@ Begin Form
     Width =10800
     DatasheetFontHeight =11
     ItemSuffix =263
-    Left =3225
+    Left =32025
     Top =2430
-    Right =28545
+    Right =-14191
     Bottom =14895
     RecSrcDt = Begin
         0x79e78b777268e540
@@ -683,7 +683,7 @@ Begin Form
                     Top =4470
                     TabIndex =5
                     Name ="chkSaveDotEnv"
-                    DefaultValue ="True"
+                    DefaultValue ="False"
                     HorizontalAnchor =1
 
                     LayoutCachedLeft =780
@@ -787,6 +787,7 @@ Begin Form
                     TabIndex =6
                     Name ="cboConnect"
                     RowSourceType ="Value List"
+                    OnClick ="[Event Procedure]"
                     HorizontalAnchor =2
 
                     LayoutCachedLeft =720

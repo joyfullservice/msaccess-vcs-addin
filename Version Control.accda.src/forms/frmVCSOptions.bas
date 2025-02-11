@@ -1597,7 +1597,6 @@ Begin Form
                                     TopPadding =135
                                     RightPadding =150
                                     BottomPadding =150
-                                    HorizontalAnchor =1
                                     BackStyle =0
 
                                     CursorOnHover =1
