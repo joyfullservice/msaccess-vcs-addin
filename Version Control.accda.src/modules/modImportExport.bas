@@ -43,14 +43,6 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
         MsgBox2 T("Unabled to Export Running Database", "Please launch the export using the add-in menu or ribbon"), , vbExclamation
         Exit Sub
-    Else
-        ' Close any open database objects.
-        If Not CloseDatabaseObjects Then
-            MsgBox2 T("Please close all database objects"), _
-                T("All database objects (i.e.forms, reports, tables, queries, etc...) must be closed to export source code."), _
-                , vbExclamation
-            Exit Sub
-        End If
     End If
 
     ' Reload the project options and reset the logs
@@ -113,6 +105,14 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Perf.OperationStart "RunBeforeExport"
         RunSubInCurrentProject Options.RunBeforeExport
         Perf.OperationEnd
+    End If
+
+    ' Close any open database objects.
+    If Not CloseDatabaseObjects Then
+        MsgBox2 T("Please close all database objects"), _
+            T("All database objects (i.e.forms, reports, tables, queries, etc...) must be closed to export source code."), _
+            , vbExclamation
+        Exit Sub
     End If
 
     ' Export any external database schemas
