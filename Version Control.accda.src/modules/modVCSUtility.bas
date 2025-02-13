@@ -637,14 +637,17 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 5/5/2020
 ' Purpose   : Load the object into the database from the saved source file.
+'           : Returns True if the loading worked; False if an error occured or other
+'           : issue was detected.
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadComponentFromText(intType As AcObjectType _
-                                , ByRef strName As String _
-                                , ByRef strFile As String)
+Public Function LoadComponentFromText(intType As AcObjectType _
+                                    , ByRef strName As String _
+                                    , ByRef strFile As String) As Boolean
 
     Const FunctionName As String = ModuleName & ".LoadComponentFromText"
 
+    Dim boolErrInFunction As Boolean
     Dim strTempFile As String
     Dim strSourceFile As String
     Dim strPrefix As String
@@ -652,7 +655,6 @@ Public Sub LoadComponentFromText(intType As AcObjectType _
     Dim strContent As String
     Dim blnVbaOverlay As Boolean
     Dim blnConvert As Boolean
-
 
     LogUnhandledErrors FunctionName
     On Error GoTo ErrHandler
@@ -722,6 +724,7 @@ RetryImport:
         Application.LoadFromText intType, strName, strTempFile
         Perf.OperationEnd
         DeleteFile strTempFile, True
+
     Else
         ' Load UTF-8 file
         Perf.OperationStart "App.LoadFromText()"
@@ -742,8 +745,10 @@ CleanUp:
     End If
 
 Exit_Here:
+    ' Only set output to true when import and function didn't have any issues.
+    LoadComponentFromText = (Not boolErrInFunction) And (Not Log.ErrorLevel = eelCritical)
     Perf.OperationEnd
-    Exit Sub
+    Exit Function
 
 ErrHandler:
     ' Issue importing form. We need to prompt user to see if we continue on or not.
@@ -758,21 +763,22 @@ ErrHandler:
 
     Case vbAbort
         Log.Error eelCritical, "Aborted build.", FunctionName
-        strName = vbNullString
+        boolErrInFunction = True
         GoTo CleanUp
 
     Case vbRetry
+        Log.Add T("Retrying import for: {0}", var0:=strName)
         Resume RetryImport
 
     Case Else ' this also includes ignore.
         ' Clear out strName because we're going to use it to detect if the import failed.
-        Log.ErrorLevel = eelError
-        strName = vbNullString
+        Log.Error eelError, T("Skipping import of '{0}'. Your application may not run or complile.", var0:=strName), FunctionName
+        boolErrInFunction = True
         Resume Next
 
     End Select
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------

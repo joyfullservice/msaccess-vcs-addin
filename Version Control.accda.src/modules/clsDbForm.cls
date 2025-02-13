@@ -54,6 +54,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim strName As String
     Dim blnStage As Boolean
+    Dim boolImportCheck As Boolean
 
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
@@ -70,8 +71,8 @@ Private Sub IDbComponent_Import(strFile As String)
     End If
 
     ' Load the form from the source file
-    LoadComponentFromText acForm, strName, strFile
-    If strName = vbNullString Or Log.ErrorLevel = eelCritical Then Exit Sub
+    boolImportCheck = LoadComponentFromText(acReport, strName, strFile)
+    If Not boolImportCheck Or Log.ErrorLevel = eelCritical Then Exit Sub
     Set m_Form = CurrentProject.AllForms(strName)
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
 
