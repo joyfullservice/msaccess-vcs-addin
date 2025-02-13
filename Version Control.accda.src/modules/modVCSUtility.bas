@@ -506,10 +506,12 @@ End Function
 '           : Returns a hash of the file content (if applicable) to track changes.
 '---------------------------------------------------------------------------------------
 '
-Public Function SaveComponentAsText(intType As AcObjectType, _
-                                strName As String, _
-                                strFile As String, _
-                                Optional cDbObjectClass As IDbComponent = Nothing) As String
+Public Function SaveComponentAsText(intType As AcObjectType _
+                                    , strName As String _
+                                    , strFile As String _
+                                    , Optional cDbObjectClass As IDbComponent = Nothing) As String
+
+    Const FunctionName As String = ModuleName & ".SaveComponentAsText"
 
     Dim strTempFile As String
     Dim strAltFile As String
@@ -518,6 +520,7 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
     Dim strHash As String
     Dim cParser As clsSourceParser
 
+    LogUnhandledErrors FunctionName
     On Error GoTo ErrHandler
 
     ' Export to temporary file
@@ -617,12 +620,13 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
     Exit Function
 
 ErrHandler:
-    If Err.Number = 2950 And intType = acTableDataMacro Then
+    If Catch(2950) And intType = acTableDataMacro Then
         ' This table apparently didn't have a Table Data Macro.
         Exit Function
     Else
         ' Some other error.
-        Err.Raise Err.Number
+        Log.Error eelError, "Issue creating output file.", FunctionName
+        'Err.Raise Err.Number
     End If
 
 End Function
@@ -635,7 +639,11 @@ End Function
 ' Purpose   : Load the object into the database from the saved source file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, strFile As String)
+Public Sub LoadComponentFromText(intType As AcObjectType _
+                                , strName As String _
+                                , strFile As String)
+
+    Const FunctionName As String = ModuleName & ".LoadComponentFromText"
 
     Dim strTempFile As String
     Dim strSourceFile As String
@@ -645,6 +653,12 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
     Dim blnVbaOverlay As Boolean
     Dim blnConvert As Boolean
 
+
+    LogUnhandledErrors FunctionName
+    On Error GoTo ErrHandler
+    Perf.OperationStart FunctionName
+
+RetryImport:
     ' In most cases we are importing/converting the actual source file.
     strSourceFile = strFile
 
@@ -715,16 +729,40 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
         Perf.OperationEnd
     End If
 
+CleanUp:
     ' Clean up any additional temp file used in the building process
     If strFile <> strSourceFile Then
         If FSO.FileExists(strSourceFile) Then DeleteFile strSourceFile
     End If
 
     ' Check for VBA overlay
-    If blnVbaOverlay Then
+    If blnVbaOverlay And Not Log.ErrorLevel = eelCritical Then ' don't do this if we're trying to bail out.
         strPrefix = IIf(intType = acForm, "Form_", "Report_")
         OverlayCodeModule strPrefix & strName, SwapExtension(strFile, "cls")
     End If
+
+Exit_Here:
+    Perf.OperationEnd
+    Exit Sub
+
+ErrHandler:
+    ' Issue importing form. We need to prompt user to see if we continue on or not.
+    Log.Error eelError, T("Import issue with '{0}'", var0:=strName), FunctionName
+    Select Case MsgBox2(T("Could not import '{0}'.", var0:=strName) _
+            , T("Abort build, retry importing, or skip?") _
+            , T("[Abort] = Abort build process entirely." & vbNewLine & _
+                "[Retry] = Retry importing the item." & vbNewLine & _
+                "[Ignore] = Skip this item.") _
+            , vbAbortRetryIgnore, "Error importing!", vbAbort)
+
+    Case vbAbort
+        Log.Error eelCritical, "Aborted build.", FunctionName
+        GoTo CleanUp
+    Case vbRetry
+        GoTo RetryImport
+    Case Else ' this also includes ignore.
+        Resume Next
+    End Select
 
 End Sub
 
