@@ -817,7 +817,10 @@ End Sub
 '           : process if a large number of items are invovled.
 '---------------------------------------------------------------------------------------
 '
-Public Sub OverlayCodeModule(strName As String, strClassFile As String)
+Public Sub OverlayCodeModule(strName As String _
+                            , strClassFile As String)
+
+    Const FunctionName As String = ModuleName & ".OverlayCodeModule"
 
     Dim objModule As VBIDE.CodeModule
     Dim strContent As String
@@ -825,15 +828,16 @@ Public Sub OverlayCodeModule(strName As String, strClassFile As String)
     Dim strShortName As String
     Dim cParser As clsSourceParser
 
-    LogUnhandledErrors
+    LogUnhandledErrors FunctionName
     'On Error Resume Next
+
     Set objModule = CurrentVBProject.VBComponents(strName).CodeModule
-    If CatchAny(eelError, "Could not find code module for " & strName, ModuleName & ".OverlayCodeModule") Then Exit Sub
+    If CatchAny(eelError, T("Could not find code module for {0}", var0:=strName), FunctionName) Then Exit Sub
 
     ' Read class file content
     strContent = ReadFile(strClassFile)
     If strContent = vbNullString Then
-        Log.Error eelError, "Unable to read " & strClassFile, ModuleName & ".OverlayCodeModule"
+        Log.Error eelError, T("Unable to read {0}", var0:=strClassFile), FunctionName
         Exit Sub
     End If
 

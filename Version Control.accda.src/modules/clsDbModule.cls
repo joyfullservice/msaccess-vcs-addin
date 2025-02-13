@@ -73,11 +73,16 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Const cintPublicCreateable As Integer = 5   ' Instancing
 
+    Dim FunctionName As String
+
     Dim strName As String
     Dim strTempFile As String
     Dim udtFile As udtVbaFileContent
 
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    FunctionName = ModuleName(Me) & ".Import"
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
 
     ' Only import files with the correct extension.
     If Not (strFile Like "*.bas" Or strFile Like "*.cls") Then Exit Sub
@@ -104,17 +109,20 @@ Private Sub IDbComponent_Import(strFile As String)
     End If
 
     ' Set reference to object
-    LogUnhandledErrors
-    On Error Resume Next
+    CatchAny eelError, T("Error with module: {0}", var0:=strName), FunctionName
+
     Set m_Module = CurrentProject.AllModules(strName)
     If Catch(2467) Then Log.Error eelCritical, _
-        "Imported module not found after import: " & strName, ModuleName(Me) & ".Import"
+        T("Imported module not found after import: {0}" & vbNewLine & _
+            "Ensure 'Attribute VB_Name = {0}' is found at the start of the file." & _
+            "Filenames (before prefix) must match the 'Attribute VB_Name' value." _
+            , var0:=strName), FunctionName
 
     ' Save hash, update the index, and remove the temp file
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
     DeleteFile strTempFile
 
-    CatchAny eelError, "Error importing module: " & strName, ModuleName(Me) & ".Import"
+    CatchAny eelError, T("Error importing module: {0}", var0:=strName), FunctionName
 
 End Sub
 
