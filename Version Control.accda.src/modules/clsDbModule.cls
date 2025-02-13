@@ -114,7 +114,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Set m_Module = CurrentProject.AllModules(strName)
     If Catch(2467) Then Log.Error eelCritical, _
         T("Imported module not found after import: {0}" & vbNewLine & _
-            "Ensure 'Attribute VB_Name = {0}' is found at the start of the file." & _
+            "Ensure 'Attribute VB_Name = {0}' is found at the start of the file. " & _
             "Filenames (before prefix) must match the 'Attribute VB_Name' value." _
             , var0:=strName), FunctionName
 
