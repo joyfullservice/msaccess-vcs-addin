@@ -640,8 +640,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadComponentFromText(intType As AcObjectType _
-                                , strName As String _
-                                , strFile As String)
+                                , ByRef strName As String _
+                                , ByRef strFile As String)
 
     Const FunctionName As String = ModuleName & ".LoadComponentFromText"
 
@@ -748,6 +748,7 @@ Exit_Here:
 ErrHandler:
     ' Issue importing form. We need to prompt user to see if we continue on or not.
     Log.Error eelError, T("Import issue with '{0}'", var0:=strName), FunctionName
+
     Select Case MsgBox2(T("Could not import '{0}'.", var0:=strName) _
             , T("Abort build, retry importing, or skip?") _
             , T("[Abort] = Abort build process entirely." & vbNewLine & _
@@ -757,11 +758,18 @@ ErrHandler:
 
     Case vbAbort
         Log.Error eelCritical, "Aborted build.", FunctionName
+        strName = vbNullString
         GoTo CleanUp
+
     Case vbRetry
-        GoTo RetryImport
+        Resume RetryImport
+
     Case Else ' this also includes ignore.
+        ' Clear out strName because we're going to use it to detect if the import failed.
+        Log.ErrorLevel = eelError
+        strName = vbNullString
         Resume Next
+
     End Select
 
 End Sub

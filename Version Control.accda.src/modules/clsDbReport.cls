@@ -59,6 +59,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     strName = GetObjectNameFromFileName(strFile)
     LoadComponentFromText acReport, strName, strFile
+    If strName = vbNullString Or Log.ErrorLevel = eelCritical Then Exit Sub
     Set m_Report = CurrentProject.AllReports(strName)
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), GetCodeModuleHash(IDbComponent_ComponentType, strName)
 

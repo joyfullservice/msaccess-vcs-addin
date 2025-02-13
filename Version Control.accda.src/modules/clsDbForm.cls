@@ -71,6 +71,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     ' Load the form from the source file
     LoadComponentFromText acForm, strName, strFile
+    If strName = vbNullString Or Log.ErrorLevel = eelCritical Then Exit Sub
     Set m_Form = CurrentProject.AllForms(strName)
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
 
