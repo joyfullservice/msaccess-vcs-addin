@@ -51,15 +51,15 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim boolImportCheck As Boolean
+    Dim blnImportCheck As Boolean
     Dim strName As String
 
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
 
     strName = GetObjectNameFromFileName(strFile)
-    boolImportCheck = LoadComponentFromText(acMacro, strName, strFile)
-    If Not boolImportCheck Or Log.ErrorLevel = eelCritical Then Exit Sub
+    blnImportCheck = LoadComponentFromText(acMacro, strName, strFile)
+    If Not blnImportCheck Or Log.ErrorLevel = eelCritical Then Exit Sub
     Set m_Macro = CurrentProject.AllMacros(strName)
     VCSIndex.Update Me, eatImport, GetFileHash(strFile)
 

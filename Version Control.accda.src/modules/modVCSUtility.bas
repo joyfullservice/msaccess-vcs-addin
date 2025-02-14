@@ -647,7 +647,7 @@ Public Function LoadComponentFromText(intType As AcObjectType _
 
     Const FunctionName As String = ModuleName & ".LoadComponentFromText"
 
-    Dim boolErrInFunction As Boolean
+    Dim blnErrInFunction As Boolean
     Dim strTempFile As String
     Dim strSourceFile As String
     Dim strPrefix As String
@@ -746,7 +746,7 @@ CleanUp:
 
 Exit_Here:
     ' Only set output to true when import and function didn't have any issues.
-    LoadComponentFromText = (Not boolErrInFunction) And (Not Log.ErrorLevel = eelCritical)
+    LoadComponentFromText = (Not blnErrInFunction) And (Not Log.ErrorLevel = eelCritical)
     Perf.OperationEnd
     Exit Function
 
@@ -763,7 +763,7 @@ ErrHandler:
 
     Case vbAbort
         Log.Error eelCritical, "Aborted build.", FunctionName
-        boolErrInFunction = True
+        blnErrInFunction = True
         GoTo CleanUp
 
     Case vbRetry
@@ -773,7 +773,7 @@ ErrHandler:
     Case Else ' this also includes ignore.
         ' Clear out strName because we're going to use it to detect if the import failed.
         Log.Error eelError, T("Skipping import of '{0}'. Your application may not run or complile.", var0:=strName), FunctionName
-        boolErrInFunction = True
+        blnErrInFunction = True
         Resume Next
 
     End Select

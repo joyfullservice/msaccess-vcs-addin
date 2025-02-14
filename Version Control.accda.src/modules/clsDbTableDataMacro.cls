@@ -70,15 +70,15 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim boolImportCheck As Boolean
+    Dim blnImportCheck As Boolean
     Dim strName As String
 
     ' Only import files with the correct extension.
     If Not strFile Like "*.xml" Then Exit Sub
 
     strName = GetObjectNameFromFileName(strFile)
-    boolImportCheck = LoadComponentFromText(acTableDataMacro, strName, strFile)
-    If Not boolImportCheck Or Log.ErrorLevel = eelCritical Then Exit Sub
+    blnImportCheck = LoadComponentFromText(acTableDataMacro, strName, strFile)
+    If Not blnImportCheck Or Log.ErrorLevel = eelCritical Then Exit Sub
     ' Update index
     Set m_Table = CurrentData.AllTables(strName)
     VCSIndex.Update Me, eatImport, GetFileHash(strFile)
