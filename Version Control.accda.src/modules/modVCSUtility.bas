@@ -1047,6 +1047,7 @@ End Sub
 Public Sub AfterBuild()
     modResource.VerifyResources
     Translation.LoadTranslations
+    ImportCommandBarTemplate
 End Sub
 
 
@@ -1282,4 +1283,47 @@ Public Function ReadSourceFile(strPath As String) As String
         End If
     End If
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportCommandBarTemplate
+' Author    : bclothier
+' Date      : 02/14/2025
+' Purpose   : Import the command bar template from the add-in binary to allow the new
+'           : version of the add-in to work with the template. This is necessary
+'           : because there are certain "custom" built-in controls that cannot be added
+'           : using CommandBar.Add method but they can be copied from one commandbar
+'           : to other. The template commandbar houses common Access "custom" built-in
+'           : controls to be used for copying. Refer to clsDbCommandBar for details.
+'---------------------------------------------------------------------------------------
+'
+Private Function ImportCommandBarTemplate() As Boolean
+    Dim strXML As String
+
+    strXML = _
+        "<?xml version=""1.0"" encoding=""utf-8"" ?>" & vbNewLine & _
+        "<ImportExportSpecification Path = """ & GetAddInFileName & """ xmlns=""urn:www.microsoft.com/office/access/imexspec"">" & vbNewLine & _
+        "  <ImportAccess ImportExportSpecs=""false"" MenusAndToolbars=""true"" Relationships=""false"" NavPane=""false"" StructureAndData=""true"" QueriesAsTables=""false"" Resources=""false"" />" & vbNewLine & _
+        "</ImportExportSpecification>"
+
+    Const strTempName As String = "TempSpec"
+
+    On Error Resume Next
+    CurrentProject.ImportExportSpecifications(strTempName).Delete
+    On Error GoTo 0
+
+    With CurrentProject.ImportExportSpecifications.Add(strTempName, strXML)
+        .Execute
+        .Delete
+    End With
+
+    ' Verify we have the command bar now
+    On Error Resume Next
+    ImportCommandBarTemplate = Not (Application.CommandBars(strTemplateCommandBarName) Is Nothing)
+    If Err.Number Then
+        Log.Error eelCritical, "Template command bar was not imported!"
+        ImportCommandBarTemplate = False
+    End If
+    On Error GoTo 0
 End Function
