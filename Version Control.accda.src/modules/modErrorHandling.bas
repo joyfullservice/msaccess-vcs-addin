@@ -122,11 +122,12 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function CatchAny(eLevel As eErrorLevel, strDescription As String, Optional strSource As String, _
-    Optional blnLogError As Boolean = True, Optional blnClearError As Boolean = True) As Boolean
+    Optional blnLogError As Boolean = True, Optional blnClearError As Boolean = True, _
+    Optional blnIncludeErrorWithDescription As Boolean = False) As Boolean
     If Err Then
         If blnLogError Then
             this.blnInError = True
-            Log.Error eLevel, strDescription, strSource
+            Log.Error eLevel, strDescription, strSource, blnIncludeErrorWithDescription
             this.blnInError = False
         End If
         If blnClearError Then Err.Clear
