@@ -158,3 +158,6 @@ Public Enum eContainerFilter
     ecfVBAItems
     ecfSchemas
 End Enum
+
+' Used for handling custom built-in command bar controls. See clsDbCommandBar for details.
+Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinCommandBarTemplate"

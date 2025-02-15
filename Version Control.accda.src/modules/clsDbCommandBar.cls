@@ -17,6 +17,7 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 
+Private m_TemplateCommandBar As CommandBar
 Private m_CommandBar As CommandBar
 Private m_Items(True To False) As Dictionary
 Private m_dItems As Dictionary
@@ -24,7 +25,8 @@ Private m_FileList As Dictionary
 
 Private Type udtThis
     BarProperties As Collection
-    CtlProperties As Collection
+    CtlReadProperties As Collection
+    CtlWriteProperties As Collection
     dImages As Dictionary       ' Dictionary of image objects used with this CommandBar
 End Type
 Private this As udtThis
@@ -104,6 +106,7 @@ Private Sub IDbComponent_Import(strFile As String)
     If Not strFile Like "*.json" Then Exit Sub
     Set dBar = ReadJsonFile(strFile)
 
+    Perf.OperationStart "Building CommandBar"
     ' Delete any existing bar with this name.
     strName = GetObjectNameFromFileName(strFile)
     Set m_CommandBar = GetExisting(strName)
@@ -119,7 +122,6 @@ Private Sub IDbComponent_Import(strFile As String)
     End If
 
     ' Now, create a new command bar, and add controls to it.
-    Perf.OperationStart "Building CommandBar"
     Dim IsMenu As Boolean
     Dim Position As MsoBarPosition
 
@@ -173,25 +175,52 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
 
     If TypeOf objItem Is CommandBar Then
         ' Set command bar properties
-        For Each varProp In dParent.Keys
-            Select Case varProp
-                Case "Controls", "Type"
-                    ' Skip these
-                Case Else
+        For Each varProp In this.BarProperties
+            If varProp <> "Type" Then
+                If dParent.Exists(varProp) Then
                     CallByName objItem, varProp, VbLet, dParent(varProp)
-                    If CatchAny(eelNoError, vbNullString) Then
+                    If Catch(438, 440) Then
+                        ' No point logging those errors.
+                    ElseIf CatchAny(eelNoError, vbNullString) Then
                         Debug.Print "Could not set " & varProp & " on " & objItem.Name
                     End If
-            End Select
-        Next varProp
+                End If
+            End If
+        Next
         ' Now add any nested controls
         If dParent.Exists("Controls") Then
             For Each dControl In dParent("Controls")
                 If dControl("BuiltIn") Then
-                    ' Insert built-in control
-                    With objItem.Controls.Add(dControl("Type"), dControl("Id"))
-                        .Visible = dControl("Visible")
-                    End With
+                    ' We must first determine if it's an Access custom built-in control which requires special handling
+                    Dim bolCustomBuiltIn As Boolean
+                    Select Case dControl("Id")
+                        Case 1835, 1836, 1837, 1838, 1839, 3885, 3886, 3888
+                            bolCustomBuiltIn = True
+                        Case 3887 ' We don't have diagrams yet. :-(
+                            ' Throw warning
+                            Log.Error eelWarning, "Custom commandbar opening database diagrams are not supported. If you want to support diagrams, please submit a PR including a working command bar with the diagram button.", ModuleName(Me) & ".BuildControls"
+                        Case Else
+                            bolCustomBuiltIn = False
+                    End Select
+
+                    If bolCustomBuiltIn Then
+                        ' It's an Access "custom" built-in control which we cannot use .Add method.
+                        ' We must instead copy from our template command bar into the target command bar.
+                        ' So far, all custom built-in controls are buttons, so we'll use button rather than
+                        ' more generic control.
+
+                        ' Build the custom "built-in" control ourselves
+                        BuildControls dControl, m_TemplateCommandBar.FindControl(ID:=dControl("Id")).Copy(objItem)
+                    Else
+                        ' Insert built-in control
+
+                        ' A built-in control may fail to add. In this case, we need to warn the users
+                        Dim objBuiltIn As CommandBarControl
+                        Set objBuiltIn = objItem.Controls.Add(dControl("Type"), dControl("Id"))
+                        If Not CatchAny(eelError, "Unable to add a built-in control using Id " & dControl("Id"), blnIncludeErrorWithDescription:=True) Then
+                            objBuiltIn.Visible = dControl("Visible")
+                        End If
+                    End If
                 Else
                     ' Build the control ourselves
                     BuildControls dControl, objItem.Controls.Add(dControl("Type"))
@@ -200,22 +229,28 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
         End If
     ElseIf TypeOf objItem Is CommandBarControl Then
         ' Set control properties
-        For Each varProp In dParent.Keys
-            Select Case varProp
-                Case "ImagePath", "Type"
-                    ' Skip these
-                Case Else
-                    CallByName objItem, varProp, VbLet, dParent(varProp)
-                    If CatchAny(eelNoError, vbNullString) Then
-                        Debug.Print "Could not set " & varProp & " on " & objItem.Caption
-                    End If
-            End Select
+        For Each varProp In this.CtlWriteProperties
+            If dParent.Exists(varProp) Then
+                CallByName objItem, varProp, VbLet, dParent(varProp)
+                If Catch(438, 440) Then
+                    ' No point logging those errors
+                ElseIf CatchAny(eelNoError, vbNullString) Then
+                    Debug.Print "Could not set " & varProp & " on " & objItem.Caption
+                End If
+            End If
         Next varProp
         If TypeOf objItem Is CommandBarPopup And dParent.Exists("Controls") Then
             ' Add nested controls
             For Each dControl In dParent("Controls")
                 BuildControls dControl, objItem.Controls.Add(dControl("Type"))
             Next dControl
+        ElseIf TypeOf objItem Is CommandBarComboBox And dParent.Exists("List") Then
+            Dim varItem As Variant
+            Dim cbcItem As CommandBarComboBox
+            Set objItem = cbcItem
+            For Each varItem In dParent("List")
+                cbcItem.AddItem varItem
+            Next
         Else
             ' Check for picture
             If dParent.Exists("ImagePath") Then
@@ -318,14 +353,35 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
         dParent.Add "Controls", BuildControlCollection(objItem.Controls)
     ElseIf TypeOf objItem Is CommandBarControl Then
         ' Add control properties
-        For Each varProp In this.CtlProperties
+        For Each varProp In this.CtlReadProperties
+            varValue = Empty ' Clear the value from previous run
             varValue = CallByName(objItem, varProp, VbGet)
-            If Not CatchAny(eelNoError, vbNullString) Then
+            ' No point in logging those 2 errors.
+            If Catch(438, 440) Then
+            ' Check for any other errors which should be logged just in case.
+            ElseIf Not CatchAny(eelNoError, vbNullString) Then
                 dParent.Add varProp, varValue
             End If
         Next varProp
         ' Save the ID for built-in items
-        If objItem.BuiltIn Then dParent.Add "Id", objItem.ID
+        If objItem.BuiltIn Then
+            dParent.Add "Id", objItem.ID
+        End If
+        If TypeOf objItem Is CommandBarComboBox Then
+            If objItem.Type = msoControlDropdown Or objItem.Type = msoControlComboBox Then
+            ' Build List
+            Dim cbcItem As CommandBarComboBox
+            Dim colList As Collection
+            Dim i As Long
+            Set cbcItem = objItem
+
+            Set colList = New Collection
+            For i = 1 To cbcItem.ListCount
+                colList.Add cbcItem.List(i), CStr(i)
+            Next
+            dParent.Add "List", colList
+            End If
+        End If
         If TypeOf objItem Is CommandBarPopup Then
             ' Loop through nested controls
             dParent.Add "Controls", BuildControlCollection(objItem.Controls)
@@ -333,13 +389,18 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
             ' Check for picture
             Set picItem = objItem.Picture
             ' Not all command bar controls have picture
-            If Not CatchAny(eelNoError, vbNullString) Then
+            If Catch(438) Then
+                ' Don't log this error and skip
+            ElseIf CatchAny(eelNoError, vbNullString) Then
+                ' Log any other error and skip
+            Else
+                ' Proceed with picture processing
                 If Not picItem Is Nothing Then
                     strPath = GetImagePath(objItem)
                     ' Check path for possible duplicates (menu items with the same name)
                     If this.dImages.Exists(strPath) Then
                         ' Add a number to make the path unique.
-                        strPath = strPath & this.dImages.Count & "_"
+                        strPath = strPath & "_" & this.dImages.Count
                     End If
                     ' Save reference to image objects to use when
                     ' exporting images to files.
@@ -474,10 +535,19 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         ' Loop through command bars, looking for any custom ones.
+
+        ' TODO: Figure out a way to determine whether a command bar belongs to the current
+        ' database. The command bars are associated with the application, not with the database
+        ' so the application could have additional command bars loaded via add-in or other processes
+        ' that are not actually a part of the database itself. The data is there in the internal
+        ' table but not human readable.
         Set m_Items(blnModifiedOnly) = New Dictionary
         For Each bar In Application.CommandBars
-            If Not bar.BuiltIn Then
-            'If bar.Name = "Query" Then
+            If bar.BuiltIn Then
+                ' Skip
+            ElseIf bar.Name = strTemplateCommandBarName Then
+                ' Skip our template command bar
+            Else
                 Set cCmdBar = New clsDbCommandBar
                 Set cCmdBar.DbObject = bar
                 blnAdd = True
@@ -674,6 +744,10 @@ End Property
 Private Sub Class_Initialize()
     'm_Count = -1
 
+    ' We assume the add-in file already has the template command bar included. If it doesn't, then
+    ' we will have problem importing Access' custom built-in buttons.
+    Set m_TemplateCommandBar = Application.CommandBars(strTemplateCommandBarName)
+
     ' Set up property name lists
 
     ' CommandBar Properties
@@ -684,39 +758,91 @@ Private Sub Class_Initialize()
         .Add "Enabled"
         .Add "Height"
         .Add "Left"
+        .Add "NameLocal"
+        .Add "Position"
         .Add "Protection"
         .Add "RowIndex"
-        .Add "Top"
-        .Add "Type"
-        .Add "Width"
-        .Add "Position"
-    End With
-
-    ' CommmandBarControl Properties
-    Set this.CtlProperties = New Collection
-    With this.CtlProperties
-        .Add "BeginGroup"
-        .Add "BuiltIn"
-        .Add "Caption"
-        .Add "DescriptionText"
-        .Add "Enabled"
-        .Add "Height"
-        .Add "HelpContextId"
-        .Add "HelpFile"
-        .Add "IsPriorityDropped"
-        .Add "Left"
-        .Add "OLEUsage"
-        .Add "OnAction"
-        .Add "Parameter"
-        .Add "Priority"
-        .Add "Tag"
-        .Add "TooltipText"
         .Add "Top"
         .Add "Type"
         .Add "Visible"
         .Add "Width"
     End With
 
+    ' CommmandBarControl Properties
+    ' This should include all properties from different types of CommandBarControl
+    ' even if they are not common among all types.
+
+    ' Build a list for read-write properties to be used in building controls.
+    Set this.CtlWriteProperties = New Collection
+    With this.CtlWriteProperties
+        .Add "BeginGroup"
+        .Add "BuiltInFace"
+        .Add "Caption"
+        .Add "DescriptionText"
+        .Add "DropDownLines"
+        .Add "DropDownWidth"
+        .Add "Enabled"
+        .Add "FaceId"
+        .Add "Height"
+        .Add "HelpContextId"
+        .Add "HelpFile"
+        .Add "HyperlinkType"
+        .Add "ListHeaderCount"
+        .Add "ListIndex"
+        .Add "OLEMenuGroup"
+        .Add "OLEUsage"
+        .Add "OnAction"
+        .Add "Parameter"
+        .Add "Priority"
+        .Add "ShortcutText"
+        .Add "State"
+        .Add "Style"
+        .Add "Tag"
+        .Add "Text"
+        .Add "TooltipText"
+        .Add "Visible"
+        .Add "Width"
+    End With
+
+    ' Build dictionary to be used for writing out to text files to include additional data about the
+    ' controls so any changes can be detected via source code control
+    Set this.CtlReadProperties = New Collection
+    With this.CtlReadProperties
+        .Add "BeginGroup"
+        .Add "BuiltIn"
+        .Add "BuiltInFace"
+        .Add "Caption"
+        .Add "DescriptionText"
+        .Add "DropDownLines"
+        .Add "DropDownWidth"
+        .Add "Enabled"
+        .Add "FaceId"
+        .Add "Height"
+        .Add "HelpContextId"
+        .Add "HelpFile"
+        .Add "HyperlinkType"
+        .Add "Index"
+        .Add "IsPriorityDropped"
+        .Add "Left"
+        .Add "ListCount"
+        .Add "ListHeaderCount"
+        .Add "ListIndex"
+        .Add "OLEMenuGroup"
+        .Add "OLEUsage"
+        .Add "OnAction"
+        .Add "Parameter"
+        .Add "Priority"
+        .Add "ShortcutText"
+        .Add "State"
+        .Add "Style"
+        .Add "Tag"
+        .Add "Text"
+        .Add "TooltipText"
+        .Add "Top"
+        .Add "Type"
+        .Add "Visible"
+        .Add "Width"
+    End With
 End Sub
 
 
