@@ -519,10 +519,29 @@ End Function
 '
 Public Function BuildPath2(ParamArray Segments())
     Dim lngPart As Long
+    Dim strSegment As String
+
     With New clsConcat
         For lngPart = LBound(Segments) To UBound(Segments)
-            .Add CStr(Segments(lngPart))
-            If lngPart < UBound(Segments) Then .Add PathSep
+            strSegment = Segments(lngPart)
+            Do
+                ' Remove leading & trailing slashes that may be included in the segment
+                If Left$(strSegment, 1) = PathSep Then
+                    If Right$(strSegment, 1) = PathSep Then
+                        strSegment = Mid$(strSegment, 2, Len(strSegment) - 2)
+                    Else
+                        strSegment = Mid$(strSegment, 2)
+                    End If
+                ElseIf Right$(strSegment, 1) = PathSep Then
+                    strSegment = Left$(strSegment, Len(strSegment) - 1)
+                Else
+                    Exit Do
+                End If
+            Loop
+            .Add CStr(strSegment)
+            If lngPart < UBound(Segments) Then
+                .Add PathSep
+            End If
         Next lngPart
     BuildPath2 = .GetStr
     End With
@@ -533,19 +552,21 @@ End Function
 ' Procedure : GetRelativePath
 ' Author    : Adam Waller
 ' Date      : 5/11/2020
-' Purpose   : Returns a path relative to current database.
+' Purpose   : Returns a path relative to a specified folder. If folder path is omitted,
+'           : the current database's path is assumed.
 '           : If a relative path is not possible, it returns the original full path.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetRelativePath(strPath As String) As String
+Public Function GetRelativePath(strPath As String, Optional strFolder As String = vbNullString) As String
 
-    Dim strFolder As String
     Dim strUncPath As String
     Dim strUncTest As String
     Dim strRelative As String
 
     ' Check for matching parent folder as relative to the project path.
-    strFolder = GetUncPath(CurrentProject.Path) & PathSep
+    If Len(strFolder) = 0 Then
+        strFolder = GetUncPath(CurrentProject.Path) & PathSep
+    End If
 
     ' Default to original path if no relative path could be resolved.
     strRelative = strPath
@@ -583,9 +604,12 @@ End Function
 ' Purpose   : Expands a relative path out to the full path.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetPathFromRelative(strPath As String) As String
+Public Function GetPathFromRelative(strPath As String, Optional strFolder As String = vbNullString) As String
+    If Len(strFolder) = 0 Then
+        strFolder = CurrentProject.Path
+    End If
     If IsRelativePath(strPath) Then
-        GetPathFromRelative = FSO.BuildPath(CurrentProject.Path, Mid$(strPath, 5))
+        GetPathFromRelative = FSO.BuildPath(strFolder, Mid$(strPath, 5))
     Else
         ' No relative path used.
         GetPathFromRelative = strPath
