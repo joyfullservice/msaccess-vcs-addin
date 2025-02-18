@@ -75,9 +75,9 @@ Private Sub SaveImages()
     Perf.OperationStart "Save CommandBar Images"
     For Each varPic In this.dImages.Keys
         ' Save the item image to a file
-        stdole.SavePicture this.dImages(varPic).Picture, varPic & "Picture.bmp"
+        stdole.SavePicture this.dImages(varPic).Picture, varPic & "_Picture.bmp"
         ' Also save image mask
-        stdole.SavePicture this.dImages(varPic).Mask, varPic & "Mask.bmp"
+        stdole.SavePicture this.dImages(varPic).Mask, varPic & "_Mask.bmp"
     Next varPic
     Perf.OperationEnd
 
@@ -168,6 +168,7 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
     Dim varCtlProp As Variant
     Dim colItems As Collection
     Dim picItem As IPictureDisp
+    Dim strBasePath As String
     Dim strPath As String
 
     LogUnhandledErrors
@@ -254,14 +255,16 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
         Else
             ' Check for picture
             If dParent.Exists("ImagePath") Then
+                strBasePath = GetPathFromRelative(dParent("ImagePath"), IDbComponent_BaseFolder)
+
                 ' Build out full path to main image (Picture)
-                strPath = GetPathFromRelative(dParent("ImagePath") & "Picture.bmp")
+                strPath = strBasePath & "_Picture.bmp"
                 If FSO.FileExists(strPath) Then
                     Set picItem = stdole.LoadPicture(strPath)
                     objItem.Picture = picItem
                 End If
                 ' Build path to image mask (transparency)
-                strPath = GetPathFromRelative(dParent("ImagePath") & "Mask.bmp")
+                strPath = strBasePath & "_Mask.bmp"
                 If FSO.FileExists(strPath) Then
                     Set picItem = stdole.LoadPicture(strPath)
                     objItem.Mask = picItem
@@ -396,7 +399,7 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
             Else
                 ' Proceed with picture processing
                 If Not picItem Is Nothing Then
-                    strPath = GetImagePath(objItem)
+                    strPath = BuildPath2(IDbComponent_BaseFolder, GetImagePath(objItem))
                     ' Check path for possible duplicates (menu items with the same name)
                     If this.dImages.Exists(strPath) Then
                         ' Add a number to make the path unique.
@@ -406,7 +409,7 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
                     ' exporting images to files.
                     this.dImages.Add strPath, objItem
                     ' Save path to images in element dictionary
-                    dParent.Add "ImagePath", GetRelativePath(strPath)
+                    dParent.Add "ImagePath", GetRelativePath(strPath, IDbComponent_BaseFolder)
                 End If
             End If
         End If
@@ -472,7 +475,13 @@ Private Function GetImagePath(ctl As CommandBarControl) As String
                 "...", vbNullString) _
                 , ctlTest.ID)
         End If
-        If Len(strSegment) Then strName = strSegment & "_" & strName
+        If Len(strSegment) Then
+            If Len(strName) Then
+                strName = strSegment & "_" & strName
+            Else
+                strName = strSegment
+            End If
+        End If
         If ctlTest.Parent Is Application Then
             ' This is the top level
             Exit Do
@@ -483,7 +492,7 @@ Private Function GetImagePath(ctl As CommandBarControl) As String
     Loop
 
     ' Convert name to a filesafe name
-    GetImagePath = IDbComponent_BaseFolder & BuildPath2(GetSafeFileName(m_CommandBar.Name) & "_Images", GetSafeFileName(strName))
+    GetImagePath = BuildPath2(GetSafeFileName(m_CommandBar.Name) & "_Images", GetSafeFileName(strName))
 
 End Function
 
