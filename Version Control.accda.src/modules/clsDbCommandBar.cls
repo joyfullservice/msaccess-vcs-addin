@@ -198,8 +198,8 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
                         Case 1835, 1836, 1837, 1838, 1839, 3885, 3886, 3888
                             bolCustomBuiltIn = True
                         Case 3887 ' We don't have diagrams yet. :-(
-                            ' Throw warning
-                            Log.Error eelWarning, "Custom commandbar opening database diagrams are not supported. If you want to support diagrams, please submit a PR including a working command bar with the diagram button.", ModuleName(Me) & ".BuildControls"
+                            ' Throw error (it's more of a warning but a warning doesn't show up in build screen and can be overlooked)
+                            Log.Error eelError, "Custom commandbar opening database diagrams are not supported. If you want to support diagrams, please submit a PR including a working command bar with the diagram button.", ModuleName(Me) & ".BuildControls"
                         Case Else
                             bolCustomBuiltIn = False
                     End Select
@@ -207,8 +207,6 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
                     If bolCustomBuiltIn Then
                         ' It's an Access "custom" built-in control which we cannot use .Add method.
                         ' We must instead copy from our template command bar into the target command bar.
-                        ' So far, all custom built-in controls are buttons, so we'll use button rather than
-                        ' more generic control.
 
                         ' Build the custom "built-in" control ourselves
                         BuildControls dControl, m_TemplateCommandBar.FindControl(ID:=dControl("Id")).Copy(objItem)
