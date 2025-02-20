@@ -1047,7 +1047,7 @@ End Sub
 Public Sub AfterBuild()
     modResource.VerifyResources
     Translation.LoadTranslations
-    ImportCommandBarTemplate
+    ImportCommandBarsTemplate
 End Sub
 
 
@@ -1287,43 +1287,137 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ImportCommandBarTemplate
+' Procedure : ImportCommandBarsTemplate
 ' Author    : bclothier
 ' Date      : 02/14/2025
-' Purpose   : Import the command bar template from the add-in binary to allow the new
-'           : version of the add-in to work with the template. This is necessary
-'           : because there are certain "custom" built-in controls that cannot be added
-'           : using CommandBar.Add method but they can be copied from one commandbar
-'           : to other. The template commandbar houses common Access "custom" built-in
-'           : controls to be used for copying. Refer to clsDbCommandBar for details.
+' Purpose   : Import the template command bar from the template file for the add-in.
 '---------------------------------------------------------------------------------------
 '
-Private Function ImportCommandBarTemplate() As Boolean
-    Dim strXML As String
+Private Sub ImportCommandBarsTemplate()
+    Dim strTemplatePath As String
 
-    strXML = _
-        "<?xml version=""1.0"" encoding=""utf-8"" ?>" & vbNewLine & _
-        "<ImportExportSpecification Path = """ & GetAddInFileName & """ xmlns=""urn:www.microsoft.com/office/access/imexspec"">" & vbNewLine & _
-        "  <ImportAccess ImportExportSpecs=""false"" MenusAndToolbars=""true"" Relationships=""false"" NavPane=""false"" StructureAndData=""true"" QueriesAsTables=""false"" Resources=""false"" />" & vbNewLine & _
-        "</ImportExportSpecification>"
+    strTemplatePath = BuildPath2(CurrentProject.Path, "\Template\CommandBars.bin")
 
-    Const strTempName As String = "TempSpec"
-
-    On Error Resume Next
-    CurrentProject.ImportExportSpecifications(strTempName).Delete
-    On Error GoTo 0
-
-    With CurrentProject.ImportExportSpecifications.Add(strTempName, strXML)
-        .Execute
-        .Delete
-    End With
-
-    ' Verify we have the command bar now
-    On Error Resume Next
-    ImportCommandBarTemplate = Not (Application.CommandBars(strTemplateCommandBarName) Is Nothing)
-    If Err.Number Then
-        Log.Error eelCritical, "Template command bar was not imported!"
-        ImportCommandBarTemplate = False
+    If FSO.FileExists(strTemplatePath) Then
+        Select Case ImportCommandBars(strTemplatePath, strTemplateCommandBarName)
+            Case eicImportedVerified
+                ' All good
+            Case eicImportedUnableToVerify
+                Log.Error eelWarning, "Template command bar was imported but we cannot verify if it was imported successfully."
+            Case eicImportedNotVerified
+                Log.Error eelError, "Template command bar was imported  but we didn't find it in the built file. This indicates something went wrong with the import."
+            Case Else
+                Log.Error eelError, "Template command bar was not imported!"
+        End Select
+    Else
+        MsgBox2 "Unable to import the template command bar", "The add-in could not locate the '\Template\CommandBars.bin' in the repository which is required for the add-in to function correctly. Ensure that you have pulled the latest from the git repository and the file is present before building the add-in.", , vbCritical, "Error importing command bar template"
+        Log.Error eelCritical, "Template command bar could not be imported because the source file is missing."
     End If
-    On Error GoTo 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportCommandBars
+' Author    : bclothier
+' Date      : 02/14/2025
+' Purpose   : Import the command bars from a source database to the specified project.
+'           : By default the current Application is used but it can be another instance
+'           : (e.g., an automated Access.Appplication instance.)
+'           : A zero or a negative return indicates an error with the import.
+'---------------------------------------------------------------------------------------
+'
+Public Function ImportCommandBars(strSourceDatabasePath As String, strCommandBarNameToVerify As String, Optional objTargetApplication As Application = Nothing) As eImportCommandBarsResult
+    Dim strSql As String
+    Dim blnResult As Boolean
+
+    If objTargetApplication Is Nothing Then
+        Set objTargetApplication = Application
+    End If
+
+    With objTargetApplication
+        ' If we do not delete the command bar with the same name, it will not import. Deleting it from
+        ' application will not actually delete it from its original database so even if we delete some
+        ' another database's command bar, it won't actually remove it from that database and it'll be
+        ' restored next time it is opened.
+        On Error Resume Next
+        Do
+            .CommandBars(strCommandBarNameToVerify).Delete
+        Loop Until Err.Number
+        On Error GoTo 0
+
+        ' Note that we are manipulating the application's WizHook which might not be necessarily
+        ' the same one in modWizHook.
+        .WizHook.Key = 51488399
+        .WizHook.WizCopyCmdbars strSourceDatabasePath
+
+        ' Verify we have the command bar imported.
+        On Error Resume Next
+        ' Application.CommandBars is the union of all loaded databases' command bars; just because we can find a
+        ' command bar with same name does not mean the database has the command bar loaded into the binary file.
+        ' However, this is a good first step in verifying the import since a negative result definitely mean it
+        ' wasn't imported at all. We use the target project's Application in case it's an automated instance
+        ' independent of the current Application object.
+        blnResult = Not (.CommandBars(strCommandBarNameToVerify) Is Nothing)
+        If Err.Number Then
+            ImportCommandBars = eicFailed
+            Exit Function
+        End If
+        On Error GoTo 0
+
+        If blnResult Then
+            blnResult = False
+            ' Not all versions of MDB files or ADP files have MSysAccessStorage table.
+            strSql = _
+                "SELECT o.Name " & _
+                "FROM MSysObjects AS o " & _
+                "WHERE o.Name = 'MSysAccessStorage' " & _
+                "  AND o.Type = 1;"
+            With .CurrentProject.Connection.Execute(strSql)
+                If Not .EOF Then
+                    If .Fields(0).Value = "MSysAccessStorage" Then
+                        blnResult = True
+                    End If
+                End If
+            End With
+        End If
+
+        If blnResult Then
+            ' This project has MSysAccessStorage table so we can determine if it contains the commandbar.
+            ' We only need to check the virtual directory for the CmdBars entry. If the virtual directory
+            ' has the command bar's name in its listing, we can assume the command bar was succcessfully
+            ' imported into this specific database file. The directory entry is delimited as following:
+            '   * Chr(4)
+            '   * <byte length of the command bar's name> plus 4 more for the ending delimiters
+            '   * the command bar's name (Unicode)
+            '   * 4 null bytes (or 2 vbNullChars)
+            ' Because a string reads in little endian order, we need to swap the Chr(4) and the byte length,
+            ' so it becomes ChrW(Hex(((<length> + 4) * 256) + 4).
+            strSql = _
+                "SELECT s1.Lv " & _
+                "FROM MSysAccessStorage AS s1 " & _
+                "WHERE s1.Name = (Chr(3) & 'DirData') " & _
+                "  AND s1.Type = 2 " & _
+                "  AND s1.ParentId = (" & _
+                "    SELECT s2.Id " & _
+                "    FROM MSysAccessStorage AS s2 " & _
+                "    WHERE s2.Name = 'CmdBars' " & _
+                "      AND s2.Type = 1 " & _
+                ");"
+
+            With .CurrentProject.Connection.Execute(strSql)
+                If Not .EOF Then
+                    If InStr(1, .Fields(0).Value, ChrW(((LenB(strCommandBarNameToVerify) + 4) * 256) + 4) & strCommandBarNameToVerify & vbNullChar & vbNullChar, vbTextCompare) > 0 Then
+                        ImportCommandBars = eicImportedVerified
+                    Else
+                        ImportCommandBars = eicImportedNotVerified
+                    End If
+                End If
+            End With
+        Else
+            ' We can only tenatively assume success since we don't have the MSysAccessStorage table that can be
+            ' easily inspected. Older MDB files use MSysAccessObjects which are even more opaque. No clue how
+            ' we'd inspect an ADP file since it won't have any system tables to describe its contents.
+            ImportCommandBars = eicImportedUnableToVerify
+        End If
+    End With
 End Function

@@ -161,3 +161,11 @@ End Enum
 
 ' Used for handling custom built-in command bar controls. See clsDbCommandBar for details.
 Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinCommandBarTemplate"
+
+' Used for ImportCommandBars function; negative/zero result should be treated as an error.
+Public Enum eImportCommandBarsResult
+    eicImportedNotVerified = -1
+    eicFailed = 0
+    eicImportedVerified = 1
+    eicImportedUnableToVerify = 2
+End Enum
