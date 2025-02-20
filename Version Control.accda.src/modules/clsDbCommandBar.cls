@@ -170,6 +170,7 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
     Dim picItem As IPictureDisp
     Dim strBasePath As String
     Dim strPath As String
+    Dim blnCustomBuiltIn As Boolean
 
     LogUnhandledErrors
     On Error Resume Next
@@ -193,18 +194,17 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
             For Each dControl In dParent("Controls")
                 If dControl("BuiltIn") Then
                     ' We must first determine if it's an Access custom built-in control which requires special handling
-                    Dim bolCustomBuiltIn As Boolean
                     Select Case dControl("Id")
                         Case 1835, 1836, 1837, 1838, 1839, 3885, 3886, 3888
-                            bolCustomBuiltIn = True
+                            blnCustomBuiltIn = True
                         Case 3887 ' We don't have diagrams yet. :-(
                             ' Throw error (it's more of a warning but a warning doesn't show up in build screen and can be overlooked)
                             Log.Error eelError, "Custom commandbar opening database diagrams are not supported. If you want to support diagrams, please submit a PR including a working command bar with the diagram button.", ModuleName(Me) & ".BuildControls"
                         Case Else
-                            bolCustomBuiltIn = False
+                            blnCustomBuiltIn = False
                     End Select
 
-                    If bolCustomBuiltIn Then
+                    If blnCustomBuiltIn Then
                         ' It's an Access "custom" built-in control which we cannot use .Add method.
                         ' We must instead copy from our template command bar into the target command bar.
 
