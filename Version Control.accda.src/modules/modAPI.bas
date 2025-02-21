@@ -170,9 +170,8 @@ Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optio
     ' When running code from the add-in project itself, it gets a little
     ' tricky because both the add-in and the currentdb have the same VBProject name.
     ' This means we can't just call `Run "MSAccessVCS.*" because it will run in
-    ' the local project instead of the add-in. To pull this off, we will temporarily
-    ' change the project name of the add-in so we can call it as distinct from the
-    ' current project.
+    ' the local project instead of the add-in. We can resolve this by using the
+    ' full path to the add-in library instead. (#593)
     Set projAddIn = GetAddInProject
     If RunningOnLocal Then
         ' When this is run from the CurrentDB, we should rename the add-in project ... not required: call with full name
@@ -201,13 +200,21 @@ Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optio
 
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetRunCmdAddInFullLibName
+' Author    : Josef Poetzl
+' Date      : 2/20/2025
+' Purpose   : Return the full path to the add-in library without the file extension.
+'---------------------------------------------------------------------------------------
+'
 Private Function GetRunCmdAddInFullLibName() As String
 
-   Const AddInFileExtension As String = ".accda"
-   Dim AddInFileName As String
+   Const cstrAddInFileExtension As String = ".accda"
+   Dim strAddInFileName As String
 
-   AddInFileName = GetAddInFileName
-   GetRunCmdAddInFullLibName = Left(AddInFileName, Len(AddInFileName) - Len(AddInFileExtension))
+   strAddInFileName = GetAddInFileName
+   GetRunCmdAddInFullLibName = Left(strAddInFileName, Len(strAddInFileName) - Len(cstrAddInFileExtension))
 
 End Function
 
