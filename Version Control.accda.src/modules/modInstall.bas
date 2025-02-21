@@ -842,7 +842,7 @@ End Function
 '           : somewhere (aka, you're not installing it), opening the same file twice
 '           : will cause headaches and likely corrupt the file.
 '---------------------------------------------------------------------------------------
-Public Sub OpenAddinFile(strAddinFileName As String, _
+Public Sub OpenAddinFile(strAddInFileName As String, _
                             strInstallerFileName As String)
 
     Dim strScriptFile As String
@@ -852,9 +852,9 @@ Public Sub OpenAddinFile(strAddinFileName As String, _
 
     ' Build file paths for lock files and batch script
     strExt = "." & FSO.GetExtensionName(strInstallerFileName)
-    lockFilePathAddin = Replace(strAddinFileName, strExt, ".laccdb", , , vbTextCompare)
+    lockFilePathAddin = Replace(strAddInFileName, strExt, ".laccdb", , , vbTextCompare)
     lockFilePathInstaller = Replace(strInstallerFileName, strExt, ".laccdb", , , vbTextCompare)
-    strScriptFile = Replace(strAddinFileName, strExt, ".cmd", , , vbTextCompare)
+    strScriptFile = Replace(strAddInFileName, strExt, ".cmd", , , vbTextCompare)
 
     ' Build batch script content
     With New clsConcat
@@ -866,7 +866,7 @@ Public Sub OpenAddinFile(strAddinFileName As String, _
         .Add "ping 127.0.0.1 -n 1 -w 100 > nul"
         .Add "SET /a counter+=1"
         .Add "IF !counter!==300 GOTO DONE"
-        .Add "IF NOT EXIST """, strAddinFileName, """ GOTO WAITFORADDIN"
+        .Add "IF NOT EXIST """, strAddInFileName, """ GOTO WAITFORADDIN"
         .Add "ECHO Waiting for Access to close..."
         .Add "SET /a counter=0"
         .Add ":WAITCLOSEINSTALLER"
@@ -881,7 +881,7 @@ Public Sub OpenAddinFile(strAddinFileName As String, _
         .Add ":OPENADDIN"
         .Add "ECHO Opening Add-in to finish installation..."
         .Add "ECHO (This window will automatically close when complete.)"
-        .Add """", strAddinFileName, """"
+        .Add """", strAddInFileName, """"
         .Add "GOTO DONE"
         .Add ":MOVEON"
         .Add "Del """, lockFilePathAddin, """"
