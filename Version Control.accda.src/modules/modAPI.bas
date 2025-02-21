@@ -161,6 +161,7 @@ End Function
 Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optional varArg1 As Variant, Optional varArg2 As Variant)
 
     Dim projAddIn As VBProject
+    Dim strLibName As String
     Dim strRunCmd As String
 
     ' Make sure the add-in is loaded.
@@ -174,14 +175,10 @@ Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optio
     ' current project.
     Set projAddIn = GetAddInProject
     If RunningOnLocal Then
-        ' When this is run from the CurrentDB, we should rename the add-in project,
-        ' then call it again using the renamed project to ensure we are running it
-        ' from the add-in.
-        projAddIn.Name = "MSAccessVCS-Lib"
+        ' When this is run from the CurrentDB, we should rename the add-in project ... not required: call with full name
+        strLibName = GetRunCmdAddInFullLibName
     Else
-        ' Running from the add-in project
-        ' Reset project name if needed
-        If projAddIn.Name = "MSAccessVCS-Lib" Then projAddIn.Name = PROJECT_NAME
+        strLibName = PROJECT_NAME
     End If
 
     ' See if we should run the command directly, or with an API timer callback.
@@ -191,19 +188,26 @@ Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optio
         SetTimer strProcedure, CStr(varArg1), CStr(varArg2)
     Else
         ' Build the command to execute using Application.Run
-        strRunCmd = projAddIn.Name & "." & strProcedure
+        strRunCmd = strLibName & "." & strProcedure
         ' Call based on arguments
         If Not IsMissing(varArg2) Then
-            Run strRunCmd, varArg1, varArg2
+            Application.Run strRunCmd, varArg1, varArg2
         ElseIf Not IsMissing(varArg1) Then
-            Run strRunCmd, varArg1
+            Application.Run strRunCmd, varArg1
         Else
-            Run strRunCmd
+            Application.Run strRunCmd
         End If
     End If
 
-    ' Restore project name after run (if needed)
-    If projAddIn.Name = "MSAccessVCS-Lib" Then projAddIn.Name = PROJECT_NAME
+End Function
+
+Private Function GetRunCmdAddInFullLibName() As String
+
+   Const AddInFileExtension As String = ".accda"
+   Dim AddInFileName As String
+
+   AddInFileName = GetAddInFileName
+   GetRunCmdAddInFullLibName = Left(AddInFileName, Len(AddInFileName) - Len(AddInFileExtension))
 
 End Function
 
