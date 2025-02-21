@@ -923,19 +923,19 @@ Begin Form
                                     TabStop = NotDefault
                                     OverlapFlags =215
                                     Left =660
-                                    Top =2670
+                                    Top =2576
                                     Name ="chkOpenAfterInstall"
                                     DefaultValue ="False"
 
                                     LayoutCachedLeft =660
-                                    LayoutCachedTop =2670
+                                    LayoutCachedTop =2576
                                     LayoutCachedWidth =920
-                                    LayoutCachedHeight =2910
+                                    LayoutCachedHeight =2816
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
                                             Left =945
-                                            Top =2640
+                                            Top =2546
                                             Width =2595
                                             Height =465
                                             FontSize =10
@@ -943,9 +943,9 @@ Begin Form
                                             Name ="Label36"
                                             Caption ="Open add-in after installing to trust the add-in file"
                                             LayoutCachedLeft =945
-                                            LayoutCachedTop =2640
+                                            LayoutCachedTop =2546
                                             LayoutCachedWidth =3540
-                                            LayoutCachedHeight =3105
+                                            LayoutCachedHeight =3011
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -1094,6 +1094,39 @@ Begin Form
                                     BackColor =15130848
                                     BackThemeColorIndex =-1
                                     BackTint =100.0
+                                End
+                                Begin CheckBox
+                                    TabStop = NotDefault
+                                    OverlapFlags =215
+                                    Left =660
+                                    Top =3064
+                                    TabIndex =4
+                                    Name ="chkCreateCompiledVersion"
+                                    DefaultValue ="False"
+
+                                    LayoutCachedLeft =660
+                                    LayoutCachedTop =3064
+                                    LayoutCachedWidth =920
+                                    LayoutCachedHeight =3304
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =945
+                                            Top =3034
+                                            Width =2595
+                                            Height =285
+                                            FontSize =10
+                                            ForeColor =5324600
+                                            Name ="Label68"
+                                            Caption ="Create compiled version"
+                                            LayoutCachedLeft =945
+                                            LayoutCachedTop =3034
+                                            LayoutCachedWidth =3540
+                                            LayoutCachedHeight =3319
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
                                 End
                             End
                         End
