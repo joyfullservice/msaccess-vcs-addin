@@ -506,10 +506,12 @@ End Function
 '           : Returns a hash of the file content (if applicable) to track changes.
 '---------------------------------------------------------------------------------------
 '
-Public Function SaveComponentAsText(intType As AcObjectType, _
-                                strName As String, _
-                                strFile As String, _
-                                Optional cDbObjectClass As IDbComponent = Nothing) As String
+Public Function SaveComponentAsText(intType As AcObjectType _
+                                    , strName As String _
+                                    , strFile As String _
+                                    , Optional cDbObjectClass As IDbComponent = Nothing) As String
+
+    Const FunctionName As String = ModuleName & ".SaveComponentAsText"
 
     Dim strTempFile As String
     Dim strAltFile As String
@@ -518,6 +520,7 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
     Dim strHash As String
     Dim cParser As clsSourceParser
 
+    LogUnhandledErrors FunctionName
     On Error GoTo ErrHandler
 
     ' Export to temporary file
@@ -617,12 +620,13 @@ Public Function SaveComponentAsText(intType As AcObjectType, _
     Exit Function
 
 ErrHandler:
-    If Err.Number = 2950 And intType = acTableDataMacro Then
+    If Catch(2950) And intType = acTableDataMacro Then
         ' This table apparently didn't have a Table Data Macro.
         Exit Function
     Else
         ' Some other error.
-        Err.Raise Err.Number
+        Log.Error eelError, "Issue creating output file.", FunctionName
+        'Err.Raise Err.Number
     End If
 
 End Function
@@ -633,10 +637,17 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 5/5/2020
 ' Purpose   : Load the object into the database from the saved source file.
+'           : Returns True if the loading worked; False if an error occured or other
+'           : issue was detected.
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, strFile As String)
+Public Function LoadComponentFromText(intType As AcObjectType _
+                                    , ByRef strName As String _
+                                    , ByRef strFile As String) As Boolean
 
+    Const FunctionName As String = ModuleName & ".LoadComponentFromText"
+
+    Dim blnErrInFunction As Boolean
     Dim strTempFile As String
     Dim strSourceFile As String
     Dim strPrefix As String
@@ -645,6 +656,11 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
     Dim blnVbaOverlay As Boolean
     Dim blnConvert As Boolean
 
+    LogUnhandledErrors FunctionName
+    On Error GoTo ErrHandler
+    Perf.OperationStart FunctionName
+
+RetryImport:
     ' In most cases we are importing/converting the actual source file.
     strSourceFile = strFile
 
@@ -708,6 +724,7 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
         Application.LoadFromText intType, strName, strTempFile
         Perf.OperationEnd
         DeleteFile strTempFile, True
+
     Else
         ' Load UTF-8 file
         Perf.OperationStart "App.LoadFromText()"
@@ -715,18 +732,53 @@ Public Sub LoadComponentFromText(intType As AcObjectType, strName As String, str
         Perf.OperationEnd
     End If
 
+CleanUp:
     ' Clean up any additional temp file used in the building process
     If strFile <> strSourceFile Then
         If FSO.FileExists(strSourceFile) Then DeleteFile strSourceFile
     End If
 
     ' Check for VBA overlay
-    If blnVbaOverlay Then
+    If blnVbaOverlay And Not Log.ErrorLevel = eelCritical Then ' don't do this if we're trying to bail out.
         strPrefix = IIf(intType = acForm, "Form_", "Report_")
         OverlayCodeModule strPrefix & strName, SwapExtension(strFile, "cls")
     End If
 
-End Sub
+Exit_Here:
+    ' Only set output to true when import and function didn't have any issues.
+    LoadComponentFromText = (Not blnErrInFunction) And (Not Log.ErrorLevel = eelCritical)
+    Perf.OperationEnd
+    Exit Function
+
+ErrHandler:
+    ' Issue importing form. We need to prompt user to see if we continue on or not.
+    Log.Error eelError, T("Import issue with '{0}'", var0:=strName), FunctionName
+
+    Select Case MsgBox2(T("Could not import '{0}'.", var0:=strName) _
+            , T("Abort build, retry importing, or skip?") _
+            , T("[Abort] = Abort build process entirely." & vbNewLine & _
+                "[Retry] = Retry importing the item." & vbNewLine & _
+                "[Ignore] = Skip this item.") _
+            , vbAbortRetryIgnore, "Error importing!", vbAbort)
+
+    Case vbAbort
+        Log.Error eelCritical, "Aborted build.", FunctionName
+        blnErrInFunction = True
+        GoTo CleanUp
+
+    Case vbRetry
+        Log.Add T("Retrying import for: {0}", var0:=strName)
+        Resume RetryImport
+
+    Case Else ' this also includes ignore.
+        ' Clear out strName because we're going to use it to detect if the import failed.
+        Log.Error eelError, T("Skipping import of '{0}'. Your application may not run or complile.", var0:=strName), FunctionName
+        blnErrInFunction = True
+        Resume Next
+
+    End Select
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -771,7 +823,10 @@ End Sub
 '           : process if a large number of items are invovled.
 '---------------------------------------------------------------------------------------
 '
-Public Sub OverlayCodeModule(strName As String, strClassFile As String)
+Public Sub OverlayCodeModule(strName As String _
+                            , strClassFile As String)
+
+    Const FunctionName As String = ModuleName & ".OverlayCodeModule"
 
     Dim objModule As VBIDE.CodeModule
     Dim strContent As String
@@ -779,15 +834,16 @@ Public Sub OverlayCodeModule(strName As String, strClassFile As String)
     Dim strShortName As String
     Dim cParser As clsSourceParser
 
-    LogUnhandledErrors
+    LogUnhandledErrors FunctionName
     'On Error Resume Next
+
     Set objModule = CurrentVBProject.VBComponents(strName).CodeModule
-    If CatchAny(eelError, "Could not find code module for " & strName, ModuleName & ".OverlayCodeModule") Then Exit Sub
+    If CatchAny(eelError, T("Could not find code module for {0}", var0:=strName), FunctionName) Then Exit Sub
 
     ' Read class file content
     strContent = ReadFile(strClassFile)
     If strContent = vbNullString Then
-        Log.Error eelError, "Unable to read " & strClassFile, ModuleName & ".OverlayCodeModule"
+        Log.Error eelError, T("Unable to read {0}", var0:=strClassFile), FunctionName
         Exit Sub
     End If
 

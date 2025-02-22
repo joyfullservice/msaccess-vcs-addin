@@ -53,12 +53,14 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
 
     Dim strName As String
+    Dim blnImportCheck As Boolean
 
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
 
     strName = GetObjectNameFromFileName(strFile)
-    LoadComponentFromText acReport, strName, strFile
+    blnImportCheck = LoadComponentFromText(acReport, strName, strFile)
+    If Not blnImportCheck Or Log.ErrorLevel = eelCritical Then Exit Sub
     Set m_Report = CurrentProject.AllReports(strName)
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), GetCodeModuleHash(IDbComponent_ComponentType, strName)
 
