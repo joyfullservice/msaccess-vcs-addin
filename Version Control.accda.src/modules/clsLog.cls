@@ -167,7 +167,7 @@ End Sub
 '           : A critical error will also present a message box with the details.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSource As String)
+Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSource As String, Optional blnIncludeErrorMessage As Boolean = False)
 
     Dim strPrefix As String
     Dim strDisplay As String
@@ -183,7 +183,9 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
 
         ' Sometimes the error description is sufficient for the description
         If strDescription = vbNullString And Err.Number <> 0 Then
-            strDisplay = strPrefix & Err.Description
+            strDisplay = strPrefix & Err.Number & " - " & Err.Description
+        ElseIf blnIncludeErrorMessage Then
+            strDisplay = strPrefix & strDescription & "; Error " & Err.Number & " - " & Err.Description
         Else
             strDisplay = strPrefix & strDescription
         End If

@@ -31,6 +31,7 @@ Public Sub cmdRunTests_Click()
     lstResults.RowSource = ""
     m_Totals(True) = 0
     m_Totals(False) = 0
+    imgResult.Picture = vbNullString
 
     ' Ignore any errors.
     ' NOTE: don't include the test result on a line that may throw an error.
@@ -186,11 +187,8 @@ Public Sub cmdRunTests_Click()
     '   END TESTS
     '========================
 
-    ' Display results
-    lblResults.Caption = _
-        m_Totals(True) & " tests passed" & vbCrLf & _
-        m_Totals(False) & " tests failed"
 
+    ' Display result icon
     If m_Totals(False) = 0 Then
         imgResult.Picture = "button_ok"
     Else
@@ -222,6 +220,10 @@ Private Function ShowResult(strText As String, blnPassed As Boolean)
         .AddItem strIcon & ";" & strText
         .ListIndex = .ListCount - 1
     End With
+    ' Display incrementing totals
+    lblResults.Caption = _
+        m_Totals(True) & " tests passed" & vbCrLf & _
+        m_Totals(False) & " tests failed"
     DoEvents
 End Function
 

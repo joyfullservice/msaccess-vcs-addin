@@ -86,7 +86,8 @@ End Function
 '           : Returns true if successful.
 '---------------------------------------------------------------------------------------
 '
-Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, blnOpenAfterInstall As Boolean, strInstallFolder As String)
+Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, blnOpenAfterInstall As Boolean, strInstallFolder As String, _
+            Optional ByVal blnCreateCompiledVersion As Boolean = False)
 
     Const OPEN_MODE_OPTION As String = "Default Open Mode for Databases"
 
@@ -144,7 +145,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
     If this.blnTrustAddInFolder Then VerifyTrustedLocation
 
     ' Copy the add-in file
-    If Not UpdateAddInFile Then Exit Sub
+    If Not UpdateAddInFile(blnCreateCompiledVersion) Then Exit Sub
 
     ' Install the ribbon
     If this.blnUseRibbonAddIn Then
@@ -262,7 +263,7 @@ End Sub
 ' Purpose   : Update the add-in database file. Return true if successful.
 '---------------------------------------------------------------------------------------
 '
-Private Function UpdateAddInFile() As Boolean
+Private Function UpdateAddInFile(ByVal blnCreateCompiledVersion As Boolean) As Boolean
 
     ' Make sure the destination folder exists
     VerifyPath GetAddInFileName
@@ -271,7 +272,13 @@ Private Function UpdateAddInFile() As Boolean
     LogUnhandledErrors
     On Error Resume Next
     If FSO.FileExists(GetAddInFileName) Then DeleteFile GetAddInFileName, True
-    FSO.CopyFile CodeProject.FullName, GetAddInFileName, True
+
+    If blnCreateCompiledVersion Then
+        CreateAccde CodeProject.FullName, GetAddInFileName
+    Else
+        FSO.CopyFile CodeProject.FullName, GetAddInFileName, True
+    End If
+
     If Err Then
         MsgBox2 "Unable to Update File", _
             "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
@@ -285,6 +292,31 @@ Private Function UpdateAddInFile() As Boolean
     End If
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CreateAccde
+' Author    : Josef Poetzl
+' Date      : 2/21/2025
+' Purpose   : Create a compiled Access file
+'---------------------------------------------------------------------------------------
+'
+Private Sub CreateAccde(ByVal strSourceFilePath As String, ByVal strDestFilePath As String)
+
+    Dim strFileToCompile As String
+
+    strFileToCompile = strDestFilePath & ".accdb"
+    FSO.CopyFile strSourceFilePath, strFileToCompile, True
+
+    ' use new Access instance to create accde
+    With New Access.Application
+        .Visible = True
+        .SysCmd 603, (strFileToCompile), (strDestFilePath)
+    End With
+
+    FSO.DeleteFile strFileToCompile, True
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -510,7 +542,7 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Same_Version)
     CopyFileToZip CodeProject.FullName, strBinaryFile
 
     ' Deploy latest version on this machine
-    If Not UpdateAddInFile Then Exit Sub
+    If Not UpdateAddInFile(False) Then Exit Sub
 
     ' Use the newly installed add-in to Export the project to version control.
     modAPI.HandleRibbonCommand "btnExport"
@@ -842,7 +874,7 @@ End Function
 '           : somewhere (aka, you're not installing it), opening the same file twice
 '           : will cause headaches and likely corrupt the file.
 '---------------------------------------------------------------------------------------
-Public Sub OpenAddinFile(strAddinFileName As String, _
+Public Sub OpenAddinFile(strAddInFileName As String, _
                             strInstallerFileName As String)
 
     Dim strScriptFile As String
@@ -852,9 +884,9 @@ Public Sub OpenAddinFile(strAddinFileName As String, _
 
     ' Build file paths for lock files and batch script
     strExt = "." & FSO.GetExtensionName(strInstallerFileName)
-    lockFilePathAddin = Replace(strAddinFileName, strExt, ".laccdb", , , vbTextCompare)
+    lockFilePathAddin = Replace(strAddInFileName, strExt, ".laccdb", , , vbTextCompare)
     lockFilePathInstaller = Replace(strInstallerFileName, strExt, ".laccdb", , , vbTextCompare)
-    strScriptFile = Replace(strAddinFileName, strExt, ".cmd", , , vbTextCompare)
+    strScriptFile = Replace(strAddInFileName, strExt, ".cmd", , , vbTextCompare)
 
     ' Build batch script content
     With New clsConcat
@@ -866,7 +898,7 @@ Public Sub OpenAddinFile(strAddinFileName As String, _
         .Add "ping 127.0.0.1 -n 1 -w 100 > nul"
         .Add "SET /a counter+=1"
         .Add "IF !counter!==300 GOTO DONE"
-        .Add "IF NOT EXIST """, strAddinFileName, """ GOTO WAITFORADDIN"
+        .Add "IF NOT EXIST """, strAddInFileName, """ GOTO WAITFORADDIN"
         .Add "ECHO Waiting for Access to close..."
         .Add "SET /a counter=0"
         .Add ":WAITCLOSEINSTALLER"
@@ -881,7 +913,7 @@ Public Sub OpenAddinFile(strAddinFileName As String, _
         .Add ":OPENADDIN"
         .Add "ECHO Opening Add-in to finish installation..."
         .Add "ECHO (This window will automatically close when complete.)"
-        .Add """", strAddinFileName, """"
+        .Add """", strAddInFileName, """"
         .Add "GOTO DONE"
         .Add ":MOVEON"
         .Add "Del """, lockFilePathAddin, """"

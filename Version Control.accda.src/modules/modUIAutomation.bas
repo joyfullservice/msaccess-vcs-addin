@@ -57,7 +57,7 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 2/21/2023
 ' Purpose   : Return the database object from the UI button
-'           : Supported languages: English, German
+'           : Supported languages: English, German, French
 '---------------------------------------------------------------------------------------
 '
 Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElement As IUIAutomationElement) As AccessObject
@@ -76,44 +76,34 @@ Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElem
     LogUnhandledErrors
     On Error Resume Next
 
-    ' There are multiple icons for some objects
+    ' Identify the item based on the image name
+    ' This sadly depends on the Access language
     If LikeAny(strImage, "Table*", "*Tabelle") Then
         Set objItem = CurrentData.AllTables(strName)
-    ElseIf LikeAny(strImage, "*Query", "*Abfrage") Then
+    ElseIf LikeAny(strImage, "*Query", "*Abfrage", "Requête*") Then
         Set objItem = CurrentData.AllQueries(strName)
+    ElseIf LikeAny(strImage, "Form*") Then
+        Set objItem = CurrentProject.AllForms(strName)
+    ElseIf LikeAny(strImage, "Report", "Bericht", "État") Then
+        Set objItem = CurrentProject.AllReports(strName)
+    ElseIf LikeAny(strImage, "Macro", "Makro") Then
+        Set objItem = CurrentProject.AllMacros(strName)
+    ElseIf LikeAny(strImage, "*Modul*") Then ' Module and Class Module
+        Set objItem = CurrentProject.AllModules(strName)
+    ElseIf LikeAny(strImage, "Function", "Fonction") Then ' ADP specific project items
+        Set objItem = CurrentData.AllFunctions(strName)
+    ElseIf LikeAny(strImage, "StoredProcedure", "Procédure stockée") Then ' ADP specific project items
+        Set objItem = CurrentData.AllStoredProcedures(strName)
+    ElseIf LikeAny(strImage, "Diagram*") Then ' ADP specific project items
+        Set objItem = CurrentData.AllDatabaseDiagrams(strName)
+    ElseIf strImage = vbNullString Then
+        ' No image name found
     Else
-        ' These objects have a single representative icon
-        Select Case strImage
-            Case "Form", "Formular"
-                Set objItem = CurrentProject.AllForms(strName)
-            Case "Report", "Bericht"
-                Set objItem = CurrentProject.AllReports(strName)
-            Case "Macro", "Makro"
-                Set objItem = CurrentProject.AllMacros(strName)
-            Case "Module", "Modul"
-                Set objItem = CurrentProject.AllModules(strName)
-            Case "Class Module", "Klassenmodul"
-                Set objItem = CurrentProject.AllModules(strName)
-
-            ' Some ADP specific project items
-            Case "Function"
-                Set objItem = CurrentData.AllFunctions(strName)
-            Case "StoredProcedure"
-                Set objItem = CurrentData.AllStoredProcedures(strName)
-            Case "Diagram"
-                Set objItem = CurrentData.AllDatabaseDiagrams(strName)
-
-            ' Check for no image name returned
-            Case vbNullString
-                ' No image name found
-
-            ' Unrecognized name
-            Case Else
-                Debug.Print "Navigation pane item image name not recognized: " _
-                    & strImage & " (for " & strName & ")"
-                Debug.Print "If you are using a non-English version of Access, " & _
-                    "please open an issue on GitHub to add support for your language."
-        End Select
+        ' Unrecognized name
+        Debug.Print "Navigation pane item image name not recognized: " _
+            & strImage & " (for " & strName & ")"
+        Debug.Print "If you are using a non-English version of Access, " & _
+            "please open an issue on GitHub to add support for your language."
     End If
 
     ' Report any errors retrieving underlying object
