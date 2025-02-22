@@ -75,7 +75,7 @@ Private Sub cmdInstall_Click()
     End If
 
     ' Run the installer
-    modInstall.InstallVCSAddin chkAddTrustedLocation, chkUseRibbon, chkOpenAfterInstall, txtInstallFolder
+    modInstall.InstallVCSAddin chkAddTrustedLocation, chkUseRibbon, chkOpenAfterInstall, txtInstallFolder, chkCreateCompiledVersion
     DoCmd.Hourglass False
 
 End Sub

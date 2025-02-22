@@ -398,10 +398,11 @@ Sub Main()
 
     Dim objFSO
     Dim objApp
-    Dim objProj
+    Dim strLibPath
     Dim strKey
     Dim strValue
     Dim varReturn
+
 
     Set objFSO = CreateObject("Scripting.FileSystemObject")
 
@@ -419,7 +420,6 @@ Sub Main()
     Else
         ' Get a reference to the database application
         Set objApp = GetObject(strValue)
-        'Set objApp.VBE.ActiveVBProject = GetAddInVBProject(objApp)
         Set objApp.VBE.ActiveVBProject = CurrentVBProject(objApp)
     End If
 
@@ -452,19 +452,14 @@ Sub Main()
     ' attempting any callback operations.
     If Not objApp Is Nothing Then
 
-        ' Check the project name, just in case we are editing the VCS project
-        If objApp.CurrentProject.Name = "Version Control.accda" Then
-            ' Rename project so we can run the callback directly on the add-in
-            ' even if the local project does not currently compile. (Such as
-            ' after removing a class module during a merge operation.)
-            Set objProj = GetAddInVBProject(objApp)
-            objProj.Name = "MSAccessVCS-Lib"
-            objApp.Run "MSAccessVCS-Lib.WorkerCallback", strKey, varReturn
-            objProj.Name = "MSAccessVCS"
-        Else
-            ' Return key to caller to signal job completion
-            objApp.Run "MSAccessVCS.WorkerCallback", strKey, varReturn
-        End If
+        ' Build path to library so we can ensure that we are calling
+        ' the add-in function, not a function in the current database.
+        strLibPath = GetAddInVBProject(objApp).FileName
+        ' Remove file extension from library path.
+        strLibPath = Left(strLibPath, Len(strLibPath) - Len(".accda"))
+
+        ' Return key to caller to signal job completion
+        objApp.Run strLibPath & ".WorkerCallback", strKey, varReturn
     End If
 
 End Sub
