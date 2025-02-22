@@ -142,65 +142,51 @@ Class AddInRibbon
 	*/
 	Private Function VerifyAccessAddinProject() As Boolean
 
-		Dim strAddInPath As String
+		Dim strAddInLib As String
 		Dim proj As Object      	' VBProject
 		Dim addInProject As Object	' VBProject
 		Dim strName As String
 		Dim strTempDbPath As String = App.Path & "Temp.accdb"
 		
-		' Get relative path to Access add-in (Should be in same folder as this dll)
-		strAddInPath = App.Path & "\Version Control.accda"
-	
-		' See if add-in project is already loaded.
-		For Each proj In applicationObject.VBE.VBProjects
-			If StrComp(proj.FileName, strAddInPath, vbTextCompare) = 0 Then
-				Set addInProject = proj
-			End If
-		Next proj
-		
-		' If not loaded, then attempt to load the add-in.
-		If addInProject Is Nothing Then
-			
-			' If NO file is open, and NO add-ins are loaded, we may crash Access if we attempt to load
-			' the MSAccessVCS add-in using the dummy function method below. Instead, create a new blank
-			' database project, load the addin, then close the temporary database project.
-			If applicationObject.VBE.ActiveVBProject Is Nothing Then
-				' Create a new database project.
-				If FSO.FileExists(strTempDbPath) Then FSO.DeleteFile(strTempDbPath)
-				applicationObject.NewCurrentDatabase strTempDbPath
-			End If
-			
-			' At this point we should have a database file open, but just in case...
-			If applicationObject.VBE.ActiveVBProject Is Nothing Then
-				MsgBox "Please open a database file before using this add-in", vbInformation
-			Else
-				' The following lines will load the add-in at the application level,
-				' but will not actually call the function. Ignore the error of function not found.
-				' https://stackoverflow.com/questions/62270088/how-can-i-launch-an-access-add-in-not-com-add-in-from-vba-code
-				On Error Resume Next
-				With applicationObject
-					.DoCmd.Hourglass True
-					.Run strAddInPath & "!DummyFunction"
-					.DoCmd.Hourglass False
-				End With
-				On Error GoTo 0
+		' Get relative path to Access add-in library (Should be in same folder as this dll)
+		strAddInLib = App.Path & "\Version Control"
 
-				' See if it is loaded now...
-				For Each proj In applicationObject.VBE.VBProjects
-					If StrComp(proj.FileName, strAddInPath, vbTextCompare) = 0 Then
-						Set addInProject = proj
-					End If
-				Next proj
-			End If
-		End If
+        ' If NO file is open, and NO add-ins are loaded, we may be unable to load
+        ' the MSAccessVCS add-in. To resolve this, create a new blank
+        ' database project, load the addin, then close the temporary database project.
+        If applicationObject.VBE.ActiveVBProject Is Nothing Then
+            ' Create a new database project.
+            If FSO.FileExists(strTempDbPath) Then FSO.DeleteFile(strTempDbPath)
+            applicationObject.NewCurrentDatabase strTempDbPath
+        End If
+        
+        ' At this point we should have a database file open, but just in case...
+        If applicationObject.VBE.ActiveVBProject Is Nothing Then
+            MsgBox "Please open a database file before using this add-in", vbInformation
+        Else
+            ' Attempt to call the Preload routine
+            On Error Resume Next
+            With applicationObject
+                .DoCmd.Hourglass True
+                .Run strAddInLib & ".Preload"
+                .DoCmd.Hourglass False
+            End With
+            If Err Then
+                MsgBox "Failed to Load Add-In" & vbCrLf & vbCrLf & _
+                    Err.Number & ": " & Err.Description, vbExclamation
+                Err.Clear()
+            End If
+            On Error GoTo 0
+        End If
 		
 		' Clean up any temporary database
 		If applicationObject.CurrentProject.FullName = strTempDbPath Then applicationObject.CloseCurrentDatabase
 		If FSO.FileExists(strTempDbPath) Then FSO.DeleteFile(strTempDbPath)
 
-		' Returns true if the project was found
-		Return (Not addInProject Is Nothing)
-
+        ' Technically, we are just returning true if ANY project is loaded.
+        ' (We should be able to call the add-in directly as long as a project is loaded.)
+        Return Not (applicationObject.VBE.ActiveVBProject Is Nothing)
+        
 	End Function
 	
 	
@@ -220,7 +206,7 @@ Class AddInRibbon
 	Public Sub OnActionButton(control As IRibbonControl)
 		If VerifyAccessAddinProject Then
 			' Pass the control ID to the handler function
-			applicationObject.Run "MSAccessVCS.HandleRibbonCommand", control.Id
+			applicationObject.Run App.Path & "\Version Control.HandleRibbonCommand", control.Id
 		End If
 	End Sub
 	

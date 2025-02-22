@@ -109,6 +109,20 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Preload
+' Author    : Adam Waller
+' Date      : 2/22/2025
+' Purpose   : A simple generic function that does nothing in particular, but allows
+'           : us to call it from external applications (i.e. Ribbon) to ensure that
+'           : the add-in has been loaded into Microsoft Access.
+'---------------------------------------------------------------------------------------
+'
+Public Function Preload()
+    ' Hello, Add-In!
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : WorkerCallback
 ' Author    : Adam Waller
 ' Date      : 3/2/2023
