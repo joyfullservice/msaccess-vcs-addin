@@ -345,8 +345,9 @@ End Sub
 '           : create the folder (and all subfolders) if it does not.
 '           : Added in additional error handling and logging.
 ' ----------------------------------------------------------------
-Public Function VerifyPath(ByRef PathToCheck As String _
-                        , Optional ByVal EnableLongPath As Boolean = True) As Boolean
+Public Function VerifyPath(ByVal PathToCheck As String _
+                        , Optional ByVal EnableLongPath As Boolean = True _
+                        , Optional ByVal ExpandEnvironmentVariablesInPath As Boolean = True) As Boolean
 
     Const FunctionName As String = ModuleName & ".VerifyPath"
 
@@ -370,6 +371,10 @@ Public Function VerifyPath(ByRef PathToCheck As String _
     Perf.OperationStart FunctionName
 
     If PathToCheck = vbNullString Then GoTo Exit_Here
+
+    If ExpandEnvironmentVariablesInPath Then
+        PathToCheck = ExpandEnvironmentVariables(PathToCheck)
+    End If
 
     If Right$(PathToCheck, 1) = PathSep Then
         ' Folder name. (Folder names can contain periods)
@@ -646,10 +651,10 @@ Public Function GetUncPath(ByRef PathIn As String)
     On Error Resume Next
 
     Perf.OperationStart FunctionName
-    UNCPath = PathIn
+    UNCPath = ExpandEnvironmentVariables(PathIn)
 
 Retry:
-    DriveLetter = FSO.GetDriveName(PathIn)
+    DriveLetter = FSO.GetDriveName(UNCPath)
     If Catch(68) Then GoTo HandleDriveLoss
     CatchAny eelError, "Issue getting drive paths.", FunctionName
     With FSO.GetDrive(DriveLetter)
