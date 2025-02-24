@@ -70,7 +70,7 @@ Private Sub SaveImages()
     If this.dImages.Count = 0 Then Exit Sub
 
     ' Verify the first path, to make sure the folder exists
-    VerifyPath CStr(this.dImages.Keys(1))
+    VerifyPath CStr(this.dImages.Keys(0))
 
     Perf.OperationStart "Save CommandBar Images"
     For Each varPic In this.dImages.Keys
