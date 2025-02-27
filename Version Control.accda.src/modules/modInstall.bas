@@ -303,6 +303,7 @@ End Function
 '
 Private Sub CreateAccde(ByVal strSourceFilePath As String, ByVal strDestFilePath As String)
 
+    Const acSysCmdCompile As Long = 603 ' Added in later versions of Access
     Dim strFileToCompile As String
 
     strFileToCompile = strDestFilePath & ".accdb"
@@ -311,7 +312,7 @@ Private Sub CreateAccde(ByVal strSourceFilePath As String, ByVal strDestFilePath
     ' use new Access instance to create accde
     With New Access.Application
         .Visible = True
-        .SysCmd 603, (strFileToCompile), (strDestFilePath)
+        .SysCmd acSysCmdCompile, (strFileToCompile), (strDestFilePath)
     End With
 
     FSO.DeleteFile strFileToCompile, True
