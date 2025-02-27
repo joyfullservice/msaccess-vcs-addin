@@ -134,16 +134,16 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : GetObjectNameFromFileName
 ' Author    : Adam Waller
-' Date      : 5/6/2020
-' Purpose   : Return the object name after translating the HTML encoding back to normal
+' Date      : 2/27/2025
+' Purpose   : Return the name or path after translating the HTML encoding back to normal
 '           : file name characters.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetObjectNameFromFileName(strFile As String) As String
+Public Function GetOriginalFromSafeName(strSafeName As String) As String
 
     Dim strName As String
 
-    strName = FSO.GetBaseName(strFile)
+    strName = strSafeName
     ' Make sure the following list matches the one above.
     strName = Replace(strName, "%3C", "<")
     strName = Replace(strName, "%3E", ">")
@@ -157,8 +157,21 @@ Public Function GetObjectNameFromFileName(strFile As String) As String
     strName = Replace(strName, "%25", "%")  ' This should be done last.
 
     ' Return the object name
-    GetObjectNameFromFileName = strName
+    GetOriginalFromSafeName = strName
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetObjectNameFromFileName
+' Author    : Adam Waller
+' Date      : 5/6/2020
+' Purpose   : Return the object name after translating the HTML encoding back to normal
+'           : file name characters.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetObjectNameFromFileName(strFile As String) As String
+    GetObjectNameFromFileName = FSO.GetBaseName(GetOriginalFromSafeName(strFile))
 End Function
 
 

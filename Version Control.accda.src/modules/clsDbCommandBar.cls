@@ -75,9 +75,9 @@ Private Sub SaveImages()
     Perf.OperationStart "Save CommandBar Images"
     For Each varPic In this.dImages.Keys
         ' Save the item image to a file
-        stdole.SavePicture this.dImages(varPic).Picture, varPic & "_Picture.bmp"
+        stdole.SavePicture this.dImages(varPic).Picture, GetSafeFileName(varPic & "_Picture.bmp")
         ' Also save image mask
-        stdole.SavePicture this.dImages(varPic).Mask, varPic & "_Mask.bmp"
+        stdole.SavePicture this.dImages(varPic).Mask, GetSafeFileName(varPic & "_Mask.bmp")
     Next varPic
     Perf.OperationEnd
 
@@ -256,7 +256,7 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
                 strBasePath = GetPathFromRelative(dParent("ImagePath"), IDbComponent_BaseFolder)
 
                 ' Build out full path to main image (Picture)
-                strPath = strBasePath & "_Picture.bmp"
+                strPath = GetOriginalFromSafeName(strBasePath & "_Picture.bmp")
                 If FSO.FileExists(strPath) Then
                     Set picItem = stdole.LoadPicture(strPath)
                     objItem.Picture = picItem
