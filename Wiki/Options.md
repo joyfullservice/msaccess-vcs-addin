@@ -9,8 +9,6 @@ Click **Options** to open the **Options dialog**. Internally options are stored 
 |**Show Detailed Output**|**Default: Off**|Enable verbose output of each step; useful when you're real curious. This may slow down Export and Build operations.
 |**Debug VBA Errors**|**Default: Off**|*(Advanced Users/Add-in Developers)* If an unexpected error occurs in the add-in code, stop and open the VBA IDE to do further debugging. This may be helpful when debugging a problem with the add-in, or reviewing an existing issue. *You should generally keep Off unless trying to find the source of a bug, or doing development work on the add-in.*
 |**Show Legacy Prompts**|**Default: On**|If upgrading from the integrated version of this project, there may be legacy VCS modules left in your database project that are no longer needed. This will notify you if these legacy modules are found. If you would like to keep them in your project, you can clear this option to disable the notification. 
-||*On*|Legacy prompts on.
-||*Off*|Legacy prompts off. 
 |**Hash Algorithm**|**Default: SHA256**|Choose the hashing algorithm here. This may affect build time if you choose a more complex option. Hashes are used to help determine whether source files changed between import/export operations.
 ||~~*SHA1*~~|Use SHA-1 hashing algorithm. ([Not recommended](https://en.wikipedia.org/wiki/SHA-1). While hashing is not used for security purposes in this add-in, any usage of SHA1 is not allowed in some network environments.)
 ||*SHA256*|Use SHA-256 hashing algorithm.
