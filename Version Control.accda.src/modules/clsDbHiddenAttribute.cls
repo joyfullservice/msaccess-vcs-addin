@@ -223,11 +223,11 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
             If contType <> acDefault _
                 And Not (contType = acTable _
                 And (doc.Name Like "MSys*" Or doc.Name Like "~*")) Then
-                ' Check Hidden Attribute property (only exposed here)
-                If Application.GetHiddenAttribute(contType, doc.Name) Then
-                    ' Add to collection of hidden item item names of this type.
-                    colItems.Add doc.Name
-                End If
+                    ' Check Hidden Attribute property (only exposed here)
+                    If Application.GetHiddenAttribute(contType, doc.Name) Then
+                        ' Add to collection of hidden item item names of this type.
+                        colItems.Add doc.Name
+                    End If
             End If
         Next doc
         If colItems.Count > 0 Then dItems.Add cont.Name, SortCollectionByValue(colItems)
@@ -266,8 +266,8 @@ Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
             If contType <> acDefault _
                 And Not (contType = acTable _
                 And (strDoc Like "MSys*" Or strDoc Like "~*")) Then
-                ' Unset the Hidden Attribute property (only exposed here)
-                Application.SetHiddenAttribute contType, strDoc, False
+                    ' Unset the Hidden Attribute property (only exposed here)
+                    Application.SetHiddenAttribute contType, strDoc, False
             End If
         Next varDoc
     Next varCont
