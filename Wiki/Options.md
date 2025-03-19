@@ -8,12 +8,28 @@ Click **Options** to open the **Options dialog**. Internally options are stored 
 |-|:-:|:-
 |**Show Detailed Output**|**Default: Off**|Enable verbose output of each step; useful when you're real curious. This may slow down Export and Build operations.
 |**Debug VBA Errors**|**Default: Off**|*(Advanced Users/Add-in Developers)* If an unexpected error occurs in the add-in code, stop and open the VBA IDE to do further debugging. This may be helpful when debugging a problem with the add-in, or reviewing an existing issue. *You should generally keep Off unless trying to find the source of a bug, or doing development work on the add-in.*
-|**Show Legacy Prompts**|**Default: On**|If upgrading from the integrated version of this project, there may be legacy VCS modules left in your database project that are no longer needed. This will notify you if these legacy modules are found. If you would like to keep them in your project, you can clear this option to disable the notification. 
+|**Show Legacy Prompts**|**Default: On**|If upgrading from the integrated version of this project, there may be legacy VCS modules left in your database project that are no longer needed. This will notify you if these legacy modules are found. If you would like to keep them in your project, you can clear this option to disable the notification.
+|**Use short hashes in index**|**Default: On**|If on, `git` style hashes (first 7 characters) will be used in the file index. <p>*NOTE: This was done to improve readability and reduce file size, but you can always uncheck this box if you want to store the full hash.*
 |**Hash Algorithm**|**Default: SHA256**|Choose the hashing algorithm here. This may affect build time if you choose a more complex option. Hashes are used to help determine whether source files changed between import/export operations.
 ||~~*SHA1*~~|Use SHA-1 hashing algorithm. ([Not recommended](https://en.wikipedia.org/wiki/SHA-1). While hashing is not used for security purposes in this add-in, any usage of SHA1 is not allowed in some network environments.)
 ||*SHA256*|Use SHA-256 hashing algorithm.
 ||*SHA512*|Use SHA-512 hashing algorithm.
-|**Use short hashes in index**|**Default: On**|If on, `git` style hashes (first 7 characters) will be used in the file index. <p>*NOTE: This was done to improve readability and reduce file size, but you can always uncheck this box if you want to store the full hash.*
+|**Developer Settings**||_Note:_ Developer Settings are local-only and are not saved in the settings config. They are set as a registry preference (same as install preferences).
+|File Diff Tool|**Default: WinMerge**|Select the diff tool used by git.
+||_WinMerge_
+||_VSCode_
+||_TortoiseGitDiff_
+|**Open Repository**|**Default: <p> [Blank]**|Select the tool you want to use to open the repository for git integration.
+||_[Blank]_
+||_Github Desktop_
+||_VSCode_
+||_SourceTree_
+||_Tortoise Git_
+|**Language**|**Default: English**|Select the language used by the AddIn. <p>NOTE: Not all screens or prompts have been updated to use translation. When not updated, the text will display in **English**.<p> See [Translations Page](wiki/Translations) for more details.
+||English (Localization Testing)|Used when performing localization tests.
+||English
+||Brazilian Portuguese
+|[Translations...]()||Click the Translations... link to open the Translation Tab. See [Translation](wiki/Translation#Options-Translation-Tab) for more detail and how to use this feature.
 
 
 ## Export Tab
