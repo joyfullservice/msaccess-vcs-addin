@@ -126,7 +126,7 @@ Queries are exported into the `queries` folder by default.
 
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
-|`*.bas`|Each Query |Exported for each query present in the database. Contains source code, link data, and other attributes. If you used the query designer to create the query, it will contain that information, as well.
+|`*.bas`|Each Query |Exported for each query present in the database. Contains source code, link data, and other attributes. Note that if you last used the query designer to create the query, it will generate a different source file than if you edit the query through the SQL editor.
 |`SQL` |Each Query|If you were to generate a table via SQL, this would be the SQL you'd use. Because Access SQL (SQL Jet) doesn't care about formatting/display width/display height, if you use this, the query won't "look" (visually: it'll still contain the same information) the same when you open it in Access.
 
 
