@@ -75,6 +75,18 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
     End With
 
+    ' Check VBE Project protection
+    If CurrentVBProject.Protection = vbext_pp_locked Then
+        MsgBox2 T("Project Locked"), _
+            T("Project is protected with a password."), _
+            T("Please unlock the project before using this tool."), vbExclamation
+        Log.Spacer
+        Log.Add T("Export Canceled"), , , "Red", True
+        Log.Flush
+        Log.ErrorLevel = eelCritical
+        Exit Sub
+    End If
+
     ' Check project VCS version
     Select Case Options.CompareLoadedVersion
         Case evcNewerVersion
@@ -1324,6 +1336,17 @@ Public Sub MergeAllSource()
         .Flush
     End With
 
+    ' Check VBE Project protection
+    If CurrentVBProject.Protection = vbext_pp_locked Then
+        MsgBox2 T("Project Locked"), _
+            T("Project is protected with a password."), _
+            T("Please unlock the project before using this tool."), vbExclamation
+        Log.Spacer
+        Log.Add T("Merge Canceled"), , , "Red", True
+        Log.Flush
+        Log.ErrorLevel = eelCritical
+        Exit Sub
+    End If
 
     ' Build collections of files to import/merge
     Set dCategories = New Dictionary
