@@ -749,18 +749,18 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : IsEmptyArray
 ' Author    : Adam Waller
-' Date      : 5/13/2023
+' Date      : 3/25/2025
 ' Purpose   : Return true if the passed array is empty, meaning it does not have any
 '           : indexes defined. (Unfortunately we have to use on error resume next to
 '           : trap the error when accessing the index.)
+'           : This also has the side affect that it creates an array index for object
+'           : arrays. See issue #610 for details.
 '---------------------------------------------------------------------------------------
 '
 Public Function IsEmptyArray(varArray As Variant) As Boolean
 
-    ' Use an arbitrary number extremly unlikely to collide with an existing index
-    Const clngTest As Long = -2147483646
-
-    Dim lngLowBound As Long
+    Dim lngLowerBound As Long
+    Dim lngUpperBound As Long
 
     ' Exit (returning False) if we are not dealing with an array variable
     If Not IsArray(varArray) Then Exit Function
@@ -769,14 +769,18 @@ Public Function IsEmptyArray(varArray As Variant) As Boolean
     On Error Resume Next
 
     ' Attempt to read the lower bound of the array
-    lngLowBound = clngTest
-    lngLowBound = LBound(varArray)
+    lngLowerBound = 0
+    lngUpperBound = -1
+    lngLowerBound = LBound(varArray)
+    lngUpperBound = UBound(varArray)
 
     ' Clear any error thrown while attempting to read LBound()
     If Err Then Err.Clear
 
     ' If the above assignment fails, we have an empty array
-    IsEmptyArray = (lngLowBound = clngTest)
+    ' (In the case of empty object arrays, this may be reflected
+    '  as Ubound = -1, LBound = 0
+    IsEmptyArray = (lngUpperBound < lngLowerBound)
 
 End Function
 
