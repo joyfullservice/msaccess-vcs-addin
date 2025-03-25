@@ -28,7 +28,7 @@ jobs:
 
       - name: Sync wiki folder
         run: |
-          rsync -av --delete Wiki/ wiki/
+          rsync -av --delete --exclude='.git' Wiki/ wiki/
 
       - name: Commit and push changes
         run: |
