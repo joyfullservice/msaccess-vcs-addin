@@ -67,7 +67,7 @@ Note that in your export folder you will only see the folders and files for the 
 
 
 # Main Folder
-These files are present in the MSAccessVCS-Addin project; they may or may not be present in your repository depending on how you have yours set up. 
+These files are present in the MSAccessVCS-Addin project; they may or may not be present in your repository depending on how you have yours set up.
 
 |File |Present When |Details & Description
 |:-|:-:|:-
@@ -90,7 +90,8 @@ Forms are exported into the `forms` folder by default. Each form will be exporte
 
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
-|`*.bas`|Form Export |Exported for each form present in the database. 
+|`*.bas`|Form Export |Exported for each form present in the database.
+|`*.cls`|Code Behind Form Export |Exported for each form present in the database. **Only exported when [Options/Export/ "Split Layout from VBA"](Options#export-tab) is _ON_.**
 |`*.json`|Form Print settings |Only exported if the form has print settings (rare). Contains printer formatting and page settings.
 
 
@@ -134,7 +135,8 @@ Reports are exported into the `reports` folder by default.
 
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
-|`*.bas`|Reports Export |Exported for each Report present in the database. 
+|`*.bas`|Reports Export |Exported for each Report present in the database.
+|`*.cls`|Code Behind Report Export |Exported for each report present in the database. **Only exported when [Options / Export: "Split Layout from VBA"](Options#export-tab) is _ON_.**
 |`*.json`|Report Print settings |Only exported if the report has print settings (nearly always for reports). Contains printer formatting and page settings.
 
 
@@ -144,7 +146,7 @@ Table data is exported into `tables` folder by for each table you setup to expor
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
 |`*.xml`|XML Data Export |There will be one `.XML` file for each table setup to have the data exported as XML.
-|`*.TDF`|TDF Data Export |There will be one `.TDF` file for each table setup to have the data exported as TDF. This is more human readable, but may lose some information, especially if you have "Special Charachters".
+|`*.TDF`|TDF Data Export |There will be one `.TDF` file for each table setup to have the data exported as TDF. This is more human readable, but may lose some information. **Not reccomended if "Special Charachters" are present.**
 
 
 ### [YourSource.extension].src\tbldefs
@@ -152,9 +154,9 @@ Table definitions are exported into the `tbldefs` folder by default. Note table 
 
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
-|`JSON` |Linked Tables Only |Contains additional table attributes (should be all, but I'm sure there's probably an edge case that's not been caught yet), such as connection string, the Access table name, the linked table name (on the server), a list of attributes (it's a `long` type that's used in `bitwise` fashion), and a few other bits to cue MSAccessVCS how to import the table.
-|`XML` |Local Tables Only |Table format and extra information (such as row display height, column display width, required/not, column formatting information (Plain Text/RTF, Date Time formatting, etc.) and so on. It is the most 'reliable' and full export of the local table as it (usually) contains all the meta data about the table. `XML` ensures pretty much all the format and data will be the same when you rebuild. If you export the table data, too (it's stored in a separate folder), then `XML` is the way to go (usually). You can also export Table data via `TDF` (Tab Delimited Format) if you want something more human-readable. `XML` by its nature is not as row or character dependent. Access also isn't careful at exporting the same components in the same way every time, so the export is mildly prone to code noise during export (AKA: `git` will think there's changes, when there aren't).
-|`SQL` |Linked and Local Tables|If you were to generate a table via SQL, this would be the SQL you'd use. Because Access SQL (SQL Jet) doesn't care about formatting/display width/display height, if you use this, the table won't "look" the same when you open it in Access.
+|`JSON` |Linked Tables Only|Contains additional table attributes (should be all, but I'm sure there's probably an edge case that's not been caught yet), such as connection string, the Access table name, the linked table name (on the server), a list of attributes (it's a `long` type that's used in `bitwise` fashion), and a few other bits to cue MSAccessVCS how to import the table.
+|`XML` |Local Tables Only|Table format and extra information (such as row display height, column display width, required/not, column formatting information (Plain Text/RTF, Date Time formatting, etc.) and so on). It is the most 'reliable' and full export of the local table as it (usually) contains all the meta data about the table. `XML` ensures pretty much all the format and data will be the same when you rebuild. If you export the table data, too (it's stored in a separate folder), then `XML` is the way to go (usually). You can also export Table data via `TDF` (Tab Delimited Format) if you want something more human-readable. `XML` by its nature is not as row or character dependent. Access also isn't careful at exporting the same components in the same way every time, so the export is mildly prone to code noise during export (AKA: `git` will think there's changes, when there aren't).
+|`SQL` |Local Tables Only|If you were to generate a table via SQL, this would be the SQL you'd use. Because Access SQL (SQL Jet) doesn't care about formatting/display width/display height, if you use this, the table won't "look" the same when you open it in Access.
 
 
 ### [YourSource.extension].src\themes

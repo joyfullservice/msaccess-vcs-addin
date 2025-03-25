@@ -19,7 +19,7 @@ There are several possible reasons for files showing as changed even when you di
 <details>
 <summary><b>Form source files are showing changes in color values</b></summary>
 
-This issue usually comes up in relation to a project being built on different computers, due to how Access internally stores the color values. 
+This issue usually comes up in relation to a project being built on different computers, due to how Access internally stores the color values.
 
 The number you see in the exported source file is affected by the current color profile and settings used by your monitor to represent the colors you see on your screen.
   

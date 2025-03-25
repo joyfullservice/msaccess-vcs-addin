@@ -24,7 +24,6 @@ Public Property Set FSO(ByVal RHS As Scripting.FileSystemObject)
 End Property
 
 
-
 '---------------------------------------------------------------------------------------
 ' Procedure : RunAfterBuild
 ' Author    : Adam Waller

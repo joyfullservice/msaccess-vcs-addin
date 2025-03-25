@@ -23,9 +23,9 @@ Private Declare PtrSafe Function getTempFileName Lib "kernel32" Alias "GetTempFi
     ByVal lpTempFileName As String) As Long
 
 Private Declare PtrSafe Function SHCreateDirectoryEx Lib "shell32" Alias "SHCreateDirectoryExW" ( _
-    ByVal hwnd As LongPtr _
-    , ByVal pszPath As LongPtr _
-    , ByVal psa As Any) As Long
+    ByVal hwnd As LongPtr, _
+    ByVal pszPath As LongPtr, _
+    ByVal psa As Any) As Long
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTempFile
@@ -338,15 +338,14 @@ End Sub
 
 ' ----------------------------------------------------------------
 ' Procedure : VerifyPath (Renamed from EnsurePathExists)
-' DateTime  : 8/15/2022, 10/24/2024
-' Author    : Mike Wolfe, hecon5
+' Date      : 8/15/2022, 10/24/2024, 3/25/2025
+' Author    : Mike Wolfe, hecon5, Adam Waller
 ' Source    : https://nolongerset.com/ensurepathexists/
 ' Purpose   : Unicode-safe method to ensure a folder exists and
 '           : create the folder (and all subfolders) if it does not.
 '           : Added in additional error handling and logging.
 ' ----------------------------------------------------------------
-Public Function VerifyPath(ByRef PathToCheck As String _
-                        , Optional ByVal EnableLongPath As Boolean = True) As Boolean
+Public Function VerifyPath(PathToCheck As String, Optional EnableLongPath As Boolean = True) As Boolean
 
     Const FunctionName As String = ModuleName & ".VerifyPath"
 
@@ -360,8 +359,9 @@ Public Function VerifyPath(ByRef PathToCheck As String _
     Const ERROR_INVALID_NAME As Long = &H7B         'Unicode path passed when SHCreateDirectoryEx passes PathToCheck as string.
 
     Const LONG_PATH_PREFIX As String = "\\?\"
+    Const LONG_PATH_UNC_PREFIX As String = "\\?\UNC\"
 
-    Dim ReturnCode As Long
+    Dim lngReturnCode As Long
     Dim strFolder As String
 
     LogUnhandledErrors FunctionName
@@ -379,23 +379,33 @@ Public Function VerifyPath(ByRef PathToCheck As String _
         strFolder = FSO.GetParentFolderName(PathToCheck)
     End If
 
-    If EnableLongPath And Not StartsWith(strFolder, ".") Then ' Can't use relative paths for LongPaths.
-        ReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(LONG_PATH_PREFIX & strFolder), ByVal 0&)
+    ' Because enabling long paths disables automatic folder expansion (i.e. "\..\") we don't want to use this
+    ' unless we are actually dealing with a path that exceeds the normal MAX_PATH limit. See issue #612
+    If EnableLongPath And Len(strFolder) > 260 And Not StartsWith(strFolder, ".") Then  ' Can't use relative paths for LongPaths.
+        If StartsWith(strFolder, "\\") Then
+            ' Use UNC style long path prefix
+            lngReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(LONG_PATH_UNC_PREFIX & Mid(strFolder, 3)), ByVal 0&)
+        Else
+            ' Standard drive letter prefix
+            lngReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(LONG_PATH_PREFIX & strFolder), ByVal 0&)
+        End If
     Else
-        ReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(strFolder), ByVal 0&)
+        ' Call API without long path prefix
+        lngReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(strFolder), ByVal 0&)
     End If
 
-    Select Case ReturnCode
-    Case ERROR_SUCCESS, _
-         ERROR_FILE_EXISTS, _
-         ERROR_ALREADY_EXISTS
-        VerifyPath = True
-    Case ERROR_ACCESS_DENIED: Log.Error eelError, "Could not create path: Access denied. Path: " & PathToCheck
-    Case ERROR_BAD_PATHNAME: Log.Error eelError, "Cannot use relative path. Path: " & PathToCheck, FunctionName
-    Case ERROR_FILENAME_EXCED_RANGE: Log.Error eelError, "Path too long. Path: " & PathToCheck, FunctionName
-    Case ERROR_CANCELLED: Log.Error eelError, "User cancelled CreateDirectory operation. Path: " & PathToCheck, FunctionName
-    Case ERROR_INVALID_NAME: Log.Error eelError, "Invalid path name. Path: " & PathToCheck, FunctionName
-    Case Else: Log.Error eelError, "Unexpected error verifying path. Return Code: " & CStr(ReturnCode) & vbNewLine & vbNewLine & "Path: " & PathToCheck, FunctionName
+    ' Check return code from API call
+    Select Case lngReturnCode
+        Case ERROR_SUCCESS, _
+             ERROR_FILE_EXISTS, _
+             ERROR_ALREADY_EXISTS
+            VerifyPath = True
+        Case ERROR_ACCESS_DENIED: Log.Error eelError, "Could not create path: Access denied. Path: " & PathToCheck
+        Case ERROR_BAD_PATHNAME: Log.Error eelError, "Cannot use relative path. Path: " & PathToCheck, FunctionName
+        Case ERROR_FILENAME_EXCED_RANGE: Log.Error eelError, "Path too long. Path: " & PathToCheck, FunctionName
+        Case ERROR_CANCELLED: Log.Error eelError, "User cancelled CreateDirectory operation. Path: " & PathToCheck, FunctionName
+        Case ERROR_INVALID_NAME: Log.Error eelError, "Invalid path name. Path: " & PathToCheck, FunctionName
+        Case Else: Log.Error eelError, "Unexpected error verifying path. Return Code: " & CStr(lngReturnCode) & vbNewLine & vbNewLine & "Path: " & PathToCheck, FunctionName
     End Select
 
 Exit_Here:

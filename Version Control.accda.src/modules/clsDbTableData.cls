@@ -79,7 +79,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                     End If
                     Perf.OperationEnd
                     With New clsSourceParser
-                        .LoadSourceFile strFile
+                        .LoadSourceFile strFile, IDbComponent_ComponentType
                         WriteFile .Sanitize(ectXML), strFile
                     End With
             End Select

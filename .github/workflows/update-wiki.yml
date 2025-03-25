@@ -1,0 +1,42 @@
+name: Update Wiki
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # Limit to changes to the wiki folder
+      - 'Wiki/**'
+  workflow_dispatch:
+
+jobs:
+  update-wiki:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up git user
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@joyfullservice.com"
+
+      - name: Clone the wiki repo
+        run: |
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git wiki
+
+      - name: Sync wiki folder
+        run: |
+          rsync -av --delete Wiki/ wiki/
+
+      - name: Commit and push changes
+        run: |
+          cd wiki
+          if git status --porcelain | grep .; then
+            git add .
+            git commit -m "Update wiki from main/Wiki"
+            git push
+          else
+            echo "No changes to commit"
+          fi

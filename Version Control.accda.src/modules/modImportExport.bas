@@ -75,6 +75,18 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
     End With
 
+    ' Check VBE Project protection
+    If CurrentVBProject.Protection = vbext_pp_locked Then
+        MsgBox2 T("Project Locked"), _
+            T("Project is protected with a password."), _
+            T("Please unlock the project before using this tool."), vbExclamation
+        Log.Spacer
+        Log.Add T("Export Canceled"), , , "Red", True
+        Log.Flush
+        Log.ErrorLevel = eelCritical
+        Exit Sub
+    End If
+
     ' Check project VCS version
     Select Case Options.CompareLoadedVersion
         Case evcNewerVersion
@@ -732,28 +744,29 @@ Public Sub Build(strSourceFolder As String _
 
     ' Verify that the source files are being merged into the correct database.
     strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
-    ' Resolve any relative directives (i.e. "\..\") to actual path
-    If FSO.FileExists(strPath) Then strPath = FSO.GetFile(strPath).Path
     If strPath = vbNullString Then
         MsgBox2 T("Unable to determine database file name.") _
             , T("Required source files were not found or could not be parsed: "), strSourceFolder, vbExclamation
         GoTo CleanUp
 
+    ElseIf strCurrentDbFilename = vbNullString Then
+        ' No database currently open. Proceed with build
+
     ElseIf StrComp(strPath, strCurrentDbFilename, vbTextCompare) <> 0 Then
         If blnFullBuild Then
             ' Full build allows you to use source file name.
-            If Not MsgBox2(T("Current Database filename does not match source filename.") _
-                            , T("Do you want to {0} to the Source Defined Filename?" & vbNewLine & vbNewLine & _
-                                "Current: {1}" & vbNewLine & _
-                                "Source: {2}", var0:=strType, var1:=strCurrentDbFilename, var2:=strPath) _
-                            , T("[Ok] = Build with Source Configured Name") & vbNewLine & vbNewLine & _
-                                T("Otherwise cancel and select 'Build As...' from the ribbon to change build name. " & _
-                                "Performing an export from this file name will also reset the file name, but will " & _
-                                "overwrite source. If this file stared as a copy of an existing source controlled " & _
-                                "database, select 'Build As...' to avoid overwriting.") _
-                            , vbQuestion + vbOKCancel + vbDefaultButton1 _
-                            , T("{0} Name Conflict", var0:=strType) _
-                            , vbOK) = vbOK Then
+            If Not MsgBox2(T("Current Database filename does not match source filename."), _
+                    T("Do you want to {0} to the Source Defined Filename?" & vbNewLine & vbNewLine & _
+                        "Current: {1}" & vbNewLine & _
+                        "Source: {2}", var0:=strType, var1:=strCurrentDbFilename, var2:=strPath), _
+                    T("[Ok] = Build with Source Configured Name") & vbNewLine & vbNewLine & _
+                        T("Otherwise cancel and select 'Build As...' from the ribbon to change build name. " & _
+                        "Performing an export from this file name will also reset the file name, but will " & _
+                        "overwrite source. If this file stared as a copy of an existing source controlled " & _
+                        "database, select 'Build As...' to avoid overwriting."), _
+                    vbQuestion + vbOKCancel + vbDefaultButton1, _
+                    T("{0} Name Conflict", var0:=strType), _
+                    vbOK) = vbOK Then
 
                 ' Launch the GUI form (it was closed a moment ago)
                 DoCmd.OpenForm "frmVCSMain"
@@ -761,7 +774,6 @@ Public Sub Build(strSourceFolder As String _
                 Log.Error eelCritical, T("{0} aborted. Name mismatch.", var0:=strType), FunctionName
                 GoTo CleanUp
             End If
-
         Else
             MsgBox2 T("Cannot {0} to a different database.", var0:=strType) _
                 , T("The database file name for the source files must match the currently open database.") _
@@ -769,7 +781,6 @@ Public Sub Build(strSourceFolder As String _
                     "Source: {1}", var0:=strCurrentDbFilename, var1:=strPath), vbExclamation _
                 , T("{0} Name Conflict", var0:=strType) _
                 , vbOK
-
             GoTo CleanUp
         End If
     End If
@@ -1324,6 +1335,17 @@ Public Sub MergeAllSource()
         .Flush
     End With
 
+    ' Check VBE Project protection
+    If CurrentVBProject.Protection = vbext_pp_locked Then
+        MsgBox2 T("Project Locked"), _
+            T("Project is protected with a password."), _
+            T("Please unlock the project before using this tool."), vbExclamation
+        Log.Spacer
+        Log.Add T("Merge Canceled"), , , "Red", True
+        Log.Flush
+        Log.ErrorLevel = eelCritical
+        Exit Sub
+    End If
 
     ' Build collections of files to import/merge
     Set dCategories = New Dictionary
