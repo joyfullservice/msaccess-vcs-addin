@@ -743,17 +743,17 @@ Public Sub Build(strSourceFolder As String _
         If blnFullBuild Then
             ' Full build allows you to use source file name.
             If Not MsgBox2(T("Current Database filename does not match source filename.") _
-                            , T("Do you want to {0} to the Source Defined Filename?" & vbNewLine & vbNewLine & _
-                                "Current: {1}" & vbNewLine & _
-                                "Source: {2}", var0:=strType, var1:=strCurrentDbFilename, var2:=strPath) _
-                            , T("[Ok] = Build with Source Configured Name") & vbNewLine & vbNewLine & _
-                                T("Otherwise cancel and select 'Build As...' from the ribbon to change build name. " & _
-                                "Performing an export from this file name will also reset the file name, but will " & _
-                                "overwrite source. If this file stared as a copy of an existing source controlled " & _
-                                "database, select 'Build As...' to avoid overwriting.") _
-                            , vbQuestion + vbOKCancel + vbDefaultButton1 _
-                            , T("{0} Name Conflict", var0:=strType) _
-                            , vbOK) = vbOK Then
+                    , T("Do you want to {0} to the Source Defined Filename?" & vbNewLine & vbNewLine & _
+                        "Current: {1}" & vbNewLine & _
+                        "Source: {2}", var0:=strType, var1:=strCurrentDbFilename, var2:=strPath) _
+                    , T("[Ok] = Build with Source Configured Name") & vbNewLine & vbNewLine & _
+                        T("Otherwise cancel and select 'Build As...' from the ribbon to change build name. " & _
+                        "Performing an export from this file name will also reset the file name, but will " & _
+                        "overwrite source. If this file stared as a copy of an existing source controlled " & _
+                        "database, select 'Build As...' to avoid overwriting.") _
+                    , vbQuestion + vbOKCancel + vbDefaultButton1 _
+                    , T("{0} Name Conflict", var0:=strType) _
+                    , vbOK) = vbOK Then
 
                 ' Launch the GUI form (it was closed a moment ago)
                 DoCmd.OpenForm "frmVCSMain"
