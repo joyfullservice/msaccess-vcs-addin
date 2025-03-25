@@ -24,8 +24,10 @@ jobs:
 
       - name: Clone the wiki repo
         run: |
-          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git wiki
-
+          git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" wiki-tmp
+          mkdir -p wiki
+          cp -r wiki-tmp/.git wiki/
+    
       - name: Sync wiki folder
         run: |
           rsync -av --delete --exclude='.git' Wiki/ wiki/
