@@ -146,7 +146,7 @@ Table data is exported into `tables` folder by for each table you setup to expor
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
 |`*.xml`|XML Data Export |There will be one `.XML` file for each table setup to have the data exported as XML.
-|`*.TDF`|TDF Data Export |There will be one `.TDF` file for each table setup to have the data exported as TDF. This is more human readable, but may lose some information. **Not reccomended if "Special Charachters" are present.**
+|`*.TDF`|TDF Data Export |There will be one `.TDF` file for each table setup to have the data exported as TDF. This is more human readable, but may lose some information. **Not reccomended if "Special Characters" are present.**
 
 
 ### [YourSource.extension].src\tbldefs
