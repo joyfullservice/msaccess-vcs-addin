@@ -28,6 +28,7 @@ End Enum
 Private Type udtThis
     lngSkipLines() As Long  ' Array of lines to skip
     lngSkipIndex As Long
+    intObjectType As eDatabaseComponentType
     strFilePath As String   ' Path to loaded file
     blnOutputModified As Boolean
     strInput As String
@@ -45,8 +46,9 @@ Private this As udtThis
 ' Purpose   : Load a source file to sanitize
 '---------------------------------------------------------------------------------------
 '
-Public Function LoadSourceFile(strPath As String)
+Public Function LoadSourceFile(strPath As String, intType As eDatabaseComponentType)
     ResetContent
+    this.intObjectType = intType
     this.strInput = ReadSourceFile(strPath)
 End Function
 
@@ -349,6 +351,17 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                             lngLine = lngLine + 1
                         Loop
                         Exit Do
+                    ElseIf IsQueryNameAliasBlock(lngLine, varLines) Then
+                        SkipLine lngLine, eslStandard
+                        intIndent = GetIndent(strLine)
+                        ' Skip following lines till we return to original indent level
+                        Do
+                            SkipLine lngLine + 1, eslStandard
+                            lngLine = lngLine + 1
+                            If GetIndent(varLines(lngLine)) = intIndent Then Exit Do
+                            ' Sanity check for malformed file
+                            If lngLine > UBound(varLines) Then Exit Do
+                        Loop
                     Else
                         BeginBlock
                     End If
@@ -717,6 +730,43 @@ Private Sub CloseBlock()
     this.colBlocks.Remove this.colBlocks.Count
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsQueryNameAliasBlock
+' Author    : Adam Waller
+' Date      : 3/25/2025
+' Purpose   : Determine if this is simply an alias of the field name with no other
+'           : properties. (These come and go depending on the internal compilation
+'           : of the query, causing unwanted noise in souce code.)
+'           : These blocks can be safely removed with no impact on the database.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsQueryNameAliasBlock(lngLine As Long, varLines As Variant) As Boolean
+
+    Dim lngNext As Long
+
+    ' This only applies to queries
+    If this.intObjectType <> edbQuery Then Exit Function
+
+    ' Make sure we have additional lines to check
+    If UBound(varLines) < lngLine + 2 Then Exit Function
+
+    ' Look at the next two lines to see if we are just dealing with an alias block
+    If StartsWith(Trim(varLines(lngLine + 1)), "dbText ""Name"" =") Then
+
+        ' Skip past any GUID lines
+        lngNext = lngLine + 2
+        If StartsWith(Trim(varLines(lngNext)), "dbBinary ""GUID"" = Begin") Then lngNext = lngNext + 3
+
+        ' See if the following line closes the block
+        If Trim(varLines(lngNext)) = "End" Then
+            ' Yes, this was simply a name alias block
+            IsQueryNameAliasBlock = True
+        End If
+    End If
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

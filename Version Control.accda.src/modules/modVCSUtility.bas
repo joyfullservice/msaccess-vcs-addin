@@ -585,7 +585,7 @@ Public Function SaveComponentAsText(intType As AcObjectType _
         Case acQuery, acMacro
             ' Sanitizing converts to UTF-8
             With cParser
-                .LoadSourceFile strTempFile
+                .LoadSourceFile strTempFile, intType
                 WriteFile .Sanitize(ectObjectDefinition), strFile
                 strHash = .Hash
             End With
@@ -597,7 +597,7 @@ Public Function SaveComponentAsText(intType As AcObjectType _
             ' The file may not exist if no TD Macro was found
             If FSO.FileExists(strTempFile) Then
                 With cParser
-                    .LoadSourceFile strTempFile
+                    .LoadSourceFile strTempFile, intType
                     WriteFile .Sanitize(ectXML), strFile
                     strHash = .Hash
                 End With

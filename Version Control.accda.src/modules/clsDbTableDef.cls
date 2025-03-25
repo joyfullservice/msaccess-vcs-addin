@@ -68,7 +68,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
         ' Rewrite sanitized XML as formatted UTF-8 content
         With New clsSourceParser
-            .LoadSourceFile strFile
+            .LoadSourceFile strFile, IDbComponent_ComponentType
             DeleteFile strFile
             WriteFile .Sanitize(ectXML), strFile
             strHash = .Hash
