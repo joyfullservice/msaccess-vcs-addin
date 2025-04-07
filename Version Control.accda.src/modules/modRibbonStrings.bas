@@ -46,7 +46,7 @@ Public Function GetRibbonStrings() As Dictionary
         AddCtl "btnMergeBuild", "Merge Build", _
             strSupertip:="Merge changed source files into the current database."
 
-        AddCtl "btnBuildAs", "Build As…", _
+        AddCtl "btnBuildAs", "Build As... ", _
             strSupertip:="Build from source files to a new name or location."
 
         AddCtl "btnLoadSelected", "Load Selected", _
