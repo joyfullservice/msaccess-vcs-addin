@@ -379,6 +379,9 @@ Public Function VerifyPath(PathToCheck As String, Optional EnableLongPath As Boo
         strFolder = FSO.GetParentFolderName(PathToCheck)
     End If
 
+    ' Expand any environment variables
+    If InStr(2, strFolder, "%") > 0 Then strFolder = ExpandEnvironmentVariables(strFolder)
+
     ' Because enabling long paths disables automatic folder expansion (i.e. "\..\") we don't want to use this
     ' unless we are actually dealing with a path that exceeds the normal MAX_PATH limit. See issue #612
     If EnableLongPath And Len(strFolder) > 260 And Not StartsWith(strFolder, ".") Then  ' Can't use relative paths for LongPaths.
