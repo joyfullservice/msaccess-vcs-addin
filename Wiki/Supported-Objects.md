@@ -80,6 +80,9 @@ The *Testing* column indicates whether a test item and testing code has been cre
 |SQL Stored Procedures            |✔️|n/a|clsAdpProcedure
 |SQL Tables                       |✔️|n/a|clsAdpTable
 |SQL Triggers                     |✔️|n/a|clsAdpTrigger
+|💼 **EXTERNAL DATABASE**
+|Microsoft SQL                    |✔️|n/a|clsSchemaMsSql
+|MySQL/MariaDB                    |✔️|n/a|clsSchemaMySql
 |💼 **OTHER**
 |Saved VCS Options                |✔️|✔️|clsOptions
 
