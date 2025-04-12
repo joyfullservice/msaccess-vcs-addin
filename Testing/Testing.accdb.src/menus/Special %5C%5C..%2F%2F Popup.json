@@ -1,0 +1,51 @@
+﻿{
+  "Info": {
+    "Class": "clsDbCommandBar",
+    "Description": "CommandBar"
+  },
+  "Items": {
+    "AdaptiveMenu": false,
+    "Context": "",
+    "Enabled": true,
+    "Height": 26,
+    "Left": 2674,
+    "NameLocal": "Special \\\\..// Popup",
+    "Position": 5,
+    "Protection": 22,
+    "RowIndex": -1,
+    "Top": 303,
+    "Type": 2,
+    "Visible": false,
+    "Width": 163,
+    "Controls": [
+      {
+        "BeginGroup": false,
+        "BuiltIn": false,
+        "BuiltInFace": false,
+        "Caption": "Special \\\\..// Button",
+        "DescriptionText": "",
+        "Enabled": true,
+        "FaceId": 0,
+        "Height": 22,
+        "HelpContextId": 0,
+        "HelpFile": "",
+        "HyperlinkType": 0,
+        "Index": 1,
+        "IsPriorityDropped": false,
+        "OLEUsage": 1,
+        "OnAction": "=MenuHandler(\"Special \\\\..// Popup.Special \\\\..// Button\")",
+        "Parameter": "",
+        "Priority": 3,
+        "ShortcutText": "",
+        "State": 0,
+        "Style": 0,
+        "Tag": "",
+        "TooltipText": "Special \\\\..// Button",
+        "Type": 1,
+        "Visible": true,
+        "Width": 161,
+        "ImagePath": "rel:Special %5C%5C..%2F%2F Popup_Images\\Special %5C%5C..%2F%2F Button"
+      }
+    ]
+  }
+}

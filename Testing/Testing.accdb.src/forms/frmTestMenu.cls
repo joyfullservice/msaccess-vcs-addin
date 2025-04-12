@@ -10,3 +10,7 @@ Private Sub cmdShowMenu_Click()
     Menu.PopupBelow cmdShowMenu, "Demo Popup"
     'PrintPos
 End Sub
+
+Private Sub cmdSpecial_Click()
+    Menu.PopupBelow cmdSpecial, "Special \\..// Popup"
+End Sub
