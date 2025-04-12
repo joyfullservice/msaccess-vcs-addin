@@ -487,3 +487,66 @@ Public Sub TestCatch()
     CatchAny eelError, "Catch Test Validation", FunctionName
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestPathFunctions
+' Author    : Adam Waller
+' Date      : 4/12/2025
+' Purpose   : Ensure that VerifyPath is working correctly for different types of paths
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestPathFunctions()
+
+    ' This path may not work on all systems, but it should work in a normal dev environment
+    Const cstrUncBase As String = "\\%computername%\c$\users\%username%\AppData\Local\Temp\"
+
+    Dim strBase As String
+    Dim strPath As String
+    Dim strTempPath As String
+    Dim intCnt As Integer
+
+    ' Test expansion of environment variable
+    strPath = ExpandEnvironmentVariables("%TEMP%\test.tmp")
+    Debug.Assert FSO.FolderExists(FSO.GetParentFolderName(strPath))
+
+    ' Test relative path
+    strBase = ExpandEnvironmentVariables("%TEMP%\")
+    strTempPath = strBase & "\subfolder\level2\"
+    If FSO.FolderExists(strTempPath) Then FSO.DeleteFolder StripSlash(strTempPath)
+    Debug.Assert Not FSO.FolderExists(strTempPath)
+    Debug.Assert VerifyPath(strTempPath)
+    Debug.Assert FSO.FolderExists(strTempPath)
+    Debug.Assert GetRelativePath(strTempPath, strBase) = "rel:\subfolder\level2\"
+    FSO.DeleteFolder strBase & "\subfolder"
+
+    ' Test verify path with file name
+    strTempPath = strTempPath & "test.tmp"
+    Debug.Assert VerifyPath(strTempPath)
+    Debug.Assert FSO.FolderExists(FSO.GetParentFolderName(strTempPath))
+    FSO.DeleteFolder strBase & "\subfolder"
+
+    ' Test UNC path (May not work on all systems)
+    strTempPath = ExpandEnvironmentVariables(cstrUncBase & "subfolder\level2\test.tmp")
+    Debug.Assert VerifyPath(strTempPath)
+    Debug.Assert FSO.FolderExists(FSO.GetParentFolderName(strTempPath))
+    FSO.DeleteFolder strBase & "\subfolder"
+
+    ' LONG PATHS (> 260) (Requires OS support and newer version of Access)
+    'https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=registry
+    If Application.Version >= 16 Then
+
+        ' Test long path (On newer versions of Access)
+        strTempPath = strBase & "\" & Repeat("subfolder\", 26)
+        Debug.Assert VerifyPath(strTempPath)
+        strPath = strBase & "\subfolder"
+        If FSO.FolderExists(strPath) Then FSO.DeleteFolder strPath
+
+        ' Test long UNC path
+        strTempPath = cstrUncBase & Repeat("subfolder\", 26)
+        Debug.Assert VerifyPath(strTempPath)
+        strPath = strBase & "\subfolder"
+        If FSO.FolderExists(strPath) Then FSO.DeleteFolder strPath
+    End If
+
+End Sub
