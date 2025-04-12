@@ -8,15 +8,15 @@
     "Context": "",
     "Enabled": true,
     "Height": 26,
-    "Left": 2674,
+    "Left": 2686,
     "NameLocal": "Special \\\\..// Popup",
     "Position": 5,
     "Protection": 22,
     "RowIndex": -1,
-    "Top": 303,
+    "Top": 277,
     "Type": 2,
     "Visible": false,
-    "Width": 163,
+    "Width": 178,
     "Controls": [
       {
         "BeginGroup": false,
@@ -43,7 +43,7 @@
         "TooltipText": "Special \\\\..// Button",
         "Type": 1,
         "Visible": true,
-        "Width": 161,
+        "Width": 176,
         "ImagePath": "rel:Special %5C%5C..%2F%2F Popup_Images\\Special %5C%5C..%2F%2F Button"
       }
     ]

@@ -8,15 +8,15 @@
     "Context": "",
     "Enabled": true,
     "Height": 26,
-    "Left": 2322,
+    "Left": 2334,
     "NameLocal": "Demo Popup",
     "Position": 5,
     "Protection": 22,
     "RowIndex": -1,
-    "Top": 303,
+    "Top": 277,
     "Type": 2,
     "Visible": false,
-    "Width": 139,
+    "Width": 154,
     "Controls": [
       {
         "BeginGroup": false,
@@ -43,7 +43,7 @@
         "TooltipText": "Custom Button",
         "Type": 1,
         "Visible": true,
-        "Width": 137,
+        "Width": 152,
         "ImagePath": "rel:Demo Popup_Images\\Custom Button"
       }
     ]

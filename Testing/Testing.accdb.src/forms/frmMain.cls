@@ -179,6 +179,20 @@ Public Sub cmdRunTests_Click()
     Next rsc
     ShowResult "Theme resource exists", (strTest = "Angles")
 
+    ' CommandBar Menus
+    strTest = CommandBars("Demo Popup").Name
+    ShowResult "Popup Menu", (strTest = "Demo Popup")
+
+    strTest = CommandBars("Demo Popup").Controls(1).Caption
+    ShowResult "Menu Control", (strTest = "Custom Button")
+
+    strTest = CommandBars("Special \\..// Popup").Name
+    ShowResult "Special Char Menu", (strTest = "Special \\..// Popup")
+
+    strTest = CommandBars("Special \\..// Popup").Controls(1).Caption
+    ShowResult "Special Char Caption", (strTest = "Special \\..// Button")
+
+
     ' Other
     ShowResult "VCS Options file exists", FSO.FileExists(ExportFolder & "vcs-options.json")
 
