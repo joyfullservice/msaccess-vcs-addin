@@ -550,3 +550,17 @@ Public Sub TestPathFunctions()
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestCaseChangeClass
+' Author    : Adam Waller
+' Date      : 4/24/2025
+' Purpose   : Test the internal functions of the CaseChange class
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCaseChangeClass()
+    With New clsCaseChange
+        .SelfTest
+    End With
+End Sub

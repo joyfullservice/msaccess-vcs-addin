@@ -893,6 +893,29 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : FirstPos
+' Author    : Adam Waller
+' Date      : 4/24/2025
+' Purpose   : Return first position of any of the "stop" strings.
+'---------------------------------------------------------------------------------------
+'
+Public Function FirstPos(varText, ParamArray strStop()) As Long
+    Dim intParms As Integer
+    Dim lngPos As Long
+    Dim lngFirst As Long
+    For intParms = 0 To UBound(strStop)
+        lngPos = InStr(1, varText, strStop(intParms))
+        If lngPos > 0 Then
+            If lngFirst = 0 Or (lngPos < lngFirst) Then
+                lngFirst = lngPos
+            End If
+        End If
+    Next intParms
+    FirstPos = lngFirst
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SwapExtension
 ' Author    : Adam Waller
 ' Date      : 8/9/2023
