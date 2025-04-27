@@ -802,7 +802,7 @@ Private Sub SetBuildPath()
     ' This should only be done on an open database/project
     If DatabaseFileOpen Then
         ' Check the export folder option
-        If Me.ExportFolder = vbNullString Then
+        If Me.ExportFolder = vbNullString Or Left(Me.ExportFolder, 1) = "\" Then
             ' When using the default of a blank export path, we don't need
             ' to store the build folder location. (It will be different on
             ' different computers, and not needed for a relative export path.)
