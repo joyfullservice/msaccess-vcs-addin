@@ -132,7 +132,7 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetObjectNameFromFileName
+' Procedure : GetOriginalFromSafeName
 ' Author    : Adam Waller
 ' Date      : 2/27/2025
 ' Purpose   : Return the name or path after translating the HTML encoding back to normal
@@ -171,7 +171,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetObjectNameFromFileName(strFile As String) As String
-    GetObjectNameFromFileName = FSO.GetBaseName(GetOriginalFromSafeName(strFile))
+    GetObjectNameFromFileName = GetOriginalFromSafeName(FSO.GetBaseName(strFile))
 End Function
 
 
