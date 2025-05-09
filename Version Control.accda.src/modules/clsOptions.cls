@@ -802,7 +802,7 @@ Private Sub SetBuildPath()
     ' This should only be done on an open database/project
     If DatabaseFileOpen Then
         ' Check the export folder option
-        If Me.ExportFolder = vbNullString Or Left(Me.ExportFolder, 1) = "\" Then
+        If Me.ExportFolder = vbNullString Or IsRelativePathValue(Me.ExportFolder) Then
             ' When using the default of a blank export path, we don't need
             ' to store the build folder location. (It will be different on
             ' different computers, and not needed for a relative export path.)
@@ -819,6 +819,22 @@ Private Sub SetBuildPath()
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsRelativePathProperty
+' Author    : Josef Poetzl
+' Date      : 5/9/2025
+' Purpose   : Checks if the path property starts with '\' but is not a UNC path.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsRelativePathValue(ByVal strPathToCheck As String) As Boolean
+   If Left(strPathToCheck, 1) = PathSep Then
+      If Left(strPathToCheck, 2) <> PathSep Then
+         IsRelativePathValue = True
+      End If
+   End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
