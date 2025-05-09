@@ -164,14 +164,14 @@ End Sub
 '@TestMethod("QuickSort")
 Private Sub TestQuickSort()
 
-    Dim arr() As String
-    Dim result As String
+    Dim astr() As String
+    Dim strResult As String
 
-    arr = Split("u i a")
+    astr = Split("u i a")
 
-    QuickSort arr
-    result = Join(arr, " ")
-    Assert.AreEqual result, "a i u"
+    QuickSort astr
+    strResult = Join(astr, " ")
+    Debug.Assert strResult = "a i u"
 
 End Sub
 
