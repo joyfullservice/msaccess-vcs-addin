@@ -223,16 +223,18 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
         Set colItems = New Collection
         contType = GetObjectTypeFromContainer(cont)
         For Each doc In cont.Documents
-            If contType <> acDefault _
-                And Not (contType = acTable _
-                And (doc.Name Like "MSys*" Or doc.Name Like "~*")) Then
-                    ' Check Hidden Attribute property (only exposed here)
-                    If Application.GetHiddenAttribute(contType, doc.Name) Then
-                        ' Add to collection of hidden item item names of this type.
-                        colItems.Add doc.Name
+            If contType <> acDefault Then
+                If Left(doc.Name, 1) <> "~" Then
+                    If Not (contType = acTable And (doc.Name Like "MSys*")) Then
+                        ' Check Hidden Attribute property (only exposed here)
+                        If Application.GetHiddenAttribute(contType, doc.Name) Then
+                            ' Add to collection of hidden item item names of this type.
+                            colItems.Add doc.Name
+                        End If
+                        CatchAny eelError, T("Error accessing Hidden Attribute for {0}.", , , , doc.Name), _
+                            ModuleName(Me) & ".GetDictionary"
                     End If
-                    CatchAny eelError, T("Error accessing Hidden Attribute for {0}.", , , , doc.Name), _
-                        ModuleName(Me) & ".GetDictionary"
+                End If
             End If
         Next doc
         If colItems.Count > 0 Then dItems.Add cont.Name, SortCollectionByValue(colItems)
