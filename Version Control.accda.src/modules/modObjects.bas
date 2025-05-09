@@ -11,6 +11,10 @@ Option Explicit
 
 Private Const ModuleName = "modObjects"
 
+
+' Manage outside "this" since we will use the operation class to release the other objects.
+Private m_Operation As clsOperation
+
 ' Use a private type to manage instances of object classes
 Private Type udtObjects
     Perf As clsPerformance
@@ -245,4 +249,17 @@ End Property
 Public Property Get Git() As clsGitIntegration
     If this.Git Is Nothing Then Set this.Git = New clsGitIntegration
     Set Git = this.Git
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Operation
+' Author    : Adam Waller
+' Date      : 5/9/2025
+' Purpose   : Wrapper for operation state management
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Operation() As clsOperation
+    If m_Operation Is Nothing Then Set m_Operation = New clsOperation
+    Set Operation = m_Operation
 End Property
