@@ -42,6 +42,9 @@ Public Sub WinAPITimerCallback()
     SaveSetting PROJECT_NAME, "Timer", "Param1", vbNullString
     SaveSetting PROJECT_NAME, "Timer", "Param2", vbNullString
 
+    ' Unstage the current operation
+    If Operation.Status = eosStaged Then Operation.Restore
+
     ' Now, run the desired operation
     Select Case strCommand
 

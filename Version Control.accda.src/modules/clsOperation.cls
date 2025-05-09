@@ -20,7 +20,7 @@ Option Explicit
 
 ' This constant determines whether the current operation is still valid or if it is
 ' considered to have timed out. (Or exited without cleaning up properly.)
-Private Const OPERATION_TIMEOUT_SECONDS As Integer = 60 * 10
+Private Const OPERATION_TIMEOUT_SECONDS As Integer = 60 * 10    ' (10 minutes)
 
 
 ' Periodically update this to Now() to manage timeouts.
@@ -69,20 +69,48 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function Begin() As Boolean
-    this.State = eosRunning
-    this.StartTime = Now
-    Me.Pulse
+    Select Case this.State
+        Case eosRunning
+            ' Another operation is already running.
+            MsgBox2 T("Another Operation Already Running"), _
+                T("Please complete the current operation before beginning a new one."), , vbExclamation
+        Case eosStaged
+            ' We are currently staged
+            MsgBox2 T("Another Operation Already Running"), _
+                T("Please complete the current operation before beginning a new one."), , vbExclamation
+        Case eosReady
+            ' Ready to go!
+            this.State = eosRunning
+            this.StartTime = Now
+            SetErrorTrapping
+            UpdateRegistry
+            Me.Pulse
+            Begin = True
+        Case Else
+            MsgBox2 T("Unknown Operation State"), T("Current state: {0}", , , , this.State)
+    End Select
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : Stage
+' Author    : Adam Waller
+' Date      : 5/9/2025
+' Purpose   : Stage the current operation for a timer restart, or to run a user hook.
+'---------------------------------------------------------------------------------------
+'
 Public Function Stage()
     this.State = eosStaged
+    UpdateRegistry
+    RestoreUserErrorTrapping
     Me.Pulse
 End Function
 
 
 Public Function Restore()
     this.State = eosRunning
+    SetErrorTrapping
+    RestoreFromRegistry
     Me.Pulse
 End Function
 
@@ -98,6 +126,9 @@ Public Function Finish(Optional intResult As eOperationResult)
     this.State = eosReady
     If intResult > eorUnknown Then this.Result = intResult
     this.FinishTime = Now
+    UpdateRegistry
+    modObjects.ReleaseObjects
+    RestoreUserErrorTrapping
 End Function
 
 
@@ -113,6 +144,9 @@ Public Property Get Status() As eOperationState
     If this.State <> eosReady Then
         If DateAdd("s", OPERATION_TIMEOUT_SECONDS, Me.Heartbeat) < Now Then
             ' Timeout exceeded from last heartbeat
+            this.State = eosReady
+            this.Result = eorTimeout
+            RestoreUserErrorTrapping
         End If
     End If
     Status = this.State
@@ -206,7 +240,6 @@ End Function
 ' Purpose   : Make sure no other forms are currently loaded before initiating a new
 '           : operation. (Force linear usage of one operation at a time.)
 '           : Also warns user that they must close the form before they can proceed.
-'
 '---------------------------------------------------------------------------------------
 '
 Private Function HasFormOpen(Optional blnWarnUser As Boolean = True) As Boolean
@@ -254,86 +287,32 @@ Private Function HasFormOpen(Optional blnWarnUser As Boolean = True) As Boolean
 End Function
 
 
-
-
 '---------------------------------------------------------------------------------------
-' Procedure : Class_Terminate
+' Procedure : SetErrorTrapping
 ' Author    : Adam Waller
-' Date      : 3/28/2022
-' Purpose   : Release any outstanding objects and restore the session state
+' Date      : 5/9/2025
+' Purpose   : We need this to "Break in Class Modules" for some functionality in this
+'           : add-in. (Such as debugging VBA code)
 '---------------------------------------------------------------------------------------
 '
-Private Sub Class_Terminate()
-    modObjects.ReleaseObjects
-    RestoreState
+Private Sub SetErrorTrapping()
+    this.ErrorTrapping = Application.GetOption("Error Trapping")
+    If this.ErrorTrapping <> 1 Then Application.SetOption "Error Trapping", 1
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : SaveState
+' Procedure : RestoreUserErrorTrapping
 ' Author    : Adam Waller
-' Date      : 3/28/2022
-' Purpose   : Save any user settings before running our code.
+' Date      : 5/9/2025
+' Purpose   : Restore the user's preference for error trapping.
 '---------------------------------------------------------------------------------------
 '
-Private Sub SaveState()
-
-    Dim strValue As String
-
-    ' Just in case the user terminated the code before the settings could be restored,
-    ' check for any existing user settings that might need to be restored.
-    If ReadSetting("Save Time") <> vbNullString Then RestoreState
-
-    ' Save a value so we can delete this section later
-    PreserveSetting "Save Time", Now()
-
-    ' Error trapping setting. (We need this to "Break in Class Modules" for this add-in)
-    strValue = Application.GetOption("Error Trapping")
-    If strValue <> "1" Then
-        PreserveSetting "Error Trapping", strValue
-        Application.SetOption "Error Trapping", 1
+Private Sub RestoreUserErrorTrapping()
+    If this.ErrorTrapping <> Application.GetOption("Error Trapping") Then
+        Application.SetOption "Error Trapping", this.ErrorTrapping
     End If
-
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : RestoreState
-' Author    : Adam Waller
-' Date      : 3/28/2022
-' Purpose   : Restore user settings.
-'---------------------------------------------------------------------------------------
-'
-Private Sub RestoreState()
-
-    Dim strValue As String
-
-    strValue = ReadSetting("Error Trapping")
-    If strValue <> vbNullString Then
-        If Application.GetOption("Error Trapping") <> strValue Then
-            Application.SetOption "Error Trapping", CLng(strValue)
-        End If
-    End If
-
-    ' Remove temporary registry section
-    DeleteSetting PROJECT_NAME, "State"
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : PreserveSetting
-' Author    : Adam Waller
-' Date      : 3/28/2022
-' Purpose   : Wrapper functions for saving and reading session state settings.
-'---------------------------------------------------------------------------------------
-'
-Private Sub PreserveSetting(strName As String, strSetting As String)
-    SaveSetting PROJECT_NAME, "State", strName, strSetting
-End Sub
-Private Function ReadSetting(strName As String, Optional strDefault As String) As String
-    ReadSetting = GetSetting(PROJECT_NAME, "State", strName, strDefault)
-End Function
 
 
 '---------------------------------------------------------------------------------------

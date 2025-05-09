@@ -26,8 +26,7 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Public Sub Show()
-    If HasFormOpen Then Exit Sub
-    DoCmd.OpenForm "frmVCSMain"
+    If Operation.Begin Then DoCmd.OpenForm "frmVCSMain"
 End Sub
 
 
@@ -39,14 +38,15 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ShowOptions()
-    If HasFormOpen Then Exit Sub
-    If DatabaseFileOpen Then
-        ' Force reload of options from current project before opening the form.
-        Set modObjects.Options = Nothing
-        DoCmd.OpenForm "frmVCSOptions"
-    Else
-        ' The table data subform may crash Access when the options form is closed with no database open.
-        MsgBox2 "No Database Open", "Please open a database file before configuring VCS options.", , vbInformation
+    If Operation.Begin Then
+        If DatabaseFileOpen Then
+            ' Force reload of options from current project before opening the form.
+            Set modObjects.Options = Nothing
+            DoCmd.OpenForm "frmVCSOptions"
+        Else
+            ' The table data subform may crash Access when the options form is closed with no database open.
+            MsgBox2 "No Database Open", "Please open a database file before configuring VCS options.", , vbInformation
+        End If
     End If
 End Sub
 
@@ -59,8 +59,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Export()
-    If HasFormOpen Then Exit Sub
-    RunExport ecfAllObjects
+    If Operation.Begin Then RunExport ecfAllObjects
 End Sub
 
 
@@ -72,8 +71,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportVBA()
-    If HasFormOpen Then Exit Sub
-    RunExport ecfVBAItems
+    If Operation.Begin Then RunExport ecfVBAItems
 End Sub
 
 
@@ -88,8 +86,6 @@ Public Sub ExportSelected()
 
     Dim objSelected As AccessObject
 
-    If HasFormOpen Then Exit Sub
-
     Set objSelected = GetSelectedNavPaneObject
     If objSelected Is Nothing Then
         MsgBox2 "Please Select an Object First", _
@@ -97,7 +93,7 @@ Public Sub ExportSelected()
             "If you are using a non-English version of Access and it is still not working, please open an issue on GitHub to add support for your language.", vbInformation
     Else
         ' Export the item
-        RunExport , objSelected
+        If Operation.Begin Then RunExport , objSelected
     End If
 
 End Sub
@@ -133,14 +129,15 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Build(Optional strSourceFolder As String)
-    If HasFormOpen Then Exit Sub
-    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-    With Form_frmVCSMain
-        ' Make sure we are doing a full build.
-        If Not .chkFullBuild Then .chkFullBuild = True
-        .strSourcePath = strSourceFolder
-        .cmdBuild_Click
-    End With
+    If Operation.Begin Then
+        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+        With Form_frmVCSMain
+            ' Make sure we are doing a full build.
+            If Not .chkFullBuild Then .chkFullBuild = True
+            .strSourcePath = strSourceFolder
+            .cmdBuild_Click
+        End With
+    End If
 End Sub
 
 
@@ -152,20 +149,21 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeBuild()
-    If HasFormOpen Then Exit Sub
-    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-    With Form_frmVCSMain
-        ' See if merge build is available
-        If .chkFullBuild.Enabled Then
-            ' Initiate the merge build
-            .chkFullBuild = False
-            .cmdBuild_Click
-        Else
-            MsgBox2 "Merge Build Not Available", _
-                "A full build must be performed before you can merge from source.", _
-                "Please perform a full build of this database first.", vbInformation
-        End If
-    End With
+    If Operation.Begin Then
+        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+        With Form_frmVCSMain
+            ' See if merge build is available
+            If .chkFullBuild.Enabled Then
+                ' Initiate the merge build
+                .chkFullBuild = False
+                .cmdBuild_Click
+            Else
+                MsgBox2 "Merge Build Not Available", _
+                    "A full build must be performed before you can merge from source.", _
+                    "Please perform a full build of this database first.", vbInformation
+            End If
+        End With
+    End If
 End Sub
 
 
@@ -184,7 +182,7 @@ Public Sub BuildAs()
     Dim strNewDbPath As String
     Dim strSourceFolder As String
 
-    If HasFormOpen Then Exit Sub
+    If Not Operation.Begin Then Exit Sub
 
     ' See if we can find source files for the currently open database.
     If DatabaseFileOpen Then
@@ -254,8 +252,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeAllSource()
-    If HasFormOpen Then Exit Sub
-    modImportExport.MergeAllSource
+    If Operation.Begin Then modImportExport.MergeAllSource
 End Sub
 
 
@@ -273,7 +270,7 @@ Public Sub LoadSelected()
     Dim strObjectName As String
     Dim strSourceFilePath As String
 
-    If HasFormOpen Then Exit Sub
+    If Not Operation.Begin Then Exit Sub
 
     Set objSelected = GetSelectedNavPaneObject
     If objSelected Is Nothing Then
@@ -442,8 +439,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub RepairColors()
-    If HasFormOpen Then Exit Sub
-    RepairColorDefinitionBlocks
+    If Operation.Begin Then
+        RepairColorDefinitionBlocks
+        Operation.Finish
+    End If
 End Sub
 
 
@@ -455,8 +454,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub SplitFiles()
-    If HasFormOpen Then Exit Sub
-    DoCmd.OpenForm "frmVCSSplitFiles"
+    If Operation.Begin Then DoCmd.OpenForm "frmVCSSplitFiles"
 End Sub
 
 
@@ -469,8 +467,11 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LocalizeLibraryReferences()
-    If HasFormOpen Then Exit Sub
-    modLibReference.LocalizeLibraryReferences True
+    If Operation.Begin Then
+        modLibReference.LocalizeLibraryReferences True
+        Operation.Finish
+    End If
+End Sub
 End Sub
 
 
@@ -525,144 +526,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Initialize()
-    SaveState
     ' When the class is initialized, make sure the ribbon is active (if installed).
     ' This way if the COM add-in is not active, it will be automatically activated
     ' when the add-in is opened from the [Database Tools\Add-ins] menu. (See #451)
     If GetInstallSettings.blnUseRibbonAddIn Then modCOMAddIn.VerifyRibbon
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Class_Terminate
-' Author    : Adam Waller
-' Date      : 3/28/2022
-' Purpose   : Release any outstanding objects and restore the session state
-'---------------------------------------------------------------------------------------
-'
-Private Sub Class_Terminate()
-    modObjects.ReleaseObjects
-    RestoreState
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : SaveState
-' Author    : Adam Waller
-' Date      : 3/28/2022
-' Purpose   : Save any user settings before running our code.
-'---------------------------------------------------------------------------------------
-'
-Private Sub SaveState()
-
-    Dim strValue As String
-
-    ' Just in case the user terminated the code before the settings could be restored,
-    ' check for any existing user settings that might need to be restored.
-    If ReadSetting("Save Time") <> vbNullString Then RestoreState
-
-    ' Save a value so we can delete this section later
-    PreserveSetting "Save Time", Now()
-
-    ' Error trapping setting. (We need this to "Break in Class Modules" for this add-in)
-    strValue = Application.GetOption("Error Trapping")
-    If strValue <> "1" Then
-        PreserveSetting "Error Trapping", strValue
-        Application.SetOption "Error Trapping", 1
-    End If
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : RestoreState
-' Author    : Adam Waller
-' Date      : 3/28/2022
-' Purpose   : Restore user settings.
-'---------------------------------------------------------------------------------------
-'
-Private Sub RestoreState()
-
-    Dim strValue As String
-
-    strValue = ReadSetting("Error Trapping")
-    If strValue <> vbNullString Then
-        If Application.GetOption("Error Trapping") <> strValue Then
-            Application.SetOption "Error Trapping", CLng(strValue)
-        End If
-    End If
-
-    ' Remove temporary registry section
-    DeleteSetting PROJECT_NAME, "State"
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : PreserveSetting
-' Author    : Adam Waller
-' Date      : 3/28/2022
-' Purpose   : Wrapper functions for saving and reading session state settings.
-'---------------------------------------------------------------------------------------
-'
-Private Sub PreserveSetting(strName As String, strSetting As String)
-    SaveSetting PROJECT_NAME, "State", strName, strSetting
-End Sub
-Private Function ReadSetting(strName As String, Optional strDefault As String) As String
-    ReadSetting = GetSetting(PROJECT_NAME, "State", strName, strDefault)
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : HasFormOpen
-' Author    : Adam Waller
-' Date      : 3/29/2024
-' Purpose   : Make sure no other forms are currently loaded before initiating a new
-'           : operation. (Force linear usage of one operation at a time.)
-'           : Also warns user that they must close the form before they can proceed.
-'
-'---------------------------------------------------------------------------------------
-'
-Private Function HasFormOpen(Optional blnWarnUser As Boolean = True) As Boolean
-
-    Dim objForm As AccessObject
-    Dim frm As Access.Form
-    Dim strCaption As String
-
-    ' Cache collection of form names used by this add-in
-    Static dFormNames As Dictionary
-
-    ' Build cached list of form names
-    If dFormNames Is Nothing Then
-        Set dFormNames = New Dictionary
-        For Each objForm In CodeProject.AllForms
-            dFormNames.Add objForm.Name, vbNullString
-        Next objForm
-    End If
-
-    ' Check for open forms (from current database, add-in, or library database)
-    For Each frm In Application.Forms
-        If dFormNames.Exists(frm.Name) Then
-            ' Found a matching form name.
-            If frm.CurrentView = acCurViewDesign Then
-                ' Design view is okay, since the add-in won't have a form in design
-                ' view when running as an add-in. (No conflict)
-            Else
-                ' A form with the same name. This could be a problem.
-                If blnWarnUser Then
-                    If frm.Caption = vbNullString Then
-                        strCaption = frm.Name
-                    Else
-                        ' Users may recognize caption better than name
-                        strCaption = frm.Caption & " (" & frm.Name & ")"
-                    End If
-                    MsgBox2 "Add-in Form Already Open", _
-                        "Please close '" & strCaption & "' before running this action.", , vbInformation
-                    HasFormOpen = True
-                    Exit Function
-                End If
-            End If
-        End If
-    Next
-
-End Function
