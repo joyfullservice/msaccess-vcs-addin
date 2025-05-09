@@ -226,7 +226,7 @@ End Function
 ' Procedure : GetDictionary
 ' Author    : Adam Waller
 ' Date      : 5/28/2021
-' Purpose   : Return a dictionary of the ordered, unique VBE references
+' Purpose   : Return a dictionary of the properties, sorted by name.
 '---------------------------------------------------------------------------------------
 '
 Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
@@ -330,19 +330,53 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim prp As DAO.Property
     Dim cProp As IDbComponent
+    Dim dCurrent As Dictionary
+    Dim dSaved As Dictionary
+    Dim dFile  As Dictionary
+    Dim blnAdd As Boolean
+    Dim strKey As String
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
-        If Not blnModifiedOnly Or IDbComponent_IsModified Then
-            ' Return all the properties, since we don't know which ones
-            ' were modified.
-            For Each prp In CurrentDb.Properties
-                Set cProp = New clsDbProperty
-                Set cProp.DbObject = prp
-                m_Items(blnModifiedOnly).Add cProp.SourceFile & ":" & prp.Name, cProp
-            Next prp
+
+        ' If returning modified properties only, compare with source file
+        If blnModifiedOnly Then
+            Set dSaved = New Dictionary
+            ' Read saved properties from source file
+            If FSO.FileExists(IDbComponent_SourceFile) Then
+                Set dFile = ReadJsonFile(IDbComponent_SourceFile)
+                If Not dFile Is Nothing Then
+                    Set dSaved = dFile("Items")
+                End If
+            End If
+            ' Get current properties
+            Set dCurrent = GetDictionary
         End If
+
+        ' Loop through the properties
+        For Each prp In CurrentDb.Properties
+            Set cProp = New clsDbProperty
+            Set cProp.DbObject = prp
+            blnAdd = True
+            strKey = prp.Name
+            ' Compare with last exported properties when returning modified only
+            If blnModifiedOnly Then
+                If dCurrent.Exists(strKey) Then
+                    If dSaved.Exists(strKey) Then
+                        If dSaved(strKey)("Type") = dCurrent(strKey)("Type") And _
+                            dSaved(strKey)("Value") = dCurrent(strKey)("Value") Then
+                            ' Property matches last exported one. (Unmodified)
+                            blnAdd = False
+                        End If
+                    End If
+                Else
+                    ' This property is filtered out from the export
+                    blnAdd = False
+                End If
+            End If
+            If blnAdd Then m_Items(blnModifiedOnly).Add IDbComponent_SourceFile & ":" & strKey, cProp
+        Next prp
     End If
 
     ' Return cached collection
