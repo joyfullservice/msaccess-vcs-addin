@@ -830,7 +830,7 @@ End Sub
 '
 Private Function IsRelativePathValue(ByVal strPathToCheck As String) As Boolean
    If Left(strPathToCheck, 1) = PathSep Then
-      If Left(strPathToCheck, 2) <> PathSep Then
+      If Mid(strPathToCheck, 2, 1) <> PathSep Then
          IsRelativePathValue = True
       End If
    End If
