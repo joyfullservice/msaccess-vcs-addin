@@ -472,6 +472,22 @@ Public Sub LocalizeLibraryReferences()
         Operation.Finish
     End If
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ActivateHook
+' Author    : bclothier
+' Date      : 3/28/2023
+' Purpose   : Activates the hook for automatic export on save.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ActivateHook()
+    If Operation.Begin Then
+        If modExportOnSaveHook.ActivateHook = False Then
+            MsgBox "Error activating the hook", vbCritical, "Unable to activate hook"
+        End If
+        Operation.Finish
+    End If
 End Sub
 
 
@@ -509,12 +525,6 @@ Public Sub GoToLinkSupport()
 End Sub
 Public Sub GoToLinkDownload()
     FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/releases"
-End Sub
-Public Sub ActivateHook()
-    If HasFormOpen Then Exit Sub
-    If modExportOnSaveHook.ActivateHook = False Then
-        MsgBox "Error activating the hook", vbCritical, "Unable to activate hook"
-    End If
 End Sub
 
 
