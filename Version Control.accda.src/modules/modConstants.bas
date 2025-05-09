@@ -128,6 +128,22 @@ Public Enum eOperationType
     eotMerge = 3
 End Enum
 
+' State of operation
+Public Enum eOperationState
+    eosReady    ' Ready to begin a new operation
+    eosStaged   ' Staged and waiting to be resumed
+    eosRunning  ' Currently running an operation
+End Enum
+
+' Result of operation
+Public Enum eOperationResult
+    eorUnknown
+    eorSuccess
+    eorFailed
+    eorTimeout
+    eorCanceled
+End Enum
+
 ' Options for resolving file conflicts
 Public Enum eResolveConflict
     ercNone
