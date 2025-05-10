@@ -204,6 +204,19 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Form_Close
+' Author    : Adam Waller
+' Date      : 5/9/2025
+' Purpose   : Fires when the form is closed.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Close()
+    ' Complete any outstanding operation (like opening the options form)
+    Operation.Finish
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Form_Open
 ' Author    : Adam Waller
 ' Date      : 10/31/2024

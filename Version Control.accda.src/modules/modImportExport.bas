@@ -830,8 +830,10 @@ Public Sub Build(strSourceFolder As String _
         ' close and shift-open the database before merging source files into it.
         Log.Add T("Closing and reopening current database before merge...")
         Perf.OperationStart "Reopen DB before Merge"
+        Operation.Stage
         CloseCurrentDatabase2
         ShiftOpenDatabase strPath
+        Operation.Restore
         Perf.OperationEnd
     End If
 
@@ -1066,8 +1068,10 @@ Public Sub Build(strSourceFolder As String _
         Log.Add T("Reopening database...")
         Log.Flush
         StageMainForm
+        Operation.Stage
         CloseCurrentDatabase2
         ShiftOpenDatabase strPath
+        Operation.Restore
         RestoreMainForm
     End If
 

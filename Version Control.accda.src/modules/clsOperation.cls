@@ -25,6 +25,7 @@ Private Const OPERATION_TIMEOUT_SECONDS As Integer = 60 * 10    ' (10 minutes)
 
 ' Periodically update this to Now() to manage timeouts.
 Public Heartbeat As Date
+Public Result As eOperationResult
 
 
 ' Use a private type to manage local variables
@@ -32,7 +33,6 @@ Private Type udtThis
     StartTime As Date
     FinishTime As Date
     State As eOperationState
-    Result As eOperationResult
 
     ' Since multiple Access instances may be running, we need to
     ' track which instance initiated the operation.
@@ -124,7 +124,7 @@ End Function
 '
 Public Function Finish(Optional intResult As eOperationResult)
     this.State = eosReady
-    If intResult > eorUnknown Then this.Result = intResult
+    If intResult > eorUnknown Then Me.Result = intResult
     this.FinishTime = Now
     UpdateRegistry
     modObjects.ReleaseObjects
@@ -145,7 +145,7 @@ Public Property Get Status() As eOperationState
         If DateAdd("s", OPERATION_TIMEOUT_SECONDS, Me.Heartbeat) < Now Then
             ' Timeout exceeded from last heartbeat
             this.State = eosReady
-            this.Result = eorTimeout
+            Me.Result = eorTimeout
             RestoreUserErrorTrapping
         End If
     End If
@@ -163,12 +163,13 @@ End Property
 Private Sub UpdateRegistry()
     ' Make sure we still have a valid cache
     If this.AppHwnd <> 0 Then
+        CheckSetting "Heartbeat", Me.Heartbeat
+        CheckSetting "Result", Me.Result
         CheckSetting "StartTime", this.StartTime
         CheckSetting "FinishTime", this.FinishTime
         CheckSetting "State", this.State
-        CheckSetting "Result", this.Result
         CheckSetting "AppHwnd", this.AppHwnd
-        CheckSetting "ErrorTrapping", this.AppHwnd
+        CheckSetting "ErrorTrapping", this.ErrorTrapping
     End If
 End Sub
 
@@ -209,14 +210,18 @@ End Sub
 '
 Private Function RestoreFromRegistry() As Boolean
     ' Only restore to the same Access instance
-    If GetSetting(PROJECT_NAME, "State", "AppHwnd") = hWndAccessApp Then
-        this.StartTime = ReadReg("StartTime")
-        this.FinishTime = ReadReg("FinishTime")
-        this.State = ReadReg("State")
-        this.Result = ReadReg("Result")
-        this.AppHwnd = ReadReg("AppHwnd")
-        this.ErrorTrapping = ReadReg("ErrorTrapping")
-        RestoreFromRegistry = True
+    If ReadReg("AppHwnd") = CStr(hWndAccessApp) Then
+        ' Check for timeout
+        If DateAdd("s", OPERATION_TIMEOUT_SECONDS, CDate(Nz2(ReadReg("Heartbeat"), 0))) > Now Then
+            ' Load results
+            Me.Result = ReadReg("Result")
+            this.StartTime = ReadReg("StartTime")
+            this.FinishTime = ReadReg("FinishTime")
+            this.State = ReadReg("State")
+            this.AppHwnd = ReadReg("AppHwnd")
+            this.ErrorTrapping = CInt(ReadReg("ErrorTrapping"))
+            RestoreFromRegistry = True
+        End If
     End If
 End Function
 

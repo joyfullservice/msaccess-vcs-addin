@@ -160,3 +160,15 @@ Private Sub Form_Load()
     Translation.ApplyTo Me
     MakeDialogResizable Me
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Form_Unload
+' Author    : Adam Waller
+' Date      : 5/9/2025
+' Purpose   : Finish up the operation.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Form_Unload(Cancel As Integer)
+    If Not Cancel Then Operation.Finish
+End Sub

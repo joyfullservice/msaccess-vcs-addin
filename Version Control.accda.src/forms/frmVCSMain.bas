@@ -16,9 +16,9 @@ Begin Form
     Width =9360
     DatasheetFontHeight =11
     ItemSuffix =33
-    Left =3225
+    Left =32025
     Top =2430
-    Right =28545
+    Right =-8191
     Bottom =14895
     OnUnload ="[Event Procedure]"
     RecSrcDt = Begin

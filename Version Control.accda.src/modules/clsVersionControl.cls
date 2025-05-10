@@ -26,7 +26,7 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Public Sub Show()
-    If Operation.Begin Then DoCmd.OpenForm "frmVCSMain"
+    DoCmd.OpenForm "frmVCSMain"
 End Sub
 
 
@@ -59,7 +59,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Export()
-    If Operation.Begin Then RunExport ecfAllObjects
+    RunExport ecfAllObjects
 End Sub
 
 
@@ -71,7 +71,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportVBA()
-    If Operation.Begin Then RunExport ecfVBAItems
+    RunExport ecfVBAItems
 End Sub
 
 
@@ -93,7 +93,7 @@ Public Sub ExportSelected()
             "If you are using a non-English version of Access and it is still not working, please open an issue on GitHub to add support for your language.", vbInformation
     Else
         ' Export the item
-        If Operation.Begin Then RunExport , objSelected
+        RunExport , objSelected
     End If
 
 End Sub
@@ -129,15 +129,13 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Build(Optional strSourceFolder As String)
-    If Operation.Begin Then
-        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-        With Form_frmVCSMain
-            ' Make sure we are doing a full build.
-            If Not .chkFullBuild Then .chkFullBuild = True
-            .strSourcePath = strSourceFolder
-            .cmdBuild_Click
-        End With
-    End If
+    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+    With Form_frmVCSMain
+        ' Make sure we are doing a full build.
+        If Not .chkFullBuild Then .chkFullBuild = True
+        .strSourcePath = strSourceFolder
+        .cmdBuild_Click
+    End With
 End Sub
 
 
@@ -149,21 +147,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeBuild()
-    If Operation.Begin Then
-        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-        With Form_frmVCSMain
-            ' See if merge build is available
-            If .chkFullBuild.Enabled Then
-                ' Initiate the merge build
-                .chkFullBuild = False
-                .cmdBuild_Click
-            Else
-                MsgBox2 "Merge Build Not Available", _
-                    "A full build must be performed before you can merge from source.", _
-                    "Please perform a full build of this database first.", vbInformation
-            End If
-        End With
-    End If
+    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+    With Form_frmVCSMain
+        ' See if merge build is available
+        If .chkFullBuild.Enabled Then
+            ' Initiate the merge build
+            .chkFullBuild = False
+            .cmdBuild_Click
+        Else
+            MsgBox2 "Merge Build Not Available", _
+                "A full build must be performed before you can merge from source.", _
+                "Please perform a full build of this database first.", vbInformation
+        End If
+    End With
 End Sub
 
 
@@ -210,10 +206,12 @@ Public Sub BuildAs()
                 Else
                     MsgBox2 "Source files not found", "Required source files were not found in this folder.", _
                         "You selected: " & .SelectedItems(1), vbExclamation
+                    Operation.Finish eorCanceled
                     Exit Sub
                 End If
             Else
                 ' Canceled dialog
+                Operation.Finish eorCanceled
                 Exit Sub
             End If
         End With
@@ -238,6 +236,8 @@ Public Sub BuildAs()
     ' Proceed with build if we have the new path.
     If Len(strNewDbPath) Then
         modImportExport.Build strSourceFolder, True, , strNewDbPath
+    Else
+        Operation.Finish eorCanceled
     End If
 
 End Sub
