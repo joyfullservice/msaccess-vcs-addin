@@ -12,7 +12,6 @@ Option Explicit
 
 Public PadLength As Integer
 Public ErrorLevel As eErrorLevel
-Public OperationType As eOperationType
 Public SourcePath As String
 
 ' Set this to true when logging an operation such as an export or build
@@ -305,7 +304,7 @@ End Sub
 '
 Public Property Get LogFilePath() As String
     Dim strFile As String
-    Select Case Me.OperationType
+    Select Case Operation.OperationType
         Case eotExport: strFile = "Export.log"
         Case eotBuild:  strFile = "Build.log"
         Case eotMerge:  strFile = "Merge.log"

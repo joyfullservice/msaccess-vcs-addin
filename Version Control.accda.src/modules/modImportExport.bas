@@ -50,7 +50,6 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Log.OperationType = eotExport
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
@@ -337,7 +336,6 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Log.OperationType = eotExport
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
@@ -507,7 +505,6 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Log.OperationType = eotExport
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
@@ -847,7 +844,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
     ' Start log and performance timers
     Log.Clear
-    Log.OperationType = IIf(blnFullBuild, eotBuild, eotMerge)
     Log.SourcePath = strSourceFolder
     Log.Active = True
     Perf.StartTiming
@@ -1216,7 +1212,6 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Log.OperationType = eotMerge
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
@@ -1332,7 +1327,6 @@ Public Sub MergeAllSource()
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Log.OperationType = eotMerge
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming

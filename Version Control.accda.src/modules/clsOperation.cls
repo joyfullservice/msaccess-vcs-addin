@@ -26,6 +26,7 @@ Private Const HEARTBEAT_TIMEOUT_SECONDS As Integer = 60 * 10    ' (10 minutes)
 
 ' Periodically update this to Now() to manage timeouts.
 Public Heartbeat As Date
+Public OperationType As eOperationType
 Public Result As eOperationResult
 
 
@@ -69,7 +70,7 @@ End Function
 '           : no operations currently in progress.)
 '---------------------------------------------------------------------------------------
 '
-Public Function Begin() As Boolean
+Public Function Begin(intType As eOperationType) As Boolean
     Select Case this.State
         Case eosRunning
             ' Another operation is already running.
@@ -81,6 +82,7 @@ Public Function Begin() As Boolean
                 T("Please complete the current operation before beginning a new one."), , vbExclamation
         Case eosReady
             ' Ready to go!
+            Me.OperationType = intType
             this.State = eosRunning
             this.StartTime = Now
             SetErrorTrapping

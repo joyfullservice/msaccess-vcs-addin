@@ -126,6 +126,7 @@ Public Enum eOperationType
     eotExport = 1
     eotBuild = 2
     eotMerge = 3
+    eotOther = 4
 End Enum
 
 ' State of operation

@@ -68,7 +68,7 @@ Public Sub cmdBuild_Click()
     ' (Use a timer so we can release the reference to this form before beginning the
     '  build process, just in case we need to import a form with the same name.)
     If strFolder <> vbNullString Then
-        If Operation.Begin Then
+        If Operation.Begin(eotBuild) Then
             Operation.Stage
             SetTimer "Build", strFolder, chkFullBuild
         Else
@@ -285,7 +285,7 @@ End Function
 Public Sub cmdExport_Click()
 
     ' Make sure we are ready to begin an operation...
-    If Not Operation.Begin Then Exit Sub
+    If Not Operation.Begin(eotExport) Then Exit Sub
 
     cmdClose.SetFocus
     HideActionButtons

@@ -38,7 +38,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ShowOptions()
-    If Operation.Begin Then
+    If Operation.Begin(eotOther) Then
         If DatabaseFileOpen Then
             ' Force reload of options from current project before opening the form.
             Set modObjects.Options = Nothing
@@ -178,7 +178,7 @@ Public Sub BuildAs()
     Dim strNewDbPath As String
     Dim strSourceFolder As String
 
-    If Not Operation.Begin Then Exit Sub
+    If Not Operation.Begin(eotBuild) Then Exit Sub
 
     ' See if we can find source files for the currently open database.
     If DatabaseFileOpen Then
@@ -252,7 +252,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeAllSource()
-    If Operation.Begin Then modImportExport.MergeAllSource
+    If Operation.Begin(eotMerge) Then modImportExport.MergeAllSource
 End Sub
 
 
@@ -270,7 +270,7 @@ Public Sub LoadSelected()
     Dim strObjectName As String
     Dim strSourceFilePath As String
 
-    If Not Operation.Begin Then Exit Sub
+    If Not Operation.Begin(eotMerge) Then Exit Sub
 
     Set objSelected = GetSelectedNavPaneObject
     If objSelected Is Nothing Then
@@ -439,7 +439,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub RepairColors()
-    If Operation.Begin Then
+    If Operation.Begin(eotOther) Then
         RepairColorDefinitionBlocks
         Operation.Finish
     End If
@@ -454,7 +454,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub SplitFiles()
-    If Operation.Begin Then DoCmd.OpenForm "frmVCSSplitFiles"
+    If Operation.Begin(eotOther) Then DoCmd.OpenForm "frmVCSSplitFiles"
 End Sub
 
 
@@ -467,7 +467,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LocalizeLibraryReferences()
-    If Operation.Begin Then
+    If Operation.Begin(eotOther) Then
         modLibReference.LocalizeLibraryReferences True
         Operation.Finish
     End If
@@ -482,7 +482,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ActivateHook()
-    If Operation.Begin Then
+    If Operation.Begin(eotOther) Then
         If modExportOnSaveHook.ActivateHook = False Then
             MsgBox "Error activating the hook", vbCritical, "Unable to activate hook"
         End If

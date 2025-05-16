@@ -62,7 +62,7 @@ Private Sub Form_Load()
     Set frmList = Me.sfrmConflictList.Form
 
     ' Update heading caption
-    If Log.OperationType = eotExport Then
+    If Operation.OperationType = eotExport Then
         lblHeading.Caption = "These source files have changed since the last export"
         With frmList.cboResolution
             .AddItem eResolveConflict.ercSkip & ";" & "Skip"
