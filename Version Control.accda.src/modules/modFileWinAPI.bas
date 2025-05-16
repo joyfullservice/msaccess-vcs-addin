@@ -29,6 +29,16 @@ Private Declare PtrSafe Function ShellExecute Lib "shell32.dll" Alias "ShellExec
     ByVal lpDirectory As String, _
     ByVal nShowCmd As Long) As LongPtr
 
+' Check file access
+Private Declare PtrSafe Function CreateFileW Lib "kernel32" ( _
+    ByVal lpFileName As LongPtr, _
+    ByVal dwDesiredAccess As Long, _
+    ByVal dwShareMode As Long, _
+    ByVal lpSecurityAttributes As LongPtr, _
+    ByVal dwCreationDisposition As Long, _
+    ByVal dwFlagsAndAttributes As Long, _
+    ByVal hTemplateFile As LongPtr) As LongPtr
+
 ' Time zone conversions
 Private Declare PtrSafe Function GetTimeZoneInformation Lib "kernel32" (lpTimeZoneInformation As TIME_ZONE_INFORMATION) As Long
 Private Declare PtrSafe Function FileTimeToSystemTime Lib "kernel32" (lpFileTime As FILETIME, lpSystemTime As SYSTEMTIME) As Long
@@ -121,6 +131,36 @@ Private Type WIN32_FIND_DATA
     cFileName        As String * MAX_PATH
     cAlternate       As String * ALTERNATE
 End Type
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsFileOpenExclusive
+' Author    : Adam Waller
+' Date      : 5/16/2025
+' Purpose   : Returns true if the file is open in exclusive mode. (This will prevent
+'           : some operations such as making a backup copy of the file.)
+'---------------------------------------------------------------------------------------
+'
+Public Function IsFileOpenExclusive(filePath As String) As Boolean
+
+    Dim hFile As LongPtr
+
+    ' Attempt to open the file for shared read/write access
+    hFile = CreateFileW(StrPtr(filePath), GENERIC_READ, _
+                        FILE_SHARE_READ Or FILE_SHARE_WRITE, _
+                        0, OPEN_EXISTING, 0, 0)
+
+    ' Check returned handle
+    If hFile = INVALID_HANDLE_VALUE Then
+        ' If handle is invalid, the file might be locked exclusively
+        IsFileOpenExclusive = True
+    Else
+        ' We could open the file, so it's not exclusively locked
+        CloseHandle hFile
+        IsFileOpenExclusive = False
+    End If
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
