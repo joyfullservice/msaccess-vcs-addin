@@ -147,6 +147,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Perf.OperationStart "Scan DB Objects"
     For Each cCategory In colCategories
         Perf.CategoryStart cCategory.Category
+        Operation.Pulse
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
         ' Get collection of database objects (IDbComponent classes)
@@ -215,6 +216,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 ' Export object
                 Set cDbObject = dObjects(varKey)
                 Log.Add "  " & cDbObject.Name, Options.ShowDebug
+                Operation.Pulse
 
                 ' If we have already exported this object while scanning for changes, use that copy.
                 strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
@@ -589,6 +591,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
             Set dObjects = dCategory.Item("Objects")
             For Each varObject In dObjects.Keys
                 Set cDbObject = dObjects.Item(varObject)
+                Operation.Pulse
 
                 ' If we have already exported this object while scanning for changes, use that copy.
                 strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
@@ -938,6 +941,7 @@ Public Sub Build(strSourceFolder As String _
     For Each cCategory In GetContainers(intFilter)
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
+        Operation.Pulse
         ' Get collection of source files
         If blnFullBuild Then
             ' Return all the source files
@@ -1028,6 +1032,7 @@ Public Sub Build(strSourceFolder As String _
             ' Import/merge the file
             Log.Increment
             Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+            Operation.Pulse
             If blnFullBuild Then
                 cCategory.Import CStr(varFile)
             Else
@@ -1387,6 +1392,7 @@ Public Sub MergeAllSource()
                 ' Import/merge the file
                 Log.Increment
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+                Operation.Pulse
                 cCategory.Merge CStr(varFile)
                 CatchAny eelError, T("Merge error in: {0}", var0:=varFile), ModuleName & ".MergeAllSource", True, True
 

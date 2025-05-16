@@ -20,7 +20,8 @@ Option Explicit
 
 ' This constant determines whether the current operation is still valid or if it is
 ' considered to have timed out. (Or exited without cleaning up properly.)
-Private Const OPERATION_TIMEOUT_SECONDS As Integer = 60 * 10    ' (10 minutes)
+' The heartbeat is incremented periodically during the export/build process.
+Private Const HEARTBEAT_TIMEOUT_SECONDS As Integer = 60 * 10    ' (10 minutes)
 
 
 ' Periodically update this to Now() to manage timeouts.
@@ -142,7 +143,7 @@ End Function
 Public Property Get Status() As eOperationState
     ' Check for timeout
     If this.State <> eosReady Then
-        If DateAdd("s", OPERATION_TIMEOUT_SECONDS, Me.Heartbeat) < Now Then
+        If DateAdd("s", HEARTBEAT_TIMEOUT_SECONDS, Me.Heartbeat) < Now Then
             ' Timeout exceeded from last heartbeat
             this.State = eosReady
             Me.Result = eorTimeout
@@ -212,7 +213,7 @@ Private Function RestoreFromRegistry() As Boolean
     ' Only restore to the same Access instance
     If ReadReg("AppHwnd") = CStr(hWndAccessApp) Then
         ' Check for timeout
-        If DateAdd("s", OPERATION_TIMEOUT_SECONDS, CDate(Nz2(ReadReg("Heartbeat"), 0))) > Now Then
+        If DateAdd("s", HEARTBEAT_TIMEOUT_SECONDS, CDate(Nz2(ReadReg("Heartbeat"), 0))) > Now Then
             ' Load results
             Me.Result = ReadReg("Result")
             this.StartTime = ReadReg("StartTime")
