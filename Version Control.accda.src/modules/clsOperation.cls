@@ -131,12 +131,17 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function Finish(Optional intResult As eOperationResult)
-    this.State = eosReady
-    If intResult > eorUnknown Then Me.Result = intResult
-    this.FinishTime = Now
-    UpdateRegistry
-    modObjects.ReleaseObjects
-    RestoreUserErrorTrapping
+    Dim blnWasRunning As Boolean
+    If this.State <> eosReady Then
+        If intResult > eorUnknown Then Me.Result = intResult
+        blnWasRunning = (this.State = eosRunning)
+        this.State = eosReady
+        this.FinishTime = Now
+        UpdateRegistry
+        modObjects.ReleaseObjects
+        ' Only restore error trapping if we were in a running state.
+        If blnWasRunning Then RestoreUserErrorTrapping
+    End If
 End Function
 
 
