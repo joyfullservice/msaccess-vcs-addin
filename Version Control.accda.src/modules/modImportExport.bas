@@ -791,11 +791,22 @@ Public Sub Build(strSourceFolder As String _
     ' For full builds, close the current database if it is currently open.
     If blnFullBuild Then
         If DatabaseFileOpen Then
-            CloseCurrentDatabase2
-            If DatabaseFileOpen Then
+            If IsFileOpenExclusive(CurrentDb.Name) Then
                 MsgBox2 T("Unable to Close Database"), _
-                    T("The current database must be closed to perform a full build."), , vbExclamation
+                    T("The current database is running in exclusive mode which prevents the add-in from fully closing it."), _
+                    T("Please close and reopen this database before performing a build or merge."), vbExclamation
+                Operation.Result = eorFailed
                 GoTo CleanUp
+            Else
+                ' Attempt to close the current database after staging the main form
+                If IsLoaded(acForm, "frmVCSMain") Then StageMainForm
+                CloseCurrentDatabase2
+                If DatabaseFileOpen Then
+                    MsgBox2 T("Unable to Close Database"), _
+                        T("The current database must be closed to perform a full build."), , vbExclamation
+                    Operation.Result = eorFailed
+                    GoTo CleanUp
+                End If
             End If
         End If
     End If
