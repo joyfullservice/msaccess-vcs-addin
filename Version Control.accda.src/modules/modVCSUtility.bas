@@ -658,7 +658,7 @@ Public Function LoadComponentFromText(intType As AcObjectType _
 
     LogUnhandledErrors FunctionName
     On Error GoTo ErrHandler
-    Perf.OperationStart FunctionName
+    Perf.OperationStart "Load Component from Text"
 
 RetryImport:
     ' In most cases we are importing/converting the actual source file.
