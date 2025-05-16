@@ -118,8 +118,9 @@ End Function
 Public Function Restore()
     SetErrorTrapping
     RestoreFromRegistry
-    Me.Pulse
     this.State = eosRunning
+    UpdateRegistry
+    Me.Pulse
 End Function
 
 
