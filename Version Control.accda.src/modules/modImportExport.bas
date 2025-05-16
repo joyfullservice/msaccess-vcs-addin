@@ -705,8 +705,7 @@ End Sub
 ' Purpose   : Build the project from source files.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Build(strSourceFolder As String _
-                , blnFullBuild As Boolean _
+Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                 , Optional intFilter As eContainerFilter = ecfAllObjects _
                 , Optional strAlternatePath As String)
 
@@ -844,10 +843,8 @@ Public Sub Build(strSourceFolder As String _
         ' close and shift-open the database before merging source files into it.
         Log.Add T("Closing and reopening current database before merge...")
         Perf.OperationStart "Reopen DB before Merge"
-        Operation.Stage
         CloseCurrentDatabase2
         ShiftOpenDatabase strPath
-        Operation.Restore
         Perf.OperationEnd
     End If
 
@@ -1084,10 +1081,8 @@ Public Sub Build(strSourceFolder As String _
         Log.Add T("Reopening database...")
         Log.Flush
         StageMainForm
-        Operation.Stage
         CloseCurrentDatabase2
         ShiftOpenDatabase strPath
-        Operation.Restore
         RestoreMainForm
     End If
 
@@ -1098,6 +1093,10 @@ Public Sub Build(strSourceFolder As String _
         Log.Add T("Initializing forms...")
         InitializeForms dCategories
     End If
+
+    ' Update operation result in case this is queried in the AfterBuild hooks
+    ' Assume success if we have not jumped to the cleanup.
+    Operation.Result = eorSuccess
 
     ' Run any post-build/merge instructions
     If blnFullBuild Then
@@ -1167,6 +1166,9 @@ CleanUp:
         VCSIndex.Save strSourceFolder
     End If
     Set VCSIndex = Nothing
+
+    ' Wait to finish the build till after we have saved the index.
+    Operation.Finish
 
     ' Show MessageBox if not using GUI for build.
     If Forms.Count = 0 And blnSuccess Then

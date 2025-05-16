@@ -36,6 +36,8 @@ Public Sub StageMainForm()
     Dim frm As Form_frmVCSMain
 
     ' Make sure the form is actually open, just in case.
+    ' (We want to capture the current text on the form
+    '  to display it again when the form is restored.)
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
 
     ' Get reference to form instance
@@ -56,16 +58,12 @@ Public Sub StageMainForm()
         Log.ReleaseConsole
     End With
 
-    ' Temporarily deactivate the log so we don't trigger warnings when closing the form.
-    blnLogActive = Log.Active
-    Log.Active = False
-
-    ' Close the form, if it is open
+    ' Make sure we stage any current operation before closing the main
+    ' form to avoid a warning to the user about canceling the current operation.
+    Operation.Stage
     DoCmd.Close acForm, frm.Name
+    Operation.Restore
     Set frm = Nothing
-
-    ' Restore active property to original value
-    Log.Active = blnLogActive
 
 End Sub
 

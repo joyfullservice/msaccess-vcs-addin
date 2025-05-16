@@ -1185,7 +1185,6 @@ Public Sub ShiftOpenDatabase(strPath As String, Optional blnExclusive As Boolean
     If DatabaseFileOpen Then
         StageMainForm
         CloseCurrentDatabase2
-        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
         RestoreMainForm
     End If
 
@@ -1223,6 +1222,7 @@ Error_Handler:
     With Err
         .Raise .Number, .Source, .Description, .HelpFile, .HelpContext
     End With
+
 End Sub
 
 
