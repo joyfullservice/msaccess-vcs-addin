@@ -59,7 +59,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     strName = GetObjectNameFromFileName(strFile)
     blnImportCheck = LoadComponentFromText(acMacro, strName, strFile)
-    If Not blnImportCheck Or Log.ErrorLevel = eelCritical Then Exit Sub
+    If Not blnImportCheck Or Operation.ErrorLevel = eelCritical Then Exit Sub
     Set m_Macro = CurrentProject.AllMacros(strName)
     VCSIndex.Update Me, eatImport, GetFileHash(strFile)
 

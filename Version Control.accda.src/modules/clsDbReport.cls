@@ -60,7 +60,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     strName = GetObjectNameFromFileName(strFile)
     blnImportCheck = LoadComponentFromText(acReport, strName, strFile)
-    If Not blnImportCheck Or Log.ErrorLevel = eelCritical Then Exit Sub
+    If Not blnImportCheck Or Operation.ErrorLevel = eelCritical Then Exit Sub
     Set m_Report = CurrentProject.AllReports(strName)
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), GetCodeModuleHash(IDbComponent_ComponentType, strName)
 

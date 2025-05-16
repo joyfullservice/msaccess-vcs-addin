@@ -82,7 +82,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Log.Spacer
         Log.Add T("Export Canceled"), , , "Red", True
         Log.Flush
-        Log.ErrorLevel = eelCritical
+        Operation.ErrorLevel = eelCritical
         Exit Sub
     End If
 
@@ -99,7 +99,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                     Log.Spacer
                     Log.Add T("Export Canceled"), , , "Red", True
                     Log.Flush
-                    Log.ErrorLevel = eelCritical
+                    Operation.ErrorLevel = eelCritical
                     Exit Sub
             End If
         Case evcOlderVersion
@@ -128,7 +128,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
     ' Export any external database schemas
     ExportSchemas blnFullExport
-    If Log.ErrorLevel = eelCritical Then GoTo CleanUp
+    If Operation.ErrorLevel = eelCritical Then GoTo CleanUp
 
     ' Finish header section
     Log.Spacer
@@ -164,7 +164,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         ClearOrphanedSourceFiles cCategory
         Perf.CategoryEnd 0
         ' Handle critical error or cancel during scan
-        If Log.ErrorLevel = eelCritical Then
+        If Operation.ErrorLevel = eelCritical Then
             Log.Add vbNullString
             Perf.OperationEnd   ' Scan DB Objects
             GoTo CleanUp
@@ -185,7 +185,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 ' Cancel export
                 Log.Spacer
                 Log.Add T("Export Canceled"), , , "Red", True
-                Log.ErrorLevel = eelCritical
+                Operation.ErrorLevel = eelCritical
                 GoTo CleanUp
             End If
         End If
@@ -231,7 +231,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
                 ' Bail out if we hit a critical error.
                 CatchAny eelError, T("Error exporting {0}", var0:=cDbObject.Name), ModuleName & ".ExportSource", True, True
-                If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+                If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
                 Log.Increment
 
                 ' Some kinds of objects are combined into a single export file, such
@@ -385,7 +385,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
                 ' Cancel export
                 Log.Spacer
                 Log.Add T("Export Canceled"), , , "Red", True
-                Log.ErrorLevel = eelCritical
+                Operation.ErrorLevel = eelCritical
                 GoTo CleanUp
             End If
         End If
@@ -573,7 +573,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
                 ' Cancel export
                 Log.Spacer
                 Log.Add T("Export Canceled"), , , "Red", True
-                Log.ErrorLevel = eelCritical
+                Operation.ErrorLevel = eelCritical
                 GoTo CleanUp
             End If
         End If
@@ -688,7 +688,7 @@ Public Sub ExportSchemas(blnFullExport As Boolean)
         Perf.CategoryEnd lngCount
 
         ' Check for error
-        If Log.ErrorLevel = eelCritical Then Exit For
+        If Operation.ErrorLevel = eelCritical Then Exit For
     Next varKey
     Perf.OperationEnd
 
@@ -878,7 +878,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                 , var0:=Options.GetLoadedVersion, var1:=GetVCSVersion), _
             T("Click YES to continue this operation, or NO to cancel."), _
             vbExclamation + vbYesNo + vbDefaultButton2) <> vbYes Then
-            Log.ErrorLevel = eelCritical
+            Operation.ErrorLevel = eelCritical
             GoTo CleanUp
         End If
     End If
@@ -973,7 +973,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             End If
         End If
         ' Check for critical error or cancel
-        If Log.ErrorLevel = eelCritical Then
+        If Operation.ErrorLevel = eelCritical Then
             Log.Add vbNullString
             Perf.OperationEnd
             GoTo CleanUp
@@ -993,7 +993,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                 ' Cancel build/merge
                 Log.Spacer
                 Log.Add T("Build Canceled")
-                Log.ErrorLevel = eelCritical
+                Operation.ErrorLevel = eelCritical
                 GoTo CleanUp
             End If
         End If
@@ -1043,7 +1043,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                 var0:=varFile), FunctionName, True, True
 
             ' Bail out if we hit a critical error.
-            If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+            If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
 
         Next varFile
 
@@ -1131,7 +1131,7 @@ CleanUp:
     End With
 
     ' Show message if build failed
-    If Log.ErrorLevel = eelCritical Or Not blnSuccess Then
+    If Operation.ErrorLevel = eelCritical Or Not blnSuccess Then
         Log.Spacer
         Log.Add T("Build Failed."), , , "red", True
         Log.Flush
@@ -1256,7 +1256,7 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
                 ' Cancel export
                 Log.Spacer
                 Log.Add T("Import Canceled"), , , "Red", True
-                Log.ErrorLevel = eelCritical
+                Operation.ErrorLevel = eelCritical
                 GoTo CleanUp
             End If
         End If
@@ -1356,7 +1356,7 @@ Public Sub MergeAllSource()
         Log.Spacer
         Log.Add T("Merge Canceled"), , , "Red", True
         Log.Flush
-        Log.ErrorLevel = eelCritical
+        Operation.ErrorLevel = eelCritical
         Exit Sub
     End If
 
@@ -1401,7 +1401,7 @@ Public Sub MergeAllSource()
                 CatchAny eelError, T("Merge error in: {0}", var0:=varFile), ModuleName & ".MergeAllSource", True, True
 
                 ' Bail out if we hit a critical error.
-                If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+                If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
             Next varFile
 
             ' Show category wrap-up.

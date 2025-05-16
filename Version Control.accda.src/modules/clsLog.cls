@@ -11,7 +11,6 @@ Option Compare Database
 Option Explicit
 
 Public PadLength As Integer
-Public ErrorLevel As eErrorLevel
 Public SourcePath As String
 
 ' Set this to true when logging an operation such as an export or build
@@ -219,7 +218,7 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
     End With
 
     ' Update error level if higher.
-    If Me.ErrorLevel < eLevel Then Me.ErrorLevel = eLevel
+    If Operation.ErrorLevel < eLevel Then Operation.ErrorLevel = eLevel
 
 End Sub
 
@@ -327,7 +326,6 @@ Private Sub Class_Initialize()
     m_blnProgressActive = False
     m_sngLastUpdate = 0
     Me.PadLength = 30
-    Me.ErrorLevel = eelNoError
     Me.Active = False
 End Sub
 

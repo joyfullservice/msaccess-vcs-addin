@@ -27,6 +27,7 @@ Private Const HEARTBEAT_TIMEOUT_SECONDS As Integer = 60 * 10    ' (10 minutes)
 ' Periodically update this to Now() to manage timeouts.
 Public Heartbeat As Date
 Public OperationType As eOperationType
+Public ErrorLevel As eErrorLevel
 Public Result As eOperationResult
 
 

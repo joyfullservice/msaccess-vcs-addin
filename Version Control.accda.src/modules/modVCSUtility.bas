@@ -739,14 +739,14 @@ CleanUp:
     End If
 
     ' Check for VBA overlay
-    If blnVbaOverlay And Not Log.ErrorLevel = eelCritical Then ' don't do this if we're trying to bail out.
+    If blnVbaOverlay And Not Operation.ErrorLevel = eelCritical Then ' don't do this if we're trying to bail out.
         strPrefix = IIf(intType = acForm, "Form_", "Report_")
         OverlayCodeModule strPrefix & strName, SwapExtension(strFile, "cls")
     End If
 
 Exit_Here:
     ' Only set output to true when import and function didn't have any issues.
-    LoadComponentFromText = (Not blnErrInFunction) And (Not Log.ErrorLevel = eelCritical)
+    LoadComponentFromText = (Not blnErrInFunction) And (Not Operation.ErrorLevel = eelCritical)
     Perf.OperationEnd
     Exit Function
 

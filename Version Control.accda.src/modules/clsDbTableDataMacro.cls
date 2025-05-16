@@ -78,7 +78,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     strName = GetObjectNameFromFileName(strFile)
     blnImportCheck = LoadComponentFromText(acTableDataMacro, strName, strFile)
-    If Not blnImportCheck Or Log.ErrorLevel = eelCritical Then Exit Sub
+    If Not blnImportCheck Or Operation.ErrorLevel = eelCritical Then Exit Sub
     ' Update index
     Set m_Table = CurrentData.AllTables(strName)
     VCSIndex.Update Me, eatImport, GetFileHash(strFile)

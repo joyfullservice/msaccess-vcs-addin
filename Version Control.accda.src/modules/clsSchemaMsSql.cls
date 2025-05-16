@@ -81,7 +81,7 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean _
     If m_AllItems Is Nothing Then ScanDatabaseObjects
 
     ' Bail out if critical Error
-    If Log.ErrorLevel >= eelError Then Exit Sub
+    If Operation.ErrorLevel >= eelError Then Exit Sub
 
     ' If there are no new changes found, we may not need to export anything
     If (m_ModifiedItems.Count = 0) And (m_Files.Count = m_AllItems.Count) Then
@@ -113,7 +113,7 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean _
             Log.Add "    Exported " & varItem & " in " & Round(Perf.MicroTimer - dblStart, 2) & " seconds.", Options.ShowDebug
             Log.Increment
             ' Check for canceled operation
-            If Log.ErrorLevel = eelCritical Then Exit For
+            If Operation.ErrorLevel = eelCritical Then Exit For
         Next varItem
 
         ' Close database connection
