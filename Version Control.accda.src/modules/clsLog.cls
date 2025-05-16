@@ -311,7 +311,7 @@ Public Property Get LogFilePath() As String
         Case eotMerge:  strFile = "Merge.log"
         Case Else:      strFile = "Other.log"
     End Select
-    LogFilePath = FSO.BuildPath(Me.SourcePath, strFile)
+    LogFilePath = FSO.BuildPath(Nz2(Me.SourcePath, Options.GetExportFolder), strFile)
 End Property
 
 
