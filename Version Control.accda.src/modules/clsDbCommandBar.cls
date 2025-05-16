@@ -749,7 +749,14 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Initialize()
-    'm_Count = -1
+
+    ' Note that in some cases the template may not be immediately available, such as
+    ' when building the add-in from source multiple times, which can call the
+    ' CloseCurrentDatabase2 a second time to close a database currently open in
+    ' exclusive mode. The template is loaded through an AfterBuild hook at the
+    ' completion of the build, so this doesn't present a problem for the add-in.
+    LogUnhandledErrors
+    On Error Resume Next
 
     ' We assume the add-in file already has the template command bar included. If it doesn't, then
     ' we will have problem importing Access' custom built-in buttons.
@@ -850,6 +857,7 @@ Private Sub Class_Initialize()
         .Add "Visible"
         .Add "Width"
     End With
+
 End Sub
 
 
