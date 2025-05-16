@@ -108,11 +108,18 @@ Public Function Stage()
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : Restore
+' Author    : Adam Waller
+' Date      : 5/10/2025
+' Purpose   : Restore the staged process
+'---------------------------------------------------------------------------------------
+'
 Public Function Restore()
-    this.State = eosRunning
     SetErrorTrapping
     RestoreFromRegistry
     Me.Pulse
+    this.State = eosRunning
 End Function
 
 
