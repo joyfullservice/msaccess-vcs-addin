@@ -789,26 +789,20 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
     ' Additional checks when a database is currently open.
     If DatabaseFileOpen Then
-        ' Check to see if the file is open exclusively.
-        ' (Will prevent closing or backing up the current db)
-        If IsFileOpenExclusive(CurrentDb.Name) Then
-            MsgBox2 T("Unable to Close Database"), _
-                T("The current database is running in exclusive mode which prevents the add-in from fully closing it."), _
-                T("Please close and reopen this database before performing a build or merge."), vbExclamation
-            Operation.Result = eorFailed
-            GoTo CleanUp
-        Else
-            ' For full builds, close the current database if it is currently open.
-            If blnFullBuild Then
-                ' Attempt to close the current database after staging the main form
-                If IsLoaded(acForm, "frmVCSMain") Then StageMainForm
-                CloseCurrentDatabase2
-                If DatabaseFileOpen Then
-                    MsgBox2 T("Unable to Close Database"), _
-                        T("The current database must be closed to perform a full build."), , vbExclamation
-                    Operation.Result = eorFailed
-                    GoTo CleanUp
-                End If
+        ' For full builds, close the current database if it is currently open.
+        If blnFullBuild Then
+            ' Attempt to close the current database after staging the main form
+            If IsLoaded(acForm, "frmVCSMain") Then StageMainForm
+            CloseCurrentDatabase2
+            ' If the database file was open in exclusive mode (such as after a build)
+            ' we might have to call this function a second time to actually close the file.
+            If DatabaseFileOpen Then CloseCurrentDatabase2
+            ' If the database is still open, then we have a problem that we can't resolve here.
+            If DatabaseFileOpen Then
+                MsgBox2 T("Unable to Close Database"), _
+                    T("The current database must be closed to perform a full build."), , vbExclamation
+                Operation.Result = eorFailed
+                GoTo CleanUp
             End If
         End If
     End If
