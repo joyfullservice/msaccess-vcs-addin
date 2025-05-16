@@ -212,9 +212,6 @@ Public Sub FinishBuild(blnFullBuild As Boolean _
     cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     Me.strLastLogFilePath = Log.LogFilePath
 
-    ' Complete operation
-    Operation.Finish
-
     ' Close form if running in silent mode (such as when running automated builds)
     If InteractionMode = eimSilent Then DoCmd.Close acForm, Me.Name
 
