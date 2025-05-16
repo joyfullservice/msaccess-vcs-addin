@@ -59,6 +59,7 @@ Public Sub cmdBuild_Click()
         ' Exit out of build if the user cancelled any of the confirmations.
         If strFolder = vbNullString Then
             DoCmd.Close acForm, Me.Name
+            DoCmd.Hourglass False
             Exit Sub
         End If
     End If
@@ -70,6 +71,9 @@ Public Sub cmdBuild_Click()
         If Operation.Begin Then
             Operation.Stage
             SetTimer "Build", strFolder, chkFullBuild
+        Else
+            ' Not ready to begin a new operation. Probably still running something else.
+            DoCmd.Hourglass False
         End If
     End If
 
