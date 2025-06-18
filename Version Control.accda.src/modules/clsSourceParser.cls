@@ -245,7 +245,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     Dim strTLine As String
     Dim blnInsideIgnoredBlock As Boolean
     Dim intIndent As Integer
-    Dim blnIsReport As Boolean
+    Dim blnRemoveBottomRight As Boolean
     Dim blnIsPassThroughQuery As Boolean
     Dim curStart As Currency
     Dim cVBA As clsConcat
@@ -337,9 +337,9 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                     End If
 
                 ' See if this file is from a report object
-                Case "Begin Report"
+                Case "Begin Report", "Begin Form"
                     ' Turn flag on to ignore Right and Bottom lines
-                    blnIsReport = True
+                    blnRemoveBottomRight = True
                     BeginBlock
 
                 ' Beginning of main section
@@ -414,13 +414,13 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                             SkipLine lngLine + 1, eslStandard
                             lngLine = lngLine + 1
                         Loop
-                    ElseIf blnIsReport And StartsWith(strLine, "    Right =") Then
+                    ElseIf blnRemoveBottomRight And StartsWith(strLine, "    Right =") Then
                         ' Ignore this line. (Not important, and frequently changes.)
                         SkipLine lngLine, eslStandard
-                    ElseIf blnIsReport And StartsWith(strLine, "    Bottom =") Then
+                    ElseIf blnRemoveBottomRight And StartsWith(strLine, "    Bottom =") Then
                         ' Turn flag back off now that we have ignored these two lines.
                         SkipLine lngLine, eslStandard
-                        blnIsReport = False
+                        blnRemoveBottomRight = False
                     ElseIf StartsWith(strTLine, "WebImagePadding") Then
                         ' These values tend to drift between builds. See #423
                         SkipLine lngLine, eslStandard
