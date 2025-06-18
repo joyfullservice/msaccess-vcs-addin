@@ -252,6 +252,8 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                 ' Connection object for ODBCDirect workspaces. Not needed.
             Case "Last VCS Export", "Last VCS Version"
                 ' Legacy properties no longer needed.
+            Case "NavPane Category", "NavPane Closed", "NavPane Sort By", "NavPane View By", "NavPane Width"
+                ' NavPane settings. Not needed.
             Case Else
                 varValue = prp.Value
                 If prp.Name = "AppIcon" Or prp.Name = "Name" Then
