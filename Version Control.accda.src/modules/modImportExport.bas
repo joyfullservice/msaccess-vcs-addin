@@ -406,6 +406,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
             ' Export a fresh copy
             cDbObject.Export
         End If
+        ExportDependentObjects cDbObject
     End If
 
     ' Show final output and save log
@@ -601,6 +602,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
                     ' Export a fresh copy
                     cDbObject.Export
                 End If
+                ExportDependentObjects cDbObject
             Next
         Next
     End If
@@ -625,6 +627,62 @@ CleanUp:
 
     ' Save index file (don't change export date for multiple items export)
     VCSIndex.Save
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportDependentObjects
+' Author    : Adam Waller
+' Date      : 6/18/2025
+' Purpose   : When exporting a selected object, it may be helpful to also export other
+'           : dependent objects. For example, when selecting a table, we may also want
+'           : to export table data (if applicable), and table data macros.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ExportDependentObjects(cDbObject As IDbComponent)
+
+    Dim dObjects As Dictionary
+    Dim cCategory As IDbComponent
+    Dim cItem As IDbComponent
+    Dim varKey As Variant
+
+    ' Special cases based on component type
+    Select Case cDbObject.ComponentType
+        Case edbTableDef    ' Selected table
+
+            ' Table Data
+            Set cCategory = New clsDbTableData
+            Set dObjects = cCategory.GetAllFromDB(True)
+            For Each varKey In dObjects.Keys
+                Set cItem = dObjects(varKey)
+                If cItem.Name = cDbObject.Name Then
+                    ' Found matching name.
+                    cItem.Export
+                    Exit For
+                End If
+            Next varKey
+
+            ' Table Data Macro
+            Set cCategory = New clsDbTableDataMacro
+            Set dObjects = cCategory.GetAllFromDB(True)
+            For Each varKey In dObjects.Keys
+                Set cItem = dObjects(varKey)
+                If cItem.Name = cDbObject.Name Then
+                    ' Found matching name.
+                    cItem.Export
+                    Exit For
+                End If
+            Next varKey
+    End Select
+
+    ' Hidden attribute may apply to any selected object
+    Set cCategory = New clsDbHiddenAttribute
+    If cCategory.IsModified Then
+        ' Since we only store this property if the item is hidden, we should
+        ' export the hidden objects source file if any changes are detected.
+        cCategory.Export
+    End If
 
 End Sub
 
@@ -1257,6 +1315,7 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
 
         ' Replace the existing object with the source file
         cComponentClass.Merge strSourceFilePath
+        MergeDependentObjects cComponentClass, strName
     End If
 
     ' Show final output and save log
@@ -1279,6 +1338,53 @@ CleanUp:
 
     ' Save index file (don't change export date for single item export)
     VCSIndex.Save
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeDependentObjects
+' Author    : Adam Waller
+' Date      : 6/18/2025
+' Purpose   : Merge in any dependent objects related to the selected object.
+'           : (I.e. table data for a selected table)
+'---------------------------------------------------------------------------------------
+'
+Private Sub MergeDependentObjects(cComponentClass As IDbComponent, strName As String)
+
+    Dim cItem As clsDbTableData
+    Dim strFile As String
+    Dim intFormat As eTableDataExportFormat
+
+    ' Special cases based on component type
+    Select Case cComponentClass.ComponentType
+
+        ' Table object
+        Case edbTableDef
+
+            ' Table Data
+            Set cItem = New clsDbTableData
+            If Options.TablesToExportData.Exists(strName) Then
+                ' Convert string format option to enum value
+                intFormat = Options.GetTableExportFormat(dNZ(Options.TablesToExportData, strName & "\Format"))
+                If intFormat > etdNoData Then
+                    ' Set a reference to the table object so the table data class can build the source file name.
+                    Set cItem.Parent.DbObject = CurrentData.AllTables(strName)
+                    cItem.Format = intFormat
+                    strFile = cItem.Parent.SourceFile
+                    If FSO.FileExists(strFile) Then
+                        Log.Add T("Importing table data for {0}", , , , strName), Options.ShowDebug
+                        cItem.Parent.Import strFile
+                    End If
+                End If
+            End If
+
+            ' Table Data Macro
+            ' (Already loaded with table definition)
+    End Select
+
+    ' Could consider merging hidden attribute here if requested.
+    ' (We don't need to add the complexity unless there is an actual need for this.)
 
 End Sub
 
