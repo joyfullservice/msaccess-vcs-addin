@@ -337,7 +337,8 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                     End If
 
                 ' See if this file is from a report object
-                Case "Begin Report", "Begin Form"
+                ' (Need more review and testing to apply this to forms. See #641)
+                Case "Begin Report" ', "Begin Form"
                     ' Turn flag on to ignore Right and Bottom lines
                     blnRemoveBottomRight = True
                     BeginBlock
