@@ -191,23 +191,18 @@ End Function
 '
 Public Function ContainerHasObject(dContainer As Dictionary, intComponentType As eDatabaseComponentType) As Boolean
 
-    Dim cCategory As IDbComponent
     Dim dCategory As Dictionary
     Dim varKey As Variant
 
-    ' Loop through containers
-    For Each varKey In dContainer.Keys
-        If TypeOf varKey Is IDbComponent Then
-            Set cCategory = varKey
-            ' Look for matching component type
-            If cCategory.ComponentType = intComponentType Then
-                Set dCategory = dContainer(varKey)
-                If dCategory.Exists("Files") Then ContainerHasObject = (dCategory("Files").Count > 0)
-                If dCategory.Exists("Objects") Then ContainerHasObject = (dCategory("Objects").Count > 0)
-                Exit For
-            End If
-        End If
-    Next varKey
+    ' Get category (key) name of component type
+    varKey = GetComponentClass(intComponentType).Category
+
+    ' Check for any objects in this category
+    If dContainer.Exists(varKey) Then
+        Set dCategory = dContainer(varKey)
+        If dCategory.Exists("Files") Then ContainerHasObject = (dCategory("Files").Count > 0)
+        If dCategory.Exists("Objects") Then ContainerHasObject = (dCategory("Objects").Count > 0)
+    End If
 
 End Function
 
