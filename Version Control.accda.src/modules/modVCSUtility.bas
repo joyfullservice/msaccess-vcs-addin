@@ -653,7 +653,7 @@ Public Function LoadComponentFromText(intType As AcObjectType _
 
     LogUnhandledErrors FunctionName
     On Error GoTo ErrHandler
-    Perf.OperationStart FunctionName
+    Perf.OperationStart "Load Source File"
 
 RetryImport:
     ' In most cases we are importing/converting the actual source file.
@@ -1004,6 +1004,11 @@ Public Function BuildJsonFile(strClassName As String, dItems As Dictionary, strD
     Dim dContents As Dictionary
     Dim dHeader As Dictionary
 
+    ' Return empty string if we don't have any items in the dictionary.
+    ' (This also gives us an easy way to test the return value for items.)
+    If dItems.Count = 0 Then Exit Function
+
+    ' Create dictionary objects
     Set dContents = New Dictionary
     Set dHeader = New Dictionary
 
