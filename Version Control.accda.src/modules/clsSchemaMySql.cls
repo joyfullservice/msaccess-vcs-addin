@@ -98,7 +98,7 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
             Log.Add "    Exported " & varItem & " in " & Round(Perf.MicroTimer - dblStart, 2) & " seconds.", Options.ShowDebug
             Log.Increment
             ' Check for canceled operation
-            If Log.ErrorLevel = eelCritical Then Exit For
+            If Operation.ErrorLevel = eelCritical Then Exit For
         Next varItem
 
         ' Close database connection

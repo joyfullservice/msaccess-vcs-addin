@@ -59,6 +59,7 @@ Public Sub cmdBuild_Click()
         ' Exit out of build if the user cancelled any of the confirmations.
         If strFolder = vbNullString Then
             DoCmd.Close acForm, Me.Name
+            DoCmd.Hourglass False
             Exit Sub
         End If
     End If
@@ -66,7 +67,15 @@ Public Sub cmdBuild_Click()
     ' Build project using the selected source folder
     ' (Use a timer so we can release the reference to this form before beginning the
     '  build process, just in case we need to import a form with the same name.)
-    If strFolder <> vbNullString Then SetTimer "Build", strFolder, chkFullBuild
+    If strFolder <> vbNullString Then
+        If Operation.Begin(eotBuild) Then
+            Operation.Stage
+            SetTimer "Build", strFolder, chkFullBuild
+        Else
+            ' Not ready to begin a new operation. Probably still running something else.
+            DoCmd.Hourglass False
+        End If
+    End If
 
 End Sub
 
@@ -275,6 +284,9 @@ End Function
 '
 Public Sub cmdExport_Click()
 
+    ' Make sure we are ready to begin an operation...
+    If Not Operation.Begin(eotExport) Then Exit Sub
+
     cmdClose.SetFocus
     HideActionButtons
     DoEvents
@@ -308,7 +320,10 @@ Public Sub cmdExport_Click()
             T("Additional details can be found in the project log file.<br><br>You may now close this window.")
         cmdOpenLogFile.Visible = (Me.strLastLogFilePath <> vbNullString)
         Me.strLastLogFilePath = Me.strLastLogFilePath
+        Operation.Finish
         DoEvents
+    Else
+        Operation.Finish eorCanceled
     End If
 
 End Sub
@@ -504,13 +519,17 @@ Private Sub Form_Unload(Cancel As Integer)
 
     ' Allow the form to close on the third attempt, just in case the log
     ' is stuck in active status for some reason.
-    If intAttempt > 2 Then Exit Sub
+    If intAttempt > 2 Then
+        Operation.Finish eorCanceled
+        Exit Sub
+    End If
 
     ' Check to see if we have an active job running.
-    If Log.Active Then
+    If Operation.Status = eosRunning Then
         If ConfirmCancel Then Log.Error eelCritical, T("Canceled Operation"), Me.Name & ".Form_Unload"
         ' Either way, we want the log to complete first.
         Cancel = True
+        Operation.Finish eorCanceled
         intAttempt = intAttempt + 1
     End If
 

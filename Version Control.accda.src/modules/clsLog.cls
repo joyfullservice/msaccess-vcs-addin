@@ -11,8 +11,6 @@ Option Compare Database
 Option Explicit
 
 Public PadLength As Integer
-Public ErrorLevel As eErrorLevel
-Public OperationType As eOperationType
 Public SourcePath As String
 
 ' Set this to true when logging an operation such as an export or build
@@ -220,7 +218,7 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
     End With
 
     ' Update error level if higher.
-    If Me.ErrorLevel < eLevel Then Me.ErrorLevel = eLevel
+    If Operation.ErrorLevel < eLevel Then Operation.ErrorLevel = eLevel
 
 End Sub
 
@@ -305,13 +303,13 @@ End Sub
 '
 Public Property Get LogFilePath() As String
     Dim strFile As String
-    Select Case Me.OperationType
+    Select Case Operation.OperationType
         Case eotExport: strFile = "Export.log"
         Case eotBuild:  strFile = "Build.log"
         Case eotMerge:  strFile = "Merge.log"
         Case Else:      strFile = "Other.log"
     End Select
-    LogFilePath = FSO.BuildPath(Me.SourcePath, strFile)
+    LogFilePath = FSO.BuildPath(Nz2(Me.SourcePath, Options.GetExportFolder), strFile)
 End Property
 
 
@@ -328,7 +326,6 @@ Private Sub Class_Initialize()
     m_blnProgressActive = False
     m_sngLastUpdate = 0
     Me.PadLength = 30
-    Me.ErrorLevel = eelNoError
     Me.Active = False
 End Sub
 

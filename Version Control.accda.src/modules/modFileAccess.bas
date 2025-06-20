@@ -367,7 +367,7 @@ Public Function VerifyPath(PathToCheck As String, Optional EnableLongPath As Boo
     LogUnhandledErrors FunctionName
     On Error Resume Next
 
-    Perf.OperationStart FunctionName
+    Perf.OperationStart "Verify Path"
 
     If PathToCheck = vbNullString Then GoTo Exit_Here
 

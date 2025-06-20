@@ -72,7 +72,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     ' Load the form from the source file
     blnImportCheck = LoadComponentFromText(acForm, strName, strFile)
-    If Not blnImportCheck Or Log.ErrorLevel = eelCritical Then Exit Sub
+    If Not blnImportCheck Or Operation.ErrorLevel = eelCritical Then Exit Sub
     Set m_Form = CurrentProject.AllForms(strName)
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
 

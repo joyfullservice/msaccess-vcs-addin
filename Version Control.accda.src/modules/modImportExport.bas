@@ -50,7 +50,6 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Log.OperationType = eotExport
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
@@ -83,7 +82,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Log.Spacer
         Log.Add T("Export Canceled"), , , "Red", True
         Log.Flush
-        Log.ErrorLevel = eelCritical
+        Operation.ErrorLevel = eelCritical
         Exit Sub
     End If
 
@@ -100,7 +99,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                     Log.Spacer
                     Log.Add T("Export Canceled"), , , "Red", True
                     Log.Flush
-                    Log.ErrorLevel = eelCritical
+                    Operation.ErrorLevel = eelCritical
                     Exit Sub
             End If
         Case evcOlderVersion
@@ -129,7 +128,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
     ' Export any external database schemas
     ExportSchemas blnFullExport
-    If Log.ErrorLevel = eelCritical Then GoTo CleanUp
+    If Operation.ErrorLevel = eelCritical Then GoTo CleanUp
 
     ' Finish header section
     Log.Spacer
@@ -147,6 +146,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Perf.OperationStart "Scan DB Objects"
     For Each cCategory In colCategories
         Perf.CategoryStart cCategory.Category
+        Operation.Pulse
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
         ' Get collection of database objects (IDbComponent classes)
@@ -164,7 +164,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         ClearOrphanedSourceFiles cCategory
         Perf.CategoryEnd 0
         ' Handle critical error or cancel during scan
-        If Log.ErrorLevel = eelCritical Then
+        If Operation.ErrorLevel = eelCritical Then
             Log.Add vbNullString
             Perf.OperationEnd   ' Scan DB Objects
             GoTo CleanUp
@@ -185,7 +185,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 ' Cancel export
                 Log.Spacer
                 Log.Add T("Export Canceled"), , , "Red", True
-                Log.ErrorLevel = eelCritical
+                Operation.ErrorLevel = eelCritical
                 GoTo CleanUp
             End If
         End If
@@ -215,6 +215,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 ' Export object
                 Set cDbObject = dObjects(varKey)
                 Log.Add "  " & cDbObject.Name, Options.ShowDebug
+                Operation.Pulse
 
                 ' If we have already exported this object while scanning for changes, use that copy.
                 strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
@@ -230,7 +231,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
                 ' Bail out if we hit a critical error.
                 CatchAny eelError, T("Error exporting {0}", var0:=cDbObject.Name), ModuleName & ".ExportSource", True, True
-                If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+                If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
                 Log.Increment
 
                 ' Some kinds of objects are combined into a single export file, such
@@ -335,7 +336,6 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Log.OperationType = eotExport
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
@@ -385,7 +385,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
                 ' Cancel export
                 Log.Spacer
                 Log.Add T("Export Canceled"), , , "Red", True
-                Log.ErrorLevel = eelCritical
+                Operation.ErrorLevel = eelCritical
                 GoTo CleanUp
             End If
         End If
@@ -506,7 +506,6 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Log.OperationType = eotExport
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
@@ -575,7 +574,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
                 ' Cancel export
                 Log.Spacer
                 Log.Add T("Export Canceled"), , , "Red", True
-                Log.ErrorLevel = eelCritical
+                Operation.ErrorLevel = eelCritical
                 GoTo CleanUp
             End If
         End If
@@ -590,6 +589,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
             Set dObjects = dCategory.Item("Objects")
             For Each varObject In dObjects.Keys
                 Set cDbObject = dObjects.Item(varObject)
+                Operation.Pulse
 
                 ' If we have already exported this object while scanning for changes, use that copy.
                 strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
@@ -746,7 +746,7 @@ Public Sub ExportSchemas(blnFullExport As Boolean)
         Perf.CategoryEnd lngCount
 
         ' Check for error
-        If Log.ErrorLevel = eelCritical Then Exit For
+        If Operation.ErrorLevel = eelCritical Then Exit For
     Next varKey
     Perf.OperationEnd
 
@@ -760,8 +760,7 @@ End Sub
 ' Purpose   : Build the project from source files.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Build(strSourceFolder As String _
-                , blnFullBuild As Boolean _
+Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                 , Optional intFilter As eContainerFilter = ecfAllObjects _
                 , Optional strAlternatePath As String)
 
@@ -843,13 +842,21 @@ Public Sub Build(strSourceFolder As String _
         End If
     End If
 
-    ' For full builds, close the current database if it is currently open.
-    If blnFullBuild Then
-        If DatabaseFileOpen Then
+    ' Additional checks when a database is currently open.
+    If DatabaseFileOpen Then
+        ' For full builds, close the current database if it is currently open.
+        If blnFullBuild Then
+            ' Attempt to close the current database after staging the main form
+            If IsLoaded(acForm, "frmVCSMain") Then StageMainForm
             CloseCurrentDatabase2
+            ' If the database file was open in exclusive mode (such as after a build)
+            ' we might have to call this function a second time to actually close the file.
+            If DatabaseFileOpen Then CloseCurrentDatabase2
+            ' If the database is still open, then we have a problem that we can't resolve here.
             If DatabaseFileOpen Then
                 MsgBox2 T("Unable to Close Database"), _
                     T("The current database must be closed to perform a full build."), , vbExclamation
+                Operation.Result = eorFailed
                 GoTo CleanUp
             End If
         End If
@@ -896,7 +903,6 @@ Public Sub Build(strSourceFolder As String _
 
     ' Start log and performance timers
     Log.Clear
-    Log.OperationType = IIf(blnFullBuild, eotBuild, eotMerge)
     Log.SourcePath = strSourceFolder
     Log.Active = True
     Perf.StartTiming
@@ -931,7 +937,7 @@ Public Sub Build(strSourceFolder As String _
                 , var0:=Options.GetLoadedVersion, var1:=GetVCSVersion), _
             T("Click YES to continue this operation, or NO to cancel."), _
             vbExclamation + vbYesNo + vbDefaultButton2, , vbYes) <> vbYes Then
-            Log.ErrorLevel = eelCritical
+            Operation.ErrorLevel = eelCritical
             GoTo CleanUp
         End If
     End If
@@ -995,6 +1001,7 @@ Public Sub Build(strSourceFolder As String _
     For Each cCategory In GetContainers(intFilter)
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
+        Operation.Pulse
         ' Get collection of source files
         If blnFullBuild Then
             ' Return all the source files
@@ -1025,7 +1032,7 @@ Public Sub Build(strSourceFolder As String _
             End If
         End If
         ' Check for critical error or cancel
-        If Log.ErrorLevel = eelCritical Then
+        If Operation.ErrorLevel = eelCritical Then
             Log.Add vbNullString
             Perf.OperationEnd
             GoTo CleanUp
@@ -1045,7 +1052,7 @@ Public Sub Build(strSourceFolder As String _
                 ' Cancel build/merge
                 Log.Spacer
                 Log.Add T("Build Canceled")
-                Log.ErrorLevel = eelCritical
+                Operation.ErrorLevel = eelCritical
                 GoTo CleanUp
             End If
         End If
@@ -1085,6 +1092,7 @@ Public Sub Build(strSourceFolder As String _
             ' Import/merge the file
             Log.Increment
             Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+            Operation.Pulse
             If blnFullBuild Then
                 cCategory.Import CStr(varFile)
             Else
@@ -1094,7 +1102,7 @@ Public Sub Build(strSourceFolder As String _
                 var0:=varFile), FunctionName, True, True
 
             ' Bail out if we hit a critical error.
-            If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+            If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
 
         Next varFile
 
@@ -1138,6 +1146,10 @@ Public Sub Build(strSourceFolder As String _
         InitializeForms dCategories
     End If
 
+    ' Update operation result in case this is queried in the AfterBuild hooks
+    ' Assume success if we have not jumped to the cleanup.
+    Operation.Result = eorSuccess
+
     ' Run any post-build/merge instructions
     If blnFullBuild Then
         If Options.RunAfterBuild <> vbNullString Then
@@ -1178,7 +1190,7 @@ CleanUp:
     End With
 
     ' Show message if build failed
-    If Log.ErrorLevel = eelCritical Or Not blnSuccess Then
+    If Operation.ErrorLevel = eelCritical Or Not blnSuccess Then
         Log.Spacer
         Log.Add T("Build Failed."), , , "red", True
         Log.Flush
@@ -1206,6 +1218,9 @@ CleanUp:
         VCSIndex.Save strSourceFolder
     End If
     Set VCSIndex = Nothing
+
+    ' Wait to finish the build till after we have saved the index.
+    Operation.Finish
 
     ' Show MessageBox if not using GUI for build.
     If Forms.Count = 0 And blnSuccess Then
@@ -1256,7 +1271,6 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Log.OperationType = eotMerge
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
@@ -1301,7 +1315,7 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
                 ' Cancel export
                 Log.Spacer
                 Log.Add T("Import Canceled"), , , "Red", True
-                Log.ErrorLevel = eelCritical
+                Operation.ErrorLevel = eelCritical
                 GoTo CleanUp
             End If
         End If
@@ -1420,7 +1434,6 @@ Public Sub MergeAllSource()
     Set Options = Nothing
     Options.LoadProjectOptions
     Log.Clear
-    Log.OperationType = eotMerge
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
     Perf.StartTiming
@@ -1450,7 +1463,7 @@ Public Sub MergeAllSource()
         Log.Spacer
         Log.Add T("Merge Canceled"), , , "Red", True
         Log.Flush
-        Log.ErrorLevel = eelCritical
+        Operation.ErrorLevel = eelCritical
         Exit Sub
     End If
 
@@ -1490,11 +1503,12 @@ Public Sub MergeAllSource()
                 ' Import/merge the file
                 Log.Increment
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+                Operation.Pulse
                 cCategory.Merge CStr(varFile)
                 CatchAny eelError, T("Merge error in: {0}", var0:=varFile), ModuleName & ".MergeAllSource", True, True
 
                 ' Bail out if we hit a critical error.
-                If Log.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+                If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
             Next varFile
 
             ' Show category wrap-up.

@@ -91,6 +91,7 @@ ErrHandler:
 
     ' Re-throw
     Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
+
 End Function
 
 
@@ -197,6 +198,7 @@ Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optio
     ' (The API timer is helpful when you need to clear the call stack on the
     '  current database before running the add-in code.)
     If blnUseTimer And Not RunningOnLocal Then
+        If Operation.Status = eosRunning Then Operation.Stage
         SetTimer strProcedure, CStr(varArg1), CStr(varArg2)
     Else
         ' Build the command to execute using Application.Run

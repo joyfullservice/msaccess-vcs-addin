@@ -526,7 +526,7 @@ End Function
 '           : current project, not the add-in file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub RunSubInCurrentProject(strSubName As String)
+Public Sub RunSubInCurrentProject(strSubName As String, Optional blnStageOperation As Boolean = True)
 
     Dim strCmd As String
 
@@ -563,7 +563,9 @@ Public Sub RunSubInCurrentProject(strSubName As String)
         End With
     End If
 
+    Operation.Stage
     Application.Run strCmd
+    Operation.Restore
 
 End Sub
 

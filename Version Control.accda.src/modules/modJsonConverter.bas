@@ -762,10 +762,10 @@ Private Function json_Encode(ByVal json_Text As Variant) As String
         Case 9
             ' tab -> 9 -> \t
             json_Char = "\t"
-        Case 0 To 31
+        Case 0 To 31, 127 To 159
             ' Non-ascii characters -> convert to 4-digit hex
             json_Char = "\u" & VBA.Right$("0000" & VBA.Hex$(json_AscCode), 4)
-        Case 127 To 65535
+        Case 160 To 65535
             ' Unicode character range
             If Not JsonOptions.AllowUnicodeChars Then
                 json_Char = "\u" & VBA.Right$("0000" & VBA.Hex$(json_AscCode), 4)

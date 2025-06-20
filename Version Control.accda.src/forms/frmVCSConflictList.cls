@@ -73,7 +73,7 @@ Private Sub txtDiff_Click()
                 MsgBox2 "Source File Not Found", "Could not find the source file needed to diff this object:", strSourceFile, vbExclamation
             Else
                 ' Now that we have both files, diff the files for the user
-                If Log.OperationType = eotExport Then
+                If Operation.OperationType = eotExport Then
                     ' Show the database object as the modified version
                     modObjects.Diff.Files strSourceFile, strTempFile
                 Else

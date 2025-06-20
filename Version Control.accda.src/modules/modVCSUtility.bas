@@ -653,7 +653,7 @@ Public Function LoadComponentFromText(intType As AcObjectType _
 
     LogUnhandledErrors FunctionName
     On Error GoTo ErrHandler
-    Perf.OperationStart "Load Source File"
+    Perf.OperationStart "Load Component from Text"
 
 RetryImport:
     ' In most cases we are importing/converting the actual source file.
@@ -734,14 +734,14 @@ CleanUp:
     End If
 
     ' Check for VBA overlay
-    If blnVbaOverlay And Not Log.ErrorLevel = eelCritical Then ' don't do this if we're trying to bail out.
+    If blnVbaOverlay And Not Operation.ErrorLevel = eelCritical Then ' don't do this if we're trying to bail out.
         strPrefix = IIf(intType = acForm, "Form_", "Report_")
         OverlayCodeModule strPrefix & strName, SwapExtension(strFile, "cls")
     End If
 
 Exit_Here:
     ' Only set output to true when import and function didn't have any issues.
-    LoadComponentFromText = (Not blnErrInFunction) And (Not Log.ErrorLevel = eelCritical)
+    LoadComponentFromText = (Not blnErrInFunction) And (Not Operation.ErrorLevel = eelCritical)
     Perf.OperationEnd
     Exit Function
 
@@ -1186,7 +1186,6 @@ Public Sub ShiftOpenDatabase(strPath As String, Optional blnExclusive As Boolean
     If DatabaseFileOpen Then
         StageMainForm
         CloseCurrentDatabase2
-        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
         RestoreMainForm
     End If
 
@@ -1224,6 +1223,7 @@ Error_Handler:
     With Err
         .Raise .Number, .Source, .Description, .HelpFile, .HelpContext
     End With
+
 End Sub
 
 

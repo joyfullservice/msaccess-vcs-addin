@@ -25,6 +25,7 @@ Begin Form
     End
     Caption ="Version Control System"
     OnOpen ="[Event Procedure]"
+    OnClose ="[Event Procedure]"
     DatasheetFontName ="Calibri"
     OnLoad ="[Event Procedure]"
     AllowDatasheetView =0
