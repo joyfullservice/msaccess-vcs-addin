@@ -107,7 +107,10 @@ Private Sub IDbComponent_Merge(strFile As String)
     ' Remove any document properties that don't exist in the incoming file,
     ' then import the file.
     Set dFile = ReadJsonFile(strFile)
-    If dFile Is Nothing Then Set dFile = New Dictionary
+    If dFile Is Nothing Then
+        Set dFile = New Dictionary
+        Set dFile("Items") = New Dictionary
+    End If
     RemoveMissing dFile("Items"), GetDictionary
 
     ' Import if file exists
@@ -332,7 +335,7 @@ End Function
 '
 Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = New Dictionary
-    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile, vbNullString
+    IDbComponent_GetFileList.Add IDbComponent_SourceFile, vbNullString
 End Function
 
 
