@@ -120,7 +120,7 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
     End If
 
     ' Read project connections
-    Set GetDictionary = New Dictionary
+    Set m_dItems = New Dictionary
 
     Dim tdf As DAO.TableDef
     Dim qdf As DAO.QueryDef
@@ -134,7 +134,7 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
                     ' Ignore temporary table objects
                 Else
                     cConnection.ParseOdbcConnectionString tdf.Connect
-                    AddOdbcConnectionString GetDictionary, cConnection, tdf.Name
+                    AddOdbcConnectionString m_dItems, cConnection, tdf.Name
                 End If
             End If
         Next
@@ -163,11 +163,14 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
                     ' Ignore temporary queries
                 Else
                     cConnection.ParseOdbcConnectionString strQdfConnect
-                    AddOdbcConnectionString GetDictionary, cConnection, qdf.Name
+                    AddOdbcConnectionString m_dItems, cConnection, qdf.Name
                 End If
             End If
         Next
     End With
+
+    ' Return dictionary of items
+    Set GetDictionary = m_dItems
 
 End Function
 

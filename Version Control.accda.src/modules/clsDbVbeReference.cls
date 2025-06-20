@@ -171,9 +171,9 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
 
     Set proj = CurrentVBProject
     Set dNames = New Dictionary
-    Set GetDictionary = New Dictionary
+    Set m_dItems = New Dictionary
 
-    With GetDictionary
+    With m_dItems
         ' Loop through cached references (Duplicates have already been removed)
         For Each ref In proj.References
             If Not ref.BuiltIn Then
@@ -214,6 +214,9 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
             End If
         Next ref
     End With
+
+    ' Return dictionary of references
+    Set GetDictionary = m_dItems
 
 End Function
 

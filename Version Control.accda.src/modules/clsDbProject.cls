@@ -112,8 +112,8 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
     If m_Project Is Nothing Then Set m_Project = CurrentProject
 
     ' Read project properties
-    Set GetDictionary = New Dictionary
-    With GetDictionary
+    Set m_dItems = New Dictionary
+    With m_dItems
         If m_Project.ProjectType = acADP Then
             ' Only save the connection string for ADP projects
             .Add "BaseConnectionString", m_Project.BaseConnectionString
@@ -121,6 +121,9 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
         .Add "FileFormat", m_Project.FileFormat
         .Add "RemovePersonalInformation", m_Project.RemovePersonalInformation
     End With
+
+    ' Return dictionary
+    Set GetDictionary = m_dItems
 
 End Function
 

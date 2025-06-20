@@ -242,8 +242,8 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
     If m_Project Is Nothing Then Set m_Project = CurrentVBProject
 
     ' Read project properties
-    Set GetDictionary = New Dictionary
-    With GetDictionary
+    Set m_dItems = New Dictionary
+    With m_dItems
         .Add "Name", m_Project.Name
         .Add "Description", m_Project.Description
         .Add "FileName", FSO.GetFileName(m_Project.FileName)
@@ -254,6 +254,9 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
         .Add "Protection", m_Project.Protection
         .Add "Type", m_Project.Type
     End With
+
+    ' Return dictionary of project properties
+    Set GetDictionary = m_dItems
 
 End Function
 

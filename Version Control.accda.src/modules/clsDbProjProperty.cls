@@ -162,7 +162,6 @@ End Function
 Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
 
     Dim prp As AccessObjectProperty
-    Dim dCollection As Dictionary
 
     ' Check cache parameter
     If blnUseCache And Not m_dItems Is Nothing Then
@@ -171,7 +170,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
         Exit Function
     End If
 
-    Set dCollection = New Dictionary
+    Set m_dItems = New Dictionary
 
     ' Loop through all properties
     For Each prp In CurrentProject.Properties
@@ -182,14 +181,15 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                 ' Legacy properties no longer needed.
             Case "AppIcon"
                 ' ADP projects may have this property
-                dCollection.Add prp.Name, GetRelativePath(CStr(prp.Value))
+                m_dItems.Add prp.Name, GetRelativePath(CStr(prp.Value))
             Case Else
-                dCollection.Add prp.Name, prp.Value
+                m_dItems.Add prp.Name, prp.Value
         End Select
     Next prp
 
     ' Return sorted dictionary
-    Set GetDictionary = SortDictionaryByKeys(dCollection)
+    Set m_dItems = SortDictionaryByKeys(m_dItems)
+    Set GetDictionary = m_dItems
 
 End Function
 

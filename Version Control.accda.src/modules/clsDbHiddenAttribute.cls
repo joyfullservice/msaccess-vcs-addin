@@ -198,7 +198,6 @@ End Function
 '
 Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictionary
 
-    Dim dItems As Dictionary
     Dim dCont As Dictionary
     Dim cont As DAO.Container
     Dim doc As DAO.Document
@@ -214,7 +213,7 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
     End If
 
     ' Create dictionary object to hold all the items
-    Set dItems = New Dictionary
+    Set m_dItems = New Dictionary
     Set dbs = CurrentDb
 
     ' Errors should not typically occur
@@ -241,11 +240,11 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
                 End If
             End If
         Next doc
-        If colItems.Count > 0 Then dItems.Add cont.Name, SortCollectionByValue(colItems)
+        If colItems.Count > 0 Then m_dItems.Add cont.Name, SortCollectionByValue(colItems)
     Next cont
 
     ' Return assembled dictionary
-    Set GetDictionary = dItems
+    Set GetDictionary = m_dItems
 
 End Function
 

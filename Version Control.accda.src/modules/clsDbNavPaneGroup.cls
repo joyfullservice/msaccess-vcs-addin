@@ -235,7 +235,6 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
     Dim dGroup As Dictionary
     Dim colObjects As Collection
     Dim dObject As Dictionary
-    Dim dItems As Dictionary
 
     ' Check cache parameter
     If blnUseCache And Not m_dItems Is Nothing Then
@@ -251,7 +250,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
     ' Open query in the current db
     Set dbs = CurrentDb
     Set rst = dbs.OpenRecordset(strSql)
-    Set dItems = New Dictionary
+    Set m_dItems = New Dictionary
     Set colCategories = New Collection
 
     ' Loop through records
@@ -320,12 +319,12 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
         If strCategory <> vbNullString Then
             dCategory.Add "Groups", colGroups
             colCategories.Add dCategory
-            dItems.Add "Categories", colCategories
+            m_dItems.Add "Categories", colCategories
         End If
     End With
 
     ' Return dictionary
-    Set GetDictionary = dItems
+    Set GetDictionary = m_dItems
 
 End Function
 

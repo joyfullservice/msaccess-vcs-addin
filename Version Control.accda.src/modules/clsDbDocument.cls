@@ -188,7 +188,6 @@ End Function
 Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictionary
 
     Dim prp As DAO.Property
-    Dim dItems As Dictionary    ' All Items
     Dim dCont As Dictionary     ' Container
     Dim dDoc As Dictionary      ' Document
     Dim cont As DAO.Container
@@ -204,7 +203,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
     End If
 
     ' Create dictionary object to hold all the items
-    Set dItems = New Dictionary
+    Set m_dItems = New Dictionary
     Set dbs = CurrentDb
 
     ' Loop through all the containers, documents, and properties.
@@ -240,11 +239,11 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
             Next prp
             If dDoc.Count > 0 Then dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
         Next doc
-        If dCont.Count > 0 Then dItems.Add cont.Name, SortDictionaryByKeys(dCont)
+        If dCont.Count > 0 Then m_dItems.Add cont.Name, SortDictionaryByKeys(dCont)
     Next cont
 
     ' Return assembled dictionary
-    Set GetDictionary = dItems
+    Set GetDictionary = m_dItems
 
 End Function
 

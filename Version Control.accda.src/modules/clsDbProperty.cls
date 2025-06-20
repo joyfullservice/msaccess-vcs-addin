@@ -232,7 +232,6 @@ End Function
 Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
 
     Dim prp As DAO.Property
-    Dim dCollection As Dictionary
     Dim dItem As Dictionary
     Dim varValue As Variant
 
@@ -243,7 +242,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
         Exit Function
     End If
 
-    Set dCollection = New Dictionary
+    Set m_dItems = New Dictionary
 
     ' Loop through all properties
     For Each prp In CurrentDb.Properties
@@ -270,12 +269,13 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                 Set dItem = New Dictionary
                 dItem.Add "Value", varValue
                 dItem.Add "Type", prp.Type
-                dCollection.Add prp.Name, dItem
+                m_dItems.Add prp.Name, dItem
         End Select
     Next prp
 
     ' Return sorted dictionary
-    Set GetDictionary = SortDictionaryByKeys(dCollection)
+    Set m_dItems = SortDictionaryByKeys(m_dItems)
+    Set GetDictionary = m_dItems
 
 End Function
 
