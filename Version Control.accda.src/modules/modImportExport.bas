@@ -858,6 +858,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                     T("The current database must be closed to perform a full build."), , vbExclamation
                 Operation.Result = eorFailed
                 GoTo CleanUp
+            Else
+                ' Restore main form as we continue the build
+                RestoreMainForm
             End If
         End If
     End If
@@ -896,8 +899,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         ' close and shift-open the database before merging source files into it.
         Log.Add T("Closing and reopening current database before merge...")
         Perf.OperationStart "Reopen DB before Merge"
+        StageMainForm
         CloseCurrentDatabase2
         ShiftOpenDatabase strPath
+        RestoreMainForm
         Perf.OperationEnd
     End If
 

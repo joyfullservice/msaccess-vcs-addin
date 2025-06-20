@@ -38,6 +38,7 @@ Public strSourcePath As String
 '
 Public Sub cmdBuild_Click()
 
+    Dim intBuildType As eOperationType
     Dim strFolder As String
 
     ' Make sure we use the add-in to build the add-in.
@@ -68,7 +69,8 @@ Public Sub cmdBuild_Click()
     ' (Use a timer so we can release the reference to this form before beginning the
     '  build process, just in case we need to import a form with the same name.)
     If strFolder <> vbNullString Then
-        If Operation.Begin(eotBuild) Then
+        intBuildType = IIf(chkFullBuild, eotBuild, eotMerge)
+        If Operation.Begin(intBuildType) Then
             Operation.Stage
             SetTimer "Build", strFolder, chkFullBuild
         Else
