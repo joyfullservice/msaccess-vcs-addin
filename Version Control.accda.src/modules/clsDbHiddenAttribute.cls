@@ -258,26 +258,36 @@ End Function
 '
 Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
 
-    Dim dCont As Dictionary
     Dim dbs As Database
+    Dim colItems As Collection
     Dim contType As AcObjectType
     Dim varCont As Variant
     Dim varDoc As Variant
     Dim strDoc As String
+    Dim blnRemove As Boolean
 
     ' Go through target dictionary, removing the flag that doesn't exist
     ' in the master dictionary.
     Set dbs = CurrentDb
     For Each varCont In dTarget.Keys
-        Set dCont = dTarget(varCont)
+        Set colItems = dTarget(varCont)
         contType = GetObjectTypeFromContainer(dbs.Containers(varCont))
-        For Each varDoc In dCont.Keys
+        For Each varDoc In colItems
             strDoc = CStr(varDoc)
             If contType <> acDefault _
                 And Not (contType = acTable _
                 And (strDoc Like "MSys*" Or strDoc Like "~*")) Then
+                    ' Check the master dictionary (incoming file) for a match
+                    ' Set flag to remove unless we find a match
+                    blnRemove = True
+                    If dMaster.Exists(varCont) Then
+                        blnRemove = Not InCollection(dMaster(varCont), strDoc)
+                    End If
                     ' Unset the Hidden Attribute property (only exposed here)
-                    Application.SetHiddenAttribute contType, strDoc, False
+                    If blnRemove Then
+                        Log.Add T("Removing hidden attribute from {0}", var0:=strDoc), Options.ShowDebug
+                        Application.SetHiddenAttribute contType, strDoc, False
+                    End If
             End If
         Next varDoc
     Next varCont
