@@ -141,6 +141,13 @@ Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding 
         If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
         ' Write to disk
         VerifyPath strPath
+        ' Delete existing file if file name case differs. (The Overwrite flag will not change the name.)
+        If FSO.FileExists(strPath) Then
+            If StrComp(FSO.GetFileName(strPath), FSO.GetFile(strPath).Name, vbBinaryCompare) <> 0 Then
+                ' Remove existing file so we can use the correct case in the new file name.
+                DeleteFile strPath
+            End If
+        End If
         ' Watch out for possible write error
         LogUnhandledErrors
         On Error Resume Next
