@@ -957,8 +957,9 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
                 If strPath <> vbNullString Then
                     strPath = strPath & PathSep & strFile
                 Else
-                    ' Unable to determine the original file location.
-                    Exit Function
+                    ' We may have a source path override in effect. Build in parent folder
+                    ' since the source does not specify an absolute build path.
+                    strPath = strExportFolder & PathSep & ".." & PathSep & strFile
                 End If
             Else
                 ' Calculate how many levels deep to create original path

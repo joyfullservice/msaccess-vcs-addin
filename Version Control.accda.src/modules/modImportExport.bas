@@ -858,8 +858,9 @@ Public Sub Build(strSourceFolder As String _
     ' Load options from project
     Set Options = Nothing
     Options.LoadOptionsFromFile StripSlash(strSourceFolder) & PathSep & "vcs-options.json"
-    ' Override the export folder when exporting to an alternate path.
-    If Len(strAlternatePath) Then Options.ExportFolder = strSourceFolder
+    ' Temporarily override the export folder to always read files from the specified source folder.
+    ' (This is needed if the source folder is renamed, or when building to an alternate file.)
+    Options.ExportFolder = strSourceFolder
 
     ' Update VBA debug mode after loading options
     LogUnhandledErrors FunctionName
