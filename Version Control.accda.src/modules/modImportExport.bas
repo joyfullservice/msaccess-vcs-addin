@@ -1740,11 +1740,11 @@ End Sub
 '           : imported into the database. (All object types)
 '---------------------------------------------------------------------------------------
 '
-Public Sub InitializeForms(cContainers As Dictionary)
+Public Sub InitializeForms(dContainers As Dictionary)
 
-    Dim cont As IDbComponent
     Dim frm As IDbComponent
-    Dim dForms As Dictionary
+    Dim dFiles As Dictionary
+    Dim dAllForms As Dictionary
     Dim cAllForms As IDbComponent
     Dim varKey As Variant
 
@@ -1753,45 +1753,49 @@ Public Sub InitializeForms(cContainers As Dictionary)
     On Error Resume Next
 
     ' See if we imported any forms
-    For Each cont In cContainers
-        If cont.ComponentType = edbForm Then
+    Set cAllForms = New clsDbForm
+    If dContainers.Exists(cAllForms.Category) Then
 
-            ' Loop through the forms in the current database
-            Set cAllForms = New clsDbForm
-            Set dForms = cAllForms.GetAllFromDB
-            Log.ProgMax = dForms.Count
-            For Each varKey In dForms.Keys
+        ' Get reference to forms container
+        Set dFiles = dContainers(cAllForms.Category)("Files")
+        Log.ProgMax = dFiles.Count
 
-                ' See if this form matches one of the files we just imported
-                Set frm = dForms(varKey)
-                If cContainers(cont)("Files").Exists(frm.SourceFile) Then
+        ' Loop through the forms in the current database
+        Set dAllForms = cAllForms.GetAllFromDB
+        For Each varKey In dAllForms.Keys
 
-                    ' Don't attempt to initialize add-in main form
-                    ' (Likely not needed, and would require staging)
-                    If frm.Name <> "frmVCSMain" Then
+            ' See if this form matches one of the files we just imported
+            Set frm = dAllForms(varKey)
+            If dFiles.Exists(frm.SourceFile) Then
 
-                        ' Open each form in design view
-                        Perf.OperationStart "Initialize Forms"
-                        DoCmd.OpenForm frm.Name, acDesign, , , , acHidden
-                        DoEvents
-                        DoCmd.Close acForm, frm.Name, acSaveNo
-                        Perf.OperationEnd
-                    End If
-                    Log.Increment
+                ' Don't attempt to initialize add-in main form
+                ' (Likely not needed, and would require staging)
+                If frm.Name <> "frmVCSMain" Then
 
-                    ' Log any errors
-                    CatchAny eelError, T("Error while initializing form {0}", var0:=frm.Name), ModuleName & ".InitializeForms"
-
-                    ' Update the index, since the save date has changed, but reuse the code hash
-                    ' since we just calculated it after importing the form.
-                    With VCSIndex.Item(frm)
-                        VCSIndex.Update frm, eatImport, .FileHash, .OtherHash
-                    End With
-
+                    ' Open the form in design view to initialize layout, colors and theme
+                    Perf.OperationStart "Initialize Forms"
+                    Log.Add "  " & frm.Name, Options.ShowDebug
+                    DoCmd.OpenForm frm.Name, acDesign, , , , acHidden
+                    DoEvents
+                    ' We seem to get the benefit of the layout rendering even if we don't
+                    ' save the form, so let's not save it unless we identify a reason to.
+                    DoCmd.Close acForm, frm.Name, acSaveNo
+                    Perf.OperationEnd
                 End If
-            Next varKey
-        End If
-    Next cont
+                Log.Increment
+
+                ' Log any errors
+                CatchAny eelError, T("Error while initializing form {0}", var0:=frm.Name), ModuleName & ".InitializeForms"
+
+                ' Update the index, since the save date may have changed, but reuse the code hash
+                ' since we just calculated it after importing the form.
+                With VCSIndex.Item(frm)
+                    VCSIndex.Update frm, eatImport, .FileHash, .OtherHash
+                End With
+
+            End If
+        Next varKey
+    End If
 
     ' Check for any unhandled errors
     CatchAny eelError, "Unhandled error while initializing forms", ModuleName & ".InitializeForms"
