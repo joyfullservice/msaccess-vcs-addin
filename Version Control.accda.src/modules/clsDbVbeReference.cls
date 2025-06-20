@@ -38,7 +38,11 @@ Implements IDbComponent
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strContent As String
     strContent = GetSource
-    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    If strContent = vbNullString Then
+        If FSO.FileExists(IDbComponent_SourceFile) Then DeleteFile IDbComponent_SourceFile
+    Else
+        WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
+    End If
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 End Sub
 
