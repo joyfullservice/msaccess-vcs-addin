@@ -20,7 +20,6 @@ Option Explicit
 Private m_TemplateCommandBar As CommandBar
 Private m_CommandBar As CommandBar
 Private m_Items(True To False) As Dictionary
-Private m_dItems As Dictionary
 Private m_FileList As Dictionary
 
 Private Type udtThis
@@ -162,11 +161,7 @@ End Sub
 Private Sub BuildControls(dParent As Dictionary, objItem As Object)
 
     Dim varProp As Variant
-    Dim varCtl As Variant
     Dim dControl As Dictionary
-    Dim varValue As Variant
-    Dim varCtlProp As Variant
-    Dim colItems As Collection
     Dim picItem As IPictureDisp
     Dim strBasePath As String
     Dim strPath As String
@@ -311,7 +306,7 @@ End Function
 ' Purpose   : Return a dictionary object of project properties.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictionary
+Private Function GetDictionary() As Dictionary
     Dim dParent As Dictionary
     Set dParent = New Dictionary
     Set this.dImages = New Dictionary
@@ -331,9 +326,7 @@ End Function
 Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object) As Dictionary
 
     Dim varProp As Variant
-    Dim varCtl As Variant
     Dim varValue As Variant
-    Dim varCtlProp As Variant
     Dim colItems As Collection
     Dim picItem As IPictureDisp
     Dim strPath As String
@@ -449,7 +442,6 @@ End Function
 '
 Private Function GetImagePath(ctl As CommandBarControl) As String
 
-    Dim objParent As Object
     Dim ctlTest As Object
     Dim strName As String
     Dim strSegment As String
