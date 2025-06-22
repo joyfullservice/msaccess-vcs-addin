@@ -567,6 +567,7 @@ Public Sub RunSubInCurrentProject(strSubName As String, Optional ByVal VcsRef As
 
     ' Make sure procedure exists in current database
     If Not GlobalProcExists(strSub) Then
+        Log.Error eelError, T("The procedure ""{0}"" not found.", var0:=strCmd), ModuleName & ".RunSubInCurrentProject"
         Log.Add T("The procedure must be declared as public in a standard module."), False
         Exit Sub
     End If
