@@ -31,10 +31,11 @@ Private Enum eMapAction
     emaFormToClass
 End Enum
 
-
 ' Dictionary to stash database schemas while managing options.
 Public DatabaseSchemas As Dictionary
 
+Private WithEvents m_OptionValueList As Form_frmVCSOptionsValueList
+Attribute m_OptionValueList.VB_VarHelpID = -1
 
 '---------------------------------------------------------------------------------------
 ' Procedure : chkTableShowHidden_Click
@@ -974,3 +975,73 @@ Private Function GetTableIcon(ByRef lngColumn As eTableCol) As String
             GetTableIcon = ChrW$(55356) & ChrW$(57102)
     End Select
 End Function
+
+Private Sub cmdRunBeforeExportOpenValueList_Click()
+    UseOptionValueListForTextbox Me.txtRunBeforeExport, Me.cmdRunBeforeExportOpenValueList, Me.sfrExportOptionsValueList
+End Sub
+
+Private Sub cmdRunAfterExportOpenValueList_Click()
+    UseOptionValueListForTextbox Me.txtRunAfterExport, Me.cmdRunAfterExportOpenValueList, Me.sfrExportOptionsValueList
+End Sub
+
+Private Sub UseOptionValueListForTextbox(ByVal tb As TextBox, ByVal cmd As CommandButton, OptionsValueListSubForm As SubForm, Optional ByVal ListHeight As Long = 2000)
+
+    Dim OptionValues() As String
+    Dim i As Long
+
+    If Not (m_OptionValueList Is Nothing) Then
+        DoEvents
+    End If
+
+    OptionValues = Split(Nz(tb.Value, vbNullString), ":")
+    If Len(tb.Value) > 0 Then
+        For i = LBound(OptionValues) To UBound(OptionValues)
+            OptionValues(i) = Trim(OptionValues(i))
+        Next i
+    End If
+
+    With OptionsValueListSubForm
+        .Left = tb.Left
+        .Width = tb.Width + cmd.Width
+        .Top = tb.Top + tb.Height - ListHeight
+        .Height = ListHeight
+        .Form.OptionValueListCode = tb.Name
+        .Form.SetData OptionValues
+        .Enabled = True
+        .Visible = True
+        .SetFocus
+    End With
+
+    Set m_OptionValueList = Me.sfrExportOptionsValueList.Form
+
+End Sub
+
+Private Sub m_OptionValueList_CloseOptionList()
+    With Me.sfrExportOptionsValueList.Form
+        Me.Controls(.OptionValueListCode).SetFocus ' => sfrExportOptionsValueList_Exit
+    End With
+End Sub
+
+Private Sub sfrExportOptionsValueList_Exit(Cancel As Integer)
+    SaveOptionValues
+    Me.TimerInterval = 1
+End Sub
+
+Private Sub SaveOptionValues()
+    With Me.sfrExportOptionsValueList.Form
+        Me.Controls(.OptionValueListCode).Value = Join(.GetData, " : ")
+    End With
+End Sub
+
+Private Sub Form_Timer()
+    Me.TimerInterval = 0
+    With Me.sfrExportOptionsValueList
+        .Enabled = False
+        .Visible = False
+        If Me.ActiveControl.Name = .Form.OptionValueListCode Then
+            With Me.ActiveControl
+                .SelStart = Len(.Text)
+            End With
+        End If
+    End With
+End Sub
