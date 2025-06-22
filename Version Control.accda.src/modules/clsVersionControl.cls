@@ -117,7 +117,13 @@ Private Sub RunExport(Optional intFilter As eContainerFilter = ecfAllObjects, Op
         End If
         .Visible = True
         .RunExport Me
-        If Operation.ErrorLevel < eelError Then .AutoClose
+        If Operation.ErrorLevel <= eelInfo Then
+            If InteractionMode = eimSilent Then
+                .AutoClose 0
+            Else
+                .AutoClose
+            End If
+        End If
     End With
 End Sub
 

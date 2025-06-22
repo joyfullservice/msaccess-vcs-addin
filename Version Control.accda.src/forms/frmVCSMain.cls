@@ -449,13 +449,17 @@ End Sub
 '           :  completion and close.)
 '---------------------------------------------------------------------------------------
 '
-Public Sub AutoClose()
+Public Sub AutoClose(Optional lngCloseTimerInterval As Long = 2000)
     'The procedure may be called when the form has been closed.
     'In this case, a VBA error may occur, so we check if the
     'form is loaded before setting the property. We do not use
     'the Me.Name because that would be also an error.
     If IsLoaded(acForm, "frmVCSMain", False) Then
-        Me.TimerInterval = 2000
+        If lngCloseTimerInterval = 0 Then
+            Me.TimerInterval = 1 ' close immediately
+        Else
+            Me.TimerInterval = lngCloseTimerInterval
+        End If
     End If
 End Sub
 
