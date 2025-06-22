@@ -28,6 +28,9 @@ Public strLastLogFilePath As String
 ' Use this property to set the path to the source files (such as a build triggered from the API)
 Public strSourcePath As String
 
+' Use this property to set active reference of clsVersionControl (for VCS param in RunExport, ...)
+Public ActiveVersionControl As clsVersionControl
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdBuild_Click
@@ -284,8 +287,11 @@ End Function
 ' Purpose   : Export source code from current database
 '---------------------------------------------------------------------------------------
 '
-Public Sub cmdExport_Click()
+Private Sub cmdExport_Click()
+    RunExport ActiveVersionControl
+End Sub
 
+Public Sub RunExport(Optional ByVal VcsRef As clsVersionControl = Nothing)
     ' Make sure we are ready to begin an operation...
     If Not Operation.Begin(eotExport) Then Exit Sub
 
@@ -307,7 +313,7 @@ Public Sub cmdExport_Click()
     ' See if we are exporting a single object, or everything.
     If Me.objSingleObject Is Nothing Then
         ' Export the source code using the specified filter.
-        modImportExport.ExportSource chkFullExport, Me.intContainerFilter, Me
+        modImportExport.ExportSource chkFullExport, Me.intContainerFilter, Me, VcsRef
     Else
         modImportExport.ExportSingleObject Me.objSingleObject, Me
     End If

@@ -541,13 +541,20 @@ End Function
 '           : current project, not the add-in file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub RunSubInCurrentProject(strSubName As String)
+Public Sub RunSubInCurrentProject(strSubName As String, Optional ByVal VcsRef As clsVersionControl = Nothing)
 
     Dim strSub As String
     Dim strCmd As String
+    Dim bolUseVcsParam As Boolean
 
     ' Don't need the parentheses after the sub name
     strSub = Replace(strSubName, "()", vbNullString)
+    strSub = Trim(strSub)
+
+    If Right(strSub, 5) = "(VCS)" Then
+        bolUseVcsParam = True
+        strSub = Left(strSub, Len(strSub) - 5)
+    End If
 
     ' Make sure we are not trying to run a function with arguments
     If InStr(strSub, "(") > 0 Then
@@ -560,7 +567,6 @@ Public Sub RunSubInCurrentProject(strSubName As String)
 
     ' Make sure procedure exists in current database
     If Not GlobalProcExists(strSub) Then
-        Log.Error eelError, T("The procedure ""{0}"" not found.", var0:=strSub), ModuleName & ".RunSubInCurrentProject"
         Log.Add T("The procedure must be declared as public in a standard module."), False
         Exit Sub
     End If
@@ -588,7 +594,11 @@ Public Sub RunSubInCurrentProject(strSubName As String)
     ' Set active VB project to Current DB (not Add-in)
     Set VBE.ActiveVBProject = CurrentVBProject
 
-    Application.Run strCmd
+    If bolUseVcsParam Then
+        Application.Run strCmd, VcsRef
+    Else
+        Application.Run strCmd
+    End If
     Perf.OperationEnd
     Operation.Restore
 
