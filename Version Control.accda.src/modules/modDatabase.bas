@@ -573,17 +573,19 @@ Public Sub RunSubInCurrentProject(strSubName As String, Optional ByVal VcsRef As
     End If
 
     ' Build call syntax
-    If CurrentVBProject.Name = PROJECT_NAME Then
-        ' use full path
-        ' Example: Run "c:\full\path\Version Control.SubName"
-        With CurrentProject
-            strCmd = .Path & PathSep & FSO.GetBaseName(.Name) & "." & strSub
-        End With
-    Else
-        ' use library name
-        ' Example: Run "[VBProject].SubName"
-        strCmd = "[" & CurrentVBProject.Name & "]." & strSub
-    End If
+    With CurrentVBProject
+        If CurrentVBProject.Name = PROJECT_NAME Then
+            ' use full path
+            ' Example: Run "c:\full\path\Version Control.SubName"
+            With CurrentProject
+                strCmd = .Path & PathSep & FSO.GetBaseName(.Name) & "." & strSub
+            End With
+        Else
+            ' use library name
+            ' Example: Run "[VBProject].SubName"
+            strCmd = "[" & .Name & "]." & strSub
+        End If
+    End With
 
     ' Log any outstanding errors
     LogUnhandledErrors
@@ -631,7 +633,7 @@ Public Sub ExecuteLoggedApplicationRun(ByVal strProcedureName As String, _
     End If
 
     Operation.Stage
-    Perf.OperationStart T("Run {0}", , , , strSub)
+    Perf.OperationStart T("Run {0}", , , , strCmd)
 
     ' Set active VB project to Current DB (not Add-in)
     Set VBE.ActiveVBProject = CurrentVBProject
@@ -642,12 +644,12 @@ Public Sub ExecuteLoggedApplicationRun(ByVal strProcedureName As String, _
     Else
         ExternalReturnValue = Application.Run(strCmd)
     End If
-    
+
     Perf.OperationEnd
     Operation.Restore
 
     ' Log any other errors
-    CatchAny eelError, T("Error running {0}", , , , strSub), ModuleName & ".RunSubInCurrentProject"
+    CatchAny eelError, T("Error running {0}", , , , strCmd), ModuleName & ".RunSubInCurrentProject"
 
     If VarType(ExternalReturnValue) = vbString Then
         LogErrorMessage ExternalReturnValue, GetProcedureNameFromPath(strProcedureName)
