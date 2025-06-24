@@ -1837,11 +1837,16 @@ End Sub
 ' Procedure : OpenFormInCurrentDb
 ' Author    : Adam Waller
 ' Date      : 6/24/2025
-' Purpose   : Open a form from the current
+' Purpose   : Open a form from the current database instead of the add-in, when forms
+'           : with the same names exist in both places.
+'           : IMPORTANT: Note that FilterName and WhereCondition have been changed from
+'           : Variant to String so that the subsequent arguments are not discarded in
+'           : the call to Application.Run. (It appears that once a missing argument is
+'           : identified, all subsequent arguments are ignored.)
 '---------------------------------------------------------------------------------------
 '
-Private Sub OpenFormInCurrentDb(FormName, Optional View As AcFormView = acNormal, Optional FilterName, _
-    Optional WhereCondition, Optional DataMode As AcFormOpenDataMode = acFormPropertySettings, _
+Private Sub OpenFormInCurrentDb(FormName, Optional View As AcFormView = acNormal, Optional FilterName As String, _
+    Optional WhereCondition As String, Optional DataMode As AcFormOpenDataMode = acFormPropertySettings, _
     Optional WindowMode As AcWindowMode = acWindowNormal, Optional OpenArgs)
 
     Dim strCmd As String
