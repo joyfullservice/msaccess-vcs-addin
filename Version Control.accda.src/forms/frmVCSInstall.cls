@@ -147,6 +147,7 @@ Private Sub Form_Load()
         chkAddTrustedLocation = .blnTrustAddInFolder
         chkOpenAfterInstall = .blnOpenAfterInstall
         chkUseRibbon = .blnUseRibbonAddIn
+        chkCreateCompiledVersion = .blnUseCompiledAddIn
         With txtInstallFolder
             .Value = GetInstallSettings.strInstallFolder
             .Locked = True ' Only enable this text box if not installed.

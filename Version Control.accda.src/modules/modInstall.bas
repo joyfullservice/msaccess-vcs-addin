@@ -29,6 +29,7 @@ Private Const mcstrTrustedLocationName = PROJECT_NAME & " Version Control"
 Public Type udtInstallSettings
     blnTrustAddInFolder As Boolean
     blnUseRibbonAddIn As Boolean
+    blnUseCompiledAddIn As Boolean
     blnOpenAfterInstall As Boolean
     strInstallFolder As String
     blnSettingsLoaded As Boolean
@@ -100,6 +101,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
     GetInstallSettings
     With this
         .blnUseRibbonAddIn = blnUseRibbon
+        .blnUseCompiledAddIn = blnCreateCompiledVersion
         .blnOpenAfterInstall = blnOpenAfterInstall
         .blnTrustAddInFolder = blnTrustFolder
         If .strInstallFolder <> strInstallFolder Then
@@ -681,6 +683,7 @@ Public Function GetInstallSettings(Optional blnUseCache As Boolean = True) As ud
         If Not (.blnSettingsLoaded And blnUseCache) Then
             .blnTrustAddInFolder = GetSetting(PROJECT_NAME, "Install", "Trust Folder", CInt(True))
             .blnUseRibbonAddIn = GetSetting(PROJECT_NAME, "Install", "Use Ribbon", True)
+            .blnUseCompiledAddIn = GetSetting(PROJECT_NAME, "Install", "Compile accde", False)
             .blnOpenAfterInstall = GetSetting(PROJECT_NAME, "Install", "Open File", CInt(False))
             .strInstallFolder = GetSetting(PROJECT_NAME, "Install", "Install Folder", DefaultAddInFolderPath)
             .blnSettingsLoaded = True
@@ -703,6 +706,7 @@ Public Function SaveInstallSettings()
         ' Basic settings
         SaveSetting PROJECT_NAME, "Install", "Trust Folder", CInt(.blnTrustAddInFolder)
         SaveSetting PROJECT_NAME, "Install", "Use Ribbon", CInt(.blnUseRibbonAddIn)
+        SaveSetting PROJECT_NAME, "Install", "Compile accde", CInt(.blnUseCompiledAddIn)
         SaveSetting PROJECT_NAME, "Install", "Open File", CInt(.blnOpenAfterInstall)
         ' Special handling
         If .strInstallFolder = DefaultAddInFolderPath Then
