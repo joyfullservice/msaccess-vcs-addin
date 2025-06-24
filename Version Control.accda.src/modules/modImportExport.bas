@@ -1159,6 +1159,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     If blnFullBuild Then
         If Options.RunAfterBuild <> vbNullString Then
             Log.Add T("Running {0}...", var0:=Options.RunAfterBuild)
+            Log.Flush
             Perf.OperationStart "RunAfterBuild"
             RunSubInCurrentProject Options.RunAfterBuild
             Perf.OperationEnd
@@ -1167,6 +1168,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         ' Merge build
         If Options.RunAfterMerge <> vbNullString Then
             Log.Add T("Running {0}...", Options.RunAfterMerge)
+            Log.Flush
             Perf.OperationStart "RunAfterMerge"
             RunSubInCurrentProject Options.RunAfterMerge
             Perf.OperationEnd
@@ -1767,6 +1769,7 @@ Public Sub InitializeForms(dContainers As Dictionary)
     Dim dAllForms As Dictionary
     Dim cAllForms As IDbComponent
     Dim varKey As Variant
+    Dim blnAddInIsMde As Boolean
 
     ' Trap any errors that may occur when opening forms
     LogUnhandledErrors
