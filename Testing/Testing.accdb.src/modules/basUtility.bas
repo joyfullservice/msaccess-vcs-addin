@@ -33,12 +33,8 @@ End Property
 '
 Public Sub RunAfterBuild()
 
-    ' We can only compile and save modules when the add-in is
-    ' loaded as an unlocked project. (Not a compiled accde)
-    If VBE.VBProjects("MSAccessVCS").Protection = vbext_pp_none Then
-        ' Compile and save VBA code. Should prompt for any errors here.
-        DoCmd.RunCommand acCmdCompileAndSaveAllModules
-    End If
+    ' Compile and save VBA code. Should prompt for any errors here.
+    DoCmd.RunCommand acCmdCompileAndSaveAllModules
 
     ' Run startup macro to execute tests.
     DoCmd.RunMacro "AutoExec"
