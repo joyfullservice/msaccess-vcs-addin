@@ -89,20 +89,20 @@ End Sub
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
 
-    Dim view As AccessObject
+    Dim objView As AccessObject
     Dim cView As IDbComponent
     Dim blnAdd As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
-        For Each view In CurrentData.AllViews
+        For Each objView In CurrentData.AllViews
             Set cView = New clsAdpServerView
-            Set cView.DbObject = view
+            Set cView.DbObject = objView
             blnAdd = True
             If blnModifiedOnly Then blnAdd = cView.IsModified
             If blnAdd Then m_Items(blnModifiedOnly).Add cView.SourceFile, cView
-        Next view
+        Next objView
     End If
 
     ' Return cached collection
