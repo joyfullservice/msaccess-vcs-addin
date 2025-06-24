@@ -528,13 +528,15 @@ End Function
 '
 Public Sub RunSubInCurrentProject(strSubName As String, Optional blnStageOperation As Boolean = True)
 
+    Dim strSub As String
     Dim strCmd As String
+    Dim strCmd2 As String
 
     ' Don't need the parentheses after the sub name
-    strCmd = Replace(strSubName, "()", vbNullString)
+    strSub = Replace(strSubName, "()", vbNullString)
 
     ' Make sure we are not trying to run a function with arguments
-    If InStr(strCmd, "(") > 0 Then
+    If InStr(strSub, "(") > 0 Then
         MsgBox2 T("Unable to Run Command"), _
             T("Parameters are not supported for this command."), _
             T("If you need to use parameters, please create a wrapper sub or function with" & vbCrLf & _
@@ -543,29 +545,40 @@ Public Sub RunSubInCurrentProject(strSubName As String, Optional blnStageOperati
     End If
 
     ' Make sure procedure exists in current database
-    If Not GlobalProcExists(strSubName) Then
-        Log.Error eelError, T("The procedure ""{0}"" not found.", var0:=strSubName), ModuleName & ".RunSubInCurrentProject"
+    If Not GlobalProcExists(strSub) Then
+        Log.Error eelError, T("The procedure ""{0}"" not found.", var0:=strSub), ModuleName & ".RunSubInCurrentProject"
         Log.Add T("The procedure must be declared as public in a standard module."), False
         Exit Sub
     End If
 
-    ' Add project name so we can run it from the current datbase
-    strCmd = "[" & CurrentVBProject.Name & "]." & strCmd
+    ' Build preferred call syntax for *.accda and *.accde
+    ' Example: Run "c:\full\path\VBProject.SubName"
+    With CurrentProject
+        strCmd = .Path & PathSep & FSO.GetBaseName(.Name) & "." & strSub
+    End With
 
-    ' Check for add-in project name
-    If StrComp(CurrentVBProject.Name, GetAddInProject.Name, vbTextCompare) = 0 Then
-        ' Temporarily rename the add-in project so the sub runs in the current project ... Not required: call with full name
-        Dim VbProjectFilenameWithoutFileExt As String
-        Const AddInFileExtension As String = ".accda"
-        With CurrentVBProject
-            VbProjectFilenameWithoutFileExt = Left(.FileName, Len(.FileName) - Len(AddInFileExtension))
-            strCmd = Replace(strCmd, "[" & .Name & "]", VbProjectFilenameWithoutFileExt)
-        End With
-    End If
+    ' Build backup syntax for *.accdb
+    ' Example: Run "[VBProject].SubName"
+    strCmd2 = "[" & CurrentVBProject.Name & "]." & strSub
 
+    ' Log any outstanding errors
+    LogUnhandledErrors
+
+    ' Stage the current operation, and run the sub
     Operation.Stage
+    Perf.OperationStart T("Run {0}", , , , strSub)
+    On Error Resume Next
     Application.Run strCmd
+    If Catch(2517) Then
+        Err.Clear
+        ' Use fallback syntax
+        Application.Run strCmd2
+    End If
+    Perf.OperationEnd
     Operation.Restore
+
+    ' Log any other errors
+    CatchAny eelError, T("Error running {0}", , , , strSub), ModuleName & ".RunSubInCurrentProject"
 
 End Sub
 
