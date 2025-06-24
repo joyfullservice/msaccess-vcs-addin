@@ -267,6 +267,8 @@ End Sub
 '
 Private Function UpdateAddInFile(ByVal blnCreateCompiledVersion As Boolean) As Boolean
 
+    Dim strPath As String
+
     ' Make sure the destination folder exists
     VerifyPath GetAddInFileName
 
@@ -276,9 +278,17 @@ Private Function UpdateAddInFile(ByVal blnCreateCompiledVersion As Boolean) As B
     If FSO.FileExists(GetAddInFileName) Then DeleteFile GetAddInFileName, True
 
     If blnCreateCompiledVersion Then
-        CreateAccde CodeProject.FullName, GetAddInFileName
+        ' Remove any existing uncompiled version
+        ' (Very important, since we are invoking the add-in file directly without the extension.
+        ' if both files exist, the .accda file will be opened instead of the compiled one.)
+        If FSO.FileExists(GetAddInFileName) Then DeleteFile GetAddInFileName
+        ' Now we can generate the compiled version as a *.accde
+        CreateAccde CodeProject.FullName, GetAddInFileName(True)
     Else
         FSO.CopyFile CodeProject.FullName, GetAddInFileName, True
+        ' Remove any existing compiled version
+        strPath = GetAddInFileName(True)
+        If FSO.FileExists(strPath) Then DeleteFile strPath
     End If
 
     If Err Then
@@ -314,9 +324,10 @@ Private Sub CreateAccde(ByVal strSourceFilePath As String, ByVal strDestFilePath
     ' use new Access instance to create accde
     With New Access.Application
         .Visible = True
-        .SysCmd acSysCmdCompile, (strFileToCompile), (strDestFilePath)
+        .SysCmd acSysCmdCompile, strFileToCompile, strDestFilePath
     End With
 
+    ' Delete temporary file
     FSO.DeleteFile strFileToCompile, True
 
 End Sub
@@ -376,8 +387,9 @@ End Sub
 ' Purpose   : This is where the add-in would be installed.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetAddInFileName() As String
-    GetAddInFileName = FSO.BuildPath(GetInstallSettings.strInstallFolder, CodeProject.Name)
+Public Function GetAddInFileName(Optional blnAsMde As Boolean = False) As String
+    GetAddInFileName = FSO.BuildPath(GetInstallSettings.strInstallFolder, _
+        FSO.GetBaseName(CodeProject.Name) & IIf(blnAsMde, ".accde", ".accda"))
 End Function
 
 

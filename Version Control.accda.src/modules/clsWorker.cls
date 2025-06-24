@@ -582,6 +582,7 @@ Function UninstallAddIn(objApp, strAddInFile)
 
     ' Build lock file name from add-in name
     strLockFile = Replace(strAddInFile, ".accda", ".laccda")
+    strLockFile = Replace(strAddInFile, ".accde", ".laccda")
 
     ' Resume next on any errors while attempting to delete the file.
     On Error Resume Next
