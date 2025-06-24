@@ -1769,7 +1769,7 @@ Public Sub InitializeForms(dContainers As Dictionary)
     Dim dAllForms As Dictionary
     Dim cAllForms As IDbComponent
     Dim varKey As Variant
-    Dim blnAddInIsMde As Boolean
+    Dim blnIsAddin As Boolean
 
     ' Trap any errors that may occur when opening forms
     LogUnhandledErrors
@@ -1778,6 +1778,9 @@ Public Sub InitializeForms(dContainers As Dictionary)
     ' See if we imported any forms
     Set cAllForms = New clsDbForm
     If dContainers.Exists(cAllForms.Category) Then
+
+        ' Are we working on the add-in project itself?
+        blnIsAddin = (CurrentVBProject.Name = PROJECT_NAME)
 
         ' Get reference to forms container
         Set dFiles = dContainers(cAllForms.Category)("Files")
@@ -1795,21 +1798,19 @@ Public Sub InitializeForms(dContainers As Dictionary)
                 ' (Likely not needed, and would require staging)
                 If frm.Name <> "frmVCSMain" Then
 
-                    ' If running as an mde, we can't initialize the add-in forms.
-                    ' Determine if the add-in is running as a compiled MDE by checking locked status
-                    blnAddInIsMde = GetAddInProject.Protection = vbext_pp_locked
-                    If Not (StartsWith(frm.Name, "frmVCS") And blnAddInIsMde) Then
-
-                        ' Open the form in design view to initialize layout, colors and theme
-                        Perf.OperationStart "Initialize Forms"
-                        Log.Add "  " & frm.Name, Options.ShowDebug
+                    ' Open the form in design view to initialize layout, colors and theme
+                    Perf.OperationStart "Initialize Forms"
+                    Log.Add "  " & frm.Name, Options.ShowDebug
+                    If blnIsAddin Then
+                        OpenFormInCurrentDb frm.Name, acDesign, , , , acHidden
+                    Else
                         DoCmd.OpenForm frm.Name, acDesign, , , , acHidden
-                        DoEvents
-                        ' We seem to get the benefit of the layout rendering even if we don't
-                        ' save the form, so let's not save it unless we identify a reason to.
-                        DoCmd.Close acForm, frm.Name, acSaveNo
-                        Perf.OperationEnd
                     End If
+                    DoEvents
+                    ' We seem to get the benefit of the layout rendering even if we don't
+                    ' save the form, so let's not save it unless we identify a reason to.
+                    DoCmd.Close acForm, frm.Name, acSaveNo
+                    Perf.OperationEnd
                 End If
                 Log.Increment
 
@@ -1828,5 +1829,27 @@ Public Sub InitializeForms(dContainers As Dictionary)
 
     ' Check for any unhandled errors
     CatchAny eelError, "Unhandled error while initializing forms", ModuleName & ".InitializeForms"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OpenFormInCurrentDb
+' Author    : Adam Waller
+' Date      : 6/24/2025
+' Purpose   : Open a form from the current
+'---------------------------------------------------------------------------------------
+'
+Private Sub OpenFormInCurrentDb(FormName, Optional View As AcFormView = acNormal, Optional FilterName, _
+    Optional WhereCondition, Optional DataMode As AcFormOpenDataMode = acFormPropertySettings, _
+    Optional WindowMode As AcWindowMode = acWindowNormal, Optional OpenArgs)
+
+    Dim strCmd As String
+
+    ' Build out command
+    strCmd = CurrentProject.Path & PathSep & FSO.GetBaseName(CurrentProject.Name) & ".OpenForm2"
+
+    ' Run in current database, passing in all parameters
+    Application.Run strCmd, FormName, View, FilterName, WhereCondition, DataMode, WindowMode, OpenArgs
 
 End Sub

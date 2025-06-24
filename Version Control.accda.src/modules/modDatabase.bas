@@ -211,6 +211,21 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : OpenForm2
+' Author    : Adam Waller
+' Date      : 6/24/2025
+' Purpose   : Wrapper function to open a form in the current database instead of
+'           : the add-in when called using the correct method.
+'---------------------------------------------------------------------------------------
+'
+Public Function OpenForm2(FormName, Optional View As AcFormView = acNormal, Optional FilterName, _
+    Optional WhereCondition, Optional DataMode As AcFormOpenDataMode = acFormPropertySettings, _
+    Optional WindowMode As AcWindowMode = acWindowNormal, Optional OpenArgs)
+    DoCmd.OpenForm FormName, View, FilterName, WhereCondition, DataMode, WindowMode, OpenArgs
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsLoaded
 ' Author    : Adam Waller
 ' Date      : 9/22/2017
