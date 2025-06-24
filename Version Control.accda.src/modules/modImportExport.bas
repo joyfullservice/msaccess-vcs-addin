@@ -1792,15 +1792,21 @@ Public Sub InitializeForms(dContainers As Dictionary)
                 ' (Likely not needed, and would require staging)
                 If frm.Name <> "frmVCSMain" Then
 
-                    ' Open the form in design view to initialize layout, colors and theme
-                    Perf.OperationStart "Initialize Forms"
-                    Log.Add "  " & frm.Name, Options.ShowDebug
-                    DoCmd.OpenForm frm.Name, acDesign, , , , acHidden
-                    DoEvents
-                    ' We seem to get the benefit of the layout rendering even if we don't
-                    ' save the form, so let's not save it unless we identify a reason to.
-                    DoCmd.Close acForm, frm.Name, acSaveNo
-                    Perf.OperationEnd
+                    ' If running as an mde, we can't initialize the add-in forms.
+                    ' Determine if the add-in is running as a compiled MDE by checking locked status
+                    blnAddInIsMde = GetAddInProject.Protection = vbext_pp_locked
+                    If Not (StartsWith(frm.Name, "frmVCS") And blnAddInIsMde) Then
+
+                        ' Open the form in design view to initialize layout, colors and theme
+                        Perf.OperationStart "Initialize Forms"
+                        Log.Add "  " & frm.Name, Options.ShowDebug
+                        DoCmd.OpenForm frm.Name, acDesign, , , , acHidden
+                        DoEvents
+                        ' We seem to get the benefit of the layout rendering even if we don't
+                        ' save the form, so let's not save it unless we identify a reason to.
+                        DoCmd.Close acForm, frm.Name, acSaveNo
+                        Perf.OperationEnd
+                    End If
                 End If
                 Log.Increment
 
