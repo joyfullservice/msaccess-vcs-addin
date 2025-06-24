@@ -582,6 +582,10 @@ Public Sub RunSubInCurrentProject(strSubName As String, Optional blnStageOperati
     ' Stage the current operation, and run the sub
     Operation.Stage
     Perf.OperationStart T("Run {0}", , , , strSub)
+
+    ' Set active VB project to Current DB (not Add-in)
+    Set VBE.ActiveVBProject = CurrentVBProject
+
     On Error Resume Next
     Application.Run strCmd
     If Catch(2517) Then
