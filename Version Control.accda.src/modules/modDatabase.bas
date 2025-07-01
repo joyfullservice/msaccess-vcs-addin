@@ -541,11 +541,10 @@ End Function
 '           : current project, not the add-in file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub RunSubInCurrentProject(strSubName As String, Optional blnStageOperation As Boolean = True)
+Public Sub RunSubInCurrentProject(strSubName As String)
 
     Dim strSub As String
     Dim strCmd As String
-    Dim strCmd2 As String
 
     ' Don't need the parentheses after the sub name
     strSub = Replace(strSubName, "()", vbNullString)
@@ -566,15 +565,18 @@ Public Sub RunSubInCurrentProject(strSubName As String, Optional blnStageOperati
         Exit Sub
     End If
 
-    ' Build preferred call syntax for *.accda and *.accde
-    ' Example: Run "c:\full\path\VBProject.SubName"
-    With CurrentProject
-        strCmd = .Path & PathSep & FSO.GetBaseName(.Name) & "." & strSub
-    End With
-
-    ' Build backup syntax for *.accdb
-    ' Example: Run "[VBProject].SubName"
-    strCmd2 = "[" & CurrentVBProject.Name & "]." & strSub
+    ' Build call syntax
+    If CurrentVBProject.Name = PROJECT_NAME Then
+        ' use full path
+        ' Example: Run "c:\full\path\Version Control.SubName"
+        With CurrentProject
+            strCmd = .Path & PathSep & FSO.GetBaseName(.Name) & "." & strSub
+        End With
+    Else
+        ' use library name
+        ' Example: Run "[VBProject].SubName"
+        strCmd = "[" & CurrentVBProject.Name & "]." & strSub
+    End If
 
     ' Log any outstanding errors
     LogUnhandledErrors
@@ -586,13 +588,7 @@ Public Sub RunSubInCurrentProject(strSubName As String, Optional blnStageOperati
     ' Set active VB project to Current DB (not Add-in)
     Set VBE.ActiveVBProject = CurrentVBProject
 
-    On Error Resume Next
     Application.Run strCmd
-    If Catch(2517) Then
-        Err.Clear
-        ' Use fallback syntax
-        Application.Run strCmd2
-    End If
     Perf.OperationEnd
     Operation.Restore
 
