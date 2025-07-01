@@ -113,7 +113,7 @@ Public Sub ExportSource(ByRef blnFullExport As Boolean, Optional intFilter As eC
     ' Run any custom sub before export
     If Options.RunBeforeExport <> vbNullString Then
         Perf.OperationStart "RunBeforeExport"
-        RunExternalProcedureOption Options.RunBeforeExport, VcsRef
+        RunExternalProcedureByName Options.RunBeforeExport, VcsRef
         Perf.OperationEnd
     End If
 
@@ -257,7 +257,7 @@ Public Sub ExportSource(ByRef blnFullExport As Boolean, Optional intFilter As eC
     ' Run any custom sub after export
     If Options.RunAfterExport <> vbNullString Then
         Perf.OperationStart "RunAfterExport"
-        RunExternalProcedureOption Options.RunAfterExport, VcsRef
+        RunExternalProcedureByName Options.RunAfterExport, VcsRef
         Perf.OperationEnd
         CatchAny eelError, T("Error running {0}", var0:=Options.RunAfterExport), ModuleName & ".ExportSource", True, True
     End If
@@ -888,7 +888,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         strText = dNZ(Options.GitSettings, "RunBeforeMerge")
         If strText <> vbNullString Then
             Perf.OperationStart "RunBeforeMerge"
-            RunExternalProcedureOption strText
+            RunExternalProcedureByName strText
             Perf.OperationEnd
         End If
 
@@ -1156,7 +1156,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     If blnFullBuild Then
         If Options.RunAfterBuild <> vbNullString Then
             Perf.OperationStart "RunAfterBuild"
-            RunExternalProcedureOption Options.RunAfterBuild
+            RunExternalProcedureByName Options.RunAfterBuild
             Perf.OperationEnd
         End If
     Else
@@ -1860,7 +1860,7 @@ End Sub
 ' Purpose   : Runs an external procedure by name, which is specified in the
 '           : RunAfterBuild or RunAfterMerge options.
 '           : The procedure name can be a single procedure or multiple procedures
-'           : separated by a colon, semicolon or pipe character.    
+'           : separated by a colon, semicolon or pipe character.
 '---------------------------------------------------------------------------------------
 '
 Private Sub RunExternalProcedureByName(ByVal strRunProcedureOptionValue As String, Optional ByVal VcsRef As clsVersionControl = Nothing)
