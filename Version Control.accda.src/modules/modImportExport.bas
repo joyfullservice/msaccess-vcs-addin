@@ -115,7 +115,7 @@ Public Sub ExportSource(ByRef blnFullExport As Boolean, Optional intFilter As eC
         Log.Add T("Running {0}...", var0:=Options.RunBeforeExport)
         Log.Flush
         Perf.OperationStart "RunBeforeExport"
-        RunSubInCurrentProject Options.RunBeforeExport, , VcsRef
+        RunSubInCurrentProject Options.RunBeforeExport, VcsRef
         Perf.OperationEnd
     End If
 
@@ -260,7 +260,7 @@ Public Sub ExportSource(ByRef blnFullExport As Boolean, Optional intFilter As eC
     If Options.RunAfterExport <> vbNullString Then
         Log.Add T("Running {0}...", var0:=Options.RunAfterExport)
         Perf.OperationStart "RunAfterExport"
-        RunSubInCurrentProject Options.RunAfterExport, , VcsRef
+        RunSubInCurrentProject Options.RunAfterExport, VcsRef
         Perf.OperationEnd
         CatchAny eelError, T("Error running {0}", var0:=Options.RunAfterExport), ModuleName & ".ExportSource", True, True
     End If
