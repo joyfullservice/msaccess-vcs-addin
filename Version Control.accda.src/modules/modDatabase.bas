@@ -638,7 +638,6 @@ Public Sub ExecuteLoggedApplicationRun(ByVal strProcedureName As String, _
     ' Set active VB project to Current DB (not Add-in)
     Set VBE.ActiveVBProject = CurrentVBProject
 
-    ' @TODO: replace Application.Run with a more generic function like RunSubInCurrentProject
     If bolUseVcsParam Then
         ExternalReturnValue = Application.Run(strCmd, VcsRef)
     Else
