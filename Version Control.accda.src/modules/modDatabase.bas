@@ -541,10 +541,8 @@ End Function
 '           : current project, not the add-in file.
 '---------------------------------------------------------------------------------------
 '
-Public Sub RunSubInCurrentProject(strSubName As String, Optional blnStageOperation As Boolean = True)
-'
-' blnStageOperation is planned for ...?
-'
+Public Sub RunSubInCurrentProject(strSubName As String)
+
     Dim strSub As String
     Dim strCmd As String
 
