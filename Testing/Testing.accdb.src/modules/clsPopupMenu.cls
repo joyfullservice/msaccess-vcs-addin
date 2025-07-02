@@ -13,10 +13,10 @@ Option Explicit
 
 ' API calls for getting screen cordinates in relation to controls
 Private Declare PtrSafe Function GetFocus Lib "user32" () As LongPtr
-Private Declare Function GetDeviceCaps Lib "Gdi32" (ByVal hDC As LongPtr, ByVal nIndex As Long) As Long
-Private Declare Function GetDC Lib "user32" (ByVal hWnd As LongPtr) As Long
-Private Declare Function ReleaseDC Lib "user32" (ByVal hWnd As LongPtr, ByVal hDC As LongPtr) As Long
-Private Declare Function GetCursorPos Lib "user32" (lpPoint As POINTAPI) As Long
+Private Declare PtrSafe Function GetDeviceCaps Lib "Gdi32" (ByVal hDC As LongPtr, ByVal nIndex As Long) As Long
+Private Declare PtrSafe Function GetDC Lib "user32" (ByVal hWnd As LongPtr) As Long
+Private Declare PtrSafe Function ReleaseDC Lib "user32" (ByVal hWnd As LongPtr, ByVal hDC As LongPtr) As Long
+Private Declare PtrSafe Function GetCursorPos Lib "user32" (lpPoint As POINTAPI) As Long
 Private Declare PtrSafe Function GetWindowRect Lib "user32" (ByVal hWnd As LongPtr, ByRef lpRect As RECT) As Long
 Private Declare PtrSafe Function GetSystemMetrics Lib "user32" (ByVal nIndex As Long) As Long
 
