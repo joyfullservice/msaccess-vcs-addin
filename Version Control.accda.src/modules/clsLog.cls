@@ -160,65 +160,54 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : Error
 ' Author    : Adam Waller
-' Date      : 12/4/2020
+' Date      : 12/4/2020, 7/3/2025 (Josef Poetzl)
 ' Purpose   : Log an error, and update error level if needed. Reads Err object values.
 '           : A critical error will also present a message box with the details.
 '---------------------------------------------------------------------------------------
 '
 Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSource As String, Optional blnIncludeErrorMessage As Boolean = False)
 
-    Dim strPrefix As String
-    Dim strDisplay As String
+    ErrorInfo NewErrorInfo(eLevel, strDescription, strSource, blnIncludeErrorMessage)
 
-    Select Case eLevel
-        Case eelWarning:    strPrefix = "WARNING: "
-        Case eelError:      strPrefix = "ERROR: "
-        Case eelCritical:   strPrefix = "CRITICAL: "
-    End Select
+End Sub
+
+Public Sub ErrorInfo(oErrorInfo As clsErrorInfo)
+
+    Dim blnPrint As Boolean
+
+    blnPrint = (oErrorInfo.ErrorLevel > eelWarning)
 
     ' Build the error message string.
     With New clsConcat
 
-        ' Sometimes the error description is sufficient for the description
-        If strDescription = vbNullString And Err.Number <> 0 Then
-            strDisplay = strPrefix & Err.Number & " - " & Err.Description
-        ElseIf blnIncludeErrorMessage Then
-            strDisplay = strPrefix & strDescription & "; Error " & Err.Number & " - " & Err.Description
-        Else
-            strDisplay = strPrefix & strDescription
-        End If
-
         ' Log all errors, and display on the output screen anything higher than a warning
-        Me.Add vbNullString, (eLevel > eelWarning)
-        Me.Spacer (eLevel > eelWarning)
-        Me.Add strDisplay, (eLevel > eelWarning), , "red"
+        Me.Add vbNullString, blnPrint
+        Me.Spacer blnPrint
+        Me.Add oErrorInfo.DisplayText, blnPrint, , "red"
 
         ' Log the additional error and source details to the log file
         If Err Then .Add "Error ", Err.Number, ": ", Err.Description, " "
-        If strSource <> vbNullString Then .Add "Source: ", strSource
+        If oErrorInfo.Source <> vbNullString Then .Add "Source: ", oErrorInfo.Source
         Me.Add .GetStr, False
-        Me.Spacer (eLevel > eelWarning)
+        Me.Spacer blnPrint
         Me.Flush ' Force a screen update.
         ' See if we are actively logging an operation
         If Log.Active Then
             ' Show message box for fatal error.
-            If eLevel = eelCritical Then
+            If oErrorInfo.ErrorLevel = eelCritical Then
                 MsgBox2 "Unable to Continue", .GetStr, _
                     "Please review the log file for additional details.", vbCritical
             End If
         Else
             ' Show message on any error level when we are not logging to a file.
-            Select Case eLevel
-                Case eelNoError:    ' Do nothing
-                Case eelWarning:    MsgBox2 "Warning", strDisplay, .GetStr, vbInformation
-                Case eelError:      MsgBox2 "Error", strDisplay, .GetStr, vbExclamation
-                Case eelCritical:   MsgBox2 "Critical", strDisplay, .GetStr, vbCritical
-            End Select
+            If blnPrint Then
+                MsgBox2 oErrorInfo.MsgBoxBoldText, oErrorInfo.DisplayText, .GetStr, oErrorInfo.MsgBoxStyle
+            End If
         End If
     End With
 
     ' Update error level if higher.
-    If Operation.ErrorLevel < eLevel Then Operation.ErrorLevel = eLevel
+    If Operation.ErrorLevel < oErrorInfo.ErrorLevel Then Operation.ErrorLevel = oErrorInfo.ErrorLevel
 
 End Sub
 

@@ -263,3 +263,18 @@ Public Property Get Operation() As clsOperation
     If m_Operation Is Nothing Then Set m_Operation = New clsOperation
     Set Operation = m_Operation
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NewErrorInfo
+' Author    : Josef Pötzl
+' Date      : 7/3/2025
+' Purpose   : Factory for clsErrorInfo + Init
+'---------------------------------------------------------------------------------------
+'
+Public Function NewErrorInfo(eLevel As eErrorLevel, strDescription As String, Optional strSource As String, Optional blnIncludeErrorMessage As Boolean = False) As clsErrorInfo
+    Dim NewObj As clsErrorInfo
+    Set NewObj = New clsErrorInfo
+    NewObj.Init eLevel, strDescription, strSource, blnIncludeErrorMessage
+    Set NewErrorInfo = NewObj
+End Function
