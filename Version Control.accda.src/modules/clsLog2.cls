@@ -457,7 +457,9 @@ Public Function Error(ByRef strBold As String _
                     , NextOutputOnNewLine:=True _
                     , PrintBold:=True
     End Select
-    'Err.Clear ' Clear the error, it's been logged and dealt with now.
+
+    ' Update error level if higher.
+    If Operation.ErrorLevel < ErrorLevel Then Operation.ErrorLevel = ErrorLevel
     Perf.OperationEnd
     Error = ErrorResponse
 

@@ -234,16 +234,7 @@ Public Function MsgBox2(strBold As String _
 
     Const FunctionName As String = "modFunctions.MsgBox2"
 
-    Dim intCursor As Integer
-
-    ' Turn off any hourglass
-    intCursor = Screen.MousePointer
-    If intCursor > 0 Then Screen.MousePointer = 0
-
-    MsgBox2 = Log2.Prompt(FunctionName, strBold, eelNoError, strLine1, strLine2, intButtons, strTitle, True, vbDefaultResult)
-
-    ' Restore MousePointer (if needed)
-    If intCursor > 0 Then Screen.MousePointer = intCursor
+    MsgBox2 = Log2.Prompt(strBold, FunctionName, eelNoError, strLine1, strLine2, intButtons, strTitle, True, vbDefaultResult)
 
 End Function
 
