@@ -118,7 +118,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             m_sngLastUpdate = Timer
         End If
     End If
-
+    Log2.AddEntry strText, "Log.Add", eelNoError, blnPrint, blnNextOutputOnNewLine, strColor, blnBold, blnItalic
 End Sub
 
 
@@ -291,6 +291,7 @@ End Property
 Public Sub SaveFile(Optional strAlternatePath As String)
     If Len(strAlternatePath) Then VerifyPath strAlternatePath
     WriteFile m_Log.GetStr, Nz2(strAlternatePath, Me.LogFilePath)
+    Log2.SaveFile
 End Sub
 
 
