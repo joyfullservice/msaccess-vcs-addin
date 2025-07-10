@@ -890,9 +890,11 @@ End Property
 
 Private Function GetDefaultLogConnectionADO() As ADODB.Connection
 
-        Set GetDefaultLogConnectionADO = New ADODB.Connection
-        Set GetDefaultLogConnectionADO = CurrentProject.Connection ' Or CurrentDB.Connection, depending on what your goal is here
-
+    Set GetDefaultLogConnectionADO = New ADODB.Connection
+    'Set GetDefaultLogConnectionADO = CurrentProject.Connection ' Or CurrentDB.Connection, depending on what your goal is here
+    ' When using the log in an Addin, we need to connect to the addin's Connections.
+    ' So this way it looks like you're doing something bizzare, you're not.
+    Set GetDefaultLogConnectionADO = CodeProject.Connection
 End Function
 
 
