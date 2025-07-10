@@ -47,14 +47,12 @@ Private m_LogadoStoredConnection As ADODB.Connection
 Private m_adoStoredCMDAddEntry As ADODB.Command
 Private m_sngLastUpdate As Single
 
-' Log level Everything below this (except for "no error")
-' is not logged; for now, this will be determined by the devs
-' but it is a preference. It's read only because it's read during
-' init and stored for faster processing; this will avoid delays
-' if user preferences expire, but the user hasn't refreshed the application.
-Private m_LogLevel As eErrorLevel
 
 Private Type udtThis
+    ' Log level: log everything at and below set level (except for "no error"
+    ' which is logged unless log is set to off).
+    LogLevel As eErrorLevel
+
     SourcePath As String
 
 End Type
@@ -835,10 +833,11 @@ End Sub
 
 
 Public Property Let LogLevel(ByRef NewLogLevel As eErrorLevel)
-    m_LogLevel = NewLogLevel
+    this.LogLevel = NewLogLevel
+    If this.LogLevel = eelUninitialized Then this.LogLevel = eelDebugTrace
 End Property
 Public Property Get LogLevel() As eErrorLevel
-    LogLevel = m_LogLevel
+    LogLevel = this.LogLevel
 End Property
 
 
