@@ -473,13 +473,15 @@ Public Function Prompt(ByRef strBold As String _
                     , Optional ByRef strLine2 As String = vbNullString _
                     , Optional ByRef vbButtons As VbMsgBoxStyle = vbOKOnly _
                     , Optional ByRef strTitle As String = vbNullString _
-                    , Optional ByRef AddToLog As Boolean = True) As VbMsgBoxResult
+                    , Optional ByVal AddToLog As Boolean = True _
+                    , Optional ByVal vbDefaultResult As VbMsgBoxResult = vbOK) As VbMsgBoxResult
 
     ' This function will prompt the user to do something, or display a message, and return the value to the calling function.
     ' In addition, it will log that the prompt happened, and the result of the user action.
 
     Const FunctionName As String = ModuleName & ".Prompt"
 
+    Dim intCursor As Integer
     Dim PromptResult As VbMsgBoxResult
     Dim sourceFormatted As String
     Dim titleFormatted As String
@@ -493,6 +495,10 @@ Public Function Prompt(ByRef strBold As String _
     Dim LineCount As Long
 
     Perf.OperationStart FunctionName
+
+    ' Turn off any hourglass
+    intCursor = Screen.MousePointer
+
     sourceFormatted = strSource & ".Prompt"
     titleFormatted = Nz2(strTitle, sourceFormatted)
     errorLevelInfo.ErrorLevel = ErrorLevel
@@ -549,6 +555,10 @@ Public Function Prompt(ByRef strBold As String _
     End If
 
     Prompt = PromptResult
+
+    ' Restore MousePointer (if needed)
+    If intCursor > 0 Then Screen.MousePointer = intCursor
+
     Perf.OperationEnd
 
 End Function
