@@ -24,7 +24,7 @@ Private Type udtObjects
     Worker As clsWorker
     Git As clsGitIntegration
     Translation As clsTranslation
-
+    Log2 As clsLog2
     ' Keep a persistent reference to file system object after initializing version control.
     ' This way we don't have to recreate this object dozens of times while using VCS.
     FSO As Scripting.FileSystemObject
@@ -159,7 +159,10 @@ Public Function Log(Optional blnCreateInstance As Boolean = True) As clsLog
     If this.Log Is Nothing Then If blnCreateInstance Then Set this.Log = New clsLog
     Set Log = this.Log
 End Function
-
+Public Function Log2(Optional blnCreateInstance As Boolean = True) As clsLog2
+    If this.Log2 Is Nothing Then If blnCreateInstance Then Set this.Log2 = New clsLog2
+    Set Log2 = this.Log2
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : FSO
