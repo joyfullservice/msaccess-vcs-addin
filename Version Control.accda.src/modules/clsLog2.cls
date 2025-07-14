@@ -109,7 +109,12 @@ Public Sub Clear(Optional ByVal CheckFirst As Boolean = True)
     End Select
 
 ClearLog:
-    ExecuteLocalSQL "DELETE FROM " & Me.LogTableName & ";"
+    With New ADODB.Command
+        .ActiveConnection = Me.LogConnectionADO
+        .CommandText = "DELETE FROM " & Me.LogTableName & ";"
+        .Execute
+    End With
+   ' ExecuteLocalSQL "DELETE FROM " & Me.LogTableName & ";"
     Class_Initialize
 
 End Sub
@@ -694,11 +699,6 @@ Public Sub SaveFile(Optional strAlternateFileName As String _
     Dim ShellCmdString As String
 
 Retry:
-    If (Me.Prompt(strSource:=FunctionName _
-                    , strBold:="Saving and exporting the log." _
-                    , strLine1:="Press [OK] to continue." & vbNewLine & _
-                                "Press [Cancel] to abort export." _
-                    , vbButtons:=vbOKCancel + vbDefaultButton1) <> vbOK) Then Exit Sub
 
     ' Before exporting, insert entries for performance, because that might be useful.
     ' You are, after all, exporting the log to troubleshoot...
@@ -711,9 +711,10 @@ Retry:
     OutputFilePath = FSO.BuildPath(Me.LogFilePath, SanitizedFileName)
     VerifyPath OutputFilePath
 
-    Application.ExportXML acExportTable, Me.LogTableName, OutputFilePath
-
-
+    With New ADODB.Recordset
+        .Open Me.LogTableName, Me.LogConnectionADO, adOpenDynamic
+        .Save OutputFilePath, adPersistXML
+    End With
 
     With New clsSourceParser
         .LoadSourceFile OutputFilePath, edbTableData
@@ -737,6 +738,7 @@ Retry:
                 Shell ShellCmdString, vbNormalFocus
             End If
         End If
+        Me.Clear False
     End If
 
 End Sub
