@@ -706,7 +706,7 @@ Retry:
     LogPerformanceReports False
 
     ReportTimeStamp = ISO8601TimeStamp(False, False)
-    SanitizedFileName = Nz2(strAlternateFileName, "ErrorLog") & "." & ReportTimeStamp & ".log.xml"
+    SanitizedFileName = Nz2(strAlternateFileName, "Log") & "." & ReportTimeStamp & ".log.xml"
     SanitizedFileName = MultiReplace(SanitizedFileName, ":", "-") ' Replace Timestamp charachters with valid charachters.
     OutputFilePath = FSO.BuildPath(Me.LogFilePath, SanitizedFileName)
     VerifyPath OutputFilePath
