@@ -94,7 +94,7 @@ Public Sub Clear(Optional ByVal CheckFirst As Boolean = True)
                                     "[Cancel] = Cancel, Log will not be cleared" _
                         , vbButtons:=vbYesNoCancel + vbQuestion + vbDefaultButton2 _
                         , strTitle:="Save before clearing?" _
-                        , ErrorLevel:=eErrorLevel.eelNoError)
+                        , ErrorLevelIn:=eErrorLevel.eelNoError)
 
         Case vbYes
             ' Save then Clear log.
@@ -124,13 +124,13 @@ Public Sub ClearConsole()
 End Sub
 
 
-Public Function IsEntryLogged(ByVal ErrorLevel As eErrorLevel) As Boolean
+Public Function IsEntryLogged(ByVal ErrorLevelIn As eErrorLevel) As Boolean
 
 '    If (EventErrorLevel And Me.LogLevel) = EventErrorLevel _
 '        And (EventErrorLevel >= Me.LogLevel) _
 '        or  (me.LogLevel <>
 '        Then IsEntryLogged = True
-    If (ErrorLevel >= Me.LogLevel) Or ErrorLevel = eelNoError Then IsEntryLogged = True
+    If (ErrorLevelIn >= Me.LogLevel) Or ErrorLevelIn = eelNoError Then IsEntryLogged = True
 
 End Function
 
@@ -163,7 +163,7 @@ Public Sub Add(strText As String _
 
     Me.AddEntry strMessage:=strText _
                 , strSource:="Log.Add" _
-                , ErrorLevel:=eelNoError _
+                , ErrorLevelIn:=eelNoError _
                 , PrintEvent:=blnPrint _
                 , NextOutputOnNewLine:=blnNextOutputOnNewLine _
                 , OutputColor:=strColor _
@@ -182,7 +182,7 @@ End Sub
 '
 Public Sub AddEntry(ByRef strMessage As String _
                     , Optional ByRef strSource As String _
-                    , Optional ByVal ErrorLevel As eErrorLevel = eelNoError _
+                    , Optional ByVal ErrorLevelIn As eErrorLevel = eelNoError _
                     , Optional ByVal PrintEvent As Boolean = True _
                     , Optional ByVal NextOutputOnNewLine As Boolean = True _
                     , Optional ByRef OutputColor As String = vbNullString _
@@ -198,8 +198,15 @@ Public Sub AddEntry(ByRef strMessage As String _
     On Error Resume Next
     Perf.OperationStart FunctionName
 
-    If Not IsEntryLogged(ErrorLevel) Then GoTo Exit_Here
+    If Not IsEntryLogged(ErrorLevelIn) Then GoTo Exit_Here
     If PrintEvent Then
+
+        If OutputColor = vbNullString Then
+            With New clsErrorInfo
+                .ErrorLevel = ErrorLevelIn
+                OutputColor = .ErrorColor
+            End With
+        End If
         this.Console.Add FormatEntry(strMessage, NextOutputOnNewLine, OutputColor, PrintBold, PrintItalic)
 
         ' Allow an update to the screen every second.
@@ -218,7 +225,7 @@ Public Sub AddEntry(ByRef strMessage As String _
         .Parameters("[paramEventSource]") = strSource
         .Parameters("[paramEventMessage]") = strMessage
         .Parameters("[paramPrinted]") = Not PrintEvent
-        .Parameters("[paramErrorLevel]") = ErrorLevel
+        .Parameters("[paramErrorLevel]") = ErrorLevelIn
 
 Retry:
         .Execute
@@ -406,9 +413,9 @@ End Sub
 '           : A critical error will also present a message box with the details.
 '---------------------------------------------------------------------------------------
 '
-Public Function Error(ByRef strBold As String _
-                    , ByRef strSource As String _
-                    , ByVal ErrorLevel As eErrorLevel _
+Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
+                    , ByRef strBold As String _
+                    , Optional ByRef strSource As String _
                     , Optional ByRef strErrDescription As String _
                     , Optional ByVal vbButtons As VbMsgBoxStyle = vbOKOnly _
                     , Optional ByRef strTitle As String = vbNullString _
@@ -427,7 +434,7 @@ Public Function Error(ByRef strBold As String _
     Error = vbCancel
 
     Perf.OperationStart FunctionName
-    errorLevelInfo.ErrorLevel = ErrorLevel
+    errorLevelInfo.ErrorLevel = ErrorLevelIn
     sourceFormatted = strSource & ".Error"
 
     With strWorking
@@ -461,18 +468,18 @@ Public Function Error(ByRef strBold As String _
     ' Build the error message string.
 
     ' Show message on any error level when we are not logging to a file.
-    Select Case ErrorLevel
+    Select Case ErrorLevelIn
         Case eelWarning, eelError, eelCritical
             ErrorResponse = Me.Prompt(strSource:=sourceFormatted _
                                     , strBold:=errorBold.GetStr _
                                     , strLine1:=errorFullDetails.GetStr _
                                     , strLine2:=moreDetails _
-                                    , ErrorLevel:=ErrorLevel _
+                                    , ErrorLevelIn:=ErrorLevelIn _
                                     , vbButtons:=f_vbButtons _
                                     , strTitle:=strTitle _
                                     , vbDefaultResult:=vbOK)
 
-            If ErrorLevel = eelCritical Then
+            If ErrorLevelIn = eelCritical Then
                 Me.SaveFile ' Performance reports are logged during save routines.
             Else
                 LogPerformanceReports
@@ -490,14 +497,14 @@ Public Function Error(ByRef strBold As String _
 
         Me.AddEntry strSource:=sourceFormatted _
                     , strMessage:=strWorking.GetStr _
-                    , ErrorLevel:=ErrorLevel _
+                    , ErrorLevelIn:=ErrorLevelIn _
                     , PrintEvent:=True _
                     , NextOutputOnNewLine:=True _
                     , PrintBold:=True
     End Select
 
     ' Update error level if higher.
-    If Operation.ErrorLevel < ErrorLevel Then Operation.ErrorLevel = ErrorLevel
+    If Operation.ErrorLevel < ErrorLevelIn Then Operation.ErrorLevel = ErrorLevelIn
     Perf.OperationEnd
     Error = ErrorResponse
 
@@ -506,7 +513,7 @@ End Function
 
 Public Function Prompt(ByRef strBold As String _
                     , Optional ByRef strSource As String = vbNullString _
-                    , Optional ByRef ErrorLevel As eErrorLevel = eErrorLevel.eelNoError _
+                    , Optional ByRef ErrorLevelIn As eErrorLevel = eErrorLevel.eelNoError _
                     , Optional ByRef strLine1 As String = vbNullString _
                     , Optional ByRef strLine2 As String = vbNullString _
                     , Optional ByRef vbButtons As VbMsgBoxStyle = vbOKOnly _
@@ -539,7 +546,7 @@ Public Function Prompt(ByRef strBold As String _
 
     sourceFormatted = Nz2(strSource, "Log") & ".Prompt"
     titleFormatted = Nz2(strTitle, sourceFormatted)
-    errorLevelInfo.ErrorLevel = ErrorLevel
+    errorLevelInfo.ErrorLevel = ErrorLevelIn
 
     LineCount = SCREEN_ROWS_MAX_DEFAULT
     strBoldLines = FitStringToWidth(strBold, WIDTH_MAX_MSGBOX, WIDTH_DESIRED_MSGBOX, LineCount)
@@ -589,7 +596,7 @@ Public Function Prompt(ByRef strBold As String _
             .Add cstrSpacer
             .Remove 4 ' Remove the last line feed.
         End With
-        Me.AddEntry strSource:=sourceFormatted, strMessage:=logEntryDetails.GetStr, ErrorLevel:=ErrorLevel
+        Me.AddEntry strSource:=sourceFormatted, strMessage:=logEntryDetails.GetStr, ErrorLevelIn:=ErrorLevelIn
     End If
 
     Prompt = PromptResult
@@ -718,7 +725,7 @@ End Property
 Public Sub LogPerformanceReports(Optional ByVal PrintEvent As Boolean = True)
     Me.AddEntry strSource:="Performance Reports" _
                 , strMessage:=FormatEntry(Perf.GetReports) _
-                , ErrorLevel:=eelDebugInfo _
+                , ErrorLevelIn:=eelDebugInfo _
                 , PrintEvent:=PrintEvent _
                 , PrintBold:=True
 End Sub
@@ -753,7 +760,7 @@ Retry:
     If Err.Number <> 0 Then
         If Me.Prompt(strSource:=FunctionName, strBold:="Error saving file." _
                     , strLine1:="Retry?" _
-                    , vbButtons:=vbYesNo, ErrorLevel:=eelError) = vbYes Then GoTo Retry
+                    , vbButtons:=vbYesNo, ErrorLevelIn:=eelError) = vbYes Then GoTo Retry
 
     Else
         If NotQuiet Then
