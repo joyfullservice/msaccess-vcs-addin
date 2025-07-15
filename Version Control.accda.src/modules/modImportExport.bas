@@ -204,8 +204,10 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         If lngCount > 0 Then
 
             ' Show category header and clear out any orphaned files.
-            Log.Spacer Options.ShowDebug
-            Log.AddEntry T("Exporting {0}...", var0:=T(LCase(cCategory.Category))), strSource:=FunctionName, ErrorLevelIn:=eelDebugEvent
+            If Options.ShowDebug Then Log.Spacer Options.ShowDebug
+            Log.AddEntry T("Exporting {0}...", var0:=T(LCase(cCategory.Category))) _
+                        , strSource:=FunctionName, ErrorLevelIn:=eelDebugEvent _
+                        , PrintEvent:=Options.ShowDebug, NextOutputOnNewLine:=False
             Log.ProgMax = lngCount
             Perf.CategoryStart cCategory.Category
 
@@ -230,7 +232,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 End If
 
                 ' Bail out if we hit a critical error.
-                CatchAny eelError, T("Error exporting {0}", var0:=cDbObject.Name), ModuleName & ".ExportSource", True, True
+                CatchAny eelError, T("Error exporting {0}", var0:=cDbObject.Name), FunctionName, True, True
                 If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
                 Log.Increment
 
@@ -261,7 +263,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Perf.OperationStart "RunAfterExport"
         RunSubInCurrentProject Options.RunAfterExport
         Perf.OperationEnd
-        CatchAny eelError, T("Error running {0}", var0:=Options.RunAfterExport), ModuleName & ".ExportSource", True, True
+        CatchAny eelError, T("Error running {0}", var0:=Options.RunAfterExport), FunctionName, True, True
     End If
 
     ' Show final output and save log
