@@ -21,39 +21,33 @@ Option Explicit
 '
 Private Const ModuleName As String = "clsLog2"
 
-Private Const DefaultLogTableName As String = "tblErrorLog"
+Private Const DefaultLogTableName As String = "tblLog"
 
 Private Const MAX_ENTRY_COUNT_PROMPT As Long = 15000
-Private Const WIDTH_MAX_DEFAULT As Long = 200
 Private Const SCREEN_ROWS_MAX_DEFAULT As Long = 30 ' Assumes a msgbox half screen height at 1920x1080 resolution, allowing for Source String to be added.
 
 Private Const WIDTH_MAX_MSGBOX As Long = 350
 Private Const WIDTH_DESIRED_MSGBOX As Long = 200
-Private Const MSGBOX_SECTION_ADDER As Long = 1
-Private Const MSGBOX_BOLD_ROWS As Long = 20
-Private Const MSGBOX_LINE1_ROWS As Long = 10
+Private Const MSGBOX_LINE1_ROWS As Long = 10        ' If strBold exceeds SCREEN_ROWS_MAX_DEFAULT then we still want to show a minimum of context to user.
 Private Const MSGBOX_LINE2_ROWS As Long = 10
-Private Const MSGBOX_SOURCE_ROWS As Long = 5
-
+Private Const MSGBOX_SOURCE_ROWS As Long = 2        ' We want to show the source and ensure they get to see something at a minimum.
 Private Const cstrSpacer As String = "-------------------------------------"
 
-Private m_Console As clsConcat                   ' Console output
-Private m_RichText As TextBox                    ' Text box to display HTML
-Private m_Prog As clsLblProg                     ' Progress bar
-
-Private m_LogTableName As String
-
-Private m_LogadoStoredConnection As ADODB.Connection
-Private m_adoStoredCMDAddEntry As ADODB.Command
-Private m_sngLastUpdate As Single
-
+Public SourcePath As String         ' Externally defined, used to tell the log where to store the log.
 
 Private Type udtThis
     ' Log level: log everything at and below set level (except for "no error"
     ' which is logged unless log is set to off).
     LogLevel As eErrorLevel
+    LogTableName As String          ' Name of the table used by the log class.
 
-    SourcePath As String
+    sngLastUpdate As Single         ' Timer value at last console update.
+    Console As clsConcat            ' Console output
+    RichText As TextBox             ' Text box to display HTML
+    Prog As clsLblProg              ' Progress bar
+
+    LogadoStoredConnection As ADODB.Connection
+    adoStoredCMDAddEntry As ADODB.Command
 
 End Type
 Private this As udtThis
@@ -67,9 +61,13 @@ Private this As udtThis
 '
 Private Sub Class_Initialize()
 
-    Set m_Console = New clsConcat
-    m_sngLastUpdate = 0
-    'SetupLogTable
+    Dim emptyThis As udtThis
+    Set this.adoStoredCMDAddEntry = Nothing
+    Set this.LogadoStoredConnection = Nothing
+
+    LSet this = emptyThis
+    Set this.Console = New clsConcat
+    this.sngLastUpdate = 0
 
 End Sub
 
@@ -114,14 +112,13 @@ ClearLog:
         .CommandText = "DELETE FROM " & Me.LogTableName & ";"
         .Execute
     End With
-   ' ExecuteLocalSQL "DELETE FROM " & Me.LogTableName & ";"
     Class_Initialize
 
 End Sub
 
 
 Public Sub ClearConsole()
-    m_Console.Clear
+    this.Console.Clear
     Me.Flush
 End Sub
 
@@ -169,12 +166,12 @@ Public Sub AddEntry(ByRef strMessage As String _
 
     If Not IsEntryLogged(ErrorLevel) Then GoTo Exit_Here
     If PrintEvent Then
-        m_Console.Add FormatEntry(strMessage, NextOutputOnNewLine, OutputColor, PrintBold, PrintItalic)
+        this.Console.Add FormatEntry(strMessage, NextOutputOnNewLine, OutputColor, PrintBold, PrintItalic)
 
         ' Allow an update to the screen every second.
         ' (This keeps the aplication from an apparent hang while
         '  running intensive export processes.)
-        If m_sngLastUpdate + 0.1 < Timer Then Me.Flush
+        If this.sngLastUpdate + 0.1 < Timer Then Me.Flush
     End If
 
     Set adoCMD = GetLogStoredCommand
@@ -243,7 +240,7 @@ Private Function GetLogStoredCommand() As ADODB.Command
 
     Dim SQLString As clsConcat
 
-    If m_adoStoredCMDAddEntry Is Nothing Then
+    If this.adoStoredCMDAddEntry Is Nothing Then
         Set SQLString = New clsConcat
         With SQLString
             .Add "PARAMETERS "
@@ -277,8 +274,8 @@ Private Function GetLogStoredCommand() As ADODB.Command
             .Add ");"
         End With
 
-        Set m_adoStoredCMDAddEntry = New ADODB.Command
-        With m_adoStoredCMDAddEntry
+        Set this.adoStoredCMDAddEntry = New ADODB.Command
+        With this.adoStoredCMDAddEntry
             Set .ActiveConnection = Me.LogConnectionADO
             .CommandText = SQLString.GetStr
             .CommandType = adCmdText
@@ -295,12 +292,12 @@ Private Function GetLogStoredCommand() As ADODB.Command
         End With
     End If
 
-    With m_adoStoredCMDAddEntry
+    With this.adoStoredCMDAddEntry
         If .ActiveConnection Is Nothing Then Set .ActiveConnection = Me.LogConnectionADO
         If (.ActiveConnection.State And adStateOpen) <> adStateOpen Then .ActiveConnection.Open
     End With
 
-    Set GetLogStoredCommand = m_adoStoredCMDAddEntry
+    Set GetLogStoredCommand = this.adoStoredCMDAddEntry
 
 End Function
 
@@ -346,20 +343,20 @@ Public Sub Flush()
 
     ' See if the GUI form is loaded.
     Perf.OperationStart "Console Updates"
-    If Not m_RichText Is Nothing Then
-        VerifyFocus m_RichText
-        With m_RichText
+    If Not this.RichText Is Nothing Then
+        VerifyFocus this.RichText
+        With this.RichText
             ' Set value, not text to avoid errors with large text strings.
             Echo False
             ' Show the last 20K characters so
             ' we don't hit the Integer limit
             ' on the SelStart property.
-            .Value = m_Console.RightStr(20000)
-            If VerifyFocus(m_RichText, True) Then .SelStart = Len(.Text & vbNullString)
+            .Value = this.Console.RightStr(20000)
+            If VerifyFocus(this.RichText, True) Then .SelStart = Len(.Text & vbNullString)
             Echo True
         End With
     End If
-    m_sngLastUpdate = Timer
+    this.sngLastUpdate = Timer
     ' Update the display (especially for immediate window)
     DoEvents
     Perf.OperationEnd
@@ -377,9 +374,9 @@ End Sub
 '
 Public Function Error(ByRef strBold As String _
                     , ByRef strSource As String _
-                    , ByRef ErrorLevel As eErrorLevel _
+                    , ByVal ErrorLevel As eErrorLevel _
                     , Optional ByRef strErrDescription As String _
-                    , Optional ByRef vbButtons As VbMsgBoxStyle = vbOKOnly _
+                    , Optional ByVal vbButtons As VbMsgBoxStyle = vbOKOnly _
                     , Optional ByRef strTitle As String = vbNullString _
                     , Optional ByRef moreDetails As String = vbNullString) As VbMsgBoxResult
 
@@ -390,7 +387,7 @@ Public Function Error(ByRef strBold As String _
     Dim errorFullDetails As New clsConcat
     Dim errorLevelInfo As New clsErrorInfo
     Dim sourceFormatted As String
-    Dim intButtons As VbMsgBoxStyle
+    Dim f_vbButtons As VbMsgBoxStyle
     Dim strWorking As New clsConcat
 
     Error = vbCancel
@@ -400,7 +397,8 @@ Public Function Error(ByRef strBold As String _
     sourceFormatted = strSource & ".Error"
 
     With strWorking
-        .Add errorLevelInfo.Prefix
+        .Add errorLevelInfo.Prefix, vbNewLine
+        .Add strBold, vbNewLine
         If Err Then .Add "Number: ", Err.Number, " ", Err.Description, " ", Err.Source
         .Add vbNewLine, strErrDescription
     End With
@@ -425,7 +423,7 @@ Public Function Error(ByRef strBold As String _
     End With
 
     ' Or performs a bitwise operation here
-    intButtons = vbButtons Or errorLevelInfo.MsgBoxStyle
+    f_vbButtons = vbButtons Or errorLevelInfo.MsgBoxStyle
     ' Build the error message string.
 
     ' Show message on any error level when we are not logging to a file.
@@ -436,8 +434,9 @@ Public Function Error(ByRef strBold As String _
                                     , strLine1:=errorFullDetails.GetStr _
                                     , strLine2:=moreDetails _
                                     , ErrorLevel:=ErrorLevel _
-                                    , vbButtons:=vbButtons _
-                                    , strTitle:=strTitle)
+                                    , vbButtons:=f_vbButtons _
+                                    , strTitle:=strTitle _
+                                    , vbDefaultResult:=vbOK)
 
             If ErrorLevel = eelCritical Then
                 Me.SaveFile ' Performance reports are logged during save routines.
@@ -449,9 +448,9 @@ Public Function Error(ByRef strBold As String _
         ' Log the error only if user isn't prompted; the prompt logs it for you
         With strWorking
             .Add FormatEntry(errorBold.GetStr, True, errorLevelInfo.ErrorColor, True)
-            If errorFullDetails.Length Then .Add vbNewLine, errorFullDetails.GetStr, vbNewLine
+            If errorFullDetails.Length Then .Add vbNewLine, errorFullDetails.GetStr
             If moreDetails <> vbNullString Then .Add vbNewLine, "More Details: ", moreDetails
-            If intButtons <> vbOKOnly Then .Add vbNewLine, "Buttons: ", CStr(intButtons)
+            If f_vbButtons <> vbOKOnly Then .Add vbNewLine, "Buttons: ", CStr(f_vbButtons)
             If strTitle <> vbNullString Then .Add vbNewLine, "Title: ", strTitle
         End With
 
@@ -528,10 +527,10 @@ Public Function Prompt(ByRef strBold As String _
 
     ' Check interaction mode
     If InteractionMode = eimNormal Then
-        PromptResult = MsgBox3(strBoldLines _
-                            , strBoxLines1 _
-                            , msgBoxStr2.GetStr _
-                            , vbButtons, titleFormatted)
+        PromptResult = MsgBox3(strBold:=strBoldLines _
+                            , strLine1:=strBoxLines1 _
+                            , strLine2:=msgBoxStr2.GetStr _
+                            , vbButtons:=vbButtons, strTitle:=titleFormatted)
     Else
         ' Just log the output
         ' https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/msgbox-function
@@ -580,7 +579,7 @@ End Function
 Private Function MsgBox3(ByRef strBold As String _
                         , Optional ByRef strLine1 As String = vbNullString _
                         , Optional ByRef strLine2 As String = vbNullString _
-                        , Optional ByRef intButtons As VbMsgBoxStyle = vbOKOnly _
+                        , Optional ByRef vbButtons As VbMsgBoxStyle = vbOKOnly _
                         , Optional ByRef strTitle As String = vbNullString) As VbMsgBoxResult
 
     Dim strMsg As String
@@ -593,7 +592,7 @@ Private Function MsgBox3(ByRef strBold As String _
     varLines(3) = Replace(strTitle, "'", "''")
 
     If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
-    strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
+    strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & vbButtons & ",'" & varLines(3) & "')"
     MsgBox3 = Eval(strMsg)
 
 End Function
@@ -606,11 +605,13 @@ End Function
 ' Purpose   : Set a reference to the text box.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SetConsole(ByRef txtRichText As TextBox)
-    Set m_RichText = txtRichText
-    If Not m_RichText Is Nothing Then
-        m_RichText.AllowAutoCorrect = False
+Public Sub SetConsole(ByRef RichTextControlIn As TextBox)
+
+    Set this.RichText = RichTextControlIn
+    If Not this.RichText Is Nothing Then
+        this.RichText.AllowAutoCorrect = False
     End If
+
 End Sub
 
 
@@ -622,29 +623,29 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Property Get LogFilePath() As String
-    Dim strFile As String
-'    Select Case Operation.OperationType
-'        Case eotExport: strFile = "Export.log"
-'        Case eotBuild:  strFile = "Build.log"
-'        Case eotMerge:  strFile = "Merge.log"
-'        Case Else:      strFile = "Other.log"
-'    End Select
-    LogFilePath = FSO.BuildPath(Nz2(this.SourcePath, Options.GetExportFolder), strFile)
+
+    Dim SanitizedFileName As String
+
+    Select Case Operation.OperationType
+        Case eotExport: SanitizedFileName = "Export"
+        Case eotBuild:  SanitizedFileName = "Build"
+        Case eotMerge:  SanitizedFileName = "Merge"
+        Case Else:      SanitizedFileName = "Other"
+    End Select
+
+    SanitizedFileName = SanitizedFileName & ".Log."
+    SanitizedFileName = SanitizedFileName & ISO8601TimeStamp(False, True) & ".xml"
+    SanitizedFileName = MultiReplace(SanitizedFileName, ":", "-") ' Replace Timestamp charachters with valid charachters.
+
+    LogFilePath = FSO.BuildPath(Nz2(SourcePath, Options.GetExportFolder), SanitizedFileName & ".log.xml")
+
 End Property
 
 
 Public Property Get LogTableName() As String
 
-    If m_LogTableName = vbNullString Then m_LogTableName = DefaultLogTableName
-    LogTableName = m_LogTableName
-
-End Property
-Public Property Let LogTableName(ByRef NewLogTableName As String)
-
-    If Not TableExists(NewLogTableName) Then
-        m_LogTableName = NewLogTableName
-        Class_Initialize
-   End If
+    If this.LogTableName = vbNullString Then this.LogTableName = DefaultLogTableName
+    LogTableName = this.LogTableName
 
 End Property
 
@@ -671,16 +672,16 @@ End Property
 ' Purpose   : Pass the Progress Bar reference to this class.
 '---------------------------------------------------------------------------------------
 '
-Public Property Set ProgressBar(ByRef cProg As clsLblProg)
-    Set m_Prog = cProg
+Public Property Set ProgressBar(cProg As clsLblProg)
+    Set this.Prog = cProg
 End Property
 Public Property Get ProgressBar() As clsLblProg
-    If m_Prog Is Nothing Then Set m_Prog = New clsLblProg
-    Set ProgressBar = m_Prog
+    If this.Prog Is Nothing Then Set this.Prog = New clsLblProg
+    Set ProgressBar = this.Prog
 End Property
 
 
-Public Sub LogPerformanceReports(Optional ByRef PrintEvent As Boolean = True)
+Public Sub LogPerformanceReports(Optional ByVal PrintEvent As Boolean = True)
     Me.AddEntry strSource:="Performance Reports" _
                 , strMessage:=FormatEntry(Perf.GetReports) _
                 , ErrorLevel:=eelDebugInfo _
@@ -689,27 +690,21 @@ Public Sub LogPerformanceReports(Optional ByRef PrintEvent As Boolean = True)
 End Sub
 
 
-Public Sub SaveFile(Optional strAlternateFileName As String _
-                    , Optional ByRef NotQuiet As Boolean = False)
+Public Sub SaveFile(Optional ByRef strAlternateFilePath As String _
+                    , Optional ByVal NotQuiet As Boolean = False)
 
     Const FunctionName As String = ModuleName & ".SaveFile"
+
     Dim OutputFilePath As String
-    Dim ReportTimeStamp As String
     Dim SanitizedFileName As String
-    Dim ShellCmdString As String
 
 Retry:
-
     ' Before exporting, insert entries for performance, because that might be useful.
-    ' You are, after all, exporting the log to troubleshoot...
-
     LogPerformanceReports False
 
-    ReportTimeStamp = ISO8601TimeStamp(False, False)
-    SanitizedFileName = Nz2(strAlternateFileName, "Log") & "." & ReportTimeStamp & ".log.xml"
-    SanitizedFileName = MultiReplace(SanitizedFileName, ":", "-") ' Replace Timestamp charachters with valid charachters.
-    OutputFilePath = FSO.BuildPath(Me.LogFilePath, SanitizedFileName)
+    OutputFilePath = Nz2(strAlternateFilePath, Me.LogFilePath)
     VerifyPath OutputFilePath
+    SanitizedFileName = FSO.GetFileName(OutputFilePath)
 
     With New ADODB.Recordset
         .Open Me.LogTableName, Me.LogConnectionADO, adOpenDynamic
@@ -732,11 +727,6 @@ Retry:
                     , strLine1:="Saved to: " & Me.LogFilePath _
                     , strLine2:="File Name: " & SanitizedFileName _
                     , strTitle:="Successfully saved log!"
-
-            If FSO.FileExists(OutputFilePath) Then
-                ShellCmdString = "explorer.exe /select, """ & OutputFilePath & """"
-                Shell ShellCmdString, vbNormalFocus
-            End If
         End If
         Me.Clear False
     End If
@@ -744,99 +734,7 @@ Retry:
 End Sub
 
 
-'Private Sub SetupLogTable()
-'
-'ReRun:
-'    SetupLocalTable LogTableName, eFieldTypeNotMatchDelete _
-'                    , "EntryID", "AUTOINCREMENT" _
-'                    , "EventLogTime", "VARCHAR(40)" _
-'                    , "UserID", "VARCHAR(40)" _
-'                    , "ComputerName", "VARCHAR(255)" _
-'                    , "ErrorNumber", "Long" _
-'                    , "EventSource", "LongText" _
-'                    , "EventMessage", "LongText" _
-'                    , "Printed", "Bit" _
-'                    , "ErrorLevel", "Long"
-'                   '
-''' Note: the later portions of this were originally to change the EventMessage field to RichText.
-''' I'm leaving it here because it might be useful later.
-''    Dim Db As DAO.Database
-''    Dim LogTable As DAO.TableDef
-''    Dim fld As DAO.field
-''    Dim logProperty As Property
-'
-''    'Now set MessageText to rich text, because you can't do it in SQL...
-''    Set Db = CurrentDb
-''    Set LogTable = Db.TableDefs(Me.LogTableName)
-''    Set fld = LogTable.Fields("EventMessage")
-''Recheck:
-''    With LogTable.Fields("EventMessage").Properties("TextFormat")
-''        If Catch(3270) Then GoTo AddProperty
-''        If .Value = acTextFormatPlain Then .Value = acTextFormatHTMLRichText
-''    End With
-''    'Normally , we 'd log this. but since we're trying to setup the log, don't.
-''    If CatchAny(eelerror, "Setting up Log table issue.", ModuleName & ".SetupLogTable", False, False) Then
-''        MsgBox3 "ERROR: Setting up Log table issue.", Err.Number, ModuleName & ".SetupLogTable"
-''        Err.Clear
-''    End If
-'
-'    Exit Sub
-'
-''AddProperty:
-''    Set logProperty = fld.CreateProperty("TextFormat", dbInteger, acTextFormatHTMLRichText)
-''    fld.Properties.Append logProperty
-''    GoTo Recheck
-'
-'End Sub
-
-'Public Function SetupLocalTable(ByRef TableName As String _
-'                                , ByRef DeleteExist As eTableRefreshMethod _
-'                                , ParamArray cNameTypePairs() As Variant) As String
-'
-'    Const FunctionName As String = ModuleName & ".SetupLocalTable"
-'    Dim SQLString As String
-'    Dim intPairs As Long
-'    Dim FieldList As New clsConcat
-'
-'    'LogUnhandledErrors FunctionName
-'   ' On Error GoTo ERR_Handle
-'
-''    If TableExists(TableName) Then
-''        Select Case DeleteExist
-''        Case eNoDelete
-''           Exit Function
-''        Case eFieldNotMatchDelete
-''            If FieldsMatch(TableName, False, CVar(cNameTypePairs)) Then Exit Function
-''        Case eFieldTypeNotMatchDelete
-''            If FieldsMatch(TableName, True, CVar(cNameTypePairs)) Then Exit Function
-''        Case eDeleteData
-''            'Nothing extra
-''        End Select
-''        'Close the table and delete it.
-''        DoCmd.Close acTable, TableName, acSaveNo
-''        DoCmd.DeleteObject acTable, TableName
-''    End If
-'
-'    For intPairs = 0 To UBound(cNameTypePairs) Step 2
-'        FieldList.Add "[", CStr(cNameTypePairs(intPairs)), "] ", CStr(cNameTypePairs(intPairs + 1)), vbNewLine, ", "
-'    Next intPairs
-'    ' Trim last comma and space
-'    FieldList.Remove 2
-'
-'    SQLString = "CREATE TABLE " & TableName & " (" & FieldList.GetStr & "); "
-'    SQLString = MultiReplace(SQLString, _
-'                                        vbNewLine, vbNullString)
-'    ExecuteLocalSQL SQLString
-'    SetupLocalTable = TableName
-'    Exit Function
-'
-'ERR_Handle:
-'    CatchAny eelError, "Cannot create table: " & TableName & ". SQL: " & SQLString, FunctionName
-'    Resume Next
-'End Function
-
-
-Public Property Let LogLevel(ByRef NewLogLevel As eErrorLevel)
+Public Property Let LogLevel(NewLogLevel As eErrorLevel)
     this.LogLevel = NewLogLevel
     If this.LogLevel = eelUninitialized Then this.LogLevel = eelDebugTrace
 End Property
@@ -861,30 +759,18 @@ Public Sub Increment()
 End Sub
 
 
-' This is only here because we want to remove external dependancies.
-Private Sub ExecuteLocalSQL(ByRef SQLString As String)
-
-    Dim Db As DAO.Database
-
-    Set Db = CurrentDb
-    Db.Execute SQLString
-    Set Db = Nothing
-
-End Sub
-
-
 Public Property Get LogConnectionADO() As ADODB.Connection
 
-    If m_LogadoStoredConnection Is Nothing Then Set m_LogadoStoredConnection = GetDefaultLogConnectionADO
-    Set LogConnectionADO = m_LogadoStoredConnection
+    If this.LogadoStoredConnection Is Nothing Then Set this.LogadoStoredConnection = GetDefaultLogConnectionADO
+    Set LogConnectionADO = this.LogadoStoredConnection
 
 End Property
 Public Property Let LogConnectionADO(NewVal As ADODB.Connection)
 
     If Not NewVal Is Nothing Then
-        Set m_LogadoStoredConnection = NewVal
+        Set this.LogadoStoredConnection = NewVal
     Else
-        Set m_LogadoStoredConnection = GetDefaultLogConnectionADO
+        Set this.LogadoStoredConnection = GetDefaultLogConnectionADO
     End If
 
 End Property
