@@ -18,7 +18,7 @@ Private m_Operation As clsOperation
 ' Use a private type to manage instances of object classes
 Private Type udtObjects
     Perf As clsPerformance
-    Log As clsLog
+    Log As clsLog2
     Options As clsOptions
     VCSIndex As clsVCSIndex
     Worker As clsWorker
@@ -155,8 +155,8 @@ End Function
 ' Purpose   : Wrapper for log file class
 '---------------------------------------------------------------------------------------
 '
-Public Function Log(Optional blnCreateInstance As Boolean = True) As clsLog
-    If this.Log Is Nothing Then If blnCreateInstance Then Set this.Log = New clsLog
+Public Function Log(Optional blnCreateInstance As Boolean = True) As clsLog2
+    If this.Log Is Nothing Then If blnCreateInstance Then Set this.Log = New clsLog2
     Set Log = this.Log
 End Function
 Public Function Log2(Optional blnCreateInstance As Boolean = True) As clsLog2
