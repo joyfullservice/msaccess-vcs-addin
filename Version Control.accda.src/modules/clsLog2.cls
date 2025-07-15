@@ -146,7 +146,40 @@ Public Sub Spacer(Optional ByVal blnPrint As Boolean = True)
     AddEntry vbNullString, cstrSpacer, eelError, blnPrint, True
 End Sub
 
+'
+'---------------------------------------------------------------------------------------
+' Procedure : Add
+' Author    : hecon5
+' Date      : 4/28/2020
+' Purpose   : Wrapper to ensure backward compatibility with prior log with minimal refactoring
+'---------------------------------------------------------------------------------------
+'
+Public Sub Add(strText As String _
+    , Optional blnPrint As Boolean = True _
+    , Optional blnNextOutputOnNewLine As Boolean = True _
+    , Optional strColor As String = vbNullString _
+    , Optional blnBold As Boolean = False _
+    , Optional blnItalic As Boolean = False)
 
+    Me.AddEntry strMessage:=strText _
+                , strSource:="Log.Add" _
+                , ErrorLevel:=eelNoError _
+                , PrintEvent:=blnPrint _
+                , NextOutputOnNewLine:=blnNextOutputOnNewLine _
+                , OutputColor:=strColor _
+                , PrintBold:=blnBold _
+                , PrintItalic:=blnItalic
+
+End Sub
+
+'
+'---------------------------------------------------------------------------------------
+' Procedure : AddEntry
+' Author    : hecon5
+' Date      : 4/28/2020
+' Purpose   : Add entry to the log table
+'---------------------------------------------------------------------------------------
+'
 Public Sub AddEntry(ByRef strMessage As String _
                     , Optional ByRef strSource As String _
                     , Optional ByVal ErrorLevel As eErrorLevel = eelNoError _
