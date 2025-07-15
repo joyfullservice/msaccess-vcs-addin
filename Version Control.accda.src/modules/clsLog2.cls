@@ -756,10 +756,11 @@ End Property
 
 Public Sub LogPerformanceReports(Optional ByVal PrintEvent As Boolean = True)
     Me.AddEntry strSource:="Performance Reports" _
-                , strMessage:=FormatEntry(Perf.GetReports) _
+                , strMessage:=Perf.GetReports _
                 , ErrorLevelIn:=eelDebugInfo _
+                , OutputColor:="black" _
                 , PrintEvent:=PrintEvent _
-                , PrintBold:=True
+                , PrintBold:=False
 End Sub
 
 
@@ -774,7 +775,7 @@ Public Sub SaveFile(Optional ByRef strAlternateFilePath As String _
 
 Retry:
     ' Before exporting, insert entries for performance, because that might be useful.
-    LogPerformanceReports False
+    LogPerformanceReports
 
     OutputFilePath = Nz2(strAlternateFilePath, Me.LogFilePath)
     VerifyPath OutputFilePath
