@@ -52,6 +52,7 @@ Private Type udtThis
 End Type
 Private this As udtThis
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : Class_Initialize
 ' Author    : Adam Waller
@@ -471,7 +472,7 @@ End Function
 
 
 Public Function Prompt(ByRef strBold As String _
-                    , ByRef strSource As String _
+                    , Optional ByRef strSource As String = vbNullString _
                     , Optional ByRef ErrorLevel As eErrorLevel = eErrorLevel.eelNoError _
                     , Optional ByRef strLine1 As String = vbNullString _
                     , Optional ByRef strLine2 As String = vbNullString _
@@ -503,7 +504,7 @@ Public Function Prompt(ByRef strBold As String _
     ' Turn off any hourglass
     intCursor = Screen.MousePointer
 
-    sourceFormatted = strSource & ".Prompt"
+    sourceFormatted = Nz2(strSource, "Log") & ".Prompt"
     titleFormatted = Nz2(strTitle, sourceFormatted)
     errorLevelInfo.ErrorLevel = ErrorLevel
 
