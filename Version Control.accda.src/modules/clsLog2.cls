@@ -635,10 +635,10 @@ Public Property Get LogFilePath() As String
     End Select
 
     SanitizedFileName = SanitizedFileName & ".Log."
-    SanitizedFileName = SanitizedFileName & ISO8601TimeStamp(False, True) & ".xml"
+    SanitizedFileName = SanitizedFileName & ISO8601TimeStamp(False, False) & ".xml"
     SanitizedFileName = MultiReplace(SanitizedFileName, ":", "-") ' Replace Timestamp charachters with valid charachters.
 
-    LogFilePath = FSO.BuildPath(Nz2(SourcePath, Options.GetExportFolder), SanitizedFileName & ".log.xml")
+    LogFilePath = FSO.BuildPath(Nz2(SourcePath, Options.GetExportFolder), SanitizedFileName)
 
 End Property
 
