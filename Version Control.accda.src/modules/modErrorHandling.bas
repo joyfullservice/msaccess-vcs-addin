@@ -127,7 +127,7 @@ Public Function CatchAny(eLevel As eErrorLevel, strDescription As String, Option
     If Err Then
         If blnLogError Then
             this.blnInError = True
-            Log.Error eLevel, strDescription, strSource, blnIncludeErrorWithDescription
+            Log.Error eLevel, strDescription, strSource
             this.blnInError = False
         End If
         If blnClearError Then Err.Clear
