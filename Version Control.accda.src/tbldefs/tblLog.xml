@@ -3,12 +3,12 @@
   <xsd:element name="dataroot">
     <xsd:complexType>
       <xsd:sequence>
-        <xsd:element ref="tblErrorLog" minOccurs="0" maxOccurs="unbounded"></xsd:element>
+        <xsd:element ref="tblLog" minOccurs="0" maxOccurs="unbounded"></xsd:element>
       </xsd:sequence>
       <xsd:attribute name="generated" type="xsd:dateTime"></xsd:attribute>
     </xsd:complexType>
   </xsd:element>
-  <xsd:element name="tblErrorLog">
+  <xsd:element name="tblLog">
     <xsd:annotation>
       <xsd:appinfo>
         <od:tableProperty name="Orientation" type="2" value="0"></od:tableProperty>
@@ -29,7 +29,6 @@
         <od:tableProperty name="DatasheetGridlinesThemeColorIndex" type="4" value="-1"></od:tableProperty>
         <od:tableProperty name="DatasheetForeThemeColorIndex" type="4" value="-1"></od:tableProperty>
         <od:tableProperty name="RowHeight" type="3" value="3765"></od:tableProperty>
-        <od:tableProperty name="OrderBy" type="12" value="[tblErrorLog].[EntryID]"></od:tableProperty>
       </xsd:appinfo>
     </xsd:annotation>
     <xsd:complexType>

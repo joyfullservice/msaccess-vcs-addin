@@ -1,4 +1,4 @@
-﻿CREATE TABLE [tblErrorLog] (
+﻿CREATE TABLE [tblLog] (
   [EntryID] AUTOINCREMENT,
   [EventLogTime] VARCHAR (40),
   [UserID] VARCHAR (40),
