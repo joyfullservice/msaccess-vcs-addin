@@ -21,6 +21,8 @@ Private Const ModuleName As String = "modImportExport"
 '
 Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContainerFilter = ecfAllObjects, Optional frmMain As Form_frmVCSMain)
 
+    Const FunctionName As String = ModuleName & ".ExportSource"
+
     Dim dCategories As Dictionary
     Dim colCategories As Collection
     Dim dCategory As Dictionary
@@ -51,7 +53,6 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Options.LoadProjectOptions
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
-    Log.Active = True
     Perf.StartTiming
 
     ' Check error handling mode after loading project options
@@ -205,7 +206,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
             ' Show category header and clear out any orphaned files.
             Log.Spacer Options.ShowDebug
-            Log.PadRight T("Exporting {0}...", var0:=T(LCase(cCategory.Category))), , Options.ShowDebug
+            Log.AddEntry T("Exporting {0}...", var0:=T(LCase(cCategory.Category))), strSource:=FunctionName, ErrorLevelIn:=eelDebugEvent
             Log.ProgMax = lngCount
             Perf.CategoryStart cCategory.Category
 
@@ -277,9 +278,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
-        .Active = False
         .Flush
     End With
 
@@ -337,7 +336,6 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     Options.LoadProjectOptions
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
-    Log.Active = True
     Perf.StartTiming
 
     ' Check error handling mode after loading project options
@@ -421,9 +419,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
-        .Active = False
         .Flush
     End With
 
@@ -507,7 +503,6 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     Options.LoadProjectOptions
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
-    Log.Active = True
     Perf.StartTiming
 
     ' Check error handling mode after loading project options
@@ -619,9 +614,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
-        .Active = False
         .Flush
     End With
 
@@ -909,7 +902,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     ' Start log and performance timers
     Log.Clear
     Log.SourcePath = strSourceFolder
-    Log.Active = True
     Perf.StartTiming
 
     ' Launch the GUI form
@@ -1087,8 +1079,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
         ' Show category header
         Log.Spacer Options.ShowDebug
-        Log.PadRight T(IIf(blnFullBuild, "Importing {0}...", "Merging {0}..."), _
-            var0:=T(LCase(cCategory.Category))), , Options.ShowDebug
+        Log.AddEntry T(IIf(blnFullBuild, "Importing {0}...", "Merging {0}..."), _
+                        var0:=T(LCase(cCategory.Category))), strSource:=FunctionName, ErrorLevelIn:=eelDebugEvent
         Log.ProgMax = dFiles.Count
         Perf.CategoryStart cCategory.Category
 
@@ -1191,9 +1183,7 @@ CleanUp:
     ' Add performance data to log file and save file.
     Perf.EndTiming
     With Log
-        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
-        .Active = False
     End With
 
     ' Show message if build failed
@@ -1279,7 +1269,6 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     Options.LoadProjectOptions
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
-    Log.Active = True
     Perf.StartTiming
 
     ' Check error handling mode after loading project options
@@ -1352,9 +1341,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
-        .Active = False
         .Flush
     End With
 
@@ -1422,6 +1409,8 @@ End Sub
 '
 Public Sub MergeAllSource()
 
+    Const FunctionName As String = ModuleName & ".MergeAllSource"
+
     Dim dCategories As Dictionary
     Dim dCategory As Dictionary
     Dim cCategory As IDbComponent
@@ -1442,7 +1431,6 @@ Public Sub MergeAllSource()
     Options.LoadProjectOptions
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
-    Log.Active = True
     Perf.StartTiming
 
     ' Check error handling mode after loading project options
@@ -1501,7 +1489,7 @@ Public Sub MergeAllSource()
         Else
             ' Show category header
             Log.Spacer Options.ShowDebug
-            Log.PadRight T("Merging ") & LCase(cCategory.Category) & "...", , Options.ShowDebug
+            Log.AddEntry T("Merging ") & LCase(cCategory.Category) & "...", strSource:=FunctionName, ErrorLevelIn:=eelDebugEvent
             Log.ProgMax = dFiles.Count
             Perf.CategoryStart cCategory.Category
 
@@ -1536,9 +1524,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
-        .Active = False
         .Flush
     End With
 

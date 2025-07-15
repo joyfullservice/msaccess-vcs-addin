@@ -103,9 +103,7 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
     Perf.EndTiming
     With Log
         .Flush
-        .Add vbCrLf & Perf.GetReports, False
         .SaveFile FSO.BuildPath(Options.GetExportFolder, "References.log")
-        .Active = False
         .Clear
     End With
 
