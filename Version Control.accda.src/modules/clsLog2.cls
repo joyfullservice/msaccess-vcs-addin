@@ -118,12 +118,6 @@ ClearLog:
 End Sub
 
 
-Public Sub ClearConsole()
-    this.Console.Clear
-    Me.Flush
-End Sub
-
-
 Public Function IsEntryLogged(ByVal ErrorLevelIn As eErrorLevel) As Boolean
 
 '    If (EventErrorLevel And Me.LogLevel) = EventErrorLevel _
@@ -646,13 +640,35 @@ End Function
 ' Purpose   : Set a reference to the text box.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SetConsole(ByRef RichTextControlIn As TextBox)
+Public Sub SetConsole(ByRef RichTextControlIn As TextBox _
+                    , ByRef ProgressBarIn As clsLblProg)
 
     Set this.RichText = RichTextControlIn
+    Set this.Prog = ProgressBarIn
     If Not this.RichText Is Nothing Then
         this.RichText.AllowAutoCorrect = False
     End If
 
+End Sub
+
+
+' Clear the console box of other text.
+Public Sub ClearConsole()
+    this.Console.Clear
+    Me.Flush
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReleaseConsole
+' Author    : Adam Waller, hecon5
+' Date      : 5/5/2022
+' Purpose   : Releases object references to the console form that were created with
+'           : the SetConsole sub.
+'---------------------------------------------------------------------------------------
+Public Sub ReleaseConsole()
+    Set this.RichText = Nothing
+    Set this.Prog = Nothing
 End Sub
 
 
@@ -719,6 +735,18 @@ End Property
 Public Property Get ProgressBar() As clsLblProg
     If this.Prog Is Nothing Then Set this.Prog = New clsLblProg
     Set ProgressBar = this.Prog
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ProgMax
+' Author    : Adam Waller
+' Date      : 11/6/2020
+' Purpose   : Wrapper to set max value for progress bar.
+'---------------------------------------------------------------------------------------
+'
+Public Property Let ProgMax(NewMaxValue As Long)
+    If Not this.Prog Is Nothing Then this.Prog.Max = NewMaxValue
 End Property
 
 
