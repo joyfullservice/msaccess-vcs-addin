@@ -271,17 +271,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
 
 CleanUp:
-
     ' Run any cleanup routines
     VCSIndex.ClearTempExportFolder
     RemoveThemeZipFiles
-
-    ' Add performance data to log file and save file
-    Perf.EndTiming
-    With Log
-        .SaveFile
-        .Flush
-    End With
 
     ' Check for VCS_ImportExport.bas (Used with other forks)
     CheckForLegacyModules
@@ -295,6 +287,13 @@ CleanUp:
         If blnFullExport Then .FullExportDate = Now
         .OptionsHash = Options.GetHash
         .Save
+    End With
+
+     ' Add performance data to log file and save file
+    Perf.EndTiming
+    With Log
+        .SaveFile
+        .Flush
     End With
 
 End Sub
@@ -1177,12 +1176,6 @@ CleanUp:
     ' Close the cached connections, if any
     CloseCachedConnections
 
-    ' Add performance data to log file and save file.
-    Perf.EndTiming
-    With Log
-        .SaveFile
-    End With
-
     ' Show message if build failed
     If Operation.ErrorLevel = eelCritical Or Not blnSuccess Then
         Log.Spacer
@@ -1223,6 +1216,13 @@ CleanUp:
             T("Note that some settings may not take effect until this database is reopened."), _
             T("A backup of the previous build was saved as '{0}'.", var0:=FSO.GetFileName(strBackup)), vbInformation
     End If
+
+
+    ' Add performance data to log file and save file.
+    Perf.EndTiming
+    With Log
+        .SaveFile
+    End With
 
 End Sub
 
