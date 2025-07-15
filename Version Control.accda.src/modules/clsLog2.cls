@@ -80,7 +80,8 @@ End Sub
 ' Purpose   : Clear the log buffers
 '---------------------------------------------------------------------------------------
 '
-Public Sub Clear(Optional ByVal CheckFirst As Boolean = False)
+Public Sub Clear(Optional ByVal CheckFirst As Boolean = False _
+                , Optional ByVal ClearConsoleAlso As Boolean = True)
 
     Const FunctionName As String = ModuleName & ".Clear"
 
@@ -113,7 +114,10 @@ ClearLog:
         .CommandText = "DELETE FROM " & Me.LogTableName & ";"
         .Execute
     End With
-    Class_Initialize
+    If ClearConsoleAlso Then
+        this.Console.Clear
+        this.sngLastUpdate = 0
+    End If
 
 End Sub
 
@@ -137,7 +141,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub Spacer(Optional ByVal blnPrint As Boolean = True)
-    AddEntry vbNullString, cstrSpacer, eelError, blnPrint, True
+    AddEntry strMessage:=cstrSpacer, strSource:="Log.Spacer", ErrorLevelIn:=Operation.ErrorLevel, PrintEvent:=blnPrint, NextOutputOnNewLine:=True
 End Sub
 
 '
@@ -760,7 +764,8 @@ End Sub
 
 
 Public Sub SaveFile(Optional ByRef strAlternateFilePath As String _
-                    , Optional ByVal NotQuiet As Boolean = False)
+                    , Optional ByVal NotQuiet As Boolean = False _
+                    , Optional ByVal ClearConsoleAlso As Boolean = False)
 
     Const FunctionName As String = ModuleName & ".SaveFile"
 
@@ -797,7 +802,7 @@ Retry:
                     , strLine2:="File Name: " & SanitizedFileName _
                     , strTitle:="Successfully saved log!"
         End If
-        Me.Clear False
+        Me.Clear False, ClearConsoleAlso
     End If
 
 End Sub
