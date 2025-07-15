@@ -80,7 +80,7 @@ End Sub
 ' Purpose   : Clear the log buffers
 '---------------------------------------------------------------------------------------
 '
-Public Sub Clear(Optional ByVal CheckFirst As Boolean = True)
+Public Sub Clear(Optional ByVal CheckFirst As Boolean = False)
 
     Const FunctionName As String = ModuleName & ".Clear"
 
