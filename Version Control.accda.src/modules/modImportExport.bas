@@ -51,7 +51,6 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
-    Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Perf.StartTiming
 
@@ -334,7 +333,6 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
-    Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Perf.StartTiming
 
@@ -458,7 +456,6 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Reset the log file
-    Log.Clear
 
     ' Use the main form to display progress
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
@@ -501,7 +498,6 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
-    Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Perf.StartTiming
 
@@ -900,7 +896,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     End If
 
     ' Start log and performance timers
-    Log.Clear
     Log.SourcePath = strSourceFolder
     Perf.StartTiming
 
@@ -1267,7 +1262,6 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
-    Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Perf.StartTiming
 
@@ -1429,7 +1423,6 @@ Public Sub MergeAllSource()
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
-    Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Perf.StartTiming
 

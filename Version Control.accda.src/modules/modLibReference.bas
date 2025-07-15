@@ -46,8 +46,6 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
         Exit Sub
     End If
 
-    ' Reset the log file
-    Log.Clear
     strPath = CurrentProject.FullName
     strFolder = CurrentProject.Path & PathSep
 
