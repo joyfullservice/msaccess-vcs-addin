@@ -123,7 +123,7 @@ Public Sub ClearConsole()
 End Sub
 
 
-Public Function IsEntryLogged(ByRef ErrorLevel As eErrorLevel) As Boolean
+Public Function IsEntryLogged(ByVal ErrorLevel As eErrorLevel) As Boolean
 
 '    If (EventErrorLevel And Me.LogLevel) = EventErrorLevel _
 '        And (EventErrorLevel >= Me.LogLevel) _
