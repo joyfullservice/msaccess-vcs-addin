@@ -16,10 +16,10 @@ Begin Form
     Width =10080
     DatasheetFontHeight =11
     ItemSuffix =310
-    Left =32025
-    Top =2430
-    Right =-13951
-    Bottom =14895
+    Left =-25575
+    Top =9270
+    Right =-6825
+    Bottom =22905
     RecSrcDt = Begin
         0x79e78b777268e540
     End
@@ -186,8 +186,9 @@ Begin Form
             ShowPageHeaderAndPageFooter =1
         End
         Begin Tab
+            TextFontFamily =18
             FontSize =11
-            FontName ="Calibri"
+            FontName ="Cambria"
             ThemeFontIndex =0
             GridlineThemeColorIndex =1
             GridlineShade =65.0
@@ -396,12 +397,14 @@ Begin Form
                 End
                 Begin Tab
                     OverlapFlags =85
+                    TextFontFamily =34
                     Left =525
                     Top =1500
                     Width =9015
                     Height =4845
                     TabIndex =2
                     Name ="tabOptions"
+                    FontName ="Calibri"
                     HorizontalAnchor =2
                     VerticalAnchor =2
 
@@ -436,30 +439,80 @@ Begin Form
                             LayoutCachedWidth =9465
                             LayoutCachedHeight =6275
                             Begin
-                                Begin CheckBox
+                                Begin ComboBox
+                                    LimitToList = NotDefault
+                                    RowSourceTypeInt =1
                                     OverlapFlags =215
-                                    Left =1020
-                                    Top =4020
-                                    Name ="chkShowDebug"
+                                    IMESentenceMode =3
+                                    ColumnCount =2
+                                    Left =2400
+                                    Top =3540
+                                    Width =1860
+                                    Height =315
+                                    Name ="cboLogLevel"
+                                    RowSourceType ="Value List"
+                                    ColumnWidths ="0"
+                                    ControlTipText ="Log anything at or below this level"
+                                    AllowValueListEdits =0
 
-                                    LayoutCachedLeft =1020
-                                    LayoutCachedTop =4020
-                                    LayoutCachedWidth =1280
-                                    LayoutCachedHeight =4260
+                                    LayoutCachedLeft =2400
+                                    LayoutCachedTop =3540
+                                    LayoutCachedWidth =4260
+                                    LayoutCachedHeight =3855
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
-                                            Left =1320
-                                            Top =3960
-                                            Width =2640
-                                            Height =315
+                                            Left =1020
+                                            Top =3540
+                                            Width =1320
+                                            Height =305
                                             ForeColor =5324600
-                                            Name ="Label23"
-                                            Caption ="Show Detailed Output"
-                                            LayoutCachedLeft =1320
+                                            Name ="Label313"
+                                            Caption ="Log Level"
+                                            LayoutCachedLeft =1020
+                                            LayoutCachedTop =3540
+                                            LayoutCachedWidth =2340
+                                            LayoutCachedHeight =3845
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin ComboBox
+                                    LimitToList = NotDefault
+                                    RowSourceTypeInt =1
+                                    OverlapFlags =215
+                                    IMESentenceMode =3
+                                    ColumnCount =2
+                                    Left =2400
+                                    Top =3960
+                                    Width =1860
+                                    Height =315
+                                    TabIndex =1
+                                    Name ="cboDisplayLogLevel"
+                                    RowSourceType ="Value List"
+                                    ColumnWidths ="0"
+                                    ControlTipText ="Display anything at or below this level"
+                                    AllowValueListEdits =0
+
+                                    LayoutCachedLeft =2400
+                                    LayoutCachedTop =3960
+                                    LayoutCachedWidth =4260
+                                    LayoutCachedHeight =4275
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =1020
+                                            Top =3960
+                                            Width =1320
+                                            Height =305
+                                            ForeColor =5324600
+                                            Name ="Label311"
+                                            Caption ="Display Level"
+                                            LayoutCachedLeft =1020
                                             LayoutCachedTop =3960
-                                            LayoutCachedWidth =3960
-                                            LayoutCachedHeight =4275
+                                            LayoutCachedWidth =2340
+                                            LayoutCachedHeight =4265
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -469,7 +522,7 @@ Begin Form
                                     OverlapFlags =215
                                     Left =1020
                                     Top =4440
-                                    TabIndex =1
+                                    TabIndex =2
                                     Name ="chkBreakOnError"
 
                                     LayoutCachedLeft =1020
@@ -499,7 +552,7 @@ Begin Form
                                     OverlapFlags =215
                                     Left =1020
                                     Top =4860
-                                    TabIndex =2
+                                    TabIndex =3
                                     Name ="chkShowVCSLegacy"
 
                                     LayoutCachedLeft =1020
@@ -529,7 +582,7 @@ Begin Form
                                     OverlapFlags =215
                                     Left =1020
                                     Top =5280
-                                    TabIndex =6
+                                    TabIndex =4
                                     Name ="chkUseShortHash"
 
                                     LayoutCachedLeft =1020
@@ -602,7 +655,7 @@ Begin Form
                                     Top =4320
                                     Width =1740
                                     Height =315
-                                    TabIndex =3
+                                    TabIndex =6
                                     Name ="cboDiffTool"
                                     RowSourceType ="Value List"
                                     RowSource ="\"WinMerge\";\"VSCode\";\"TortoiseGitDiff\""
@@ -641,7 +694,7 @@ Begin Form
                                     Top =4740
                                     Width =1740
                                     Height =315
-                                    TabIndex =9
+                                    TabIndex =7
                                     Name ="cboOpenRepository"
                                     RowSourceType ="Value List"
                                     RowSource ="0;\"\";1;\"Github Desktop\";2;\"VSCode\";3;\"Sourcetree\";4;\"Tortoise Git\""
@@ -681,7 +734,7 @@ Begin Form
                                     Top =5160
                                     Width =1740
                                     Height =315
-                                    TabIndex =7
+                                    TabIndex =8
                                     Name ="cboLanguage"
                                     RowSourceType ="Table/Query"
                                     RowSource ="SELECT tblLanguages.ID, tblLanguages.DisplayName FROM tblLanguages; "
@@ -722,7 +775,7 @@ Begin Form
                                     Width =1500
                                     Height =240
                                     FontSize =10
-                                    TabIndex =8
+                                    TabIndex =9
                                     Name ="cmdTranslations"
                                     Caption ="Translations..."
                                     OnClick ="[Event Procedure]"
@@ -795,28 +848,28 @@ Begin Form
                                 Begin CheckBox
                                     Visible = NotDefault
                                     OverlapFlags =215
-                                    Left =6060
+                                    Left =6240
                                     Top =2100
-                                    TabIndex =4
+                                    TabIndex =11
                                     Name ="chkUseGitIntegration"
 
-                                    LayoutCachedLeft =6060
+                                    LayoutCachedLeft =6240
                                     LayoutCachedTop =2100
-                                    LayoutCachedWidth =6320
+                                    LayoutCachedWidth =6500
                                     LayoutCachedHeight =2340
                                     Begin
                                         Begin Label
-                                            OverlapFlags =223
-                                            Left =6360
+                                            OverlapFlags =215
+                                            Left =6540
                                             Top =2040
                                             Width =2640
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label163"
                                             Caption ="Use Git Integration"
-                                            LayoutCachedLeft =6360
+                                            LayoutCachedLeft =6540
                                             LayoutCachedTop =2040
-                                            LayoutCachedWidth =9000
+                                            LayoutCachedWidth =9180
                                             LayoutCachedHeight =2355
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
@@ -828,23 +881,23 @@ Begin Form
                                     BorderWidth =1
                                     OverlapFlags =87
                                     Left =960
-                                    Top =3600
+                                    Top =3360
                                     Width =8160
                                     Name ="Line226"
                                     HorizontalAnchor =2
                                     LayoutCachedLeft =960
-                                    LayoutCachedTop =3600
-                                    LayoutCachedWidth =9120
-                                    LayoutCachedHeight =3600
+                                    LayoutCachedTop =3360
+                                    LayoutCachedWidth =9180
+                                    LayoutCachedHeight =3360
                                     BorderThemeColorIndex =1
                                     BorderShade =65.0
                                 End
                                 Begin Label
                                     OverlapFlags =215
                                     Left =1020
-                                    Top =2340
+                                    Top =2400
                                     Width =8160
-                                    Height =1095
+                                    Height =900
                                     ForeColor =5324600
                                     Name ="Label227"
                                     Caption ="Use this form to set your preferred options for exporting and building your data"
@@ -852,9 +905,9 @@ Begin Form
                                         "for different projects, and can save a set of options as default for new project"
                                         "s."
                                     LayoutCachedLeft =1020
-                                    LayoutCachedTop =2340
+                                    LayoutCachedTop =2400
                                     LayoutCachedWidth =9180
-                                    LayoutCachedHeight =3435
+                                    LayoutCachedHeight =3300
                                     ForeThemeColorIndex =-1
                                     ForeTint =100.0
                                 End
@@ -1192,7 +1245,7 @@ Begin Form
                                     OverlapFlags =247
                                     Left =1020
                                     Top =3360
-                                    TabIndex =4
+                                    TabIndex =2
                                     Name ="chkExtractThemeFiles"
 
                                     LayoutCachedLeft =1020
@@ -1228,7 +1281,7 @@ Begin Form
                                     Top =3720
                                     Width =1980
                                     Height =315
-                                    TabIndex =2
+                                    TabIndex =3
                                     Name ="cboSanitizeLevel"
                                     RowSourceType ="Value List"
                                     ColumnWidths ="0"
@@ -1266,7 +1319,7 @@ Begin Form
                                     Top =4140
                                     Width =1980
                                     Height =315
-                                    TabIndex =3
+                                    TabIndex =4
                                     Name ="cboSanitizeColors"
                                     RowSourceType ="Value List"
                                     ColumnWidths ="0"
@@ -1324,6 +1377,50 @@ Begin Form
                                             ForeTint =100.0
                                         End
                                     End
+                                End
+                                Begin CommandButton
+                                    FontUnderline = NotDefault
+                                    TabStop = NotDefault
+                                    OverlapFlags =247
+                                    Left =8100
+                                    Top =2880
+                                    Width =1140
+                                    Height =240
+                                    FontSize =10
+                                    TabIndex =13
+                                    Name ="cmdPrintSettingsOptions"
+                                    Caption ="Options..."
+                                    OnClick ="[Event Procedure]"
+                                    LeftPadding =135
+                                    TopPadding =135
+                                    RightPadding =150
+                                    BottomPadding =150
+                                    BackStyle =0
+
+                                    CursorOnHover =1
+                                    LayoutCachedLeft =8100
+                                    LayoutCachedTop =2880
+                                    LayoutCachedWidth =9240
+                                    LayoutCachedHeight =3120
+                                    Alignment =1
+                                    ForeThemeColorIndex =10
+                                    ForeTint =100.0
+                                    Gradient =0
+                                    BackColor =5324600
+                                    BackThemeColorIndex =-1
+                                    BackTint =100.0
+                                    OldBorderStyle =0
+                                    BorderColor =15321539
+                                    BorderThemeColorIndex =-1
+                                    BorderTint =100.0
+                                    HoverThemeColorIndex =10
+                                    HoverTint =100.0
+                                    PressedThemeColorIndex =10
+                                    PressedShade =100.0
+                                    HoverForeThemeColorIndex =10
+                                    HoverForeTint =100.0
+                                    PressedForeThemeColorIndex =10
+                                    PressedForeTint =100.0
                                 End
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -1580,50 +1677,6 @@ Begin Form
                                     PressedColor =13072231
                                     PressedThemeColorIndex =-1
                                     PressedShade =100.0
-                                End
-                                Begin CommandButton
-                                    FontUnderline = NotDefault
-                                    TabStop = NotDefault
-                                    OverlapFlags =247
-                                    Left =8100
-                                    Top =2880
-                                    Width =1140
-                                    Height =240
-                                    FontSize =10
-                                    TabIndex =13
-                                    Name ="cmdPrintSettingsOptions"
-                                    Caption ="Options..."
-                                    OnClick ="[Event Procedure]"
-                                    LeftPadding =135
-                                    TopPadding =135
-                                    RightPadding =150
-                                    BottomPadding =150
-                                    BackStyle =0
-
-                                    CursorOnHover =1
-                                    LayoutCachedLeft =8100
-                                    LayoutCachedTop =2880
-                                    LayoutCachedWidth =9240
-                                    LayoutCachedHeight =3120
-                                    Alignment =1
-                                    ForeThemeColorIndex =10
-                                    ForeTint =100.0
-                                    Gradient =0
-                                    BackColor =5324600
-                                    BackThemeColorIndex =-1
-                                    BackTint =100.0
-                                    OldBorderStyle =0
-                                    BorderColor =15321539
-                                    BorderThemeColorIndex =-1
-                                    BorderTint =100.0
-                                    HoverThemeColorIndex =10
-                                    HoverTint =100.0
-                                    PressedThemeColorIndex =10
-                                    PressedShade =100.0
-                                    HoverForeThemeColorIndex =10
-                                    HoverForeTint =100.0
-                                    PressedForeThemeColorIndex =10
-                                    PressedForeTint =100.0
                                 End
                                 Begin Label
                                     OverlapFlags =247

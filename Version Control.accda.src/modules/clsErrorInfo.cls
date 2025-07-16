@@ -20,7 +20,7 @@ Private Type udtThis
     ' Output Data
     ErrorName As String
     Prefix As String
-    PrettyName As String
+    OptionName As String
     ErrorColor As String
     MsgBoxStyle As VbMsgBoxStyle
 
@@ -39,6 +39,10 @@ End Property
 
 Public Property Get ErrorName() As String
     ErrorName = this.ErrorName
+End Property
+
+Public Property Get ErrorOptionName() As String
+    ErrorOptionName = this.OptionName
 End Property
 
 
@@ -63,7 +67,7 @@ Private Function SetErrorLevelInfoData()
         .ErrorName = GetErrorName(this.ErrorLevel)
         .ErrorColor = getErrorColor(this.ErrorLevel)
         .Prefix = .ErrorName & ": "
-        .PrettyName = GetErrorNamePretty(this.ErrorLevel)
+        .OptionName = GetErrorNameOption(this.ErrorLevel)
         .MsgBoxStyle = GetMsgBoxStyle(this.ErrorLevel)
     End With
 
@@ -102,18 +106,18 @@ Private Function GetErrorName(ByVal ErrorLevelIn As eErrorLevel) As String
 End Function
 
 
-Private Function GetErrorNamePretty(ByRef ErrorLevel As eErrorLevel) As String
+Private Function GetErrorNameOption(ByRef ErrorLevel As eErrorLevel) As String
 
     Select Case ErrorLevel
-    Case eelUninitialized:  GetErrorNamePretty = "ERROR Uninitialized"
-    Case eelLoggingOff:     GetErrorNamePretty = "Off"
-    Case eelNoError:        GetErrorNamePretty = "Note"
-    Case eelDebugTrace:     GetErrorNamePretty = "Debug Trace"
-    Case eelDebugEvent:     GetErrorNamePretty = "Debug Event"
-    Case eelDebugInfo:      GetErrorNamePretty = "Debug Info"
-    Case eelWarning:        GetErrorNamePretty = "Warning"
-    Case eelError:          GetErrorNamePretty = "Error"
-    Case eelCritical:       GetErrorNamePretty = "Critical Error"
+    Case eelUninitialized:  GetErrorNameOption = "ERROR Uninitialized"
+    Case eelLoggingOff:     GetErrorNameOption = "Off"
+    Case eelNoError:        GetErrorNameOption = "Note"
+    Case eelDebugTrace:     GetErrorNameOption = "Debug Trace"
+    Case eelDebugEvent:     GetErrorNameOption = "Debug Event"
+    Case eelDebugInfo:      GetErrorNameOption = "Debug Info"
+    Case eelWarning:        GetErrorNameOption = "Warning"
+    Case eelError:          GetErrorNameOption = "Error"
+    Case eelCritical:       GetErrorNameOption = "Critical Error"
     End Select
 
 End Function
@@ -132,7 +136,7 @@ Public Function SetErrorLevelFromName(ByRef strErrorName As String) As eErrorLev
             Exit For
         End If
         ' Also check the "Pretty" version as well.
-        If strErrorName = GetErrorNamePretty(f_ErrorLevel) Then
+        If strErrorName = GetErrorNameOption(f_ErrorLevel) Then
             SetErrorLevelFromName = f_ErrorLevel
             this.ErrorLevel = f_ErrorLevel
             Exit For
