@@ -553,7 +553,6 @@ Public Function Prompt(ByRef strBold As String _
                     , Optional ByRef strLine2 As String = vbNullString _
                     , Optional ByRef vbButtons As VbMsgBoxStyle = vbOKOnly _
                     , Optional ByRef strTitle As String = vbNullString _
-                    , Optional ByVal AddToLog As Boolean = True _
                     , Optional ByVal vbDefaultResult As VbMsgBoxResult = vbOK) As VbMsgBoxResult
 
     ' This function will prompt the user to do something, or display a message, and return the value to the calling function.
@@ -615,7 +614,7 @@ Public Function Prompt(ByRef strBold As String _
     End If
 
     Perf.ResumeTiming
-    If AddToLog Then
+    If IsEntryLogged(ErrorLevelIn) Then
         With logEntryDetails
             .AppendOnAdd = "<br>"
             .Add cstrSpacer

@@ -236,7 +236,7 @@ Public Function MsgBox2(strBold As String _
 
     MsgBox2 = Log.Prompt(strBold:=strBold, strSource:=FunctionName, ErrorLevelIn:=eelNoError _
                         , strLine1:=strLine1, strLine2:=strLine2, vbButtons:=intButtons _
-                        , strTitle:=strTitle, AddToLog:=True, vbDefaultResult:=vbDefaultResult)
+                        , strTitle:=strTitle, vbDefaultResult:=vbDefaultResult)
 
 End Function
 

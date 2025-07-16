@@ -422,6 +422,39 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
         End If
     End If
 
+    ' 2025-Jul-16 (4.2.0)
+    ' Convert ShowDebug to new DisplayLogLevel and LogLevel
+    ' #507, #654
+    If dOptions.Exists("ShowDebug") Then
+        If dOptions("ShowDebug") Then
+            If Not dOptions.Exists("LogLevel") Then
+            ' Check for non-default level
+                dOptions.Add "LogLevel", eErrorLevel.eelDebugTrace
+            Else
+                dOptions("LogLevel") = eErrorLevel.eelDebugTrace
+            End If
+            If Not dOptions.Exists("DisplayLogLevel") Then
+            ' Check for non-default level
+                dOptions.Add "DisplayLogLevel", eErrorLevel.eelDebugTrace
+            Else
+                dOptions("DisplayLogLevel") = eErrorLevel.eelDebugTrace
+            End If
+        Else
+            If Not dOptions.Exists("LogLevel") Then
+            ' Check for non-default level
+                dOptions.Add "LogLevel", eErrorLevel.eelDebugEvent
+            Else
+                dOptions("LogLevel") = eErrorLevel.eelDebugTrace
+            End If
+            If Not dOptions.Exists("DisplayLogLevel") Then
+            ' Check for non-default level
+                dOptions.Add "DisplayLogLevel", eErrorLevel.eelNoError
+            Else
+                dOptions("DisplayLogLevel") = eErrorLevel.eelNoError
+            End If
+        End If
+    End If
+
 End Sub
 
 
