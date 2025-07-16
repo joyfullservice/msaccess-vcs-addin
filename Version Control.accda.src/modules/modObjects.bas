@@ -159,10 +159,7 @@ Public Function Log(Optional blnCreateInstance As Boolean = True) As clsLog2
     If this.Log Is Nothing Then If blnCreateInstance Then Set this.Log = New clsLog2
     Set Log = this.Log
 End Function
-Public Function Log2(Optional blnCreateInstance As Boolean = True) As clsLog2
-    If this.Log2 Is Nothing Then If blnCreateInstance Then Set this.Log2 = New clsLog2
-    Set Log2 = this.Log2
-End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : FSO
