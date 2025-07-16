@@ -21,6 +21,10 @@ Option Explicit
 '
 Private Const ModuleName As String = "clsLog2"
 
+' Because VBA doesn't allow use of private types in constants, we need to declare these as long.
+Private Const DEFAULT_LogLevel As Long = eErrorLevel.eelNoError
+Private Const DEFAULT_DisplayLogLevel As Long = eErrorLevel.eelNoError
+
 Private Const DefaultLogTableName As String = "tblLog"
 
 Private Const MAX_ENTRY_COUNT_PROMPT As Long = 15000
@@ -85,37 +89,24 @@ End Property
 
 Public Property Let DisplayLogLevel(NewLogLevel As eErrorLevel)
     this.DisplayLogLevel = NewLogLevel
-    If this.DisplayLogLevel = eelUninitialized Then
-        If Options.ShowDebug Then
-            this.DisplayLogLevel = eelDebugTrace
-        Else
-            this.DisplayLogLevel = eelError
-        End If
-    End If
+    If this.DisplayLogLevel = eelUninitialized Then this.DisplayLogLevel = DEFAULT_DisplayLogLevel
 End Property
 Public Property Get DisplayLogLevel() As eErrorLevel
+    If this.DisplayLogLevel = eelUninitialized Then this.DisplayLogLevel = DEFAULT_DisplayLogLevel
     DisplayLogLevel = this.DisplayLogLevel
 End Property
 
 
 Public Function IsEntryLogged(ByVal ErrorLevelIn As eErrorLevel) As Boolean
 
-'    If (EventErrorLevel And Me.LogLevel) = EventErrorLevel _
-'        And (EventErrorLevel >= Me.LogLevel) _
-'        or  (me.LogLevel <>
-'        Then IsEntryLogged = True
-    If (ErrorLevelIn >= Me.LogLevel) Or ErrorLevelIn = eelNoError Then IsEntryLogged = True
+    If ErrorLevelIn >= Me.LogLevel And Not Me.LogLevel = eelLoggingOff Then IsEntryLogged = True
 
 End Function
 
 
 Public Function IsEntryDisplayed(ByVal ErrorLevelIn As eErrorLevel) As Boolean
 
-'    If (EventErrorLevel And Me.LogLevel) = EventErrorLevel _
-'        And (EventErrorLevel >= Me.LogLevel) _
-'        or  (me.LogLevel <>
-'        Then IsEntryLogged = True
-    If (ErrorLevelIn >= Me.DisplayLogLevel) Or ErrorLevelIn = eelNoError Then IsEntryDisplayed = True
+    If ErrorLevelIn >= Me.DisplayLogLevel And Not Me.DisplayLogLevel = eelLoggingOff Then IsEntryDisplayed = True
 
 End Function
 
