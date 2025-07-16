@@ -254,22 +254,33 @@ Public Sub AddEntry(ByRef strMessage As String _
     On Error Resume Next
     Perf.OperationStart FunctionName
 
-    If Not IsEntryLogged(ErrorLevelIn) Then GoTo Exit_Here
-    If PrintEvent Then
+    ' There may be cases where we want to print but not log the action.
+    If PrintEvent Or IsEntryDisplayed(ErrorLevelIn) Then
 
-        If OutputColor = vbNullString Then
-            With New clsErrorInfo
-                .ErrorLevel = ErrorLevelIn
-                OutputColor = .ErrorColor
-            End With
+        With New clsErrorInfo
+            .ErrorLevel = ErrorLevelIn
+            this.Console.Add FormatEntry(strMessage, NextOutputOnNewLine _
+                            , Nz2(OutputColor, .ErrorColor), PrintBold, PrintItalic)
+        End With
+
+        If this.RichText Is Nothing Then
+            ' Only print debug output if not running from the GUI.
+            If NextOutputOnNewLine Then
+                ' Create new line
+                Debug.Print strMessage
+            Else
+                ' Continue next printout on this line.
+                Debug.Print strMessage;
+            End If
         End If
-        this.Console.Add FormatEntry(strMessage, NextOutputOnNewLine, OutputColor, PrintBold, PrintItalic)
 
         ' Allow an update to the screen every second.
         ' (This keeps the aplication from an apparent hang while
         '  running intensive export processes.)
         If this.sngLastUpdate + 0.1 < Timer Then Me.Flush
     End If
+
+    If Not IsEntryLogged(ErrorLevelIn) Then GoTo Exit_Here
 
     Set adoCMD = GetLogStoredCommand
     With adoCMD
