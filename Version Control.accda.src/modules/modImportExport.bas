@@ -207,7 +207,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             If Options.ShowDebug Then Log.Spacer Options.ShowDebug
             Log.AddEntry T("Exporting {0}...", var0:=T(LCase(cCategory.Category))) _
                         , strSource:=FunctionName, ErrorLevelIn:=eelDebugEvent _
-                        , PrintEvent:=Options.ShowDebug, NextOutputOnNewLine:=False
+                        , PrintEvent:=True, NextOutputOnNewLine:=True
             Log.ProgMax = lngCount
             Perf.CategoryStart cCategory.Category
 
@@ -216,7 +216,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
                 ' Export object
                 Set cDbObject = dObjects(varKey)
-                Log.Add "  " & cDbObject.Name, Options.ShowDebug
+                Log.Add "   " & cDbObject.Name, Options.ShowDebug
                 Operation.Pulse
 
                 ' If we have already exported this object while scanning for changes, use that copy.
@@ -242,13 +242,8 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
             Next varKey
 
-            ' Show category wrap-up.
-            If Options.ShowDebug Then
-                Log.Add T("[{0}] {1} processed.", var0:=lngCount, var1:=T(LCase(cCategory.Category)))
-            Else
-                Log.Add "[" & lngCount & "]"
-            End If
-            'Log.Flush  ' Gives smoother output, but slows down export.
+            ' Log category wrap-up.
+            Log.Add T(" [{0}] {1} exported.", var0:=lngCount, var1:=T(LCase(cCategory.Category)))
             Perf.CategoryEnd lngCount
         End If
 
@@ -1100,11 +1095,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         Next varFile
 
         ' Show category wrap-up.
-        If Options.ShowDebug Then
-            Log.Add T("[{0}] {1} processed.", var0:=dFiles.Count, var1:=T(LCase(cCategory.Category)))
-        Else
-            Log.Add "[" & dFiles.Count & "]"
-        End If
+        Log.Add T(" [{0}] {1} processed.", var0:=dFiles.Count, var1:=T(LCase(cCategory.Category)))
         Perf.CategoryEnd dFiles.Count
 
     Next varCategory
