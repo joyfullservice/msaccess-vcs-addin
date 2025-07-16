@@ -179,7 +179,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub AddEntry(ByRef strMessage As String _
-                    , Optional ByRef strSource As String _
+                    , ByRef strSource As String _
                     , Optional ByVal ErrorLevelIn As eErrorLevel = eelNoError _
                     , Optional ByVal PrintEvent As Boolean = True _
                     , Optional ByVal NextOutputOnNewLine As Boolean = True _
