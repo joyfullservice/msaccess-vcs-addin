@@ -74,6 +74,13 @@ Private Sub Class_Initialize()
 End Sub
 
 
+Public Property Let LogLevel(NewLogLevel As eErrorLevel)
+    this.LogLevel = NewLogLevel
+    If this.LogLevel = eelUninitialized Then this.LogLevel = eelDebugTrace
+End Property
+Public Property Get LogLevel() As eErrorLevel
+    LogLevel = this.LogLevel
+End Property
 
 
 Public Property Let DisplayLogLevel(NewLogLevel As eErrorLevel)
@@ -91,6 +98,15 @@ Public Property Get DisplayLogLevel() As eErrorLevel
 End Property
 
 
+Public Function IsEntryLogged(ByVal ErrorLevelIn As eErrorLevel) As Boolean
+
+'    If (EventErrorLevel And Me.LogLevel) = EventErrorLevel _
+'        And (EventErrorLevel >= Me.LogLevel) _
+'        or  (me.LogLevel <>
+'        Then IsEntryLogged = True
+    If (ErrorLevelIn >= Me.LogLevel) Or ErrorLevelIn = eelNoError Then IsEntryLogged = True
+
+End Function
 
 
 Public Function IsEntryDisplayed(ByVal ErrorLevelIn As eErrorLevel) As Boolean
@@ -152,15 +168,36 @@ ClearLog:
 End Sub
 
 
-Public Function IsEntryLogged(ByVal ErrorLevelIn As eErrorLevel) As Boolean
+'---------------------------------------------------------------------------------------
+' Procedure : Flush
+' Author    : Adam Waller, hecon5
+' Date      : 4/29/2020
+' Purpose   : Flushes the buffer to the console
+'---------------------------------------------------------------------------------------
+'
+Public Sub Flush()
 
-'    If (EventErrorLevel And Me.LogLevel) = EventErrorLevel _
-'        And (EventErrorLevel >= Me.LogLevel) _
-'        or  (me.LogLevel <>
-'        Then IsEntryLogged = True
-    If (ErrorLevelIn >= Me.LogLevel) Or ErrorLevelIn = eelNoError Then IsEntryLogged = True
+    ' See if the GUI form is loaded.
+    Perf.OperationStart "Console Updates"
+    If Not this.RichText Is Nothing Then
+        VerifyFocus this.RichText
+        With this.RichText
+            ' Set value, not text to avoid errors with large text strings.
+            Echo False
+            ' Show the last 20K characters so
+            ' we don't hit the Integer limit
+            ' on the SelStart property.
+            .Value = this.Console.RightStr(20000)
+            If VerifyFocus(this.RichText, True) Then .SelStart = Len(.Text & vbNullString)
+            Echo True
+        End With
+    End If
+    this.sngLastUpdate = Timer
+    ' Update the display (especially for immediate window)
+    DoEvents
+    Perf.OperationEnd
 
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -399,38 +436,6 @@ Private Function FormatEntry(ByRef MessageToFormat As String _
     End With
 
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Flush
-' Author    : Adam Waller, hecon5
-' Date      : 4/29/2020
-' Purpose   : Flushes the buffer to the console
-'---------------------------------------------------------------------------------------
-'
-Public Sub Flush()
-
-    ' See if the GUI form is loaded.
-    Perf.OperationStart "Console Updates"
-    If Not this.RichText Is Nothing Then
-        VerifyFocus this.RichText
-        With this.RichText
-            ' Set value, not text to avoid errors with large text strings.
-            Echo False
-            ' Show the last 20K characters so
-            ' we don't hit the Integer limit
-            ' on the SelStart property.
-            .Value = this.Console.RightStr(20000)
-            If VerifyFocus(this.RichText, True) Then .SelStart = Len(.Text & vbNullString)
-            Echo True
-        End With
-    End If
-    this.sngLastUpdate = Timer
-    ' Update the display (especially for immediate window)
-    DoEvents
-    Perf.OperationEnd
-
-End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -707,56 +712,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : LogFilePath
-' Author    : Adam Waller
-' Date      : 5/13/2023
-' Purpose   : Return the (default) full path to the current log file.
-'---------------------------------------------------------------------------------------
-'
-Public Property Get LogFilePath() As String
-
-    Dim SanitizedFileName As String
-
-    Select Case Operation.OperationType
-        Case eotExport: SanitizedFileName = "Export"
-        Case eotBuild:  SanitizedFileName = "Build"
-        Case eotMerge:  SanitizedFileName = "Merge"
-        Case Else:      SanitizedFileName = "Other"
-    End Select
-
-    SanitizedFileName = SanitizedFileName & ".Log."
-    SanitizedFileName = SanitizedFileName & ISO8601TimeStamp(False, False) & ".xml"
-    SanitizedFileName = MultiReplace(SanitizedFileName, ":", "-") ' Replace Timestamp charachters with valid charachters.
-
-    LogFilePath = FSO.BuildPath(Nz2(SourcePath, Options.GetExportFolder), SanitizedFileName)
-
-End Property
-
-
-Public Property Get LogTableName() As String
-
-    If this.LogTableName = vbNullString Then this.LogTableName = DefaultLogTableName
-    LogTableName = this.LogTableName
-
-End Property
-
-
-Public Sub CheckSize()
-    ' See if we should clear out the old log entries.
-    If Me.EntryCount > MAX_ENTRY_COUNT_PROMPT Then Me.Clear True
-End Sub
-
-
-Public Property Get EntryCount() As Long
-
-    Perf.OperationStart ModuleName & ".EntryCount"
-    EntryCount = DCount("[EntryId]", Me.LogTableName)
-    Perf.OperationEnd
-
-End Property
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : ProgressBar
 ' Author    : Adam Waller
 ' Date      : 11/6/2020
@@ -784,6 +739,22 @@ Public Property Let ProgMax(NewMaxValue As Long)
 End Property
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : Increment
+' Author    : Adam Waller, hecon5
+' Date      : 4/28/2020
+' Purpose   : Increment the progress bar
+'---------------------------------------------------------------------------------------
+'
+Public Sub Increment()
+
+    ' Converted to wrapper
+    If Me.ProgressBar Is Nothing Then Exit Sub
+    Me.ProgressBar.Increment
+
+End Sub
+
+
 Public Sub LogPerformanceReports(Optional ByVal PrintEvent As Boolean = True)
     Me.AddEntry strSource:="Performance Reports" _
                 , strMessage:=Perf.GetReports _
@@ -792,6 +763,33 @@ Public Sub LogPerformanceReports(Optional ByVal PrintEvent As Boolean = True)
                 , PrintEvent:=PrintEvent _
                 , PrintBold:=False
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogFilePath
+' Author    : Adam Waller
+' Date      : 5/13/2023
+' Purpose   : Return the (default) full path to the current log file.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get LogFilePath() As String
+
+    Dim SanitizedFileName As String
+
+    Select Case Operation.OperationType
+        Case eotExport: SanitizedFileName = "Export"
+        Case eotBuild:  SanitizedFileName = "Build"
+        Case eotMerge:  SanitizedFileName = "Merge"
+        Case Else:      SanitizedFileName = "Other"
+    End Select
+
+    SanitizedFileName = SanitizedFileName & ".Log."
+    SanitizedFileName = SanitizedFileName & ISO8601TimeStamp(False, False) & ".xml"
+    SanitizedFileName = MultiReplace(SanitizedFileName, ":", "-") ' Replace Timestamp charachters with valid charachters.
+
+    LogFilePath = FSO.BuildPath(Nz2(SourcePath, Options.GetExportFolder), SanitizedFileName)
+
+End Property
 
 
 Public Sub SaveFile(Optional ByRef strAlternateFilePath As String _
@@ -839,29 +837,27 @@ Retry:
 End Sub
 
 
-Public Property Let LogLevel(NewLogLevel As eErrorLevel)
-    this.LogLevel = NewLogLevel
-    If this.LogLevel = eelUninitialized Then this.LogLevel = eelDebugTrace
-End Property
-Public Property Get LogLevel() As eErrorLevel
-    LogLevel = this.LogLevel
-End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : Increment
-' Author    : Adam Waller, hecon5
-' Date      : 4/28/2020
-' Purpose   : Increment the progress bar
-'---------------------------------------------------------------------------------------
-'
-Public Sub Increment()
-
-    ' Converted to wrapper
-    If Me.ProgressBar Is Nothing Then Exit Sub
-    Me.ProgressBar.Increment
-
+Public Sub CheckSize()
+    ' See if we should clear out the old log entries.
+    If Me.EntryCount > MAX_ENTRY_COUNT_PROMPT Then Me.Clear True
 End Sub
+
+
+Public Property Get EntryCount() As Long
+
+    Perf.OperationStart ModuleName & ".EntryCount"
+    EntryCount = DCount("[EntryId]", Me.LogTableName)
+    Perf.OperationEnd
+
+End Property
+
+
+Public Property Get LogTableName() As String
+
+    If this.LogTableName = vbNullString Then this.LogTableName = DefaultLogTableName
+    LogTableName = this.LogTableName
+
+End Property
 
 
 Public Property Get LogConnectionADO() As ADODB.Connection
