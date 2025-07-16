@@ -775,7 +775,7 @@ Public Sub SaveFile(Optional ByRef strAlternateFilePath As String _
 
 Retry:
     ' Before exporting, insert entries for performance, because that might be useful.
-    LogPerformanceReports
+    LogPerformanceReports Options.ShowDebug
 
     OutputFilePath = Nz2(strAlternateFilePath, Me.LogFilePath)
     VerifyPath OutputFilePath
