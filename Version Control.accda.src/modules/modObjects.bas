@@ -68,6 +68,11 @@ Public Function LoadOptions() As clsOptions
     Dim Options As clsOptions
     Set Options = New clsOptions
     Options.LoadProjectOptions
+
+    ' Set external to Options Values
+    Log.LogLevel = Options.LogLevel
+    Log.DisplayLogLevel = Options.DisplayLogLevel
+
     Set LoadOptions = Options
 End Function
 
