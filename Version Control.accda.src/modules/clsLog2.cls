@@ -39,6 +39,7 @@ Private Type udtThis
     ' Log level: log everything at and below set level (except for "no error"
     ' which is logged unless log is set to off).
     LogLevel As eErrorLevel
+    DisplayLogLevel As eErrorLevel  ' The level at which the console is displayed. Works the same as LogLevel.
     LogTableName As String          ' Name of the table used by the log class.
 
     sngLastUpdate As Single         ' Timer value at last console update.
@@ -72,6 +73,35 @@ Private Sub Class_Initialize()
 
 End Sub
 
+
+
+
+Public Property Let DisplayLogLevel(NewLogLevel As eErrorLevel)
+    this.DisplayLogLevel = NewLogLevel
+    If this.DisplayLogLevel = eelUninitialized Then
+        If Options.ShowDebug Then
+            this.DisplayLogLevel = eelDebugTrace
+        Else
+            this.DisplayLogLevel = eelError
+        End If
+    End If
+End Property
+Public Property Get DisplayLogLevel() As eErrorLevel
+    DisplayLogLevel = this.DisplayLogLevel
+End Property
+
+
+
+
+Public Function IsEntryDisplayed(ByVal ErrorLevelIn As eErrorLevel) As Boolean
+
+'    If (EventErrorLevel And Me.LogLevel) = EventErrorLevel _
+'        And (EventErrorLevel >= Me.LogLevel) _
+'        or  (me.LogLevel <>
+'        Then IsEntryLogged = True
+    If (ErrorLevelIn >= Me.DisplayLogLevel) Or ErrorLevelIn = eelNoError Then IsEntryDisplayed = True
+
+End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Clear
