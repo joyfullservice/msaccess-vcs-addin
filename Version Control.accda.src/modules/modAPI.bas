@@ -25,13 +25,14 @@ End Enum
 Public Enum eErrorLevel
     eelUninitialized    ' Used to indicate the erorr level wasn't set correctly.
     eelLoggingOff       ' Logging is turned off completely.
-    eelNoError          ' Text event; logged and displayed at all log levels except off.
-    eelDebugTrace
-    eelDebugEvent
-    eelDebugInfo
+    eelDebugTrace       ' State trace.
+    eelDebugEvent       ' Event information
+    eelDebugInfo        ' General information
+
+    eelNoError          ' General note to user.
     eelWarning          ' Logged to file
     eelError            ' Displayed and logged
-    eelCritical         ' Cancel operation
+    eelCritical         ' Error that cancels operation and cannot be overcome.
     [_Last]
 End Enum
 
