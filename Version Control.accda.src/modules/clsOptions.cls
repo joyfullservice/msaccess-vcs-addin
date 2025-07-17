@@ -21,7 +21,6 @@ Private Const cstrBuildPathProperty As String = "VCS Build Path"
 
 ' Options
 Public ExportFolder As String
-Public ShowDebug As Boolean
 Public LogLevel As eErrorLevel
 Public DisplayLogLevel As eErrorLevel
 Public UseFastSave As Boolean
@@ -68,6 +67,11 @@ Private m_strOptionsFilePath As String
 Private m_strLoadedVersion As String
 
 
+Public Property Get ShowDebug() As Boolean
+    If Me.DisplayLogLevel < eelNoError Then ShowDebug = True
+End Property
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadDefaults
 ' Author    : Adam Waller
@@ -81,7 +85,6 @@ Public Sub LoadDefaults()
     With Me
         ' Top level settings
         .ExportFolder = vbNullString
-        .ShowDebug = False
         .LogLevel = eelDebugTrace
         .DisplayLogLevel = eelNoError
         .UseFastSave = True
@@ -427,25 +430,11 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
     ' #507, #654
     If dOptions.Exists("ShowDebug") Then
         If dOptions("ShowDebug") Then
-            If Not dOptions.Exists("LogLevel") Then
-            ' Check for non-default level
-                dOptions.Add "LogLevel", eErrorLevel.eelDebugTrace
-            Else
-                dOptions("LogLevel") = eErrorLevel.eelDebugTrace
-            End If
             If Not dOptions.Exists("DisplayLogLevel") Then
-            ' Check for non-default level
+            ' Set DisplayLogLevel accordingly.
                 dOptions.Add "DisplayLogLevel", eErrorLevel.eelDebugTrace
-            Else
-                dOptions("DisplayLogLevel") = eErrorLevel.eelDebugTrace
             End If
         Else
-            If Not dOptions.Exists("LogLevel") Then
-            ' Check for non-default level
-                dOptions.Add "LogLevel", eErrorLevel.eelDebugEvent
-            Else
-                dOptions("LogLevel") = eErrorLevel.eelDebugTrace
-            End If
             If Not dOptions.Exists("DisplayLogLevel") Then
             ' Check for non-default level
                 dOptions.Add "DisplayLogLevel", eErrorLevel.eelNoError
@@ -778,7 +767,6 @@ Private Sub Class_Initialize()
     ' Load list of property names for reflection type behavior.
     With m_colOptions
         .Add "ExportFolder"
-        .Add "ShowDebug"
         .Add "LogLevel"
         .Add "DisplayLogLevel"
         .Add "UseFastSave"

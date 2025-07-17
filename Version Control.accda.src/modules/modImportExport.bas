@@ -206,8 +206,8 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             ' Show category header and clear out any orphaned files.
             If Options.ShowDebug Then Log.Spacer Options.ShowDebug
             Log.AddEntry T("Exporting {0}...", var0:=T(LCase(cCategory.Category))) _
-                        , strSource:=FunctionName, ErrorLevelIn:=eelDebugEvent _
-                        , PrintEvent:=True, NextOutputOnNewLine:=True
+                        , strSource:=FunctionName, ErrorLevelIn:=eelNoError _
+                        , NextOutputOnNewLine:=True
             Log.ProgMax = lngCount
             Perf.CategoryStart cCategory.Category
 

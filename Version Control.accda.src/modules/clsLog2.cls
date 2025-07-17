@@ -22,7 +22,7 @@ Option Explicit
 Private Const ModuleName As String = "clsLog2"
 
 ' Because VBA doesn't allow use of private types in constants, we need to declare these as long.
-Private Const DEFAULT_LogLevel As Long = eErrorLevel.eelNoError
+Private Const DEFAULT_LogLevel As Long = eErrorLevel.eelDebugTrace
 Private Const DEFAULT_DisplayLogLevel As Long = eErrorLevel.eelNoError
 
 Private Const DefaultLogTableName As String = "tblLog"
@@ -80,7 +80,7 @@ End Sub
 
 Public Property Let LogLevel(NewLogLevel As eErrorLevel)
     this.LogLevel = NewLogLevel
-    If this.LogLevel = eelUninitialized Then this.LogLevel = eelDebugTrace
+    If this.LogLevel = eelUninitialized Then this.LogLevel = DEFAULT_LogLevel
 End Property
 Public Property Get LogLevel() As eErrorLevel
     LogLevel = this.LogLevel
@@ -199,7 +199,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Spacer(Optional ByVal blnPrint As Boolean = True)
-    AddEntry strMessage:=cstrSpacer, strSource:="Log.Spacer", ErrorLevelIn:=Operation.ErrorLevel, PrintEvent:=blnPrint, NextOutputOnNewLine:=True
+    AddEntry strMessage:=cstrSpacer, strSource:="Log.Spacer", ErrorLevelIn:=Operation.ErrorLevel, NextOutputOnNewLine:=True
 End Sub
 
 '
@@ -219,8 +219,7 @@ Public Sub Add(strText As String _
 
     Me.AddEntry strMessage:=strText _
                 , strSource:="Log.Add" _
-                , ErrorLevelIn:=eelNoError _
-                , PrintEvent:=blnPrint _
+                , ErrorLevelIn:=IIf(blnPrint, eelNoError, eelDebugTrace) _
                 , NextOutputOnNewLine:=blnNextOutputOnNewLine _
                 , OutputColor:=strColor _
                 , PrintBold:=blnBold _
@@ -239,7 +238,6 @@ End Sub
 Public Sub AddEntry(ByRef strMessage As String _
                     , ByRef strSource As String _
                     , Optional ByVal ErrorLevelIn As eErrorLevel = eelNoError _
-                    , Optional ByVal PrintEvent As Boolean = True _
                     , Optional ByVal NextOutputOnNewLine As Boolean = True _
                     , Optional ByRef OutputColor As String = vbNullString _
                     , Optional ByVal PrintBold As Boolean = False _
@@ -249,19 +247,15 @@ Public Sub AddEntry(ByRef strMessage As String _
 
     Dim adoCMD As ADODB.Command
     Dim CachedErrorNumber As Long
+    Dim fWasDisplayed As Boolean
 
     CachedErrorNumber = VBA.Err.Number
     On Error Resume Next
     Perf.OperationStart FunctionName
 
+    fWasDisplayed = IsEntryDisplayed(ErrorLevelIn)
     ' There may be cases where we want to print but not log the action.
-    If PrintEvent Or IsEntryDisplayed(ErrorLevelIn) Then
-
-        With New clsErrorInfo
-            .ErrorLevel = ErrorLevelIn
-            this.Console.Add FormatEntry(strMessage, NextOutputOnNewLine _
-                            , Nz2(OutputColor, .ErrorColor), PrintBold, PrintItalic)
-        End With
+    If fWasDisplayed Then
 
         If this.RichText Is Nothing Then
             ' Only print debug output if not running from the GUI.
@@ -273,6 +267,12 @@ Public Sub AddEntry(ByRef strMessage As String _
                 Debug.Print strMessage;
             End If
         End If
+
+        With New clsErrorInfo
+            .ErrorLevel = ErrorLevelIn
+            this.Console.Add FormatEntry(strMessage, NextOutputOnNewLine _
+                            , Nz2(OutputColor, .ErrorColor), PrintBold, PrintItalic)
+        End With
 
         ' Allow an update to the screen every second.
         ' (This keeps the aplication from an apparent hang while
@@ -291,7 +291,7 @@ Public Sub AddEntry(ByRef strMessage As String _
         .Parameters("[paramErrorNumber]") = CachedErrorNumber
         .Parameters("[paramEventSource]") = strSource
         .Parameters("[paramEventMessage]") = strMessage
-        .Parameters("[paramPrinted]") = Not PrintEvent
+        .Parameters("[paramPrinted]") = fWasDisplayed
         .Parameters("[paramErrorLevel]") = ErrorLevelIn
 
 Retry:
@@ -533,7 +533,6 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
         Me.AddEntry strSource:=sourceFormatted _
                     , strMessage:=strWorking.GetStr _
                     , ErrorLevelIn:=ErrorLevelIn _
-                    , PrintEvent:=True _
                     , NextOutputOnNewLine:=True _
                     , PrintBold:=True
     End Select
@@ -756,12 +755,11 @@ Public Sub Increment()
 End Sub
 
 
-Public Sub LogPerformanceReports(Optional ByVal PrintEvent As Boolean = True)
+Public Sub LogPerformanceReports(Optional ByVal EventLevelIn As eErrorLevel = eelDebugInfo)
     Me.AddEntry strSource:="Performance Reports" _
                 , strMessage:=Perf.GetReports _
-                , ErrorLevelIn:=eelDebugInfo _
+                , ErrorLevelIn:=EventLevelIn _
                 , OutputColor:="black" _
-                , PrintEvent:=PrintEvent _
                 , PrintBold:=False
 End Sub
 
@@ -804,7 +802,7 @@ Public Sub SaveFile(Optional ByRef strAlternateFilePath As String _
 
 Retry:
     ' Before exporting, insert entries for performance, because that might be useful.
-    LogPerformanceReports Options.ShowDebug
+    LogPerformanceReports
 
     OutputFilePath = Nz2(strAlternateFilePath, Me.LogFilePath)
     VerifyPath OutputFilePath
