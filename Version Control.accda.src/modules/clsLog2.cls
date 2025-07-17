@@ -199,7 +199,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Spacer(Optional ByVal blnPrint As Boolean = True)
-    AddEntry strMessage:=cstrSpacer, strSource:="Log.Spacer", ErrorLevelIn:=Operation.ErrorLevel, NextOutputOnNewLine:=True
+    AddEntry strMessage:=cstrSpacer, strSource:="Log.Spacer", ErrorLevelIn:=IIf(blnPrint, Me.DisplayLogLevel, Operation.ErrorLevel), NextOutputOnNewLine:=True
 End Sub
 
 '
@@ -782,9 +782,7 @@ Public Property Get LogFilePath() As String
         Case Else:      SanitizedFileName = "Other"
     End Select
 
-    SanitizedFileName = SanitizedFileName & ".Log."
-    SanitizedFileName = SanitizedFileName & ISO8601TimeStamp(False, False) & ".xml"
-    SanitizedFileName = MultiReplace(SanitizedFileName, ":", "-") ' Replace Timestamp charachters with valid charachters.
+    SanitizedFileName = SanitizedFileName & ".Log"
 
     LogFilePath = FSO.BuildPath(Nz2(SourcePath, Options.GetExportFolder), SanitizedFileName)
 
@@ -810,6 +808,7 @@ Retry:
 
     With New ADODB.Recordset
         .Open Me.LogTableName, Me.LogConnectionADO, adOpenDynamic
+        If FSO.FileExists(OutputFilePath) Then DeleteFile OutputFilePath, True
         .Save OutputFilePath, adPersistXML
     End With
 
