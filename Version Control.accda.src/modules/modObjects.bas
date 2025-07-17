@@ -162,6 +162,11 @@ End Function
 '
 Public Function Log(Optional blnCreateInstance As Boolean = True) As clsLog2
     If this.Log Is Nothing Then If blnCreateInstance Then Set this.Log = New clsLog2
+    If OptionsLoaded Then
+        ' Only set Options if the Options are loaded to prevent a loop.
+        this.Log.LogLevel = Options.LogLevel
+        this.Log.DisplayLogLevel = Options.DisplayLogLevel
+    End If
     Set Log = this.Log
 End Function
 
