@@ -43,7 +43,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' If we are running this from the current database, we need to run it a different
     ' way to prevent file corruption issues. (This really shouldn't happen after v4.02)
     If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
-        MsgBox2 T("Unabled to Export Running Database", "Please launch the export using the add-in menu or ribbon"), , vbExclamation
+        MsgBox2 T("Unable to Export Running Database", "Please launch the export using the add-in menu or ribbon"), , vbExclamation
         Exit Sub
     End If
 
