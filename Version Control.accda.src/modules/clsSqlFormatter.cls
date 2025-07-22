@@ -278,7 +278,7 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
             End If
 
             ' Take out the preceding space unless there was whitespace there in the original query
-            If m_colTokens.Count > 0 Then
+            If m_colTokens.Count > 0 And lngToken > 1 Then
                 If Not m_colTokens(lngToken - 1)(0) = ttWhitespace Then
                     cReturn.RTrim
                 End If
