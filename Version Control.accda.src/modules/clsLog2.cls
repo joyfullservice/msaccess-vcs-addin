@@ -68,12 +68,31 @@ Private this As udtThis
 Private Sub Class_Initialize()
 
     Dim emptyThis As udtThis
+
     Set this.adoStoredCMDAddEntry = Nothing
     Set this.LogadoStoredConnection = Nothing
 
     LSet this = emptyThis
     Set this.Console = New clsConcat
     this.sngLastUpdate = 0
+
+End Sub
+
+Private Sub Class_Terminate()
+
+    ' close the connection to the external objects if not closed
+
+    If Not this.adoStoredCMDAddEntry Is Nothing Then
+        If this.adoStoredCMDAddEntry.State <> adStateClosed Then this.adoStoredCMDAddEntry.ActiveConnection.Close
+        Set this.adoStoredCMDAddEntry = Nothing
+    End If
+
+    If Not this.LogadoStoredConnection Is Nothing Then
+        If this.LogadoStoredConnection.State <> adStateClosed Then this.LogadoStoredConnection.Close
+        Set this.LogadoStoredConnection = Nothing
+    End If
+
+
 
 End Sub
 
@@ -877,11 +896,93 @@ End Property
 
 Private Function GetDefaultLogConnectionADO() As ADODB.Connection
 
+    Dim strPath As String
+    Dim NeedToSetupDB As Boolean
+    Dim NeedToSetupTable As Boolean
+
+    Dim NewDbFile As DAO.Database
+
+    strPath = CodeProject.Path & PathSep & "Log.accdu"
+    NeedToSetupDB = Not FSO.FileExists(strPath)
+
+    If NeedToSetupDB Then
+        Set NewDbFile = DBEngine.CreateDatabase(strPath, dbLangGeneral)
+
+        NeedToSetupTable = True
+    Else
+        Set NewDbFile = DBEngine.OpenDatabase(strPath)
+        NeedToSetupTable = TableExists(Me.LogTableName, NewDbFile)
+    End If
+    NewDbFile.Close
     Set GetDefaultLogConnectionADO = New ADODB.Connection
-    'Set GetDefaultLogConnectionADO = CurrentProject.Connection ' Or CurrentDB.Connection, depending on what your goal is here
-    ' When using the log in an Addin, we need to connect to the addin's Connections.
-    ' So this way it looks like you're doing something bizzare, you're not.
-    Set GetDefaultLogConnectionADO = CodeProject.Connection
+    With GetDefaultLogConnectionADO
+        .ConnectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & strPath & ";Persist Security Info=False;"
+        .Open
+    End With
+    If NeedToSetupDB Then SetupLogTable GetDefaultLogConnectionADO
+
+End Function
+
+
+Private Function SetupLogTable(ByRef adoConIn As ADODB.Connection) As String
+
+    Dim SQLString As clsConcat
+    Dim strPath As String
+    Dim adoCmdRun As ADODB.Command
+    Dim NewDbFile As DAO.Database
+    Dim lTable As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim logProperty As Property
+
+    Set SQLString = New clsConcat
+    With SQLString
+        .Add "CREATE TABLE ", this.LogTableName, " ("
+        .AppendOnAdd = ", "
+        .Add "[", "EntryID", "] ", "AUTOINCREMENT"
+        .Add "[", "EventLogTime", "] ", "VARCHAR(40)"
+        .Add "[", "UserID", "] ", "VARCHAR(40)"
+        .Add "[", "ComputerName", "] ", "VARCHAR(255)"
+        .Add "[", "ErrorNumber", "] ", "Long"
+        .Add "[", "EventSource", "] ", "LongText"
+        .Add "[", "EventMessage", "] ", "LongText"
+        .Add "[", "Printed", "] ", "Bit"
+        .Add "[", "ErrorLevel", "] ", "Long"
+        .AppendOnAdd = vbNullString ' Turn off AppendOnAdd.
+        .Remove 2 ' Remove the last comma.
+        .Add ");"
+    End With
+
+    With New ADODB.Command
+        .CommandText = SQLString.GetStr
+        .ActiveConnection = adoConIn
+        If (.ActiveConnection.State And adStateOpen) <> adStateOpen Then .ActiveConnection.Open
+        .Execute
+    End With
+
+    strPath = CodeProject.Path & PathSep & "Log.accdu"
+
+    Set NewDbFile = DBEngine.OpenDatabase(strPath)
+
+    'Now set EventMessage to rich text, because you can't do it in SQL...
+    'NewDbFile.Connect =
+    Set lTable = NewDbFile.TableDefs(this.LogTableName)
+    Set fld = lTable.Fields("EventMessage")
+
+Recheck:
+    On Error Resume Next
+    With lTable.Fields("EventMessage").Properties("TextFormat")
+        If Catch(3270) Then GoTo AddProperty
+        If .Value = acTextFormatPlain Then .Value = acTextFormatHTMLRichText
+    End With
+    On Error GoTo 0
+    SetupLogTable = lTable.Name
+    Exit Function
+
+AddProperty:
+    Set logProperty = fld.CreateProperty("TextFormat", dbInteger, acTextFormatHTMLRichText)
+    fld.Properties.Append logProperty
+    GoTo Recheck
+
 End Function
 
 
