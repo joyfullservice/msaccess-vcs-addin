@@ -661,6 +661,108 @@ Public Function Prompt(ByRef strBold As String _
 End Function
 
 
+Public Function PromptInput(ByRef strMainLine As String _
+                    , Optional ByRef strSource As String = vbNullString _
+                    , Optional ByRef ErrorLevelIn As eErrorLevel = eErrorLevel.eelNoError _
+                    , Optional ByRef strLine1 As String = vbNullString _
+                    , Optional ByRef strLine2 As String = vbNullString _
+                    , Optional ByRef DefaultInput As String = vbNullString _
+                    , Optional ByRef strTitle As String = vbNullString _
+                    , Optional ByVal LogInputReturn As Boolean = False) As String
+
+    ' This function will prompt the user to do something, or display a message, and return the value to the calling function.
+    ' In addition, it will log that the prompt happened, and the result of the user action.
+
+    Const FunctionName As String = ModuleName & ".PromptInput"
+
+    Dim intCursor As Integer
+    Dim PromptResult As String
+    Dim sourceFormatted As String
+    Dim titleFormatted As String
+    Dim errorLevelInfo As New clsErrorInfo
+
+    Dim strBoldLines As String
+    Dim strBoxLines1 As String
+    Dim msgBoxStr2 As New clsConcat
+
+    Dim logEntryDetails As New clsConcat
+    Dim LineCount As Long
+
+    Perf.OperationStart FunctionName
+
+    ' Turn off any hourglass
+    intCursor = Screen.MousePointer
+
+    sourceFormatted = Nz2(strSource, "Log") & ".PromptInput"
+    titleFormatted = Nz2(strTitle, sourceFormatted)
+    errorLevelInfo.ErrorLevel = ErrorLevelIn
+
+    LineCount = SCREEN_ROWS_MAX_DEFAULT
+    strBoldLines = FitStringToWidth(strMainLine, WIDTH_MAX_MSGBOX, WIDTH_DESIRED_MSGBOX, LineCount)
+
+    If strLine1 <> vbNullString Then
+        LineCount = LineCount + MSGBOX_LINE1_ROWS
+        strBoxLines1 = FitStringToWidth(strLine1, WIDTH_MAX_MSGBOX, WIDTH_DESIRED_MSGBOX, LineCount)
+    End If
+
+    With msgBoxStr2
+        If strLine2 <> vbNullString Then .Add FitStringToWidth(strLine2, WIDTH_MAX_MSGBOX, WIDTH_DESIRED_MSGBOX, LineCount + MSGBOX_LINE2_ROWS)
+        If strSource <> vbNullString Then
+            If .Length Then .Add vbNewLine, vbNewLine
+            .Add "Source: ", FitStringToWidth(sourceFormatted, WIDTH_MAX_MSGBOX - 8, WIDTH_DESIRED_MSGBOX - 8, MSGBOX_SOURCE_ROWS)
+        End If
+    End With
+
+    Perf.PauseTiming
+
+    ' Check interaction mode
+    If InteractionMode = eimNormal Then
+        PromptResult = InputBox3(strMainLine:=strBoldLines _
+                            , strLine1:=strBoxLines1 _
+                            , strLine2:=msgBoxStr2.GetStr _
+                            , DefaultInput:=DefaultInput, strTitle:=titleFormatted)
+    Else
+        ' Just log the output
+        ' https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/msgbox-function
+        ' The enum for VbMsgBoxResult does not have a zero value and we need a way to tell the system user hasn't said anything.
+        PromptResult = vbNullString
+    End If
+
+    Perf.ResumeTiming
+    If IsEntryLogged(ErrorLevelIn) Then
+        With logEntryDetails
+            .AppendOnAdd = "<br>"
+            .Add cstrSpacer
+            If InteractionMode = eimSilent Then .Add "[**MessageBox Not Displayed**]"
+            .Add "Prompt:"
+            .Add FormatEntry(strMainLine, True, errorLevelInfo.ErrorColor, True)
+            .Add strLine1
+            .Add strLine2
+            .Add "Source: ", sourceFormatted
+            If strTitle <> vbNullString Then .Add "Title: ", titleFormatted
+            .Add FormatEntry("User Response: " & PromptResult, True, , True)
+            If LogInputReturn Then
+                .Add "User Input Response: ", PromptResult
+            Else
+                .Add "User Input Response: {REDACTED}"
+            End If
+            .Add cstrSpacer
+            .Remove 4 ' Remove the last line feed.
+        End With
+        Me.AddEntry strSource:=sourceFormatted, strMessage:=logEntryDetails.GetStr, ErrorLevelIn:=ErrorLevelIn
+    End If
+
+    PromptInput = PromptResult
+
+    ' Restore MousePointer (if needed)
+    If intCursor > 0 Then Screen.MousePointer = intCursor
+
+    Perf.OperationEnd
+
+End Function
+
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : MsgBox3
 ' Author    : Adam Waller
@@ -687,6 +789,37 @@ Private Function MsgBox3(ByRef strBold As String _
     If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
     strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & vbButtons & ",'" & varLines(3) & "')"
     MsgBox3 = Eval(strMsg)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InputBox3
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Alternate facilitate inputbox functionality and ability to log it.
+'---------------------------------------------------------------------------------------
+'
+Private Function InputBox3(ByRef strMainLine As String _
+                        , Optional ByRef strLine1 As String = vbNullString _
+                        , Optional ByRef strLine2 As String = vbNullString _
+                        , Optional ByRef DefaultInput As String = vbNullString _
+                        , Optional ByRef strTitle As String = vbNullString) As String
+
+    Dim strMsg As String
+    Dim varLines(0 To 4) As String
+
+    ' Escape single quotes by doubling them.
+    varLines(0) = Replace(strMainLine, "'", "''")
+    varLines(1) = Replace(strLine1, "'", "''")
+    varLines(2) = Replace(strLine2, "'", "''")
+    varLines(3) = Replace(strTitle, "'", "''")
+    varLines(4) = Replace(DefaultInput, "'", "''")
+
+    If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
+    strMsg = "InputBox('" & varLines(0) & vbNewLine & vbNewLine & varLines(1) & vbNewLine & vbNewLine & varLines(2) & "'" & _
+                    ",'" & varLines(3) & "','" & varLines(4) & "')"
+    InputBox3 = Eval(strMsg)
 
 End Function
 
