@@ -37,11 +37,7 @@ Implements IDbComponent
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strContent As String
     strContent = GetSource
-    If strContent = vbNullString Then
-        If FSO.FileExists(IDbComponent_SourceFile) Then DeleteFile IDbComponent_SourceFile
-    Else
-        WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
-    End If
+    WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
 End Sub
 
@@ -81,8 +77,15 @@ Private Sub IDbComponent_Import(strFile As String)
             For Each varDoc In dCont.Keys
                 Set dDoc = dCont(varDoc)
                 For Each varProp In dDoc.Keys
-                    ' Attempt to add or update the property value on the object.
-                    SetDAOProperty dbs.Containers(varCont).Documents(varDoc), dbText, CStr(varProp), dDoc(varProp)
+                    If TypeOf dDoc(varProp) Is Dictionary Then
+                        ' Attempt to add or update the property value on the object.
+                        Dim dProp As Dictionary
+                        Set dProp = dDoc(varProp)
+                        SetDAOProperty dbs.Containers(varCont).Documents(varDoc), dProp("Type"), CStr(varProp), dProp("Value")
+                    Else
+                        ' Handle the original format
+                        SetDAOProperty dbs.Containers(varCont).Documents(varDoc), dbText, CStr(varProp), dDoc(varProp)
+                    End If
                     CatchAny eelError, "Error setting document property " & varCont & "." & varDoc & "." & varProp, ModuleName(Me)
                 Next varProp
             Next varDoc
@@ -113,10 +116,7 @@ Private Sub IDbComponent_Merge(strFile As String)
     ' Remove any document properties that don't exist in the incoming file,
     ' then import the file.
     Set dFile = ReadJsonFile(strFile)
-    If dFile Is Nothing Then
-        Set dFile = New Dictionary
-        Set dFile("Items") = New Dictionary
-    End If
+    If dFile Is Nothing Then Set dFile = New Dictionary
     RemoveMissing dFile("Items"), GetDictionary
 
     ' Import if file exists
@@ -191,6 +191,7 @@ End Function
 Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictionary
 
     Dim prp As DAO.Property
+    Dim dItems As Dictionary    ' All Items
     Dim dCont As Dictionary     ' Container
     Dim dDoc As Dictionary      ' Document
     Dim cont As DAO.Container
@@ -206,7 +207,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
     End If
 
     ' Create dictionary object to hold all the items
-    Set m_dItems = New Dictionary
+    Set dItems = New Dictionary
     Set dbs = CurrentDb
 
     ' Loop through all the containers, documents, and properties.
@@ -219,34 +220,55 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
             Set dDoc = New Dictionary
             For Each prp In doc.Properties
                 blnSave = False
-                If cont.Name = "Databases" And doc.Name = "SummaryInfo" Then
-                    ' Keep most of this information (Blacklist approach)
-                    Select Case prp.Name
-                        Case "AllPermissions", "Container", "DateCreated", "LastUpdated", _
-                            "Name", "Owner", "GUID", "Permissions", "UserName" ' Ignore these
+                If cont.Name = "Databases" Then
+                    Select Case doc.Name
+                        Case "SummaryInfo", "UserDefined"
+                            ' Keep most of this information (Blacklist approach)
+                            Select Case prp.Name
+                                Case "AllPermissions", "Container", "DateCreated", "LastUpdated", _
+                                    "Name", "Owner", "GUID", "Permissions", "UserName" ' Ignore these
+                                Case Else
+                                    blnSave = True
+                            End Select
                         Case Else
-                            blnSave = True
-                    End Select
-                Else
-                    ' For other documents, use the whitelist approach, primarily
-                    ' gathering navigation pane item descriptions and hidden status.
-                    Select Case prp.Name
-                        Case "Description"
-                            blnSave = True
+                            ' For other documents, use the whitelist approach, primarily
+                            ' gathering navigation pane item descriptions and hidden status.
+                            Select Case prp.Name
+                                Case "Description"
+                                    blnSave = True
+                            End Select
                     End Select
                 End If
                 ' Don't save properties on temporary items
                 If Left(doc.Name, 1) = "~" Then blnSave = False
                 ' If save flag set, save the property
-                If blnSave Then dDoc.Add prp.Name, prp.Value
+                If blnSave Then
+                    Dim dProp As Dictionary
+                    Set dProp = New Dictionary
+                    dProp.CompareMode = TextCompare
+
+                    ' NOTE: we are not setting the DDL because we have no way of determining
+                    ' whether a property is a DDL or not. For an .accdb file format, it will
+                    ' always be false. For an .mdb file with ULS enabled, it might matter.
+                    ' Additional programming would be needed to handle such properties but
+                    ' we are not expending the extra effort for this extreme edge case.
+                    ' Also note that DDL and Inherited are two unrelated properties. In
+                    ' practice, we shouldn't include any inherited properties but I do not
+                    ' believe any container/document properties can be inherited. Again,
+                    ' an edge case not worth expending efforts.
+                    dProp.Add "Type", prp.Type
+                    dProp.Add "Value", prp.Value
+
+                    dDoc.Add prp.Name, dProp
+                End If
             Next prp
             If dDoc.Count > 0 Then dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
         Next doc
-        If dCont.Count > 0 Then m_dItems.Add cont.Name, SortDictionaryByKeys(dCont)
+        If dCont.Count > 0 Then dItems.Add cont.Name, SortDictionaryByKeys(dCont)
     Next cont
 
     ' Return assembled dictionary
-    Set GetDictionary = m_dItems
+    Set GetDictionary = dItems
 
 End Function
 
@@ -362,7 +384,7 @@ End Function
 '
 Private Function IDbComponent_GetFileList() As Dictionary
     Set IDbComponent_GetFileList = New Dictionary
-    IDbComponent_GetFileList.Add IDbComponent_SourceFile, vbNullString
+    If FSO.FileExists(IDbComponent_SourceFile) Then IDbComponent_GetFileList.Add IDbComponent_SourceFile, vbNullString
 End Function
 
 

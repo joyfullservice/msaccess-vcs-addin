@@ -906,6 +906,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         Perf.OperationEnd
     End If
 
+    ' Reset the LoadFromText state because the path may be now different
+    ' so any cached list of error files may be invalid.
+    modLoadFromText.Reset
+
     ' Start log and performance timers
     Log.Clear
     Log.SourcePath = strSourceFolder
