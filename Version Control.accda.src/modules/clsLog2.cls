@@ -81,7 +81,6 @@ End Sub
 Private Sub Class_Terminate()
 
     ' close the connection to the external objects if not closed
-
     If Not this.adoStoredCMDAddEntry Is Nothing Then
         If this.adoStoredCMDAddEntry.State <> adStateClosed Then this.adoStoredCMDAddEntry.ActiveConnection.Close
         Set this.adoStoredCMDAddEntry = Nothing
@@ -91,8 +90,6 @@ Private Sub Class_Terminate()
         If this.LogadoStoredConnection.State <> adStateClosed Then this.LogadoStoredConnection.Close
         Set this.LogadoStoredConnection = Nothing
     End If
-
-
 
 End Sub
 
