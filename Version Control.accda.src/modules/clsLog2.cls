@@ -78,6 +78,7 @@ Private Sub Class_Initialize()
 
 End Sub
 
+
 Private Sub Class_Terminate()
 
     ' close the connection to the external objects if not closed
@@ -1087,7 +1088,7 @@ Private Function SetupLogTable(ByRef adoConIn As ADODB.Connection) As String
 
     Set NewDbFile = DBEngine.OpenDatabase(strPath)
 
-    'Now set EventMessage to rich text, because you can't do it in SQL...
+    ' Now set EventMessage to rich text, because you can't do it in SQL...
     Set lTable = NewDbFile.TableDefs(this.LogTableName)
     Set fld = lTable.Fields("EventMessage")
 
