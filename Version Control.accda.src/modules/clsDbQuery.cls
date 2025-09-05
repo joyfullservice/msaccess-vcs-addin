@@ -100,24 +100,63 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strQueryName As String
     Dim strFileSql As String
     Dim strSql As String
+    Dim blnRecreated As Boolean
 
     ' Only import files with the correct extension.
     If Not strFile Like "*.bas" Then Exit Sub
 
     ' Import query from file
     strQueryName = GetObjectNameFromFileName(strFile)
-    LoadComponentFromText acQuery, strQueryName, strFile
-    Set m_Query = CurrentData.AllQueries(strQueryName)
-    VCSIndex.Update Me, eatImport, GetFileHash(strFile)
+
 
     ' In some cases, such as when a query contains a subquery, AND has been modified in the
     ' visual query designer, it may be imported incorrectly and unable to run. For these
     ' cases we have added an option to overwrite the .SQL property with the SQL that we
     ' saved separately during the export. See the following link for further details:
     ' https://github.com/joyfullservice/msaccess-vcs-addin/issues/76
-
-    ' Check option to import exact query from SQL
+    '
+    ' There are two variants of this problem; we may successfully import a query but
+    ' it's in a broken state OR we may not be able to import the query at all.
+    ' The latter case is handled first, and former further down after the import.
+    '
+    ' However, if we create a new query, we might be actually losing some of the
+    ' properties relating to the visual query designer. Thus, a warning is
+    ' generated to alert of such issue.
     If Options.ForceImportOriginalQuerySQL Then
+        If LoadComponentFromText(acQuery, strQueryName, strFile, True) = False Then
+            ' Replace .bas extension with .sql to get file content
+            strFileSql = Left$(strFile, Len(strFile) - 4) & ".sql"
+
+            ' Tries to get SQL content from the SQL file previously exported
+            strSql = ReadFile(strFileSql)
+
+            ' Update query def with saved SQL
+            If strSql <> vbNullString Then
+                Set dbs = CurrentDb
+                dbs.CreateQueryDef strQueryName, strSql
+                blnRecreated = True
+                Log.Error eelWarning, "  Restored query " & strQueryName & " using SQL. Some visual design properties may be lost.", ModuleName(Me) & ".Import"
+            Else
+                Log.Error eelError, "  Couldn't get original SQL query for " & strQueryName
+                Exit Sub
+            End If
+        Else
+            ' Something went horribly wrong.
+            Exit Sub
+        End If
+    Else
+        If LoadComponentFromText(acQuery, strQueryName, strFile) = False Then
+            ' An error occurred and it has been logged already
+            Exit Sub
+        End If
+    End If
+
+    Set m_Query = CurrentData.AllQueries(strQueryName)
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile)
+
+    ' Check option to import exact query from SQL, unless it was already
+    ' imported as a new query from above.
+    If Options.ForceImportOriginalQuerySQL And (blnRecreated = False) Then
 
         ' Replace .bas extension with .sql to get file content
         strFileSql = Left$(strFile, Len(strFile) - 4) & ".sql"
