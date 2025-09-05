@@ -216,7 +216,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
                 ' Export object
                 Set cDbObject = dObjects(varKey)
-                Log.Add "   " & cDbObject.Name, Options.ShowDebug
+                Log.Add "  " & cDbObject.Name, Options.ShowDebug
                 Operation.Pulse
 
                 ' If we have already exported this object while scanning for changes, use that copy.
