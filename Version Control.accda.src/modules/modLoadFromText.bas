@@ -26,16 +26,16 @@ Private this As udtThis
 '
 Public Sub Reset(Optional DeleteErrorFiles As Boolean = False)
     If DeleteErrorFiles Then
-        Dim strErrorFilePath As String
-        Dim strProjectPath
+        Dim strProjectPath As String
+        Dim dErrorFiles As Dictionary
+        Dim strErrorFilePath As Variant
 
         strProjectPath = ProjectPath
         If Len(strProjectPath) Then
-            strErrorFilePath = Dir$(BuildPath2(strProjectPath, "errors*.txt"))
-            Do Until Len(strErrorFilePath) = 0
+            Set dErrorFiles = GetFileList(strProjectPath, "errors*.txt")
+            For Each strErrorFilePath In dErrorFiles.Keys
                 Kill BuildPath2(strProjectPath, strErrorFilePath)
-                strErrorFilePath = Dir()
-            Loop
+            Next strErrorFilePath
         End If
     End If
 
@@ -97,16 +97,16 @@ Private Sub PopulateErrorFileList()
     Set this.ErrorFileList = New Dictionary
     this.ErrorFileList.CompareMode = TextCompare
 
-    Dim strErrorFilePath As String
-    Dim strProjectPath
+    Dim strProjectPath As String
+    Dim dErrorFiles As Dictionary
+    Dim strErrorFilePath As Variant
 
     strProjectPath = ProjectPath
     If Len(strProjectPath) Then
-        strErrorFilePath = Dir$(BuildPath2(strProjectPath, "errors*.txt"))
-        Do Until Len(strErrorFilePath) = 0
+        Set dErrorFiles = GetFileList(strProjectPath, "errors*.txt")
+        For Each strErrorFilePath In dErrorFiles.Keys
             this.ErrorFileList.Add strErrorFilePath, vbNullString
-            strErrorFilePath = Dir()
-        Loop
+        Next strErrorFilePath
     End If
     Set this.FSO = FSO
     this.IsInitialized = True
@@ -120,14 +120,15 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function ReadErrorFile() As String
-    Dim strErrorFilePath As String
-    Dim strProjectPath
+    Dim strProjectPath As String
+    Dim dErrorFiles As Dictionary
+    Dim strErrorFilePath As Variant
     Dim txtStream As TextStream
 
     strProjectPath = ProjectPath
     If Len(strProjectPath) Then
-        strErrorFilePath = Dir$(BuildPath2(strProjectPath, "errors*.txt"))
-        Do Until Len(strErrorFilePath) = 0
+        Set dErrorFiles = GetFileList(strProjectPath, "errors*.txt")
+        For Each strErrorFilePath In dErrorFiles.Keys
             If Not this.ErrorFileList.Exists(strErrorFilePath) Then
                 ' It's a new file, so read it.
                 Set txtStream = this.FSO.OpenTextFile(BuildPath2(strProjectPath, strErrorFilePath), ForReading, False)
@@ -139,9 +140,8 @@ Private Function ReadErrorFile() As String
                 this.ErrorFileList.Add strErrorFilePath, vbNullString
 
                 ' We can exit early since only one file will be created
-                Exit Do
+                Exit For
             End If
-            strErrorFilePath = Dir()
-        Loop
+        Next strErrorFilePath
     End If
 End Function
