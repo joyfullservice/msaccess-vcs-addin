@@ -23,7 +23,7 @@ End Enum
 ' Error levels used for logging and monitoring the status
 ' of the current operation.
 Public Enum eErrorLevel
-    eelUninitialized    ' Used to indicate the erorr level wasn't set correctly.
+    eelUninitialized    ' Used to indicate the error level wasn't set correctly.
     eelLoggingOff       ' Logging is turned off completely.
     eelDebugTrace       ' State trace.
     eelDebugEvent       ' Event information
