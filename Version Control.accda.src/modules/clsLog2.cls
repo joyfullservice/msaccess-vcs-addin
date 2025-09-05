@@ -1088,24 +1088,20 @@ Private Function SetupLogTable(ByRef adoConIn As ADODB.Connection) As String
     Set NewDbFile = DBEngine.OpenDatabase(strPath)
 
     'Now set EventMessage to rich text, because you can't do it in SQL...
-    'NewDbFile.Connect =
     Set lTable = NewDbFile.TableDefs(this.LogTableName)
     Set fld = lTable.Fields("EventMessage")
 
-Recheck:
     On Error Resume Next
     With lTable.Fields("EventMessage").Properties("TextFormat")
-        If Catch(3270) Then GoTo AddProperty
+        If Catch(3270) Then
+            Set logProperty = fld.CreateProperty("TextFormat", dbInteger, acTextFormatHTMLRichText)
+            fld.Properties.Append logProperty
+        End If
         If .Value = acTextFormatPlain Then .Value = acTextFormatHTMLRichText
     End With
     On Error GoTo 0
     SetupLogTable = lTable.Name
     Exit Function
-
-AddProperty:
-    Set logProperty = fld.CreateProperty("TextFormat", dbInteger, acTextFormatHTMLRichText)
-    fld.Properties.Append logProperty
-    GoTo Recheck
 
 End Function
 
