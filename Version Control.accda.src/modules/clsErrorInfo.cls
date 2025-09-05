@@ -92,7 +92,7 @@ End Function
 Private Function GetErrorName(ByVal ErrorLevelIn As eErrorLevel) As String
 
     Select Case ErrorLevelIn
-    Case eelUninitialized:  GetErrorName = "ERROR Uninitialized"
+    Case eelUninitialized:  GetErrorName = "Uninitialized Error Level"
     Case eelLoggingOff:     GetErrorName = "LOGGING OFF"
     Case eelNoError:        GetErrorName = "NO ERROR"
     Case eelDebugTrace:     GetErrorName = "TRACE"
@@ -109,7 +109,7 @@ End Function
 Private Function GetErrorNameOption(ByRef ErrorLevel As eErrorLevel) As String
 
     Select Case ErrorLevel
-    Case eelUninitialized:  GetErrorNameOption = "ERROR Uninitialized"
+    Case eelUninitialized:  GetErrorNameOption = "Uninitialized Error Level"
     Case eelLoggingOff:     GetErrorNameOption = "Off"
     Case eelNoError:        GetErrorNameOption = "Note"
     Case eelDebugTrace:     GetErrorNameOption = "Debug Trace"
