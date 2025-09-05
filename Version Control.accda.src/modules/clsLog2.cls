@@ -617,7 +617,7 @@ Public Function Prompt(ByRef strBold As String _
 
     ' Check interaction mode
     If InteractionMode = eimNormal Then
-        PromptResult = MsgBox3(strBold:=strBoldLines _
+        PromptResult = MsgBoxLog(strBold:=strBoldLines _
                             , strLine1:=strBoxLines1 _
                             , strLine2:=msgBoxStr2.GetStr _
                             , vbButtons:=vbButtons, strTitle:=titleFormatted)
@@ -714,7 +714,7 @@ Public Function PromptInput(ByRef strMainLine As String _
 
     ' Check interaction mode
     If InteractionMode = eimNormal Then
-        PromptResult = InputBox3(strMainLine:=strBoldLines _
+        PromptResult = InputBoxLog(strMainLine:=strBoldLines _
                             , strLine1:=strBoxLines1 _
                             , strLine2:=msgBoxStr2.GetStr _
                             , DefaultInput:=DefaultInput, strTitle:=titleFormatted)
@@ -768,7 +768,7 @@ End Function
 '           : can be wrapped and logged.
 '---------------------------------------------------------------------------------------
 '
-Private Function MsgBox3(ByRef strBold As String _
+Private Function MsgBoxLog(ByRef strBold As String _
                         , Optional ByRef strLine1 As String = vbNullString _
                         , Optional ByRef strLine2 As String = vbNullString _
                         , Optional ByRef vbButtons As VbMsgBoxStyle = vbOKOnly _
@@ -785,7 +785,7 @@ Private Function MsgBox3(ByRef strBold As String _
 
     If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
     strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & vbButtons & ",'" & varLines(3) & "')"
-    MsgBox3 = Eval(strMsg)
+    MsgBoxLog = Eval(strMsg)
 
 End Function
 
@@ -797,7 +797,7 @@ End Function
 ' Purpose   : Alternate facilitate inputbox functionality and ability to log it.
 '---------------------------------------------------------------------------------------
 '
-Private Function InputBox3(ByRef strMainLine As String _
+Private Function InputBoxLog(ByRef strMainLine As String _
                         , Optional ByRef strLine1 As String = vbNullString _
                         , Optional ByRef strLine2 As String = vbNullString _
                         , Optional ByRef DefaultInput As String = vbNullString _
@@ -816,7 +816,7 @@ Private Function InputBox3(ByRef strMainLine As String _
     If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
     strMsg = "InputBox('" & varLines(0) & vbNewLine & vbNewLine & varLines(1) & vbNewLine & vbNewLine & varLines(2) & "'" & _
                     ",'" & varLines(3) & "','" & varLines(4) & "')"
-    InputBox3 = Eval(strMsg)
+    InputBoxLog = Eval(strMsg)
 
 End Function
 
