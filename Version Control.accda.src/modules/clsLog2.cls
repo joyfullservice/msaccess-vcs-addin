@@ -1056,7 +1056,7 @@ End Function
 
 Private Function SetupLogTable(ByRef adoConIn As ADODB.Connection) As String
 
-    Dim SQLString As clsConcat
+    Dim SQLString As String
     Dim strPath As String
     Dim adoCmdRun As ADODB.Command
     Dim NewDbFile As DAO.Database
@@ -1064,26 +1064,20 @@ Private Function SetupLogTable(ByRef adoConIn As ADODB.Connection) As String
     Dim fld As DAO.Field
     Dim logProperty As Property
 
-    Set SQLString = New clsConcat
-    With SQLString
-        .Add "CREATE TABLE ", this.LogTableName, " ("
-        .AppendOnAdd = ", "
-        .Add "[", "EntryID", "] ", "AUTOINCREMENT"
-        .Add "[", "EventLogTime", "] ", "VARCHAR(40)"
-        .Add "[", "UserID", "] ", "VARCHAR(40)"
-        .Add "[", "ComputerName", "] ", "VARCHAR(255)"
-        .Add "[", "ErrorNumber", "] ", "Long"
-        .Add "[", "EventSource", "] ", "LongText"
-        .Add "[", "EventMessage", "] ", "LongText"
-        .Add "[", "Printed", "] ", "Bit"
-        .Add "[", "ErrorLevel", "] ", "Long"
-        .AppendOnAdd = vbNullString ' Turn off AppendOnAdd.
-        .Remove 2 ' Remove the last comma.
-        .Add ");"
-    End With
+    SQLString = "CREATE TABLE " & this.LogTableName & " (" & _
+                        "[EntryID] AUTOINCREMENT, " & _
+                        "[EventLogTime] VARCHAR(40), " & _
+                        "[UserID] VARCHAR(40), " & _
+                        "[ComputerName] VARCHAR(255), " & _
+                        "[ErrorNumber] Long, " & _
+                        "[EventSource] LongText, " & _
+                        "[EventMessage] LongText, " & _
+                        "[Printed] Bit, " & _
+                        "[ErrorLevel] Long" & _
+                        ");"
 
     With New ADODB.Command
-        .CommandText = SQLString.GetStr
+        .CommandText = SQLString
         .ActiveConnection = adoConIn
         If (.ActiveConnection.State And adStateOpen) <> adStateOpen Then .ActiveConnection.Open
         .Execute
