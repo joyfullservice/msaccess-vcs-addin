@@ -17,6 +17,7 @@ Private Type udtThis
 End Type
 Private this As udtThis
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : Reset
 ' Author    : bclothier
@@ -25,6 +26,7 @@ Private this As udtThis
 '---------------------------------------------------------------------------------------
 '
 Public Sub Reset(Optional DeleteErrorFiles As Boolean = False)
+
     If DeleteErrorFiles Then
         Dim strProjectPath As String
         Dim dErrorFiles As Dictionary
@@ -42,7 +44,9 @@ Public Sub Reset(Optional DeleteErrorFiles As Boolean = False)
     Set this.ErrorFileList = New Dictionary
     this.ErrorFileList.CompareMode = TextCompare
     this.IsInitialized = True
+
 End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadFromText
@@ -52,6 +56,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadFromText(ObjectType As AcObjectType, ObjectName As String, FileName As String)
+
     On Error GoTo ErrHandler
 
     If this.IsInitialized = False Then
@@ -84,7 +89,9 @@ ErrHandler:
     End If
     Resume ExitProc
     Resume ' for debugging
+
 End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : PopulateErrorFileList
@@ -94,6 +101,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub PopulateErrorFileList()
+
     Set this.ErrorFileList = New Dictionary
     this.ErrorFileList.CompareMode = TextCompare
 
@@ -110,7 +118,9 @@ Private Sub PopulateErrorFileList()
     End If
     Set this.FSO = FSO
     this.IsInitialized = True
+
 End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ReadErrorFile
@@ -120,6 +130,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function ReadErrorFile() As String
+
     Dim strProjectPath As String
     Dim dErrorFiles As Dictionary
     Dim strErrorFilePath As Variant
@@ -144,4 +155,5 @@ Private Function ReadErrorFile() As String
             End If
         Next strErrorFilePath
     End If
+
 End Function
