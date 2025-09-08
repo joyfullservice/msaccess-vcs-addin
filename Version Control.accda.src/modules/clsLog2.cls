@@ -331,9 +331,13 @@ Retry:
             If Err.Number = -2147217865 Then
                 ' The log table got deleted somehow.
                 Err.Clear
-                'SetupLogTable
-                GoTo Retry
+                SetupLogTable this.LogadoStoredConnection
+                .Execute
+                If Err Then this.Console.Add FormatEntry("COULD NOT SAVE LOG! " & strMessage, True, "RED", True, True)
+            Else
+                this.Console.Add FormatEntry("ERROR During Log Save: " & Err.Number & " : " & Err.Description, True, "RED", True, True)
             End If
+            Err.Clear
         End If
     End With
 
