@@ -54,6 +54,10 @@ Private Type udtThis
     LogadoStoredConnection As ADODB.Connection
     adoStoredCMDAddEntry As ADODB.Command
 
+    StorePrivateDetails As Boolean  ' Store potentially private details such as User and Computer name
+                                    ' NOTE: These can be very helpful in troubleshooting, but may reveal
+                                    '       information which could be used nefariously.
+
 End Type
 Private this As udtThis
 
@@ -111,6 +115,14 @@ End Property
 Public Property Get DisplayLogLevel() As eErrorLevel
     If this.DisplayLogLevel = eelUninitialized Then this.DisplayLogLevel = DEFAULT_DisplayLogLevel
     DisplayLogLevel = this.DisplayLogLevel
+End Property
+
+
+Public Property Let StorePrivateDetails(NewPropBool As Boolean)
+    this.StorePrivateDetails = NewPropBool
+End Property
+Public Property Get StorePrivateDetails() As Boolean
+    StorePrivateDetails = this.StorePrivateDetails
 End Property
 
 
@@ -293,7 +305,7 @@ Public Sub AddEntry(ByRef strMessage As String _
 
         ' Allow an update to the screen every second.
         ' (This keeps the aplication from an apparent hang while
-        '  running intensive export processes.)
+        ' running intensive export processes.)
         If this.sngLastUpdate + 0.1 < Timer Then Me.Flush
     End If
 
@@ -303,8 +315,8 @@ Public Sub AddEntry(ByRef strMessage As String _
     With adoCMD
         If (.ActiveConnection.State And adStateOpen) <> adStateOpen Then .ActiveConnection.Open
         .Parameters("[paramEventLogTime]") = ISO8601TimeStamp
-        .Parameters("[paramUserID]") = GetUserID
-        .Parameters("[paramComputerName]") = GetUserComputerName
+        If this.StorePrivateDetails Then .Parameters("[paramUserID]") = GetUserID
+        If this.StorePrivateDetails Then .Parameters("[paramComputerName]") = GetUserComputerName
         .Parameters("[paramErrorNumber]") = CachedErrorNumber
         .Parameters("[paramEventSource]") = strSource
         .Parameters("[paramEventMessage]") = strMessage
@@ -336,7 +348,7 @@ Private Function GetUserID() As String
     Static UserIDCache As String
     Dim objNetwork As Object
 
-    If UserIDCache = vbNullString Then
+    If UserIDCache = vbNullString And this.StorePrivateDetails Then
         Set objNetwork = CreateObject("WScript.Network")
         UserIDCache = objNetwork.UserName
         Set objNetwork = Nothing
@@ -351,7 +363,7 @@ Private Function GetUserComputerName() As String
     Static UserComputerNameCache As String
     Dim objNetwork As Object
 
-    If UserComputerNameCache = vbNullString Then
+    If UserComputerNameCache = vbNullString And this.StorePrivateDetails Then
         Set objNetwork = CreateObject("WScript.Network")
         UserComputerNameCache = objNetwork.ComputerName
         Set objNetwork = Nothing
