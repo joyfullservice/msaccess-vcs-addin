@@ -25,59 +25,55 @@ Private Type udtState
     dIndex As Dictionary
     dGitIndex As Dictionary
     strFile As String
-    Git As clsGitIntegration
     Conflicts As clsConflicts
     strTempExportFolderPath As String
 
     ' General properties
-    MergeBuildDate As Date
-    FullBuildDate As Date
-    ExportDate As Date
-    FullExportDate As Date
-    OptionsHash As String
     Disabled As Boolean
-    LastMergedCommit As String 'Git integration
+
+    ' Git integration
+    Git As clsGitIntegration
 End Type
 Private this As udtState
 
 Public Property Get MergeBuildDate() As Date
-    MergeBuildDate = this.MergeBuildDate
+    MergeBuildDate = this.dIndex("MergeBuildDate")
 End Property
 
-Public Property Let MergeBuildDate(NewValue As Date)
-    this.MergeBuildDate = NewValue
+Private Property Let MergeBuildDate(NewValue As Date)
+    this.dIndex("MergeBuildDate") = NewValue
 End Property
 
 Public Property Get FullBuildDate() As Date
-    FullBuildDate = this.FullBuildDate
+    FullBuildDate = this.dIndex("FullBuildDate")
 End Property
 
-Public Property Let FullBuildDate(NewValue As Date)
-    this.FullBuildDate = NewValue
+Private Property Let FullBuildDate(NewValue As Date)
+    this.dIndex("FullBuildDate") = NewValue
 End Property
 
 Public Property Get ExportDate() As Date
-    ExportDate = this.ExportDate
+    ExportDate = this.dIndex("ExportDate")
 End Property
 
 Public Property Let ExportDate(NewValue As Date)
-    this.ExportDate = NewValue
+    this.dIndex("ExportDate") = NewValue
 End Property
 
 Public Property Get FullExportDate() As Date
-    FullExportDate = this.FullExportDate
+    FullExportDate = this.dIndex("FullExportDate")
 End Property
 
 Public Property Let FullExportDate(NewValue As Date)
-    this.FullExportDate = NewValue
+    this.dIndex("FullExportDate") = NewValue
 End Property
 
 Public Property Get OptionsHash() As String
-    OptionsHash = this.OptionsHash
+    OptionsHash = this.dIndex("OptionsHash")
 End Property
 
 Public Property Let OptionsHash(NewValue As String)
-    this.OptionsHash = NewValue
+    this.dIndex("OptionsHash") = NewValue
 End Property
 
 Public Property Get Disabled() As Boolean
@@ -86,13 +82,28 @@ End Property
 
 ' Git integration
 Public Property Get LastMergedCommit() As String
-    LastMergedCommit = this.LastMergedCommit
+    LastMergedCommit = this.dIndex("LastMergedCommit")
 End Property
 
 Public Property Let LastMergedCommit(NewValue As String)
-    this.LastMergedCommit = NewValue
+    this.dIndex("LastMergedCommit") = NewValue
 End Property
 
+Public Property Get LastBranchName() As String
+    LastBranchName = this.dIndex("LastBranchName")
+End Property
+
+Private Property Let LastBranchName(NewValue As String)
+    this.dIndex("LastBranchName") = NewValue
+End Property
+
+Public Property Get LastBranchCommit() As String
+    LastBranchCommit = this.dIndex("LastBranchCommit")
+End Property
+
+Private Property Let LastBranchCommit(NewValue As String)
+    this.dIndex("LastBranchCommit") = NewValue
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadFromFile
@@ -170,7 +181,7 @@ Public Sub Save(Optional strInFolder As String)
             Case Else
                 varValue = CallByName(Me, CStr(varKey), VbGet)
                 ' Save blank dates as null
-                If Right(varKey, 4) = "Date" Then
+                If Right$(varKey, 4) = "Date" Then
                     this.dIndex(varKey) = ZNDate(varValue)
                 Else
                     this.dIndex(varKey) = CStr(varValue)
@@ -918,6 +929,87 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IsMergable
+' Author    : bclothier
+' Date      : 9/9/2025
+' Purpose   : Check if merge build is available.
+'           : Returns true if:
+'           :   Branch is in a consistent state (see IsBranchConsistent)
+'           :   And a full build has been already done before.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsMergable() As Boolean
+
+    ' Quickly check if a full build exists.
+    IsMergable = Not (Me.FullBuildDate = 0)
+    If IsMergable Then
+        ' Now we need to check if the branch is consistent.
+        IsMergable = IsBranchConsistent
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsBranchConsistent
+' Author    : bclothier
+' Date      : 9/9/2025
+' Purpose   : Check if the git's branch is consistent with the index's metadata.
+'           : Returns true if:
+'           :   It's not a git repository (and therefore nothing to compare)
+'           :   Else, If the branch name is the same
+'           :     And the branch commit is the same
+'           :     Then it's consistent
+'           :   Else, it's not and therefore a full build/export is probably needed.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsBranchConsistent() As Boolean
+
+    ' In this case, we have only one specific case where it should be false
+    ' so we will assume success for the function generally.
+    IsBranchConsistent = True
+
+    If Git.IsInsideRepository = False Then
+        Exit Function
+    End If
+
+    If Len(Me.LastBranchName) = 0 Then
+        Exit Function
+    End If
+
+    If Git.BranchName = Me.LastBranchName Then
+        Exit Function
+    End If
+
+    If Not (Git.GetHeadCommitHash = Me.LastBranchCommit) Then
+        IsBranchConsistent = False
+    End If
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpdateMergeState
+' Author    : bclothier
+' Date      : 9/9/2025
+' Purpose   : Updates the mergability state
+'---------------------------------------------------------------------------------------
+'
+Public Sub UpdateMergeState(blnFullBuild As Boolean)
+
+    ' NOTE: Add a couple seconds since some items may still be in the process of saving.
+    If blnFullBuild Then
+        FullBuildDate = DateAdd("s", 2, Now)
+    Else
+        MergeBuildDate = DateAdd("s", 2, Now)
+    End If
+
+    If Git.IsInsideRepository Then
+        LastBranchName = Git.BranchName
+        LastBranchCommit = Git.GetHeadCommitHash
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Git
 ' Author    : Adam Waller
 ' Date      : 1/19/2021
@@ -950,15 +1042,18 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Initialize()
+    Const ZeroDate As Date = 0
 
     Set this.dIndex = New Dictionary
     With this.dIndex
-        .Add "MergeBuildDate", Null
-        .Add "FullBuildDate", Null
-        .Add "ExportDate", Null
-        .Add "FullExportDate", Null
+        .Add "MergeBuildDate", ZeroDate
+        .Add "FullBuildDate", ZeroDate
+        .Add "ExportDate", ZeroDate
+        .Add "FullExportDate", ZeroDate
         .Add "OptionsHash", vbNullString
         .Add "LastMergedCommit", vbNullString
+        .Add "LastBranchName", vbNullString
+        .Add "LastBranchCommit", vbNullString
         Set .Item("Components") = New Dictionary
         Set .Item("AlternateExport") = New Dictionary
     End With

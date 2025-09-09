@@ -419,7 +419,7 @@ Public Sub Form_Load()
         ' (Attempting a merge build of the entire database may
         '  not work correctly due to objects that depend upon
         '  each other.)
-        If VCSIndex.FullBuildDate = 0 Then
+        If VCSIndex.IsMergable Then
             chkFullBuild = True
             chkFullBuild.Enabled = False
         End If
