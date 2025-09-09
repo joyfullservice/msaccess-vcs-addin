@@ -20,31 +20,78 @@ Option Explicit
 ' File name for index
 Private Const cstrFileName As String = "vcs-index.json"
 
-' General properties
-Public MergeBuildDate As Date
-Public FullBuildDate As Date
-Public ExportDate As Date
-Public FullExportDate As Date
-Public OptionsHash As String
-Public Disabled As Boolean
+Private Type udtState
+    ' Index of component/file information, based on source files
+    dIndex As Dictionary
+    dGitIndex As Dictionary
+    strFile As String
+    Git As clsGitIntegration
+    Conflicts As clsConflicts
+    strTempExportFolderPath As String
+
+    ' General properties
+    MergeBuildDate As Date
+    FullBuildDate As Date
+    ExportDate As Date
+    FullExportDate As Date
+    OptionsHash As String
+    Disabled As Boolean
+    LastMergedCommit As String 'Git integration
+End Type
+Private this As udtState
+
+Public Property Get MergeBuildDate() As Date
+    MergeBuildDate = this.MergeBuildDate
+End Property
+
+Public Property Let MergeBuildDate(NewValue As Date)
+    this.MergeBuildDate = NewValue
+End Property
+
+Public Property Get FullBuildDate() As Date
+    FullBuildDate = this.FullBuildDate
+End Property
+
+Public Property Let FullBuildDate(NewValue As Date)
+    this.FullBuildDate = NewValue
+End Property
+
+Public Property Get ExportDate() As Date
+    ExportDate = this.ExportDate
+End Property
+
+Public Property Let ExportDate(NewValue As Date)
+    this.ExportDate = NewValue
+End Property
+
+Public Property Get FullExportDate() As Date
+    FullExportDate = this.FullExportDate
+End Property
+
+Public Property Let FullExportDate(NewValue As Date)
+    this.FullExportDate = NewValue
+End Property
+
+Public Property Get OptionsHash() As String
+    OptionsHash = this.OptionsHash
+End Property
+
+Public Property Let OptionsHash(NewValue As String)
+    this.OptionsHash = NewValue
+End Property
+
+Public Property Get Disabled() As Boolean
+    Disabled = this.Disabled
+End Property
 
 ' Git integration
-Public LastMergedCommit As String
+Public Property Get LastMergedCommit() As String
+    LastMergedCommit = this.LastMergedCommit
+End Property
 
-' Action types for update function
-Public Enum eIndexOperationType
-    eatExport
-    eatImport
-    eatAltExport    ' Alternate export folder, such as a scan for changes
-End Enum
-
-' Index of component/file information, based on source files
-Private m_dIndex As Dictionary
-Private m_dGitIndex As Dictionary
-Private m_strFile As String
-Private m_Git As clsGitIntegration
-Private m_Conflicts As clsConflicts
-Private m_strTempExportFolderPath As String
+Public Property Let LastMergedCommit(NewValue As String)
+    this.LastMergedCommit = NewValue
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -68,24 +115,24 @@ Public Sub LoadFromFile(Optional strFile As String)
     Call Class_Initialize
 
     ' Load properties
-    m_strFile = strFile
-    If m_strFile = vbNullString Then m_strFile = DefaultFilePath
-    If FSO.FileExists(m_strFile) Then
+    this.strFile = strFile
+    If this.strFile = vbNullString Then this.strFile = DefaultFilePath
+    If FSO.FileExists(this.strFile) Then
         ' Convert dates back to local time for processing
         blnSavedValue = JsonOptions.ConvertDateToIso
         JsonOptions.ConvertDateToIso = True
-        Set dFile = ReadJsonFile(m_strFile)
+        Set dFile = ReadJsonFile(this.strFile)
         JsonOptions.ConvertDateToIso = blnSavedValue
         If Not dFile Is Nothing Then
             If dFile.Exists("Items") Then
                 ' Load properties from class
                 For Each varKey In dFile("Items").Keys
-                    If m_dIndex.Exists(varKey) Then
+                    If this.dIndex.Exists(varKey) Then
                         Select Case varKey
                             Case "Components", "AlternateExport"
                                 ' Load as dictionary
                                 Set dItem = dFile("Items")(varKey)
-                                Set m_dIndex(varKey) = dItem
+                                Set this.dIndex(varKey) = dItem
                             Case Else
                                 ' Set property by name
                                 CallByName Me, CStr(varKey), VbLet, Nz(dFile("Items")(varKey), 0)
@@ -117,30 +164,30 @@ Public Sub Save(Optional strInFolder As String)
     If Me.Disabled Then Exit Sub
 
     ' Load dictionary from properties
-    For Each varKey In m_dIndex.Keys
+    For Each varKey In this.dIndex.Keys
         Select Case varKey
             Case "Components", "AlternateExport"
             Case Else
                 varValue = CallByName(Me, CStr(varKey), VbGet)
                 ' Save blank dates as null
                 If Right(varKey, 4) = "Date" Then
-                    m_dIndex(varKey) = ZNDate(varValue)
+                    this.dIndex(varKey) = ZNDate(varValue)
                 Else
-                    m_dIndex(varKey) = CStr(varValue)
+                    this.dIndex(varKey) = CStr(varValue)
                 End If
         End Select
     Next varKey
 
     ' Sort files and components
-    SortComponentSection m_dIndex, "Components"
+    SortComponentSection this.dIndex, "Components"
 
     ' Remove the AlternateExport section, since this is not
     ' needed after the completion of the export process.
-    If m_dIndex.Exists("AlternateExport") Then m_dIndex.Remove "AlternateExport"
+    If this.dIndex.Exists("AlternateExport") Then this.dIndex.Remove "AlternateExport"
 
     ' Build file path
     If strInFolder = vbNullString Then
-        strFile = m_strFile
+        strFile = this.strFile
     Else
         strFile = StripSlash(strInFolder) & PathSep & cstrFileName
     End If
@@ -150,8 +197,8 @@ Public Sub Save(Optional strInFolder As String)
     JsonOptions.ConvertDateToIso = True
 
     ' Save index to file
-    If m_strFile <> vbNullString Then
-        WriteFile BuildJsonFile(TypeName(Me), m_dIndex, "Version Control System Index"), strFile
+    If this.strFile <> vbNullString Then
+        WriteFile BuildJsonFile(TypeName(Me), this.dIndex, "Version Control System Index"), strFile
     End If
 
     ' Restore previous setting
@@ -279,7 +326,7 @@ Public Sub UpdateFromAltExport(cItem As IDbComponent)
     strFile = FSO.GetFileName(cItem.SourceFile)
 
     ' Look for entry in AlternateExport section
-    With m_dIndex("AlternateExport")
+    With this.dIndex("AlternateExport")
         If .Exists(cItem.Category) Then
             If .Item(cItem.Category).Exists(strFile) Then
                 ' Get reference to alternate export entry
@@ -319,7 +366,7 @@ Public Sub Remove(cItem As IDbComponent, Optional strSourceFile As String)
     strFile = FSO.GetFileName(Nz2(strSourceFile, cItem.SourceFile))
 
     ' Remove dictionary objects.
-    With m_dIndex("Components")
+    With this.dIndex("Components")
         If .Exists(cItem.Category) Then
             If .Item(cItem.Category).Exists(strFile) Then
                 .Item(cItem.Category).Remove strFile
@@ -368,7 +415,7 @@ Private Function LoadItem(cItem As IDbComponent, strSourceFile As String, strSec
     Dim dItem As Dictionary
 
     ' Get or create dictionary objects.
-    With m_dIndex(strSection)
+    With this.dIndex(strSection)
         If Not .Exists(cItem.Category) Then Set .Item(cItem.Category) = New Dictionary
         If Not .Item(cItem.Category).Exists(strSourceFile) Then Set .Item(cItem.Category)(strSourceFile) = New Dictionary
         Set dItem = .Item(cItem.Category)(strSourceFile)
@@ -404,7 +451,7 @@ Public Function Exists(cCategory As IDbComponent, strSourceFilePath As String) A
     strFile = FSO.GetFileName(strSourceFilePath)
 
     ' See if the entry exists in the index
-    With m_dIndex("Components")
+    With this.dIndex("Components")
         If .Exists(cCategory.Category) Then
             blnExists = .Item(cCategory.Category).Exists(strFile)
         End If
@@ -494,7 +541,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
                 ' Build the path to find the item in the index.
                 strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "FilePropertiesHash"), "\")
                 ' File is considered not modified if the index date matches the file modification date.
-                blnModified = Not (dNZ(m_dIndex, strPath) = strHash)
+                blnModified = Not (dNZ(this.dIndex, strPath) = strHash)
             End If
 
             ' Add modified files to collection
@@ -529,8 +576,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function Conflicts() As clsConflicts
-    If m_Conflicts Is Nothing Then Set m_Conflicts = New clsConflicts
-    Set Conflicts = m_Conflicts
+    If this.Conflicts Is Nothing Then Set this.Conflicts = New clsConflicts
+    Set Conflicts = this.Conflicts
 End Function
 
 
@@ -842,8 +889,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get GetTempExportFolder() As String
-    If m_strTempExportFolderPath = vbNullString Then m_strTempExportFolderPath = GetTempFolder("VCS")
-    GetTempExportFolder = m_strTempExportFolderPath & PathSep
+    If this.strTempExportFolderPath = vbNullString Then this.strTempExportFolderPath = GetTempFolder("VCS")
+    GetTempExportFolder = this.strTempExportFolderPath & PathSep
 End Property
 
 
@@ -856,16 +903,16 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Sub ClearTempExportFolder()
-    If m_strTempExportFolderPath <> vbNullString Then
-        If FSO.FolderExists(m_strTempExportFolderPath) Then
+    If this.strTempExportFolderPath <> vbNullString Then
+        If FSO.FolderExists(this.strTempExportFolderPath) Then
             LogUnhandledErrors
             On Error Resume Next
             ' Use FSO to delete the folder and contents
-            FSO.DeleteFolder m_strTempExportFolderPath, True
-            CatchAny eelWarning, "Unable to delete temp folder: '" & m_strTempExportFolderPath & _
+            FSO.DeleteFolder this.strTempExportFolderPath, True
+            CatchAny eelWarning, "Unable to delete temp folder: '" & this.strTempExportFolderPath & _
                 "' You will need to manually remove this folder.", ModuleName(Me) & ".ClearTempExportFolder"
         End If
-        m_strTempExportFolderPath = vbNullString
+        this.strTempExportFolderPath = vbNullString
     End If
 End Sub
 
@@ -878,8 +925,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function Git() As clsGitIntegration
-    If m_Git Is Nothing Then Set m_Git = New clsGitIntegration
-    Set Git = m_Git
+    If this.Git Is Nothing Then Set this.Git = New clsGitIntegration
+    Set Git = this.Git
 End Function
 
 
@@ -904,8 +951,8 @@ End Function
 '
 Private Sub Class_Initialize()
 
-    Set m_dIndex = New Dictionary
-    With m_dIndex
+    Set this.dIndex = New Dictionary
+    With this.dIndex
         .Add "MergeBuildDate", Null
         .Add "FullBuildDate", Null
         .Add "ExportDate", Null
@@ -917,6 +964,6 @@ Private Sub Class_Initialize()
     End With
 
     ' Load Git integration
-    Set m_dGitIndex = Nothing
+    Set this.dGitIndex = Nothing
 
 End Sub
