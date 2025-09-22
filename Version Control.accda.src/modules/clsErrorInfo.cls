@@ -186,8 +186,14 @@ End Property
 
 
 Public Property Get ErrorColor() As String
+    If this.ErrorColor = vbNullString Then this.ErrorColor = getErrorColor(this.ErrorLevel)
     ErrorColor = this.ErrorColor
 End Property
+Public Property Let ErrorColor(newColor As String)
+    this.ErrorColor = ErrorColor
+End Property
+
+
 
 
 Public Property Get MsgBoxStyle() As VbMsgBoxStyle
