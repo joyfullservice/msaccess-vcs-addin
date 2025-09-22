@@ -281,15 +281,44 @@ Public Sub AddEntry(ByRef strMessage As String _
 
     If ErrorInfoIn Is Nothing Then
         Set f_ErrorInfo = New clsErrorInfo
-        f_ErrorInfo.ErrorLevel = ErrorLevelIn
     Else
         Set f_ErrorInfo = ErrorInfoIn
     End If
+
+    With f_ErrorInfo
+        .ErrorLevel = ErrorLevelIn
+        .ErrorColor = OutputColor
+        .Source = strSource
+    End With
+
     Err.Clear
     On Error Resume Next
     Perf.OperationStart FunctionName
 
-    fWasDisplayed = IsEntryDisplayed(ErrorLevelIn)
+    SaveEntry strMessage, f_ErrorInfo, NextOutputOnNewLine, PrintBold, PrintItalic
+
+Exit_Here:
+    Perf.OperationEnd
+
+End Sub
+
+
+Private Sub SaveEntry(ByRef strMessage As String _
+                    , ByRef ErrorInfoIn As clsErrorInfo _
+            , Optional ByVal NextOutputOnNewLine As Boolean = True _
+            , Optional ByVal PrintBold As Boolean = False _
+            , Optional ByVal PrintItalic As Boolean = False)
+
+
+    Const FunctionName As String = ModuleName & ".SaveEntry"
+
+    Dim adoCMD As ADODB.Command
+    Dim fWasDisplayed As Boolean
+
+    On Error Resume Next
+    Perf.OperationStart FunctionName
+
+    fWasDisplayed = IsEntryDisplayed(ErrorInfoIn.ErrorLevel)
     ' There may be cases where we want to print but not log the action.
     If fWasDisplayed Then
 
@@ -304,11 +333,8 @@ Public Sub AddEntry(ByRef strMessage As String _
             End If
         End If
 
-        With New clsErrorInfo
-            .ErrorLevel = ErrorLevelIn
-            this.Console.Add FormatEntry(strMessage, NextOutputOnNewLine _
-                            , Nz2(OutputColor, .ErrorColor), PrintBold, PrintItalic)
-        End With
+        this.Console.Add FormatEntry(strMessage, NextOutputOnNewLine _
+                                    , ErrorInfoIn.ErrorColor, PrintBold, PrintItalic)
 
         ' Allow an update to the screen every second.
         ' (This keeps the aplication from an apparent hang while
@@ -316,19 +342,19 @@ Public Sub AddEntry(ByRef strMessage As String _
         If this.sngLastUpdate + 0.1 < Timer Then Me.Flush
     End If
 
-    If Not IsEntryLogged(ErrorLevelIn) Then GoTo Exit_Here
+    If Not IsEntryLogged(ErrorInfoIn.ErrorLevel) Then GoTo Exit_Here
 
     Set adoCMD = GetLogStoredCommand
     With adoCMD
         If (.ActiveConnection.State And adStateOpen) <> adStateOpen Then .ActiveConnection.Open
-        .Parameters("[paramEventLogTime]") = f_ErrorInfo.TimeStamp
+        .Parameters("[paramEventLogTime]") = ErrorInfoIn.TimeStamp
         If this.StorePrivateDetails Then .Parameters("[paramUserID]") = GetUserID
         If this.StorePrivateDetails Then .Parameters("[paramComputerName]") = GetUserComputerName
-        .Parameters("[paramErrorNumber]") = f_ErrorInfo.Number
-        .Parameters("[paramEventSource]") = strSource
+        .Parameters("[paramErrorNumber]") = ErrorInfoIn.Number
+        .Parameters("[paramEventSource]") = ErrorInfoIn.Source
         .Parameters("[paramEventMessage]") = strMessage
         .Parameters("[paramPrinted]") = fWasDisplayed
-        .Parameters("[paramErrorLevel]") = f_ErrorInfo.ErrorLevel
+        .Parameters("[paramErrorLevel]") = ErrorInfoIn.ErrorLevel
 
 Retry:
         .Execute
