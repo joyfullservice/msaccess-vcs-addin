@@ -89,18 +89,18 @@ Private Function GetMsgBoxStyle(ByVal ErrorLevelIn As eErrorLevel) As VbMsgBoxSt
 End Function
 
 
-Private Function GetErrorName(ByVal ErrorLevelIn As eErrorLevel) As String
+Private Function GetErrorLevelName(ByVal ErrorLevelIn As eErrorLevel) As String
 
     Select Case ErrorLevelIn
-    Case eelUninitialized:  GetErrorName = "Uninitialized Error Level"
-    Case eelLoggingOff:     GetErrorName = "LOGGING OFF"
-    Case eelNoError:        GetErrorName = "NO ERROR"
-    Case eelDebugTrace:     GetErrorName = "TRACE"
-    Case eelDebugEvent:     GetErrorName = "EVENT"
-    Case eelDebugInfo:      GetErrorName = "INFO"
-    Case eelWarning:        GetErrorName = "WARNING"
-    Case eelError:          GetErrorName = "ERROR"
-    Case eelCritical:       GetErrorName = "CRITICAL"
+    Case eelUninitialized:  GetErrorLevelName = "Uninitialized Error Level"
+    Case eelLoggingOff:     GetErrorLevelName = "LOGGING OFF"
+    Case eelNoError:        GetErrorLevelName = "NO ERROR"
+    Case eelDebugTrace:     GetErrorLevelName = "TRACE"
+    Case eelDebugEvent:     GetErrorLevelName = "EVENT"
+    Case eelDebugInfo:      GetErrorLevelName = "INFO"
+    Case eelWarning:        GetErrorLevelName = "WARNING"
+    Case eelError:          GetErrorLevelName = "ERROR"
+    Case eelCritical:       GetErrorLevelName = "CRITICAL"
     End Select
 
 End Function
@@ -130,7 +130,7 @@ Public Function SetErrorLevelFromName(ByRef strErrorName As String) As eErrorLev
     Dim f_ErrorLevel As eErrorLevel
 
     For f_ErrorLevel = eelNoError To eErrorLevel.[_Last]
-        If strErrorName = GetErrorName(f_ErrorLevel) Then
+        If strErrorName = GetErrorLevelName(f_ErrorLevel) Then
             SetErrorLevelFromName = f_ErrorLevel
             this.ErrorLevel = f_ErrorLevel
             Exit For
