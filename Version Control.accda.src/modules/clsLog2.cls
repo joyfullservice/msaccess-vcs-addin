@@ -270,15 +270,22 @@ Public Sub AddEntry(ByRef strMessage As String _
                     , Optional ByVal NextOutputOnNewLine As Boolean = True _
                     , Optional ByRef OutputColor As String = vbNullString _
                     , Optional ByVal PrintBold As Boolean = False _
-                    , Optional ByVal PrintItalic As Boolean = False)
+                    , Optional ByVal PrintItalic As Boolean = False _
+                    , Optional ByRef ErrorInfoIn As clsErrorInfo = Nothing)
 
     Const FunctionName As String = ModuleName & ".AddEntry"
 
     Dim adoCMD As ADODB.Command
-    Dim CachedErrorNumber As Long
     Dim fWasDisplayed As Boolean
+    Dim f_ErrorInfo As clsErrorInfo
 
-    CachedErrorNumber = VBA.Err.Number
+    If ErrorInfoIn Is Nothing Then
+        Set f_ErrorInfo = New clsErrorInfo
+        f_ErrorInfo.ErrorLevel = ErrorLevelIn
+    Else
+        Set f_ErrorInfo = ErrorInfoIn
+    End If
+    Err.Clear
     On Error Resume Next
     Perf.OperationStart FunctionName
 
@@ -314,14 +321,14 @@ Public Sub AddEntry(ByRef strMessage As String _
     Set adoCMD = GetLogStoredCommand
     With adoCMD
         If (.ActiveConnection.State And adStateOpen) <> adStateOpen Then .ActiveConnection.Open
-        .Parameters("[paramEventLogTime]") = ISO8601TimeStamp
+        .Parameters("[paramEventLogTime]") = f_ErrorInfo.TimeStamp
         If this.StorePrivateDetails Then .Parameters("[paramUserID]") = GetUserID
         If this.StorePrivateDetails Then .Parameters("[paramComputerName]") = GetUserComputerName
-        .Parameters("[paramErrorNumber]") = CachedErrorNumber
+        .Parameters("[paramErrorNumber]") = f_ErrorInfo.Number
         .Parameters("[paramEventSource]") = strSource
         .Parameters("[paramEventMessage]") = strMessage
         .Parameters("[paramPrinted]") = fWasDisplayed
-        .Parameters("[paramErrorLevel]") = ErrorLevelIn
+        .Parameters("[paramErrorLevel]") = f_ErrorInfo.ErrorLevel
 
 Retry:
         .Execute
@@ -487,14 +494,15 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
                     , Optional ByRef strErrDescription As String _
                     , Optional ByVal vbButtons As VbMsgBoxStyle = vbOKOnly _
                     , Optional ByRef strTitle As String = vbNullString _
-                    , Optional ByRef moreDetails As String = vbNullString) As VbMsgBoxResult
+                    , Optional ByRef moreDetails As String = vbNullString _
+                    , Optional ByRef ErrorInfoIn As clsErrorInfo = Nothing) As VbMsgBoxResult
 
     Const FunctionName As String = ModuleName & ".Error"
 
     Dim ErrorResponse As VbMsgBoxResult
     Dim errorBold As New clsConcat
-    Dim errorFullDetails As New clsConcat
-    Dim errorLevelInfo As New clsErrorInfo
+    'Dim ErrorFullDetails As New clsConcat
+    Dim errorLevelInfo As clsErrorInfo
     Dim sourceFormatted As String
     Dim f_vbButtons As VbMsgBoxStyle
     Dim strWorking As New clsConcat
@@ -502,33 +510,22 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
     Error = vbCancel
 
     Perf.OperationStart FunctionName
+    If ErrorInfoIn Is Nothing Then
+        Set errorLevelInfo = New clsErrorInfo
+    Else
+        Set errorLevelInfo = ErrorInfoIn
+    End If
     errorLevelInfo.ErrorLevel = ErrorLevelIn
+    Err.Clear ' The error information has been captured by now, if it's not, then you've got other problems.
     sourceFormatted = strSource & ".Error"
-
-    With strWorking
-        .Add errorLevelInfo.Prefix, vbNewLine
-        .Add strBold, vbNewLine
-        If Err Then .Add "Number: ", Err.Number, " ", Err.Description, " ", Err.Source
-        .Add vbNewLine, strErrDescription
-    End With
 
     With errorBold
         .Add cstrSpacer, vbNewLine
-        .Add strWorking.GetStr, vbNewLine
+        .Add errorLevelInfo.ErrorPrefix, vbNewLine
+        .Add strBold, vbNewLine
+        .Add errorLevelInfo.ErrorDetailsBrief
+        .Add vbNewLine, strErrDescription, vbNewLine
         .Add cstrSpacer
-    End With
-
-    strWorking.Clear
-
-    With errorFullDetails
-        If Err Then
-            .Add vbNewLine, "Error Number: ", Err.Number, " ", Err.Description
-            .Add vbNewLine, "Help Context: ", Err.HelpContext
-            .Add vbNewLine, "HelpFile: ", Err.HelpFile
-            .Add vbNewLine, "LastDllError: ", Err.LastDllError
-            .Add vbNewLine, "Source: ", Err.Source
-        End If
-        .Add vbNewLine, "CallStack: ", Perf.CallStack
     End With
 
     ' Or performs a bitwise operation here
@@ -540,7 +537,7 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
         Case eelWarning, eelError, eelCritical
             ErrorResponse = Me.Prompt(strSource:=sourceFormatted _
                                     , strBold:=errorBold.GetStr _
-                                    , strLine1:=errorFullDetails.GetStr _
+                                    , strLine1:=errorLevelInfo.ErrorDetailsFull _
                                     , strLine2:=moreDetails _
                                     , ErrorLevelIn:=ErrorLevelIn _
                                     , vbButtons:=f_vbButtons _
@@ -557,7 +554,7 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
         ' Log the error only if user isn't prompted; the prompt logs it for you
         With strWorking
             .Add FormatEntry(errorBold.GetStr, True, errorLevelInfo.ErrorColor, True)
-            If errorFullDetails.Length Then .Add vbNewLine, errorFullDetails.GetStr
+            If Len(errorLevelInfo.ErrorDetailsFull) > 0 Then .Add vbNewLine, errorLevelInfo.ErrorDetailsFull
             If moreDetails <> vbNullString Then .Add vbNewLine, "More Details: ", moreDetails
             If f_vbButtons <> vbOKOnly Then .Add vbNewLine, "Buttons: ", CStr(f_vbButtons)
             If strTitle <> vbNullString Then .Add vbNewLine, "Title: ", strTitle
@@ -585,7 +582,8 @@ Public Function Prompt(ByRef strBold As String _
                     , Optional ByRef strLine2 As String = vbNullString _
                     , Optional ByRef vbButtons As VbMsgBoxStyle = vbOKOnly _
                     , Optional ByRef strTitle As String = vbNullString _
-                    , Optional ByVal vbDefaultResult As VbMsgBoxResult = vbOK) As VbMsgBoxResult
+                    , Optional ByVal vbDefaultResult As VbMsgBoxResult = vbOK _
+                    , Optional ByRef ErrorInfoIn As clsErrorInfo = Nothing) As VbMsgBoxResult
 
     ' This function will prompt the user to do something, or display a message, and return the value to the calling function.
     ' In addition, it will log that the prompt happened, and the result of the user action.
@@ -682,7 +680,8 @@ Public Function PromptInput(ByRef strMainLine As String _
                     , Optional ByRef strLine2 As String = vbNullString _
                     , Optional ByRef DefaultInput As String = vbNullString _
                     , Optional ByRef strTitle As String = vbNullString _
-                    , Optional ByVal LogInputReturn As Boolean = False) As String
+                    , Optional ByVal LogInputReturn As Boolean = False _
+                    , Optional ByRef ErrorInfoIn As clsErrorInfo = Nothing) As String
 
     ' This function will prompt the user to do something, or display a message, and return the value to the calling function.
     ' In addition, it will log that the prompt happened, and the result of the user action.
