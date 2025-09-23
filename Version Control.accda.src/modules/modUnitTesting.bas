@@ -475,18 +475,81 @@ Public Sub TestCatch()
     Const FunctionName As String = ModuleName & ".CatchTest"
 
     On Error Resume Next ' Clear out any errors that may happen, and continue on when errors happen.
-    Err.Raise 24601, "Pre Log Test"
+    Err.Raise 24601, FunctionName, "Pre Log Test"
 
     ' This is the "standard" way of catching errors without losing them.
     LogUnhandledErrors FunctionName
     On Error Resume Next
 
     ' "Pretend" code tossing an error.
-    Err.Raise 24602, "Post Log Test"
+    Err.Raise 24602, FunctionName, "Post Log Test"
     ' Checking for any issues post code execution.
     CatchAny eelError, "Catch Test Validation", FunctionName
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogErrorTest
+' Author    : hecon5
+' Date      : 2025-SEP-23
+' Purpose   : Validates error caching operates correctly and LogUnhandledErrors
+'           : doesn't create an infinite loop whether or not log exists.
+'           :
+'           : To use, run normally, after loading options / other core dependancies.
+'           : Then Stop the code (in VBA IDE) and then run again.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LogErrorTest()
+
+    ' Specifiying a Const FunctionName allows copy/paste code and having the wrong FunctionName
+    ' names if (when) they change.
+    Const FunctionName As String = ModuleName & ".LogErrorTest"
+    Dim f_ErrorInfo As clsErrorInfo
+
+    Perf.OperationStart FunctionName
+    On Error Resume Next ' Clear out any errors that may happen, and continue on when errors happen.
+    Perf.OperationStart FunctionName & ".24603"
+    Err.Raise 24603, FunctionName & ".Raise24603", "Log Test"
+
+    ' This is the "standard" way of catching errors without losing them.
+    Log.Error ErrorLevelIn:=eelError _
+            , strBold:="Testing Log" _
+            , strSource:=FunctionName & ".LogTest" _
+            , strErrDescription:="Testing Logging of errors"
+    Perf.OperationEnd   ' End 24603
+
+    ' "Pretend" code tossing an error.
+    Perf.OperationStart FunctionName & ".24604"
+    Err.Raise 24604, FunctionName & ".Raise24604", "Catch Test"
+    ' Checking for any issues post code execution.
+    CatchAny eelError, "Catch Test Validation", FunctionName & ".CatchTest"
+    Perf.OperationEnd ' End 24604
+
+    ' Test that you can load the error handler externally, too.
+    Perf.OperationStart FunctionName & ".24605"
+    Err.Raise 24605, FunctionName & ".Raise24605", "Log External Test"
+    Set f_ErrorInfo = New clsErrorInfo
+    With f_ErrorInfo
+        .FunctionSource = "funcsource"
+    End With
+    Log.Error eelError, "Testing that externally loaded functions work, too" _
+                , FunctionName & ".ExtText", "Testing  Logging Err", ErrorInfoIn:=f_ErrorInfo
+    Perf.OperationEnd ' End 24605
+
+    Perf.OperationEnd ' End FunctionName
+
+
+    ' Now test that you can release objects and run the log routines and keep data.
+    ReleaseObjects
+    ' "Pretend" code tossing an error.
+    Err.Raise 24604, FunctionName & ".Raise24606", "Catch Test"
+    ' Checking for any issues post code execution.
+    CatchAny eelError, "Catch Test Validation", FunctionName & ".CatchTest"
+
+End Sub
+
+
 
 
 '---------------------------------------------------------------------------------------
