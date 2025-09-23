@@ -178,9 +178,9 @@ Public Sub Clear(Optional ByVal CheckFirst As Boolean = False _
 
 ClearLog:
     With New ADODB.Command
-        .ActiveConnection = Me.LogConnectionADO
-        .CommandText = "DELETE FROM " & Me.LogTableName & ";"
-        .Execute
+        '.ActiveConnection = Me.LogConnectionADO
+        '.CommandText = "DELETE FROM " & Me.LogTableName & ";"
+        '.Execute
     End With
     If ClearConsoleAlso Then
         this.Console.Clear
@@ -348,8 +348,13 @@ Private Sub SaveEntry(ByRef strMessage As String _
     With adoCMD
         If (.ActiveConnection.State And adStateOpen) <> adStateOpen Then .ActiveConnection.Open
         .Parameters("[paramEventLogTime]") = ErrorInfoIn.TimeStamp
-        If this.StorePrivateDetails Then .Parameters("[paramUserID]") = GetUserID
-        If this.StorePrivateDetails Then .Parameters("[paramComputerName]") = GetUserComputerName
+        If this.StorePrivateDetails Then
+            .Parameters("[paramUserID]") = GetUserID
+            .Parameters("[paramComputerName]") = GetUserComputerName
+        Else
+            .Parameters("[paramUserID]") = Null
+            .Parameters("[paramComputerName]") = Null
+        End If
         .Parameters("[paramErrorNumber]") = ErrorInfoIn.ErrNumber
         .Parameters("[paramEventSource]") = ErrorInfoIn.FunctionSource
         .Parameters("[paramEventMessage]") = strMessage
@@ -456,8 +461,8 @@ Private Function GetLogStoredCommand() As ADODB.Command
             .Prepared = True
             .NamedParameters = True
             .Parameters.Append .CreateParameter("[paramEventLogTime]", adVarChar, adParamInput, 40)
-            .Parameters.Append .CreateParameter("[paramUserID]", adVarChar, adParamInput, 40)
-            .Parameters.Append .CreateParameter("[paramComputerName]", adVarChar, adParamInput, 255)
+            .Parameters.Append .CreateParameter("[paramUserID]", adVarChar, adParamInput, 40, Null)
+            .Parameters.Append .CreateParameter("[paramComputerName]", adVarChar, adParamInput, 255, Null)
             .Parameters.Append .CreateParameter("[paramErrorNumber]", adInteger, adParamInput)
             .Parameters.Append .CreateParameter("[paramEventSource]", adLongVarChar, adParamInput, 5000)
             .Parameters.Append .CreateParameter("[paramEventMessage]", adLongVarChar, adParamInput, 63999)
@@ -994,6 +999,8 @@ Public Property Get LogFilePath() As String
     End Select
 
     SanitizedFileName = SanitizedFileName & ".Log"
+    'SanitizedFileName = SanitizedFileName & ISO8601TimeStamp(False, False) & ".xml"
+    'SanitizedFileName = MultiReplace(SanitizedFileName, ":", "-") ' Replace Timestamp charachters with valid charachters.
 
     LogFilePath = FSO.BuildPath(Nz2(SourcePath, Options.GetExportFolder), SanitizedFileName)
 
