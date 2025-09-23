@@ -25,6 +25,8 @@ Private Const ModuleName As String = "clsLog2"
 Private Const DEFAULT_LogLevel As Long = eErrorLevel.eelDebugTrace
 Private Const DEFAULT_DisplayLogLevel As Long = eErrorLevel.eelNoError
 
+Private Const DEFAULT_PROMPT_VBRESULT As Long = vbOK
+
 Private Const DefaultLogTableName As String = "tblLog"
 
 Private Const MAX_ENTRY_COUNT_PROMPT As Long = 15000
@@ -291,7 +293,6 @@ Public Sub AddEntry(ByRef strMessage As String _
         .FunctionSource = strSource
     End With
 
-    Err.Clear
     On Error Resume Next
     Perf.OperationStart FunctionName
 
@@ -309,7 +310,6 @@ Private Sub SaveEntry(ByRef strMessage As String _
             , Optional ByVal PrintBold As Boolean = False _
             , Optional ByVal PrintItalic As Boolean = False)
 
-
     Const FunctionName As String = ModuleName & ".SaveEntry"
 
     Dim adoCMD As ADODB.Command
@@ -326,10 +326,10 @@ Private Sub SaveEntry(ByRef strMessage As String _
             ' Only print debug output if not running from the GUI.
             If NextOutputOnNewLine Then
                 ' Create new line
-                Debug.Print strMessage
+                Debug.Print CleanHTMLFromStr(strMessage)
             Else
                 ' Continue next printout on this line.
-                Debug.Print strMessage;
+                Debug.Print CleanHTMLFromStr(strMessage);
             End If
         End If
 
@@ -351,7 +351,7 @@ Private Sub SaveEntry(ByRef strMessage As String _
         If this.StorePrivateDetails Then .Parameters("[paramUserID]") = GetUserID
         If this.StorePrivateDetails Then .Parameters("[paramComputerName]") = GetUserComputerName
         .Parameters("[paramErrorNumber]") = ErrorInfoIn.ErrNumber
-        .Parameters("[paramEventSource]") = ErrorInfoIn.ErrSource
+        .Parameters("[paramEventSource]") = ErrorInfoIn.FunctionSource
         .Parameters("[paramEventMessage]") = strMessage
         .Parameters("[paramPrinted]") = fWasDisplayed
         .Parameters("[paramErrorLevel]") = ErrorInfoIn.ErrorLevel
@@ -528,7 +528,6 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
     Dim ErrorResponse As VbMsgBoxResult
     Dim errorBold As New clsConcat
     Dim f_ErrorInfo As clsErrorInfo
-    Dim sourceFormatted As String
     Dim f_vbButtons As VbMsgBoxStyle
     Dim strWorking As New clsConcat
 
@@ -543,10 +542,14 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
 
     With f_ErrorInfo
         .ErrorLevel = ErrorLevelIn
-        .FunctionSource = strSource
+        If strSource <> vbNullString Then .FunctionSource = f_ErrorInfo.FunctionSource & _
+                            IIf(f_ErrorInfo.FunctionSource = vbNullString, strSource, "." & strSource)
+        ' Now append remaining bits.
+        .FunctionSource = f_ErrorInfo.FunctionSource & _
+                            IIf(f_ErrorInfo.FunctionSource = vbNullString, "Log.", ".") & "Error"
     End With
 
-    sourceFormatted = strSource & ".Error"
+    Set ErrorInfoIn = f_ErrorInfo ' Hand out the updated class details.
 
     With errorBold
         .Add cstrSpacer, vbNewLine
@@ -564,14 +567,15 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
     ' Show message on any error level when we are not logging to a file.
     Select Case ErrorLevelIn
         Case eelWarning, eelError, eelCritical
-            ErrorResponse = Me.Prompt(strSource:=sourceFormatted _
+            ErrorResponse = Me.Prompt(strSource:=vbNullString _
                                     , strBold:=errorBold.GetStr _
-                                    , strLine1:=f_ErrorInfo.ErrorDetailsFull _
+                                    , strLine1:=ErrorInfoIn.ErrorDetailsFull _
                                     , strLine2:=moreDetails _
                                     , ErrorLevelIn:=ErrorLevelIn _
                                     , vbButtons:=f_vbButtons _
                                     , strTitle:=strTitle _
-                                    , vbDefaultResult:=vbOK)
+                                    , vbDefaultResult:=DEFAULT_PROMPT_VBRESULT _
+                                    , ErrorInfoIn:=ErrorInfoIn)
 
             If ErrorLevelIn = eelCritical Then
                 Me.SaveFile ' Performance reports are logged during save routines.
@@ -589,9 +593,8 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
             If strTitle <> vbNullString Then .Add vbNewLine, "Title: ", strTitle
         End With
 
-        Me.AddEntry strSource:=sourceFormatted _
-                    , strMessage:=strWorking.GetStr _
-                    , ErrorLevelIn:=ErrorLevelIn _
+        SaveEntry strMessage:=strWorking.GetStr _
+                    , ErrorInfoIn:=ErrorInfoIn _
                     , NextOutputOnNewLine:=True _
                     , PrintBold:=True
     End Select
@@ -611,7 +614,7 @@ Public Function Prompt(ByRef strBold As String _
                     , Optional ByRef strLine2 As String = vbNullString _
                     , Optional ByRef vbButtons As VbMsgBoxStyle = vbOKOnly _
                     , Optional ByRef strTitle As String = vbNullString _
-                    , Optional ByVal vbDefaultResult As VbMsgBoxResult = vbOK _
+                    , Optional ByVal vbDefaultResult As VbMsgBoxResult = DEFAULT_PROMPT_VBRESULT _
                     , Optional ByRef ErrorInfoIn As clsErrorInfo = Nothing) As VbMsgBoxResult
 
     ' This function will prompt the user to do something, or display a message, and return the value to the calling function.
@@ -621,9 +624,8 @@ Public Function Prompt(ByRef strBold As String _
 
     Dim intCursor As Integer
     Dim PromptResult As VbMsgBoxResult
-    Dim sourceFormatted As String
     Dim titleFormatted As String
-    Dim errorLevelInfo As New clsErrorInfo
+    Dim f_ErrorInfo As clsErrorInfo
 
     Dim strBoldLines As String
     Dim strBoxLines1 As String
@@ -634,12 +636,27 @@ Public Function Prompt(ByRef strBold As String _
 
     Perf.OperationStart FunctionName
 
+    If ErrorInfoIn Is Nothing Then
+        Set f_ErrorInfo = New clsErrorInfo
+    Else
+        Set f_ErrorInfo = ErrorInfoIn
+    End If
+
+    With f_ErrorInfo
+        .ErrorLevel = ErrorLevelIn
+        If strSource <> vbNullString Then .FunctionSource = f_ErrorInfo.FunctionSource & _
+                            IIf(f_ErrorInfo.FunctionSource = vbNullString, strSource, "." & strSource)
+        ' Now append remaining bits.
+        .FunctionSource = f_ErrorInfo.FunctionSource & _
+                            IIf(f_ErrorInfo.FunctionSource = vbNullString, "Log.", ".") & "Prompt"
+    End With
+
+    Set ErrorInfoIn = f_ErrorInfo ' Hand out the updated class details.
+
     ' Turn off any hourglass
     intCursor = Screen.MousePointer
 
-    sourceFormatted = Nz2(strSource, "Log") & ".Prompt"
-    titleFormatted = Nz2(strTitle, sourceFormatted)
-    errorLevelInfo.ErrorLevel = ErrorLevelIn
+    titleFormatted = Nz2(strTitle, ErrorInfoIn.FunctionSource)
 
     LineCount = SCREEN_ROWS_MAX_DEFAULT
     strBoldLines = FitStringToWidth(strBold, WIDTH_MAX_MSGBOX, WIDTH_DESIRED_MSGBOX, LineCount)
@@ -651,9 +668,9 @@ Public Function Prompt(ByRef strBold As String _
 
     With msgBoxStr2
         If strLine2 <> vbNullString Then .Add FitStringToWidth(strLine2, WIDTH_MAX_MSGBOX, WIDTH_DESIRED_MSGBOX, LineCount + MSGBOX_LINE2_ROWS)
-        If strSource <> vbNullString Then
+        If ErrorInfoIn.FunctionSource <> vbNullString Then
             If .Length Then .Add vbNewLine, vbNewLine
-            .Add "Source: ", FitStringToWidth(sourceFormatted, WIDTH_MAX_MSGBOX - 8, WIDTH_DESIRED_MSGBOX - 8, MSGBOX_SOURCE_ROWS)
+            .Add "Function Source: ", FitStringToWidth(ErrorInfoIn.FunctionSource, WIDTH_MAX_MSGBOX - 8, WIDTH_DESIRED_MSGBOX - 8, MSGBOX_SOURCE_ROWS)
         End If
     End With
 
@@ -679,17 +696,17 @@ Public Function Prompt(ByRef strBold As String _
             .Add cstrSpacer
             If InteractionMode = eimSilent Then .Add "[**MessageBox Not Displayed**]"
             .Add "Prompt:"
-            .Add FormatEntry(strBold, True, errorLevelInfo.ErrorColor, True)
+            .Add FormatEntry(strBold, True, ErrorInfoIn.ErrorColor, True)
             .Add strLine1
             .Add strLine2
-            .Add "Source: ", sourceFormatted
+            .Add "Function Source: ", ErrorInfoIn.FunctionSource
             If vbButtons <> vbOKOnly Then .Add "Buttons: ", CStr(vbButtons)
             If strTitle <> vbNullString Then .Add "Title: ", titleFormatted
             .Add FormatEntry("User Response: " & PromptResult, True, , True)
             .Add cstrSpacer
             .Remove 4 ' Remove the last line feed.
         End With
-        Me.AddEntry strSource:=sourceFormatted, strMessage:=logEntryDetails.GetStr, ErrorLevelIn:=ErrorLevelIn
+        SaveEntry strMessage:=logEntryDetails.GetStr, ErrorInfoIn:=ErrorInfoIn
     End If
 
     Prompt = PromptResult
@@ -1147,6 +1164,20 @@ Private Function SetupLogTable(ByRef adoConIn As ADODB.Connection) As String
     On Error GoTo 0
     SetupLogTable = lTable.Name
     Exit Function
+
+End Function
+
+
+Private Function CleanHTMLFromStr(ByRef StringToClean As String) As String
+
+    Dim StrCleaned As String
+
+    StrCleaned = MultiReplace(StringToClean, _
+                                "<br>", vbNewLine, _
+                                "&nbsp;", " ")
+
+    'CleanHTMLFromStr = CleanStr(StrCleaned, "<", ">")
+    CleanHTMLFromStr = StrCleaned
 
 End Function
 
