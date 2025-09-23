@@ -209,7 +209,8 @@ End Property
 Public Property Get ErrorDetailsBrief() As String
 
     If this.ErrorDetailsBrief = vbNullString And this.ErrNumber <> 0 Then
-        this.ErrorDetailsBrief = "Number: " & this.ErrNumber & " : " & this.ErrDescription & " Source: " & this.ErrSource
+        this.ErrorDetailsBrief = "Error Number: " & this.ErrNumber & _
+                                " Description: " & this.ErrDescription & " Err Source: " & this.ErrSource
     ElseIf this.ErrNumber = 0 Then
         ' make sure details are cleared.
         this.ErrorDetailsBrief = vbNullString
@@ -229,7 +230,7 @@ Public Property Get ErrorDetailsFull() As String
                 .Add vbNewLine, "Help Context: ", CStr(this.ErrHelpContext)
                 .Add vbNewLine, "HelpFile: ", this.ErrHelpFile
                 .Add vbNewLine, "LastDllError: ", CStr(this.ErrLastDllError)
-                .Add vbNewLine, "Source: ", this.ErrSource
+                .Add vbNewLine, "Error Source: ", this.ErrSource
             End If
             .Add vbNewLine, "TimeStamp: ", this.TimeStamp
             .Add vbNewLine, "CallStack: ", this.CallStack
