@@ -14,36 +14,34 @@ Private Const ModuleName As String = "clsErrorInfo"
 
 
 Private Type udtThis
-
-    IsSetup As Boolean
-
     ' Input Data
-    ErrorLevel As eErrorLevel
-    FunctionSource As String
+    ErrorLevel As eErrorLevel       ' The level of Error
+    FunctionSource As String        ' The calling function's source name
 
     ' Cached Error Info (grabbed when the class is instantiated).
     ' If you simply create an Err object, you will just get a pointer
     ' to the main Err ojbect, and this isn't what we want.
-    Description As String
-    HelpContext As Long
-    HelpFile As String
-    LastDllError As Long
-    Number As Long
-    Source As String
+    ' Err Object variables
+    ErrDescription As String
+    ErrHelpContext As Long
+    ErrHelpFile As String
+    ErrLastDllError As Long
+    ErrNumber As Long
+    ErrSource As String
 
+    ' Details saved when the class is initialized.
     TimeStamp As String
     CallStack As String
 
     ' Output Data
     ErrorLevelName As String
     ErrorPrefix As String
-    OptionName As String
+    ErrorOptionName As String
     ErrorColor As String
+    ErrorMsgBoxStyle As VbMsgBoxStyle
 
     ErrorDetailsBrief As String     ' oneliner error info.
     ErrorDetailsFull As String      ' Standard formatted detail block.
-
-    MsgBoxStyle As VbMsgBoxStyle
 
 End Type
 Private this As udtThis
@@ -59,42 +57,94 @@ Private Sub Class_Initialize()
 End Sub
 
 
-Public Sub ErrStateCache(Optional ByVal Reset As Boolean = False)
+Public Sub Init(ByVal ErrorLevelIn As eErrorLevel _
+                , Optional ByRef SourceIn As String = vbNullString)
 
-    If this.TimeStamp = vbNullString Or Reset Then
+    With this
+        .ErrorLevel = ErrorLevelIn
+        .FunctionSource = SourceIn
+    End With
+
+End Sub
+
+
+Public Sub ErrStateCache(Optional ByVal Refresh As Boolean = False)
+
+    If this.ErrorLevel = eelUninitialized Or Refresh Then
         With this
-            .Description = Err.Description
-            .HelpContext = Err.HelpContext
-            .HelpFile = Err.HelpFile
-            .LastDllError = Err.LastDllError
-            .Number = Err.Number
-            .Source = Err.Source
-
             .TimeStamp = ISO8601TimeStamp   ' Get the time of event.
             .CallStack = Perf.CallStack     ' Get CallStack at time of creation
+
+            ' Get Err details.
+            .ErrDescription = Err.Description
+            .ErrHelpContext = Err.HelpContext
+            .ErrHelpFile = Err.HelpFile
+            .ErrLastDllError = Err.LastDllError
+            .ErrNumber = Err.Number
+            .ErrSource = Err.Source
+
+            If .ErrNumber <> 0 Then
+                .ErrorLevel = eelError      ' Raise an error if there is one.
+            Else
+                .ErrorLevel = eelNoError    ' Set to eelNoError; this can be set elsewhere.
+            End If
         End With
-        this.ErrorLevel = eelNoError        ' Set to eelNoError; this can be set elsewhere.
+
+        ' We've logged the error. The purpose of this class is to cache this info, so we
+        ' do not need to keep the Err state, as we can get that from this class.
+        Err.Clear
+
+        SetErrorLevelInfoData
     End If
 
 End Sub
 
 
-Public Sub ErrCacheClear()
-
-    Dim eThis As udtThis
-
-    this = eThis
+Public Sub ErrClear()
 
     With this
-        .Description = Err.Description
-        .HelpContext = 0
-        .HelpFile = vbNullString
-        .LastDllError = 0
-        .Number = 0
-        .Source = vbNullString
+        .ErrDescription = vbNullString
+        .ErrHelpContext = 0
+        .ErrHelpFile = vbNullString
+        .ErrLastDllError = 0
+        .ErrNumber = 0
     End With
 
 End Sub
+
+
+Public Sub ErrRaise()
+
+    With this
+        Err.Raise .ErrNumber, .ErrSource, .ErrDescription, .ErrHelpFile, .ErrHelpContext
+    End With
+
+End Sub
+
+
+Public Property Get ErrDescription() As String
+    ErrDescription = this.ErrDescription
+End Property
+
+Public Property Get ErrHelpContext() As Long
+    ErrHelpContext = this.ErrHelpContext
+End Property
+
+Public Property Get ErrHelpFile() As String
+    ErrHelpFile = this.ErrHelpFile
+End Property
+
+Public Property Get ErrLastDllError() As Long
+    ErrLastDllError = this.ErrLastDllError
+End Property
+
+Public Property Get ErrNumber() As Long
+    ErrNumber = this.ErrNumber
+End Property
+
+Public Property Get ErrSource() As String
+    ErrSource = this.ErrSource
+End Property
 
 
 Public Property Get TimeStamp() As String
@@ -103,61 +153,9 @@ Public Property Get TimeStamp() As String
 End Property
 
 
-Public Sub Raise()
-
-    With this
-        Err.Raise .Number, .Source, .Description, .HelpFile, .HelpContext
-    End With
-
-End Sub
-
-
-Public Property Get Description() As String
-    Description = this.Description
-End Property
-Public Property Let Description(newDescription As String)
-    this.Description = newDescription
-End Property
-
-
-Public Property Get HelpContext() As Long
-    HelpContext = this.Number
-End Property
-Public Property Let HelpContext(newHelpContext As Long)
-    this.HelpContext = newHelpContext
-End Property
-
-
-Public Property Get HelpFile() As String
-    HelpFile = this.HelpFile
-End Property
-Public Property Let HelpFile(newHelpFile As String)
-    this.HelpFile = newHelpFile
-End Property
-
-
-Public Property Get LastDllError() As Long
-    LastDllError = this.LastDllError
-End Property
-Public Property Let LastDllError(newLastDllError As Long)
-    this.LastDllError = newLastDllError
-End Property
-
-
-Public Property Get Number() As Long
-    Number = this.Number
-End Property
-Public Property Let Number(newNumber As Long)
-    this.Number = newNumber
-    If this.Number = 0 Then Me.ErrCacheClear
-End Property
-
-
-Public Property Get Source() As String
-    Source = this.Source
-End Property
-Public Property Let Source(newSource As String)
-    this.Source = newSource
+Public Property Get CallStack() As String
+    If this.CallStack = vbNullString Then this.CallStack = Perf.CallStack
+    CallStack = this.CallStack
 End Property
 
 
@@ -165,8 +163,17 @@ Public Property Get ErrorLevel() As eErrorLevel
     ErrorLevel = this.ErrorLevel
 End Property
 Public Property Let ErrorLevel(newErrorLevel As eErrorLevel)
+    If newErrorLevel = eelUninitialized Then Exit Property ' Don't save resets.
     this.ErrorLevel = newErrorLevel
     SetErrorLevelInfoData
+End Property
+
+
+Public Property Get FunctionSource() As String
+    FunctionSource = this.FunctionSource
+End Property
+Public Property Let FunctionSource(ByRef newFunctionSource As String)
+    this.FunctionSource = newFunctionSource
 End Property
 
 
@@ -176,7 +183,7 @@ End Property
 
 
 Public Property Get ErrorOptionName() As String
-    ErrorOptionName = this.OptionName
+    ErrorOptionName = this.ErrorOptionName
 End Property
 
 
@@ -194,18 +201,16 @@ Public Property Let ErrorColor(newColor As String)
 End Property
 
 
-
-
-Public Property Get MsgBoxStyle() As VbMsgBoxStyle
-    MsgBoxStyle = this.MsgBoxStyle
+Public Property Get ErrorMsgBoxStyle() As VbMsgBoxStyle
+    ErrorMsgBoxStyle = this.ErrorMsgBoxStyle
 End Property
 
 
 Public Property Get ErrorDetailsBrief() As String
 
-    If this.ErrorDetailsBrief = vbNullString And this.Number <> 0 Then
-        this.ErrorDetailsBrief = "Number: " & this.Number & " : " & this.Description & " Source: " & this.Source
-    ElseIf this.Number = 0 Then
+    If this.ErrorDetailsBrief = vbNullString And this.ErrNumber <> 0 Then
+        this.ErrorDetailsBrief = "Number: " & this.ErrNumber & " : " & this.ErrDescription & " Source: " & this.ErrSource
+    ElseIf this.ErrNumber = 0 Then
         ' make sure details are cleared.
         this.ErrorDetailsBrief = vbNullString
     End If
@@ -219,12 +224,12 @@ Public Property Get ErrorDetailsFull() As String
 
     If this.ErrorDetailsFull = vbNullString Then
         With New clsConcat
-            If this.Number <> 0 Then
-                .Add "Error Number: ", CStr(this.Number), " ", this.Description
-                .Add vbNewLine, "Help Context: ", CStr(this.HelpContext)
-                .Add vbNewLine, "HelpFile: ", this.HelpFile
-                .Add vbNewLine, "LastDllError: ", CStr(this.LastDllError)
-                .Add vbNewLine, "Source: ", this.Source
+            If this.ErrNumber <> 0 Then
+                .Add "Error Number: ", CStr(this.ErrNumber), " ", this.ErrDescription
+                .Add vbNewLine, "Help Context: ", CStr(this.ErrHelpContext)
+                .Add vbNewLine, "HelpFile: ", this.ErrHelpFile
+                .Add vbNewLine, "LastDllError: ", CStr(this.ErrLastDllError)
+                .Add vbNewLine, "Source: ", this.ErrSource
             End If
             .Add vbNewLine, "TimeStamp: ", this.TimeStamp
             .Add vbNewLine, "CallStack: ", this.CallStack
@@ -243,8 +248,8 @@ Private Function SetErrorLevelInfoData()
         .ErrorLevelName = GetErrorLevelName(this.ErrorLevel)
         .ErrorColor = getErrorColor(this.ErrorLevel)
         .ErrorPrefix = .ErrorLevelName & ": "
-        .OptionName = GetErrorNameOption(this.ErrorLevel)
-        .MsgBoxStyle = GetMsgBoxStyle(this.ErrorLevel)
+        .ErrorOptionName = GetErrorOptionName(this.ErrorLevel)
+        .ErrorMsgBoxStyle = GetMsgBoxStyle(this.ErrorLevel)
     End With
 
 End Function
@@ -282,18 +287,18 @@ Private Function GetErrorLevelName(ByVal ErrorLevelIn As eErrorLevel) As String
 End Function
 
 
-Private Function GetErrorNameOption(ByRef ErrorLevel As eErrorLevel) As String
+Public Function GetErrorOptionName(ByRef ErrorLevel As eErrorLevel) As String
 
     Select Case ErrorLevel
-    Case eelUninitialized:  GetErrorNameOption = "Uninitialized Error Level"
-    Case eelLoggingOff:     GetErrorNameOption = "Off"
-    Case eelNoError:        GetErrorNameOption = "Note"
-    Case eelDebugTrace:     GetErrorNameOption = "Debug Trace"
-    Case eelDebugEvent:     GetErrorNameOption = "Debug Event"
-    Case eelDebugInfo:      GetErrorNameOption = "Debug Info"
-    Case eelWarning:        GetErrorNameOption = "Warning"
-    Case eelError:          GetErrorNameOption = "Error"
-    Case eelCritical:       GetErrorNameOption = "Critical Error"
+    Case eelUninitialized:  GetErrorOptionName = "Uninitialized Error Level"
+    Case eelLoggingOff:     GetErrorOptionName = "Off"
+    Case eelNoError:        GetErrorOptionName = "Note"
+    Case eelDebugTrace:     GetErrorOptionName = "Debug Trace"
+    Case eelDebugEvent:     GetErrorOptionName = "Debug Event"
+    Case eelDebugInfo:      GetErrorOptionName = "Debug Info"
+    Case eelWarning:        GetErrorOptionName = "Warning"
+    Case eelError:          GetErrorOptionName = "Error"
+    Case eelCritical:       GetErrorOptionName = "Critical Error"
     End Select
 
 End Function
@@ -312,7 +317,7 @@ Public Function SetErrorLevelFromName(ByRef strErrorName As String) As eErrorLev
             Exit For
         End If
         ' Also check the "Pretty" version as well.
-        If strErrorName = GetErrorNameOption(f_ErrorLevel) Then
+        If strErrorName = GetErrorOptionName(f_ErrorLevel) Then
             SetErrorLevelFromName = f_ErrorLevel
             this.ErrorLevel = f_ErrorLevel
             Exit For
