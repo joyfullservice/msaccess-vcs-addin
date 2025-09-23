@@ -732,8 +732,7 @@ Private Sub Form_Load()
     With Me.cboLogLevel
         .RowSource = vbNullString
         For lngLogLevel = eelLoggingOff To (eErrorLevel.[_Last] - 1)
-            fErrorInfo.ErrorLevel = lngLogLevel
-            .AddItem lngLogLevel & ";" & fErrorInfo.ErrorOptionName
+            .AddItem lngLogLevel & ";" & fErrorInfo.GetErrorOptionName(lngLogLevel)
         Next lngLogLevel
     End With
 
@@ -741,8 +740,7 @@ Private Sub Form_Load()
     With Me.cboDisplayLogLevel
         .RowSource = vbNullString
         For lngLogLevel = eelLoggingOff To (eErrorLevel.[_Last] - 1)
-            fErrorInfo.ErrorLevel = lngLogLevel
-            .AddItem lngLogLevel & ";" & fErrorInfo.ErrorOptionName
+            .AddItem lngLogLevel & ";" & fErrorInfo.GetErrorOptionName(lngLogLevel)
         Next lngLogLevel
     End With
 
