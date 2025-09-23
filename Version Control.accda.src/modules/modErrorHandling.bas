@@ -59,7 +59,7 @@ Public Sub LogUnhandledErrors(Optional ByRef CallingFunction As String = vbNullS
         ' Check current BreakOnError mode
         If Options.BreakOnError Then
             ' Stop the code here so we can investigate the source of the error.
-            Debug.Print "Error " & Err.Number & ": " & Err.Description
+            Debug.Print "Calling Function: " & CallingFunction & ": Error " & Err.Number & ": " & Err.Description
             Stop
             '===========================================================================
             '   NOTE: IF THE CODE STOPS HERE, PLEASE READ BEFORE CONTINUING
