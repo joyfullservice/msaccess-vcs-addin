@@ -288,7 +288,7 @@ Public Sub AddEntry(ByRef strMessage As String _
     With f_ErrorInfo
         .ErrorLevel = ErrorLevelIn
         .ErrorColor = OutputColor
-        .Source = strSource
+        .FunctionSource = strSource
     End With
 
     Err.Clear
@@ -350,8 +350,8 @@ Private Sub SaveEntry(ByRef strMessage As String _
         .Parameters("[paramEventLogTime]") = ErrorInfoIn.TimeStamp
         If this.StorePrivateDetails Then .Parameters("[paramUserID]") = GetUserID
         If this.StorePrivateDetails Then .Parameters("[paramComputerName]") = GetUserComputerName
-        .Parameters("[paramErrorNumber]") = ErrorInfoIn.Number
-        .Parameters("[paramEventSource]") = ErrorInfoIn.Source
+        .Parameters("[paramErrorNumber]") = ErrorInfoIn.ErrNumber
+        .Parameters("[paramEventSource]") = ErrorInfoIn.ErrSource
         .Parameters("[paramEventMessage]") = strMessage
         .Parameters("[paramPrinted]") = fWasDisplayed
         .Parameters("[paramErrorLevel]") = ErrorInfoIn.ErrorLevel
@@ -527,35 +527,38 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
 
     Dim ErrorResponse As VbMsgBoxResult
     Dim errorBold As New clsConcat
-    'Dim ErrorFullDetails As New clsConcat
-    Dim errorLevelInfo As clsErrorInfo
+    Dim f_ErrorInfo As clsErrorInfo
     Dim sourceFormatted As String
     Dim f_vbButtons As VbMsgBoxStyle
     Dim strWorking As New clsConcat
 
-    Error = vbCancel
+    Error = vbCancel    ' Set default output.
 
     Perf.OperationStart FunctionName
     If ErrorInfoIn Is Nothing Then
-        Set errorLevelInfo = New clsErrorInfo
+        Set f_ErrorInfo = New clsErrorInfo
     Else
-        Set errorLevelInfo = ErrorInfoIn
+        Set f_ErrorInfo = ErrorInfoIn
     End If
-    errorLevelInfo.ErrorLevel = ErrorLevelIn
-    Err.Clear ' The error information has been captured by now, if it's not, then you've got other problems.
+
+    With f_ErrorInfo
+        .ErrorLevel = ErrorLevelIn
+        .FunctionSource = strSource
+    End With
+
     sourceFormatted = strSource & ".Error"
 
     With errorBold
         .Add cstrSpacer, vbNewLine
-        .Add errorLevelInfo.ErrorPrefix, vbNewLine
+        .Add f_ErrorInfo.ErrorPrefix, vbNewLine
         .Add strBold, vbNewLine
-        .Add errorLevelInfo.ErrorDetailsBrief
+        .Add f_ErrorInfo.ErrorDetailsBrief
         .Add vbNewLine, strErrDescription, vbNewLine
         .Add cstrSpacer
     End With
 
     ' Or performs a bitwise operation here
-    f_vbButtons = vbButtons Or errorLevelInfo.MsgBoxStyle
+    f_vbButtons = vbButtons Or f_ErrorInfo.ErrorMsgBoxStyle
     ' Build the error message string.
 
     ' Show message on any error level when we are not logging to a file.
@@ -563,7 +566,7 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
         Case eelWarning, eelError, eelCritical
             ErrorResponse = Me.Prompt(strSource:=sourceFormatted _
                                     , strBold:=errorBold.GetStr _
-                                    , strLine1:=errorLevelInfo.ErrorDetailsFull _
+                                    , strLine1:=f_ErrorInfo.ErrorDetailsFull _
                                     , strLine2:=moreDetails _
                                     , ErrorLevelIn:=ErrorLevelIn _
                                     , vbButtons:=f_vbButtons _
@@ -579,8 +582,8 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
     Case Else
         ' Log the error only if user isn't prompted; the prompt logs it for you
         With strWorking
-            .Add FormatEntry(errorBold.GetStr, True, errorLevelInfo.ErrorColor, True)
-            If Len(errorLevelInfo.ErrorDetailsFull) > 0 Then .Add vbNewLine, errorLevelInfo.ErrorDetailsFull
+            .Add FormatEntry(errorBold.GetStr, True, f_ErrorInfo.ErrorColor, True)
+            If Len(f_ErrorInfo.ErrorDetailsFull) > 0 Then .Add vbNewLine, f_ErrorInfo.ErrorDetailsFull
             If moreDetails <> vbNullString Then .Add vbNewLine, "More Details: ", moreDetails
             If f_vbButtons <> vbOKOnly Then .Add vbNewLine, "Buttons: ", CStr(f_vbButtons)
             If strTitle <> vbNullString Then .Add vbNewLine, "Title: ", strTitle
