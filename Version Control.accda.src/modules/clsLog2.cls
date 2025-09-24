@@ -1089,6 +1089,18 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : LogSaveFilePath
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Return the (default) full path to the current log backend file.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get LogSaveFilePath() As String
+    LogSaveFilePath = CodeProject.Path & PathSep & "Log.accdu"
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SaveFile
 ' Author    : hecon5
 ' Date      : 5/13/2023
@@ -1210,7 +1222,7 @@ Private Function GetDefaultLogConnectionADO() As ADODB.Connection
 
     Dim NewDbFile As DAO.Database
 
-    strPath = CodeProject.Path & PathSep & "Log.accdu"
+    strPath = LogSaveFilePath
     NeedToSetupDB = Not FSO.FileExists(strPath)
 
     If NeedToSetupDB Then
@@ -1268,7 +1280,7 @@ Private Function SetupLogTable(ByRef adoConIn As ADODB.Connection) As String
         .Execute
     End With
 
-    strPath = CodeProject.Path & PathSep & "Log.accdu"
+    strPath = LogSaveFilePath
 
     Set NewDbFile = DBEngine.OpenDatabase(strPath)
 
