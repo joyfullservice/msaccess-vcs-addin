@@ -507,6 +507,9 @@ Public Sub TestLogError()
     Const FunctionName As String = ModuleName & ".LogErrorTest"
     Dim f_ErrorInfo As clsErrorInfo
 
+    ' Ensure we're starting from zero
+    ReleaseObjects
+
     Perf.OperationStart FunctionName
     On Error Resume Next ' Clear out any errors that may happen, and continue on when errors happen.
     Perf.OperationStart FunctionName & ".24603"
@@ -539,11 +542,10 @@ Public Sub TestLogError()
 
     Perf.OperationEnd ' End FunctionName
 
-
     ' Now test that you can release objects and run the log routines and keep data.
     ReleaseObjects
     ' "Pretend" code tossing an error.
-    Err.Raise 24604, FunctionName & ".Raise24606", "Catch Test"
+    Err.Raise 24606, FunctionName & ".Raise24606", "Catch Test"
     ' Checking for any issues post code execution.
     CatchAny eelError, "Catch Test Validation", FunctionName & ".CatchTest"
 
