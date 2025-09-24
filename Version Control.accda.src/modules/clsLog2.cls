@@ -1229,7 +1229,7 @@ Private Function FitStringToWidth(ByRef LongString As String _
     OriginalLineCount = UBound(StringArr) - LBound(StringArr)
 
     If StrLen > MaxWidth Or OriginalLineCount > MaxLines Then
-        Perf.OperationStart "FitStringToWidth.Resize"
+        Perf.OperationStart FunctionName & ".Resize"
         Set OutputConcat = New clsConcat
         For ArrPosition = 0 To OriginalLineCount
             StrPosition = 1
@@ -1254,7 +1254,8 @@ StringLengthMaxedOut:
         FitStringToWidth = OutputConcat.GetStr
         Perf.OperationEnd
     Else
-        MaxLines = MaxLines - OriginalLineCount - 1 ' Return the number of lines remaining. Subtract one because OriginalLineCount is zero based.
+        ' Return the number of lines remaining. Subtract one because OriginalLineCount is zero based.
+        MaxLines = MaxLines - OriginalLineCount - 1
         FitStringToWidth = LongString
     End If
     Perf.OperationEnd
