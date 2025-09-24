@@ -1328,7 +1328,7 @@ Private Function FitStringToWidth(ByRef LongString As String _
                                 , Optional ByVal MaxWidth As Long = 200 _
                                 , Optional ByVal DesiredWidth As Long = 75 _
                                 , Optional ByRef MaxLines As Long = 0 _
-                                , Optional ByVal RemoveBlankLines As Boolean = True) As String
+                                , Optional ByVal RemoveBlankLines As Boolean = False) As String
 
     Const FunctionName As String = ModuleName & ".FitStringToWidth"
 
