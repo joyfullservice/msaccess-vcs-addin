@@ -136,7 +136,12 @@ Public Function CatchAny(eLevel As eErrorLevel _
             Log.Error ErrorLevelIn:=eLevel, strBold:=strDescription, strSource:=strSource, ErrorInfoIn:=f_ErrorInfo
             this.blnInError = False
         End If
-        If Not blnClearError Then f_ErrorInfo.ErrRaise
+        If blnClearError Then
+            Err.Clear
+        Else
+            ' Logging resets the error, so you need to re-assert it.
+            f_ErrorInfo.ErrRaise
+        End If
         CatchAny = True
     End If
 End Function

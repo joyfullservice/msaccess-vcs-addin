@@ -122,6 +122,7 @@ End Sub
 
 Public Sub ErrRaise()
 
+    On Error Resume Next ' We don't want to stop code here...
     With this
         Err.Raise .ErrNumber, .ErrSource, .ErrDescription, .ErrHelpFile, .ErrHelpContext
     End With
