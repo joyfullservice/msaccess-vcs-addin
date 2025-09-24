@@ -248,22 +248,29 @@ Public Sub Add(strText As String _
     , Optional blnBold As Boolean = False _
     , Optional blnItalic As Boolean = False)
 
-    Me.AddEntry strMessage:=strText _
-                , strSource:="Log.Add" _
-                , ErrorLevelIn:=IIf(blnPrint, eelNoError, eelDebugTrace) _
-                , NextOutputOnNewLine:=blnNextOutputOnNewLine _
-                , OutputColor:=strColor _
-                , PrintBold:=blnBold _
-                , PrintItalic:=blnItalic
+    Dim f_ErrorInfo As clsErrorInfo
+
+    Set f_ErrorInfo = New clsErrorInfo
+    With f_ErrorInfo
+        .ErrorLevel = IIf(blnPrint, eelNoError, eelDebugTrace)
+        If strColor <> vbNullString Then .ErrorColor = strColor
+        .FunctionSource = "Log.Add"
+    End With
+
+    SaveEntry strMessage:=strText _
+            , ErrorInfoIn:=f_ErrorInfo _
+            , NextOutputOnNewLine:=blnNextOutputOnNewLine _
+            , PrintBold:=blnBold _
+            , PrintItalic:=blnItalic
 
 End Sub
 
-'
+
 '---------------------------------------------------------------------------------------
 ' Procedure : AddEntry
 ' Author    : hecon5
 ' Date      : 4/28/2020
-' Purpose   : Add entry to the log table
+' Purpose   : Prepares a log entry to be saved to the log.
 '---------------------------------------------------------------------------------------
 '
 Public Sub AddEntry(ByRef strMessage As String _
@@ -281,6 +288,7 @@ Public Sub AddEntry(ByRef strMessage As String _
     Dim fWasDisplayed As Boolean
     Dim f_ErrorInfo As clsErrorInfo
 
+    Perf.OperationStart FunctionName
     If ErrorInfoIn Is Nothing Then
         Set f_ErrorInfo = New clsErrorInfo
     Else
@@ -294,9 +302,13 @@ Public Sub AddEntry(ByRef strMessage As String _
     End With
 
     On Error Resume Next
-    Perf.OperationStart FunctionName
 
-    SaveEntry strMessage, f_ErrorInfo, NextOutputOnNewLine, PrintBold, PrintItalic
+
+    SaveEntry strMessage:=strMessage _
+            , ErrorInfoIn:=f_ErrorInfo _
+            , NextOutputOnNewLine:=NextOutputOnNewLine _
+            , PrintBold:=PrintBold _
+            , PrintItalic:=PrintItalic
 
 Exit_Here:
     Perf.OperationEnd
