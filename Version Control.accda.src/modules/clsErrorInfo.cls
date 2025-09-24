@@ -83,14 +83,14 @@ Public Sub ErrStateCache(Optional ByVal Refresh As Boolean = False)
             .CurrentOperationResult = Operation.Result
 
             ' Get Err details.
-            .ErrDescription = Err.Description
-            .ErrHelpContext = Err.HelpContext
-            .ErrHelpFile = Err.HelpFile
-            .ErrLastDllError = Err.LastDllError
-            .ErrNumber = Err.Number
-            .ErrSource = Err.Source
+            If Err.Number <> 0 Then
+                .ErrDescription = Err.Description
+                .ErrHelpContext = Err.HelpContext
+                .ErrHelpFile = Err.HelpFile
+                .ErrLastDllError = Err.LastDllError
+                .ErrNumber = Err.Number
+                .ErrSource = Err.Source
 
-            If .ErrNumber <> 0 Then
                 .ErrorLevel = eelError      ' Raise an error if there is one.
             Else
                 .ErrorLevel = eelNoError    ' Set to eelNoError; this can be set elsewhere.
