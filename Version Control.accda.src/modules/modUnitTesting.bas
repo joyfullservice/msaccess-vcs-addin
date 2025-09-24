@@ -518,7 +518,7 @@ Public Sub TestLogError()
     Log.Error ErrorLevelIn:=eelError _
             , strBold:="Testing Log" _
             , strSource:=FunctionName & ".LogTest" _
-            , strErrDescription:="Testing Logging of errors"
+            , strErrDescription:="Testing Logging of errors - No error test"
     Perf.OperationEnd
 
     Perf.OperationStart FunctionName & ".24603"
@@ -548,6 +548,20 @@ Public Sub TestLogError()
     Log.Error eelError, "Testing that externally loaded functions work, too" _
                 , FunctionName & ".ExtText", "Testing  Logging Err", ErrorInfoIn:=f_ErrorInfo
     Perf.OperationEnd ' End 24605
+
+    ' "Pretend" code tossing an error but you need to use the error later (don't reset)
+    Perf.OperationStart FunctionName & ".24607"
+    Err.Raise 24607, FunctionName & ".Raise24607", "Catch Test - Remain"
+    ' Checking for any issues post code execution.
+    CatchAny eelError, "Catch Test - Raise Validation", FunctionName & ".CatchRemain", blnClearError:=False
+    If Err.Number = 24607 Then
+        Log.Prompt ErrorLevelIn:=eelNoError, strBold:="Success!", strSource:=FunctionName & ".24607"
+    ElseIf Err.Number <> 0 Then
+        Log.Error eelError, "Error not what is expected.", FunctionName & ".24607"
+    Else
+        Log.Error eelError, "Error not reset.", FunctionName & ".24607"
+    End If
+    Perf.OperationEnd ' End 24607
 
     Perf.OperationEnd ' End FunctionName
 
