@@ -490,7 +490,7 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : LogErrorTest
+' Procedure : TestLogError
 ' Author    : hecon5
 ' Date      : 2025-SEP-23
 ' Purpose   : Validates error caching operates correctly and LogUnhandledErrors
@@ -500,7 +500,7 @@ End Sub
 '           : Then Stop the code (in VBA IDE) and then run again.
 '---------------------------------------------------------------------------------------
 '
-Public Sub LogErrorTest()
+Public Sub TestLogError()
 
     ' Specifiying a Const FunctionName allows copy/paste code and having the wrong FunctionName
     ' names if (when) they change.
