@@ -85,6 +85,13 @@ Private Sub Class_Initialize()
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Terminate
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Cleans up log class upon terminate.
+'---------------------------------------------------------------------------------------
+'
 Private Sub Class_Terminate()
 
     ' close the connection to the external objects if not closed
@@ -128,6 +135,13 @@ Public Property Get StorePrivateDetails() As Boolean
 End Property
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : IsEntryLogged
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Determines if an entry is to be saved based on option setting.
+'---------------------------------------------------------------------------------------
+'
 Public Function IsEntryLogged(ByVal ErrorLevelIn As eErrorLevel) As Boolean
 
     If ErrorLevelIn >= Me.LogLevel And Not Me.LogLevel = eelLoggingOff Then IsEntryLogged = True
@@ -135,11 +149,19 @@ Public Function IsEntryLogged(ByVal ErrorLevelIn As eErrorLevel) As Boolean
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : IsEntryDisplayed
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Determines if an entry is to be displayed based on option setting.
+'---------------------------------------------------------------------------------------
+'
 Public Function IsEntryDisplayed(ByVal ErrorLevelIn As eErrorLevel) As Boolean
 
     If ErrorLevelIn >= Me.DisplayLogLevel And Not Me.DisplayLogLevel = eelLoggingOff Then IsEntryDisplayed = True
 
 End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Clear
@@ -233,7 +255,7 @@ Public Sub Spacer(Optional ByVal blnPrint As Boolean = True)
     AddEntry strMessage:=cstrSpacer, strSource:="Log.Spacer", ErrorLevelIn:=IIf(blnPrint, Me.DisplayLogLevel, Operation.ErrorLevel), NextOutputOnNewLine:=True
 End Sub
 
-'
+
 '---------------------------------------------------------------------------------------
 ' Procedure : Add
 ' Author    : hecon5
@@ -316,6 +338,13 @@ Exit_Here:
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : SaveEntry
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Saves a log entry to the log.
+'---------------------------------------------------------------------------------------
+'
 Private Sub SaveEntry(ByRef strMessage As String _
                     , ByRef ErrorInfoIn As clsErrorInfo _
             , Optional ByVal NextOutputOnNewLine As Boolean = True _
@@ -397,6 +426,13 @@ Exit_Here:
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetUserID
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Gets user name and caches it for faster reply on subsequent calls.
+'---------------------------------------------------------------------------------------
+'
 Private Function GetUserID() As String
     ' Gets the user's ID from the local machine.
     Static UserIDCache As String
@@ -412,6 +448,13 @@ Private Function GetUserID() As String
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetUserComputerName
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Gets user computer name and caches it for faster reply on subsequent calls.
+'---------------------------------------------------------------------------------------
+'
 Private Function GetUserComputerName() As String
 
     Static UserComputerNameCache As String
@@ -427,6 +470,13 @@ Private Function GetUserComputerName() As String
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetLogStoredCommand
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Sets up the stored command and any additional details needed to save a log entry.
+'---------------------------------------------------------------------------------------
+'
 Private Function GetLogStoredCommand() As ADODB.Command
 
     Dim SQLString As clsConcat
@@ -493,6 +543,13 @@ Private Function GetLogStoredCommand() As ADODB.Command
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : FormatEntry
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Formats a string to simplified HTML for display in an RTF enabled control.
+'---------------------------------------------------------------------------------------
+'
 Private Function FormatEntry(ByRef MessageToFormat As String _
                             , Optional ByVal NextOutputOnNewLine As Boolean = True _
                             , Optional ByVal OutputColor As String = vbNullString _
@@ -624,6 +681,16 @@ Public Function Error(ByVal ErrorLevelIn As eErrorLevel _
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : Prompt
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Provide a way to display a msgbox prompt to users, ensure the box doesn't
+'           : overflow the screen by lines or width. Function will then log their
+'           : response, the full message if truncated, and return the user's response
+'           : to the calling function.
+'---------------------------------------------------------------------------------------
+'
 Public Function Prompt(ByRef strBold As String _
                     , Optional ByRef strSource As String = vbNullString _
                     , Optional ByRef ErrorLevelIn As eErrorLevel = eErrorLevel.eelNoError _
@@ -633,9 +700,6 @@ Public Function Prompt(ByRef strBold As String _
                     , Optional ByRef strTitle As String = vbNullString _
                     , Optional ByVal vbDefaultResult As VbMsgBoxResult = DEFAULT_PROMPT_VBRESULT _
                     , Optional ByRef ErrorInfoIn As clsErrorInfo = Nothing) As VbMsgBoxResult
-
-    ' This function will prompt the user to do something, or display a message, and return the value to the calling function.
-    ' In addition, it will log that the prompt happened, and the result of the user action.
 
     Const FunctionName As String = ModuleName & ".Prompt"
 
@@ -736,6 +800,13 @@ Public Function Prompt(ByRef strBold As String _
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : PromptInput
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Provide a way to log a user's input and present the input.
+'---------------------------------------------------------------------------------------
+'
 Public Function PromptInput(ByRef strMainLine As String _
                     , Optional ByRef strSource As String = vbNullString _
                     , Optional ByRef ErrorLevelIn As eErrorLevel = eErrorLevel.eelNoError _
@@ -838,13 +909,13 @@ Public Function PromptInput(ByRef strMainLine As String _
 End Function
 
 
-
 '---------------------------------------------------------------------------------------
-' Procedure : MsgBox3
+' Procedure : MsgBoxLog
 ' Author    : Adam Waller
 ' Date      : 1/27/2017
 ' Purpose   : Alternate message box with bold prompt on first line. Renamed so MSGBOX2
 '           : can be wrapped and logged.
+'           : Renamed to be used internally in this log.
 '---------------------------------------------------------------------------------------
 '
 Private Function MsgBoxLog(ByRef strBold As String _
@@ -870,7 +941,7 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : InputBox3
+' Procedure : InputBoxLog
 ' Author    : hecon5
 ' Date      : 2025-07-03
 ' Purpose   : Alternate facilitate inputbox functionality and ability to log it.
@@ -1070,12 +1141,26 @@ Retry:
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : CheckSize
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Gets size of log table.
+'---------------------------------------------------------------------------------------
+'
 Public Sub CheckSize()
     ' See if we should clear out the old log entries.
     If Me.EntryCount > MAX_ENTRY_COUNT_PROMPT Then Me.Clear True
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : EntryCount
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Gets entry count in log table.
+'---------------------------------------------------------------------------------------
+'
 Public Property Get EntryCount() As Long
 
     Perf.OperationStart ModuleName & ".EntryCount"
@@ -1110,6 +1195,13 @@ Public Property Let LogConnectionADO(NewVal As ADODB.Connection)
 End Property
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetDefaultLogConnectionADO
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Gets a connection to the default log table.
+'---------------------------------------------------------------------------------------
+'
 Private Function GetDefaultLogConnectionADO() As ADODB.Connection
 
     Dim strPath As String
@@ -1140,6 +1232,13 @@ Private Function GetDefaultLogConnectionADO() As ADODB.Connection
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : SetupLogTable
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Sets up log table.
+'---------------------------------------------------------------------------------------
+'
 Private Function SetupLogTable(ByRef adoConIn As ADODB.Connection) As String
 
     Dim SQLString As String
@@ -1192,6 +1291,13 @@ Private Function SetupLogTable(ByRef adoConIn As ADODB.Connection) As String
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : CleanHTMLFromStr
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Removes simple HTML features from a string.
+'---------------------------------------------------------------------------------------
+'
 Private Function CleanHTMLFromStr(ByRef StringToClean As String) As String
 
     Dim StrCleaned As String
@@ -1206,6 +1312,18 @@ Private Function CleanHTMLFromStr(ByRef StringToClean As String) As String
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : FitStringToWidth
+' Author    : hecon5
+' Date      : 2025-07-03
+' Purpose   : Given a string input, formats the string to fit width and length constraints.
+'           : If RemoveBlankLines is set then lines without any text will also be removed.
+'           :
+'           : MaxLines is returned with the remaining lines subtracting from lines "used".
+'           : Example: If MaxLines is initially set to 10 and the output string is 3 lines
+'           :           long, MaxLines will be set to 7 when finished.
+'---------------------------------------------------------------------------------------
+'
 Private Function FitStringToWidth(ByRef LongString As String _
                                 , Optional ByVal MaxWidth As Long = 200 _
                                 , Optional ByVal DesiredWidth As Long = 75 _
@@ -1213,11 +1331,6 @@ Private Function FitStringToWidth(ByRef LongString As String _
                                 , Optional ByVal RemoveBlankLines As Boolean = True) As String
 
     Const FunctionName As String = ModuleName & ".FitStringToWidth"
-
-    ' Fits a string to a message box if it's wider than MaxWidth and ensures the strings won't
-    ' extend past the bottom of the screen.
-    ' MaxLines is returned with the remaining lines
-    '     Example: MaxLines starts at 10, output string is 3 lines long, MaxLines is set to 7 when finished.
 
     Dim OutputConcat As clsConcat
     Dim StrPosition As Long
