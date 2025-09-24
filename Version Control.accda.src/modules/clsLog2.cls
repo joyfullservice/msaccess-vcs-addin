@@ -1223,7 +1223,7 @@ Private Function FitStringToWidth(ByRef LongString As String _
             StrPosition = 1
 
             StrArrLen = Len(StringArr(ArrPosition))
-            If ArrPosition > 0 And (StrArrLen > 0 And Not RemoveBlankLines) Then
+            If ArrPosition > 0 And (StrArrLen > 0 Or Not RemoveBlankLines) Then
                 NewLineCount = NewLineCount + 1
                 OutputConcat.Add vbNewLine
             End If
