@@ -121,16 +121,22 @@ End Function
 ' Purpose   : Generic error handler with logging.
 '---------------------------------------------------------------------------------------
 '
-Public Function CatchAny(eLevel As eErrorLevel, strDescription As String, Optional strSource As String, _
-    Optional blnLogError As Boolean = True, Optional blnClearError As Boolean = True, _
-    Optional blnIncludeErrorWithDescription As Boolean = False) As Boolean
+Public Function CatchAny(eLevel As eErrorLevel _
+                        , ByRef strDescription As String _
+                        , Optional strSource As String _
+                        , Optional blnLogError As Boolean = True _
+                        , Optional blnClearError As Boolean = True _
+                        , Optional blnIncludeErrorWithDescription As Boolean = False) As Boolean
+
+    Dim f_ErrorInfo As clsErrorInfo
+
     If Err Then
         If blnLogError Then
             this.blnInError = True
-            Log.Error eLevel, strDescription, strSource
+            Log.Error ErrorLevelIn:=eLevel, strBold:=strDescription, strSource:=strSource, ErrorInfoIn:=f_ErrorInfo
             this.blnInError = False
         End If
-        If blnClearError Then Err.Clear
+        If Not blnClearError Then f_ErrorInfo.ErrRaise
         CatchAny = True
     End If
 End Function
