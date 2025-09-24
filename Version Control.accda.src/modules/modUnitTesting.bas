@@ -512,6 +512,15 @@ Public Sub TestLogError()
 
     Perf.OperationStart FunctionName
     On Error Resume Next ' Clear out any errors that may happen, and continue on when errors happen.
+    Perf.OperationStart FunctionName & ".NoErrorTest"
+    ' This is the "standard" way of catching errors without losing them.
+    ' The message box prompt should differ if there's no actual error.
+    Log.Error ErrorLevelIn:=eelError _
+            , strBold:="Testing Log" _
+            , strSource:=FunctionName & ".LogTest" _
+            , strErrDescription:="Testing Logging of errors"
+    Perf.OperationEnd
+
     Perf.OperationStart FunctionName & ".24603"
     Err.Raise 24603, FunctionName & ".Raise24603", "Log Test"
 
