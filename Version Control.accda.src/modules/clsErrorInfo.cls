@@ -30,6 +30,9 @@ Private Type udtThis
     ErrSource As String
 
     ' Details saved when the class is initialized.
+    CurrentOperationType As eOperationType
+    CurrentOperationStatus As eOperationState
+    CurrentOperationResult As eOperationResult
     TimeStamp As String
     CallStack As String
 
@@ -74,6 +77,10 @@ Public Sub ErrStateCache(Optional ByVal Refresh As Boolean = False)
         With this
             .TimeStamp = ISO8601TimeStamp   ' Get the time of event.
             .CallStack = Perf.CallStack     ' Get CallStack at time of creation
+
+            .CurrentOperationType = Operation.OperationType
+            .CurrentOperationStatus = Operation.Status
+            .CurrentOperationResult = Operation.Result
 
             ' Get Err details.
             .ErrDescription = Err.Description
@@ -178,6 +185,7 @@ End Property
 
 
 Public Property Get ErrorLevelName() As String
+    If this.ErrorLevelName = vbNullString Then this.ErrorLevelName = GetErrorLevelName(this.ErrorLevel)
     ErrorLevelName = this.ErrorLevelName
 End Property
 
@@ -232,6 +240,11 @@ Public Property Get ErrorDetailsFull() As String
                 .Add vbNewLine, "LastDllError: ", CStr(this.ErrLastDllError)
                 .Add vbNewLine, "Error Source: ", this.ErrSource
             End If
+
+            .Add vbNewLine, "Operation: ", CStr(this.CurrentOperationType)
+            .Add vbNewLine, "Operation Status: ", CStr(this.CurrentOperationStatus)
+            .Add vbNewLine, "Operation Result: ", CStr(this.CurrentOperationResult)
+            .Add vbNewLine, "Error Level: ", this.ErrorLevelName
             .Add vbNewLine, "TimeStamp: ", this.TimeStamp
             .Add vbNewLine, "CallStack: ", this.CallStack
             this.ErrorDetailsFull = .GetStr
