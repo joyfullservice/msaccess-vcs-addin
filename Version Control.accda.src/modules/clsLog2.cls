@@ -178,9 +178,9 @@ Public Sub Clear(Optional ByVal CheckFirst As Boolean = False _
 
 ClearLog:
     With New ADODB.Command
-        '.ActiveConnection = Me.LogConnectionADO
-        '.CommandText = "DELETE FROM " & Me.LogTableName & ";"
-        '.Execute
+        .ActiveConnection = Me.LogConnectionADO
+        .CommandText = "DELETE FROM " & Me.LogTableName & ";"
+        .Execute
     End With
     If ClearConsoleAlso Then
         this.Console.Clear
@@ -1011,14 +1011,19 @@ Public Property Get LogFilePath() As String
     End Select
 
     SanitizedFileName = SanitizedFileName & ".Log"
-    'SanitizedFileName = SanitizedFileName & ISO8601TimeStamp(False, False) & ".xml"
-    'SanitizedFileName = MultiReplace(SanitizedFileName, ":", "-") ' Replace Timestamp charachters with valid charachters.
 
     LogFilePath = FSO.BuildPath(Nz2(SourcePath, Options.GetExportFolder), SanitizedFileName)
 
 End Property
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : SaveFile
+' Author    : hecon5
+' Date      : 5/13/2023
+' Purpose   : Return the (default) full path to the current log file.
+'---------------------------------------------------------------------------------------
+'
 Public Sub SaveFile(Optional ByRef strAlternateFilePath As String _
                     , Optional ByVal NotQuiet As Boolean = False _
                     , Optional ByVal ClearConsoleAlso As Boolean = False)
