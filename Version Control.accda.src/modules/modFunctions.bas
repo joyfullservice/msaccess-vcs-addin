@@ -234,7 +234,7 @@ Public Function MsgBox2(strBold As String _
 
     Const FunctionName As String = "modFunctions.MsgBox2"
 
-    MsgBox2 = Log.Prompt(strBold:=strBold, strSource:=FunctionName, ErrorLevelIn:=eelNoError _
+    MsgBox2 = Log.Prompt(strBold:=strBold, strSource:=FunctionName, ErrorLevelIn:=eelDebugTrace _
                         , strLine1:=strLine1, strLine2:=strLine2, vbButtons:=intButtons _
                         , strTitle:=strTitle, vbDefaultResult:=vbDefaultResult)
 
