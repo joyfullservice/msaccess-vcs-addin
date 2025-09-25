@@ -263,7 +263,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
     ' Show final output and save log
     Log.Spacer
-    Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
+    Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , True, "green", True
 
 CleanUp:
     ' Run any cleanup routines
@@ -1197,9 +1197,6 @@ CleanUp:
     End If
     Set VCSIndex = Nothing
 
-    ' Wait to finish the build till after we have saved the index.
-    Operation.Finish
-
     ' Show MessageBox if not using GUI for build.
     If Forms.Count = 0 And blnSuccess Then
         ' Show message box when build is complete.
@@ -1208,12 +1205,13 @@ CleanUp:
             T("A backup of the previous build was saved as '{0}'.", var0:=FSO.GetFileName(strBackup)), vbInformation
     End If
 
-
     ' Add performance data to log file and save file.
     Perf.EndTiming
     With Log
         .SaveFile
     End With
+    ' Wait to finish the build till after we have saved the index.
+    Operation.Finish
 
 End Sub
 
