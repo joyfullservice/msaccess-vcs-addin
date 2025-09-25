@@ -44,6 +44,7 @@ Public SourcePath As String         ' Externally defined, used to tell the log w
 Private Type udtThis
     ' Log level: log everything at and below set level (except for "no error"
     ' which is logged unless log is set to off).
+    LogSaveFilePath As String
     LogLevel As eErrorLevel
     DisplayLogLevel As eErrorLevel  ' The level at which the console is displayed. Works the same as LogLevel.
     LogTableName As String          ' Name of the table used by the log class.
@@ -1096,7 +1097,8 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get LogSaveFilePath() As String
-    LogSaveFilePath = CodeProject.Path & PathSep & "Log.accdu"
+    If this.LogSaveFilePath = vbNullString Then this.LogSaveFilePath = FSO.BuildPath(CodeProject.Path, "Log.accdu")
+    LogSaveFilePath = this.LogSaveFilePath
 End Property
 
 
@@ -1176,7 +1178,7 @@ End Sub
 Public Property Get EntryCount() As Long
 
     Perf.OperationStart ModuleName & ".EntryCount"
-    EntryCount = DCount("[EntryId]", Me.LogTableName)
+    EntryCount = OpenDatabase(Me.LogSaveFilePath).OpenRecordset(Me.LogTableName).RecordCount
     Perf.OperationEnd
 
 End Property
@@ -1222,7 +1224,7 @@ Private Function GetDefaultLogConnectionADO() As ADODB.Connection
 
     Dim NewDbFile As DAO.Database
 
-    strPath = LogSaveFilePath
+    strPath = Me.LogSaveFilePath
     NeedToSetupDB = Not FSO.FileExists(strPath)
 
     If NeedToSetupDB Then
@@ -1280,7 +1282,7 @@ Private Function SetupLogTable(ByRef adoConIn As ADODB.Connection) As String
         .Execute
     End With
 
-    strPath = LogSaveFilePath
+    strPath = Me.LogSaveFilePath
 
     Set NewDbFile = DBEngine.OpenDatabase(strPath)
 
