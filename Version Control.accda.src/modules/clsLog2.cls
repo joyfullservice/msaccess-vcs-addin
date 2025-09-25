@@ -694,7 +694,7 @@ End Function
 '
 Public Function Prompt(ByRef strBold As String _
                     , Optional ByRef strSource As String = vbNullString _
-                    , Optional ByRef ErrorLevelIn As eErrorLevel = eErrorLevel.eelNoError _
+                    , Optional ByRef ErrorLevelIn As eErrorLevel = eErrorLevel.eelDebugTrace _
                     , Optional ByRef strLine1 As String = vbNullString _
                     , Optional ByRef strLine2 As String = vbNullString _
                     , Optional ByRef vbButtons As VbMsgBoxStyle = vbOKOnly _
@@ -810,7 +810,7 @@ End Function
 '
 Public Function PromptInput(ByRef strMainLine As String _
                     , Optional ByRef strSource As String = vbNullString _
-                    , Optional ByRef ErrorLevelIn As eErrorLevel = eErrorLevel.eelNoError _
+                    , Optional ByRef ErrorLevelIn As eErrorLevel = eErrorLevel.eelDebugTrace _
                     , Optional ByRef strLine1 As String = vbNullString _
                     , Optional ByRef strLine2 As String = vbNullString _
                     , Optional ByRef DefaultInput As String = vbNullString _
