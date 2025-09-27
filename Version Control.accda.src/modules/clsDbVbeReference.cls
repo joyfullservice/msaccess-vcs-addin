@@ -326,6 +326,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cRef As IDbComponent
     Dim dNames As Dictionary
     Dim dItems As Dictionary
+    Dim strName As String
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -339,13 +340,24 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         If (Not blnModifiedOnly) Or IDbComponent_IsModified Then
             For Each ref In CurrentVBProject.References
                 If Not ref.BuiltIn Then
-                    If Not dNames.Exists(ref.Name) Then
-                        Set cRef = New clsDbVbeReference
-                        Set cRef.DbObject = ref
-                        m_Items(blnModifiedOnly).Add cRef.SourceFile & ":" & ref.Name, cRef
-                        ' Don't attempt add two references with the same name, such as
-                        ' circular references to nested library database files.
-                        dNames.Add ref.Name, ref.Name
+                    If ref.IsBroken Then
+                        If ref.Type = vbext_rk_Project Then
+                            strName = ref.Name
+                        Else
+                            ' Can't access .Name property on broken type lib reference.
+                            strName = ref.Guid
+                        End If
+                        Log.Error eelWarning, "Broken reference for " & strName & _
+                            "This may cause errors in the export process.", ModuleName(Me) & ".GetAllFromDB"
+                    Else
+                        If Not dNames.Exists(ref.Name) Then
+                            Set cRef = New clsDbVbeReference
+                            Set cRef.DbObject = ref
+                            m_Items(blnModifiedOnly).Add cRef.SourceFile & ":" & ref.Name, cRef
+                            ' Don't attempt add two references with the same name, such as
+                            ' circular references to nested library database files.
+                            dNames.Add ref.Name, ref.Name
+                        End If
                     End If
                 End If
             Next ref
