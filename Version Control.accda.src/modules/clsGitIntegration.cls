@@ -407,20 +407,18 @@ Private Function ShellRun(strCmd As String, intCmd As eGitCommand) As String
 
     ' Build command line string
     With New clsConcat
-        Select Case intCmd
-            Case egcGetVersion
-                ' Run independent of repository
-                .Add "cmd.exe /c ", strCmd
-            Case Else
-                ' Open command prompt in repository folder
-                .Add "cmd.exe /c cd ", GetRepositoryRoot
-                ' Run git command
-                .Add " & ", strCmd
-        End Select
+        .Add "cmd.exe /c ", strCmd
         ' Output to temp file
         .Add " > """, strFile, """"
         ' Execute command
         Set oShell = New WshShell
+        Select Case intCmd
+            Case egcGetVersion
+                ' Run independent of repository
+            Case Else
+                ' Open command prompt in repository folder
+                oShell.CurrentDirectory = GetRepositoryRoot
+        End Select
         oShell.Run .GetStr, WshHide, True
         'Debug.Print .GetStr    ' To debug
     End With
