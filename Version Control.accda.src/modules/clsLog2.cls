@@ -416,7 +416,10 @@ Retry:
                 .Execute
                 If Err Then this.Console.Add FormatEntry("COULD NOT SAVE LOG! " & strMessage, True, "RED", True, True)
             Else
-                this.Console.Add FormatEntry("ERROR During Log Save: " & Err.Number & " : " & Err.Description, True, "RED", True, True)
+                Err.Clear
+                SetupLogTable this.LogadoStoredConnection
+                .Execute
+                If Err Then this.Console.Add FormatEntry("ERROR During Log Save: " & Err.Number & " : " & Err.Description, True, "RED", True, True)
             End If
             Err.Clear
         End If
