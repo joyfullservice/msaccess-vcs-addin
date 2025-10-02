@@ -200,7 +200,7 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
         Me.Spacer (eLevel > eelWarning)
         Me.Flush ' Force a screen update.
         ' See if we are actively logging an operation
-        If Log.Active Then
+        If Me.Active Then
             ' Show message box for fatal error.
             If eLevel = eelCritical Then
                 MsgBox2 "Unable to Continue", .GetStr, _

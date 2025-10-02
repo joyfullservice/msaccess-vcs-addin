@@ -345,7 +345,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                             strName = ref.Name
                         Else
                             ' Can't access .Name property on broken type lib reference.
-                            strName = ref.Guid
+                            strName = ref.GUID
                         End If
                         Log.Error eelWarning, "Broken reference for " & strName & _
                             "This may cause errors in the export process.", ModuleName(Me) & ".GetAllFromDB"
