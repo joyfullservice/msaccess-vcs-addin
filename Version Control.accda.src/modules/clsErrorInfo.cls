@@ -30,6 +30,7 @@ Private Type udtThis
     ErrSource As String
 
     ' Details saved when the class is initialized.
+    CurrentOperationGUID As Variant
     CurrentOperationType As eOperationType
     CurrentOperationStatus As eOperationState
     CurrentOperationResult As eOperationResult
@@ -78,6 +79,7 @@ Public Sub ErrStateCache(Optional ByVal Refresh As Boolean = False)
             .TimeStamp = ISO8601TimeStamp   ' Get the time of event.
             .CallStack = Perf.CallStack     ' Get CallStack at time of creation
 
+            .CurrentOperationGUID = Operation.OperationGUID
             .CurrentOperationType = Operation.OperationType
             .CurrentOperationStatus = Operation.Status
             .CurrentOperationResult = Operation.Result
@@ -167,6 +169,12 @@ Public Property Get CallStack() As String
 End Property
 
 
+Public Property Get CurrentOperationGUID() As Variant
+    If Not IsGUID(this.CurrentOperationGUID) Then this.CurrentOperationGUID = Operation.OperationGUID
+    CurrentOperationGUID = this.CurrentOperationGUID
+End Property
+
+
 Public Property Get ErrorLevel() As eErrorLevel
     ErrorLevel = this.ErrorLevel
 End Property
@@ -242,6 +250,7 @@ Public Property Get ErrorDetailsFull() As String
                 .Add vbNewLine, "Error Source: ", this.ErrSource
             End If
 
+            .Add vbNewLine, "Operation GUID.: ", CStr(this.CurrentOperationType)
             .Add vbNewLine, "Operation: ", CStr(this.CurrentOperationType)
             .Add vbNewLine, "Operation Status: ", CStr(this.CurrentOperationStatus)
             .Add vbNewLine, "Operation Result: ", CStr(this.CurrentOperationResult)
