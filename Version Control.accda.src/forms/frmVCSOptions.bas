@@ -411,7 +411,7 @@ Begin Form
                     LayoutCachedLeft =525
                     LayoutCachedTop =1500
                     LayoutCachedWidth =9540
-                    LayoutCachedHeight =6345
+                    LayoutCachedHeight =6420
                     ThemeFontIndex =1
                     Shape =1
                     Gradient =12
@@ -431,13 +431,13 @@ Begin Form
                             Left =600
                             Top =1980
                             Width =8865
-                            Height =4295
+                            Height =4370
                             Name ="pgeGeneral"
                             Caption ="General"
                             LayoutCachedLeft =600
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6275
+                            LayoutCachedHeight =6350
                             Begin
                                 Begin ComboBox
                                     LimitToList = NotDefault
@@ -445,7 +445,7 @@ Begin Form
                                     OverlapFlags =215
                                     IMESentenceMode =3
                                     ColumnCount =2
-                                    Left =2400
+                                    Left =2460
                                     Top =3540
                                     Width =1860
                                     Height =315
@@ -455,23 +455,23 @@ Begin Form
                                     ControlTipText ="Log anything at or below this level"
                                     AllowValueListEdits =0
 
-                                    LayoutCachedLeft =2400
+                                    LayoutCachedLeft =2460
                                     LayoutCachedTop =3540
-                                    LayoutCachedWidth =4260
+                                    LayoutCachedWidth =4320
                                     LayoutCachedHeight =3855
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
-                                            Left =1020
+                                            Left =1080
                                             Top =3540
                                             Width =1320
                                             Height =305
                                             ForeColor =5324600
                                             Name ="Label313"
                                             Caption ="Log Level"
-                                            LayoutCachedLeft =1020
+                                            LayoutCachedLeft =1080
                                             LayoutCachedTop =3540
-                                            LayoutCachedWidth =2340
+                                            LayoutCachedWidth =2400
                                             LayoutCachedHeight =3845
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
@@ -484,7 +484,7 @@ Begin Form
                                     OverlapFlags =215
                                     IMESentenceMode =3
                                     ColumnCount =2
-                                    Left =2400
+                                    Left =2460
                                     Top =3960
                                     Width =1860
                                     Height =315
@@ -495,23 +495,23 @@ Begin Form
                                     ControlTipText ="Display anything at or below this level"
                                     AllowValueListEdits =0
 
-                                    LayoutCachedLeft =2400
+                                    LayoutCachedLeft =2460
                                     LayoutCachedTop =3960
-                                    LayoutCachedWidth =4260
+                                    LayoutCachedWidth =4320
                                     LayoutCachedHeight =4275
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
-                                            Left =1020
+                                            Left =1080
                                             Top =3960
                                             Width =1320
                                             Height =305
                                             ForeColor =5324600
                                             Name ="Label311"
                                             Caption ="Display Level"
-                                            LayoutCachedLeft =1020
+                                            LayoutCachedLeft =1080
                                             LayoutCachedTop =3960
-                                            LayoutCachedWidth =2340
+                                            LayoutCachedWidth =2400
                                             LayoutCachedHeight =4265
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
@@ -521,28 +521,28 @@ Begin Form
                                 Begin CheckBox
                                     OverlapFlags =215
                                     Left =1020
-                                    Top =4440
+                                    Top =4800
                                     TabIndex =2
                                     Name ="chkBreakOnError"
 
                                     LayoutCachedLeft =1020
-                                    LayoutCachedTop =4440
+                                    LayoutCachedTop =4800
                                     LayoutCachedWidth =1280
-                                    LayoutCachedHeight =4680
+                                    LayoutCachedHeight =5040
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
                                             Left =1320
-                                            Top =4380
+                                            Top =4740
                                             Width =2640
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label219"
                                             Caption ="Debug VBA Errors"
                                             LayoutCachedLeft =1320
-                                            LayoutCachedTop =4380
+                                            LayoutCachedTop =4740
                                             LayoutCachedWidth =3960
-                                            LayoutCachedHeight =4695
+                                            LayoutCachedHeight =5055
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -551,28 +551,28 @@ Begin Form
                                 Begin CheckBox
                                     OverlapFlags =215
                                     Left =1020
-                                    Top =4860
+                                    Top =5160
                                     TabIndex =3
                                     Name ="chkShowVCSLegacy"
 
                                     LayoutCachedLeft =1020
-                                    LayoutCachedTop =4860
+                                    LayoutCachedTop =5160
                                     LayoutCachedWidth =1280
-                                    LayoutCachedHeight =5100
+                                    LayoutCachedHeight =5400
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
                                             Left =1320
-                                            Top =4800
+                                            Top =5100
                                             Width =2640
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label215"
                                             Caption ="Show Legacy Prompts"
                                             LayoutCachedLeft =1320
-                                            LayoutCachedTop =4800
+                                            LayoutCachedTop =5100
                                             LayoutCachedWidth =3960
-                                            LayoutCachedHeight =5115
+                                            LayoutCachedHeight =5415
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -581,28 +581,28 @@ Begin Form
                                 Begin CheckBox
                                     OverlapFlags =215
                                     Left =1020
-                                    Top =5280
+                                    Top =5520
                                     TabIndex =4
                                     Name ="chkUseShortHash"
 
                                     LayoutCachedLeft =1020
-                                    LayoutCachedTop =5280
+                                    LayoutCachedTop =5520
                                     LayoutCachedWidth =1280
-                                    LayoutCachedHeight =5520
+                                    LayoutCachedHeight =5760
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
                                             Left =1320
-                                            Top =5220
+                                            Top =5460
                                             Width =2640
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label223"
                                             Caption ="Use short hashes in index"
                                             LayoutCachedLeft =1320
-                                            LayoutCachedTop =5220
+                                            LayoutCachedTop =5460
                                             LayoutCachedWidth =3960
-                                            LayoutCachedHeight =5535
+                                            LayoutCachedHeight =5775
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -614,7 +614,7 @@ Begin Form
                                     IMESentenceMode =3
                                     ListWidth =1440
                                     Left =2640
-                                    Top =5640
+                                    Top =5880
                                     Width =1560
                                     Height =315
                                     TabIndex =5
@@ -624,23 +624,23 @@ Begin Form
                                     AllowValueListEdits =0
 
                                     LayoutCachedLeft =2640
-                                    LayoutCachedTop =5640
+                                    LayoutCachedTop =5880
                                     LayoutCachedWidth =4200
-                                    LayoutCachedHeight =5955
+                                    LayoutCachedHeight =6195
                                     Begin
                                         Begin Label
                                             OverlapFlags =215
                                             Left =960
-                                            Top =5640
+                                            Top =5880
                                             Width =1560
                                             Height =315
                                             ForeColor =5324600
                                             Name ="Label221"
                                             Caption ="Hash Algorithm:"
                                             LayoutCachedLeft =960
-                                            LayoutCachedTop =5640
+                                            LayoutCachedTop =5880
                                             LayoutCachedWidth =2520
-                                            LayoutCachedHeight =5955
+                                            LayoutCachedHeight =6195
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
@@ -925,6 +925,36 @@ Begin Form
                                     LayoutCachedWidth =6540
                                     LayoutCachedHeight =5880
                                 End
+                                Begin CheckBox
+                                    OverlapFlags =215
+                                    Left =1020
+                                    Top =4440
+                                    TabIndex =12
+                                    Name ="chkPersistentLogs"
+
+                                    LayoutCachedLeft =1020
+                                    LayoutCachedTop =4440
+                                    LayoutCachedWidth =1280
+                                    LayoutCachedHeight =4680
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =1320
+                                            Top =4380
+                                            Width =2640
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label312"
+                                            Caption ="Keep Log Entries After Save"
+                                            LayoutCachedLeft =1320
+                                            LayoutCachedTop =4380
+                                            LayoutCachedWidth =3960
+                                            LayoutCachedHeight =4695
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
                             End
                         End
                         Begin Page
@@ -933,13 +963,13 @@ Begin Form
                             Left =600
                             Top =1980
                             Width =8865
-                            Height =4290
+                            Height =4365
                             Name ="pgeTranslations"
                             Caption ="Translation"
                             LayoutCachedLeft =600
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6270
+                            LayoutCachedHeight =6345
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -1170,13 +1200,13 @@ Begin Form
                             Left =600
                             Top =1980
                             Width =8865
-                            Height =4290
+                            Height =4365
                             Name ="pgeExport"
                             Caption ="Export"
                             LayoutCachedLeft =600
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6270
+                            LayoutCachedHeight =6345
                             Begin
                                 Begin TextBox
                                     OverlapFlags =247
@@ -1700,13 +1730,13 @@ Begin Form
                             Left =600
                             Top =1980
                             Width =8865
-                            Height =4290
+                            Height =4365
                             Name ="pgePrinterSettings"
                             Caption ="Printer Settings"
                             LayoutCachedLeft =600
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6270
+                            LayoutCachedHeight =6345
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -2348,13 +2378,13 @@ Begin Form
                             Left =600
                             Top =1980
                             Width =8865
-                            Height =4290
+                            Height =4365
                             Name ="pgeDatabases"
                             Caption ="Databases"
                             LayoutCachedLeft =600
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6270
+                            LayoutCachedHeight =6345
                             Begin
                                 Begin ListBox
                                     ColumnHeads = NotDefault
@@ -2632,13 +2662,13 @@ Begin Form
                             Left =600
                             Top =1980
                             Width =8865
-                            Height =4290
+                            Height =4365
                             Name ="pgeTable"
                             Caption ="Table Data"
                             LayoutCachedLeft =600
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6270
+                            LayoutCachedHeight =6345
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -2941,13 +2971,13 @@ Begin Form
                             Left =600
                             Top =1980
                             Width =8865
-                            Height =4290
+                            Height =4365
                             Name ="pgeBuild"
                             Caption ="Build"
                             LayoutCachedLeft =600
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6270
+                            LayoutCachedHeight =6345
                             Begin
                                 Begin CheckBox
                                     OverlapFlags =247
@@ -3118,13 +3148,13 @@ Begin Form
                             Left =600
                             Top =1980
                             Width =8865
-                            Height =4290
+                            Height =4365
                             Name ="pgeSettings"
                             Caption ="Settings"
                             LayoutCachedLeft =600
                             LayoutCachedTop =1980
                             LayoutCachedWidth =9465
-                            LayoutCachedHeight =6270
+                            LayoutCachedHeight =6345
                             Begin
                                 Begin OptionGroup
                                     OverlapFlags =255
