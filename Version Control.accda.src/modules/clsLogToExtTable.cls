@@ -15,7 +15,7 @@ Option Explicit
 ' It has subsequently recieved numerous makeovers and changes to integrate
 ' with our use cases.
 '
-' Original Source: https://github.com/joyfullservice/msaccess-vcs-integration
+' Original Source: https://github.com/joyfullservice/msaccess-vcs-addin
 ' This has been heavily modified for our uses, and was re-contributed
 ' back into the upstream source (as accepted).
 '
