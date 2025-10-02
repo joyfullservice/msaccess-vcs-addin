@@ -23,6 +23,7 @@ Private Const cstrBuildPathProperty As String = "VCS Build Path"
 Public ExportFolder As String
 Public LogLevel As eErrorLevel
 Public DisplayLogLevel As eErrorLevel
+Public PersistentLogs As Boolean
 Public UseFastSave As Boolean
 Public UseMergeBuild As Boolean
 Public UseGitIntegration As Boolean
@@ -87,6 +88,7 @@ Public Sub LoadDefaults()
         .ExportFolder = vbNullString
         .LogLevel = eelDebugTrace
         .DisplayLogLevel = eelNoError
+        .PersistentLogs = False
         .UseFastSave = True
         .UseMergeBuild = False
         .UseGitIntegration = False
@@ -769,6 +771,7 @@ Private Sub Class_Initialize()
         .Add "ExportFolder"
         .Add "LogLevel"
         .Add "DisplayLogLevel"
+        .Add "PersistentLogs"
         .Add "UseFastSave"
         .Add "UseMergeBuild"
         .Add "UseGitIntegration"

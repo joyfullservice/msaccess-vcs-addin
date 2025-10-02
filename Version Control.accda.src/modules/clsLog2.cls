@@ -1170,7 +1170,7 @@ Retry:
                     , strLine2:="File Name: " & SanitizedFileName _
                     , strTitle:="Successfully saved log!"
         End If
-        Me.Clear False, ClearConsoleAlso
+        If Not Options.PersistentLogs Then Me.Clear False, ClearConsoleAlso
     End If
 
 End Sub
