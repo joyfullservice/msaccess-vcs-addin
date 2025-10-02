@@ -63,13 +63,14 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Display heading
     With Log
         .Spacer
-        .Add T("Beginning Export of Source Files"), False
-        .Add CurrentProject.Name
-        .Add T("VCS Version {0}", var0:=GetVCSVersion)
-        .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
-        .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
-        .Add IIf(blnFullExport, T("Performing Full Export"), T("Using Fast Save"))
-        .Add Now
+        .AddEntry T("Beginning Export of Source Files"), FunctionName, eelDebugInfo
+        .AddEntry CurrentProject.Name, FunctionName, eelNoError
+        .AddEntry T("VCS Version {0}", var0:=GetVCSVersion), FunctionName, eelNoError
+        .AddEntry T("Full Path: {0}", var0:=CurrentProject.FullName), FunctionName, eelDebugInfo
+        .AddEntry T("Export Folder: {0}", var0:=Options.GetExportFolder), FunctionName, eelDebugInfo
+        .AddEntry IIf(blnFullExport, T("Performing Full Export"), T("Using Fast Save")), FunctionName, eelNoError
+        .AddEntry "Time: " & ISO8601TimeStamp(False, True), FunctionName, eelNoError
+
         ' Save the log file path
         If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
     End With
@@ -80,7 +81,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             T("Project is protected with a password."), _
             T("Please unlock the project before using this tool."), vbExclamation
         Log.Spacer
-        Log.Add T("Export Canceled"), , , "Red", True
+        Log.AddEntry T("Export Canceled"), FunctionName, eelCritical, , , True
         Log.Flush
         Operation.ErrorLevel = eelCritical
         Exit Sub
@@ -165,7 +166,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Perf.CategoryEnd 0
         ' Handle critical error or cancel during scan
         If Operation.ErrorLevel = eelCritical Then
-            Log.Add vbNullString
+            Log.AddEntry "Critical Error During Export.", FunctionName, eelCritical, , , True
             Perf.OperationEnd   ' Scan DB Objects
             GoTo CleanUp
         End If
@@ -908,15 +909,16 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     With Log
         .Spacer
         If blnFullBuild Then
-            .Add T("Beginning build from Source"), False
+            .AddEntry T("Beginning build from Source"), FunctionName, eelNoError
         Else
-            .Add T("Beginning merge from source"), False
+            .AddEntry T("Beginning merge from source"), FunctionName, eelNoError
         End If
-        .Add FSO.GetFileName(strPath)
-        .Add T("VCS Version {0}", var0:=GetVCSVersion)
-        .Add T("Full Path: {0}", var0:=strPath), False
-        .Add T("Export Folder: {0}", var0:=strSourceFolder), False
-        .Add Now
+        .AddEntry T("VCS Version {0}", var0:=GetVCSVersion), FunctionName, eelNoError
+        .AddEntry T("VCS Location: {0}", var0:=CodeProject.FullName), FunctionName, eelDebugTrace
+        .AddEntry T("Build File Path: {0}", var0:=strPath), FunctionName, eelDebugInfo
+        .AddEntry T("Build Folder: {0}", var0:=strSourceFolder), FunctionName, eelDebugInfo
+        .AddEntry T("Build File Name: {0}", var0:=FSO.GetFileName(strPath)), FunctionName, eelDebugInfo
+        .AddEntry T("Time: {0}", var0:=ISO8601TimeStamp(False, True)), FunctionName, eelNoError
         .Spacer
         .Flush
     End With
