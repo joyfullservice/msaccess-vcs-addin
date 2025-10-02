@@ -19,7 +19,7 @@ Option Explicit
 ' This has been heavily modified for our uses, and was re-contributed
 ' back into the upstream source (as accepted).
 '
-Private Const ModuleName As String = "clsLog2"
+Private Const ModuleName As String = "clsLogToExtTable"
 
 ' Because VBA doesn't allow use of private types in constants, we need to declare these as long.
 Private Const DEFAULT_LogLevel As Long = eErrorLevel.eelDebugTrace
