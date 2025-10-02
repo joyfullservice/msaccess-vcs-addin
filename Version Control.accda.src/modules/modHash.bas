@@ -620,10 +620,11 @@ Public Sub TestCreateGuid(Optional ByVal Iterations As Long = 10000)
     Dim i As Long
 
     Perf.Reset
-    Perf.CategoryStart "test GUID"
+    Perf.CategoryStart "test TestCreateGuid"
 
     For i = 1 To Iterations
         Dim GUID As String
+        Perf.OperationStart "Add GUID to Dict"
         GUID = GetStringFromGUID
 
         If GuidDict.Exists(GUID) Then
@@ -632,11 +633,13 @@ Public Sub TestCreateGuid(Optional ByVal Iterations As Long = 10000)
         Else
             GuidDict.Add GUID, vbNullString
         End If
+        Perf.OperationEnd
     Next i
+
+    Debug.Print GuidDict.Count; " unique GUIDs generated out of "; Iterations; " attempts"
 
     Perf.CategoryEnd
     Debug.Print Perf.GetReports
-    Debug.Print GuidDict.Count; " unique GUIDs generated out of "; Iterations; " attempts"
 
 End Sub
 
@@ -648,20 +651,21 @@ Public Sub TestHashDict(Optional ByVal DictEntries As Long = 20)
     Dim i As Long
 
     Perf.Reset
-    Perf.CategoryStart "test GUID"
+    Perf.CategoryStart "test TestHashDict"
 
     For i = 1 To DictEntries
-
+        Perf.OperationStart "Add GUID to Dict"
         GUID = GetStringFromGUID
 
         If Not GuidDict.Exists(GUID) Then
             GuidDict.Add GUID, vbNullString
         End If
+        Perf.OperationEnd
     Next i
+
+    Debug.Print GetHashValue(GuidDict)
 
     Perf.CategoryEnd
     Debug.Print Perf.GetReports
-
-    Debug.Print GetHashValue(GuidDict)
 
 End Sub
