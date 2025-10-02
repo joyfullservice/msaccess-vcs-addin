@@ -402,6 +402,7 @@ Private Sub SaveEntry(ByRef strMessage As String _
         .Parameters("[paramEventMessage]") = strMessage
         .Parameters("[paramPrinted]") = fWasDisplayed
         .Parameters("[paramErrorLevel]") = ErrorInfoIn.ErrorLevel
+        .Parameters("[paramOperationGUID]") = ErrorInfoIn.CurrentOperationGUID
 
 Retry:
         .Execute
@@ -494,6 +495,7 @@ Private Function GetLogStoredCommand() As ADODB.Command
             .Add ",[paramEventMessage] LONGTEXT"
             .Add ",[paramPrinted] BIT"
             .Add ",[paramErrorLevel] LONG"
+            .Add ",[paramOperationGUID] GUID"
             .Add "; "
             .Add "INSERT INTO ", Me.LogTableName, " ("
             .Add "[EventLogTime]"
@@ -504,6 +506,7 @@ Private Function GetLogStoredCommand() As ADODB.Command
             .Add ",[EventMessage]"
             .Add ",[Printed]"
             .Add ",[ErrorLevel]"
+            .Add ",[OperationGUID]"
             .Add ") VALUES ("
             .Add "[paramEventLogTime]"
             .Add ",[paramUserID]"
@@ -513,6 +516,7 @@ Private Function GetLogStoredCommand() As ADODB.Command
             .Add ",[paramEventMessage]"
             .Add ",[paramPrinted]"
             .Add ",[paramErrorLevel]"
+            .Add ",[paramOperationGUID]"
             .Add ");"
         End With
 
@@ -531,6 +535,7 @@ Private Function GetLogStoredCommand() As ADODB.Command
             .Parameters.Append .CreateParameter("[paramEventMessage]", adLongVarChar, adParamInput, 63999)
             .Parameters.Append .CreateParameter("[paramPrinted]", adBoolean, adParamInput)
             .Parameters.Append .CreateParameter("[paramErrorLevel]", adInteger, adParamInput)
+            .Parameters.Append .CreateParameter("[paramOperationGUID]", adBinary, adParamInput, 16, Null)
         End With
     End If
 
@@ -1186,7 +1191,7 @@ End Property
 
 Public Property Get LogTableName() As String
 
-    If this.LogTableName = vbNullString Then this.LogTableName = DefaultLogTableName
+    If this.LogTableName = vbNullString Then this.LogTableName = DefaultLogTableName & GetTableCreateHash
     LogTableName = this.LogTableName
 
 End Property
@@ -1221,6 +1226,7 @@ Private Function GetDefaultLogConnectionADO() As ADODB.Connection
     Dim strPath As String
     Dim NeedToSetupDB As Boolean
     Dim NeedToSetupTable As Boolean
+    Dim NeedToKeepOldTable As Boolean
 
     Dim NewDbFile As DAO.Database
 
@@ -1233,7 +1239,7 @@ Private Function GetDefaultLogConnectionADO() As ADODB.Connection
         NeedToSetupTable = True
     Else
         Set NewDbFile = DBEngine.OpenDatabase(strPath)
-        NeedToSetupTable = TableExists(Me.LogTableName, NewDbFile)
+        NeedToSetupTable = Not TableExists(Me.LogTableName, NewDbFile)
     End If
     NewDbFile.Close
     Set GetDefaultLogConnectionADO = New ADODB.Connection
@@ -1243,6 +1249,32 @@ Private Function GetDefaultLogConnectionADO() As ADODB.Connection
     End With
     If NeedToSetupDB Then SetupLogTable GetDefaultLogConnectionADO
 
+End Function
+
+
+Private Function GetTableCreateHash() As String
+
+    Static f_HashValue As String
+
+    If f_HashValue = vbNullString Then f_HashValue = GetHashValue(GetLogCreateString, , 7)
+    GetTableCreateHash = f_HashValue
+
+End Function
+
+
+Private Function GetLogCreateString() As String
+    GetLogCreateString = " (" & _
+                        "[EntryID] AUTOINCREMENT, " & _
+                        "[EventLogTime] VARCHAR(40), " & _
+                        "[UserID] VARCHAR(40), " & _
+                        "[ComputerName] VARCHAR(255), " & _
+                        "[ErrorNumber] Long, " & _
+                        "[EventSource] LongText, " & _
+                        "[EventMessage] LongText, " & _
+                        "[Printed] Bit, " & _
+                        "[ErrorLevel] Long, " & _
+                        "[OperationGUID] GUID" & _
+                        ");"
 End Function
 
 
@@ -1263,17 +1295,7 @@ Private Function SetupLogTable(ByRef adoConIn As ADODB.Connection) As String
     Dim fld As DAO.Field
     Dim logProperty As Property
 
-    SQLString = "CREATE TABLE " & this.LogTableName & " (" & _
-                        "[EntryID] AUTOINCREMENT, " & _
-                        "[EventLogTime] VARCHAR(40), " & _
-                        "[UserID] VARCHAR(40), " & _
-                        "[ComputerName] VARCHAR(255), " & _
-                        "[ErrorNumber] Long, " & _
-                        "[EventSource] LongText, " & _
-                        "[EventMessage] LongText, " & _
-                        "[Printed] Bit, " & _
-                        "[ErrorLevel] Long" & _
-                        ");"
+    SQLString = "CREATE TABLE " & this.LogTableName & GetLogCreateString
 
     With New ADODB.Command
         .CommandText = SQLString
