@@ -6,9 +6,18 @@
   "Items": {
     "Databases": {
       "SummaryInfo": {
-        "Comments": "Export source code and database objects for tracking in Version Control Systems like GitHub and GitLab. Also used for building a database from source files.",
-        "Company": "https://github.com/joyfullservice/msaccess-vcs-addin",
-        "Title": "Version Control"
+        "Comments": {
+          "Type": 10,
+          "Value": "Export source code and database objects for tracking in Version Control Systems like GitHub and GitLab. Also used for building a database from source files."
+        },
+        "Company": {
+          "Type": 10,
+          "Value": "https://github.com/joyfullservice/msaccess-vcs-addin"
+        },
+        "Title": {
+          "Type": 10,
+          "Value": "Version Control"
+        }
       }
     }
   }

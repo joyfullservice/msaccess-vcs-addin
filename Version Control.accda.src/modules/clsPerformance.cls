@@ -57,7 +57,7 @@ Private Declare PtrSafe Function GetTimeAPI Lib "kernel32" Alias "QueryPerforman
 '
 Public Sub StartTiming()
     If Not Me.Enabled Then Exit Sub
-    Reset
+    Me.Reset
     Set this.Overall = New clsPerformanceItem
     this.Overall.Start = MicroTimer
 End Sub
