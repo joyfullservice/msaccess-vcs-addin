@@ -67,8 +67,12 @@ Private Declare PtrSafe Function CoCreateGuid Lib "ole32" (ID As Any) As Long
                                                             , ByVal cchMax As Long _
                                                             ) As Long
 
+Public Const SHA256_HASH_LENGTH As Long = 64
+
 Private Const ModuleName As String = "modHash"
 Private Const DEFAULT_SHORT_HASH_LENGTH As Long = 7
+Private Const GUID_BRACE As String = "}"
+
 
 Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgorithm As String = DefaultHashAlgorithm) As Byte()
 
@@ -164,7 +168,7 @@ End Function
 '
 Public Function GetStringHash(ByVal strText As String _
                             , Optional blnWithBom As Boolean = False _
-                            , Optional ByVal intHashLen As Integer = DEFAULT_SHORT_HASH_LENGTH) As String
+                            , Optional ByVal intHashLen As Integer = 0) As String
     If blnWithBom Then
         ' Ensure that we are ending the content with a vbCrLf
         ' (To match the behavior of the WriteFile function)
@@ -182,7 +186,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetFileHash(strPath As String _
-                            , Optional ByVal intHashLen = DEFAULT_SHORT_HASH_LENGTH) As String
+                            , Optional ByVal intHashLen = 0) As String
 
     GetFileHash = GetHash(GetFileBytes(strPath), intHashLen)
 End Function
@@ -196,7 +200,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetBytesHash(bteData() As Byte _
-                            , Optional ByVal intHashLen = DEFAULT_SHORT_HASH_LENGTH) As String
+                            , Optional ByVal intHashLen = 0) As String
 
     GetBytesHash = GetHash(bteData(), intHashLen)
 End Function
@@ -210,7 +214,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetDictionaryHash(dSource As Dictionary _
-                                , Optional ByVal intHashLen = DEFAULT_SHORT_HASH_LENGTH) As String
+                                , Optional ByVal intHashLen = 0) As String
 
     GetDictionaryHash = GetStringHash(ConvertToJson(dSource), , intHashLen)
 End Function
@@ -223,8 +227,8 @@ End Function
 ' Purpose   : Create a hash from the byte array
 '---------------------------------------------------------------------------------------
 '
-Private Function GetHash(bteContent() As Byte _
-                        , Optional ByVal intHashLen As Integer = DEFAULT_SHORT_HASH_LENGTH) As String
+Public Function GetHash(bteContent() As Byte _
+                        , Optional ByVal intHashLen As Integer = 0) As String
 
     Dim bteHash As Variant
     Dim strHash As String
@@ -234,10 +238,11 @@ Private Function GetHash(bteContent() As Byte _
 
     ' Get hashing options
     strAlgorithm = Nz2(Options.HashAlgorithm, DefaultHashAlgorithm)
-    If Options.UseShortHash Or (intHashLen = DEFAULT_SHORT_HASH_LENGTH) Then
-        intLength = DEFAULT_SHORT_HASH_LENGTH
-    Else
+    If intHashLen <> 0 Then
         intLength = intHashLen
+
+    ElseIf Options.UseShortHash Then
+        intLength = DEFAULT_SHORT_HASH_LENGTH
     End If
 
     ' Start performance timer and compute the hash
@@ -502,19 +507,69 @@ Public Function GetGUID() As Variant
 End Function
 
 
+Public Function IsGUID(ByRef GUIDIn As Variant) As Boolean
+
+    Const FunctionName As String = ModuleName & ".IsGUID"
+
+    Dim f_GUIDSubstring As String
+    Dim f_BracePosition As String
+    Dim f_HashIn As String
+    Dim f_HashReturn As String
+    Dim f_HalfWayStr As String
+    Dim f_GUIDIn As Variant
+    Dim f_tempByte() As Byte
+
+    LogUnhandledErrors FunctionName
+    On Error GoTo Exit_Error
+
+    If IsEmpty(GUIDIn) Then Exit Function
+    If IsNull(GUIDIn) Then Exit Function
+
+    If TypeName(GUIDIn) = "Byte()" Then
+        If Not (UBound(GUIDIn) - LBound(GUIDIn) + 1) = 16 Then Exit Function
+        f_GUIDIn = GUIDIn
+
+    ElseIf TypeName(GUIDIn) = "String" Then
+        If Nz2(GUIDIn, vbNullString) = vbNullString Then Exit Function
+        ' Detect if this is actually a GUID Byte() arr but parsed into a string:
+        If Len(GUIDIn) = 8 Then ' This is likely a GUID
+            f_tempByte = GUIDIn
+            f_GUIDIn = f_tempByte
+            GoTo TestGUID
+        End If
+        f_GUIDIn = getGUIDFromString(CStr(GUIDIn))
+    End If
+
+TestGUID:
+    f_HashIn = GetHashValue(f_GUIDIn, , SHA256_HASH_LENGTH)
+    f_HalfWayStr = Mid$(StringFromGUID(f_GUIDIn), 7, 38)
+    f_HashReturn = GetHashValue(getGUIDFromString(f_HalfWayStr), , SHA256_HASH_LENGTH)
+    If f_HashIn = f_HashReturn Then IsGUID = True
+
+Exit_Here:
+    Exit Function
+
+Exit_Error:
+    Catch 5, 13
+    Resume Exit_Here
+
+End Function
+
+
 Public Function GetStringFromGUID(Optional ByRef GUIDIn As Variant = vbNullString) As String
+
+    Const FunctionName As String = ModuleName & ".GetStringFromGUID"
 
     Static fNullHash As String
 
-    Dim tGuIn As Variant
+    Dim tGuIn() As Byte
     Dim tHashGUID As String
 
-    ' We need a Null string to compare and check if this is a GUID or something else.
-    If fNullHash = vbNullString Then fNullHash = GetHashValue(Null)
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
 
     ' Check if the GUID in was a GUID or not.
-    tHashGUID = GetHashValue(GUIDIn)
-    If tHashGUID = fNullHash Then
+    If Not IsGUID(GUIDIn) Then
         tGuIn = GetGUID
     Else
         tGuIn = GUIDIn
@@ -531,19 +586,28 @@ End Function
 Public Function getGUIDFromString(ByRef GUIDStringIn As String) As Variant
 
     Const FunctionName As String = ModuleName & ".getGUIDfromstring"
-    Const GUID_BRACE As String = "}"
 
     Dim tBracePos As Long
+    Dim tByteTemp() As Byte
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
 
     tBracePos = InStrRev(GUIDStringIn, GUID_BRACE)
+    If Len(GUIDStringIn) = 8 Then ' Somehow, a GUID got converted to a string so we need to just spit it back out again.
+        tByteTemp = GUIDStringIn
+        getGUIDFromString = tByteTemp
 
-    If tBracePos > 0 Then
-        getGUIDFromString = GUIDFromString(Mid$(GUIDStringIn, tBracePos - 38, 38))
+    ElseIf tBracePos > 0 Then
+        getGUIDFromString = GUIDFromString(Mid$(GUIDStringIn, tBracePos - 38 + 1, 38))
 
     Else
         ' Brace not found, need to include braces.
         getGUIDFromString = GUIDFromString("{" & GUIDStringIn & "}")
     End If
+
+    If Catch(5) Then getGUIDFromString = 0
+
 
 End Function
 
