@@ -172,7 +172,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub Clear(Optional ByVal CheckFirst As Boolean = False _
-                , Optional ByVal ClearConsoleAlso As Boolean = True)
+                , Optional ByVal ClearConsoleAlso As Boolean = False)
 
     Const FunctionName As String = ModuleName & ".Clear"
 
@@ -202,7 +202,7 @@ Public Sub Clear(Optional ByVal CheckFirst As Boolean = False _
 ClearLog:
     With New ADODB.Command
         .ActiveConnection = Me.LogConnectionADO
-        .CommandText = "DELETE FROM " & Me.LogTableName & ";"
+        .CommandText = "DELETE FROM " & Me.LogTableName & " WHERE OperationGUID = " & GetStringFromGUID(Operation.OperationGUID) & ";"
         .Execute
     End With
     If ClearConsoleAlso Then
@@ -1125,6 +1125,8 @@ Public Sub SaveFile(Optional ByRef strAlternateFilePath As String _
 
     Dim OutputFilePath As String
     Dim SanitizedFileName As String
+    Dim SQLString As String
+    Dim LogStream As ADODB.Stream
 
 Retry:
     ' Before exporting, insert entries for performance, because that might be useful.
@@ -1133,16 +1135,27 @@ Retry:
     OutputFilePath = Nz2(strAlternateFilePath, Me.LogFilePath)
     VerifyPath OutputFilePath
     SanitizedFileName = FSO.GetFileName(OutputFilePath)
-
+    SQLString = "SELECT EventMessage FROM " & Me.LogTableName & _
+                " WHERE OperationGUID = " & GetStringFromGUID(Operation.OperationGUID) & " ORDER BY EntryID"
     With New ADODB.Recordset
-        .Open Me.LogTableName, Me.LogConnectionADO, adOpenDynamic
-        If FSO.FileExists(OutputFilePath) Then DeleteFile OutputFilePath, True
-        .Save OutputFilePath, adPersistXML
-    End With
 
-    With New clsSourceParser
-        .LoadSourceFile OutputFilePath, edbTableData
-        WriteFile .Sanitize(ectXML), OutputFilePath
+        .Open SQLString, Me.LogConnectionADO, adOpenDynamic, adLockReadOnly
+
+        If .RecordCount <> 0 Then
+            Set LogStream = New ADODB.Stream
+
+            If FSO.FileExists(OutputFilePath) Then DeleteFile OutputFilePath, True
+            LogStream.Type = adTypeText
+            LogStream.Open
+            LogStream.Charset = "utf-8"
+
+            Do Until .EOF
+                LogStream.WriteText CleanHTMLFromStr(.Fields("EventMessage").Value), adWriteLine
+                .MoveNext
+            Loop
+
+            LogStream.SaveToFile OutputFilePath, adSaveCreateOverWrite
+        End If
     End With
 
     If Err.Number <> 0 Then
