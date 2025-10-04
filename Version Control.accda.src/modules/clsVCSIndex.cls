@@ -950,6 +950,75 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetMergeMessage
+' Author    : bclothier
+' Date      : 9/9/2025
+' Purpose   : Get the message that may be displayed to explain why merge
+'           : cannot proceed or to warn of possible concerns.
+'           : NOTE: this is multi-valued function (yuck!) so the variables
+'           : must be passed byref to get the message and the icon.
+'           : The boolean return is primarily to signal that we could construct
+'           : the message and that the byref "out" parameters contain data.
+'           : NOTE 2: The logic should be compatible with the IsMergable function.
+'           : The primary difference is handling the case where we want to warn the
+'           : the user about possible branch difference (same hashes).
+'---------------------------------------------------------------------------------------
+'
+Public Function GetMergeMessage( _
+    OutTitle As String, _
+    OutMessage As String, _
+    OutStyle As VbMsgBoxStyle _
+) As Boolean
+
+    If (Me.FullBuildDate = 0) Then
+        OutTitle = "No full build data; merge build is not available."
+        OutMessage = _
+            "A full build must be performed before you can merge from source." & vbNewLine & _
+            "Please perform a full build of this database first."
+        OutStyle = vbInformation
+        GetMergeMessage = True
+    ElseIf IsBranchConsistent = False Then
+        Dim strIndexBranchName As String
+        Dim strIndexBranchHash As String
+        Dim strRepoBranchName As String
+        Dim strRepoBranchHash As String
+        Dim cCat As clsConcat
+
+        Set cCat = New clsConcat
+
+        strIndexBranchName = Me.LastBranchName
+        strIndexBranchHash = Me.LastBranchCommit
+
+        strRepoBranchName = Git.BranchName
+        strRepoBranchHash = Git.GetHeadCommitHash
+
+        If strIndexBranchName <> strRepoBranchName Then
+            cCat.Add _
+                "The repository is currently on branch '" & strRepoBranchName & "'" & vbNewLine & _
+                    "  at commit '" & strRepoBranchHash & "'." & vbNewLine & _
+                    "The VCS index was built on the branch '" & strIndexBranchName & "'" & vbNewLine & _
+                    "  at commit '" & strIndexBranchHash & "'." & vbNewLine & _
+                    vbNewLine
+            If strRepoBranchHash <> strIndexBranchHash Then
+                ' Different branch, incompatible hash
+                cCat.Add "This is not a compatible branch so therefore a full build is required."
+                OutTitle = "Cannot merge on a different branch at a different head"
+                OutMessage = cCat.GetStr
+                OutStyle = vbInformation
+            Else
+                ' Different branch, compatible hash (e.g., newly checked out branch
+                cCat.Add "This is a different but compatible branch. Do you want to proceed with the merge on a different branch anyway?"
+                OutTitle = "DIfferent branch at the same head; confirm if you want to merge from a different branch"
+                OutMessage = cCat.GetStr
+                OutStyle = vbExclamation Or vbYesNo
+            End If
+            GetMergeMessage = True
+        End If
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsBranchConsistent
 ' Author    : bclothier
 ' Date      : 9/9/2025
