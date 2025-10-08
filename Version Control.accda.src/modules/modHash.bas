@@ -173,7 +173,7 @@ Public Function GetStringHash(ByVal strText As String _
         ' (To match the behavior of the WriteFile function)
         If Right(strText, 2) <> vbCrLf Then strText = strText & vbCrLf
     End If
-    GetStringHash = GetHash(GetUTF8Bytes(strText, blnWithBom))
+    GetStringHash = GetHash(GetUTF8Bytes(strText, blnWithBom), intHashLen)
 End Function
 
 
