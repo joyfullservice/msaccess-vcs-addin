@@ -833,9 +833,8 @@ Public Function PromptInput(ByRef strMainLine As String _
 
     Dim intCursor As Integer
     Dim PromptResult As String
-    Dim sourceFormatted As String
     Dim titleFormatted As String
-    Dim errorLevelInfo As New clsErrorInfo
+    Dim f_ErrorInfo As clsErrorInfo
 
     Dim strBoldLines As String
     Dim strBoxLines1 As String
@@ -846,12 +845,26 @@ Public Function PromptInput(ByRef strMainLine As String _
 
     Perf.OperationStart FunctionName
 
+    If ErrorInfoIn Is Nothing Then
+        Set f_ErrorInfo = New clsErrorInfo
+    Else
+        Set f_ErrorInfo = ErrorInfoIn
+    End If
+
     ' Turn off any hourglass
     intCursor = Screen.MousePointer
 
-    sourceFormatted = Nz2(strSource, "Log") & ".PromptInput"
-    titleFormatted = Nz2(strTitle, sourceFormatted)
-    errorLevelInfo.ErrorLevel = ErrorLevelIn
+    With f_ErrorInfo
+        .ErrorLevel = ErrorLevelIn
+        If strSource <> vbNullString Then .FunctionSource = f_ErrorInfo.FunctionSource & _
+                            IIf(f_ErrorInfo.FunctionSource = vbNullString, strSource, "." & strSource)
+        ' Now append remaining bits.
+        .FunctionSource = f_ErrorInfo.FunctionSource & _
+                            IIf(f_ErrorInfo.FunctionSource = vbNullString, "Log.", ".") & "PromptInput"
+    End With
+
+    Set ErrorInfoIn = f_ErrorInfo ' Hand out the updated class details.
+    titleFormatted = Nz2(strTitle, ErrorInfoIn.FunctionSource)
 
     LineCount = SCREEN_ROWS_MAX_DEFAULT
     strBoldLines = FitStringToWidth(strMainLine, WIDTH_MAX_MSGBOX, WIDTH_DESIRED_MSGBOX, LineCount)
@@ -865,7 +878,7 @@ Public Function PromptInput(ByRef strMainLine As String _
         If strLine2 <> vbNullString Then .Add FitStringToWidth(strLine2, WIDTH_MAX_MSGBOX, WIDTH_DESIRED_MSGBOX, LineCount + MSGBOX_LINE2_ROWS)
         If strSource <> vbNullString Then
             If .Length Then .Add vbNewLine, vbNewLine
-            .Add "Source: ", FitStringToWidth(sourceFormatted, WIDTH_MAX_MSGBOX - 8, WIDTH_DESIRED_MSGBOX - 8, MSGBOX_SOURCE_ROWS)
+            .Add "Source: ", FitStringToWidth(ErrorInfoIn.FunctionSource, WIDTH_MAX_MSGBOX - 8, WIDTH_DESIRED_MSGBOX - 8, MSGBOX_SOURCE_ROWS)
         End If
     End With
 
@@ -891,10 +904,10 @@ Public Function PromptInput(ByRef strMainLine As String _
             .Add cstrSpacer
             If InteractionMode = eimSilent Then .Add "[**MessageBox Not Displayed**]"
             .Add "Prompt:"
-            .Add FormatEntry(strMainLine, True, errorLevelInfo.ErrorColor, True)
+            .Add FormatEntry(strMainLine, True, ErrorInfoIn.ErrorColor, True)
             .Add strLine1
             .Add strLine2
-            .Add "Source: ", sourceFormatted
+            .Add "Source: ", ErrorInfoIn.FunctionSource
             If strTitle <> vbNullString Then .Add "Title: ", titleFormatted
             .Add FormatEntry("User Response: " & PromptResult, True, , True)
             If LogInputReturn Then
@@ -905,7 +918,7 @@ Public Function PromptInput(ByRef strMainLine As String _
             .Add cstrSpacer
             .Remove 4 ' Remove the last line feed.
         End With
-        Me.AddEntry strSource:=sourceFormatted, strMessage:=logEntryDetails.GetStr, ErrorLevelIn:=ErrorLevelIn
+        SaveEntry strMessage:=logEntryDetails.GetStr, ErrorInfoIn:=ErrorInfoIn
     End If
 
     PromptInput = PromptResult
