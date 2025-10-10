@@ -76,15 +76,7 @@ Public Sub ErrStateCache(Optional ByVal Refresh As Boolean = False)
 
     If this.ErrorLevel = eelUninitialized Or Refresh Then
         With this
-            .TimeStamp = ISO8601TimeStamp   ' Get the time of event.
-            .CallStack = Perf.CallStack     ' Get CallStack at time of creation
-
-            .CurrentOperationGUID = Operation.OperationGUID
-            .CurrentOperationType = Operation.OperationType
-            .CurrentOperationStatus = Operation.Status
-            .CurrentOperationResult = Operation.Result
-
-            ' Get Err details.
+            ' Get Err details first in case an external function clears them.
             If Err.Number <> 0 Then
                 .ErrDescription = Err.Description
                 .ErrHelpContext = Err.HelpContext
@@ -97,8 +89,15 @@ Public Sub ErrStateCache(Optional ByVal Refresh As Boolean = False)
             Else
                 .ErrorLevel = eelNoError    ' Set to eelNoError; this can be set elsewhere.
             End If
-        End With
 
+            .TimeStamp = ISO8601TimeStamp   ' Get the time of event.
+            .CallStack = Perf.CallStack     ' Get CallStack at time of creation
+
+            .CurrentOperationGUID = Operation.OperationGUID
+            .CurrentOperationType = Operation.OperationType
+            .CurrentOperationStatus = Operation.Status
+            .CurrentOperationResult = Operation.Result
+        End With
         ' We've logged the error. The purpose of this class is to cache this info, so we
         ' do not need to keep the Err state, as we can get that from this class.
         Err.Clear
