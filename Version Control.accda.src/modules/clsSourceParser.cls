@@ -60,8 +60,9 @@ End Function
 ' Purpose   : Load input from a string
 '---------------------------------------------------------------------------------------
 '
-Public Function LoadString(ByVal strContent As String)
+Public Function LoadString(ByVal strContent As String, intType As eDatabaseComponentType)
     ResetContent
+    this.intObjectType = intType
     this.strInput = strContent
 End Function
 
@@ -461,6 +462,11 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
             ModuleName(Me) & ".SanitizeFile"
     End If
 
+    ' Normalize form coordinates
+    If this.intObjectType = edbForm Then
+        If Options.SanitizeLevel > eslMinimal Then NormalizeCoordinates varLines
+    End If
+
     ' Prepare primary output
     this.strOutput = BuildOutput(varLines)
     SanitizeObject = this.strOutput
@@ -469,7 +475,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     If Not cVBA Is Nothing Then
         ' Build sanitized VBA string
         With New clsSourceParser
-            .LoadString cVBA.GetStr
+            .LoadString cVBA.GetStr, edbModule
             this.strVBA = .Sanitize(ectVBA)
         End With
     End If
@@ -837,6 +843,107 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
     End Select
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NormalizeCoordinates
+' Author    : Adam Waller
+' Date      : 10/18/2025
+' Purpose   : Standardize the saved form position coordinates as centered on 1080p
+'           : screen for consistent output on different monitor configurations.
+'---------------------------------------------------------------------------------------
+'
+Private Sub NormalizeCoordinates(varLines As Variant)
+
+    ' Screen dimensions in twips at 1080p and 96dpi
+    Const SCREEN_WIDTH = 1920 * (1440 / 96)
+    Const SCREEN_HEIGHT = 1080 * (1440 / 96)
+
+    Dim lngStartLine As Long
+    Dim lngEndLine As Long
+    Dim lngLine As Long
+    Dim strLine As String
+    Dim lngLeft As Long
+    Dim lngRight As Long
+    Dim lngTop As Long
+    Dim lngBottom As Long
+    Dim lngWidth As Long
+    Dim lngHeight As Long
+
+    ' First pass, loop through the lines, reading in the coordinate values
+    For lngLine = 1 To UBound(varLines)
+        strLine = varLines(lngLine)
+        ' Look for specific lines
+        Select Case True
+            ' Save current coordinate positions
+            Case StartsWith(strLine, "    Left ="):     lngLeft = ReadVal(strLine)
+            Case StartsWith(strLine, "    Right ="):    lngRight = ReadVal(strLine)
+            Case StartsWith(strLine, "    Top ="):      lngTop = ReadVal(strLine)
+            Case StartsWith(strLine, "    Bottom =")
+                lngBottom = ReadVal(strLine)
+                lngEndLine = lngLine
+                Exit For
+        End Select
+    Next lngLine
+
+    ' Verify coordinates
+    lngWidth = lngRight - lngLeft
+    lngHeight = lngBottom - lngTop
+    If lngWidth < 0 Or lngHeight < 0 Then Exit Sub
+
+    ' Calculate normalized values
+    lngLeft = (SCREEN_WIDTH - lngWidth) \ 2
+    lngTop = (SCREEN_HEIGHT - lngHeight) \ 2
+
+    ' Clamp at 0 for negative numbers or if form is bigger than screen
+    If lngLeft < 0 Or lngWidth > SCREEN_WIDTH Then lngLeft = 0
+    If lngTop < 0 Or lngHeight > SCREEN_HEIGHT Then lngTop = 0
+
+    ' Calculate right and bottom values
+    lngRight = lngLeft + lngWidth
+    lngBottom = lngTop + lngHeight
+
+    ' Second pass, update coordinates to normalized values
+    For lngLine = lngStartLine To lngEndLine
+        strLine = varLines(lngLine)
+        Select Case True
+            ' Save current coordinate positions
+            Case StartsWith(strLine, "    Left ="):     SetVal varLines, lngLine, lngLeft
+            Case StartsWith(strLine, "    Right ="):    SetVal varLines, lngLine, lngRight
+            Case StartsWith(strLine, "    Top ="):      SetVal varLines, lngLine, lngTop
+            Case StartsWith(strLine, "    Bottom ="):   SetVal varLines, lngLine, lngBottom
+        End Select
+    Next lngLine
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReadVal
+' Author    : Adam Waller
+' Date      : 10/18/2025
+' Purpose   : Reads a property value after the equals sign
+'---------------------------------------------------------------------------------------
+'
+Private Function ReadVal(strLine As String) As Variant
+    Dim lngPos As Long
+    lngPos = InStr(1, strLine, "=")
+    If lngPos > 0 Then ReadVal = Mid$(strLine, lngPos + 1)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetVal
+' Author    : Adam Waller
+' Date      : 10/18/2025
+' Purpose   : Set the property value in the line
+'---------------------------------------------------------------------------------------
+'
+Private Function SetVal(varLines As Variant, lngLineIndex As Long, lngNewVal As Long)
+    Dim strLine As String
+    strLine = varLines(lngLineIndex)
+    varLines(lngLineIndex) = Split(strLine, "=")(0) & "=" & lngNewVal
+End Function
 
 
 '---------------------------------------------------------------------------------------
