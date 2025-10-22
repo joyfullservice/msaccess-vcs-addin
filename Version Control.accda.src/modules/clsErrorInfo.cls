@@ -90,6 +90,8 @@ Public Sub ErrStateCache(Optional ByVal Refresh As Boolean = False)
                 .ErrorLevel = eelNoError    ' Set to eelNoError; this can be set elsewhere.
             End If
 
+            Err.Clear
+
             .TimeStamp = ISO8601TimeStamp   ' Get the time of event.
             .CallStack = Perf.CallStack     ' Get CallStack at time of creation
 
