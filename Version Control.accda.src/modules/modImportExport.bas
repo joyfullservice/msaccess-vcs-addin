@@ -1811,9 +1811,10 @@ Public Sub InitializeForms(dContainers As Dictionary)
                         DoCmd.OpenForm frm.Name, acDesign, , , , acHidden
                     End If
                     DoEvents
-                    ' We seem to get the benefit of the layout rendering even if we don't
-                    ' save the form, so let's not save it unless we identify a reason to.
-                    DoCmd.Close acForm, frm.Name, acSaveNo
+                    ' Set a property value so Access thinks we have something to save.
+                    Forms(frm.Name).Tag = Forms(frm.Name).Tag    ' (This doesn't actually change anything)
+                    ' Save and close the form with the recomputed geometry
+                    DoCmd.Close acForm, frm.Name, acSaveYes
                     Perf.OperationEnd
                 End If
                 Log.Increment
