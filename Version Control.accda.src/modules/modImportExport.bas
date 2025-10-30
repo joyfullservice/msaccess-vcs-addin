@@ -126,6 +126,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Exit Sub
     End If
 
+    ' Enforce any supplied letter casing rules
+    StandardizeLetterCasing
+
     ' Export any external database schemas
     ExportSchemas blnFullExport
     If Operation.ErrorLevel = eelCritical Then GoTo CleanUp
@@ -1178,6 +1181,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             Perf.OperationEnd
         End If
     End If
+
+    ' Enforce any supplied letter casing rules
+    StandardizeLetterCasing
 
     ' Log any errors after build/merge
     CatchAny eelError, T("Error running {0}", var0:=CallByName(Options, "RunAfter" & strType, VbGet)), FunctionName, True, True
