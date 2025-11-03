@@ -670,6 +670,7 @@ Private Sub cmdSaveAsDefault_Click()
     ' Load the options from the form and save as default
     MapControlsToOptions emaFormToClass
     Options.SaveOptionsAsDefault
+    MsgBox2 T("Options Saved"), T("The current options have been saved as default for new projects."), , vbInformation
 
 End Sub
 
