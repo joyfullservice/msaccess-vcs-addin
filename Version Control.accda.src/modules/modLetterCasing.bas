@@ -25,6 +25,7 @@ Sub StandardizeLetterCasing()
         Set cm = Comp.CodeModule
         If cm.Name = StandardLetterCasingModuleName Then Exit For
     Next Comp
+    If cm Is Nothing Then Exit Sub
     If cm.Name <> StandardLetterCasingModuleName Then
         'Debug.Print "Could not find '" & StandardLetterCasingModuleName & "' code module"
         Exit Sub
