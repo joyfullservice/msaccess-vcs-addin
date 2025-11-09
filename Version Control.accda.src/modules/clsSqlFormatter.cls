@@ -587,7 +587,7 @@ Private Sub Tokenize(strSql As String, intDialect As eSqlDialect)
 
         ' Make sure we don't get stuck on the same position
         If m_lngPos = lngLastPos Then
-            Log.Error eelError, "Unable tp parse SQL after position " & m_lngPos, ModuleName(Me) & ".Tokenize"
+            Log.Error eelError, "Unable to parse SQL after position " & m_lngPos, ModuleName(Me) & ".Tokenize"
             AddToken ttUnknown, GetRange(Len(m_strSql) - m_lngPos)
             Exit Do
         Else
