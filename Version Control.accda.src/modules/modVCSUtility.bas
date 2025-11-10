@@ -561,7 +561,7 @@ Public Function SaveComponentAsText(intType As AcObjectType _
 
             ' Sanitizing converts to UTF-8
             With cParser
-                .LoadString strContent
+                .LoadString strContent, intType
                 .ObjectName = FSO.GetBaseName(strFile)
                 WriteFile .Sanitize(ectObjectDefinition), strFile
                 strHash = .Hash
@@ -667,7 +667,7 @@ RetryImport:
             ' Read file content. (Should be UTF-8)
             strContent = ReadFile(strFile)
             With New clsSourceParser
-                .LoadString strContent
+                .LoadString strContent, intType
 
                 ' Check for print settings file
                 strAltFile = SwapExtension(strFile, "json")
@@ -807,7 +807,7 @@ Public Sub ExportCodeModule(strName As String, strFile As String)
 
     ' Sanitize the VBA code while reading the temp file
     With New clsSourceParser
-        .LoadString ReadFile(strTempFile, GetSystemEncoding)
+        .LoadString ReadFile(strTempFile, GetSystemEncoding), edbModule
         strContent = .Sanitize(ectVBA)
     End With
 

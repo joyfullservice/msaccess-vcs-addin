@@ -60,8 +60,9 @@ End Function
 ' Purpose   : Load input from a string
 '---------------------------------------------------------------------------------------
 '
-Public Function LoadString(ByVal strContent As String)
+Public Function LoadString(ByVal strContent As String, intType As eDatabaseComponentType)
     ResetContent
+    this.intObjectType = intType
     this.strInput = strContent
 End Function
 
@@ -461,6 +462,11 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
             ModuleName(Me) & ".SanitizeFile"
     End If
 
+    ' Normalize form designer viewport coordinates
+    If this.intObjectType = edbForm Then
+        If Options.SanitizeLevel > eslMinimal Then NormalizeViewport varLines
+    End If
+
     ' Prepare primary output
     this.strOutput = BuildOutput(varLines)
     SanitizeObject = this.strOutput
@@ -469,7 +475,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     If Not cVBA Is Nothing Then
         ' Build sanitized VBA string
         With New clsSourceParser
-            .LoadString cVBA.GetStr
+            .LoadString cVBA.GetStr, edbModule
             this.strVBA = .Sanitize(ectVBA)
         End With
     End If
@@ -835,6 +841,39 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
             End If
 
     End Select
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NormalizeViewport
+' Author    : Adam Waller
+' Date      : 10/29/2025
+' Purpose   : Standardize the coordinates of the saved viewport to ensure consistent
+'           : output across various monitor configurations. Note that these are not
+'           : reflective of the actual form size, but the designer viewport at the
+'           : time that the form was saved.
+'           : Note that the hardcoded values are somewhat arbitrary, and will be
+'           : recomputed the next time the form is saved in design view. (Typically
+'           : during the IntitializeForms process.)
+'---------------------------------------------------------------------------------------
+'
+Private Sub NormalizeViewport(varLines As Variant)
+
+    Dim lngLine As Long
+    Dim strLine As String
+
+    For lngLine = 1 To UBound(varLines)
+        strLine = varLines(lngLine)
+        ' Look for specific lines
+        Select Case True
+            ' Save current coordinate positions
+            Case StartsWith(strLine, "    Left ="):     varLines(lngLine) = "    Left =1000"
+            Case StartsWith(strLine, "    Top ="):      varLines(lngLine) = "    Top =1000"
+            Case StartsWith(strLine, "    Right ="):    varLines(lngLine) = "    Right =50000"
+            Case StartsWith(strLine, "    Bottom ="):   varLines(lngLine) = "    Bottom =50000": Exit For
+        End Select
+    Next lngLine
 
 End Sub
 
