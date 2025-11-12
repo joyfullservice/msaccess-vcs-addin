@@ -207,8 +207,22 @@ Class AddInRibbon
 		If VerifyAccessAddinProject Then
 			' Pass the control ID to the handler function
 			applicationObject.Run App.Path & "\Version Control.HandleRibbonCommand", control.Id
+            SetActiveRibbonTab "tabVersionControl"
 		End If
 	End Sub
+    
+    
+    /*
+        Set the ribbon tab active again, in case the application switches back to 
+        the home tab in newer versions of Access
+    */
+    Public Sub SetActiveRibbonTab(tabId As String)
+        If Not activeRibbon Is Nothing Then
+            ' Attempt to make the specified tab active
+            On Error Resume Next
+            activeRibbon.ActivateTab tabId
+        End If
+    End Sub
 	
     /*
 		Functions to dynamically load labels and descriptions
