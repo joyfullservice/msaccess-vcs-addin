@@ -23,6 +23,7 @@ Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 
 Private Type udtThis
+    BarPosition As MsoBarPosition
     BarProperties As Collection
     CtlReadProperties As Collection
     CtlWriteProperties As Collection
@@ -330,11 +331,16 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
     Dim colItems As Collection
     Dim picItem As IPictureDisp
     Dim strPath As String
+    Dim cbcItem As CommandBarComboBox
+    Dim colList As Collection
+    Dim lngItem As Long
 
     LogUnhandledErrors
     On Error Resume Next
 
     If TypeOf objItem Is CommandBar Then
+        ' Get command bar position
+        this.BarPosition = objItem.Position
         ' Add command bar properties
         For Each varProp In this.BarProperties
             varValue = CallByName(objItem, varProp, VbGet)
@@ -364,14 +370,11 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
         If TypeOf objItem Is CommandBarComboBox Then
             If objItem.Type = msoControlDropdown Or objItem.Type = msoControlComboBox Then
             ' Build List
-            Dim cbcItem As CommandBarComboBox
-            Dim colList As Collection
-            Dim i As Long
             Set cbcItem = objItem
 
             Set colList = New Collection
-            For i = 1 To cbcItem.ListCount
-                colList.Add cbcItem.List(i), CStr(i)
+            For lngItem = 1 To cbcItem.ListCount
+                colList.Add cbcItem.List(lngItem), CStr(lngItem)
             Next
             dParent.Add "List", colList
             End If
@@ -407,6 +410,15 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
     Else
         ' Unsupported object type
         Stop
+    End If
+
+    ' Remove relative position unless this is a floating command bar
+    If TypeOf objItem Is CommandBar And this.BarPosition = msoBarFloating Then
+        ' Preserve Top and Left position for the floating command bar
+    Else
+        ' Remove cached coordinate positions that will change frequently
+        If dParent.Exists("Left") Then dParent.Remove "Left"
+        If dParent.Exists("Top") Then dParent.Remove "Top"
     End If
 
     ' Return dictionary
@@ -762,7 +774,6 @@ Private Sub Class_Initialize()
         .Add "AdaptiveMenu"
         .Add "Context"
         .Add "Enabled"
-        .Add "Height"
         .Add "Left"
         .Add "NameLocal"
         .Add "Position"
@@ -770,8 +781,6 @@ Private Sub Class_Initialize()
         .Add "RowIndex"
         .Add "Top"
         .Add "Type"
-        .Add "Visible"
-        .Add "Width"
     End With
 
     ' CommmandBarControl Properties
@@ -789,7 +798,6 @@ Private Sub Class_Initialize()
         .Add "DropDownWidth"
         .Add "Enabled"
         .Add "FaceId"
-        .Add "Height"
         .Add "HelpContextId"
         .Add "HelpFile"
         .Add "HyperlinkType"
@@ -799,15 +807,12 @@ Private Sub Class_Initialize()
         .Add "OLEUsage"
         .Add "OnAction"
         .Add "Parameter"
-        .Add "Priority"
         .Add "ShortcutText"
-        .Add "State"
         .Add "Style"
         .Add "Tag"
         .Add "Text"
         .Add "TooltipText"
         .Add "Visible"
-        .Add "Width"
     End With
 
     ' Build dictionary to be used for writing out to text files to include additional data about the
@@ -823,12 +828,9 @@ Private Sub Class_Initialize()
         .Add "DropDownWidth"
         .Add "Enabled"
         .Add "FaceId"
-        .Add "Height"
         .Add "HelpContextId"
         .Add "HelpFile"
         .Add "HyperlinkType"
-        .Add "Index"
-        .Add "IsPriorityDropped"
         .Add "Left"
         .Add "ListCount"
         .Add "ListHeaderCount"
@@ -837,9 +839,7 @@ Private Sub Class_Initialize()
         .Add "OLEUsage"
         .Add "OnAction"
         .Add "Parameter"
-        .Add "Priority"
         .Add "ShortcutText"
-        .Add "State"
         .Add "Style"
         .Add "Tag"
         .Add "Text"
@@ -847,7 +847,6 @@ Private Sub Class_Initialize()
         .Add "Top"
         .Add "Type"
         .Add "Visible"
-        .Add "Width"
     End With
 
 End Sub
