@@ -1264,6 +1264,7 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     Dim dCategories As Dictionary
     Dim dCategory As Dictionary
     Dim dSourceFiles As Dictionary
+    Dim intResult As eOperationResult
 
     ' Guard clauses
     If cComponentClass Is Nothing Then Exit Sub
@@ -1333,6 +1334,7 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
                 Log.Spacer
                 Log.Add T("Import Canceled"), , , "Red", True
                 Operation.ErrorLevel = eelCritical
+                intResult = eorCanceled
                 GoTo CleanUp
             End If
         End If
@@ -1353,6 +1355,7 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     ' Show final output and save log
     Log.Spacer
     Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
+    intResult = eorSuccess
 
 CleanUp:
 
@@ -1370,6 +1373,7 @@ CleanUp:
 
     ' Save index file (don't change export date for single item export)
     VCSIndex.Save
+    Operation.Finish intResult
 
 End Sub
 
