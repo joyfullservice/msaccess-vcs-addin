@@ -36,6 +36,7 @@
     "FormatSQL": true,
     "ForceImportOriginalQuerySQL": false,
     "SaveTableSQL": true,
+    "SaveLinkedTableDef": false,
     "SplitLayoutFromVBA": true,
     "StripPublishOption": true,
     "SanitizeColors": 3,

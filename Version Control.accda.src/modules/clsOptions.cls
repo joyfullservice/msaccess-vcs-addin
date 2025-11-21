@@ -32,6 +32,7 @@ Public SaveQuerySQL As Boolean
 Public FormatSQL As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
 Public SaveTableSQL As Boolean
+Public SaveLinkedTableDef As Boolean
 Public SplitLayoutFromVBA As Boolean
 Public StripPublishOption As Boolean
 Public SanitizeColors As eSanitizeLevel
@@ -85,6 +86,7 @@ Public Sub LoadDefaults()
         .UseGitIntegration = False
         .SavePrintVars = True
         .SaveQuerySQL = True
+        .SaveLinkedTableDef = False
         .FormatSQL = True
         .ForceImportOriginalQuerySQL = False
         .SaveTableSQL = True
@@ -751,6 +753,7 @@ Private Sub Class_Initialize()
         .Add "FormatSQL"
         .Add "ForceImportOriginalQuerySQL"
         .Add "SaveTableSQL"
+        .Add "SaveLinkedTableDef"
         .Add "SplitLayoutFromVBA"
         .Add "StripPublishOption"
         .Add "SanitizeColors"
