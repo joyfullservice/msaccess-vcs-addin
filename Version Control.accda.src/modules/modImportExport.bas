@@ -1109,6 +1109,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                 cCategory.Import CStr(varFile)
             Else
                 cCategory.Merge CStr(varFile)
+                If Options.ExportAfterMerge Then
+                    ' Merging imports the object, which then makes it available
+                    ' to export from this category/object class.
+                    ' (Forms are exported later after initializing)
+                    If cCategory.ComponentType <> edbForm Then cCategory.Export
+                End If
             End If
             CatchAny eelError, T(IIf(blnFullBuild, "Build error in: {0}", "Merge error in: {0}"), _
                 var0:=varFile), FunctionName, True, True
@@ -1838,6 +1844,10 @@ Public Sub InitializeForms(dContainers As Dictionary)
                     VCSIndex.Update frm, eatImport, .FileHash, .OtherHash
                 End With
 
+                ' For merge operations, we might be also exporting after initializing
+                If Operation.OperationType = eotMerge And Options.ExportAfterMerge Then
+                    frm.Export
+                End If
             End If
         Next varKey
     End If

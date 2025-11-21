@@ -24,6 +24,7 @@ Public ExportFolder As String
 Public ShowDebug As Boolean
 Public UseFastSave As Boolean
 Public UseMergeBuild As Boolean
+Public ExportAfterMerge As Boolean
 Public UseGitIntegration As Boolean
 Public GitSettings As Dictionary
 Public SavePrintVars As Boolean
@@ -83,6 +84,7 @@ Public Sub LoadDefaults()
         .ShowDebug = False
         .UseFastSave = True
         .UseMergeBuild = False
+        .ExportAfterMerge = False
         .UseGitIntegration = False
         .SavePrintVars = True
         .SaveQuerySQL = True
@@ -746,6 +748,7 @@ Private Sub Class_Initialize()
         .Add "ShowDebug"
         .Add "UseFastSave"
         .Add "UseMergeBuild"
+        .Add "ExportAfterMerge"
         .Add "UseGitIntegration"
         .Add "SavePrintVars"
         .Add "ExportPrintSettings"
