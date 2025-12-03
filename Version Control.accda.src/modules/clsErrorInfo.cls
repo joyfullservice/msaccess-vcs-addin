@@ -251,7 +251,7 @@ Public Property Get ErrorDetailsFull() As String
                 .Add vbNewLine, "Error Source: ", this.ErrSource
             End If
 
-            .Add vbNewLine, "Operation GUID.: ", CStr(this.CurrentOperationType)
+            .Add vbNewLine, "Operation GUID: ", CStr(modHash.GetStringFromGUID(this.CurrentOperationGUID))
             .Add vbNewLine, "Operation: ", CStr(this.CurrentOperationType)
             .Add vbNewLine, "Operation Status: ", CStr(this.CurrentOperationStatus)
             .Add vbNewLine, "Operation Result: ", CStr(this.CurrentOperationResult)
