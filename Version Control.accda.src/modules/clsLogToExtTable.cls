@@ -1276,7 +1276,7 @@ Private Function GetDefaultLogConnectionADO() As ADODB.Connection
         .ConnectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & strPath & ";Persist Security Info=False;"
         .Open
     End With
-    If NeedToSetupDB Then SetupLogTable GetDefaultLogConnectionADO
+    If NeedToSetupTable Then SetupLogTable GetDefaultLogConnectionADO
 
 End Function
 
