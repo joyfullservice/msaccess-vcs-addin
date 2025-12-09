@@ -1236,13 +1236,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetPrinterByName(strName As String) As Access.Printer
-    Dim prt As Access.Printer
-    For Each prt In Access.Printers
-        If prt.DeviceName = strName Then
-            Set GetPrinterByName = prt
-            Exit For
-        End If
-    Next prt
+    LogUnhandledErrors
+    On Error Resume Next
+    Set GetPrinterByName = Access.Printers(strName)
+    CatchAny eelNoError, vbNullString
 End Function
 
 
