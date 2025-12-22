@@ -193,6 +193,9 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 1/18/2019
 ' Purpose   : Does a string replacement of multiple items in one call.
+'           : IMPORTANT NOTE: When no `compare` option is specified, the Replace
+'           : function will use the module's Option Compare value, not the default
+'           : parameter of vbBinaryCompare.
 '---------------------------------------------------------------------------------------
 '
 Public Function MultiReplace(ByVal strText As String, ParamArray varPairs()) As String
