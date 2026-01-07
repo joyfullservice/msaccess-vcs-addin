@@ -84,6 +84,8 @@ Public Function Begin(intType As eOperationType) As Boolean
         Case eosReady
             ' Ready to go!
             Me.OperationType = intType
+            Me.ErrorLevel = eelNoError
+            Me.Result = eorUnknown
             this.State = eosRunning
             this.StartTime = Now
             SetErrorTrapping
