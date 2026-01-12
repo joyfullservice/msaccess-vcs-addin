@@ -102,13 +102,12 @@ Public Enum eRepositoryApp
     eraTortoiseGit = 4
 End Enum
 
-' Error levels used for logging and monitoring the status
-' of the current operation.
-Public Enum eErrorLevel
-    eelNoError
-    eelWarning      ' Logged to file
-    eelError        ' Displayed and logged
-    eelCritical     ' Cancel operation
+' Used to control how tables are refreshed when locally caching them for control logging (undo/save tooling).
+Public Enum eTableRefreshMethod
+    eNoDelete                   ' Don't delete table if it exists.
+    eDeleteData                 ' If a table exists, delete it and rebuild.
+    eFieldNotMatchDelete        ' If a table exists, don't delete and rebuild if the field names match.
+    eFieldTypeNotMatchDelete    ' If a table exists, don't delete and rebuild if the field names AND types don't match.
 End Enum
 
 ' Compare mode for cloning dictionary object

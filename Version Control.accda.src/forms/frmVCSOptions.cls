@@ -686,6 +686,8 @@ Private Sub Form_Load()
 
     Dim intFormat As eTableDataExportFormat
     Dim intSanitizeLevel As eSanitizeLevel
+    Dim lngLogLevel As eErrorLevel
+    Dim fErrorInfo As clsErrorInfo
 
     ' Set version
     lblVersion.Caption = GetVCSVersion
@@ -724,6 +726,23 @@ Private Sub Form_Load()
         For intSanitizeLevel = eslNone To (eSanitizeLevel.[_Last] - 1)
             .AddItem intSanitizeLevel & ";" & Options.GetSanitizeLevelName(intSanitizeLevel)
         Next intSanitizeLevel
+    End With
+
+    ' Load Log Levels
+    Set fErrorInfo = New clsErrorInfo
+    With Me.cboLogLevel
+        .RowSource = vbNullString
+        For lngLogLevel = eelLoggingOff To (eErrorLevel.[_Last] - 1)
+            .AddItem lngLogLevel & ";" & fErrorInfo.GetErrorOptionName(lngLogLevel)
+        Next lngLogLevel
+    End With
+
+    ' Load Display Log Levels
+    With Me.cboDisplayLogLevel
+        .RowSource = vbNullString
+        For lngLogLevel = eelLoggingOff To (eErrorLevel.[_Last] - 1)
+            .AddItem lngLogLevel & ";" & fErrorInfo.GetErrorOptionName(lngLogLevel)
+        Next lngLogLevel
     End With
 
     ' Load language options

@@ -59,7 +59,7 @@ Public Sub LogUnhandledErrors(Optional ByRef CallingFunction As String = vbNullS
         ' Check current BreakOnError mode
         If Options.BreakOnError Then
             ' Stop the code here so we can investigate the source of the error.
-            Debug.Print "Error " & Err.Number & ": " & Err.Description
+            Debug.Print "Calling Function: " & CallingFunction & ": Error " & Err.Number & ": " & Err.Description
             Stop
             '===========================================================================
             '   NOTE: IF THE CODE STOPS HERE, PLEASE READ BEFORE CONTINUING
@@ -121,16 +121,27 @@ End Function
 ' Purpose   : Generic error handler with logging.
 '---------------------------------------------------------------------------------------
 '
-Public Function CatchAny(eLevel As eErrorLevel, strDescription As String, Optional strSource As String, _
-    Optional blnLogError As Boolean = True, Optional blnClearError As Boolean = True, _
-    Optional blnIncludeErrorWithDescription As Boolean = False) As Boolean
+Public Function CatchAny(eLevel As eErrorLevel _
+                        , ByRef strDescription As String _
+                        , Optional strSource As String _
+                        , Optional blnLogError As Boolean = True _
+                        , Optional blnClearError As Boolean = True _
+                        , Optional blnIncludeErrorWithDescription As Boolean = False) As Boolean
+
+    Dim f_ErrorInfo As clsErrorInfo
+
     If Err Then
         If blnLogError Then
             this.blnInError = True
-            Log.Error eLevel, strDescription, strSource, blnIncludeErrorWithDescription
+            Log.Error ErrorLevelIn:=eLevel, strBold:=strDescription, strSource:=strSource, ErrorInfoIn:=f_ErrorInfo
             this.blnInError = False
         End If
-        If blnClearError Then Err.Clear
+        If blnClearError Then
+            Err.Clear
+        Else
+            ' Logging resets the error, so you need to re-assert it.
+            f_ErrorInfo.ErrRaise
+        End If
         CatchAny = True
     End If
 End Function

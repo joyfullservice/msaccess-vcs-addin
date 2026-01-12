@@ -100,7 +100,7 @@ Public Sub ImportReferences(strFile As String, Optional blnGuidOnly As Boolean =
         Set proj = CurrentVBProject
         Set dExisting = New Dictionary
         For Each ref In proj.References
-            dExisting.Add ref.Name, ref.Guid
+            dExisting.Add ref.Name, ref.GUID
         Next ref
 
         ' Add any references from file that don't already exist
@@ -183,7 +183,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                         strName = ref.Name
                     Else
                         ' Can't access .Name property on broken type lib reference.
-                        strName = ref.Guid
+                        strName = ref.GUID
                     End If
                     Log.Error eelWarning, "Broken reference for " & strName & _
                         "This may cause errors in the export process.", ModuleName(Me) & ".GetDictionary"
@@ -200,7 +200,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
                             ' references of types mdb,accdb,mde etc don't have a GUID
                             .Add "FullPath", GetRelativePath(ref.FullPath)
                         Else
-                            If ref.Guid <> vbNullString Then .Add "GUID", ref.Guid
+                            If ref.GUID <> vbNullString Then .Add "GUID", ref.GUID
                             .Add "Version", CStr(ref.Major) & "." & CStr(ref.Minor)
                         End If
                     End With
@@ -345,7 +345,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                             strName = ref.Name
                         Else
                             ' Can't access .Name property on broken type lib reference.
-                            strName = ref.Guid
+                            strName = ref.GUID
                         End If
                         Log.Error eelWarning, "Broken reference for " & strName & _
                             "This may cause errors in the export process.", ModuleName(Me) & ".GetAllFromDB"

@@ -21,7 +21,9 @@ Private Const cstrBuildPathProperty As String = "VCS Build Path"
 
 ' Options
 Public ExportFolder As String
-Public ShowDebug As Boolean
+Public LogLevel As eErrorLevel
+Public DisplayLogLevel As eErrorLevel
+Public PersistentLogs As Boolean
 Public UseFastSave As Boolean
 Public UseMergeBuild As Boolean
 Public ExportAfterMerge As Boolean
@@ -68,6 +70,11 @@ Private m_strOptionsFilePath As String
 Private m_strLoadedVersion As String
 
 
+Public Property Get ShowDebug() As Boolean
+    If Me.DisplayLogLevel < eelNoError Then ShowDebug = True
+End Property
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadDefaults
 ' Author    : Adam Waller
@@ -81,7 +88,9 @@ Public Sub LoadDefaults()
     With Me
         ' Top level settings
         .ExportFolder = vbNullString
-        .ShowDebug = False
+        .LogLevel = eelDebugTrace
+        .DisplayLogLevel = eelNoError
+        .PersistentLogs = False
         .UseFastSave = True
         .UseMergeBuild = False
         .ExportAfterMerge = False
@@ -422,6 +431,25 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
         End If
     End If
 
+    ' 2025-Jul-16 (4.2.0)
+    ' Convert ShowDebug to new DisplayLogLevel and LogLevel
+    ' #507, #654
+    If dOptions.Exists("ShowDebug") Then
+        If dOptions("ShowDebug") Then
+            If Not dOptions.Exists("DisplayLogLevel") Then
+            ' Set DisplayLogLevel accordingly.
+                dOptions.Add "DisplayLogLevel", eErrorLevel.eelDebugTrace
+            End If
+        Else
+            If Not dOptions.Exists("DisplayLogLevel") Then
+            ' Check for non-default level
+                dOptions.Add "DisplayLogLevel", eErrorLevel.eelNoError
+            Else
+                dOptions("DisplayLogLevel") = eErrorLevel.eelNoError
+            End If
+        End If
+    End If
+
 End Sub
 
 
@@ -745,7 +773,9 @@ Private Sub Class_Initialize()
     ' Load list of property names for reflection type behavior.
     With m_colOptions
         .Add "ExportFolder"
-        .Add "ShowDebug"
+        .Add "LogLevel"
+        .Add "DisplayLogLevel"
+        .Add "PersistentLogs"
         .Add "UseFastSave"
         .Add "UseMergeBuild"
         .Add "ExportAfterMerge"

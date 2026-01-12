@@ -14,7 +14,6 @@
 '           : References: https://docs.microsoft.com/en-us/windows/win32/seccng/cng-algorithm-identifiers
 '           : https://docs.microsoft.com/en-us/windows/win32/seccng/cng-portal
 '           :
-'           : See also: https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Encryption
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Private Module
@@ -61,7 +60,17 @@ Private Declare PtrSafe Function BCryptGetProperty Lib "BCrypt.dll" ( _
                             ByRef pcbResult As Long, _
                             ByVal dfFlags As Long) As Long
 
+Private Declare PtrSafe Function CoCreateGuid Lib "ole32" (ID As Any) As Long
+'Private Declare PtrSafe Function StringFromGUID2 Lib "ole32" (rguid As Any _
+                                                            , ByVal lpsz As LongPtr _
+                                                            , ByVal cchMax As Long _
+                                                            ) As Long
+
+Public Const SHA256_HASH_LENGTH As Long = 64
+
 Private Const ModuleName As String = "modHash"
+Private Const DEFAULT_SHORT_HASH_LENGTH As Long = 7
+Private Const GUID_BRACE As String = "}"
 
 
 Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgorithm As String = DefaultHashAlgorithm) As Byte()
@@ -156,13 +165,15 @@ End Function
 '           : UTF-8 BOM. (Useful when comparing to a file hash)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetStringHash(ByVal strText As String, Optional blnWithBom As Boolean = False) As String
+Public Function GetStringHash(ByVal strText As String _
+                            , Optional blnWithBom As Boolean = False _
+                            , Optional ByVal intHashLen As Integer = 0) As String
     If blnWithBom Then
         ' Ensure that we are ending the content with a vbCrLf
         ' (To match the behavior of the WriteFile function)
         If Right(strText, 2) <> vbCrLf Then strText = strText & vbCrLf
     End If
-    GetStringHash = GetHash(GetUTF8Bytes(strText, blnWithBom))
+    GetStringHash = GetHash(GetUTF8Bytes(strText, blnWithBom), intHashLen)
 End Function
 
 
@@ -173,8 +184,10 @@ End Function
 ' Purpose   : Return a hash from a file
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFileHash(strPath As String) As String
-    GetFileHash = GetHash(GetFileBytes(strPath))
+Public Function GetFileHash(strPath As String _
+                            , Optional ByVal intHashLen = 0) As String
+
+    GetFileHash = GetHash(GetFileBytes(strPath), intHashLen)
 End Function
 
 
@@ -185,8 +198,10 @@ End Function
 ' Purpose   : Return hash from byte array
 '---------------------------------------------------------------------------------------
 '
-Public Function GetBytesHash(bteData() As Byte) As String
-    GetBytesHash = GetHash(bteData())
+Public Function GetBytesHash(bteData() As Byte _
+                            , Optional ByVal intHashLen = 0) As String
+
+    GetBytesHash = GetHash(bteData(), intHashLen)
 End Function
 
 
@@ -197,8 +212,10 @@ End Function
 ' Purpose   : Wrapper to get a hash from a dictionary object (converted to json)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetDictionaryHash(dSource As Dictionary) As String
-    GetDictionaryHash = GetStringHash(ConvertToJson(dSource))
+Public Function GetDictionaryHash(dSource As Dictionary _
+                                , Optional ByVal intHashLen = 0) As String
+
+    GetDictionaryHash = GetStringHash(ConvertToJson(dSource), , intHashLen)
 End Function
 
 
@@ -209,7 +226,8 @@ End Function
 ' Purpose   : Create a hash from the byte array
 '---------------------------------------------------------------------------------------
 '
-Private Function GetHash(bteContent() As Byte) As String
+Public Function GetHash(bteContent() As Byte _
+                        , Optional ByVal intHashLen As Integer = 0) As String
 
     Dim bteHash As Variant
     Dim strHash As String
@@ -219,7 +237,12 @@ Private Function GetHash(bteContent() As Byte) As String
 
     ' Get hashing options
     strAlgorithm = Nz2(Options.HashAlgorithm, DefaultHashAlgorithm)
-    If Options.UseShortHash Then intLength = 7
+    If intHashLen <> 0 Then
+        intLength = intHashLen
+
+    ElseIf Options.UseShortHash Then
+        intLength = DEFAULT_SHORT_HASH_LENGTH
+    End If
 
     ' Start performance timer and compute the hash
     Perf.OperationStart "Compute " & strAlgorithm
@@ -397,3 +420,251 @@ Public Function GetSimpleHash(strText As String) As String
     If Err Then Err.Clear
 
 End Function
+
+
+Public Function GetHashValue(ByRef InputValue As Variant _
+                            , Optional ByVal blnWithBom As Boolean = False _
+                            , Optional ByVal intHashLen As Integer = DEFAULT_SHORT_HASH_LENGTH) As String
+
+    Const FunctionName As String = ModuleName & ".GetHashValue"
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+
+    If IsNull(InputValue) Then
+        GetHashValue = GetStringHash(vbNullString, blnWithBom, intHashLen)
+
+    ElseIf TypeName(InputValue) = "Byte()" Then
+        Dim tByte() As Byte
+        tByte = InputValue
+
+        GetHashValue = GetHash(tByte, intHashLen)
+
+    ElseIf TypeOf InputValue Is Dictionary Or TypeOf InputValue Is Collection Then
+        Dim dInDict As Dictionary
+        Set dInDict = InputValue
+        GetHashValue = GetDictionaryHash(dInDict, intHashLen)
+
+    Else
+        GetHashValue = GetStringHash(CStr(InputValue), blnWithBom, intHashLen)
+
+    End If
+
+    CatchAny eelError, "Error detecting input type.", FunctionName, True, True
+
+End Function
+
+
+Public Function HexStringToByteArray(hexString As String) As Byte()
+
+    Const FunctionName As String = ModuleName & ".HexStringToByteArray"
+
+    Dim i As Long
+    Dim tByteArr() As Byte
+
+    Perf.OperationStart FunctionName
+
+    ReDim tByteArr(1 To Len(hexString) / 2) As Byte
+
+    For i = 2 To Len(hexString) Step 2
+        tByteArr(i / 2) = "&H" & Mid(hexString, i - 1, 2)
+    Next
+
+    HexStringToByteArray = tByteArr
+
+    Perf.OperationEnd
+
+End Function
+
+
+Public Function ByteArraytoHexString(ByteArrIn As Variant) As String
+
+    Const FunctionName As String = ModuleName & ".ByteArraytoHexString"
+    Dim tStrArr As String
+    Dim tArrLen As Long
+    Dim tPosition As Long
+    Dim tByte As Variant
+
+    ' Create string buffer to avoid concatenation
+    tArrLen = (UBound(ByteArrIn) - LBound(ByteArrIn) + 1) * 2
+    tStrArr = Space(tArrLen)
+    tByte = ByteArrIn
+    ' Convert full hash to hexidecimal string
+    For tPosition = 1 To tArrLen / 2
+        Mid$(tStrArr, (tPosition * 2) - 1, 2) = LCase(Right("0" & Hex(AscB(MidB(tByte, tPosition, 1))), 2))
+    Next
+
+    ByteArraytoHexString = tStrArr
+
+End Function
+
+
+Public Function GetGUID() As Variant
+    Dim ID(0 To 15) As Byte
+    CoCreateGuid ID(0)
+    GetGUID = ID
+End Function
+
+
+Public Function IsGUID(ByRef GUIDIn As Variant) As Boolean
+
+    Const FunctionName As String = ModuleName & ".IsGUID"
+
+    Dim f_GUIDSubstring As String
+    Dim f_BracePosition As String
+    Dim f_HashIn As String
+    Dim f_HashReturn As String
+    Dim f_HalfWayStr As String
+    Dim f_GUIDIn As Variant
+    Dim f_tempByte() As Byte
+
+    LogUnhandledErrors FunctionName
+    On Error GoTo Exit_Error
+
+    If IsEmpty(GUIDIn) Then Exit Function
+    If IsNull(GUIDIn) Then Exit Function
+
+    If TypeName(GUIDIn) = "Byte()" Then
+        If Not (UBound(GUIDIn) - LBound(GUIDIn) + 1) = 16 Then Exit Function
+        f_GUIDIn = GUIDIn
+
+    ElseIf TypeName(GUIDIn) = "String" Then
+        If Nz2(GUIDIn, vbNullString) = vbNullString Then Exit Function
+        ' Detect if this is actually a GUID Byte() arr but parsed into a string:
+        If Len(GUIDIn) = 8 Then ' This is likely a GUID
+            f_tempByte = GUIDIn
+            f_GUIDIn = f_tempByte
+            GoTo TestGUID
+        End If
+        f_GUIDIn = getGUIDFromString(CStr(GUIDIn))
+    End If
+
+TestGUID:
+    f_HashIn = GetHashValue(f_GUIDIn, , SHA256_HASH_LENGTH)
+    f_HalfWayStr = Mid$(StringFromGUID(f_GUIDIn), 7, 38)
+    f_HashReturn = GetHashValue(getGUIDFromString(f_HalfWayStr), , SHA256_HASH_LENGTH)
+    If f_HashIn = f_HashReturn Then IsGUID = True
+
+Exit_Here:
+    Exit Function
+
+Exit_Error:
+    Catch 5, 13
+    Resume Exit_Here
+
+End Function
+
+
+Public Function GetStringFromGUID(Optional ByRef GUIDIn As Variant = vbNullString) As String
+
+    Const FunctionName As String = ModuleName & ".GetStringFromGUID"
+
+    Static fNullHash As String
+
+    Dim tGuIn() As Byte
+    Dim tHashGUID As String
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+
+    ' Check if the GUID in was a GUID or not.
+    If Not IsGUID(GUIDIn) Then
+        tGuIn = GetGUID
+    Else
+        tGuIn = GUIDIn
+    End If
+
+    'GetStringFromGUID = StringFromGUID(tGuIn) ' This adds a "{GUID { }" to the GUID.
+
+    ' If you don't want the GUID tag, use this instead:
+    GetStringFromGUID = Mid$(StringFromGUID(tGuIn), 7, 38)
+
+End Function
+
+
+Public Function getGUIDFromString(ByRef GUIDStringIn As String) As Variant
+
+    Const FunctionName As String = ModuleName & ".getGUIDfromstring"
+
+    Dim tBracePos As Long
+    Dim tByteTemp() As Byte
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+
+    tBracePos = InStrRev(GUIDStringIn, GUID_BRACE)
+    If Len(GUIDStringIn) = 8 Then ' Somehow, a GUID got converted to a string so we need to just spit it back out again.
+        tByteTemp = GUIDStringIn
+        getGUIDFromString = tByteTemp
+
+    ElseIf tBracePos > 0 Then
+        getGUIDFromString = GUIDFromString(Mid$(GUIDStringIn, tBracePos - 38 + 1, 38))
+
+    Else
+        ' Brace not found, need to include braces.
+        getGUIDFromString = GUIDFromString("{" & GUIDStringIn & "}")
+    End If
+
+    If Catch(5) Then getGUIDFromString = 0
+
+
+End Function
+
+
+Public Sub TestCreateGuid(Optional ByVal Iterations As Long = 10000)
+
+    Dim GuidDict As Object 'Scripting.Dictionary
+    Set GuidDict = CreateObject("Scripting.Dictionary")
+
+    Dim i As Long
+
+    Perf.Reset
+    Perf.CategoryStart "test TestCreateGuid"
+
+    For i = 1 To Iterations
+        Dim GUID As String
+        Perf.OperationStart "Add GUID to Dict"
+        GUID = GetStringFromGUID
+
+        If GuidDict.Exists(GUID) Then
+            Debug.Print "Duplicate GUID created: " & GUID
+            Stop
+        Else
+            GuidDict.Add GUID, vbNullString
+        End If
+        Perf.OperationEnd
+    Next i
+
+    Debug.Print GuidDict.Count; " unique GUIDs generated out of "; Iterations; " attempts"
+
+    Perf.CategoryEnd
+    Debug.Print Perf.GetReports
+
+End Sub
+
+
+Public Sub TestHashDict(Optional ByVal DictEntries As Long = 20)
+
+    Dim GuidDict As New Scripting.Dictionary
+    Dim GUID As String
+    Dim i As Long
+
+    Perf.Reset
+    Perf.CategoryStart "test TestHashDict"
+
+    For i = 1 To DictEntries
+        Perf.OperationStart "Add GUID to Dict"
+        GUID = GetStringFromGUID
+
+        If Not GuidDict.Exists(GUID) Then
+            GuidDict.Add GUID, vbNullString
+        End If
+        Perf.OperationEnd
+    Next i
+
+    Debug.Print GetHashValue(GuidDict)
+
+    Perf.CategoryEnd
+    Debug.Print Perf.GetReports
+
+End Sub

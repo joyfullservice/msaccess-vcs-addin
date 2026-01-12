@@ -5,7 +5,8 @@
   },
   "Options": {
     "ExportFolder": "",
-    "ShowDebug": false,
+    "LogLevel": 2,
+    "DisplayLogLevel": 5,
     "UseFastSave": true,
     "UseMergeBuild": false,
     "UseGitIntegration": false,

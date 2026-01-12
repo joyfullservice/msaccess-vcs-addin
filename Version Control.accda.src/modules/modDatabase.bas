@@ -803,12 +803,15 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : VerifyFocus
-' Author    : Adam Waller
-' Date      : 7/8/2021
+' Author    : Adam Waller, hecon5
+' Date      : 7/8/2021, 2025-07-10
 ' Purpose   : Verify that a control currently has the focus. (Is the active control)
 '---------------------------------------------------------------------------------------
 '
-Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
+Public Function VerifyFocus(ctlWithFocus As Control _
+                            , Optional ByVal SetFocus As Boolean = True) As Boolean
+
+    Const FunctionName As String = ModuleName & ".VerifyFocus"
 
     Dim frmParent As Form
     Dim objParent As Object
@@ -822,21 +825,21 @@ Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
     Set frmParent = objParent
 
     ' Ignore any errors with Screen.* functions
-    LogUnhandledErrors
+    LogUnhandledErrors FunctionName
     On Error Resume Next
 
     ' Verify focus of parent form
     Set frmParent = Screen.ActiveForm
     If Not frmParent Is objParent Then
         Set frmParent = objParent
-        frmParent.SetFocus
+        If SetFocus Then frmParent.SetFocus
         DoEvents
     End If
 
     ' Verify focus of control on form
     Set ctlCurrentFocus = frmParent.ActiveControl
     If Not ctlCurrentFocus Is ctlWithFocus Then
-        ctlWithFocus.SetFocus
+        If SetFocus Then ctlWithFocus.SetFocus
         DoEvents
     End If
 
@@ -844,7 +847,7 @@ Public Function VerifyFocus(ctlWithFocus As Control) As Boolean
     VerifyFocus = frmParent.ActiveControl Is ctlWithFocus
 
     ' Discard any errors
-    CatchAny eelNoError, vbNullString, , False
+    CatchAny eelNoError, vbNullString, FunctionName, False
 
 End Function
 

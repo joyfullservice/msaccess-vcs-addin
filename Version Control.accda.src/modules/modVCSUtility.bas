@@ -716,14 +716,14 @@ RetryImport:
             ' Other objects converted to UCS2
             ConvertUtf8Ucs2 strSourceFile, strTempFile, False
         End If
-        Perf.OperationStart "modLoadFromText.LoadFromText"
+        Perf.OperationStart FunctionName & ".LoadFromText.BlnConv"
         modLoadFromText.LoadFromText intType, strName, strTempFile
         Perf.OperationEnd
         DeleteFile strTempFile, True
 
     Else
         ' Load UTF-8 file
-        Perf.OperationStart "modLoadFromText.LoadFromText"
+        Perf.OperationStart FunctionName & ".LoadFromText.UTF-8"
         modLoadFromText.LoadFromText intType, strName, strSourceFile
         Perf.OperationEnd
     End If
@@ -749,7 +749,6 @@ Exit_Here:
 ErrHandler:
     Dim strErrDescription As String
     strErrDescription = Err.Description
-    Err.Clear ' FIXME: A temporary hack to avoid spurious output in logs when calling Log.Error
 
     If blnSuppressError Then
         ' Generate warning entries for suppressed errors

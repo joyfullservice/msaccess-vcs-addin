@@ -18,13 +18,12 @@ Private m_Operation As clsOperation
 ' Use a private type to manage instances of object classes
 Private Type udtObjects
     Perf As clsPerformance
-    Log As clsLog
+    Log As clsLogToExtTable
     Options As clsOptions
     VCSIndex As clsVCSIndex
     Worker As clsWorker
     Git As clsGitIntegration
     Translation As clsTranslation
-
     ' Keep a persistent reference to file system object after initializing version control.
     ' This way we don't have to recreate this object dozens of times while using VCS.
     FSO As Scripting.FileSystemObject
@@ -68,6 +67,11 @@ Public Function LoadOptions() As clsOptions
     Dim Options As clsOptions
     Set Options = New clsOptions
     Options.LoadProjectOptions
+
+    ' Set external to Options Values
+    Log.LogLevel = Options.LogLevel
+    Log.DisplayLogLevel = Options.DisplayLogLevel
+
     Set LoadOptions = Options
 End Function
 
@@ -155,8 +159,13 @@ End Function
 ' Purpose   : Wrapper for log file class
 '---------------------------------------------------------------------------------------
 '
-Public Function Log(Optional blnCreateInstance As Boolean = True) As clsLog
-    If this.Log Is Nothing Then If blnCreateInstance Then Set this.Log = New clsLog
+Public Function Log(Optional blnCreateInstance As Boolean = True) As clsLogToExtTable
+    If this.Log Is Nothing Then If blnCreateInstance Then Set this.Log = New clsLogToExtTable
+    If OptionsLoaded Then
+        ' Only set Options if the Options are loaded to prevent a loop.
+        this.Log.LogLevel = Options.LogLevel
+        this.Log.DisplayLogLevel = Options.DisplayLogLevel
+    End If
     Set Log = this.Log
 End Function
 

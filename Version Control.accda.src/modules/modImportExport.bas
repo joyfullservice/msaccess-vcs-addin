@@ -21,6 +21,8 @@ Private Const ModuleName As String = "modImportExport"
 '
 Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContainerFilter = ecfAllObjects, Optional frmMain As Form_frmVCSMain)
 
+    Const FunctionName As String = ModuleName & ".ExportSource"
+
     Dim dCategories As Dictionary
     Dim colCategories As Collection
     Dim dCategory As Dictionary
@@ -41,7 +43,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' If we are running this from the current database, we need to run it a different
     ' way to prevent file corruption issues. (This really shouldn't happen after v4.02)
     If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
-        MsgBox2 T("Unabled to Export Running Database", "Please launch the export using the add-in menu or ribbon"), , vbExclamation
+        MsgBox2 T("Unable to Export Running Database", "Please launch the export using the add-in menu or ribbon"), , vbExclamation
         Exit Sub
     End If
 
@@ -49,9 +51,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
-    Log.Clear
     Log.SourcePath = Options.GetExportFolder
-    Log.Active = True
     Perf.StartTiming
 
     ' Check error handling mode after loading project options
@@ -63,13 +63,14 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Display heading
     With Log
         .Spacer
-        .Add T("Beginning Export of Source Files"), False
-        .Add CurrentProject.Name
-        .Add T("VCS Version {0}", var0:=GetVCSVersion)
-        .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
-        .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
-        .Add IIf(blnFullExport, T("Performing Full Export"), T("Using Fast Save"))
-        .Add Now
+        .AddEntry T("Beginning Export of Source Files"), FunctionName, eelDebugInfo
+        .AddEntry CurrentProject.Name, FunctionName, eelNoError
+        .AddEntry T("VCS Version {0}", var0:=GetVCSVersion), FunctionName, eelNoError
+        .AddEntry T("Full Path: {0}", var0:=CurrentProject.FullName), FunctionName, eelDebugInfo
+        .AddEntry T("Export Folder: {0}", var0:=Options.GetExportFolder), FunctionName, eelDebugInfo
+        .AddEntry IIf(blnFullExport, T("Performing Full Export"), T("Using Fast Save")), FunctionName, eelNoError
+        .AddEntry "Time: " & ISO8601TimeStamp(False, True), FunctionName, eelNoError
+
         ' Save the log file path
         If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
     End With
@@ -80,7 +81,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             T("Project is protected with a password."), _
             T("Please unlock the project before using this tool."), vbExclamation
         Log.Spacer
-        Log.Add T("Export Canceled"), , , "Red", True
+        Log.AddEntry T("Export Canceled"), FunctionName, eelCritical, , , True
         Log.Flush
         Operation.ErrorLevel = eelCritical
         Exit Sub
@@ -168,7 +169,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Perf.CategoryEnd 0
         ' Handle critical error or cancel during scan
         If Operation.ErrorLevel = eelCritical Then
-            Log.Add vbNullString
+            Log.AddEntry "Critical Error During Export.", FunctionName, eelCritical, , , True
             Perf.OperationEnd   ' Scan DB Objects
             GoTo CleanUp
         End If
@@ -207,8 +208,10 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         If lngCount > 0 Then
 
             ' Show category header and clear out any orphaned files.
-            Log.Spacer Options.ShowDebug
-            Log.PadRight T("Exporting {0}...", var0:=T(LCase(cCategory.Category))), , Options.ShowDebug
+            If Options.ShowDebug Then Log.Spacer Options.ShowDebug
+            Log.AddEntry T("Exporting {0}...", var0:=T(LCase(cCategory.Category))) _
+                        , strSource:=FunctionName, ErrorLevelIn:=eelNoError _
+                        , NextOutputOnNewLine:=True
             Log.ProgMax = lngCount
             Perf.CategoryStart cCategory.Category
 
@@ -233,7 +236,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 End If
 
                 ' Bail out if we hit a critical error.
-                CatchAny eelError, T("Error exporting {0}", var0:=cDbObject.Name), ModuleName & ".ExportSource", True, True
+                CatchAny eelError, T("Error exporting {0}", var0:=cDbObject.Name), FunctionName, True, True
                 If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
                 Log.Increment
 
@@ -243,13 +246,8 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
             Next varKey
 
-            ' Show category wrap-up.
-            If Options.ShowDebug Then
-                Log.Add T("[{0}] {1} processed.", var0:=lngCount, var1:=T(LCase(cCategory.Category)))
-            Else
-                Log.Add "[" & lngCount & "]"
-            End If
-            'Log.Flush  ' Gives smoother output, but slows down export.
+            ' Log category wrap-up.
+            Log.Add T(" [{0}] {1} exported.", var0:=lngCount, var1:=T(LCase(cCategory.Category)))
             Perf.CategoryEnd lngCount
         End If
 
@@ -264,27 +262,17 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Perf.OperationStart "RunAfterExport"
         RunSubInCurrentProject Options.RunAfterExport
         Perf.OperationEnd
-        CatchAny eelError, T("Error running {0}", var0:=Options.RunAfterExport), ModuleName & ".ExportSource", True, True
+        CatchAny eelError, T("Error running {0}", var0:=Options.RunAfterExport), FunctionName, True, True
     End If
 
     ' Show final output and save log
     Log.Spacer
-    Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
+    Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , True, "green", True
 
 CleanUp:
-
     ' Run any cleanup routines
     VCSIndex.ClearTempExportFolder
     RemoveThemeZipFiles
-
-    ' Add performance data to log file and save file
-    Perf.EndTiming
-    With Log
-        .Add vbNewLine & Perf.GetReports, False
-        .SaveFile
-        .Active = False
-        .Flush
-    End With
 
     ' Check for VCS_ImportExport.bas (Used with other forks)
     CheckForLegacyModules
@@ -298,6 +286,13 @@ CleanUp:
         If blnFullExport Then .FullExportDate = Now
         .OptionsHash = Options.GetHash
         .Save
+    End With
+
+     ' Add performance data to log file and save file
+    Perf.EndTiming
+    With Log
+        .SaveFile
+        .Flush
     End With
 
 End Sub
@@ -338,9 +333,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
-    Log.Clear
     Log.SourcePath = Options.GetExportFolder
-    Log.Active = True
     Perf.StartTiming
 
     ' Check error handling mode after loading project options
@@ -424,9 +417,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
-        .Active = False
         .Flush
     End With
 
@@ -465,7 +456,6 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Reset the log file
-    Log.Clear
 
     ' Use the main form to display progress
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
@@ -508,9 +498,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
-    Log.Clear
     Log.SourcePath = Options.GetExportFolder
-    Log.Active = True
     Perf.StartTiming
 
     ' Check error handling mode after loading project options
@@ -622,9 +610,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
-        .Active = False
         .Flush
     End With
 
@@ -914,9 +900,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     modLoadFromText.Reset
 
     ' Start log and performance timers
-    Log.Clear
     Log.SourcePath = strSourceFolder
-    Log.Active = True
     Perf.StartTiming
 
     ' Launch the GUI form
@@ -928,15 +912,16 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     With Log
         .Spacer
         If blnFullBuild Then
-            .Add T("Beginning build from Source"), False
+            .AddEntry T("Beginning build from Source"), FunctionName, eelNoError
         Else
-            .Add T("Beginning merge from source"), False
+            .AddEntry T("Beginning merge from source"), FunctionName, eelNoError
         End If
-        .Add FSO.GetFileName(strPath)
-        .Add T("VCS Version {0}", var0:=GetVCSVersion)
-        .Add T("Full Path: {0}", var0:=strPath), False
-        .Add T("Export Folder: {0}", var0:=strSourceFolder), False
-        .Add Now
+        .AddEntry T("VCS Version {0}", var0:=GetVCSVersion), FunctionName, eelNoError
+        .AddEntry T("VCS Location: {0}", var0:=CodeProject.FullName), FunctionName, eelDebugTrace
+        .AddEntry T("Build File Path: {0}", var0:=strPath), FunctionName, eelDebugInfo
+        .AddEntry T("Build Folder: {0}", var0:=strSourceFolder), FunctionName, eelDebugInfo
+        .AddEntry T("Build File Name: {0}", var0:=FSO.GetFileName(strPath)), FunctionName, eelDebugInfo
+        .AddEntry T("Time: {0}", var0:=ISO8601TimeStamp(False, True)), FunctionName, eelNoError
         .Spacer
         .Flush
     End With
@@ -1094,8 +1079,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
         ' Show category header
         Log.Spacer Options.ShowDebug
-        Log.PadRight T(IIf(blnFullBuild, "Importing {0}...", "Merging {0}..."), _
-            var0:=T(LCase(cCategory.Category))), , Options.ShowDebug
+        Log.AddEntry T(IIf(blnFullBuild, "Importing {0}...", "Merging {0}..."), _
+                        var0:=T(LCase(cCategory.Category))), strSource:=FunctionName, ErrorLevelIn:=eelDebugEvent
         Log.ProgMax = dFiles.Count
         Perf.CategoryStart cCategory.Category
 
@@ -1125,11 +1110,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         Next varFile
 
         ' Show category wrap-up.
-        If Options.ShowDebug Then
-            Log.Add T("[{0}] {1} processed.", var0:=dFiles.Count, var1:=T(LCase(cCategory.Category)))
-        Else
-            Log.Add "[" & dFiles.Count & "]"
-        End If
+        Log.Add T(" [{0}] {1} processed.", var0:=dFiles.Count, var1:=T(LCase(cCategory.Category)))
         Perf.CategoryEnd dFiles.Count
 
     Next varCategory
@@ -1204,14 +1185,6 @@ CleanUp:
     ' Close the cached connections, if any
     CloseCachedConnections
 
-    ' Add performance data to log file and save file.
-    Perf.EndTiming
-    With Log
-        .Add vbNewLine & Perf.GetReports, False
-        .SaveFile
-        .Active = False
-    End With
-
     ' Show message if build failed
     If Operation.ErrorLevel = eelCritical Or Not blnSuccess Then
         Log.Spacer
@@ -1242,9 +1215,6 @@ CleanUp:
     End If
     Set VCSIndex = Nothing
 
-    ' Wait to finish the build till after we have saved the index.
-    Operation.Finish
-
     ' Show MessageBox if not using GUI for build.
     If Forms.Count = 0 And blnSuccess Then
         ' Show message box when build is complete.
@@ -1252,6 +1222,14 @@ CleanUp:
             T("Note that some settings may not take effect until this database is reopened."), _
             T("A backup of the previous build was saved as '{0}'.", var0:=FSO.GetFileName(strBackup)), vbInformation
     End If
+
+    ' Add performance data to log file and save file.
+    Perf.EndTiming
+    With Log
+        .SaveFile
+    End With
+    ' Wait to finish the build till after we have saved the index.
+    Operation.Finish
 
 End Sub
 
@@ -1294,9 +1272,7 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
-    Log.Clear
     Log.SourcePath = Options.GetExportFolder
-    Log.Active = True
     Perf.StartTiming
 
     ' Check error handling mode after loading project options
@@ -1371,9 +1347,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
-        .Active = False
         .Flush
     End With
 
@@ -1442,6 +1416,8 @@ End Sub
 '
 Public Sub MergeAllSource()
 
+    Const FunctionName As String = ModuleName & ".MergeAllSource"
+
     Dim dCategories As Dictionary
     Dim dCategory As Dictionary
     Dim cCategory As IDbComponent
@@ -1460,9 +1436,7 @@ Public Sub MergeAllSource()
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
-    Log.Clear
     Log.SourcePath = Options.GetExportFolder
-    Log.Active = True
     Perf.StartTiming
 
     ' Check error handling mode after loading project options
@@ -1521,7 +1495,7 @@ Public Sub MergeAllSource()
         Else
             ' Show category header
             Log.Spacer Options.ShowDebug
-            Log.PadRight T("Merging ") & LCase(cCategory.Category) & "...", , Options.ShowDebug
+            Log.AddEntry T("Merging ") & LCase(cCategory.Category) & "...", strSource:=FunctionName, ErrorLevelIn:=eelDebugEvent
             Log.ProgMax = dFiles.Count
             Perf.CategoryStart cCategory.Category
 
@@ -1556,9 +1530,7 @@ CleanUp:
     ' Add performance data to log file and save file
     Perf.EndTiming
     With Log
-        .Add vbNewLine & Perf.GetReports, False
         .SaveFile
-        .Active = False
         .Flush
     End With
 

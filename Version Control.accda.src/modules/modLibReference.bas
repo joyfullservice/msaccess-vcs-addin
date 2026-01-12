@@ -46,8 +46,6 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
         Exit Sub
     End If
 
-    ' Reset the log file
-    Log.Clear
     strPath = CurrentProject.FullName
     strFolder = CurrentProject.Path & PathSep
 
@@ -103,9 +101,7 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
     Perf.EndTiming
     With Log
         .Flush
-        .Add vbCrLf & Perf.GetReports, False
         .SaveFile FSO.BuildPath(Options.GetExportFolder, "References.log")
-        .Active = False
         .Clear
     End With
 

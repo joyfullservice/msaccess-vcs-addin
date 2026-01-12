@@ -44,10 +44,21 @@ Private Type udtThis
     ' potentially shared registry values.)
     AppHwnd As Long
 
+    ' We need to identify a specific Operation, and you may run multiple operations
+    ' for each open instance. So the GUID will refresh every time we run a new operation.
+    OperationGUID As Variant ' Stored as string to reduce conversion when saving and restoring.
+
     ' Other variables we are caching
     ErrorTrapping As Integer
 End Type
 Private this As udtThis
+
+
+Public Property Get OperationGUID() As Variant
+    ' Returns a GUID for the Operation
+    If Not IsGUID(this.OperationGUID) Then this.OperationGUID = GetGUID
+    OperationGUID = this.OperationGUID
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -143,6 +154,9 @@ Public Function Finish(Optional intResult As eOperationResult)
         blnWasRunning = (this.State = eosRunning)
         this.State = eosReady
         this.FinishTime = Now
+        ' Rotate the GUID after we finish; it's automatically assigned otherwise
+        ' This ensures that each Operation has a unique ID
+        this.OperationGUID = GetGUID
         UpdateRegistry
         modObjects.ReleaseObjects
         ' Only restore error trapping if we were in a running state.
@@ -188,6 +202,7 @@ Private Sub UpdateRegistry()
         CheckSetting "FinishTime", this.FinishTime
         CheckSetting "State", this.State
         CheckSetting "AppHwnd", this.AppHwnd
+        CheckSetting "OperationGUID", GetStringFromGUID(this.OperationGUID)
         CheckSetting "ErrorTrapping", this.ErrorTrapping
     End If
 End Sub
@@ -238,6 +253,7 @@ Private Function RestoreFromRegistry() As Boolean
             this.FinishTime = ReadReg("FinishTime")
             this.State = ReadReg("State")
             this.AppHwnd = ReadReg("AppHwnd")
+            this.OperationGUID = getGUIDFromString(ReadReg("OperationGUID"))
             this.ErrorTrapping = CInt(ReadReg("ErrorTrapping"))
             RestoreFromRegistry = True
         End If
@@ -351,5 +367,6 @@ Private Sub Class_Initialize()
     If Not RestoreFromRegistry Then
         ' Set initial values
         this.AppHwnd = Application.hWndAccessApp
+        this.OperationGUID = GetGUID
     End If
 End Sub
