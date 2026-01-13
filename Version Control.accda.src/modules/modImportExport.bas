@@ -980,7 +980,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         End If
         Perf.OperationEnd
         If DatabaseFileOpen Then
-            Log.Add T("Created blank database for import. (v{0})", var0:=CurrentProject.FileFormat)
+            Log.Add T("Created blank database for import. (v{0})", var0:=DbVersion)
         Else
             CatchAny eelCritical, T("Unable to create database file"), FunctionName
             Log.Add T("This may occur when building an older database version if the " & _
