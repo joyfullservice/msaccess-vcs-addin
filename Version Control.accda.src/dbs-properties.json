@@ -41,7 +41,7 @@
       "Type": 10
     },
     "AppVersion": {
-      "Value": "4.1.4",
+      "Value": "4.1.5",
       "Type": 10
     },
     "Auto Compact": {
@@ -116,12 +116,16 @@
       "Value": 0,
       "Type": 4
     },
+    "Option to enable Monaco SQL Editor": {
+      "Value": 1,
+      "Type": 4
+    },
     "Picture Property Storage Format": {
       "Value": 0,
       "Type": 4
     },
     "ProjVer": {
-      "Value": 119,
+      "Value": 142,
       "Type": 3
     },
     "QueryTimeout": {
