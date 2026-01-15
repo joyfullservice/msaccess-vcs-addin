@@ -258,6 +258,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Ensure that we have created the .gitignore and .gitattributes files in Git environments.
     CheckGitFiles
 
+    ' Export AGENTS.md file for AI agent assistance
+    modResource.ExtractResource "AGENTS.md", Options.GetExportFolder
+
     ' Run any custom sub after export
     If Options.RunAfterExport <> vbNullString Then
         Log.Add T("Running {0}...", var0:=Options.RunAfterExport)
@@ -411,6 +414,9 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
         End If
         ExportDependentObjects cDbObject
     End If
+
+    ' Export AGENTS.md file for AI agent assistance
+    modResource.ExtractResource "AGENTS.md", Options.GetExportFolder
 
     ' Show final output and save log
     Log.Spacer

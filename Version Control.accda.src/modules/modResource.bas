@@ -32,6 +32,9 @@ Public Sub VerifyResources()
     VerifyResource "Default .gitignore", "\.gitignore.default"
     VerifyResource "Default .gitattributes", "\.gitattributes.default"
 
+    ' AGENTS.md file for AI agent assistance
+    VerifyResource "AGENTS.md", "\AGENTS.md"
+
 End Sub
 
 
