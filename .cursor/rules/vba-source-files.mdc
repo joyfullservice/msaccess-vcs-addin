@@ -1,0 +1,37 @@
+---
+description: VBA source file editing rules - encoding, structure, and safe modification guidelines
+globs:
+  - "**/*.bas"
+  - "**/*.cls"
+alwaysApply: false
+---
+
+# VBA Source File Rules
+
+When editing VBA source files (`.bas` and `.cls`), follow these critical rules:
+
+## Encoding
+
+- **ALWAYS preserve UTF-8 with BOM encoding** (bytes `EF BB BF` at file start)
+- Encoding errors cause import failures with no clear error message
+
+## File Structure - Do NOT Modify
+
+- `Attribute VB_Name` line - must match filename without extension
+- `VERSION 1.0 CLASS` / `BEGIN` / `END` blocks in class files
+- Module-level `Attribute VB_*` lines
+
+## Safe to Modify
+
+- VBA code (procedures, functions, properties)
+- Comment headers and documentation
+- Member attribute descriptions (text in quotes)
+
+## Coding Standards
+
+- Include procedure headers with Author, Date, Purpose
+- Use `Option Compare Database` and `Option Explicit`
+- Follow naming conventions: `str*`, `lng*`, `bln*`, `d*` (Dictionary), `c*` (class objects)
+- Use `T()` function for translatable strings
+
+@Version Control.accda.src/AGENTS.md

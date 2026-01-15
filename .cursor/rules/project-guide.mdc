@@ -1,0 +1,22 @@
+---
+description: MSAccess VCS Add-in project guidance - architecture, coding standards, and development workflow
+globs:
+alwaysApply: true
+---
+
+# MSAccess VCS Add-in Project
+
+This repository contains the MSAccess Version Control System (VCS) Add-in for Microsoft Access.
+
+For comprehensive guidance on working with this codebase, read these files:
+
+@AGENTS.md - Main project guide covering architecture, coding standards, and development workflow
+@Version Control.accda.src/AGENTS.md - Guide for working with exported Access database source files
+
+## Quick Reference
+
+- All VBA source files use **UTF-8 with BOM** encoding - this is critical for import
+- New component types implement the `IDbComponent` interface
+- Use the `T()` function for all user-facing strings (translation support)
+- Error handling: use `DebugMode(True)`, `LogUnhandledErrors`, and `CatchAny` patterns
+- Naming: `mod*` for modules, `cls*` for classes, `frm*` for forms, `I*` for interfaces
