@@ -266,3 +266,92 @@ Public Function ExampleBuildFromSource(Optional strSourcePath As String)
     Application.Run Environ$("AppData") & "\MSAccessVCS\Version Control" & _
         ".HandleRibbonCommand", "btnBuild", strSourcePath
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : API
+' Author    : Adam Waller
+' Date      : 1/22/2026
+' Purpose   : Public API function for external automation (e.g., MCP tools) to call
+'           : VCS methods via Application.Run and receive return values.
+'           : Routes method calls to clsVersionControl class methods.
+'           : Usage: Application.Run("Version Control.API", "GetVCSVersion")
+'---------------------------------------------------------------------------------------
+'
+Public Function API(strMethod As String, _
+    Optional varArg1 As Variant, _
+    Optional varArg2 As Variant, _
+    Optional varArg3 As Variant) As Variant
+    
+    ' The function is called by Application.Run which can be re-entrant but we really
+    ' don't want it to be since that'd cause errors. To avoid this, we will ignore any
+    ' commands while the current command is running.
+    Static IsRunning As Boolean
+    Dim varResult As Variant
+    Dim strLibName As String
+    Dim strRunCmd As String
+    
+    On Error GoTo ErrHandler
+    
+    If IsRunning Then
+        ' Ignore the re-entry; do NOT go to clean-up.
+        Exit Function
+    End If
+    
+    IsRunning = True
+    
+    ' Make sure we are not attempting to run this from the current database when making
+    ' changes to the add-in itself. (It will re-run the command through the add-in.)
+    If RunningOnLocal() Then
+        ' When running from within the add-in database, we need to use the full path
+        ' to ensure we call the add-in version, not a local version.
+        strLibName = GetRunCmdAddInFullLibName
+        strRunCmd = strLibName & ".API"
+        
+        ' Use Application.Run to call the add-in version, which will return the value
+        If Not IsMissing(varArg3) Then
+            API = Application.Run(strRunCmd, strMethod, varArg1, varArg2, varArg3)
+        ElseIf Not IsMissing(varArg2) Then
+            API = Application.Run(strRunCmd, strMethod, varArg1, varArg2)
+        ElseIf Not IsMissing(varArg1) Then
+            API = Application.Run(strRunCmd, strMethod, varArg1)
+        Else
+            API = Application.Run(strRunCmd, strMethod)
+        End If
+        GoTo CleanUp
+    End If
+    
+    ' Use the VCS() function to get an instance (same pattern as HandleRibbonCommand)
+    ' This ensures we don't interfere with any staging of settings during a running operation
+    ' Use CallByName to invoke the method dynamically
+    ' Handle different numbers of arguments
+    If Not IsMissing(varArg3) Then
+        ' Three arguments
+        varResult = CallByName(VCS, strMethod, VbMethod, varArg1, varArg2, varArg3)
+    ElseIf Not IsMissing(varArg2) Then
+        ' Two arguments
+        varResult = CallByName(VCS, strMethod, VbMethod, varArg1, varArg2)
+    ElseIf Not IsMissing(varArg1) Then
+        ' One argument
+        varResult = CallByName(VCS, strMethod, VbMethod, varArg1)
+    Else
+        ' No arguments
+        varResult = CallByName(VCS, strMethod, VbMethod)
+    End If
+    
+    ' Return the result (will be Empty for Subs)
+    API = varResult
+    
+CleanUp:
+    IsRunning = False
+    Exit Function
+    
+ErrHandler:
+    ' An error occurred so we need to make it available for further attempts
+    ' but do not handle the error.
+    IsRunning = False
+    
+    ' Re-throw
+    Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
+    
+End Function

@@ -504,6 +504,63 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetVCSVersion
+' Author    : Adam Waller
+' Date      : 1/22/2026
+' Purpose   : Return the version of this (CodeDB) instance of VCS.
+'           : Public method for external API access (e.g., via API function).
+'---------------------------------------------------------------------------------------
+'
+Public Function GetVCSVersion() As String
+    GetVCSVersion = modVCSUtility.GetVCSVersion
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetExportFolder
+' Author    : Adam Waller
+' Date      : 1/22/2026
+' Purpose   : Return the current export folder path for the project.
+'           : Public method for external API access (e.g., via API function).
+'---------------------------------------------------------------------------------------
+'
+Public Function GetExportFolder() As String
+    GetExportFolder = Options.GetExportFolder
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsDatabaseOpen
+' Author    : Adam Waller
+' Date      : 1/22/2026
+' Purpose   : Return whether a database file is currently open.
+'           : Public method for external API access (e.g., via API function).
+'---------------------------------------------------------------------------------------
+'
+Public Function IsDatabaseOpen() As Boolean
+    IsDatabaseOpen = modDatabase.DatabaseFileOpen
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetProjectName
+' Author    : Adam Waller
+' Date      : 1/22/2026
+' Purpose   : Return the name of the currently open project/database.
+'           : Returns empty string if no database is open.
+'           : Public method for external API access (e.g., via API function).
+'---------------------------------------------------------------------------------------
+'
+Public Function GetProjectName() As String
+    If modDatabase.DatabaseFileOpen Then
+        GetProjectName = CurrentProject.Name
+    Else
+        GetProjectName = vbNullString
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GoToLink...
 ' Author    : Adam Waller
 ' Date      : 3/4/2022
