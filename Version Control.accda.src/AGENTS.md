@@ -17,18 +17,47 @@ This folder contains **exported source files from a Microsoft Access database**.
 
 ### 1. PRESERVE UTF-8 BOM ENCODING (Most Important)
 
-All text files use **UTF-8 with BOM** encoding (bytes `EF BB BF` at file start). This is **mandatory** for successful import.
+**ALL text files** in this exported database use **UTF-8 with BOM** encoding (bytes `EF BB BF` at file start). This includes:
+- `.bas` and `.cls` files (VBA modules and classes)
+- `.sql` files (query SQL)
+- `.json` files (configuration and metadata)
+- `.xml` files (table definitions, etc.)
+- `.txt` files (table data exports)
+- Any other text-based source files
+
+This encoding is **mandatory** for successful import. **Encoding errors cause import failures with no clear error message.**
 
 **You MUST:**
-- Save all modified files as UTF-8 with BOM
-- Verify encoding is preserved after editing
+- Preserve UTF-8 BOM encoding on ALL text files you edit
+- Be aware that many editing tools and file operations may strip the BOM
+- Verify encoding after edits if you suspect it may have been changed
 
 **You MUST NOT:**
 - Remove the BOM from any file
 - Change encoding to UTF-8 without BOM, ASCII, ANSI, or any other encoding
-- Add BOM to files that don't have one
+- Add BOM to files that don't have one (check first)
+- Assume editing tools preserve encoding - they often don't
 
-**Encoding errors cause import failures with no clear error message.**
+**Verification and Restoration:**
+If you need to verify or restore BOM encoding on any file:
+
+```powershell
+# Check if file has BOM
+$file = "path\to\file.ext"
+$bytes = [System.IO.File]::ReadAllBytes($file)
+$hasBOM = ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+Write-Host "BOM present: $hasBOM"
+
+# Restore BOM if missing
+if (-not $hasBOM) {
+    $bom = [byte[]](0xEF, 0xBB, 0xBF)
+    $newBytes = $bom + $bytes
+    [System.IO.File]::WriteAllBytes($file, $newBytes)
+    Write-Host "BOM restored"
+}
+```
+
+**Note:** The add-in's export process automatically ensures all files have UTF-8 BOM. The risk occurs when files are edited outside of Access. Always verify encoding if you're unsure.
 
 ### 2. Preserve VBA File Structure
 
