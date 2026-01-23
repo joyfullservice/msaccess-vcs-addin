@@ -282,7 +282,7 @@ Public Function API(strMethod As String, _
     Optional varArg1 As Variant, _
     Optional varArg2 As Variant, _
     Optional varArg3 As Variant) As Variant
-    
+
     ' The function is called by Application.Run which can be re-entrant but we really
     ' don't want it to be since that'd cause errors. To avoid this, we will ignore any
     ' commands while the current command is running.
@@ -290,16 +290,16 @@ Public Function API(strMethod As String, _
     Dim varResult As Variant
     Dim strLibName As String
     Dim strRunCmd As String
-    
+
     On Error GoTo ErrHandler
-    
+
     If IsRunning Then
         ' Ignore the re-entry; do NOT go to clean-up.
         Exit Function
     End If
-    
+
     IsRunning = True
-    
+
     ' Make sure we are not attempting to run this from the current database when making
     ' changes to the add-in itself. (It will re-run the command through the add-in.)
     If RunningOnLocal() Then
@@ -307,7 +307,7 @@ Public Function API(strMethod As String, _
         ' to ensure we call the add-in version, not a local version.
         strLibName = GetRunCmdAddInFullLibName
         strRunCmd = strLibName & ".API"
-        
+
         ' Use Application.Run to call the add-in version, which will return the value
         If Not IsMissing(varArg3) Then
             API = Application.Run(strRunCmd, strMethod, varArg1, varArg2, varArg3)
@@ -320,7 +320,7 @@ Public Function API(strMethod As String, _
         End If
         GoTo CleanUp
     End If
-    
+
     ' Use the VCS() function to get an instance (same pattern as HandleRibbonCommand)
     ' This ensures we don't interfere with any staging of settings during a running operation
     ' Use CallByName to invoke the method dynamically
@@ -338,20 +338,140 @@ Public Function API(strMethod As String, _
         ' No arguments
         varResult = CallByName(VCS, strMethod, VbMethod)
     End If
-    
+
     ' Return the result (will be Empty for Subs)
     API = varResult
-    
+
 CleanUp:
     IsRunning = False
     Exit Function
-    
+
 ErrHandler:
     ' An error occurred so we need to make it available for further attempts
     ' but do not handle the error.
     IsRunning = False
-    
+
     ' Re-throw
     Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
-    
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : APIAsync
+' Author    : Adam Waller
+' Date      : 1/23/2026
+' Purpose   : Public API function for async operations with MCP callbacks.
+'           : Routes async operations through timer mechanism with callback support.
+'           : Usage: Application.Run("Version Control.APIAsync", strCallbackInfo, "Export")
+'---------------------------------------------------------------------------------------
+'
+Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
+    Optional varArg1 As Variant, Optional varArg2 As Variant) As String
+
+    ' The function is called by Application.Run which can be re-entrant but we really
+    ' don't want it to be since that'd cause errors. To avoid this, we will ignore any
+    ' commands while the current command is running.
+    Static IsRunning As Boolean
+    Dim varResult As Variant
+    Dim strLibName As String
+    Dim strRunCmd As String
+    Dim strJsonResult As String
+    Dim dResult As Dictionary
+    Dim lngTimeoutMs As Long
+
+    On Error GoTo ErrHandler
+
+    If IsRunning Then
+        ' Ignore the re-entry; do NOT go to clean-up.
+        Exit Function
+    End If
+
+    IsRunning = True
+
+    ' Make sure we are not attempting to run this from the current database when making
+    ' changes to the add-in itself. (It will re-run the command through the add-in.)
+    If RunningOnLocal() Then
+        ' When running from within the add-in database, we need to use the full path
+        ' to ensure we call the add-in version, not a local version.
+        strLibName = GetRunCmdAddInFullLibName
+        strRunCmd = strLibName & ".APIAsync"
+
+        ' Use Application.Run to call the add-in version
+        If Not IsMissing(varArg2) Then
+            APIAsync = Application.Run(strRunCmd, strCallbackInfo, strMethod, varArg1, varArg2)
+        ElseIf Not IsMissing(varArg1) Then
+            APIAsync = Application.Run(strRunCmd, strCallbackInfo, strMethod, varArg1)
+        Else
+            APIAsync = Application.Run(strRunCmd, strCallbackInfo, strMethod)
+        End If
+        GoTo CleanUp
+    End If
+
+    ' Determine if this is an async operation or should fall back to sync
+    Select Case strMethod
+        Case "Export", "ExportVBA", "Build", "BuildAs", "MergeBuild"
+            ' These are async operations - spawn via timer with callback support
+
+            ' Store callback info in registry for timer callback to retrieve
+            SaveSetting PROJECT_NAME, "Timer", "CallbackInfo", strCallbackInfo
+
+            ' Determine timeout based on operation type
+            Select Case strMethod
+                Case "Export"
+                    lngTimeoutMs = 300000  ' 5 minutes
+                Case "ExportVBA"
+                    lngTimeoutMs = 120000  ' 2 minutes
+                Case "Build", "BuildAs"
+                    lngTimeoutMs = 600000  ' 10 minutes
+                Case "MergeBuild"
+                    lngTimeoutMs = 300000  ' 5 minutes
+            End Select
+
+            ' Use timer to spawn async operation
+            ' The timer callback will read the callback info and start the operation
+            If Not IsMissing(varArg2) Then
+                SetTimer "APIAsyncOperation", strMethod, CStr(varArg1) & "|" & CStr(varArg2)
+            ElseIf Not IsMissing(varArg1) Then
+                SetTimer "APIAsyncOperation", strMethod, CStr(varArg1)
+            Else
+                SetTimer "APIAsyncOperation", strMethod, vbNullString
+            End If
+
+            ' Return async response immediately
+            Set dResult = New Dictionary
+            dResult.Add "async", True
+            dResult.Add "timeout_ms", lngTimeoutMs
+            APIAsync = modJsonConverter.ConvertToJson(dResult)
+
+        Case Else
+            ' Fall back to sync API for quick operations
+            ' Call existing API function
+            If Not IsMissing(varArg2) Then
+                varResult = API(strMethod, varArg1, varArg2)
+            ElseIf Not IsMissing(varArg1) Then
+                varResult = API(strMethod, varArg1)
+            Else
+                varResult = API(strMethod)
+            End If
+
+            ' Return sync response
+            Set dResult = New Dictionary
+            dResult.Add "sync", True
+            dResult.Add "result", varResult
+            APIAsync = modJsonConverter.ConvertToJson(dResult)
+    End Select
+
+CleanUp:
+    IsRunning = False
+    Exit Function
+
+ErrHandler:
+    ' An error occurred so we need to make it available for further attempts
+    ' but do not handle the error.
+    IsRunning = False
+
+    ' Re-throw
+    Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
+
 End Function

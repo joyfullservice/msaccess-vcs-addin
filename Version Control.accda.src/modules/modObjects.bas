@@ -24,6 +24,7 @@ Private Type udtObjects
     Worker As clsWorker
     Git As clsGitIntegration
     Translation As clsTranslation
+    MCP As clsMCP
 
     ' Keep a persistent reference to file system object after initializing version control.
     ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -49,6 +50,7 @@ Public Sub ReleaseObjects()
     Set this.Git = Nothing
     Set this.FSO = Nothing
     Set this.Translation = Nothing
+    Set this.MCP = Nothing
 
     Dim udtEmpty As udtObjects
     ' Reassign "this" to blank, clearing any saved data.
@@ -263,3 +265,16 @@ Public Property Get Operation() As clsOperation
     If m_Operation Is Nothing Then Set m_Operation = New clsOperation
     Set Operation = m_Operation
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MCP
+' Author    : Adam Waller
+' Date      : 1/23/2026
+' Purpose   : Wrapper for MCP callback class
+'---------------------------------------------------------------------------------------
+'
+Public Function MCP() As clsMCP
+    If this.MCP Is Nothing Then Set this.MCP = New clsMCP
+    Set MCP = this.MCP
+End Function
