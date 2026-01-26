@@ -1,4 +1,4 @@
-# AGENTS.md - AI Agent Guide to MSAccess VCS Export Structure
+﻿# AGENTS.md - AI Agent Guide to MSAccess VCS Export Structure
 
 ## Context: What Is This Folder?
 
@@ -412,7 +412,17 @@ When the source file and database object have both changed:
 | `project.json` | File format version |
 | `vbe-project.json` | VBA project properties |
 | `vbe-references.json` | VBA library references |
-| `Export.log` / `Build.log` | Operation logs |
+
+### Logs Folder
+
+Operation logs are stored in the `logs/` subfolder with timestamped filenames:
+
+| Pattern | Purpose |
+|---------|---------|
+| `Export_YYYYMMDD_HHMMSS_mmm.log` | Export operation logs |
+| `Build_YYYYMMDD_HHMMSS_mmm.log` | Build/merge operation logs |
+
+**When troubleshooting:** Always check the most recent log file in `logs/` for detailed operation output, timing information, and any error messages.
 
 ### Object Folders
 
