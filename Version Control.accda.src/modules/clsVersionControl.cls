@@ -561,6 +561,76 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IsVBACompiled
+' Author    : Adam Waller
+' Date      : 1/26/2026
+' Purpose   : Check if the VBA project is in a compiled state.
+'           : Returns True if compiled, False otherwise.
+'           : Public method for external API access (e.g., via API function).
+'---------------------------------------------------------------------------------------
+'
+Public Function IsVBACompiled() As Boolean
+    On Error Resume Next
+    ' Application.IsCompiled returns True if project is compiled, False if not
+    IsVBACompiled = Application.IsCompiled
+    On Error GoTo 0
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CompileVBA
+' Author    : Adam Waller
+' Date      : 1/26/2026
+' Purpose   : Compile all VBA modules in the current database and return success status.
+'           : Returns True if compilation succeeded (project is compiled), False if failed.
+'           : Public method for external API access (e.g., via API function).
+'---------------------------------------------------------------------------------------
+'
+Public Function CompileVBA(Optional blnSuppressWarnings As Boolean = False) As Boolean
+    On Error GoTo ErrHandler
+    
+    Dim blnCompiledAfter As Boolean
+    
+    ' Suppress warnings if requested (we'll restore them in cleanup)
+    If blnSuppressWarnings Then
+        DoCmd.SetWarnings False
+    End If
+    
+    ' Make sure we are running this in the CurrentDB, not the CodeDB
+    Set VBE.ActiveVBProject = CurrentVBProject
+    
+    ' Compile all modules
+    DoCmd.RunCommand acCmdCompileAllModules
+    DoEvents
+    
+    ' Check if compilation succeeded by checking IsCompiled
+    On Error Resume Next
+    blnCompiledAfter = Application.IsCompiled
+    On Error GoTo ErrHandler
+    
+    ' Restore warnings if we suppressed them
+    If blnSuppressWarnings Then
+        DoCmd.SetWarnings True
+    End If
+    
+    ' Return True if compiled, False if not
+    CompileVBA = blnCompiledAfter
+    Exit Function
+    
+ErrHandler:
+    ' Always restore warnings if we suppressed them, even on error
+    If blnSuppressWarnings Then
+        On Error Resume Next
+        DoCmd.SetWarnings True
+        On Error GoTo 0
+    End If
+    
+    ' Return False on any error
+    CompileVBA = False
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GoToLink...
 ' Author    : Adam Waller
 ' Date      : 3/4/2022
