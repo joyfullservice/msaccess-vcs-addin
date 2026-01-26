@@ -40,6 +40,7 @@ Public Sub WinAPITimerCallback()
     ' Read callback info before clearing (needed for APIAsyncOperation)
     Dim strCallbackInfo As String
     strCallbackInfo = GetSetting(PROJECT_NAME, "Timer", "CallbackInfo")
+    MCPDebugLog "WinAPITimerCallback: Command=" & strCommand & ", CallbackInfo length=" & Len(strCallbackInfo)
 
     ' Clear values from registry (In case an operation sets another timer)
     SaveSetting PROJECT_NAME, "Timer", "Operation", vbNullString
@@ -145,10 +146,14 @@ Private Sub HandleAPIAsyncOperation(strMethod As String, strArgs As String, strC
     Dim lngPipePos As Long
 
     ' Register callback with MCP if provided
+    MCPDebugLog "HandleAPIAsyncOperation: Method=" & strMethod & ", CallbackInfo length=" & Len(strCallbackInfo)
     If Len(strCallbackInfo) > 0 Then
+        MCPDebugLog "HandleAPIAsyncOperation: Registering callback..."
         MCP.RegisterCallback strCallbackInfo
+        MCPDebugLog "HandleAPIAsyncOperation: MCP.IsActive=" & MCP.IsActive
         Operation.Source = eosMCPTool
     Else
+        MCPDebugLog "HandleAPIAsyncOperation: No callback info, using External API source"
         Operation.Source = eosExternalAPI
     End If
 
@@ -173,19 +178,8 @@ Private Sub HandleAPIAsyncOperation(strMethod As String, strArgs As String, strC
         API strMethod
     End If
 
-    ' Post completion callback based on Operation.Result
-    If MCP.IsActive Then
-        Select Case Operation.Result
-            Case eorSuccess
-                MCP.PostCallback "complete", 100, 100, strMethod & " completed successfully"
-            Case eorFailed
-                MCP.PostCallback "error", -1, -1, strMethod & " failed"
-            Case eorCanceled
-                MCP.PostCallback "cancelled", -1, -1, strMethod & " was cancelled"
-            Case eorTimeout
-                MCP.PostCallback "error", -1, -1, strMethod & " timed out"
-        End Select
-    End If
+    ' Completion callback is now sent from Operation.Finish() before ReleaseObjects
+    MCPDebugLog "HandleAPIAsyncOperation: Operation complete, Result=" & Operation.Result
 
     Exit Sub
 

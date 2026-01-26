@@ -64,6 +64,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : FullExport
+' Author    : Adam Waller
+' Date      : 1/26/2026
+' Purpose   : Force a full export of all objects (ignoring Fast Save)
+'---------------------------------------------------------------------------------------
+'
+Public Sub FullExport()
+    RunExport ecfAllObjects, , True
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ExportVBA
 ' Author    : Adam Waller
 ' Date      : 4/1/2022
@@ -106,7 +118,7 @@ End Sub
 ' Purpose   : Handle different kinds of exports based on filter
 '---------------------------------------------------------------------------------------
 '
-Private Sub RunExport(Optional intFilter As eContainerFilter = ecfAllObjects, Optional objItem As AccessObject)
+Private Sub RunExport(Optional intFilter As eContainerFilter = ecfAllObjects, Optional objItem As AccessObject, Optional blnFullExport As Boolean = False)
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     With Form_frmVCSMain
         If objItem Is Nothing Then
@@ -114,6 +126,8 @@ Private Sub RunExport(Optional intFilter As eContainerFilter = ecfAllObjects, Op
         Else
             Set .objSingleObject = objItem
         End If
+        ' Set full export checkbox if requested
+        If blnFullExport Then .chkFullExport = True
         .Visible = True
         .cmdExport_Click
         If Operation.ErrorLevel < eelError Then .AutoClose

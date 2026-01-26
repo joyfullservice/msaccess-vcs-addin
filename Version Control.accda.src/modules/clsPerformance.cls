@@ -413,6 +413,30 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetCategoryCounts
+' Author    : Adam Waller
+' Date      : 1/26/2026
+' Purpose   : Return a dictionary of category names and their counts.
+'           : Used by MCP callbacks to report actual export/import counts.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetCategoryCounts() As Dictionary
+    Dim dCounts As Dictionary
+    Dim varKey As Variant
+
+    Set dCounts = New Dictionary
+
+    If Not this.Categories Is Nothing Then
+        For Each varKey In this.Categories.Keys
+            dCounts.Add CStr(varKey), this.Categories(varKey).Count
+        Next varKey
+    End If
+
+    Set GetCategoryCounts = dCounts
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetReports
 ' Author    : Adam Waller
 ' Date      : 11/3/2020

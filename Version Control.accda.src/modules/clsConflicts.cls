@@ -40,10 +40,12 @@ Public Sub ShowDialog()
         DoEvents
         .Hourglass False
         ' Open the form in dialog mode so that we return a status when it closes.
+        MCP.Log "Waiting for user to resolve " & Me.Count & " conflict(s)..."
         Perf.PauseTiming
         .OpenForm "frmVCSConflict", , , , , acDialog
         UpdateResolutionsFromTable
         Perf.ResumeTiming
+        MCP.Log "User resolved conflicts, continuing operation..."
     End With
     ClearTable
 End Sub

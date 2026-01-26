@@ -46,28 +46,36 @@ Public Sub RegisterCallback(strCallbackInfo As String)
 
     ' Parse the callback info JSON
     strJson = Trim(strCallbackInfo)
+    MCPDebugLog "clsMCP.RegisterCallback: Input length=" & Len(strJson)
     If Len(strJson) = 0 Then
+        MCPDebugLog "clsMCP.RegisterCallback: Empty input, setting IsActive=False"
         this.IsActive = False
         Exit Sub
     End If
 
     Set dCallback = modJsonConverter.ParseJson(strJson)
+    MCPDebugLog "clsMCP.RegisterCallback: Parsed JSON successfully"
 
     ' Extract callback_url and operation_id
     If dCallback.Exists("callback_url") Then
         this.CallbackUrl = dCallback("callback_url")
+        MCPDebugLog "clsMCP.RegisterCallback: callback_url=" & this.CallbackUrl
     Else
         this.CallbackUrl = vbNullString
+        MCPDebugLog "clsMCP.RegisterCallback: No callback_url in JSON"
     End If
 
     If dCallback.Exists("operation_id") Then
         this.OperationId = dCallback("operation_id")
+        MCPDebugLog "clsMCP.RegisterCallback: operation_id=" & this.OperationId
     Else
         this.OperationId = vbNullString
+        MCPDebugLog "clsMCP.RegisterCallback: No operation_id in JSON"
     End If
 
     ' Set active flag if we have both required fields
     this.IsActive = (Len(this.CallbackUrl) > 0 And Len(this.OperationId) > 0)
+    MCPDebugLog "clsMCP.RegisterCallback: IsActive=" & this.IsActive
 
     ' Reset cancel check timer
     this.LastCancelCheck = 0
@@ -76,6 +84,7 @@ Public Sub RegisterCallback(strCallbackInfo As String)
 
 ErrHandler:
     ' If parsing fails, disable callbacks but don't break the operation
+    MCPDebugLog "clsMCP.RegisterCallback: ERROR - " & Err.Description
     this.IsActive = False
     this.CallbackUrl = vbNullString
     this.OperationId = vbNullString
@@ -94,16 +103,22 @@ End Sub
 Public Sub PostCallback(strType As String, _
     Optional lngProgress As Long = -1, _
     Optional lngTotal As Long = -1, _
-    Optional strMessage As String = "")
+    Optional strMessage As String = "", _
+    Optional dExtraData As Dictionary = Nothing)
 
     ' Skip if not active or no callback URL
-    If Not this.IsActive Or Len(this.CallbackUrl) = 0 Then Exit Sub
+    MCPDebugLog "clsMCP.PostCallback: Type=" & strType & ", IsActive=" & this.IsActive & ", URL=" & this.CallbackUrl
+    If Not this.IsActive Or Len(this.CallbackUrl) = 0 Then
+        MCPDebugLog "clsMCP.PostCallback: Skipping (not active or no URL)"
+        Exit Sub
+    End If
 
     On Error Resume Next  ' Don't let callback failures break the operation
 
     Dim http As Object
     Dim dPayload As Dictionary
     Dim strJson As String
+    Dim varKey As Variant
 
     ' Create HTTP object
     Set http = CreateObject("MSXML2.XMLHTTP")
@@ -118,19 +133,41 @@ Public Sub PostCallback(strType As String, _
     If lngTotal >= 0 Then dPayload.Add "total", lngTotal
     If Len(strMessage) > 0 Then dPayload.Add "message", strMessage
 
+    ' Merge extra data if provided
+    If Not dExtraData Is Nothing Then
+        For Each varKey In dExtraData.Keys
+            dPayload.Add varKey, dExtraData(varKey)
+        Next varKey
+    End If
+
     ' Convert to JSON
     strJson = modJsonConverter.ConvertToJson(dPayload)
+    MCPDebugLog "clsMCP.PostCallback: Sending to " & this.CallbackUrl
 
     ' Send POST request
     http.Open "POST", this.CallbackUrl, False
     http.setRequestHeader "Content-Type", "application/json"
     http.send strJson
+    MCPDebugLog "clsMCP.PostCallback: HTTP Status=" & http.Status
 
     ' Note: We don't check the response - callbacks are fire-and-forget
     ' Errors are silently ignored to prevent breaking the main operation
 
     On Error GoTo 0
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Log
+' Author    : Adam Waller
+' Date      : 1/26/2026
+' Purpose   : Post a simple log message to MCP. Convenience wrapper for PostCallback.
+'           : Use this for status updates like "Beginning export of 45 queries..."
+'---------------------------------------------------------------------------------------
+'
+Public Sub Log(strMessage As String)
+    PostCallback "log", , , strMessage
 End Sub
 
 

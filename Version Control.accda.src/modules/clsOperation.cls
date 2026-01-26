@@ -145,6 +145,30 @@ Public Function Finish(Optional intResult As eOperationResult)
         this.State = eosReady
         this.FinishTime = Now
         UpdateRegistry
+
+        ' Post MCP completion callback BEFORE releasing objects
+        ' (ReleaseObjects destroys the MCP singleton)
+        If MCP.IsActive Then
+            ' Build extra data with log path
+            Dim dExtra As Dictionary
+            Set dExtra = New Dictionary
+            dExtra.Add "log_path", Log.LogFilePath
+
+            Select Case Me.Result
+                Case eorSuccess
+                    MCP.PostCallback "complete", 100, 100, "Operation completed successfully", dExtra
+                Case eorFailed
+                    MCP.PostCallback "error", -1, -1, "Operation failed", dExtra
+                Case eorCanceled
+                    MCP.PostCallback "cancelled", -1, -1, "Operation was cancelled", dExtra
+                Case eorTimeout
+                    MCP.PostCallback "error", -1, -1, "Operation timed out", dExtra
+                Case Else
+                    ' Unknown or unset result - assume success since we got here
+                    MCP.PostCallback "complete", 100, 100, "Operation completed", dExtra
+            End Select
+        End If
+
         modObjects.ReleaseObjects
         ' Only restore error trapping if we were in a running state.
         If blnWasRunning Then RestoreUserErrorTrapping

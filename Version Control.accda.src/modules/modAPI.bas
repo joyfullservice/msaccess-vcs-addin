@@ -8,6 +8,10 @@
 Option Compare Database
 Option Explicit
 
+' MCP Debug log file path (set when first used)
+Private m_strMCPDebugLogPath As String
+
+
 ' Note, some enums are listed here when they are directly exposed
 ' through the Options and VCS classes. (Allowing them to be used externally)
 ' Use hard-coded enum index values to preserve user settings in existing projects
@@ -420,16 +424,20 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
 
     ' Determine if this is an async operation or should fall back to sync
     Select Case strMethod
-        Case "Export", "ExportVBA", "Build", "BuildAs", "MergeBuild"
+        Case "Export", "FullExport", "ExportVBA", "Build", "BuildAs", "MergeBuild"
             ' These are async operations - spawn via timer with callback support
 
             ' Store callback info in registry for timer callback to retrieve
             SaveSetting PROJECT_NAME, "Timer", "CallbackInfo", strCallbackInfo
+            MCPDebugLog "APIAsync: Method=" & strMethod & ", CallbackInfo length=" & Len(strCallbackInfo)
+            MCPDebugLog "APIAsync: CallbackInfo=" & Left$(strCallbackInfo, 200)
 
             ' Determine timeout based on operation type
             Select Case strMethod
                 Case "Export"
                     lngTimeoutMs = 300000  ' 5 minutes
+                Case "FullExport"
+                    lngTimeoutMs = 600000  ' 10 minutes (full export takes longer)
                 Case "ExportVBA"
                     lngTimeoutMs = 120000  ' 2 minutes
                 Case "Build", "BuildAs"
@@ -485,3 +493,28 @@ ErrHandler:
     Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MCPDebugLog
+' Author    : Adam Waller
+' Date      : 1/26/2026
+' Purpose   : Write debug messages to a file for MCP callback troubleshooting.
+'           : Writes to logs/MCP_Debug.log in the source folder.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MCPDebugLog(strMessage As String)
+    On Error Resume Next
+    Dim intFile As Integer
+
+    ' Initialize log path if needed
+    If m_strMCPDebugLogPath = vbNullString Then
+        m_strMCPDebugLogPath = Options.GetExportFolder & "logs\MCP_Debug.log"
+    End If
+
+    ' Append to log file
+    intFile = FreeFile
+    Open m_strMCPDebugLogPath For Append As #intFile
+    Print #intFile, Format$(Now, "yyyy-mm-dd hh:nn:ss") & " | " & strMessage
+    Close #intFile
+End Sub

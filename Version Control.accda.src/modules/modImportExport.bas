@@ -215,6 +215,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             Perf.CategoryStart cCategory.Category
             lngCurrent = 0
 
+            ' Post category start to MCP server
+            MCP.Log "Exporting " & lngCount & " " & LCase(cCategory.Category) & "..."
+
             ' Loop through each object in this category.
             For Each varKey In dObjects.Keys
 
