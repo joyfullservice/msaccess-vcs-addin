@@ -26,6 +26,7 @@ Private m_RichText As TextBox   ' Text box to display HTML
 Private m_Prog As clsLblProg    ' Progress bar
 Private m_blnProgressActive As Boolean
 Private m_sngLastUpdate As Single
+Private m_sngLastMCPProgress As Single  ' Throttle MCP progress updates
 Private m_OperationId As String ' Timestamp with milliseconds: "20260126_153042_847"
 
 
@@ -439,15 +440,18 @@ End Sub
 Public Sub Progress(lngCurrent As Long, lngTotal As Long, _
     Optional strMessage As String = vbNullString)
 
-    ' Update console progress bar
+    ' Update console progress bar (always)
     If Not m_Prog Is Nothing Then
         m_Prog.Max = lngTotal
         m_Prog.Value = lngCurrent
     End If
 
-    ' Send to MCP if active
+    ' Send to MCP with throttling (max every 250ms)
     If MCP.IsActive Then
-        MCP.PostCallback "progress", lngCurrent, lngTotal, strMessage
+        If Timer - m_sngLastMCPProgress > 0.25 Then
+            MCP.PostCallback "progress", lngCurrent, lngTotal, strMessage
+            m_sngLastMCPProgress = Timer
+        End If
     End If
 
 End Sub
