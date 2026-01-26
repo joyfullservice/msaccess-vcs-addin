@@ -381,7 +381,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub OpenExportLog()
-    OpenLog "Export.log"
+    OpenLog "Export"
 End Sub
 
 
@@ -393,7 +393,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub OpenBuildLog()
-    OpenLog "Build.log"
+    OpenLog "Build"
 End Sub
 
 
@@ -401,19 +401,36 @@ End Sub
 ' Procedure : OpenLog
 ' Author    : Adam Waller
 ' Date      : 4/1/2022
-' Purpose   : Open a log file by name, or show a message if the file is not found.
+' Purpose   : Open the most recent log file matching the base name (e.g., "Export")
 '---------------------------------------------------------------------------------------
 '
-Private Sub OpenLog(strName As String)
+Private Sub OpenLog(strBaseName As String)
 
+    Dim strFolder As String
     Dim strPath As String
+    Dim oFolder As Object
+    Dim oFile As Object
+    Dim strNewest As String
 
-    strPath = Options.GetExportFolder & strName
-    If FSO.FileExists(strPath) Then
+    ' Look in the logs subfolder
+    strFolder = FSO.BuildPath(Options.GetExportFolder, "logs")
+
+    If FSO.FolderExists(strFolder) Then
+        Set oFolder = FSO.GetFolder(strFolder)
+        ' Find the most recent file matching pattern (alphabetical = chronological with timestamp naming)
+        For Each oFile In oFolder.Files
+            If oFile.Name Like strBaseName & "_*.log" Then
+                If oFile.Path > strNewest Then strNewest = oFile.Path
+            End If
+        Next oFile
+    End If
+
+    If Len(strNewest) > 0 Then
         ' Note that the parentheses around the path are required for this to work.
-        CreateObject("Shell.Application").Open (strPath)
+        CreateObject("Shell.Application").Open (strNewest)
     Else
-        MsgBox2 "Log File Not Found", "Could not find the following file in the export location:", strPath, vbExclamation
+        strPath = FSO.BuildPath(strFolder, strBaseName & "_*.log")
+        MsgBox2 "Log File Not Found", "Could not find any log files matching:", strPath, vbExclamation
     End If
 
 End Sub
