@@ -33,7 +33,7 @@ Public Sub VerifyResources()
     VerifyResource "Default .gitattributes", "\.gitattributes.default"
 
     ' AGENTS.md file for AI agent assistance
-    VerifyResource "AGENTS.md", "\AGENTS.md"
+    VerifyResource "AGENTS.md", "\Version Control.accda.src\AGENTS.md"
 
 End Sub
 
