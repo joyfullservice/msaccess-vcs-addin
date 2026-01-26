@@ -309,15 +309,22 @@ End Property
 Public Sub SaveFile(Optional strAlternatePath As String)
     Dim strPath As String
     Dim strBase As String
-    
+    Dim strLogsFolder As String
+
     strPath = Nz2(strAlternatePath, Me.LogFilePath)
-    
+    strLogsFolder = FSO.GetParentFolderName(strPath)
+
+    ' Migrate legacy logs on first use of logs folder
+    If Not FSO.FolderExists(strLogsFolder) Then
+        MigrateLegacyLogs FSO.GetParentFolderName(strLogsFolder), strLogsFolder
+    End If
+
     ' Ensure logs folder exists
     VerifyPath strPath
-    
+
     ' Write log file (unique filename per operation)
     WriteFile m_Log.GetStr, strPath
-    
+
     ' Cleanup old logs beyond MaxLogFiles
     Select Case Operation.OperationType
         Case eotExport: strBase = "Export"
@@ -325,7 +332,7 @@ Public Sub SaveFile(Optional strAlternatePath As String)
         Case eotMerge:  strBase = "Merge"
         Case Else:      strBase = "Other"
     End Select
-    CleanupOldLogs FSO.GetParentFolderName(strPath), strBase, Options.MaxLogFiles
+    CleanupOldLogs strLogsFolder, strBase, Options.MaxLogFiles
 End Sub
 
 
@@ -478,5 +485,42 @@ Private Sub CleanupOldLogs(strFolder As String, strBase As String, lngMaxFiles A
         FSO.DeleteFile colFiles(1)
         colFiles.Remove 1
     Loop
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MigrateLegacyLogs
+' Author    : Adam Waller
+' Date      : 1/26/2026
+' Purpose   : Migrate old-format log files (Export.log, Build.log, etc.) from the
+'           : source folder root to the new logs/ subfolder with timestamp naming.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MigrateLegacyLogs(strSourceFolder As String, strLogsFolder As String)
+
+    Dim varName As Variant
+    Dim strOldPath As String
+    Dim strNewPath As String
+    Dim strTimestamp As String
+    Dim oFile As Object
+
+    ' Check for each legacy log file type
+    For Each varName In Array("Export", "Build", "Merge", "Other")
+        strOldPath = FSO.BuildPath(strSourceFolder, varName & ".log")
+        If FSO.FileExists(strOldPath) Then
+            ' Create logs folder if needed
+            If Not FSO.FolderExists(strLogsFolder) Then
+                FSO.CreateFolder strLogsFolder
+            End If
+            ' Get timestamp from file's last modified date
+            Set oFile = FSO.GetFile(strOldPath)
+            strTimestamp = Format$(oFile.DateLastModified, "yyyymmdd\_hhnnss") & "_000"
+            ' Build new path: Export.log -> Export_20260115_093042_000.log
+            strNewPath = FSO.BuildPath(strLogsFolder, varName & "_" & strTimestamp & ".log")
+            ' Move file to new location
+            FSO.MoveFile strOldPath, strNewPath
+        End If
+    Next varName
 
 End Sub
