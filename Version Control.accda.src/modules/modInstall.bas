@@ -172,7 +172,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
     ' Show install confirmation message
     MsgBox2 "Success!", "Version Control System add-in has been updated to " & AppVersion & ".", _
         "The installer will now close. Please restart any open instances" & vbCrLf & _
-        "of Microsoft Access before using the add-in.", vbInformation, "Version Control Add-in"
+        "of Microsoft Access before using the add-in.", vbInformation
 
     ' Open add-in from installed location if required.
     If this.blnOpenAfterInstall Then OpenAddinFile GetAddInFileName, CodeProject.FullName
@@ -249,7 +249,7 @@ Public Sub UninstallVCSAddin()
     ' Notify the user of the completion of the uninstall process.
     MsgBox2 "Success!", "Version Control System has now been uninstalled.", _
         "Microsoft Access will be closed to remove the remaining files.", _
-        vbInformation, "Version Control Add-in"
+        vbInformation
 
     ' Use the worker script to actually remove the add-in files.
     ' (They cannot be removed when they are in use, such as when procesing the uninstall.)

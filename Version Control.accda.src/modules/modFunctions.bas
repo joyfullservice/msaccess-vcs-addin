@@ -248,8 +248,8 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     ' Check interaction mode
     If InteractionMode = eimNormal Then
         ' Normal user interaction with MsgBox
-        If varLines(3) = vbNullString Then varLines(3) = Application.VBE.ActiveVBProject.Name
-        strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "')"
+        If varLines(3) = vbNullString Then varLines(3) = T("Version Control Add-in")
+        strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "','',0)"
         Perf.PauseTiming
         MsgBox2 = Eval(strMsg)
         Perf.ResumeTiming
