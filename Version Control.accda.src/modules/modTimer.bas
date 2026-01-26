@@ -147,6 +147,9 @@ Private Sub HandleAPIAsyncOperation(strMethod As String, strArgs As String, strC
     ' Register callback with MCP if provided
     If Len(strCallbackInfo) > 0 Then
         MCP.RegisterCallback strCallbackInfo
+        Operation.Source = eosMCPTool
+    Else
+        Operation.Source = eosExternalAPI
     End If
 
     ' Parse arguments (format: "arg1|arg2" or just "arg1")
@@ -160,13 +163,8 @@ Private Sub HandleAPIAsyncOperation(strMethod As String, strArgs As String, strC
         End If
     End If
 
-    ' Post initial progress callback
-    If MCP.IsActive Then
-        MCP.PostCallback "progress", 0, 100, "Starting " & strMethod & "..."
-    End If
-
     ' Start the operation via API
-    ' The operation methods will need to call MCP.PostCallback() during execution
+    ' Log.Add automatically routes to MCP when MCP.IsActive
     If Len(strArg2) > 0 Then
         API strMethod, strArg1, strArg2
     ElseIf Len(strArg1) > 0 Then

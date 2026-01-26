@@ -300,6 +300,9 @@ Public Function API(strMethod As String, _
 
     IsRunning = True
 
+    ' Set operation source before any operations
+    Operation.Source = eosExternalAPI
+
     ' Make sure we are not attempting to run this from the current database when making
     ' changes to the add-in itself. (It will re-run the command through the add-in.)
     If RunningOnLocal() Then
@@ -388,6 +391,13 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
     End If
 
     IsRunning = True
+
+    ' Set operation source - MCP if callback provided, otherwise external API
+    If Len(strCallbackInfo) > 0 Then
+        Operation.Source = eosMCPTool
+    Else
+        Operation.Source = eosExternalAPI
+    End If
 
     ' Make sure we are not attempting to run this from the current database when making
     ' changes to the add-in itself. (It will re-run the command through the add-in.)

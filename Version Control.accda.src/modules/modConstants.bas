@@ -145,6 +145,13 @@ Public Enum eOperationResult
     eorCanceled
 End Enum
 
+' Source of the current operation
+Public Enum eOperationSource
+    eosUserInterface = 0    ' Default - ribbon, menu, immediate window
+    eosExternalAPI = 1      ' Application.Run API calls (non-MCP)
+    eosMCPTool = 2          ' MCP server with callbacks
+End Enum
+
 ' Options for resolving file conflicts
 Public Enum eResolveConflict
     ercNone

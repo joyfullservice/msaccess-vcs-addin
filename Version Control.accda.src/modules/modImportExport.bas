@@ -68,6 +68,8 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         .Add T("VCS Version {0}", var0:=GetVCSVersion)
         .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
         .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
+        ' Log operation source (file only, not console)
+        If Len(Operation.SourceName) > 0 Then .Add T("Source: {0}", var0:=Operation.SourceName), False
         .Add IIf(blnFullExport, T("Performing Full Export"), T("Using Fast Save"))
         .Add Now
         ' Save the log file path
@@ -357,6 +359,8 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
         .Add T("VCS Version {0}", var0:=GetVCSVersion)
         .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
         .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
+        ' Log operation source (file only, not console)
+        If Len(Operation.SourceName) > 0 Then .Add T("Source: {0}", var0:=Operation.SourceName), False
         .Add Now
         .Spacer
         .Add T("Exporting {0}...", var0:=objItem.Name)
@@ -530,6 +534,8 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
         .Add T("VCS Version {0}", var0:=GetVCSVersion)
         .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
         .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
+        ' Log operation source (file only, not console)
+        If Len(Operation.SourceName) > 0 Then .Add T("Source: {0}", var0:=Operation.SourceName), False
         .Add Now
         .Spacer
         .Flush
@@ -942,6 +948,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         .Add T("VCS Version {0}", var0:=GetVCSVersion)
         .Add T("Full Path: {0}", var0:=strPath), False
         .Add T("Export Folder: {0}", var0:=strSourceFolder), False
+        ' Log operation source (file only, not console)
+        If Len(Operation.SourceName) > 0 Then .Add T("Source: {0}", var0:=Operation.SourceName), False
         .Add Now
         .Spacer
         .Flush
@@ -1316,6 +1324,8 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
         .Add T("VCS Version {0}", var0:=GetVCSVersion)
         .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
         .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
+        ' Log operation source (file only, not console)
+        If Len(Operation.SourceName) > 0 Then .Add T("Source: {0}", var0:=Operation.SourceName), False
         .Add Now
         .Spacer
         .Add T("Importing {0}...", var0:=strName)
@@ -1482,6 +1492,8 @@ Public Sub MergeAllSource()
         .Add T("VCS Version {0}", var0:=GetVCSVersion)
         .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
         .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
+        ' Log operation source (file only, not console)
+        If Len(Operation.SourceName) > 0 Then .Add T("Source: {0}", var0:=Operation.SourceName), False
         .Add Now
         .Spacer
         .Add T("Scanning source files...")

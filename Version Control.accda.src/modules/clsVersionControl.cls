@@ -588,35 +588,35 @@ End Function
 '
 Public Function CompileVBA(Optional blnSuppressWarnings As Boolean = False) As Boolean
     On Error GoTo ErrHandler
-    
+
     Dim blnCompiledAfter As Boolean
-    
+
     ' Suppress warnings if requested (we'll restore them in cleanup)
     If blnSuppressWarnings Then
         DoCmd.SetWarnings False
     End If
-    
+
     ' Make sure we are running this in the CurrentDB, not the CodeDB
     Set VBE.ActiveVBProject = CurrentVBProject
-    
+
     ' Compile all modules
     DoCmd.RunCommand acCmdCompileAllModules
     DoEvents
-    
+
     ' Check if compilation succeeded by checking IsCompiled
     On Error Resume Next
     blnCompiledAfter = Application.IsCompiled
     On Error GoTo ErrHandler
-    
+
     ' Restore warnings if we suppressed them
     If blnSuppressWarnings Then
         DoCmd.SetWarnings True
     End If
-    
+
     ' Return True if compiled, False if not
     CompileVBA = blnCompiledAfter
     Exit Function
-    
+
 ErrHandler:
     ' Always restore warnings if we suppressed them, even on error
     If blnSuppressWarnings Then
@@ -624,7 +624,7 @@ ErrHandler:
         DoCmd.SetWarnings True
         On Error GoTo 0
     End If
-    
+
     ' Return False on any error
     CompileVBA = False
 End Function

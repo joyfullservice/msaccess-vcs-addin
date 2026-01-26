@@ -52,6 +52,7 @@ Public HashAlgorithm As String
 Public UseShortHash As Boolean
 Public BreakOnError As Boolean
 Public PreserveRubberDuckID As Boolean
+Public MaxLogFiles As Long              ' Default: 20 (per operation type), 0 = keep all
 
 ' Enum to compare loaded version to installed version.
 Public Enum eVersionCompare
@@ -99,6 +100,7 @@ Public Sub LoadDefaults()
         .ShowVCSLegacy = True
         .HashAlgorithm = DefaultHashAlgorithm
         .UseShortHash = True
+        .MaxLogFiles = 20
 
         ' Table data export
         Set .TablesToExportData = New Dictionary
@@ -775,6 +777,7 @@ Private Sub Class_Initialize()
         .Add "UseShortHash"
         .Add "BreakOnError"
         .Add "PreserveRubberDuckID"
+        .Add "MaxLogFiles"
     End With
 
     ' Load default values

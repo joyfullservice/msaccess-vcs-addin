@@ -26,6 +26,19 @@ Private m_RichText As TextBox   ' Text box to display HTML
 Private m_Prog As clsLblProg    ' Progress bar
 Private m_blnProgressActive As Boolean
 Private m_sngLastUpdate As Single
+Private m_OperationId As String ' Timestamp with milliseconds: "20260126_153042_847"
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OperationId
+' Author    : Adam Waller
+' Date      : 1/26/2026
+' Purpose   : Return the unique operation ID (timestamp with milliseconds)
+'---------------------------------------------------------------------------------------
+'
+Public Property Get OperationId() As String
+    OperationId = m_OperationId
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -116,6 +129,11 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
         If m_sngLastUpdate + 1 < Timer Then
             Me.Flush
             m_sngLastUpdate = Timer
+        End If
+
+        ' Send to MCP if active (plain text, no HTML)
+        If MCP.IsActive Then
+            MCP.PostCallback "log", -1, -1, strText
         End If
     End If
 
@@ -289,8 +307,25 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Sub SaveFile(Optional strAlternatePath As String)
-    If Len(strAlternatePath) Then VerifyPath strAlternatePath
-    WriteFile m_Log.GetStr, Nz2(strAlternatePath, Me.LogFilePath)
+    Dim strPath As String
+    Dim strBase As String
+    
+    strPath = Nz2(strAlternatePath, Me.LogFilePath)
+    
+    ' Ensure logs folder exists
+    VerifyPath strPath
+    
+    ' Write log file (unique filename per operation)
+    WriteFile m_Log.GetStr, strPath
+    
+    ' Cleanup old logs beyond MaxLogFiles
+    Select Case Operation.OperationType
+        Case eotExport: strBase = "Export"
+        Case eotBuild:  strBase = "Build"
+        Case eotMerge:  strBase = "Merge"
+        Case Else:      strBase = "Other"
+    End Select
+    CleanupOldLogs FSO.GetParentFolderName(strPath), strBase, Options.MaxLogFiles
 End Sub
 
 
@@ -302,14 +337,18 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Property Get LogFilePath() As String
-    Dim strFile As String
+    Dim strBase As String
+    Dim strFolder As String
     Select Case Operation.OperationType
-        Case eotExport: strFile = "Export.log"
-        Case eotBuild:  strFile = "Build.log"
-        Case eotMerge:  strFile = "Merge.log"
-        Case Else:      strFile = "Other.log"
+        Case eotExport: strBase = "Export"
+        Case eotBuild:  strBase = "Build"
+        Case eotMerge:  strBase = "Merge"
+        Case Else:      strBase = "Other"
     End Select
-    LogFilePath = FSO.BuildPath(Nz2(Me.SourcePath, Options.GetExportFolder), strFile)
+    ' Use logs subfolder with unique operation ID in filename
+    ' e.g., Export_20260126_153042_847.log
+    strFolder = FSO.BuildPath(Nz2(Me.SourcePath, Options.GetExportFolder), "logs")
+    LogFilePath = FSO.BuildPath(strFolder, strBase & "_" & m_OperationId & ".log")
 End Property
 
 
@@ -327,6 +366,8 @@ Private Sub Class_Initialize()
     m_sngLastUpdate = 0
     Me.PadLength = 30
     Me.Active = False
+    ' Generate timestamp-based operation ID with millisecond precision
+    m_OperationId = Format$(Now, "yyyymmdd\_hhnnss") & "_" & Format$((Timer * 1000) Mod 1000, "000")
 End Sub
 
 
@@ -377,5 +418,65 @@ Public Sub Increment()
     ' Status is now active
     m_blnProgressActive = True
     Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Progress
+' Author    : Adam Waller
+' Date      : 1/26/2026
+' Purpose   : Send progress update to console progress bar and MCP.
+'---------------------------------------------------------------------------------------
+'
+Public Sub Progress(lngCurrent As Long, lngTotal As Long, _
+    Optional strMessage As String = vbNullString)
+
+    ' Update console progress bar
+    If Not m_Prog Is Nothing Then
+        m_Prog.Max = lngTotal
+        m_Prog.Value = lngCurrent
+    End If
+
+    ' Send to MCP if active
+    If MCP.IsActive Then
+        MCP.PostCallback "progress", lngCurrent, lngTotal, strMessage
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CleanupOldLogs
+' Author    : Adam Waller
+' Date      : 1/26/2026
+' Purpose   : Delete oldest log files when count exceeds maximum.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CleanupOldLogs(strFolder As String, strBase As String, lngMaxFiles As Long)
+
+    Dim oFolder As Object
+    Dim oFile As Object
+    Dim colFiles As Collection
+
+    ' 0 = keep all logs (no cleanup)
+    If lngMaxFiles <= 0 Then Exit Sub
+
+    Set colFiles = New Collection
+    Set oFolder = FSO.GetFolder(strFolder)
+
+    ' Collect matching archived log files
+    ' (Timestamp naming means alphabetical sort = chronological sort)
+    For Each oFile In oFolder.Files
+        If oFile.Name Like strBase & "_*.log" Then
+            colFiles.Add oFile.Path
+        End If
+    Next oFile
+
+    ' Delete oldest files if over limit
+    Do While colFiles.Count > lngMaxFiles
+        FSO.DeleteFile colFiles(1)
+        colFiles.Remove 1
+    Loop
 
 End Sub

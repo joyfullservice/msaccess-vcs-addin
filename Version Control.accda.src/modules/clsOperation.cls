@@ -29,6 +29,7 @@ Public Heartbeat As Date
 Public OperationType As eOperationType
 Public ErrorLevel As eErrorLevel
 Public Result As eOperationResult
+Public Source As eOperationSource     ' Default: eosUserInterface (0)
 
 
 ' Use a private type to manage local variables
@@ -169,6 +170,23 @@ Public Property Get Status() As eOperationState
         End If
     End If
     Status = this.State
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SourceName
+' Author    : Adam Waller
+' Date      : 1/26/2026
+' Purpose   : Return the display name for the operation source. Returns empty string
+'           : for UI operations (the default) since we don't need to log that.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SourceName() As String
+    Select Case Me.Source
+        Case eosMCPTool:     SourceName = "MCP Tool"
+        Case eosExternalAPI: SourceName = "External API"
+        ' eosUserInterface: return empty string (default case, no output needed)
+    End Select
 End Property
 
 
