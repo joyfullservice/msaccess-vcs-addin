@@ -8,7 +8,9 @@
 # Database lock files
 *.laccdb
 
-# Comment out the following line if you wish to include the log files in git.
+# Ignore VCS log files (stored in logs/ subfolder of source folder)
+# Comment out the following lines if you wish to include log files in git.
+logs/
 *.log
 
 # The local VCS index file is paired with the database and should not
