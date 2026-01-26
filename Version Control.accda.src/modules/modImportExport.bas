@@ -30,6 +30,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Dim cCategory As IDbComponent
     Dim cDbObject As IDbComponent
     Dim lngCount As Long
+    Dim lngCurrent As Long
     Dim strTempFile As String
 
     ' Use inline error handling functions to trap and log errors.
@@ -211,15 +212,17 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             ' Show category header and clear out any orphaned files.
             Log.Spacer Options.ShowDebug
             Log.PadRight T("Exporting {0}...", var0:=T(LCase(cCategory.Category))), , Options.ShowDebug
-            Log.ProgMax = lngCount
             Perf.CategoryStart cCategory.Category
+            lngCurrent = 0
 
             ' Loop through each object in this category.
             For Each varKey In dObjects.Keys
 
                 ' Export object
+                lngCurrent = lngCurrent + 1
                 Set cDbObject = dObjects(varKey)
                 Log.Add "  " & cDbObject.Name, Options.ShowDebug
+                Log.Progress lngCurrent, lngCount, cDbObject.Name
                 Operation.Pulse
 
                 ' If we have already exported this object while scanning for changes, use that copy.
@@ -237,7 +240,6 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 ' Bail out if we hit a critical error.
                 CatchAny eelError, T("Error exporting {0}", var0:=cDbObject.Name), ModuleName & ".ExportSource", True, True
                 If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
-                Log.Increment
 
                 ' Some kinds of objects are combined into a single export file, such
                 ' as database properties. For these, we just need to run the export once.
@@ -792,6 +794,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     Dim varFile As Variant
     Dim strType As String
     Dim blnSuccess As Boolean
+    Dim lngCount As Long
+    Dim lngCurrent As Long
 
     Dim strText As String   ' Remove later
 
@@ -1110,14 +1114,16 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         Log.Spacer Options.ShowDebug
         Log.PadRight T(IIf(blnFullBuild, "Importing {0}...", "Merging {0}..."), _
             var0:=T(LCase(cCategory.Category))), , Options.ShowDebug
-        Log.ProgMax = dFiles.Count
         Perf.CategoryStart cCategory.Category
+        lngCount = dFiles.Count
+        lngCurrent = 0
 
         ' Loop through each file in this category.
         For Each varFile In dFiles.Keys
             ' Import/merge the file
-            Log.Increment
+            lngCurrent = lngCurrent + 1
             Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+            Log.Progress lngCurrent, lngCount, FSO.GetFileName(varFile)
             Operation.Pulse
             If blnFullBuild Then
                 cCategory.Import CStr(varFile)
@@ -1464,6 +1470,8 @@ Public Sub MergeAllSource()
     Dim varCategory As Variant
     Dim dFiles As Dictionary
     Dim varFile As Variant
+    Dim lngCount As Long
+    Dim lngCurrent As Long
 
     ' Use inline error handling functions to trap and log errors.
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -1540,14 +1548,16 @@ Public Sub MergeAllSource()
             ' Show category header
             Log.Spacer Options.ShowDebug
             Log.PadRight T("Merging ") & LCase(cCategory.Category) & "...", , Options.ShowDebug
-            Log.ProgMax = dFiles.Count
             Perf.CategoryStart cCategory.Category
+            lngCount = dFiles.Count
+            lngCurrent = 0
 
             ' Loop through each file in this category.
             For Each varFile In dFiles.Keys
                 ' Import/merge the file
-                Log.Increment
+                lngCurrent = lngCurrent + 1
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+                Log.Progress lngCurrent, lngCount, FSO.GetFileName(varFile)
                 Operation.Pulse
                 cCategory.Merge CStr(varFile)
                 CatchAny eelError, T("Merge error in: {0}", var0:=varFile), ModuleName & ".MergeAllSource", True, True
@@ -1822,7 +1832,8 @@ Public Sub InitializeForms(dContainers As Dictionary)
 
         ' Get reference to forms container
         Set dFiles = dContainers(cAllForms.Category)("Files")
-        Log.ProgMax = dFiles.Count
+        lngCount = dFiles.Count
+        lngCurrent = 0
 
         ' Loop through the forms in the current database
         Set dAllForms = cAllForms.GetAllFromDB
@@ -1831,6 +1842,7 @@ Public Sub InitializeForms(dContainers As Dictionary)
             ' See if this form matches one of the files we just imported
             Set frm = dAllForms(varKey)
             If dFiles.Exists(frm.SourceFile) Then
+                lngCurrent = lngCurrent + 1
 
                 ' Don't attempt to initialize add-in main form
                 ' (Likely not needed, and would require staging)
@@ -1839,6 +1851,7 @@ Public Sub InitializeForms(dContainers As Dictionary)
                     ' Open the form in design view to initialize layout, colors and theme
                     Perf.OperationStart "Initialize Forms"
                     Log.Add "  " & frm.Name, Options.ShowDebug
+                    Log.Progress lngCurrent, lngCount, frm.Name
                     If blnIsAddin Then
                         OpenFormInCurrentDb frm.Name, acDesign, , , , acHidden
                     Else
@@ -1851,7 +1864,6 @@ Public Sub InitializeForms(dContainers As Dictionary)
                     DoCmd.Close acForm, frm.Name, acSaveYes
                     Perf.OperationEnd
                 End If
-                Log.Increment
 
                 ' Log any errors
                 CatchAny eelError, T("Error while initializing form {0}", var0:=frm.Name), ModuleName & ".InitializeForms"
