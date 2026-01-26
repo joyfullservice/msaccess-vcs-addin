@@ -1818,6 +1818,8 @@ Public Sub InitializeForms(dContainers As Dictionary)
     Dim cAllForms As IDbComponent
     Dim varKey As Variant
     Dim blnIsAddin As Boolean
+    Dim lngCount As Long
+    Dim lngCurrent As Long
 
     ' Trap any errors that may occur when opening forms
     LogUnhandledErrors
