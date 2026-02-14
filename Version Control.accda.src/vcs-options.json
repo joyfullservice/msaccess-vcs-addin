@@ -1,13 +1,14 @@
 ﻿{
   "Info": {
-    "AddinVersion": "4.1.4",
-    "AccessVersion": "14.0 32-bit"
+    "AddinVersion": "4.1.6",
+    "AccessVersion": "16.0 64-bit"
   },
   "Options": {
     "ExportFolder": "",
     "ShowDebug": false,
     "UseFastSave": true,
     "UseMergeBuild": false,
+    "ExportAfterMerge": false,
     "UseGitIntegration": false,
     "SavePrintVars": true,
     "ExportPrintSettings": {
@@ -62,6 +63,7 @@
     "HashAlgorithm": "SHA256",
     "UseShortHash": true,
     "BreakOnError": true,
-    "PreserveRubberDuckID": false
+    "PreserveRubberDuckID": false,
+    "MaxLogFiles": 20
   }
 }

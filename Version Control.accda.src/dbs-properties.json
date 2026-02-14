@@ -41,7 +41,7 @@
       "Type": 10
     },
     "AppVersion": {
-      "Value": "4.1.5",
+      "Value": "4.1.6",
       "Type": 10
     },
     "Auto Compact": {
@@ -74,6 +74,10 @@
     },
     "Continuous Form Navigation Keys": {
       "Value": 0,
+      "Type": 4
+    },
+    "Default Zoom Level": {
+      "Value": 100,
       "Type": 4
     },
     "DesignMasterID": {
@@ -109,7 +113,7 @@
       "Type": 4
     },
     "NavPane Width": {
-      "Value": 215,
+      "Value": 421,
       "Type": 4
     },
     "Never Cache": {

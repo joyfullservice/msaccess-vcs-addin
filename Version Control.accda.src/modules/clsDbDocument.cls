@@ -236,17 +236,15 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
                                 Case Else
                                     blnSave = True
                             End Select
+                        Case "MSysDB"
+                            ' Skip database properties, since we are using another class to track those.
                         Case Else
-                            ' For other documents, use the whitelist approach, primarily
-                            ' gathering navigation pane item descriptions and hidden status.
-                            Select Case prp.Name
-                                Case "Description"
-                                    blnSave = True
-                            End Select
+                            ' No other documents expected here, but just in case
+                            blnSave = True
                     End Select
                 Else
                     ' For documents in other containers, use the whitelist approach, primarily
-                    ' gathering navigation pane item descriptions and hidden status.
+                    ' gathering navigation pane item descriptions.
                     Select Case prp.Name
                         Case "Description"
                             blnSave = True
