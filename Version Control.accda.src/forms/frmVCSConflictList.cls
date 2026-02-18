@@ -54,8 +54,8 @@ Private Sub txtDiff_Click()
                     If cCont.SingleFile Then
                         Set cItem = cCont
                     Else
-                        If dItems.Exists(strFileName) Then
-                            Set cItem = dItems(strFileName)
+                        If dItems.Exists(strSourceFile) Then
+                            Set cItem = dItems(strSourceFile)
                         End If
                     End If
                     ' Build new export file name and export
