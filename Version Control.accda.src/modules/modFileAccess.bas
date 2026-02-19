@@ -218,6 +218,67 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : AppendToFile
+' Author    : Adam Waller
+' Date      : 2/19/2026
+' Purpose   : Append string to an existing text file, or create a new one if it
+'           : doesn't exist. Maintains encoding consistency with WriteFile.
+'---------------------------------------------------------------------------------------
+'
+Public Sub AppendToFile(strText As String, strPath As String, Optional strEncoding As String = "utf-8")
+
+    Dim bteAppend() As Byte
+
+    ' If the file doesn't exist yet, delegate to WriteFile
+    If Not FSO.FileExists(strPath) Then
+        WriteFile strText, strPath, strEncoding
+        Exit Sub
+    End If
+
+    Perf.OperationStart "Append File"
+
+    ' Encode the new text into a temporary stream
+    With New ADODB.Stream
+        .Type = adTypeText
+        .Open
+        .Charset = strEncoding
+        .WriteText strText
+        If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
+
+        ' Switch to binary and skip the BOM so we don't inject it mid-file
+        .Position = 0
+        .Type = adTypeBinary
+        If LCase(strEncoding) = "utf-8" Then .Position = 3
+        bteAppend = .Read
+        .Close
+    End With
+
+    ' Load the existing file as binary and append the new bytes
+    With New ADODB.Stream
+        .Type = adTypeBinary
+        .Open
+
+        LogUnhandledErrors
+        On Error Resume Next
+        .LoadFromFile strPath
+        .Position = .Size
+        .Write bteAppend
+        .SaveToFile strPath, adSaveCreateOverWrite
+        If Catch(3004) Then
+            Err.Clear
+            Pause 1
+            .SaveToFile strPath, adSaveCreateOverWrite
+        End If
+        CatchAny eelError, "Error appending to file: " & strPath, ModuleName & ".AppendToFile"
+        .Close
+    End With
+
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetFileBytes
 ' Author    : Adam Waller
 ' Date      : 7/31/2020

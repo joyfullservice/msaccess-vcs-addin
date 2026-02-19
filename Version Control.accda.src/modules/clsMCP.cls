@@ -48,7 +48,7 @@ Public Sub RegisterCallback(strCallbackInfo As String)
     strJson = Trim(strCallbackInfo)
     MCPDebugLog "clsMCP.RegisterCallback: Input length=" & Len(strJson)
     If Len(strJson) = 0 Then
-        MCPDebugLog "clsMCP.RegisterCallback: Empty input, setting IsActive=False"
+        If this.IsActive Then MCPDebugLog "clsMCP.RegisterCallback: Empty input, setting IsActive=False"
         this.IsActive = False
         Exit Sub
     End If

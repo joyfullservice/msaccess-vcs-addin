@@ -504,8 +504,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub MCPDebugLog(strMessage As String)
-    On Error Resume Next
-    Dim intFile As Integer
+
+    ' No logging unless MCP is active
+    If Not MCP.IsActive Then Exit Sub
 
     ' Initialize log path if needed
     If m_strMCPDebugLogPath = vbNullString Then
@@ -513,8 +514,6 @@ Public Sub MCPDebugLog(strMessage As String)
     End If
 
     ' Append to log file
-    intFile = FreeFile
-    Open m_strMCPDebugLogPath For Append As #intFile
-    Print #intFile, Format$(Now, "yyyy-mm-dd hh:nn:ss") & " | " & strMessage
-    Close #intFile
+    AppendToFile Format$(Now, "yyyy-mm-dd hh:nn:ss") & " | " & strMessage, m_strMCPDebugLogPath
+
 End Sub
