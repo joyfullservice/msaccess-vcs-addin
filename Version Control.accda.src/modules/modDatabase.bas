@@ -884,3 +884,16 @@ Public Function GetAvailableConnectionCount()
     GetAvailableConnectionCount = intCnt
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsMDE
+' Author    : Adam Waller
+' Date      : 3/5/2026
+' Purpose   : Returns True if the current database is a compiled MDE/ACCDE file.
+'           : These files do not contain the original VBA source code.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsMDE() As Boolean
+    IsMDE = (GetDBProperty("MDE") = "T")
+End Function

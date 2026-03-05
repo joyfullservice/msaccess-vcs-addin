@@ -77,11 +77,17 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
     End With
 
-    ' Check VBE Project protection
+    ' Check VBE project access
     If CurrentVBProject.Protection = vbext_pp_locked Then
-        MsgBox2 T("Project Locked"), _
-            T("Project is protected with a password."), _
-            T("Please unlock the project before using this tool."), vbExclamation
+        If IsMDE Then
+            MsgBox2 T("Compiled Database"), _
+                T("The current database is a compiled MDE/ACCDE file and does not contain the original VBA source code."), _
+                T("Please use the original uncompiled .accdb file instead."), vbExclamation
+        Else
+            MsgBox2 T("Project Locked"), _
+                T("Project is protected with a password."), _
+                T("Please unlock the project before using this tool."), vbExclamation
+        End If
         Log.Spacer
         Log.Add T("Export Canceled"), , , "Red", True
         Log.Flush
@@ -1511,11 +1517,17 @@ Public Sub MergeAllSource()
         .Flush
     End With
 
-    ' Check VBE Project protection
+    ' Check VBE project access
     If CurrentVBProject.Protection = vbext_pp_locked Then
-        MsgBox2 T("Project Locked"), _
-            T("Project is protected with a password."), _
-            T("Please unlock the project before using this tool."), vbExclamation
+        If IsMDE Then
+            MsgBox2 T("Compiled Database"), _
+                T("The current database is a compiled MDE/ACCDE file and does not contain the original VBA source code."), _
+                T("Please use the original uncompiled .accdb file instead."), vbExclamation
+        Else
+            MsgBox2 T("Project Locked"), _
+                T("Project is protected with a password."), _
+                T("Please unlock the project before using this tool."), vbExclamation
+        End If
         Log.Spacer
         Log.Add T("Merge Canceled"), , , "Red", True
         Log.Flush
