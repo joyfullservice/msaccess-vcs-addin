@@ -264,6 +264,15 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             End If
             'Log.Flush  ' Gives smoother output, but slows down export.
             Perf.CategoryEnd lngCount
+
+            ' During fast save, log how many unchanged objects were skipped
+            If Not blnFullExport Then
+                Dim lngSkipped As Long
+                lngSkipped = cCategory.QuickCount - lngCount
+                If lngSkipped > 0 Then
+                    Log.Add T("  Skipped {0} unchanged {1}", var0:=lngSkipped, var1:=LCase(cCategory.Category)), Options.ShowDebug
+                End If
+            End If
         End If
 
     Next varCatKey

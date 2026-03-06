@@ -135,8 +135,9 @@ Begin Form
             GridlineShade =65.0
         End
         Begin Tab
+            TextFontFamily =18
             FontSize =11
-            FontName ="Calibri"
+            FontName ="Cambria"
             ThemeFontIndex =0
             GridlineThemeColorIndex =1
             GridlineShade =65.0
@@ -779,7 +780,6 @@ Begin Form
                 End
                 Begin Tab
                     OverlapFlags =95
-                    TextFontFamily =18
                     Left =225
                     Top =1200
                     Width =6750
@@ -787,7 +787,6 @@ Begin Form
                     FontSize =8
                     TabIndex =3
                     Name ="tabInstallType"
-                    FontName ="Cambria"
 
                     LayoutCachedLeft =225
                     LayoutCachedTop =1200

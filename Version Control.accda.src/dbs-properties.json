@@ -41,7 +41,7 @@
       "Type": 10
     },
     "AppVersion": {
-      "Value": "4.1.7",
+      "Value": "5.0.0",
       "Type": 10
     },
     "Auto Compact": {
@@ -113,7 +113,7 @@
       "Type": 4
     },
     "NavPane Width": {
-      "Value": 421,
+      "Value": 215,
       "Type": 4
     },
     "Never Cache": {

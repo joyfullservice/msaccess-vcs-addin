@@ -177,8 +177,9 @@ Begin Form
             GridlineShade =65.0
         End
         Begin Tab
+            TextFontFamily =18
             FontSize =11
-            FontName ="Calibri"
+            FontName ="Cambria"
             ThemeFontIndex =0
             GridlineThemeColorIndex =1
             GridlineShade =65.0

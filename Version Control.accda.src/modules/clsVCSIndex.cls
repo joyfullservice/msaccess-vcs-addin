@@ -240,6 +240,14 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
                 .Item("ImportDate") = dteDateTime
         End Select
 
+        ' Save the object's DateModified for accurate change detection.
+        ' Components that don't track DateModified return 0; skip those.
+        Dim dteObjectDate As Date
+        dteObjectDate = cItem.DateModified
+        If dteObjectDate <> 0 Then
+            .Item("ObjectDate") = CStr(dteObjectDate)
+        End If
+
         ' Save timestamp of exported source file.
         dteDateTime = GetSourceModifiedDate(cItem, cItem.SourceFile)
         .Item("SourceModified") = ZNDate(dteDateTime)
@@ -382,6 +390,7 @@ Private Function LoadItem(cItem As IDbComponent, strSourceFile As String, strSec
             .FilePropertiesHash = dNZ(dItem, "FilePropertiesHash")
             .FileHash = dNZ(dItem, "FileHash")
             .OtherHash = dNZ(dItem, "OtherHash")
+            .ObjectDate = Nz2(dNZ(dItem, "ObjectDate"), 0)
         End With
     End With
 
