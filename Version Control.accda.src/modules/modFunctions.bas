@@ -651,6 +651,21 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : DateTruncToSeconds
+' Author    : Adam Waller
+' Date      : 3/9/2026
+' Purpose   : Truncate a Date value to whole seconds, removing any sub-second
+'           : precision from the underlying Double. Access DateModified values
+'           : may carry fractional seconds that don't survive serialization.
+'---------------------------------------------------------------------------------------
+'
+Public Function DateTruncToSeconds(dteValue As Date) As Date
+    If dteValue = 0 Then Exit Function
+    DateTruncToSeconds = CDate(Fix(CDbl(dteValue) * 86400#) / 86400#)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ZNDate
 ' Author    : Adam Waller
 ' Date      : 12/4/2020

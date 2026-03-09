@@ -241,11 +241,12 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         End Select
 
         ' Save the object's DateModified for accurate change detection.
-        ' Components that don't track DateModified return 0; skip those.
+        ' Truncate to seconds since serialization cannot preserve sub-second
+        ' precision, and Access DateModified may carry fractional seconds.
         Dim dteObjectDate As Date
-        dteObjectDate = cItem.DateModified
+        dteObjectDate = DateTruncToSeconds(cItem.DateModified)
         If dteObjectDate <> 0 Then
-            .Item("ObjectDate") = CStr(dteObjectDate)
+            .Item("ObjectDate") = dteObjectDate
         End If
 
         ' Save timestamp of exported source file.
@@ -390,7 +391,7 @@ Private Function LoadItem(cItem As IDbComponent, strSourceFile As String, strSec
             .FilePropertiesHash = dNZ(dItem, "FilePropertiesHash")
             .FileHash = dNZ(dItem, "FileHash")
             .OtherHash = dNZ(dItem, "OtherHash")
-            .ObjectDate = Nz2(dNZ(dItem, "ObjectDate"), 0)
+            If dItem.Exists("ObjectDate") Then .ObjectDate = dItem("ObjectDate")
         End With
     End With
 

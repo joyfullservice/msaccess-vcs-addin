@@ -158,7 +158,7 @@ Public Function IDbComponent_IsModified() As Boolean
 
     ' Check the modified date first.
     ' (This may not reflect some code changes)
-    If m_Report.DateModified = VCSIndex.Item(Me).ObjectDate Then
+    If DateTruncToSeconds(m_Report.DateModified) = VCSIndex.Item(Me).ObjectDate Then
 
         ' Date is okay, check hash
         IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)

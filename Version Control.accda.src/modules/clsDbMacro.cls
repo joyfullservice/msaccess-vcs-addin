@@ -149,7 +149,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
-    IDbComponent_IsModified = (m_Macro.DateModified <> VCSIndex.Item(Me).ObjectDate)
+    IDbComponent_IsModified = (DateTruncToSeconds(m_Macro.DateModified) <> VCSIndex.Item(Me).ObjectDate)
 End Function
 
 

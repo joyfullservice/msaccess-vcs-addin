@@ -92,7 +92,7 @@ Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Dat
         .ItemKey = strKey
         .SingleFile = cComponent.SingleFile
         .FileName = Nz2(strSourceFile, cComponent.SourceFile)
-        .ObjectDate = cComponent.DateModified
+        .ObjectDate = DateTruncToSeconds(cComponent.DateModified)
         .IndexDate = dteIndexDate
         .FileDate = dteFileDate
         .ActionType = intActionType
