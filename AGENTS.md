@@ -296,6 +296,17 @@ eotOther = 4   ' Other operations
 - Import logic: `modImportExport.Build()`
 - Single object operations: Individual `clsDb*.Export()` and `clsDb*.Import()` methods
 
+**Export Format Versioning:** Any change that alters the content or structure of exported source files (sanitization rules, property stripping, file layout, JSON structure, etc.) **must** be gated behind an export format version check. This allows users to upgrade the add-in without being forced to adopt new export formatting until they choose to.
+
+How to gate a new export behavior change:
+
+1. Add a new member to the `eExportFormatVersion` enum in `modConstants.bas` (e.g., `EFV_5_1_0 = 50100`) and update `[_Last]`
+2. Wrap the new behavior: `If Options.ExportFormatVersion >= EFV_5_1_0 Then`
+
+`LATEST_EXPORT_FORMAT` is derived automatically from `eExportFormatVersion.[_Last]`.
+
+Import logic does **not** need gating — it must remain backwards compatible with all prior export formats.
+
 ### Adding Options
 
 1. Add public property to `clsOptions`

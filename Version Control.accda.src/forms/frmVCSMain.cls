@@ -380,6 +380,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : lblFormatUpdate_Click
+' Author    : Adam Waller
+' Date      : 3/6/2026
+' Purpose   : Open options dialog when user clicks the format update notification.
+'---------------------------------------------------------------------------------------
+'
+Private Sub lblFormatUpdate_Click()
+    cmdOptions_Click
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Form_Load
 ' Author    : Adam Waller
 ' Date      : 4/15/2020
@@ -424,6 +436,12 @@ Public Sub Form_Load()
             chkFullBuild.Enabled = False
         End If
     End If
+
+    ' Show notification if a newer export format version is available
+    On Error Resume Next
+    cmdFormatUpdate.Visible = DatabaseFileOpen And _
+        (Options.ExportFormatVersion < LATEST_EXPORT_FORMAT)
+    On Error GoTo 0
 
     ' Set caption on build button
     SetBuildCaption

@@ -67,6 +67,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         .Add T("Beginning Export of Source Files"), False
         .Add CurrentProject.Name
         .Add T("VCS Version {0}", var0:=GetVCSVersion)
+        .Add T("Export Format: {0}", var0:=ExportFormatToVersion(Options.ExportFormatVersion))
         .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
         .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
         ' Log operation source (file only, not console)
@@ -114,6 +115,13 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Case evcOlderVersion
             Log.Add T("Updated VCS ({0} -> {1})", var0:=Options.GetLoadedVersion, var1:=GetVCSVersion), , , "blue"
     End Select
+
+    ' Notify about newer export format version
+    If Options.ExportFormatVersion < LATEST_EXPORT_FORMAT Then
+        Log.Add T("Note: Export format {0} is available (currently using {1}). Update via Options > Export when ready.", _
+            var0:=ExportFormatToVersion(LATEST_EXPORT_FORMAT), _
+            var1:=ExportFormatToVersion(Options.ExportFormatVersion)), , , "blue"
+    End If
 
     ' Perform any needed upgrades to source files
     If blnFullExport Then UpgradeSourceFiles

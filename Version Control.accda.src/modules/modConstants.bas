@@ -186,6 +186,16 @@ End Enum
 ' Used for handling custom built-in command bar controls. See clsDbCommandBar for details.
 Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinCommandBarTemplate"
 
+' Export format versions using packed integers (Major * 10000 + Minor * 100 + Patch)
+' Used to gate export behavior changes so users can upgrade on their own schedule.
+Public Enum eExportFormatVersion
+    EFV_4_1_2 = 40102
+    EFV_5_0_0 = 50000
+    [_Last] = 50000
+End Enum
+
+Public Const LATEST_EXPORT_FORMAT As Long = eExportFormatVersion.[_Last]
+
 ' Used for ImportCommandBars function; negative/zero result should be treated as an error.
 Public Enum eImportCommandBarsResult
     eicImportedNotVerified = -1

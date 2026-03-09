@@ -64,6 +64,7 @@
     "UseShortHash": true,
     "BreakOnError": true,
     "PreserveRubberDuckID": false,
-    "MaxLogFiles": 20
+    "MaxLogFiles": 20,
+    "ExportFormatVersion": "5.0.0"
   }
 }

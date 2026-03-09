@@ -726,6 +726,22 @@ Private Sub Form_Load()
         Next intSanitizeLevel
     End With
 
+    ' Load export format version options
+    Dim lngFormat As eExportFormatVersion
+    With Me.cboExportFormatVersion
+        .RowSource = vbNullString
+        For lngFormat = EFV_4_1_2 To eExportFormatVersion.[_Last]
+            Select Case lngFormat
+                Case EFV_4_1_2, EFV_5_0_0
+                    If lngFormat = LATEST_EXPORT_FORMAT Then
+                        .AddItem lngFormat & ";" & ExportFormatToVersion(lngFormat) & " (latest)"
+                    Else
+                        .AddItem lngFormat & ";" & ExportFormatToVersion(lngFormat)
+                    End If
+            End Select
+        Next lngFormat
+    End With
+
     ' Load language options
     With Translation
         cboLanguage = .Language

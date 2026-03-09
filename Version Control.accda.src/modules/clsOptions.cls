@@ -53,6 +53,7 @@ Public UseShortHash As Boolean
 Public BreakOnError As Boolean
 Public PreserveRubberDuckID As Boolean
 Public MaxLogFiles As Long              ' Default: 20 (per operation type), 0 = keep all
+Public ExportFormatVersion As Long      ' Packed integer from eExportFormatVersion enum
 
 ' Enum to compare loaded version to installed version.
 Public Enum eVersionCompare
@@ -101,6 +102,7 @@ Public Sub LoadDefaults()
         .HashAlgorithm = DefaultHashAlgorithm
         .UseShortHash = True
         .MaxLogFiles = 20
+        .ExportFormatVersion = LATEST_EXPORT_FORMAT
 
         ' Table data export
         Set .TablesToExportData = New Dictionary
@@ -265,6 +267,8 @@ Public Sub LoadOptionsFromFile(strFile As String)
                             Set Me.TablesToExportData = CloneDictionary(dOptions(strKey), ecmTextCompare)
                         Case "SchemaExports"
                             Set Me.SchemaExports = CloneDictionary(dOptions(strKey), ecmTextCompare)
+                        Case "ExportFormatVersion"
+                            Me.ExportFormatVersion = VersionToExportFormat(CStr(dOptions(strKey)))
                         Case Else
                             ' Regular top-level properties
                             CallByName Me, strKey, VbLet, dOptions(strKey)
@@ -422,6 +426,14 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
         If dOptions("SanitizeLevel") = eSanitizeLevel.eslNone Then
             dOptions("SanitizeLevel") = eSanitizeLevel.eslMinimal
         End If
+    End If
+
+    ' 3/2026 (5.0.0)
+    ' Existing projects without an export format version default to the
+    ' 4.1.2 baseline (last v4 release) so upgrades don't change export output.
+    ' New projects (no options file) get LATEST_EXPORT_FORMAT via LoadDefaults.
+    If Not dOptions.Exists("ExportFormatVersion") Then
+        dOptions.Add "ExportFormatVersion", "4.1.2"
     End If
 
 End Sub
@@ -620,8 +632,12 @@ Private Function SerializeOptions() As Dictionary
 
     ' Loop through options
     For Each varOption In m_colOptions
-        ' Simulate reflection to serialize properties.
-        dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
+        Select Case CStr(varOption)
+            Case "ExportFormatVersion"
+                dOptions.Add CStr(varOption), ExportFormatToVersion(Me.ExportFormatVersion)
+            Case Else
+                dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
+        End Select
     Next varOption
 
     'Set SerializeOptions = new Dictionary
@@ -778,6 +794,7 @@ Private Sub Class_Initialize()
         .Add "BreakOnError"
         .Add "PreserveRubberDuckID"
         .Add "MaxLogFiles"
+        .Add "ExportFormatVersion"
     End With
 
     ' Load default values

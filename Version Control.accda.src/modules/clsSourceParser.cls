@@ -464,7 +464,9 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
 
     ' Normalize form designer viewport coordinates
     If this.intObjectType = edbForm Then
-        If Options.SanitizeLevel > eslMinimal Then NormalizeViewport varLines
+        If Options.SanitizeLevel > eslMinimal Then
+            If Options.ExportFormatVersion >= EFV_5_0_0 Then NormalizeViewport varLines
+        End If
     End If
 
     ' Prepare primary output

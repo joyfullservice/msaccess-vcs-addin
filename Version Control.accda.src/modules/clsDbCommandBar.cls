@@ -413,12 +413,14 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
     End If
 
     ' Remove relative position unless this is a floating command bar
-    If TypeOf objItem Is CommandBar And this.BarPosition = msoBarFloating Then
-        ' Preserve Top and Left position for the floating command bar
-    Else
-        ' Remove cached coordinate positions that will change frequently
-        If dParent.Exists("Left") Then dParent.Remove "Left"
-        If dParent.Exists("Top") Then dParent.Remove "Top"
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        If TypeOf objItem Is CommandBar And this.BarPosition = msoBarFloating Then
+            ' Preserve Top and Left position for the floating command bar
+        Else
+            ' Remove cached coordinate positions that will change frequently
+            If dParent.Exists("Left") Then dParent.Remove "Left"
+            If dParent.Exists("Top") Then dParent.Remove "Top"
+        End If
     End If
 
     ' Return dictionary

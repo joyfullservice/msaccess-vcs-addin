@@ -493,6 +493,38 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : VersionToExportFormat
+' Author    : Adam Waller
+' Date      : 3/6/2026
+' Purpose   : Convert a version string like "4.1.2" to a packed integer (40102).
+'           : Uses Major * 10000 + Minor * 100 + Patch.
+'---------------------------------------------------------------------------------------
+'
+Public Function VersionToExportFormat(strVersion As String) As Long
+
+    Dim varParts As Variant
+
+    varParts = Split(strVersion, ".")
+    If UBound(varParts) = 2 Then
+        VersionToExportFormat = CLng(varParts(0)) * 10000 + CLng(varParts(1)) * 100 + CLng(varParts(2))
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportFormatToVersion
+' Author    : Adam Waller
+' Date      : 3/6/2026
+' Purpose   : Convert a packed integer (40102) back to a version string ("4.1.2").
+'---------------------------------------------------------------------------------------
+'
+Public Function ExportFormatToVersion(lngFormat As Long) As String
+    ExportFormatToVersion = (lngFormat \ 10000) & "." & ((lngFormat \ 100) Mod 100) & "." & (lngFormat Mod 100)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SaveComponentAsText
 ' Author    : Adam Waller
 ' Date      : 4/29/2020
