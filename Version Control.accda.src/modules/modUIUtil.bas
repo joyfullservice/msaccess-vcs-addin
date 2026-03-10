@@ -11,6 +11,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Utility")
 
 ' API calls to change window style
 Private Const GWL_STYLE = -16

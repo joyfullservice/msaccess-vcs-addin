@@ -12,6 +12,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Core")
 
 Private Const ModuleName = "modVbeUtility"
 

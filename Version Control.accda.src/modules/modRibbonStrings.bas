@@ -2,6 +2,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Install")
 
 Private m_dStrings As Dictionary
 

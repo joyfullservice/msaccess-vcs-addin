@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Infrastructure")
 
 Public dParent As Dictionary
 Public ImportDate As Date

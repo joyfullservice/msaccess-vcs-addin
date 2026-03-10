@@ -15,6 +15,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Core")
 
 ' Status to approve and continue.
 Public ApproveResolutions As Boolean

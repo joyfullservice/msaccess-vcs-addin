@@ -46,6 +46,7 @@
 Option Compare Database
 Option Explicit
 Option Private Module
+'@Folder("Lib")
 
 ' === VBA-UTC Headers
 #If Mac Then

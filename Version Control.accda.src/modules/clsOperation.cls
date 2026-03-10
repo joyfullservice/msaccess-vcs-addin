@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Infrastructure")
 
 
 ' This constant determines whether the current operation is still valid or if it is

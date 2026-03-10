@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Components.ADP")
 
 Private m_Function As AccessObject
 Private m_Items(True To False) As Dictionary

@@ -9,6 +9,7 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = True
 Option Compare Database
 Option Explicit
+'@Folder("Infrastructure")
 
 ' See usage in clsPerformance
 Public Start As Currency

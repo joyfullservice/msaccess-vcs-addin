@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Components")
 
 Public Name As String
 Public ID As Long

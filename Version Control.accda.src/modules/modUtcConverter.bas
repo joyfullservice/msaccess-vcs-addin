@@ -19,6 +19,7 @@ Private Const ModuleName As String = "modUtcConverter"
 '' ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ '
 Option Compare Text
 Option Explicit
+'@Folder("Lib")
 
 ' Spec details which make parsing easier, instead of calling and / or doing math every time.
 Private Const TotalHoursInDay As Double = 24

@@ -8,6 +8,7 @@
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Utility")
 
 Private Const ModuleName = "modUIAutomation"
 

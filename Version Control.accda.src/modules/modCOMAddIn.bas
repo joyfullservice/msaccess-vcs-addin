@@ -9,6 +9,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Install")
 
 Private Const ModuleName As String = "modComAddIn"
 

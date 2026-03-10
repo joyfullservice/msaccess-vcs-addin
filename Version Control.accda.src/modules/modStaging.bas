@@ -10,6 +10,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Core")
 
 
 Private Type udtThis

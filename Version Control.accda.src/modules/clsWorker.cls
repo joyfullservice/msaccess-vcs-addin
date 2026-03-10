@@ -24,6 +24,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Integration")
 
 
 ' Worker Job queue of jobs in progress

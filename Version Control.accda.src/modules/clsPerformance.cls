@@ -23,6 +23,7 @@ Attribute VB_Exposed = False
 
 Option Compare Database
 Option Explicit
+'@Folder("Infrastructure")
 
 ' Enable or disable timing operations
 Public Enabled As Boolean

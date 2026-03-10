@@ -9,6 +9,7 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = True
 Option Compare Database
 Option Explicit
+'@Folder("Infrastructure")
 
 ' Note, this class could be described as Options, Settings or Preferences. After some
 ' deliberation and review, I chose to go with Options because it is most widely used

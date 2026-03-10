@@ -9,6 +9,7 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
+'@Folder("Core")
 
 Public CategoryList As Dictionary
 Public CategoryName As String

@@ -8,6 +8,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Utility")
 
 Private Const ModuleName = "modConnect"
 Private m_dCachedConnections As Dictionary

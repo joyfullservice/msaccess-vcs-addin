@@ -15,6 +15,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Core")
 
 ' See the following links for additional technical details regarding the DEVMODE strcture:
 ' https://docs.microsoft.com/en-us/office/vba/api/access.report.prtdevmode

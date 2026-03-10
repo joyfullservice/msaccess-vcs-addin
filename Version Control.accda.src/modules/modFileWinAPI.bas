@@ -11,6 +11,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Utility")
 
 
 Private Declare PtrSafe Function FindFirstFileW Lib "kernel32" (ByVal lpFileName As LongPtr, ByVal lpFindFileData As LongPtr) As LongPtr

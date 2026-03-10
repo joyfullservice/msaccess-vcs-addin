@@ -15,6 +15,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Integration")
 
 ' Hash for revision we are diffing from.
 Public FromRevision As String

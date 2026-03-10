@@ -13,6 +13,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Infrastructure")
 
 Private Const ModuleName As String = "modErrorHandling"
 

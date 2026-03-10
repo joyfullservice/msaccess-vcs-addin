@@ -8,6 +8,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Utility")
 
 
 ' API call to determine active code page (default system encoding)

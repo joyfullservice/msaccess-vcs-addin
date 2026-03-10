@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Components")
 
 Private m_Report As AccessObject
 Private m_Items(True To False) As Dictionary

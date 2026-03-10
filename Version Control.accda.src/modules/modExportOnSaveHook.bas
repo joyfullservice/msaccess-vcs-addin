@@ -8,6 +8,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Integration")
 
 ' Must match the AccessObjectState definition used in hook's ObjectTracker module
 Private Enum AccessObjectState

@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Components")
 
 Private m_TemplateCommandBar As CommandBar
 Private m_CommandBar As CommandBar

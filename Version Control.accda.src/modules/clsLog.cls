@@ -9,6 +9,7 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
+'@Folder("Infrastructure")
 
 Public PadLength As Integer
 Public SourcePath As String

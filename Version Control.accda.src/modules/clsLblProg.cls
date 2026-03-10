@@ -14,6 +14,7 @@ Attribute VB_Exposed = False
 ' Purpose   : Display a progress bar using three labels on a form
 '---------------------------------------------------------------------------------------
 Option Explicit
+'@Folder("Infrastructure")
 
 
 ' Set the application name here to utilize the appropriate

@@ -19,6 +19,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Utility")
 
 
 Private Declare PtrSafe Function BCryptOpenAlgorithmProvider Lib "BCrypt.dll" ( _

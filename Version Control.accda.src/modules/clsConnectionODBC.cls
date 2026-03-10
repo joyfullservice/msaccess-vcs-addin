@@ -21,6 +21,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Utility")
 
 Private Type udtData
     ' 2.2 Generic keys

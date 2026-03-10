@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Components.ADP")
 
 ' Values from sys.objects SQL table
 Public TriggerName As String

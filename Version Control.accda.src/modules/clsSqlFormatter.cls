@@ -21,6 +21,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Utility")
 
 
 ' Lists Updated 8/11/2023 from doctrine/sql-formatter

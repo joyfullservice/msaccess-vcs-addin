@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Components")
 
 Private m_Ref As VBIDE.Reference
 Private m_Items(True To False) As Dictionary

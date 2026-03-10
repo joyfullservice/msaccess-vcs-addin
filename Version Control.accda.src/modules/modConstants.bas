@@ -11,6 +11,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Infrastructure")
 
 
 ' VBE Project Name for this Add-In

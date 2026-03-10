@@ -9,6 +9,7 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
+'@Folder("Utility")
 
 ' String concatenation (joining strings together) can have a significant
 ' performance impact when you are using the ampersand character to join

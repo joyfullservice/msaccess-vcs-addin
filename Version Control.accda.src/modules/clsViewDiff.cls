@@ -15,6 +15,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Utility")
 
 ' Set this to true to keep the temp files instead
 ' of automatically cleaning them up at the completion

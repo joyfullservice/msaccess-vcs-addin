@@ -7,6 +7,7 @@
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("API")
 
 ' MCP Debug log file path (set when first used)
 Private m_strMCPDebugLogPath As String

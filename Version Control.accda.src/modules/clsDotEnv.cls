@@ -15,6 +15,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Utility")
 
 
 ' Dictionary of lines in the .env file

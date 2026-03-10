@@ -12,6 +12,7 @@
 Option Compare Database
 Option Private Module
 Option Explicit
+'@Folder("Core")
 
 ' Control the interaction mode for the add-in
 Public InteractionMode As eInteractionMode

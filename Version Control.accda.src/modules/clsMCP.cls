@@ -15,6 +15,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Integration")
 
 ' Throttle cancellation checks to avoid excessive HTTP requests
 Private Const CANCEL_CHECK_INTERVAL_MS As Long = 500  ' Check every 500ms

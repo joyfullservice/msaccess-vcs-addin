@@ -23,6 +23,7 @@ Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
+'@Folder("Components")
 
 Private m_Items(True To False) As Dictionary   ' Instances of this class
 Private m_dItems As Dictionary  ' Connection items for JSON output in GetDictionary
