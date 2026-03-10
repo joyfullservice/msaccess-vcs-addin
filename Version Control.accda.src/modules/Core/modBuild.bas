@@ -1038,7 +1038,7 @@ Public Sub InitializeForms(dContainers As Dictionary)
                     End If
                     DoEvents
                     ' Set a property value so Access thinks we have something to save.
-                    Forms(frm.Name).Tag = Forms(frm.Name).Tag    ' (This doesn't actually change anything)
+                    Forms(frm.Name).TAG = Forms(frm.Name).TAG    ' (This doesn't actually change anything)
                     ' Save and close the form with the recomputed geometry
                     DoCmd.Close acForm, frm.Name, acSaveYes
                     Perf.OperationEnd
