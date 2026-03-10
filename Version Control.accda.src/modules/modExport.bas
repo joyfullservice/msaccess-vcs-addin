@@ -298,7 +298,8 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
                 If FSO.FileExists(strTempFile) Then
                     ' Move the temp file(s) over to the source export folder.
-                    cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, cDbObject.BaseFolder
+                    cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, _
+                        FSO.GetParentFolderName(cDbObject.SourceFile) & PathSep
                     ' Update the index with the values from the alternate export
                     VCSIndex.UpdateFromAltExport cDbObject
                 Else
@@ -489,7 +490,8 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
         strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
         If FSO.FileExists(strTempFile) Then
             ' Move the temp file(s) over to the source export folder.
-            cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, cDbObject.BaseFolder
+            cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, _
+                FSO.GetParentFolderName(cDbObject.SourceFile) & PathSep
             ' Update the index with the values from the alternate export
             VCSIndex.UpdateFromAltExport cDbObject
         Else
@@ -690,7 +692,8 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
                 strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
                 If FSO.FileExists(strTempFile) Then
                     ' Move the temp file(s) over to the source export folder.
-                    cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, cDbObject.BaseFolder
+                    cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, _
+                        FSO.GetParentFolderName(cDbObject.SourceFile) & PathSep
                     ' Update the index with the values from the alternate export
                     VCSIndex.UpdateFromAltExport cDbObject
                 Else

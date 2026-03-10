@@ -531,6 +531,46 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetFilePathsInFolderRecursive
+' Author    : Adam Waller
+' Date      : 3/10/2026
+' Purpose   : Returns a dictionary of full file paths matching the pattern in the
+'           : specified folder and all subfolders. Used for @Folder annotation support
+'           : where source files may be organized into subfolders.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFilePathsInFolderRecursive(strFolder As String, Optional strFilePattern As String = "*.*") As Dictionary
+
+    Dim oFile As Scripting.File
+    Dim oSubFolder As Scripting.Folder
+    Dim strBaseFolder As String
+    Dim dSubResults As Dictionary
+    Dim varKey As Variant
+
+    strBaseFolder = StripSlash(strFolder)
+    Set GetFilePathsInFolderRecursive = New Dictionary
+
+    Perf.OperationStart "Get File List Recursive"
+    If FSO.FolderExists(strBaseFolder) Then
+        ' Add matching files in this folder
+        For Each oFile In FSO.GetFolder(strBaseFolder).Files
+            If oFile.Name Like strFilePattern Then GetFilePathsInFolderRecursive.Add oFile.Path, vbNullString
+        Next oFile
+
+        ' Recurse into subfolders
+        For Each oSubFolder In FSO.GetFolder(strBaseFolder).SubFolders
+            Set dSubResults = GetFilePathsInFolderRecursive(oSubFolder.Path, strFilePattern)
+            For Each varKey In dSubResults.Keys
+                GetFilePathsInFolderRecursive.Add varKey, vbNullString
+            Next varKey
+        Next oSubFolder
+    End If
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetSubfolderPaths
 ' Author    : Adam Waller
 ' Date      : 7/30/2020

@@ -50,6 +50,67 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetFolderAnnotation
+' Author    : Adam Waller
+' Date      : 3/10/2026
+' Purpose   : Return the subfolder path from a Rubberduck-style '@Folder annotation
+'           : in a VBE code module. Dots are converted to path separators.
+'           : Returns empty string if no annotation found or component has no code.
+'           : Example: '@Folder("Core.Utility") returns "Core\Utility\"
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFolderAnnotation(strComponentName As String, Optional strPrefix As String) As String
+
+    Dim cmpItem As VBComponent
+    Dim strLine As String
+    Dim lngLine As Long
+    Dim lngLines As Long
+    Dim lngStart As Long
+    Dim lngEnd As Long
+    Dim blnFound As Boolean
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' Attempt to locate the component in the VBE
+    Set cmpItem = CurrentVBProject.VBComponents(strPrefix & strComponentName)
+    If cmpItem Is Nothing Then Exit Function
+    If cmpItem.CodeModule Is Nothing Then Exit Function
+
+    ' Scan the first 30 lines for the annotation
+    lngLines = cmpItem.CodeModule.CountOfLines
+    If lngLines = 0 Then Exit Function
+    If lngLines > 30 Then lngLines = 30
+
+    For lngLine = 1 To lngLines
+        strLine = Trim$(cmpItem.CodeModule.Lines(lngLine, 1))
+
+        ' Match pattern: '@Folder("...") with flexible whitespace
+        If UCase$(strLine) Like "'*@FOLDER(*" Then
+            If blnFound Then
+                ' Warn about duplicate annotation; first one wins
+                Log.Add T("WARNING: Multiple @Folder annotations found in {0}. Using first annotation.", _
+                    var0:=strPrefix & strComponentName), Options.ShowDebug
+            Else
+                ' Extract the folder path between the quotes
+                lngStart = InStr(1, strLine, """")
+                If lngStart > 0 Then
+                    lngEnd = InStr(lngStart + 1, strLine, """")
+                    If lngEnd > lngStart + 1 Then
+                        GetFolderAnnotation = Replace(Mid$(strLine, lngStart + 1, lngEnd - lngStart - 1), ".", PathSep) & PathSep
+                    End If
+                End If
+                blnFound = True
+            End If
+        End If
+    Next lngLine
+
+    CatchAny eelError, "Error reading @Folder annotation for " & strPrefix & strComponentName, ModuleName & ".GetFolderAnnotation"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : OverlayCodeModule
 ' Author    : Adam Waller
 ' Date      : 10/24/2023

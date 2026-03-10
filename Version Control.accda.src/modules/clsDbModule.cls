@@ -45,14 +45,27 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strExt As String
     Dim strAlternateFile As String
+    Dim strExportFolder As String
+    Dim strOldFile As String
 
     ' Export as sanitized UTF-8 file
     ExportCodeModule m_Module.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
 
-    ' Remove any file with the same name but alternate extension
+    ' Determine the actual export folder (may include @Folder subfolder)
+    strExportFolder = FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep
+
+    ' Remove any file with the same name but alternate extension in the export folder
     strExt = IIf(GetExtension = ".bas", ".cls", ".bas")
-    strAlternateFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & strExt
+    strAlternateFile = strExportFolder & GetSafeFileName(m_Module.Name) & strExt
     If FSO.FileExists(strAlternateFile) Then DeleteFile strAlternateFile
+
+    ' Clean up old file at base folder if @Folder moved it to a subfolder
+    If StrComp(strExportFolder, IDbComponent_BaseFolder, vbTextCompare) <> 0 Then
+        strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & GetExtension
+        If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
+        strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & strExt
+        If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
+    End If
 
     ' Update the index with the current VBA hash. (Note, this will not show
     ' changes to the hidden VBE properties that might have been added.)
@@ -268,6 +281,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    VerifyPath strToFolder
     MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
 End Sub
 
@@ -314,8 +328,8 @@ End Function
 '
 Private Function IDbComponent_GetFileList() As Dictionary
     If m_FileList Is Nothing Then
-        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
-        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.cls")
+        Set m_FileList = GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.bas")
+        MergeDictionary m_FileList, GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.cls")
     End If
     Set IDbComponent_GetFileList = m_FileList
 End Function
@@ -415,7 +429,14 @@ End Property
 '
 Private Property Get IDbComponent_SourceFile() As String
     If m_Module Is Nothing Then Exit Property
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & GetExtension
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        IDbComponent_SourceFile = IDbComponent_BaseFolder _
+            & GetFolderAnnotation(m_Module.Name) _
+            & GetSafeFileName(m_Module.Name) & GetExtension
+    Else
+        IDbComponent_SourceFile = IDbComponent_BaseFolder _
+            & GetSafeFileName(m_Module.Name) & GetExtension
+    End If
 End Property
 
 

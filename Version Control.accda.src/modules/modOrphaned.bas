@@ -68,20 +68,55 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent)
             End If
         End If
     Else
-        ' Loop through files in folder
+        ' Loop through files in folder (and subfolders for @Folder support)
         Set oFolder = FSO.GetFolder(cType.BaseFolder)
-        For Each oFile In oFolder.Files
-            ' Compare to index to find orphaned source files.
-            CompareToIndex cType, oFile.Path, dExtensions, dBaseNames
-            ' Increment the progress bar as we scan through the files
-            Log.Increment
-        Next oFile
+        ScanFolderForOrphans cType, oFolder, dExtensions, dBaseNames
 
         ' Remove base folder if we don't have any files in it
-        If oFolder.Files.Count = 0 Then oFolder.Delete True
+        If oFolder.Files.Count = 0 And oFolder.SubFolders.Count = 0 Then oFolder.Delete True
     End If
 
     Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScanFolderForOrphans
+' Author    : Adam Waller
+' Date      : 3/10/2026
+' Purpose   : Recursively scan a folder and its subfolders for orphaned source files.
+'           : Removes empty subfolders after processing.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ScanFolderForOrphans(cType As IDbComponent, oFolder As Scripting.Folder, _
+    dExtensions As Dictionary, dBaseNames As Dictionary)
+
+    Dim oFile As Scripting.File
+    Dim oSubFolder As Scripting.Folder
+    Dim colSubFolders As New Collection
+    Dim varItem As Variant
+
+    ' Process files in this folder
+    For Each oFile In oFolder.Files
+        CompareToIndex cType, oFile.Path, dExtensions, dBaseNames
+        Log.Increment
+    Next oFile
+
+    ' Collect subfolders first (avoid modifying collection during iteration)
+    For Each oSubFolder In oFolder.SubFolders
+        colSubFolders.Add oSubFolder
+    Next oSubFolder
+
+    ' Recurse into subfolders
+    For Each varItem In colSubFolders
+        Set oSubFolder = varItem
+        ScanFolderForOrphans cType, oSubFolder, dExtensions, dBaseNames
+        ' Remove subfolder if empty after cleanup
+        If oSubFolder.Files.Count = 0 And oSubFolder.SubFolders.Count = 0 Then
+            oSubFolder.Delete True
+        End If
+    Next varItem
 
 End Sub
 

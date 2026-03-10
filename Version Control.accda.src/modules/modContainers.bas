@@ -324,8 +324,7 @@ Public Function GetQuickFileCount(colContainers As Collection) As Long
         Else
             ' Make sure the folder actually exists before getting a file count
             If FSO.FolderExists(strFolder) Then
-                ' Add a count of the files in the folder
-                lngTotal = lngTotal + FSO.GetFolder(strFolder).Files.Count
+                lngTotal = lngTotal + CountFilesRecursive(FSO.GetFolder(strFolder))
             End If
         End If
     Next cCont
@@ -333,6 +332,26 @@ Public Function GetQuickFileCount(colContainers As Collection) As Long
 
     ' Return total number of files in all source folders
     GetQuickFileCount = lngTotal
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CountFilesRecursive
+' Author    : Adam Waller
+' Date      : 3/10/2026
+' Purpose   : Return the total count of files in a folder and all subfolders.
+'           : Used by GetQuickFileCount for @Folder annotation support.
+'---------------------------------------------------------------------------------------
+'
+Private Function CountFilesRecursive(oFolder As Scripting.Folder) As Long
+
+    Dim oSubFolder As Scripting.Folder
+
+    CountFilesRecursive = oFolder.Files.Count
+    For Each oSubFolder In oFolder.SubFolders
+        CountFilesRecursive = CountFilesRecursive + CountFilesRecursive(oSubFolder)
+    Next oSubFolder
 
 End Function
 

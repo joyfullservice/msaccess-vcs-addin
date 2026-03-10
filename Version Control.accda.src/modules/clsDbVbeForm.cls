@@ -53,11 +53,14 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strBinaryPath As String
     Dim blnUnchanged As Boolean
 
+    Dim strExportFolder As String
+
     ' Get the JSON representation of the current database object
     strContent = GetSource
 
-    ' Build out all three normal source file paths.
-    strBasePath = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name)
+    ' Build out all three normal source file paths using the @Folder-aware location
+    strExportFolder = FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep
+    strBasePath = strExportFolder & GetSafeFileName(m_Form.Name)
     strJsonPath = strBasePath & ".json"
     strBinaryPath = strBasePath & ".frx"
     strFormPath = strBasePath & ".frm"
@@ -87,6 +90,15 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     ' Update index with a hash of the serialized content. (Since the binary content changes frequently)
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
+
+    ' Clean up old files at base folder if @Folder moved them to a subfolder
+    If StrComp(strExportFolder, IDbComponent_BaseFolder, vbTextCompare) <> 0 Then
+        Dim strOldBase As String
+        strOldBase = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name)
+        If FSO.FileExists(strOldBase & ".json") Then DeleteFile strOldBase & ".json"
+        If FSO.FileExists(strOldBase & ".frm") Then DeleteFile strOldBase & ".frm"
+        If FSO.FileExists(strOldBase & ".frx") Then DeleteFile strOldBase & ".frx"
+    End If
 
 End Sub
 
@@ -199,6 +211,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    VerifyPath strToFolder
     MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
     MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".frm", strToFolder
     MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".frx", strToFolder
@@ -270,7 +283,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.json")
     Set IDbComponent_GetFileList = m_FileList
 End Function
 
@@ -365,7 +378,14 @@ End Property
 '
 Private Property Get IDbComponent_SourceFile() As String
     If m_Form Is Nothing Then Exit Property
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".json"
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        IDbComponent_SourceFile = IDbComponent_BaseFolder _
+            & GetFolderAnnotation(m_Form.Name) _
+            & GetSafeFileName(m_Form.Name) & ".json"
+    Else
+        IDbComponent_SourceFile = IDbComponent_BaseFolder _
+            & GetSafeFileName(m_Form.Name) & ".json"
+    End If
 End Property
 
 

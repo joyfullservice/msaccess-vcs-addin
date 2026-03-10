@@ -36,10 +36,25 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+
     Dim strHash As String
+    Dim strExportFolder As String
+    Dim strSafeName As String
+
     strHash = SaveComponentAsText(acForm, m_Form.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
+
+    ' Clean up old files at base folder if @Folder moved them to a subfolder
+    strExportFolder = FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep
+    If StrComp(strExportFolder, IDbComponent_BaseFolder, vbTextCompare) <> 0 Then
+        strSafeName = GetSafeFileName(m_Form.Name)
+        If FSO.FileExists(IDbComponent_BaseFolder & strSafeName & ".form") Then DeleteFile IDbComponent_BaseFolder & strSafeName & ".form"
+        If FSO.FileExists(IDbComponent_BaseFolder & strSafeName & ".json") Then DeleteFile IDbComponent_BaseFolder & strSafeName & ".json"
+        If FSO.FileExists(IDbComponent_BaseFolder & strSafeName & ".cls") Then DeleteFile IDbComponent_BaseFolder & strSafeName & ".cls"
+    End If
+
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
         strHash, GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
+
 End Sub
 
 
@@ -124,6 +139,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
+    VerifyPath strToFolder
     MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
     MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
     MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".cls", strToFolder
@@ -169,7 +185,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.form")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.form")
     Set IDbComponent_GetFileList = m_FileList
 End Function
 
@@ -273,7 +289,14 @@ End Property
 '
 Private Property Get IDbComponent_SourceFile() As String
     If m_Form Is Nothing Then Exit Property
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name) & ".form"
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        IDbComponent_SourceFile = IDbComponent_BaseFolder _
+            & GetFolderAnnotation(m_Form.Name, "Form_") _
+            & GetSafeFileName(m_Form.Name) & ".form"
+    Else
+        IDbComponent_SourceFile = IDbComponent_BaseFolder _
+            & GetSafeFileName(m_Form.Name) & ".form"
+    End If
 End Property
 
 
