@@ -86,11 +86,15 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Options() As clsOptions
-    If this.Options Is Nothing Then Set this.Options = LoadOptions
+    If this.Options Is Nothing Then
+        Set this.Options = LoadOptions
+        ConfigureErrorHandling this.Options.BreakOnError
+    End If
     Set Options = this.Options
 End Property
 Public Property Set Options(cNewOptions As clsOptions)
     Set this.Options = cNewOptions
+    If Not cNewOptions Is Nothing Then ConfigureErrorHandling cNewOptions.BreakOnError
 End Property
 
 
