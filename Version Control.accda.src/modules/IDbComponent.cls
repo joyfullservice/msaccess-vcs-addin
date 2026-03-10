@@ -15,6 +15,32 @@ Attribute VB_Exposed = False
 '           : importing database objects for version control. This class should be
 '           : implemented into the classes defined for each object type to be exported
 '           : and imported as a part of the database source code.
+'           :
+'           : ---- Implementation Contracts ----
+'           :
+'           : IsModified: Returns True if the database object has changed since the
+'           :   last export. Three strategies are used depending on the component type:
+'           :   - Date-only: Compare object's DateModified to the indexed ObjectDate.
+'           :     Used when Access reliably tracks modification dates (TableDef, Query,
+'           :     Macro, TableDataMacro, and all ADP types).
+'           :   - Hash-only: Compare a hash of the serialized object content to the
+'           :     indexed FileHash (or OtherHash for code modules and themes). Used
+'           :     when Access does not expose a reliable modification date (properties,
+'           :     references, relations, command bars, documents, nav pane groups, etc.).
+'           :   - Date+hash: Check DateModified first; if the date matches, also check
+'           :     OtherHash for code module changes. Used for Forms and Reports which
+'           :     have a modification date but can also change via VBA code edits that
+'           :     don't update the date.
+'           :   Special cases: TableData always returns True (full export needed).
+'           :     SharedImage checks both definition hash and content signature hash.
+'           :
+'           : QuickCount: Returns an approximate count of database objects for this
+'           :   component type, suitable for progress bar sizing. The value is cached
+'           :   on first call per session using a Static variable and may be stale if
+'           :   objects are added/removed during the operation. Implementations either
+'           :   read a fast collection count (e.g. AllForms.Count, DCount), or return
+'           :   a constant (1 for single-file types, 0 for clsDbCommandBar).
+'           :   Do NOT use QuickCount for exact tallies; use Count instead.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -27,7 +53,10 @@ Option Explicit
 ' Purpose   : This represents the database object we are dealing with.
 '---------------------------------------------------------------------------------------
 '
-Public DbObject As Object
+Public Property Get DbObject() As Object
+End Property
+Public Property Set DbObject(ByVal RHS As Object)
+End Property
 
 
 '---------------------------------------------------------------------------------------
