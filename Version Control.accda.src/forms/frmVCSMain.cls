@@ -421,10 +421,20 @@ Public Sub Form_Load()
 
     If DatabaseFileOpen Then
 
-        ' Require full export after options change
-        If VCSIndex.OptionsHash <> Options.GetHash Then
-            chkFullExport = True
-            chkFullExport.Enabled = False
+        ' Force full export only when global options change
+        ' (ExportFormatVersion, major Access version).
+        ' Category-level option changes are handled automatically
+        ' by the smart export which re-exports only affected categories.
+        Dim dCurrent As Dictionary
+        Set dCurrent = Options.GetCategoryHashes
+        If dCurrent.Exists("_Global") Then
+            If Not VCSIndex.CategoryHashes.Exists("_Global") Then
+                chkFullExport = True
+                chkFullExport.Enabled = False
+            ElseIf dCurrent("_Global") <> VCSIndex.CategoryHashes("_Global") Then
+                chkFullExport = True
+                chkFullExport.Enabled = False
+            End If
         End If
 
         ' Merge build only available after full build.

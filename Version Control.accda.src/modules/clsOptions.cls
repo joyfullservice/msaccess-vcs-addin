@@ -654,21 +654,135 @@ End Function
 ' Procedure : GetHash
 ' Author    : Adam Waller
 ' Date      : 2/16/2021
-' Purpose   : Return a hash of the current options. Used to detect if options have
-'           : changed, which may require a full export to reflect the change.
-'           : Note that this only checks a hash of the options that affect general
-'           : exports, not changes to external database connections.
+' Purpose   : Return a single combined hash of export-affecting options.
+'           : Derived from per-category hashes for backward compatibility.
 '---------------------------------------------------------------------------------------
 '
 Public Function GetHash() As String
-    Dim dExportOptions As Dictionary
-    Set dExportOptions = CloneDictionary(SerializeOptions)
-    With dExportOptions("Options")
-        ' Remove options not related to exports
-        If .Exists("SchemaExports") Then .Remove ("SchemaExports")
-    End With
-    GetHash = GetDictionaryHash(dExportOptions)
+    GetHash = GetDictionaryHash(GetCategoryHashes)
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetCategoryHashes
+' Author    : Adam Waller
+' Date      : 3/10/2026
+' Purpose   : Return a dictionary of per-category option hashes. Each key is a
+'           : component category name (matching IDbComponent.Category) and each value
+'           : is a hash of the options that affect that category's export output.
+'           : The "_Global" key holds a hash of options that affect ALL categories
+'           : (ExportFormatVersion, major Access version).
+'           : Categories not listed here are only affected by global options.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetCategoryHashes() As Dictionary
+
+    Dim dOptions As Dictionary
+    Dim dCats As Dictionary
+    Dim dGlobal As Dictionary
+    Dim dResult As Dictionary
+    Dim dMerged As Dictionary
+    Dim varKey As Variant
+
+    Set dOptions = CloneDictionary(SerializeOptions)
+    Set dCats = New Dictionary
+    Set dGlobal = New Dictionary
+    Set dResult = New Dictionary
+
+    ' Global: major Access version (e.g. "16" from "16.0")
+    dGlobal.Add "AccessVersion", CStr(Val(Application.Version))
+
+    ' Classify each option by the categories it affects
+    For Each varKey In dOptions("Options").Keys
+        Select Case CStr(varKey)
+
+            ' --- Forms and Reports ---
+            Case "SavePrintVars", "ExportPrintSettings", _
+                 "SplitLayoutFromVBA", "SanitizeColors"
+                AddToCat dCats, "Forms", varKey, dOptions("Options")
+                AddToCat dCats, "Reports", varKey, dOptions("Options")
+
+            ' --- Queries ---
+            Case "SaveQuerySQL", "FormatSQL"
+                AddToCat dCats, "Queries", varKey, dOptions("Options")
+
+            ' --- Table Definitions ---
+            Case "SaveTableSQL", "SaveLinkedTableDef"
+                AddToCat dCats, "Tables", varKey, dOptions("Options")
+
+            ' --- Themes ---
+            Case "ExtractThemeFiles"
+                AddToCat dCats, "Themes", varKey, dOptions("Options")
+
+            ' --- VBE Project ---
+            Case "PreserveRubberDuckID"
+                AddToCat dCats, "VB Project", varKey, dOptions("Options")
+
+            ' --- Multiple categories ---
+            Case "SanitizeLevel", "StripPublishOption"
+                AddToCat dCats, "Forms", varKey, dOptions("Options")
+                AddToCat dCats, "Reports", varKey, dOptions("Options")
+                AddToCat dCats, "Queries", varKey, dOptions("Options")
+                AddToCat dCats, "Macros", varKey, dOptions("Options")
+                AddToCat dCats, "Tables", varKey, dOptions("Options")
+                AddToCat dCats, "Table Data Macros", varKey, dOptions("Options")
+
+            ' --- Global (all categories) ---
+            Case "ExportFormatVersion"
+                dGlobal.Add CStr(varKey), dOptions("Options")(CStr(varKey))
+
+            ' --- Non-export options (skip) ---
+            Case "ExportFolder", "ShowDebug", "UseFastSave", _
+                 "UseMergeBuild", "ExportAfterMerge", "UseGitIntegration", _
+                 "ForceImportOriginalQuerySQL", _
+                 "RunBeforeExport", "RunAfterExport", _
+                 "RunBeforeBuild", "RunAfterBuild", _
+                 "RunBeforeMerge", "RunAfterMerge", _
+                 "ShowVCSLegacy", "BreakOnError", "MaxLogFiles", _
+                 "HashAlgorithm", "UseShortHash", "SchemaExports", _
+                 "TablesToExportData"
+                ' Not included in hash
+
+            Case Else
+                Debug.Print "WARNING: Option '" & varKey & _
+                    "' is not classified in GetCategoryHashes. " & _
+                    "Please add it to the appropriate category or non-export list."
+        End Select
+    Next varKey
+
+    ' Build hashes: global hash + per-category hashes (each includes global options)
+    dResult.Add "_Global", GetDictionaryHash(dGlobal)
+    For Each varKey In dCats.Keys
+        Set dMerged = CloneDictionary(dGlobal)
+        MergeDictionary dMerged, dCats(CStr(varKey))
+        dResult.Add CStr(varKey), GetDictionaryHash(dMerged)
+    Next varKey
+
+    Set GetCategoryHashes = dResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddToCat
+' Author    : Adam Waller
+' Date      : 3/10/2026
+' Purpose   : Add an option value to a category dictionary for hashing.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddToCat(dCats As Dictionary, strCategory As String, _
+    varKey As Variant, dSource As Dictionary)
+    If Not dCats.Exists(strCategory) Then
+        Set dCats(strCategory) = New Dictionary
+    End If
+    Dim strKey As String
+    strKey = CStr(varKey)
+    If IsObject(dSource(strKey)) Then
+        Set dCats(strCategory)(strKey) = dSource(strKey)
+    Else
+        dCats(strCategory).Add strKey, dSource(strKey)
+    End If
+End Sub
 
 
 '---------------------------------------------------------------------------------------

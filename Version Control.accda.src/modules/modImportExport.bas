@@ -58,8 +58,39 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Check error handling mode after loading project options
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    ' If options (or VCS version) have changed, a full export will be required
-    If (VCSIndex.OptionsHash <> Options.GetHash) Then blnFullExport = True
+    ' Determine which categories need full re-export due to options changes
+    Dim dCurrentHashes As Dictionary
+    Dim dStoredHashes As Dictionary
+    Dim dStaleCategories As Dictionary
+    Dim blnGlobalChanged As Boolean
+
+    Set dCurrentHashes = Options.GetCategoryHashes
+    Set dStoredHashes = VCSIndex.CategoryHashes
+    Set dStaleCategories = New Dictionary
+
+    ' Check global options (ExportFormatVersion, AccessVersion)
+    If dCurrentHashes.Exists("_Global") Then
+        If Not dStoredHashes.Exists("_Global") Then
+            blnGlobalChanged = True
+        ElseIf dCurrentHashes("_Global") <> dStoredHashes("_Global") Then
+            blnGlobalChanged = True
+        End If
+    End If
+
+    ' Check category-specific options
+    Dim varHashKey As Variant
+    For Each varHashKey In dCurrentHashes.Keys
+        If CStr(varHashKey) <> "_Global" Then
+            If Not dStoredHashes.Exists(CStr(varHashKey)) Then
+                dStaleCategories.Add CStr(varHashKey), True
+            ElseIf dCurrentHashes(CStr(varHashKey)) <> dStoredHashes(CStr(varHashKey)) Then
+                dStaleCategories.Add CStr(varHashKey), True
+            End If
+        End If
+    Next varHashKey
+
+    ' Global change affects all categories
+    If blnGlobalChanged Then blnFullExport = True
 
     ' Display heading
     With Log
@@ -72,7 +103,14 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
         ' Log operation source (file only, not console)
         If Len(Operation.SourceName) > 0 Then .Add T("Source: {0}", var0:=Operation.SourceName), False
-        .Add IIf(blnFullExport, T("Performing Full Export"), T("Using Fast Save"))
+        If blnFullExport Then
+            .Add T("Performing Full Export")
+        ElseIf dStaleCategories.Count > 0 Then
+            .Add T("Using Fast Save (re-exporting {0} changed categories)", _
+                var0:=dStaleCategories.Count)
+        Else
+            .Add T("Using Fast Save")
+        End If
         .Add Now
         ' Save the log file path
         If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
@@ -152,7 +190,13 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
     ' Finish header section
     Log.Spacer
-    Log.Add IIf(blnFullExport, T("Scanning source files..."), T("Scanning for changes..."))
+    If blnFullExport Then
+        Log.Add T("Scanning source files...")
+    ElseIf dStaleCategories.Count > 0 Then
+        Log.Add T("Scanning for changes (some categories require full export)...")
+    Else
+        Log.Add T("Scanning for changes...")
+    End If
     Log.Flush
 
     ' Set up progress bar to show status on large projects
@@ -170,9 +214,11 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
         ' Get collection of database objects (IDbComponent classes)
-        Set dObjects = cCategory.GetAllFromDB(Not blnFullExport)
+        Dim blnFullForCategory As Boolean
+        blnFullForCategory = blnFullExport Or dStaleCategories.Exists(cCategory.Category)
+        Set dObjects = cCategory.GetAllFromDB(Not blnFullForCategory)
         If dObjects.Count = 0 Then
-            Log.Add IIf(blnFullExport, _
+            Log.Add IIf(blnFullForCategory, _
                 T("No {0} found in this database.", var0:=T(LCase(cCategory.Category))), _
                 T("No modified {0} found in this database.", var0:=T(LCase(cCategory.Category)))), _
                 Options.ShowDebug
@@ -274,7 +320,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             Perf.CategoryEnd lngCount
 
             ' During fast save, log how many unchanged objects were skipped
-            If Not blnFullExport Then
+            If Not blnFullForCategory Then
                 Dim lngSkipped As Long
                 lngSkipped = cCategory.QuickCount - lngCount
                 If lngSkipped > 0 Then
@@ -329,7 +375,7 @@ CleanUp:
     With VCSIndex
         .ExportDate = Now
         If blnFullExport Then .FullExportDate = Now
-        .OptionsHash = Options.GetHash
+        Set .CategoryHashes = dCurrentHashes
         .Save
     End With
 

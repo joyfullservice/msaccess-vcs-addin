@@ -16,36 +16,36 @@
       "GUID": "{B691E011-1797-432E-907A-4D8C69339129}",
       "Version": "6.1"
     },
-    "IWshRuntimeLibrary": {
-      "GUID": "{F935DC20-1CF0-11D0-ADB9-00C04FD58A0B}",
+    "UIAutomationClient": {
+      "GUID": "{944DE083-8FB8-45CF-BCB7-C477ACB2F897}",
+      "Version": "1.0"
+    },
+    "MSForms": {
+      "GUID": "{0D452EE1-E08F-101A-852E-02608C4D0BB4}",
+      "Version": "2.0"
+    },
+    "MSXML2": {
+      "GUID": "{F5078F18-C551-11D3-89B9-0000F81FE221}",
+      "Version": "6.0"
+    },
+    "VBScript_RegExp_55": {
+      "GUID": "{3F4DACA7-160D-11D2-A8E9-00104B365C9F}",
+      "Version": "5.5"
+    },
+    "VBIDE": {
+      "GUID": "{0002E157-0000-0000-C000-000000000046}",
+      "Version": "5.3"
+    },
+    "Scripting": {
+      "GUID": "{420B2830-E718-11CF-893D-00A0C9054228}",
       "Version": "1.0"
     },
     "Office": {
       "GUID": "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}",
       "Version": "2.6"
     },
-    "Scripting": {
-      "GUID": "{420B2830-E718-11CF-893D-00A0C9054228}",
-      "Version": "1.0"
-    },
-    "VBIDE": {
-      "GUID": "{0002E157-0000-0000-C000-000000000046}",
-      "Version": "5.3"
-    },
-    "VBScript_RegExp_55": {
-      "GUID": "{3F4DACA7-160D-11D2-A8E9-00104B365C9F}",
-      "Version": "5.5"
-    },
-    "MSXML2": {
-      "GUID": "{F5078F18-C551-11D3-89B9-0000F81FE221}",
-      "Version": "6.0"
-    },
-    "MSForms": {
-      "GUID": "{0D452EE1-E08F-101A-852E-02608C4D0BB4}",
-      "Version": "2.0"
-    },
-    "UIAutomationClient": {
-      "GUID": "{944DE083-8FB8-45CF-BCB7-C477ACB2F897}",
+    "IWshRuntimeLibrary": {
+      "GUID": "{F935DC20-1CF0-11D0-ADB9-00C04FD58A0B}",
       "Version": "1.0"
     }
   }

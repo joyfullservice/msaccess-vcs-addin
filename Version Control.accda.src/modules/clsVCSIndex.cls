@@ -25,7 +25,6 @@ Public MergeBuildDate As Date
 Public FullBuildDate As Date
 Public ExportDate As Date
 Public FullExportDate As Date
-Public OptionsHash As String
 Public Disabled As Boolean
 
 ' Git integration
@@ -82,7 +81,7 @@ Public Sub LoadFromFile(Optional strFile As String)
                 For Each varKey In dFile("Items").Keys
                     If m_dIndex.Exists(varKey) Then
                         Select Case varKey
-                            Case "Components", "AlternateExport"
+                            Case "Components", "AlternateExport", "CategoryHashes"
                                 ' Load as dictionary
                                 Set dItem = dFile("Items")(varKey)
                                 Set m_dIndex(varKey) = dItem
@@ -119,7 +118,7 @@ Public Sub Save(Optional strInFolder As String)
     ' Load dictionary from properties
     For Each varKey In m_dIndex.Keys
         Select Case varKey
-            Case "Components", "AlternateExport"
+            Case "Components", "AlternateExport", "CategoryHashes"
             Case Else
                 varValue = CallByName(Me, CStr(varKey), VbGet)
                 ' Save blank dates as null
@@ -881,6 +880,22 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CategoryHashes
+' Author    : Adam Waller
+' Date      : 3/10/2026
+' Purpose   : Per-category option hashes for smart re-export detection.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get CategoryHashes() As Dictionary
+    Set CategoryHashes = m_dIndex("CategoryHashes")
+End Property
+
+Public Property Set CategoryHashes(dHashes As Dictionary)
+    Set m_dIndex("CategoryHashes") = dHashes
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Git
 ' Author    : Adam Waller
 ' Date      : 1/19/2021
@@ -920,8 +935,8 @@ Private Sub Class_Initialize()
         .Add "FullBuildDate", Null
         .Add "ExportDate", Null
         .Add "FullExportDate", Null
-        .Add "OptionsHash", vbNullString
         .Add "LastMergedCommit", vbNullString
+        Set .Item("CategoryHashes") = New Dictionary
         Set .Item("Components") = New Dictionary
         Set .Item("AlternateExport") = New Dictionary
     End With
