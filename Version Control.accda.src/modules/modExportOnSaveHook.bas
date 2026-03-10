@@ -1,4 +1,4 @@
-Attribute VB_Name = "modExportOnSaveHook"
+﻿Attribute VB_Name = "modExportOnSaveHook"
 '---------------------------------------------------------------------------------------
 ' Module    : modExportOnSaveHook
 ' Author    : bclothier

@@ -1,4 +1,4 @@
-Attribute VB_Name = "modBuild"
+﻿Attribute VB_Name = "modBuild"
 '---------------------------------------------------------------------------------------
 ' Module    : modBuild
 ' Author    : Adam Waller

@@ -1,4 +1,4 @@
-Attribute VB_Name = "modSourceUpgrade"
+﻿Attribute VB_Name = "modSourceUpgrade"
 '---------------------------------------------------------------------------------------
 ' Module    : modSourceUpgrade
 ' Author    : Adam Waller

@@ -1,4 +1,4 @@
-Attribute VB_Name = "modExport"
+﻿Attribute VB_Name = "modExport"
 '---------------------------------------------------------------------------------------
 ' Module    : modExport
 ' Author    : Adam Waller
