@@ -2,13 +2,13 @@
 BEGIN
   MultiUse = -1  'True
 END
-Attribute VB_Name = "clsDevMode"
+Attribute VB_Name = "clsPrinterSettings"
 Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '---------------------------------------------------------------------------------------
-' Module    : clsDevMode
+' Module    : clsPrinterSettings
 ' Author    : Adam Waller
 ' Date      : 5/15/2020
 ' Purpose   : Helper class to handle the parsing of saved print settings.

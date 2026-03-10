@@ -472,7 +472,7 @@ Public Property Get DefaultDevModeHash() As String
     Static strHash As String
 
     If strHash = vbNullString Then
-        With New clsDevMode
+        With New clsPrinterSettings
             .LoadFromDefaultPrinter
             strHash = .GetHash
         End With

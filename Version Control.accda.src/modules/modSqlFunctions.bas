@@ -1,6 +1,6 @@
 ﻿Attribute VB_Name = "modSqlFunctions"
 '---------------------------------------------------------------------------------------
-' Module    : modAdpFunctions
+' Module    : modSqlFunctions
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
 ' Purpose   : Functions for interacting with SQL servers and ADP projects.

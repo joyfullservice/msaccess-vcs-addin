@@ -61,7 +61,7 @@ Public Function SaveComponentAsText(intType As AcObjectType _
             strContent = ReadSourceFile(strTempFile)
 
             ' Process any saved devmode settings
-            With New clsDevMode
+            With New clsPrinterSettings
                 ' Build print settings file name.
                 strPrintSettingsFile = SwapExtension(strFile, "json")
                 ' See if we are exporting print vars.

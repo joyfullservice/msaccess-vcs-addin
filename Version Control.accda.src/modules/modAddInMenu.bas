@@ -1,6 +1,6 @@
 ﻿Attribute VB_Name = "modAddInMenu"
 '---------------------------------------------------------------------------------------
-' Module    : modAddIn
+' Module    : modAddInMenu
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
 ' Purpose   : Functions called by the Database Tools -> Add-Ins menu.

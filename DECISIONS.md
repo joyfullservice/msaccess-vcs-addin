@@ -81,6 +81,33 @@ contradictory guidance.
 
 ---
 
+## 2026-03-10 — Fix naming inconsistencies; rename clsDevMode to clsPrinterSettings
+
+**Trigger**: Four modules had stale `' Module :` header comments left over from earlier renames, creating confusion for both agents and developers scanning headers. Additionally, `clsDevMode` was named after the Windows API `DEVMODE` structure it wraps, but readers unfamiliar with the Win32 API assumed it meant "debug mode" or "developer mode." The class is actually a printer/page-layout settings parser.
+
+**Options explored**:
+
+- **Fix headers only, leave clsDevMode**: Fixes the copy-paste errors but leaves the most misleading name. Rejected — the v5 reorganization is the right time to rename.
+- **Fix headers and rename clsDevMode to clsPrinterSettings**: Aligns the class name with its responsibility (parsing and applying printer settings for forms/reports). Internal variable names like `tDevMode` and `m_tDevMode` are kept because they directly reference the Windows `DEVMODE` structure and are appropriate at that level. Chosen.
+- **Rename to clsPageLayout**: Considered but the class also handles printer name, paper bin, collation, and other non-layout settings. `clsPrinterSettings` is more accurate.
+
+**Decision**: Fixed four header/filename mismatches (`modOrphaned` said `modVCSUtility`, `modFileWinAPI` said `modFileScan`, `modAddInMenu` said `modAddIn`, `modSqlFunctions` said `modAdpFunctions`). Renamed `clsDevMode.cls` to `clsPrinterSettings.cls` via `git mv` to preserve history, updated `Attribute VB_Name`, header comment, and all three callers (`clsVCSIndex`, `clsSourceParser`, `modLoadSaveText`).
+
+**What this rules out**: The name `clsDevMode` is retired. Future printer/page-layout work goes in `clsPrinterSettings`. Header `' Module :` lines must always match `Attribute VB_Name`.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/clsPrinterSettings.cls` — renamed from clsDevMode.cls
+- `Version Control.accda.src/modules/clsVCSIndex.cls` — caller updated
+- `Version Control.accda.src/modules/clsSourceParser.cls` — caller updated
+- `Version Control.accda.src/modules/modLoadSaveText.bas` — caller updated
+- `Version Control.accda.src/modules/modOrphaned.bas` — header fixed
+- `Version Control.accda.src/modules/modFileWinAPI.bas` — header fixed
+- `Version Control.accda.src/modules/modAddInMenu.bas` — header fixed
+- `Version Control.accda.src/modules/modSqlFunctions.bas` — header fixed
+
+---
+
 ## 2026-03-10 — Split modVCSUtility into modContainers, modVbeUtility, modLoadSaveText
 
 **Trigger**: `modVCSUtility.bas` was a 1,527-line, 35-procedure catch-all module mixing component container registry, VBA editor operations, Access LoadFromText/SaveAsText wrappers, version helpers, schema filters, git file management, and command bar import. The name "modVCSUtility" gave no hint about which concern lived here.

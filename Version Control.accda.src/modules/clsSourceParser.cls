@@ -193,7 +193,7 @@ Public Sub MergePrintSettings(strJson As String)
     ' Read settings from JSON
     Set dSettings = ParseJson(strJson)
     If dSettings.Exists("Items") Then
-        With New clsDevMode
+        With New clsPrinterSettings
             ' Load default printer settings, then overlay
             ' settings saved with report.
             .ApplySettings dSettings("Items")

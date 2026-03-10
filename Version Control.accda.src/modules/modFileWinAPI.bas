@@ -1,6 +1,6 @@
 ﻿Attribute VB_Name = "modFileWinAPI"
 '---------------------------------------------------------------------------------------
-' Module    : modFileScan
+' Module    : modFileWinAPI
 ' Author    : Adam Waller
 ' Date      : 7/25/2023
 ' Purpose   : Functions for extremely fast file system scan utilizing the Windows API.

@@ -1,6 +1,6 @@
 ﻿Attribute VB_Name = "modOrphaned"
 '---------------------------------------------------------------------------------------
-' Module    : modVCSUtility
+' Module    : modOrphaned
 ' Author    : Adam Waller
 ' Date      : 12/4/2020
 ' Purpose   : Functions relating to detecting and removing orphaned items in relation
