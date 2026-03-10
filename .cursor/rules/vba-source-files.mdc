@@ -3,12 +3,16 @@ description: VBA source file editing rules - encoding, structure, and safe modif
 globs:
   - "**/*.bas"
   - "**/*.cls"
+  - "**/*.form"
+  - "**/*.report"
+  - "**/*.qdef"
+  - "**/*.macro"
 alwaysApply: false
 ---
 
 # VBA Source File Rules
 
-When editing VBA source files (`.bas` and `.cls`), follow these critical rules:
+When editing VBA source files (`.bas`, `.cls`) or Access SaveAsText files (`.form`, `.report`, `.qdef`, `.macro`), follow these critical rules:
 
 ## Encoding
 

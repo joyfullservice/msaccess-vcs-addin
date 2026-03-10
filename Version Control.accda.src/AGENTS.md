@@ -1,4 +1,4 @@
-﻿# AGENTS.md - AI Agent Guide to MSAccess VCS Export Structure
+# AGENTS.md - AI Agent Guide to MSAccess VCS Export Structure
 
 ## Context: What Is This Folder?
 
@@ -19,6 +19,7 @@ This folder contains **exported source files from a Microsoft Access database**.
 
 **ALL text files** in this exported database use **UTF-8 with BOM** encoding (bytes `EF BB BF` at file start). This includes:
 - `.bas` and `.cls` files (VBA modules and classes)
+- `.form`, `.report`, `.qdef`, `.macro` files (Access SaveAsText format)
 - `.sql` files (query SQL)
 - `.json` files (configuration and metadata)
 - `.xml` files (table definitions, etc.)
@@ -166,9 +167,24 @@ End Sub
 
 ---
 
+## File Extension Note
+
+Starting with export format version 5.0.0, forms, reports, queries, and macros use descriptive file extensions (`.form`, `.report`, `.qdef`, `.macro`) instead of the overloaded `.bas` extension. Older projects may still use `.bas` for these object types. When working with source files, check which extensions are actually present in the folder. The add-in accepts both old and new extensions during import.
+
+| Object Type | New Extension | Legacy Extension |
+|-------------|---------------|------------------|
+| Forms       | `.form`       | `.bas`           |
+| Reports     | `.report`     | `.bas`           |
+| Queries     | `.qdef`       | `.bas`           |
+| Macros      | `.macro`      | `.bas`           |
+
+VBA modules continue to use `.bas` and `.cls` (unchanged).
+
+---
+
 ## Form and Report Object Files
 
-### Object Definition Files (`.bas` in `forms/` and `reports/`)
+### Object Definition Files (`.form` / `.report`, or legacy `.bas`, in `forms/` and `reports/`)
 
 These files use Access's `SaveAsText` format - a custom text format that is NOT VBA code:
 
@@ -224,15 +240,15 @@ Attribute VB_Name = "Form_frmMyForm"
 
 ### Important: Which File Is Used for Import?
 
-**By default, the `.bas` file is used for import, NOT the `.sql` file.**
+**By default, the `.qdef` (or legacy `.bas`) file is used for import, NOT the `.sql` file.**
 
-The `.sql` file exists for easier reading and cleaner diffs, but the add-in imports from the `.bas` file unless the option `ForceImportOriginalQuerySQL` is enabled in `vcs-options.json`.
+The `.sql` file exists for easier reading and cleaner diffs, but the add-in imports from the `.qdef`/`.bas` file unless the option `ForceImportOriginalQuerySQL` is enabled in `vcs-options.json`.
 
-**Why not always use `.sql`?** The `.bas` file preserves query designer properties (like field descriptions, text format settings, column widths) that are lost when importing from pure SQL.
+**Why not always use `.sql`?** The `.qdef`/`.bas` file preserves query designer properties (like field descriptions, text format settings, column widths) that are lost when importing from pure SQL.
 
-### Query Definition (`.bas`)
+### Query Definition (`.qdef`)
 
-The `.bas` file uses Access's `SaveAsText` format. There are **two different formats** depending on how the query was last saved:
+The `.qdef` file uses Access's `SaveAsText` format. There are **two different formats** depending on how the query was last saved:
 
 **Format 1: Saved from SQL View (simpler)**
 ```
@@ -256,7 +272,7 @@ End
 dbMemo "SQL" ="SELECT tblCustomers.CustomerID..."
 ```
 
-**Warning:** The `.bas` format is largely undocumented and easy to corrupt. Modifications are risky.
+**Warning:** The `.qdef` format is largely undocumented and easy to corrupt. Modifications are risky.
 
 ### SQL File (`.sql`)
 
@@ -285,7 +301,7 @@ ORDER BY CustomerName;
 3. User rebuilds from source
 4. **Caveat:** Query designer properties (descriptions, text formats) will be lost
 
-**Option 3: Edit `.bas` directly (risky)**
+**Option 3: Edit `.qdef` directly (risky)**
 - Only attempt for simple changes to the `dbMemo "SQL"` line
 - Do not modify the structural elements (InputTables, OutputColumns, etc.)
 - Test thoroughly after import
@@ -302,7 +318,7 @@ ORDER BY CustomerName;
 | `.cls` (modules) | VBA code, member attribute descriptions |
 | `.cls` (form/report code) | Event handlers and procedures |
 | `.sql` (queries) | SQL text (but see Query Files section for import caveats) |
-| `.bas` (forms/reports) | Simple property values with great care |
+| `.form` / `.report` / `.bas` (forms/reports) | Simple property values with great care |
 | `.json` (most) | Configuration values (maintain valid JSON) |
 
 ### What You Must PRESERVE
@@ -358,8 +374,8 @@ If "Split Layout from VBA" is enabled:
 2. Find and modify the relevant procedure
 3. Save with UTF-8 BOM encoding
 
-If code is embedded in `.bas`:
-1. Open `forms/FormName.bas`
+If code is embedded in the layout file (`.form` or legacy `.bas`):
+1. Open `forms/FormName.form` (or `FormName.bas` in older projects)
 2. Find the `CodeBehindForm` section near the end
 3. Modify code in that section
 4. Save with UTF-8 BOM encoding
@@ -428,11 +444,11 @@ Operation logs are stored in the `logs/` subfolder with timestamped filenames:
 
 | Folder | Contents | Primary Extension |
 |--------|----------|-------------------|
-| `forms/` | Access forms | `.bas`, `.cls`, `.json` |
-| `reports/` | Access reports | `.bas`, `.cls`, `.json` |
+| `forms/` | Access forms | `.form` (or `.bas`), `.cls`, `.json` |
+| `reports/` | Access reports | `.report` (or `.bas`), `.cls`, `.json` |
 | `modules/` | VBA modules | `.bas`, `.cls` |
-| `queries/` | Queries | `.bas`, `.sql` |
-| `macros/` | Access macros | `.bas` |
+| `queries/` | Queries | `.qdef` (or `.bas`), `.sql` |
+| `macros/` | Access macros | `.macro` (or `.bas`) |
 | `tables/` | Table data (if exported) | `.txt`, `.xml` |
 | `tbldefs/` | Table definitions | `.sql`, `.xml`, `.json` |
 | `relations/` | Table relationships | `.json` |
@@ -471,7 +487,7 @@ Operation logs are stored in the `logs/` subfolder with timestamped filenames:
 **Possible causes:**
 - Control positions or properties were incorrectly modified
 - Begin/End blocks became unbalanced
-**Solution:** Compare with a known good version, restore `.bas` file from git
+**Solution:** Compare with a known good version, restore the `.form`/`.report` (or legacy `.bas`) file from git
 
 ### XML Parse Error
 

@@ -103,7 +103,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim blnRecreated As Boolean
 
     ' Only import files with the correct extension.
-    If Not strFile Like "*.bas" Then Exit Sub
+    If Not (strFile Like "*.qdef" Or strFile Like "*.bas") Then Exit Sub
 
     ' Import query from file
     strQueryName = GetObjectNameFromFileName(strFile)
@@ -124,8 +124,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' generated to alert of such issue.
     If Options.ForceImportOriginalQuerySQL Then
         If LoadComponentFromText(acQuery, strQueryName, strFile, True) = False Then
-            ' Replace .bas extension with .sql to get file content
-            strFileSql = Left$(strFile, Len(strFile) - 4) & ".sql"
+            strFileSql = SwapExtension(strFile, "sql")
 
             ' Tries to get SQL content from the SQL file previously exported
             strSql = ReadFile(strFileSql)
@@ -158,8 +157,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' imported as a new query from above.
     If Options.ForceImportOriginalQuerySQL And (blnRecreated = False) Then
 
-        ' Replace .bas extension with .sql to get file content
-        strFileSql = Left$(strFile, Len(strFile) - 4) & ".sql"
+        strFileSql = SwapExtension(strFile, "sql")
 
         ' Tries to get SQL content from the SQL file previously exported
         strSql = ReadFile(strFileSql)
@@ -247,7 +245,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.qdef")
     Set IDbComponent_GetFileList = m_FileList
 End Function
 
@@ -313,7 +311,7 @@ End Property
 '
 Private Property Get IDbComponent_FileExtensions() As Collection
     Set IDbComponent_FileExtensions = New Collection
-    IDbComponent_FileExtensions.Add "bas"
+    IDbComponent_FileExtensions.Add "qdef"
     IDbComponent_FileExtensions.Add "sql"
 End Property
 
@@ -340,7 +338,7 @@ End Property
 '
 Private Property Get IDbComponent_SourceFile() As String
     If m_Query Is Nothing Then Exit Property
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".bas"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".qdef"
 End Property
 
 

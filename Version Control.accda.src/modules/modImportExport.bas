@@ -164,6 +164,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Perform any needed upgrades to source files
     If blnFullExport Then UpgradeSourceFiles
 
+    ' Migrate file extensions from .bas to descriptive extensions
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then MigrateFileExtensions
+
     ' Run any custom sub before export
     If Options.RunBeforeExport <> vbNullString Then
         Log.Add T("Running {0}...", var0:=Options.RunBeforeExport)
@@ -1798,6 +1801,14 @@ Private Sub UpgradeSourceFiles()
     ClearFilesByExtension strBase & "tbldefs", "bas"        ' Moved to XML format
     ClearFilesByExtension strBase & "tbldefs", "tdf"
 
+    ' Remove old .bas files from folders that now use descriptive extensions
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        ClearFilesByExtension strBase & "forms", "bas"
+        ClearFilesByExtension strBase & "reports", "bas"
+        ClearFilesByExtension strBase & "queries", "bas"
+        ClearFilesByExtension strBase & "macros", "bas"
+    End If
+
     ' Clear any print settings files if not using this option
     If Not Options.SavePrintVars Then
         ClearFilesByExtension "forms", "json"
@@ -1805,6 +1816,67 @@ Private Sub UpgradeSourceFiles()
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MigrateFileExtensions
+' Author    : Adam Waller
+' Date      : 3/10/2026
+' Purpose   : Renames source files from old .bas extension to descriptive extensions
+'           : (.form, .report, .qdef, .macro) for forms, reports, queries, and macros.
+'           : Also updates the VCS index keys so the next export doesn't treat
+'           : every object as modified.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MigrateFileExtensions()
+
+    Dim strBase As String
+    Dim lngCount As Long
+
+    strBase = Options.GetExportFolder
+
+    ' Rename .bas files to new extensions in each affected folder
+    lngCount = lngCount + RenameFilesInFolder(strBase & "forms", "bas", "form")
+    lngCount = lngCount + RenameFilesInFolder(strBase & "reports", "bas", "report")
+    lngCount = lngCount + RenameFilesInFolder(strBase & "queries", "bas", "qdef")
+    lngCount = lngCount + RenameFilesInFolder(strBase & "macros", "bas", "macro")
+
+    If lngCount > 0 Then
+        ' Update VCS index keys to match the new file extensions
+        VCSIndex.MigrateIndexExtension "Forms", "form"
+        VCSIndex.MigrateIndexExtension "Reports", "report"
+        VCSIndex.MigrateIndexExtension "Queries", "qdef"
+        VCSIndex.MigrateIndexExtension "Macros", "macro"
+        Log.Add T("Migrated {0} source files to new extensions", var0:=lngCount)
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RenameFilesInFolder
+' Author    : Adam Waller
+' Date      : 3/10/2026
+' Purpose   : Renames files in a folder from one extension to another.
+'           : Returns the number of files renamed.
+'---------------------------------------------------------------------------------------
+'
+Private Function RenameFilesInFolder(strFolder As String, strOldExt As String, strNewExt As String) As Long
+
+    Dim dFiles As Dictionary
+    Dim varKey As Variant
+    Dim strNewPath As String
+
+    Set dFiles = GetFilePathsInFolder(strFolder, "*." & strOldExt)
+    For Each varKey In dFiles.Keys
+        strNewPath = SwapExtension(CStr(varKey), strNewExt)
+        If Not FSO.FileExists(strNewPath) Then
+            FSO.MoveFile CStr(varKey), strNewPath
+            RenameFilesInFolder = RenameFilesInFolder + 1
+        End If
+    Next varKey
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

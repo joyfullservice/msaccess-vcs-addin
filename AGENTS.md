@@ -52,9 +52,9 @@ This repository contains the **MSAccess Version Control System (VCS) Add-in** - 
                                        ▼
                           ┌────────────────────────┐
                           │   Source Files (.src)  │
-                          │   - forms/*.bas, *.cls │
+                          │   - forms/*.form,*.cls │
                           │   - modules/*.bas,*.cls│
-                          │   - queries/*.bas,*.sql│
+                          │   - queries/*.qdef,*.sql│
                           │   - vcs-options.json   │
                           │   - vcs-index.json     │
                           └────────────────────────┘
@@ -355,7 +355,7 @@ The `Version Control.accda.src/` folder contains the add-in's own exported sourc
 **[Version Control.accda.src/AGENTS.md](Version%20Control.accda.src/AGENTS.md)**
 
 This companion file explains:
-- Source file formats (`.bas`, `.cls`, `.sql`, etc.)
+- Source file formats (`.bas`, `.cls`, `.form`, `.report`, `.qdef`, `.macro`, `.sql`, etc.)
 - UTF-8 BOM encoding requirements
 - VBA file structure and attributes
 - Safe editing guidelines

@@ -55,7 +55,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strName As String
 
     ' Only import files with the correct extension.
-    If Not strFile Like "*.bas" Then Exit Sub
+    If Not (strFile Like "*.macro" Or strFile Like "*.bas") Then Exit Sub
 
     strName = GetObjectNameFromFileName(strFile)
     blnImportCheck = LoadComponentFromText(acMacro, strName, strFile)
@@ -135,7 +135,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.macro")
     Set IDbComponent_GetFileList = m_FileList
 End Function
 
@@ -201,7 +201,7 @@ End Property
 '
 Private Property Get IDbComponent_FileExtensions() As Collection
     Set IDbComponent_FileExtensions = New Collection
-    IDbComponent_FileExtensions.Add "bas"
+    IDbComponent_FileExtensions.Add "macro"
 End Property
 
 
@@ -227,7 +227,7 @@ End Property
 '
 Private Property Get IDbComponent_SourceFile() As String
     If m_Macro Is Nothing Then Exit Property
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Macro.Name) & ".bas"
+    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Macro.Name) & ".macro"
 End Property
 
 

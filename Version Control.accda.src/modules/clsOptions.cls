@@ -457,11 +457,15 @@ Private Function HasUnifiedLayoutFilesInGit(strExportPath As String) As Boolean
 
     Dim blnHasFiles As Boolean
 
-    ' See if we have any ".bas" files, but no corresponding ".cls" files in the
+    ' See if we have any layout files, but no corresponding ".cls" files in the
     ' forms and reports export folders.
     ' Hard-coding the folder names to avoid calling options.
-    If GetFileList(BuildPath2(strExportPath, "forms"), "*.bas").Count > 0 Then
+    If GetFileList(BuildPath2(strExportPath, "forms"), "*.form").Count > 0 Then
         blnHasFiles = (GetFileList(BuildPath2(strExportPath, "forms"), "*.cls").Count = 0)
+    ElseIf GetFileList(BuildPath2(strExportPath, "forms"), "*.bas").Count > 0 Then
+        blnHasFiles = (GetFileList(BuildPath2(strExportPath, "forms"), "*.cls").Count = 0)
+    ElseIf GetFileList(BuildPath2(strExportPath, "reports"), "*.report").Count > 0 Then
+        blnHasFiles = (GetFileList(BuildPath2(strExportPath, "reports"), "*.cls").Count = 0)
     ElseIf GetFileList(BuildPath2(strExportPath, "reports"), "*.bas").Count > 0 Then
         blnHasFiles = (GetFileList(BuildPath2(strExportPath, "reports"), "*.cls").Count = 0)
     End If

@@ -343,6 +343,38 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MigrateIndexExtension
+' Author    : Adam Waller
+' Date      : 3/10/2026
+' Purpose   : Renames the file extension on index keys for a given category.
+'           : This is bidirectional - it can migrate forward to new extensions or
+'           : revert to old ones. Safe to call when keys already have the target
+'           : extension (SwapExtension is a no-op in that case).
+'---------------------------------------------------------------------------------------
+'
+Public Sub MigrateIndexExtension(strCategory As String, strNewExt As String)
+
+    Dim dSection As Dictionary
+    Dim varSection As Variant
+    Dim varKey As Variant
+    Dim strExpected As String
+
+    For Each varSection In Array(m_dIndex("Components"), m_dIndex("AlternateExport"))
+        Set dSection = varSection
+        If dSection.Exists(strCategory) Then
+            For Each varKey In dSection(strCategory).Keys
+                strExpected = SwapExtension(CStr(varKey), strNewExt)
+                If CStr(varKey) <> strExpected Then
+                    dSection(strCategory).Key(CStr(varKey)) = strExpected
+                End If
+            Next
+        End If
+    Next
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetItem
 ' Author    : Adam Waller
 ' Date      : 11/30/2020
