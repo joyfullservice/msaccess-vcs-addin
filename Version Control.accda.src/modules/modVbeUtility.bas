@@ -62,12 +62,13 @@ End Sub
 Public Function GetFolderAnnotation(strComponentName As String, Optional strPrefix As String) As String
 
     Dim cmpItem As VBComponent
-    Dim strLine As String
-    Dim lngLine As Long
-    Dim lngLines As Long
+    Dim strCode As String
+    Dim strUpper As String
+    Dim lngPos As Long
     Dim lngStart As Long
     Dim lngEnd As Long
-    Dim blnFound As Boolean
+
+    Const TAG As String = "'@FOLDER("
 
     LogUnhandledErrors
     On Error Resume Next
@@ -76,34 +77,32 @@ Public Function GetFolderAnnotation(strComponentName As String, Optional strPref
     Set cmpItem = CurrentVBProject.VBComponents(strPrefix & strComponentName)
     If cmpItem Is Nothing Then Exit Function
     If cmpItem.CodeModule Is Nothing Then Exit Function
+    If cmpItem.CodeModule.CountOfLines = 0 Then Exit Function
 
-    ' Scan the first 30 lines for the annotation
-    lngLines = cmpItem.CodeModule.CountOfLines
-    If lngLines = 0 Then Exit Function
-    If lngLines > 30 Then lngLines = 30
+    ' Read all code in a single COM call and prepend vbCrLf so that
+    ' a line-1 annotation is found by the same pattern as any other line.
+    strCode = vbCrLf & cmpItem.CodeModule.Lines(1, cmpItem.CodeModule.CountOfLines)
+    strUpper = UCase$(strCode)
 
-    For lngLine = 1 To lngLines
-        strLine = Trim$(cmpItem.CodeModule.Lines(lngLine, 1))
+    ' Look for '@Folder preceded by a line break and single quote (comment line)
+    lngPos = InStr(1, strUpper, vbCrLf & TAG)
+    If lngPos = 0 Then Exit Function
+    lngPos = lngPos + 2 ' Advance past vbCrLf to the quote character
 
-        ' Match pattern: '@Folder("...") with flexible whitespace
-        If UCase$(strLine) Like "'*@FOLDER(*" Then
-            If blnFound Then
-                ' Warn about duplicate annotation; first one wins
-                Log.Add T("WARNING: Multiple @Folder annotations found in {0}. Using first annotation.", _
-                    var0:=strPrefix & strComponentName), Options.ShowDebug
-            Else
-                ' Extract the folder path between the quotes
-                lngStart = InStr(1, strLine, """")
-                If lngStart > 0 Then
-                    lngEnd = InStr(lngStart + 1, strLine, """")
-                    If lngEnd > lngStart + 1 Then
-                        GetFolderAnnotation = Replace(Mid$(strLine, lngStart + 1, lngEnd - lngStart - 1), ".", PathSep) & PathSep
-                    End If
-                End If
-                blnFound = True
-            End If
+    ' Warn if a second annotation exists
+    If InStr(lngPos + Len(TAG), strUpper, vbCrLf & TAG) > 0 Then
+        Log.Add T("WARNING: Multiple @Folder annotations found in {0}. Using first annotation.", _
+            var0:=strPrefix & strComponentName), Options.ShowDebug
+    End If
+
+    ' Extract the folder path between the double-quote delimiters
+    lngStart = InStr(lngPos, strCode, """")
+    If lngStart > 0 Then
+        lngEnd = InStr(lngStart + 1, strCode, """")
+        If lngEnd > lngStart + 1 Then
+            GetFolderAnnotation = Replace(Mid$(strCode, lngStart + 1, lngEnd - lngStart - 1), ".", PathSep) & PathSep
         End If
-    Next lngLine
+    End If
 
     CatchAny eelError, "Error reading @Folder annotation for " & strPrefix & strComponentName, ModuleName & ".GetFolderAnnotation"
 

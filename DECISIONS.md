@@ -1,4 +1,4 @@
-<!-- BEGIN HEADER -->
+﻿<!-- BEGIN HEADER -->
 
 # Decision Log
 
@@ -89,11 +89,12 @@ contradictory guidance.
 
 - **Combine component types into shared folders**: A single `src/Core/` folder could hold modules, classes, and forms together. Rejected — the existing architecture relies on component-type folders (`modules/`, `forms/`, `reports/`) for `BaseFolder`, `GetFileList`, file pattern matching, and orphan detection. Mixing types would require rewriting the entire component discovery system and break the `IDbComponent` contract.
 - **Custom annotation format**: Invent a new syntax like `'!Folder:Core.Utility`. Rejected — Rubberduck's `'@Folder("...")` is already widely used by VBA developers, and compatibility means users don't need to learn a new convention or maintain two sets of annotations.
-- **Rubberduck-compatible `@Folder` with dot-to-path conversion**: Parse `'@Folder("Core.Utility")` from the first 30 lines of the code module, convert dots to path separators, and insert the resulting subfolder path between `BaseFolder` and the filename. Uses existing `VerifyPath` for directory creation. Chosen.
+- **Line-by-line scan with 30-line limit**: Iterate `CodeModule.Lines(n, 1)` for the first 30 lines. Worked but made up to 30 COM calls per module and imposed an arbitrary cutoff. Rejected in favor of `InStr`.
+- **Rubberduck-compatible `@Folder` with `InStr`-based search**: Read the full code module in a single `CodeModule.Lines(1, n)` call, prepend `vbCrLf`, and use `InStr` to find `vbCrLf & "'@FOLDER("`. No line-position limit, single COM call, and annotations must be on a comment line. Chosen.
 
 **Decision**: Subfolder export is gated behind `Options.ExportFormatVersion >= EFV_5_0_0` (unreleased). Import always recurses into subfolders regardless of format version, ensuring backwards compatibility. Key design choices:
 
-- **Annotation parser location**: `GetFolderAnnotation()` in `modVbeUtility.bas` reads `VBComponent.CodeModule.Lines()` for the first 30 lines. Placed here because it directly interacts with VBE objects alongside `ExportCodeModule` and `OverlayCodeModule`.
+- **Annotation parser**: `GetFolderAnnotation()` in `modVbeUtility.bas` reads the entire code module in one COM call, prepends `vbCrLf` so line-1 annotations match, and searches for `vbCrLf & "'@FOLDER("` via `InStr`. Annotations must be on a comment line (preceded by `'`). Users can disable an annotation by removing the leading single quote. A second `InStr` past the first match detects duplicates.
 - **Multiple annotations**: First `@Folder` annotation wins; duplicates log a warning via `Log.Add` with `ShowDebug` visibility.
 - **Prefix parameter**: Forms use `"Form_"` prefix, reports use `"Report_"` prefix to match VBE component naming (e.g., `Form_frmMain`). Modules and VBE forms pass no prefix.
 - **Index unaffected**: `clsVCSIndex` keys on `FSO.GetFileName()` (just the filename), so subfolder changes don't break index lookups.
@@ -102,7 +103,7 @@ contradictory guidance.
 - **Orphan cleanup**: `modOrphaned.bas` recurses into subfolders and removes empty directories after cleanup.
 - **File counting**: `GetQuickFileCount` in `modContainers.bas` counts files recursively for accurate progress bars.
 
-**What this rules out**: Component types remain in separate root folders — `@Folder` only creates subfolders within each type's folder. The dot character in annotations is reserved as a path separator (consistent with Rubberduck). If Rubberduck changes its annotation syntax, this implementation would need updating. The 30-line scan limit means annotations must appear near the top of the module (standard practice). If users need deeper scan depth, the constant in `GetFolderAnnotation` would need to be configurable.
+**What this rules out**: Component types remain in separate root folders — `@Folder` only creates subfolders within each type's folder. The dot character in annotations is reserved as a path separator (consistent with Rubberduck). If Rubberduck changes its annotation syntax, this implementation would need updating. Annotations embedded in string literals or mid-line code will not match (the `vbCrLf & "'` prefix is required). There is no line-position limit for the annotation.
 
 **Relevant files**:
 
