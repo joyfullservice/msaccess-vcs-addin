@@ -29,9 +29,19 @@ $f="path\to\file.bas"; $b=[System.IO.File]::ReadAllBytes($f); if($b[0]-ne0xEF-or
 
 Replace `path\to\file.bas` with the actual file path that was edited.
 
+## REQUIRED: Preserve CRLF Line Endings
+
+All source files in this project use **CRLF** (`\r\n`) line endings. Editing tools (including file-write operations) may silently convert CRLF to LF. **After EVERY edit**, verify and restore CRLF if needed:
+
+```powershell
+$f="path\to\file.bas"; $c=[System.IO.File]::ReadAllText($f); if($c -match "`r`n"){"CRLF OK: $f"}else{$c=$c-replace"`n","`r`n"; [System.IO.File]::WriteAllText($f,$c); "CRLF restored: $f"}
+```
+
+LF-only files cause Access `LoadFromText` import failures or corrupt objects.
+
 ## Editing Safely
 
-To reduce risk of BOM corruption:
+To reduce risk of BOM or CRLF corruption:
 
 - **Use the smallest possible `old_string`** - include only enough context to uniquely identify the edit location
 - **Never replace entire procedures** when only a few lines change

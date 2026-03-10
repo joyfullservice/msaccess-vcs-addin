@@ -60,11 +60,47 @@ if (-not $hasBOM) {
 
 **Note:** The add-in's export process automatically ensures all files have UTF-8 BOM. The risk occurs when files are edited outside of Access. Always verify encoding if you're unsure.
 
-### 2. Preserve VBA File Structure
+### 2. PRESERVE CRLF LINE ENDINGS
+
+**ALL text files** in this exported database use **CRLF** (`\r\n`, hex `0D 0A`) line endings. This applies to every file type listed in the BOM section above.
+
+This is **mandatory** for successful import. **Access `LoadFromText` expects CRLF line endings. LF-only files can cause import failures or corrupt database objects with no clear error message.**
+
+**You MUST:**
+- Preserve CRLF line endings on ALL text files you edit
+- Be aware that many editing tools and file-write operations silently convert CRLF to LF
+- Verify line endings after edits, especially after bulk operations or file rewrites
+
+**You MUST NOT:**
+- Convert line endings to LF (Unix-style)
+- Use tools or write modes that normalize line endings to LF
+- Assume editing tools preserve CRLF - they often don't
+
+**Verification and Restoration:**
+If you need to verify or restore CRLF line endings on any file:
+
+```powershell
+# Check if file uses CRLF
+$file = "path\to\file.ext"
+$content = [System.IO.File]::ReadAllText($file)
+$hasCRLF = $content -match "`r`n"
+Write-Host "CRLF present: $hasCRLF"
+
+# Restore CRLF if file uses LF only
+if (-not $hasCRLF) {
+    $content = $content -replace "`n", "`r`n"
+    [System.IO.File]::WriteAllText($file, $content)
+    Write-Host "CRLF restored"
+}
+```
+
+**Note:** The `.gitattributes` file in this repository enforces `eol=crlf` for source file types, which helps when checking out files via Git. However, direct file edits by tools can still introduce LF-only line endings regardless of Git settings.
+
+### 3. Preserve VBA File Structure
 
 VBA files (`.bas`, `.cls`) have required headers that must not be modified. See "VBA File Format" section below.
 
-### 3. Do Not Edit These Files
+### 4. Do Not Edit These Files
 
 - **`vcs-index.json`** - Managed automatically by the add-in (tracks file hashes)
 - **`.frx` files** - Binary OLE data, not editable as text
@@ -331,7 +367,7 @@ ORDER BY CustomerName;
 | Module-level `Attribute VB_*` lines | Required class metadata        |
 | XML structure in `.xml` files      | Must remain valid XML           |
 | File names                         | Must match object names exactly |
-| Line endings (CRLF)                | Windows standard for VBA        |
+| Line endings (CRLF)                | Required for import (see Rule 2)|
 | Control index/ordering in forms    | Affects layout and tab order    |
 
 ---
@@ -466,6 +502,11 @@ Operation logs are stored in the `logs/` subfolder with timestamped filenames:
 
 **Most likely cause:** Encoding changed from UTF-8 with BOM
 **Solution:** Verify file starts with bytes `EF BB BF`, re-save with correct encoding
+
+### Import Fails or Objects Corrupted After Edit (Line Endings)
+
+**Most likely cause:** Line endings changed from CRLF to LF
+**Solution:** Verify file contains `\r\n` (hex `0D 0A`) line endings, not just `\n`. Restore CRLF using the script in Rule 2 above, or revert the file from Git.
 
 ### "Object not found" After Import
 
