@@ -1,4 +1,4 @@
-﻿VERSION 1.0 CLASS
+VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
@@ -249,7 +249,7 @@ Public Sub BuildAs()
 
     ' Proceed with build if we have the new path.
     If Len(strNewDbPath) Then
-        modImportExport.Build strSourceFolder, True, , strNewDbPath
+        modBuild.Build strSourceFolder, True, , strNewDbPath
     Else
         Operation.Finish eorCanceled
     End If
@@ -266,7 +266,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeAllSource()
-    If Operation.Begin(eotMerge) Then modImportExport.MergeAllSource
+    If Operation.Begin(eotMerge) Then modBuild.MergeAllSource
 End Sub
 
 

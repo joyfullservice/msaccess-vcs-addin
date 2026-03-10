@@ -1,4 +1,4 @@
-﻿Attribute VB_Name = "modExportOnSaveHook"
+Attribute VB_Name = "modExportOnSaveHook"
 '---------------------------------------------------------------------------------------
 ' Module    : modExportOnSaveHook
 ' Author    : bclothier
@@ -243,7 +243,7 @@ Public Sub HandleExportCallback(UpperBound As Long, ObjectDataArray() As ObjectD
         End With
     Next
 
-    modImportExport.ExportMultipleObjects dAccessObjects, False
+    modExport.ExportMultipleObjects dAccessObjects, False
 
 ExitProc:
     Exit Sub

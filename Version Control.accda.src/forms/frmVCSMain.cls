@@ -1,4 +1,4 @@
-﻿Attribute VB_GlobalNameSpace = False
+Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = True
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
@@ -307,9 +307,9 @@ Public Sub cmdExport_Click()
     ' See if we are exporting a single object, or everything.
     If Me.objSingleObject Is Nothing Then
         ' Export the source code using the specified filter.
-        modImportExport.ExportSource chkFullExport, Me.intContainerFilter, Me
+        modExport.ExportSource chkFullExport, Me.intContainerFilter, Me
     Else
-        modImportExport.ExportSingleObject Me.objSingleObject, Me
+        modExport.ExportSingleObject Me.objSingleObject, Me
     End If
 
     ' Turn on scroll bars in case the user wants to scroll back through the log.
