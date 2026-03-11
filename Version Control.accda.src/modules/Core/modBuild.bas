@@ -48,8 +48,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     LogUnhandledErrors FunctionName
     On Error Resume Next
 
-    ' Close the previous cached connections, if any
+    ' Close any previous cached connections
     CloseCachedConnections
+    CloseBackEndConnections
 
     ' The type of build will be used in various messages and log entries.
     strType = IIf(blnFullBuild, T("Build"), T("Merge"))
@@ -468,8 +469,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
 CleanUp:
 
-    ' Close the cached connections, if any
+    ' Close cached connections
     CloseCachedConnections
+    CloseBackEndConnections
 
     ' Add performance data to log file and save file.
     Perf.EndTiming

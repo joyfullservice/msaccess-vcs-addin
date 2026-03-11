@@ -192,6 +192,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Exit Sub
     End If
 
+    ' Cache persistent connections to Access back-end databases
+    CacheBackEndConnections
+
     ' Enforce any supplied letter casing rules
     StandardizeLetterCasing
 
@@ -366,6 +369,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 CleanUp:
 
     ' Run any cleanup routines
+    CloseBackEndConnections
     VCSIndex.ClearTempExportFolder
     RemoveThemeZipFiles
 
@@ -456,6 +460,9 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
         If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
     End With
 
+    ' Cache persistent connections to Access back-end databases
+    CacheBackEndConnections
+
     ' Get a database component class from the item
     Set cDbObject = GetClassFromObject(objItem)
 
@@ -517,6 +524,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
 CleanUp:
 
     ' Run any cleanup routines
+    CloseBackEndConnections
     VCSIndex.ClearTempExportFolder
 
     ' Add performance data to log file and save file
@@ -629,6 +637,9 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
         .Flush
     End With
 
+    ' Cache persistent connections to Access back-end databases
+    CacheBackEndConnections
+
     Set dCategories = New Dictionary
 
     For Each varKey In objItems.Keys
@@ -718,6 +729,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
 CleanUp:
 
     ' Run any cleanup routines
+    CloseBackEndConnections
     VCSIndex.ClearTempExportFolder
 
     ' Add performance data to log file and save file

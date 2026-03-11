@@ -12,6 +12,7 @@ Option Explicit
 
 Private Const ModuleName = "modConnect"
 Private m_dCachedConnections As Dictionary
+Private m_dBackEndConnections As Dictionary
 
 
 '---------------------------------------------------------------------------------------
@@ -236,4 +237,100 @@ Public Sub CloseCachedConnections()
             m_dCachedConnections.Remove varKey
         Next
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CacheBackEndConnections
+' Author    : Adam Waller
+' Date      : 03/11/2026
+' Purpose   : Open persistent read-only connections to Access back-end database files
+'           : linked from the current database. Holding these DAO.Database references
+'           : keeps the Jet/ACE connection pool warm, avoiding repeated open/close
+'           : cycles when exporting linked table metadata and data.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CacheBackEndConnections()
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim strConnect As String
+    Dim strPath As String
+    Dim dbBackEnd As DAO.Database
+
+    Perf.OperationStart "Cache Back-End Connections"
+
+    If m_dBackEndConnections Is Nothing Then
+        Set m_dBackEndConnections = New Dictionary
+    End If
+
+    ' Scan all table definitions for Access back-end links
+    Set dbs = CurrentDb
+    For Each tdf In dbs.TableDefs
+
+        ' Only process Access back-end linked tables (;DATABASE=...)
+        strConnect = tdf.Connect
+        If Len(strConnect) > 0 Then
+            If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 Then
+
+                ' Extract the back-end file path
+                strPath = GetConnectPath(strConnect)
+                If Len(strPath) > 0 Then
+                    If Not m_dBackEndConnections.Exists(strPath) Then
+
+                        ' Open the back-end database in shared, read-only mode
+                        LogUnhandledErrors
+                        On Error Resume Next
+                        Set dbBackEnd = DBEngine.OpenDatabase(strPath, False, True)
+                        If Err.Number = 0 Then
+                            m_dBackEndConnections.Add strPath, dbBackEnd
+                        End If
+                        On Error GoTo 0
+
+                    End If
+                End If
+            End If
+        End If
+    Next tdf
+
+    ' Log the number of cached connections
+    If m_dBackEndConnections.Count > 0 Then
+        Log.Add T("Caching {0} back-end database connection(s)", _
+            var0:=m_dBackEndConnections.Count), Options.ShowDebug
+    End If
+
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CloseBackEndConnections
+' Author    : Adam Waller
+' Date      : 03/11/2026
+' Purpose   : Close all cached back-end database connections opened by
+'           : CacheBackEndConnections.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CloseBackEndConnections()
+
+    Dim varKey As Variant
+    Dim dbBackEnd As DAO.Database
+
+    If m_dBackEndConnections Is Nothing Then Exit Sub
+    If m_dBackEndConnections.Count = 0 Then Exit Sub
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    For Each varKey In m_dBackEndConnections.Keys
+        Set dbBackEnd = m_dBackEndConnections.Item(varKey)
+        dbBackEnd.Close
+        Set dbBackEnd = Nothing
+    Next varKey
+
+    On Error GoTo 0
+
+    Set m_dBackEndConnections = Nothing
+
 End Sub
