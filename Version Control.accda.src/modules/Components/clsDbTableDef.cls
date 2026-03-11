@@ -45,12 +45,29 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim dItem As Dictionary
     Dim strHash As String
     Dim strContent As String
+    Dim strConnect As String
+
+    ' For linked tables, check if the back-end is already known to be unavailable
+    strConnect = CurrentDb.TableDefs(m_Table.Name).Connect
+    If Len(strConnect) > 0 Then
+        If IsBackEndUnavailable(strConnect) Then Exit Sub
+    End If
 
     ' Make sure the table exists, and is accessible
     If Not TableExists(m_Table.Name) Then
-        Log.Error eelError, "Unable to access table " & m_Table.Name & _
-            ". Please ensure that this table exists and is accessible in the current database.", _
-            ModuleName(Me) & ".Export"
+        If Len(strConnect) > 0 Then
+            ' Linked table failed - test whether the back-end itself is reachable
+            If TestBackEndConnection(strConnect) Then
+                Log.Error eelError, T("Unable to access table {0} on the back-end database.", _
+                    var0:=m_Table.Name), ModuleName(Me) & ".Export"
+            Else
+                MarkBackEndUnavailable strConnect, m_Table.Name
+            End If
+        Else
+            Log.Error eelError, T("Unable to access table {0}." & _
+                " Please ensure that this table exists and is accessible in the current database.", _
+                var0:=m_Table.Name), ModuleName(Me) & ".Export"
+        End If
         Exit Sub
     End If
 

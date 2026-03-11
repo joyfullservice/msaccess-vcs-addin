@@ -81,7 +81,33 @@ contradictory guidance.
 
 ---
 
+## 2026-03-11 — Skip unavailable back-ends during export
+
+**Trigger**: When exporting a database with many linked tables pointing to the same unavailable back-end (file missing, server down), the export tried and failed on every linked table individually. Each failure hit `TableExists()` → `tdf.Fields.Count`, which errors or times out, and logged a separate error per table. For ODBC connections, each failure could incur a full network timeout, multiplied by the number of linked tables.
+
+**Options explored**:
+
+- **Filter unavailable tables in `GetAllFromDB`**: Skip linked tables with unavailable back-ends during the scan phase so they never enter the export list. Would prevent the table from appearing in counts and progress, and would mix back-end availability concerns into the component discovery layer. Rejected as wrong abstraction level.
+- **Pre-test all connection types proactively**: Extend `CacheBackEndConnections` to also test ODBC connections upfront. Would provide uniform proactive detection but risks triggering ODBC login prompts or long timeouts during the pre-scan for servers that the user hasn't configured for unattended access. Rejected for ODBC; kept for Access (already tested).
+- **Proactive detection for Access + reactive detection with connection test for ODBC**: For Access back-ends, `CacheBackEndConnections` already opens each unique back-end file — just record failures instead of silently skipping them. For ODBC, on first `TableExists` failure, run a lightweight server-level connection test (`SELECT 1` via temp QueryDef) to distinguish "server down" from "single table missing." If the server is unreachable, mark the back-end as unavailable and skip remaining tables. If it responds, treat as a single-table error. Chosen.
+
+**Decision**: Added `m_dUnavailableBackEnds` dictionary to `modConnect.bas`, keyed by normalized back-end identifier. Modified `CacheBackEndConnections` to record failed `DBEngine.OpenDatabase` attempts (with per-back-end table counts) and log a single `eelWarning` per unavailable Access back-end. Added four new functions: `IsBackEndUnavailable` (dictionary lookup), `MarkBackEndUnavailable` (reactive recording + warning log), `TestBackEndConnection` (lightweight `SELECT 1` for ODBC; checks `m_dBackEndConnections` for Access), and `GetBackEndKey` (normalizes connection strings to back-end identifiers — file path for Access, DSN or DRIVER+SERVER+DATABASE for ODBC). Modified `clsDbTableDef.Export` and `clsDbTableData.Export` to check `IsBackEndUnavailable` before `TableExists`, and to call `TestBackEndConnection` on failure to distinguish server-down from table-missing.
+
+The back-end key normalization uses `UCase$` for case-insensitive matching. Access keys are file paths. ODBC keys use `ODBC:DSN=<name>` for DSN-based connections or `ODBC:<driver>;<server>;<database>` for DSN-less. `CloseBackEndConnections` clears both the connection cache and the unavailable dictionary.
+
+**What this rules out**: The unavailable back-end tracking is session-scoped (cleared in `CloseBackEndConnections`). It does not persist across operations. ODBC detection is reactive — the first linked table to an unavailable ODBC server will still incur one timeout before the back-end is marked. Proactive ODBC testing could be reconsidered if users report that single-timeout cost is still too high, but it would need to handle credential prompts. `clsDbTableDataMacro` is not modified because its `GetAllFromDB` already filters out linked tables (`If Len(tdf.Connect) = 0`).
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Utility/modConnect.bas` — `m_dUnavailableBackEnds`, `IsBackEndUnavailable`, `MarkBackEndUnavailable`, `TestBackEndConnection`, `GetBackEndKey`, `GetConnectPart`, modified `CacheBackEndConnections` and `CloseBackEndConnections`
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` — `IDbComponent_Export` modified with back-end availability check and reactive ODBC detection
+- `Version Control.accda.src/modules/Components/clsDbTableData.cls` — `IDbComponent_Export` modified with same pattern
+
+---
+
 ## 2026-03-11 — Persistent back-end database connection caching during export
+
+> **⚠ Partially superseded** (2026-03-11): The claim "Inaccessible back-ends are silently skipped" is no longer true. `CacheBackEndConnections` now records unavailable back-ends in `m_dUnavailableBackEnds` and logs a warning per back-end with the count of affected tables. See "Skip unavailable back-ends during export" above.
 
 **Trigger**: When exporting a database with linked tables pointing to Access back-end files (.accdb/.mdb), the Jet/ACE engine repeatedly opens and closes connections to the same back-end databases. Each access to a linked `TableDef`'s properties (`.Connect`, `.Fields`, `.Indexes`, `.SourceTableName`) or data (`OpenRecordset`, `ExportXML`) can trigger a separate connection cycle. With N linked tables pointing to the same back-end, this produces dozens of redundant open/close operations — especially costly when back-ends are on network shares.
 

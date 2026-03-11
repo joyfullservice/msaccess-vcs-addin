@@ -44,15 +44,31 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strFile As String
     Dim intFormat As eTableDataExportFormat
+    Dim strConnect As String
 
     ' Use error handling in case we encouter errors during export
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
+    ' For linked tables, check if the back-end is already known to be unavailable
+    strConnect = CurrentDb.TableDefs(m_Table.Name).Connect
+    If Len(strConnect) > 0 Then
+        If IsBackEndUnavailable(strConnect) Then Exit Sub
+    End If
+
     ' Make sure the table exists, and is accessible
     If Not TableExists(m_Table.Name) Then
-        Log.Error eelError, "Unable to access table " & m_Table.Name & _
-            ". Please ensure that this table exists and is accessible in the current database.", _
-            ModuleName(Me) & ".Export"
+        If Len(strConnect) > 0 Then
+            If TestBackEndConnection(strConnect) Then
+                Log.Error eelError, T("Unable to access table {0} on the back-end database.", _
+                    var0:=m_Table.Name), ModuleName(Me) & ".Export"
+            Else
+                MarkBackEndUnavailable strConnect, m_Table.Name
+            End If
+        Else
+            Log.Error eelError, T("Unable to access table {0}." & _
+                " Please ensure that this table exists and is accessible in the current database.", _
+                var0:=m_Table.Name), ModuleName(Me) & ".Export"
+        End If
         Exit Sub
     End If
 

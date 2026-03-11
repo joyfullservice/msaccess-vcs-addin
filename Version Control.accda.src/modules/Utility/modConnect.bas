@@ -13,6 +13,7 @@ Option Explicit
 Private Const ModuleName = "modConnect"
 Private m_dCachedConnections As Dictionary
 Private m_dBackEndConnections As Dictionary
+Private m_dUnavailableBackEnds As Dictionary
 
 
 '---------------------------------------------------------------------------------------
@@ -257,11 +258,15 @@ Public Sub CacheBackEndConnections()
     Dim strConnect As String
     Dim strPath As String
     Dim dbBackEnd As DAO.Database
+    Dim varKey As Variant
 
     Perf.OperationStart "Cache Back-End Connections"
 
     If m_dBackEndConnections Is Nothing Then
         Set m_dBackEndConnections = New Dictionary
+    End If
+    If m_dUnavailableBackEnds Is Nothing Then
+        Set m_dUnavailableBackEnds = New Dictionary
     End If
 
     ' Scan all table definitions for Access back-end links
@@ -276,17 +281,24 @@ Public Sub CacheBackEndConnections()
                 ' Extract the back-end file path
                 strPath = GetConnectPath(strConnect)
                 If Len(strPath) > 0 Then
-                    If Not m_dBackEndConnections.Exists(strPath) Then
-
+                    If m_dBackEndConnections.Exists(strPath) Then
+                        ' Already cached successfully
+                    ElseIf m_dUnavailableBackEnds.Exists(UCase$(strPath)) Then
+                        ' Already known unavailable - increment table count
+                        m_dUnavailableBackEnds(UCase$(strPath)) = _
+                            m_dUnavailableBackEnds(UCase$(strPath)) + 1
+                    Else
                         ' Open the back-end database in shared, read-only mode
                         LogUnhandledErrors
                         On Error Resume Next
                         Set dbBackEnd = DBEngine.OpenDatabase(strPath, False, True)
                         If Err.Number = 0 Then
                             m_dBackEndConnections.Add strPath, dbBackEnd
+                        Else
+                            Err.Clear
+                            m_dUnavailableBackEnds.Add UCase$(strPath), 1
                         End If
                         On Error GoTo 0
-
                     End If
                 End If
             End If
@@ -298,6 +310,13 @@ Public Sub CacheBackEndConnections()
         Log.Add T("Caching {0} back-end database connection(s)", _
             var0:=m_dBackEndConnections.Count), Options.ShowDebug
     End If
+
+    ' Log a single warning per unavailable back-end
+    For Each varKey In m_dUnavailableBackEnds.Keys
+        Log.Error eelWarning, T("Back-end database unavailable: {0} ({1} linked table(s) will be skipped)", _
+            var0:=CStr(varKey), var1:=m_dUnavailableBackEnds(varKey)), _
+            ModuleName & ".CacheBackEndConnections"
+    Next varKey
 
     Perf.OperationEnd
 
@@ -332,5 +351,176 @@ Public Sub CloseBackEndConnections()
     On Error GoTo 0
 
     Set m_dBackEndConnections = Nothing
+    Set m_dUnavailableBackEnds = Nothing
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsBackEndUnavailable
+' Author    : Adam Waller
+' Date      : 03/11/2026
+' Purpose   : Returns True if the back-end identified by the given connection string
+'           : has been marked as unavailable. Used to skip linked tables whose back-end
+'           : database or server is known to be unreachable.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsBackEndUnavailable(strConnect As String) As Boolean
+
+    Dim strKey As String
+
+    If m_dUnavailableBackEnds Is Nothing Then Exit Function
+    If m_dUnavailableBackEnds.Count = 0 Then Exit Function
+
+    strKey = GetBackEndKey(strConnect)
+    If Len(strKey) > 0 Then
+        IsBackEndUnavailable = m_dUnavailableBackEnds.Exists(strKey)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MarkBackEndUnavailable
+' Author    : Adam Waller
+' Date      : 03/11/2026
+' Purpose   : Record a back-end as unavailable and log a single warning. Called
+'           : reactively when a linked table export fails and the back-end connection
+'           : test also fails, indicating the entire back-end is down rather than a
+'           : single table being missing.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MarkBackEndUnavailable(strConnect As String, strTableName As String)
+
+    Dim strKey As String
+
+    If m_dUnavailableBackEnds Is Nothing Then
+        Set m_dUnavailableBackEnds = New Dictionary
+    End If
+
+    strKey = GetBackEndKey(strConnect)
+    If Len(strKey) = 0 Then Exit Sub
+
+    If Not m_dUnavailableBackEnds.Exists(strKey) Then
+        m_dUnavailableBackEnds.Add strKey, 1
+        Log.Error eelWarning, T("Back-end connection unavailable: {0}. " & _
+            "Linked tables from this source will be skipped.", _
+            var0:=strKey), ModuleName & ".MarkBackEndUnavailable"
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestBackEndConnection
+' Author    : Adam Waller
+' Date      : 03/11/2026
+' Purpose   : Perform a lightweight server-level connection test for non-Access
+'           : connections (ODBC, etc.) by creating a temp QueryDef with SELECT 1.
+'           : Returns True if the server responds. Used to distinguish "server down"
+'           : from "single table missing" when a linked table fails TableExists.
+'---------------------------------------------------------------------------------------
+'
+Public Function TestBackEndConnection(strConnect As String) As Boolean
+
+    Dim qdf As DAO.QueryDef
+
+    ' Only test non-Access connections; Access back-ends are proactively
+    ' tested in CacheBackEndConnections via DBEngine.OpenDatabase.
+    If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 Then
+        ' Access back-end: check against the cached connections dictionary
+        Dim strPath As String
+        strPath = GetConnectPath(strConnect)
+        If Len(strPath) > 0 Then
+            If Not m_dBackEndConnections Is Nothing Then
+                TestBackEndConnection = m_dBackEndConnections.Exists(strPath)
+            End If
+        End If
+        Exit Function
+    End If
+
+    ' For ODBC and other connection types, attempt a lightweight query
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Set qdf = CurrentDb.CreateQueryDef("")
+    qdf.Connect = strConnect
+    qdf.SQL = "SELECT 1;"
+    qdf.OpenRecordset
+    TestBackEndConnection = (Err.Number = 0)
+
+    If Not qdf Is Nothing Then
+        qdf.Close
+        Set qdf = Nothing
+    End If
+
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetBackEndKey
+' Author    : Adam Waller
+' Date      : 03/11/2026
+' Purpose   : Normalize a connection string to a back-end identifier suitable for
+'           : dictionary key comparison. Returns file path for Access back-ends,
+'           : DSN or DRIVER+SERVER+DATABASE for ODBC, or the full string for others.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetBackEndKey(strConnect As String) As String
+
+    Dim strDSN As String
+
+    If Len(strConnect) = 0 Then Exit Function
+
+    If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 Then
+        ' Access back-end: use the file path as the key
+        GetBackEndKey = UCase$(GetConnectPath(strConnect))
+
+    ElseIf InStr(1, strConnect, "ODBC;", vbTextCompare) = 1 Then
+        ' ODBC connection: build key from DSN or DRIVER+SERVER+DATABASE
+        strDSN = GetConnectPart(strConnect, "DSN")
+        If Len(strDSN) > 0 Then
+            GetBackEndKey = "ODBC:DSN=" & UCase$(strDSN)
+        Else
+            GetBackEndKey = "ODBC:" & _
+                UCase$(GetConnectPart(strConnect, "DRIVER")) & ";" & _
+                UCase$(GetConnectPart(strConnect, "SERVER")) & ";" & _
+                UCase$(GetConnectPart(strConnect, "DATABASE"))
+        End If
+
+    Else
+        ' Other connection types: use full string normalized to uppercase
+        GetBackEndKey = UCase$(strConnect)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetConnectPart
+' Author    : Adam Waller
+' Date      : 03/11/2026
+' Purpose   : Extract a named part from a semicolon-delimited connection string.
+'           : E.g. GetConnectPart("ODBC;DRIVER={SQL Server};SERVER=mysvr", "SERVER")
+'           : returns "mysvr".
+'---------------------------------------------------------------------------------------
+'
+Private Function GetConnectPart(strConnect As String, strPart As String) As String
+
+    Dim lngStart As Long
+    Dim lngEnd As Long
+
+    lngStart = InStr(1, strConnect, strPart & "=", vbTextCompare)
+    If lngStart > 0 Then
+        lngStart = lngStart + Len(strPart) + 1
+        lngEnd = InStr(lngStart, strConnect, ";")
+        If lngEnd > 0 Then
+            GetConnectPart = Mid$(strConnect, lngStart, lngEnd - lngStart)
+        Else
+            GetConnectPart = Mid$(strConnect, lngStart)
+        End If
+    End If
+
+End Function
