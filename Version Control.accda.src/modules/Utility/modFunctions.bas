@@ -143,31 +143,42 @@ Public Sub QuickSort(ByRef vArray As Variant, Optional ByVal inLow, Optional ByV
     If IsMissing(inLow) Then inLow = LBound(vArray)
     If IsMissing(inHi) Then inHi = UBound(vArray)
 
-    tmpLow = inLow
-    tmpHi = inHi
+    Do While inLow < inHi
 
-    pivot = vArray((inLow + inHi) \ 2)
+        tmpLow = inLow
+        tmpHi = inHi
 
-    While (tmpLow <= tmpHi)
-        While (vArray(tmpLow) < pivot And tmpLow < inHi)
-            tmpLow = tmpLow + 1
+        pivot = vArray((inLow + inHi) \ 2)
+
+        While (tmpLow <= tmpHi)
+            While (vArray(tmpLow) < pivot And tmpLow < inHi)
+                tmpLow = tmpLow + 1
+            Wend
+
+            While (pivot < vArray(tmpHi) And tmpHi > inLow)
+                tmpHi = tmpHi - 1
+            Wend
+
+            If (tmpLow <= tmpHi) Then
+                tmpSwap = vArray(tmpLow)
+                vArray(tmpLow) = vArray(tmpHi)
+                vArray(tmpHi) = tmpSwap
+                tmpLow = tmpLow + 1
+                tmpHi = tmpHi - 1
+            End If
         Wend
 
-        While (pivot < vArray(tmpHi) And tmpHi > inLow)
-            tmpHi = tmpHi - 1
-        Wend
-
-        If (tmpLow <= tmpHi) Then
-            tmpSwap = vArray(tmpLow)
-            vArray(tmpLow) = vArray(tmpHi)
-            vArray(tmpHi) = tmpSwap
-            tmpLow = tmpLow + 1
-            tmpHi = tmpHi - 1
+        ' Recurse on the smaller partition, loop on the larger.
+        ' This guarantees O(log n) recursion depth.
+        If (tmpHi - inLow) < (inHi - tmpLow) Then
+            If inLow < tmpHi Then QuickSort vArray, inLow, tmpHi
+            inLow = tmpLow
+        Else
+            If tmpLow < inHi Then QuickSort vArray, tmpLow, inHi
+            inHi = tmpHi
         End If
-    Wend
 
-    If (inLow < tmpHi) Then QuickSort vArray, inLow, tmpHi
-    If (tmpLow < inHi) Then QuickSort vArray, tmpLow, inHi
+    Loop
 
 End Sub
 
