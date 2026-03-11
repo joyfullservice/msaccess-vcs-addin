@@ -76,13 +76,13 @@ Public Function GetFolderAnnotation(strComponentName As String, Optional strPref
 
     ' Attempt to locate the component in the VBE
     Set cmpItem = CurrentVBProject.VBComponents(strPrefix & strComponentName)
-    If cmpItem Is Nothing Then Exit Function
-    If cmpItem.CodeModule Is Nothing Then Exit Function
-    If cmpItem.CodeModule.CountOfLines = 0 Then Exit Function
+    If cmpItem Is Nothing Then GoTo CleanUp
+    If cmpItem.CodeModule Is Nothing Then GoTo CleanUp
+    If cmpItem.CodeModule.CountOfLines = 0 Then GoTo CleanUp
 
     ' Read all code in a single COM call and prepend vbCrLf so that
     ' a line-1 annotation is found by the same pattern as any other line.
-    strCode = vbCrLf & cmpItem.CodeModule.Lines(1, cmpItem.CodeModule.CountOfLines)
+    strCode = vbCrLf & cmpItem.CodeModule.Lines(1, 999999)
     strUpper = UCase$(strCode)
 
     ' Look for '@Folder preceded by a line break and single quote (comment line)
@@ -106,6 +106,13 @@ Public Function GetFolderAnnotation(strComponentName As String, Optional strPref
     End If
 
     CatchAny eelError, "Error reading @Folder annotation for " & strPrefix & strComponentName, ModuleName & ".GetFolderAnnotation"
+
+    Exit Function
+
+CleanUp:
+    ' Clear any errors that may cause an early exit
+    If Err Then Err.Clear
+
 
 End Function
 
@@ -183,13 +190,20 @@ Public Sub RemoveNonBuiltInReferences()
     Dim strName As String
     Dim ref As Access.Reference
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Perf.OperationStart "Clear References"
     For intCnt = Application.References.Count To 1 Step -1
         Set ref = Application.References(intCnt)
         If Not ref.BuiltIn Then
             strName = ref.Name
             Application.References.Remove ref
-            Log.Add "  Removed " & strName, False
+            If CatchAny(eelError, "Failed to remove reference: " & strName, _
+                ModuleName & ".RemoveNonBuiltInReferences", True, True, True) Then
+                Log.Add "  ERROR removing " & strName, False
+            Else
+                Log.Add "  Removed " & strName, False
+            End If
         End If
         Set ref = Nothing
     Next intCnt
