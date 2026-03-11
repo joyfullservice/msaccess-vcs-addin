@@ -348,12 +348,11 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 3/10/2026
 ' Purpose   : Renames the file extension on index keys for a given category.
-'           : This is bidirectional - it can migrate forward to new extensions or
-'           : revert to old ones. Safe to call when keys already have the target
-'           : extension (SwapExtension is a no-op in that case).
+'           : Only renames keys whose current extension matches strOldExt,
+'           : leaving secondary extensions (e.g. .cls, .sql) untouched.
 '---------------------------------------------------------------------------------------
 '
-Public Sub MigrateIndexExtension(strCategory As String, strNewExt As String)
+Public Sub MigrateIndexExtension(strCategory As String, strOldExt As String, strNewExt As String)
 
     Dim dSection As Dictionary
     Dim varSection As Variant
@@ -364,9 +363,14 @@ Public Sub MigrateIndexExtension(strCategory As String, strNewExt As String)
         Set dSection = varSection
         If dSection.Exists(strCategory) Then
             For Each varKey In dSection(strCategory).Keys
-                strExpected = SwapExtension(CStr(varKey), strNewExt)
-                If CStr(varKey) <> strExpected Then
-                    dSection(strCategory).Key(CStr(varKey)) = strExpected
+                If StrComp(FSO.GetExtensionName(CStr(varKey)), strOldExt, vbTextCompare) = 0 Then
+                    strExpected = SwapExtension(CStr(varKey), strNewExt)
+                    If dSection(strCategory).Exists(strExpected) Then
+                        ' Target key already exists; remove the stale old-extension entry
+                        dSection(strCategory).Remove CStr(varKey)
+                    Else
+                        dSection(strCategory).Key(CStr(varKey)) = strExpected
+                    End If
                 End If
             Next
         End If

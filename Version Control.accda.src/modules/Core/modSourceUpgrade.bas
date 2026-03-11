@@ -106,10 +106,10 @@ Public Sub MigrateFileExtensions()
 
     If lngCount > 0 Then
         ' Update VCS index keys to match the new file extensions
-        VCSIndex.MigrateIndexExtension "Forms", "form"
-        VCSIndex.MigrateIndexExtension "Reports", "report"
-        VCSIndex.MigrateIndexExtension "Queries", "qdef"
-        VCSIndex.MigrateIndexExtension "Macros", "macro"
+        VCSIndex.MigrateIndexExtension "Forms", "bas", "form"
+        VCSIndex.MigrateIndexExtension "Reports", "bas", "report"
+        VCSIndex.MigrateIndexExtension "Queries", "bas", "qdef"
+        VCSIndex.MigrateIndexExtension "Macros", "bas", "macro"
         Log.Add T("Migrated {0} source files to new extensions", var0:=lngCount)
     End If
 
@@ -173,10 +173,10 @@ Public Sub RevertFileExtensions()
 
     If lngCount > 0 Then
         ' Update VCS index keys to match the reverted file extensions
-        VCSIndex.MigrateIndexExtension "Forms", "bas"
-        VCSIndex.MigrateIndexExtension "Reports", "bas"
-        VCSIndex.MigrateIndexExtension "Queries", "bas"
-        VCSIndex.MigrateIndexExtension "Macros", "bas"
+        VCSIndex.MigrateIndexExtension "Forms", "form", "bas"
+        VCSIndex.MigrateIndexExtension "Reports", "report", "bas"
+        VCSIndex.MigrateIndexExtension "Queries", "qdef", "bas"
+        VCSIndex.MigrateIndexExtension "Macros", "macro", "bas"
         Log.Add T("Reverted {0} source files to legacy extensions", var0:=lngCount)
     End If
 
