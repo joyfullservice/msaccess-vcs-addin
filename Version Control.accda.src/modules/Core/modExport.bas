@@ -168,8 +168,12 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Perform any needed upgrades to source files
     If blnFullExport Then UpgradeSourceFiles
 
-    ' Migrate file extensions from .bas to descriptive extensions
-    If Options.ExportFormatVersion >= EFV_5_0_0 Then MigrateFileExtensions
+    ' Migrate file extensions between format versions
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        MigrateFileExtensions
+    Else
+        RevertFileExtensions
+    End If
 
     ' Run any custom sub before export
     If Options.RunBeforeExport <> vbNullString Then

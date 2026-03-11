@@ -155,7 +155,10 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.report")
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.report")
+        MergeDictionary m_FileList, GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.bas")
+    End If
     Set IDbComponent_GetFileList = m_FileList
 End Function
 
@@ -232,7 +235,11 @@ End Property
 '
 Private Property Get IDbComponent_FileExtensions() As Collection
     Set IDbComponent_FileExtensions = New Collection
-    IDbComponent_FileExtensions.Add "report"
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        IDbComponent_FileExtensions.Add "report"
+    Else
+        IDbComponent_FileExtensions.Add "bas"
+    End If
     IDbComponent_FileExtensions.Add "cls"
 End Property
 
@@ -265,7 +272,7 @@ Private Property Get IDbComponent_SourceFile() As String
             & GetSafeFileName(m_Report.Name) & ".report"
     Else
         IDbComponent_SourceFile = IDbComponent_BaseFolder _
-            & GetSafeFileName(m_Report.Name) & ".report"
+            & GetSafeFileName(m_Report.Name) & ".bas"
     End If
 End Property
 

@@ -246,7 +246,10 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.qdef")
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.qdef")
+        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+    End If
     Set IDbComponent_GetFileList = m_FileList
 End Function
 
@@ -312,7 +315,11 @@ End Property
 '
 Private Property Get IDbComponent_FileExtensions() As Collection
     Set IDbComponent_FileExtensions = New Collection
-    IDbComponent_FileExtensions.Add "qdef"
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        IDbComponent_FileExtensions.Add "qdef"
+    Else
+        IDbComponent_FileExtensions.Add "bas"
+    End If
     IDbComponent_FileExtensions.Add "sql"
 End Property
 
@@ -339,7 +346,11 @@ End Property
 '
 Private Property Get IDbComponent_SourceFile() As String
     If m_Query Is Nothing Then Exit Property
-    IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".qdef"
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".qdef"
+    Else
+        IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".bas"
+    End If
 End Property
 
 

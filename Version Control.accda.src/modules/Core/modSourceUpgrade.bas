@@ -140,3 +140,94 @@ Private Function RenameFilesInFolder(strFolder As String, strOldExt As String, s
     Next varKey
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RevertFileExtensions
+' Author    : Adam Waller
+' Date      : 3/11/2026
+' Purpose   : Reverts source files from descriptive extensions (.form, .report, .qdef,
+'           : .macro) back to .bas, and flattens @Folder subfolders back to the base
+'           : folder. This is the reverse of MigrateFileExtensions and is called when
+'           : the export format version is downgraded below 5.0.0.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RevertFileExtensions()
+
+    Dim strBase As String
+    Dim lngCount As Long
+
+    strBase = Options.GetExportFolder
+
+    ' Flatten @Folder subfolders back to the base folder for all types that support them
+    lngCount = lngCount + FlattenSubfolders(strBase & "forms")
+    lngCount = lngCount + FlattenSubfolders(strBase & "reports")
+    lngCount = lngCount + FlattenSubfolders(strBase & "modules")
+    lngCount = lngCount + FlattenSubfolders(strBase & "vbeforms")
+
+    ' Rename descriptive extensions back to .bas
+    lngCount = lngCount + RenameFilesInFolder(strBase & "forms", "form", "bas")
+    lngCount = lngCount + RenameFilesInFolder(strBase & "reports", "report", "bas")
+    lngCount = lngCount + RenameFilesInFolder(strBase & "queries", "qdef", "bas")
+    lngCount = lngCount + RenameFilesInFolder(strBase & "macros", "macro", "bas")
+
+    If lngCount > 0 Then
+        ' Update VCS index keys to match the reverted file extensions
+        VCSIndex.MigrateIndexExtension "Forms", "bas"
+        VCSIndex.MigrateIndexExtension "Reports", "bas"
+        VCSIndex.MigrateIndexExtension "Queries", "bas"
+        VCSIndex.MigrateIndexExtension "Macros", "bas"
+        Log.Add T("Reverted {0} source files to legacy extensions", var0:=lngCount)
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FlattenSubfolders
+' Author    : Adam Waller
+' Date      : 3/11/2026
+' Purpose   : Moves all files from subfolders back to the base folder, then removes
+'           : empty subfolders. Used when reverting from @Folder-based organization.
+'           : Returns the number of files moved.
+'---------------------------------------------------------------------------------------
+'
+Private Function FlattenSubfolders(strFolder As String) As Long
+
+    Dim oFolder As Scripting.Folder
+    Dim oSubFolder As Scripting.Folder
+    Dim oFile As Scripting.File
+    Dim colSubFolders As New Collection
+    Dim varItem As Variant
+    Dim strDestPath As String
+    Dim strBaseFolder As String
+
+    strBaseFolder = StripSlash(strFolder)
+    If Not FSO.FolderExists(strBaseFolder) Then Exit Function
+
+    Set oFolder = FSO.GetFolder(strBaseFolder)
+
+    ' Collect subfolders (avoid modifying collection during iteration)
+    For Each oSubFolder In oFolder.SubFolders
+        colSubFolders.Add oSubFolder
+    Next oSubFolder
+
+    For Each varItem In colSubFolders
+        Set oSubFolder = varItem
+        ' Recursively flatten nested subfolders first
+        FlattenSubfolders = FlattenSubfolders + FlattenSubfolders(oSubFolder.Path)
+        ' Move files from this subfolder to the base folder
+        For Each oFile In oSubFolder.Files
+            strDestPath = FSO.BuildPath(strBaseFolder, oFile.Name)
+            If Not FSO.FileExists(strDestPath) Then
+                FSO.MoveFile oFile.Path, strDestPath
+                FlattenSubfolders = FlattenSubfolders + 1
+            End If
+        Next oFile
+        ' Remove subfolder if empty
+        If oSubFolder.Files.Count = 0 And oSubFolder.SubFolders.Count = 0 Then
+            oSubFolder.Delete True
+        End If
+    Next varItem
+
+End Function

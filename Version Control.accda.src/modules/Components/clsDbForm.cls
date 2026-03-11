@@ -186,7 +186,10 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.form")
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.form")
+        MergeDictionary m_FileList, GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.bas")
+    End If
     Set IDbComponent_GetFileList = m_FileList
 End Function
 
@@ -263,7 +266,11 @@ End Property
 '
 Private Property Get IDbComponent_FileExtensions() As Collection
     Set IDbComponent_FileExtensions = New Collection
-    IDbComponent_FileExtensions.Add "form"
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        IDbComponent_FileExtensions.Add "form"
+    Else
+        IDbComponent_FileExtensions.Add "bas"
+    End If
     IDbComponent_FileExtensions.Add "cls"
 End Property
 
@@ -296,7 +303,7 @@ Private Property Get IDbComponent_SourceFile() As String
             & GetSafeFileName(m_Form.Name) & ".form"
     Else
         IDbComponent_SourceFile = IDbComponent_BaseFolder _
-            & GetSafeFileName(m_Form.Name) & ".form"
+            & GetSafeFileName(m_Form.Name) & ".bas"
     End If
 End Property
 
