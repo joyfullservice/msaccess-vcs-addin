@@ -284,6 +284,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
             ' Post category start to MCP server
             MCP.Log "Exporting " & lngCount & " " & LCase(cCategory.Category) & "..."
+            Log.Flush
 
             ' Loop through each object in this category.
             For Each varKey In dObjects.Keys

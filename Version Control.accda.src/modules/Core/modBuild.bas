@@ -363,6 +363,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         Perf.CategoryStart cCategory.Category
         lngCount = dFiles.Count
         lngCurrent = 0
+        Log.Flush
 
         ' Loop through each file in this category.
         For Each varFile In dFiles.Keys
@@ -803,6 +804,7 @@ Public Sub MergeAllSource()
             Perf.CategoryStart cCategory.Category
             lngCount = dFiles.Count
             lngCurrent = 0
+            Log.Flush
 
             ' Loop through each file in this category.
             For Each varFile In dFiles.Keys
