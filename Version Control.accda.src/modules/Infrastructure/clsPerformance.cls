@@ -41,6 +41,9 @@ Private Type udtPerformance
     ' When an operation finishes, it goes back to timing the
     ' previous operation.
     CallStackItems As Collection
+    ' Generic footnote annotations for categories.
+    FootnoteMarks As Dictionary     ' mark char -> description
+    CategoryFootnotes As Dictionary ' category name -> accumulated marks string
 End Type
 Private this As udtPerformance
 
@@ -108,6 +111,42 @@ End Property
 Public Property Get CurrentCategoryName() As String
     CurrentCategoryName = this.CategoryName
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddCategoryNote
+' Author    : Adam Waller
+' Date      : 3/12/2026
+' Purpose   : Add a footnote annotation to a category. The mark character (default "*")
+'           : is appended to the category name in the performance report, and the note
+'           : text is rendered as a footnote below the category table.
+'---------------------------------------------------------------------------------------
+'
+Public Sub AddCategoryNote(strCategory As String, strNote As String, Optional strMark As String = "*")
+
+    If Len(strCategory) = 0 Then Exit Sub
+    If Not Me.Enabled Then Exit Sub
+
+    ' Initialize dictionaries on first use
+    If this.FootnoteMarks Is Nothing Then Set this.FootnoteMarks = New Dictionary
+    If this.CategoryFootnotes Is Nothing Then Set this.CategoryFootnotes = New Dictionary
+
+    ' Register the mark -> description (first registration wins)
+    If Not this.FootnoteMarks.Exists(strMark) Then
+        this.FootnoteMarks.Add strMark, strNote
+    End If
+
+    ' Append mark to the category's footnote string
+    If this.CategoryFootnotes.Exists(strCategory) Then
+        ' Only append if this mark isn't already on this category
+        If InStr(1, this.CategoryFootnotes(strCategory), strMark) = 0 Then
+            this.CategoryFootnotes(strCategory) = this.CategoryFootnotes(strCategory) & strMark
+        End If
+    Else
+        this.CategoryFootnotes.Add strCategory, strMark
+    End If
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -470,11 +509,19 @@ Public Function GetReports() As String
 
         ' Table for object types
         If Not this.Categories Is Nothing Then
+            Dim strCatName As String
             Set this.Categories = SortItemsByTime(this.Categories)
             .Add strSpacer
             .Add ListResult("Category", "Count", "Seconds", lngCol), vbCrLf, strSpacer
             For Each varKey In this.Categories.Keys
-                .Add ListResult(CStr(varKey), CStr(this.Categories(varKey).Count), _
+                strCatName = CStr(varKey)
+                ' Append footnote marks if this category has annotations
+                If Not this.CategoryFootnotes Is Nothing Then
+                    If this.CategoryFootnotes.Exists(strCatName) Then
+                        strCatName = strCatName & " " & this.CategoryFootnotes(strCatName)
+                    End If
+                End If
+                .Add ListResult(strCatName, CStr(this.Categories(varKey).Count), _
                     Format$(this.Categories(varKey).Total, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
                 ' Add to totals
                 dblCount = dblCount + this.Categories(varKey).Count
@@ -483,6 +530,14 @@ Public Function GetReports() As String
             .Add strSpacer
             .Add ListResult("TOTALS:", CStr(dblCount), _
                 Format$(curTotal, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
+            ' Render footnote descriptions
+            If Not this.FootnoteMarks Is Nothing Then
+                If this.FootnoteMarks.Count > 0 Then
+                    For Each varKey In this.FootnoteMarks.Keys
+                        .Add CStr(varKey) & " " & CStr(this.FootnoteMarks(varKey))
+                    Next varKey
+                End If
+            End If
             .Add strSpacer
             .Add vbNullString
         End If
@@ -502,6 +557,8 @@ Public Function GetReports() As String
             If Not this.Overall Is Nothing Then
                 .Add ListResult("Other Operations", vbNullString, _
                     Format$(this.Overall.Total - curTotal, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
+                .Add ListResult("TOTAL RUNTIME:", vbNullString, _
+                    Format$(this.Overall.Total, "0." & String$(this.intDigitsAfterDecimal, "0")), lngCol)
                 .Add strSpacer
             End If
             .Add vbNullString
@@ -679,6 +736,8 @@ Public Sub Reset()
     Set this.Categories = Nothing
     this.OperationName = vbNullString
     Set this.Operations = Nothing
+    Set this.FootnoteMarks = Nothing
+    Set this.CategoryFootnotes = Nothing
     Me.Enabled = True
 End Sub
 

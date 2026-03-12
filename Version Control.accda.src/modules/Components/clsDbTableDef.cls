@@ -48,7 +48,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strConnect As String
 
     ' For linked tables, check if the back-end is already known to be unavailable
-    strConnect = CurrentDb.TableDefs(m_Table.Name).Connect
+    strConnect = SharedDb.TableDefs(m_Table.Name).Connect
     If Len(strConnect) > 0 Then
         If IsBackEndUnavailable(strConnect) Then Exit Sub
     End If
@@ -94,7 +94,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Else
         ' Linked table - Save as JSON
-        Set dbs = CurrentDb
+        Set dbs = SharedDb
         Set tdf = dbs.TableDefs(m_Table.Name)
 
         Set dItem = New Dictionary
@@ -262,7 +262,7 @@ Private Function StageRelations(strTableName As String) As Dictionary
     Set StageRelations = New Dictionary
 
     ' Loop through relations, looking for matching table name
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     For Each rel In dbs.Relations
         If StrComp(rel.Table, strTableName, vbTextCompare) = 0 Or _
             StrComp(rel.ForeignTable, strTableName, vbTextCompare) = 0 Then
@@ -357,7 +357,7 @@ Public Sub SaveTableSqlDef(strTable As String, strFolder As String)
 
     Perf.OperationStart "Save Table SQL"
 
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     Set tdf = dbs.TableDefs(strTable)
 
     With cData
@@ -587,7 +587,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
 
         ' Link the table
         Set dItem = dTable("Items")
-        Set dbs = CurrentDb
+        Set dbs = SharedDb
         Set tdf = dbs.CreateTableDef(dItem("Name"))
         strConnect = GetFullConnect(dItem("Connect"))
         With tdf
@@ -885,7 +885,7 @@ Private Property Get IsLinkedTable() As Boolean
     'IsLinkedTable = CurrentDb.TableDefs(m_Table.Name).Connect <> vbNullString
 
     ' A faster way is to read the object type from MSysObjects
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     Set rst = dbs.OpenRecordset( _
         "select Type from MSysObjects" & _
         " where name =""" & m_Table.Name & """" & _

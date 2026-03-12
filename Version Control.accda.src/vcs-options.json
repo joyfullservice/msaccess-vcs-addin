@@ -65,6 +65,7 @@
     "BreakOnError": true,
     "PreserveRubberDuckID": false,
     "MaxLogFiles": 20,
+    "SaveAllDocumentProperties": false,
     "ExportFormatVersion": "5.0.0"
   }
 }

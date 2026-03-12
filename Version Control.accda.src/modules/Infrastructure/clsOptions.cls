@@ -54,6 +54,7 @@ Public UseShortHash As Boolean
 Public BreakOnError As Boolean
 Public PreserveRubberDuckID As Boolean
 Public MaxLogFiles As Long              ' Default: 20 (per operation type), 0 = keep all
+Public SaveAllDocumentProperties As Boolean
 Public ExportFormatVersion As Long      ' Packed integer from eExportFormatVersion enum
 
 ' Enum to compare loaded version to installed version.
@@ -103,6 +104,7 @@ Public Sub LoadDefaults()
         .HashAlgorithm = DefaultHashAlgorithm
         .UseShortHash = True
         .MaxLogFiles = 20
+        .SaveAllDocumentProperties = False
         .ExportFormatVersion = LATEST_EXPORT_FORMAT
 
         ' Table data export
@@ -732,6 +734,10 @@ Public Function GetCategoryHashes() As Dictionary
                 AddToCat dCats, "Tables", varKey, dOptions("Options")
                 AddToCat dCats, "Table Data Macros", varKey, dOptions("Options")
 
+            ' --- Doc Properties ---
+            Case "SaveAllDocumentProperties"
+                AddToCat dCats, "Doc Properties", varKey, dOptions("Options")
+
             ' --- Global (all categories) ---
             Case "ExportFormatVersion"
                 dGlobal.Add CStr(varKey), dOptions("Options")(CStr(varKey))
@@ -913,6 +919,7 @@ Private Sub Class_Initialize()
         .Add "BreakOnError"
         .Add "PreserveRubberDuckID"
         .Add "MaxLogFiles"
+        .Add "SaveAllDocumentProperties"
         .Add "ExportFormatVersion"
     End With
 

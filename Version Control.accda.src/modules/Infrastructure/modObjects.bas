@@ -30,6 +30,11 @@ Private Type udtObjects
     ' Keep a persistent reference to file system object after initializing version control.
     ' This way we don't have to recreate this object dozens of times while using VCS.
     FSO As Scripting.FileSystemObject
+
+    ' Shared DAO database reference. Reusing a single CurrentDb reference across all
+    ' component classes allows the JET engine's page-level cache to stay warm, avoiding
+    ' repeated ~20s cold I/O penalties on large databases.
+    dbs As DAO.Database
 End Type
 Private this As udtObjects
 
@@ -52,6 +57,7 @@ Public Sub ReleaseObjects()
     Set this.FSO = Nothing
     Set this.Translation = Nothing
     Set this.MCP = Nothing
+    Set this.dbs = Nothing
 
     Dim udtEmpty As udtObjects
     ' Reassign "this" to blank, clearing any saved data.
@@ -282,4 +288,20 @@ End Property
 Public Function MCP() As clsMCP
     If this.MCP Is Nothing Then Set this.MCP = New clsMCP
     Set MCP = this.MCP
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SharedDb
+' Author    : Adam Waller
+' Date      : 3/11/2026
+' Purpose   : Returns a shared DAO.Database reference (CurrentDb) that persists for the
+'           : duration of an operation. Reusing a single reference allows the JET engine's
+'           : page-level buffer cache to stay warm across all component classes, avoiding
+'           : repeated cold I/O penalties (~20s each on large databases).
+'---------------------------------------------------------------------------------------
+'
+Public Function SharedDb() As DAO.Database
+    If this.Dbs Is Nothing Then Set this.Dbs = CurrentDb
+    Set SharedDb = this.Dbs
 End Function

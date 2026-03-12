@@ -81,7 +81,7 @@ Private Sub IDbComponent_Import(strFile As String)
     If Not dFile Is Nothing Then
 
         ' Create new relation
-        Set m_Dbs = CurrentDb
+        Set m_Dbs = SharedDb
         Set dItem = dFile("Items")
         Set rel = m_Dbs.CreateRelation(dItem("Name"), dItem("Table"), dItem("ForeignTable"))
         rel.Attributes = dItem("Attributes")
@@ -134,7 +134,7 @@ Private Sub IDbComponent_Merge(strFile As String)
         ' name during a merge operation.
         LogUnhandledErrors
         On Error Resume Next
-        CurrentDb.Relations.Delete FSO.GetBaseName(strFile)
+        SharedDb.Relations.Delete FSO.GetBaseName(strFile)
         VCSIndex.Remove Me, strFile
         If Err Then Err.Clear
     End If
@@ -172,7 +172,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' Maintain persistent reference to database object so we don't
         ' lose the reference to the relation object with this procedure
         ' goes out of scope. (Make sure we release this on termination)
-        If m_Dbs Is Nothing Then Set m_Dbs = CurrentDb
+        If m_Dbs Is Nothing Then Set m_Dbs = SharedDb
 
         Set m_Items(blnModifiedOnly) = New Dictionary
         For Each rel In m_Dbs.Relations

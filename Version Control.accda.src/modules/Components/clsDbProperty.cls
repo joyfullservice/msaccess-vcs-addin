@@ -69,7 +69,7 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
 
     ' Pull a list of the existing properties so we know whether
     ' to add or update the existing property.
@@ -246,7 +246,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
     Set m_dItems = New Dictionary
 
     ' Loop through all properties
-    For Each prp In CurrentDb.Properties
+    For Each prp In SharedDb.Properties
         Select Case prp.Name
             Case "Connection"
                 ' Connection object for ODBCDirect workspaces. Not needed.
@@ -296,7 +296,7 @@ Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
     ' Go through target dictionary, removing properties that don't exist
     ' in the master dictionary. (Note that this is only checking the
     ' properties we are actually interested in tracking.)
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     For Each varProp In dTarget.Keys
         ' Check to see if this key exists in the master
         If Not KeyExists(dMaster, varProp) Then
@@ -356,7 +356,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         End If
 
         ' Loop through the properties
-        For Each prp In CurrentDb.Properties
+        For Each prp In SharedDb.Properties
             Set cProp = New clsDbProperty
             Set cProp.DbObject = prp
             blnAdd = True

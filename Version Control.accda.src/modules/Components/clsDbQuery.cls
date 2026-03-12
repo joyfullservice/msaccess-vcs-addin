@@ -51,7 +51,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         ' Export as SQL (if using that option)
         If Options.SaveQuerySQL Then
             Perf.OperationStart "Save Query SQL"
-            Set dbs = CurrentDb
+            Set dbs = SharedDb
             strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
             On Error Resume Next
             strSql = dbs.QueryDefs(m_Query.Name).SQL
@@ -132,7 +132,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
             ' Update query def with saved SQL
             If strSql <> vbNullString Then
-                Set dbs = CurrentDb
+                Set dbs = SharedDb
                 dbs.CreateQueryDef strQueryName, strSql
                 blnRecreated = True
                 Log.Error eelWarning, "  Restored query " & strQueryName & " using SQL. Some visual design properties may be lost.", ModuleName(Me) & ".Import"
@@ -165,7 +165,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
         ' Update query def with saved SQL
         If strSql <> vbNullString Then
-            Set dbs = CurrentDb
+            Set dbs = SharedDb
             dbs.QueryDefs(strQueryName).SQL = strSql
             Log.Add "  Restored original SQL for " & strQueryName, Options.ShowDebug
         Else

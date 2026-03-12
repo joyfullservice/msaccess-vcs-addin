@@ -81,6 +81,67 @@ contradictory guidance.
 
 ---
 
+## 2026-03-12 — SharedDb: shared CurrentDb reference across component classes
+
+**Trigger**: Export of `sec.accdb` (~6,870 objects, ~567 with descriptions) took ~47s on fast save. Benchmarking revealed the bottleneck was **cold DAO property value reads** in `clsDbDocument.GetDictionary`: iterating Container/Document objects and reading `Description` values took ~18s due to physical disk I/O in the JET engine loading scattered property-value pages. Multiple component classes each called `Set dbs = CurrentDb` independently, and each new `CurrentDb` reference starts with a cold JET page cache (per-reference caching). This meant duplicate cold I/O penalties when multiple components accessed the same data.
+
+**Options explored**:
+
+- **MSysObjects SQL lookup**: Query the system table for descriptions instead of iterating DAO. Found only 16/567 descriptions — queries are stored under the "Tables" DAO container, not a "Queries" container. Even with correct mapping, this was not faster than DAO iteration for value reads.
+- **Dictionary creation optimization**: Hypothesized that creating `Scripting.Dictionary` objects was expensive. Benchmarked at 0.008s for 1,200 dictionaries — negligible. Rejected.
+- **Content hash via clsConcat**: Build a canonical string and hash it instead of building dictionaries. Fast for warm reads (0.33s) but doesn't avoid the cold I/O.
+- **Shared CurrentDb reference (SharedDb)**: Cache a single `CurrentDb` reference in `modObjects` (lazy singleton pattern like FSO, Options, etc.). All component classes reuse the same reference, so the JET page cache stays warm after the first component pays the cold I/O cost. Chosen.
+- **Separate warm-up pass (WarmDAOCache)**: Iterate all documents pre-scan to warm the cache, tracked as "Loading DB Objects". Implemented and then **reverted** — it added ~9s overhead by iterating all ~6,870 documents in a separate pass before the scan iterated them again. Total time increased from ~47s to ~63-71s.
+- **Cold-start category annotation**: Tried annotating whichever category triggered the first SharedDb creation with a `*` footnote. The annotation landed on "DB Properties" (0.09s) because `clsDbProperty` runs before `clsDbDocument` in the scan order — but the actual cold I/O is paid later in "Doc Properties" (~18s). The annotation concept was correct but the trigger point was wrong. Removed the annotation call from `SharedDb()`; the `AddCategoryNote` mechanism remains available.
+
+**Decision**: Added `SharedDb()` accessor to `modObjects.bas` following the existing singleton pattern (FSO, Options, VCSIndex). Replaced `Set dbs = CurrentDb` with `Set dbs = SharedDb` across 10 component classes. The key JET caching insights from 7 rounds of in-database benchmarks:
+
+- **Per-reference caching**: Each `CurrentDb` call starts with a cold cache; references don't share warm state
+- **Page-level caching**: Warming one property (Description) warms ALL properties on those documents (Owner reads: 0.051s for 4,942 docs after warming Description)
+- **Cache pressure**: Aggressive full-property iteration causes exponential slowdown (500 docs: 0.07s → 2,000 docs: 261s) due to JET buffer pool saturation
+- **LRU eviction**: Previously cached pages persist even after heavy I/O — targeted warm-up is safe
+
+The separate `WarmDAOCache` warm-up pass was reverted because the first component to iterate (Doc Properties) naturally warms the cache for all subsequent components on the same `SharedDb` reference. **The real optimization opportunity discovered during this work**: commenting out Doc Properties entirely reduced export from ~47s to ~27s. This suggests the next step is making the Doc Properties scan conditional (skip when no objects are modified), not trying to make the cold I/O faster.
+
+**What this rules out**: Components should use `SharedDb` instead of `CurrentDb` for DAO operations during export/scan. Do NOT add a separate warm-up pass — it's counterproductive. Do NOT try to annotate the cold-start category via `SharedDb()` creation — the reference creation and the cold I/O are separate events. The actual performance win for large databases will come from skipping the Doc Properties full scan when no objects have changed (future work).
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Infrastructure/modObjects.bas` — `SharedDb()`, `Dbs` in `udtObjects`, cleared in `ReleaseObjects`
+- `Version Control.accda.src/modules/Components/clsDbDocument.cls` — 5x `CurrentDb` → `SharedDb`
+- `Version Control.accda.src/modules/Components/clsDbHiddenAttribute.cls` — 4x `CurrentDb` → `SharedDb`
+- `Version Control.accda.src/modules/Components/clsDbProperty.cls` — 4x `CurrentDb` → `SharedDb`
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` — 6x `CurrentDb` → `SharedDb`
+- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — 3x `CurrentDb` → `SharedDb`
+- `Version Control.accda.src/modules/Components/clsDbRelation.cls` — 3x `CurrentDb` → `SharedDb`
+- `Version Control.accda.src/modules/Components/clsDbNavPaneGroup.cls` — 3x `CurrentDb` → `SharedDb`
+- `Version Control.accda.src/modules/Components/clsDbImexSpec.cls` — 5x `CurrentDb` → `SharedDb`
+- `Version Control.accda.src/modules/Components/clsDbTableData.cls` — 4x `CurrentDb` → `SharedDb`
+- `Version Control.accda.src/modules/Components/clsDbTableDataMacro.cls` — 1x `CurrentDb` → `SharedDb`
+- `Version Control.accda.src/modules/Core/modExport.bas` — WarmDAOCache added then removed
+
+---
+
+## 2026-03-12 — Generic category footnotes and TOTAL RUNTIME on clsPerformance
+
+**Trigger**: During the SharedDb investigation, we wanted to annotate specific categories in the performance report with explanatory footnotes (e.g., marking which category paid the cold I/O cost). This required a mechanism on `clsPerformance` that was domain-agnostic, since the performance class is used for generic timing beyond just import/export.
+
+**Options explored**:
+
+- **Domain-specific property (ColdStartCategory)**: A single string property on `clsPerformance`. Simple but bakes import/export knowledge into a generic class. Rejected.
+- **Generic CategoryNotes dictionary**: A single dictionary keyed by category name with note text as value. Supports one note per category. Considered but less flexible.
+- **Two-dictionary footnote system with mark characters**: `FootnoteMarks` (mark → description) and `CategoryFootnotes` (category → accumulated marks string). Supports multiple distinct footnotes on the same category (e.g., `"*†"`), and different categories can share the same mark. Default mark is `"*"`. Chosen.
+
+**Decision**: Added `AddCategoryNote(strCategory, strNote, Optional strMark = "*")` to `clsPerformance`. The method silently exits if `strCategory` is empty or perf is disabled. `GetReports` appends marks to category names in the table and renders footnote descriptions after the TOTALS row. Both dictionaries are cleared in `Reset()`. Also added a `TOTAL RUNTIME` line to the operations table footer, showing `this.Overall.Total` — makes it easy to see how operations add up to wall-clock time without referencing the "Done" line at the top of the log.
+
+**What this rules out**: The footnote mechanism is fully generic — callers provide the mark character and description. There is no automatic detection built into `clsPerformance`; callers must explicitly call `AddCategoryNote`. Currently no callers use it (the `SharedDb` annotation was removed after proving the trigger point was wrong), but the mechanism is ready for future use.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Infrastructure/clsPerformance.cls` — `AddCategoryNote`, `FootnoteMarks`, `CategoryFootnotes` in `udtPerformance`, `GetReports` rendering, `TOTAL RUNTIME` line
+
+---
+
 ## 2026-03-11 — Skip unavailable back-ends during export
 
 **Trigger**: When exporting a database with many linked tables pointing to the same unavailable back-end (file missing, server down), the export tried and failed on every linked table individually. Each failure hit `TableExists()` → `tdf.Fields.Count`, which errors or times out, and logged a separate error per table. For ODBC connections, each failure could incur a full network timeout, multiplied by the number of linked tables.

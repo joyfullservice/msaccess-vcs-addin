@@ -70,7 +70,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
-        Set dbs = CurrentDb
+        Set dbs = SharedDb
         Set dItems = dFile("Items")
         For Each varCont In dItems.Keys
             objType = GetObjectTypeFromContainer(dbs.Containers(varCont))
@@ -162,7 +162,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         If (Not blnModifiedOnly) Or IDbComponent_IsModified Then
 
             ' Loop through all the containers, documents, and check hidden property
-            Set dbs = CurrentDb
+            Set dbs = SharedDb
             For Each varCont In m_dItems.Keys
                 Set colCont = m_dItems(varCont)
                 For Each varDoc In colCont
@@ -218,7 +218,7 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
 
     ' Create dictionary object to hold all the items
     Set m_dItems = New Dictionary
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
 
     ' Errors should not typically occur
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -272,7 +272,7 @@ Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
 
     ' Go through target dictionary, removing the flag that doesn't exist
     ' in the master dictionary.
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     For Each varCont In dTarget.Keys
         Set colItems = dTarget(varCont)
         contType = GetObjectTypeFromContainer(dbs.Containers(varCont))

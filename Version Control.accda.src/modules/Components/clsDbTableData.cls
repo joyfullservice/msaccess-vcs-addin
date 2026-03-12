@@ -50,7 +50,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' For linked tables, check if the back-end is already known to be unavailable
-    strConnect = CurrentDb.TableDefs(m_Table.Name).Connect
+    strConnect = SharedDb.TableDefs(m_Table.Name).Connect
     If Len(strConnect) > 0 Then
         If IsBackEndUnavailable(strConnect) Then Exit Sub
     End If
@@ -130,7 +130,7 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
     Perf.OperationStart "Export Table Data as TDF"
 
     ' Open table in fast read-only view
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     Set rst = dbs.OpenRecordset(GetTableExportSql(strTable), dbOpenSnapshot, dbReadOnly)
     intFields = rst.Fields.Count
 
@@ -221,7 +221,7 @@ Private Sub ImportTableDataTDF(strFile As String)
     ' Build a dictionary of column names so we can load the data
     ' into the matching columns.
     strTable = GetObjectNameFromFileName(strFile)
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     Set dCols = New Dictionary
     For Each fld In dbs.TableDefs(strTable).Fields
         dCols.Add fld.Name, fld.Name
@@ -355,7 +355,7 @@ Private Function GetTableExportSql(strTable As String) As String
     Dim cSortList As New clsConcat
     Dim dbs As Database
 
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     Set tdf = dbs.TableDefs(strTable)
     intFields = tdf.Fields.Count
 

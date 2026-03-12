@@ -75,7 +75,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
         ClearDatabaseSummaryProperties
-        Set dbs = CurrentDb
+        Set dbs = SharedDb
         Set dItems = dFile("Items")
         For Each varCont In dItems.Keys
             Set dCont = dItems(varCont)
@@ -155,7 +155,7 @@ Private Sub ClearDatabaseSummaryProperties()
     Dim dbs As DAO.Database
     Dim intProp As Integer
 
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     Set doc = dbs.Containers("Databases").Documents("SummaryInfo")
     ' Loop backwards through the collection since we may be removing items.
     For intProp = doc.Properties.Count - 1 To 0 Step -1
@@ -215,19 +215,20 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
 
     ' Create dictionary object to hold all the items
     Set m_dItems = New Dictionary
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
+
+    Dim dProp As Dictionary
 
     ' Loop through all the containers, documents, and properties.
-    ' Note, we don't want to collect everything here. We are taking
-    ' a whitelist approach to specify the ones we want to save and
-    ' write back to the database when importing.
     For Each cont In dbs.Containers
         Set dCont = New Dictionary
-        For Each doc In cont.Documents
-            Set dDoc = New Dictionary
-            For Each prp In doc.Properties
-                blnSave = False
-                If cont.Name = "Databases" Then
+        If cont.Name = "Databases" Then
+            ' Databases container: full property iteration with blacklist approach.
+            ' Only a few documents here (SummaryInfo, UserDefined, MSysDB).
+            For Each doc In cont.Documents
+                Set dDoc = New Dictionary
+                For Each prp In doc.Properties
+                    blnSave = False
                     Select Case doc.Name
                         Case "SummaryInfo", "UserDefined"
                             ' Keep most of this information (Blacklist approach)
@@ -243,39 +244,63 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
                             ' No other documents expected here, but just in case
                             blnSave = True
                     End Select
-                Else
-                    ' For documents in other containers, use the whitelist approach, primarily
-                    ' gathering navigation pane item descriptions.
-                    Select Case prp.Name
-                        Case "Description"
-                            blnSave = True
-                    End Select
+                    ' Don't save properties on temporary items
+                    If Left(doc.Name, 1) = "~" Then blnSave = False
+                    If blnSave Then
+                        Set dProp = New Dictionary
+                        dProp.CompareMode = TextCompare
+                        dProp.Add "Type", prp.Type
+                        dProp.Add "Value", prp.Value
+                        dDoc.Add prp.Name, dProp
+                    End If
+                Next prp
+                If dDoc.Count > 0 Then dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
+            Next doc
+        ElseIf Options.ExportFormatVersion >= EFV_5_0_0 _
+           And Options.SaveAllDocumentProperties Then
+            ' Deep scan: full property iteration with blacklist of standard DAO properties.
+            ' Captures Description AND any custom properties added by add-ins or Access features.
+            For Each doc In cont.Documents
+                If Left(doc.Name, 1) <> "~" Then
+                    Set dDoc = New Dictionary
+                    For Each prp In doc.Properties
+                        Select Case prp.Name
+                            Case "AllPermissions", "Container", "DateCreated", _
+                                 "LastUpdated", "Name", "Owner", "GUID", _
+                                 "Permissions", "UserName"
+                                ' Skip standard DAO properties
+                            Case Else
+                                Set dProp = New Dictionary
+                                dProp.CompareMode = TextCompare
+                                dProp.Add "Type", prp.Type
+                                dProp.Add "Value", prp.Value
+                                dDoc.Add prp.Name, dProp
+                        End Select
+                    Next prp
+                    If dDoc.Count > 0 Then dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
                 End If
-                ' Don't save properties on temporary items
-                If Left(doc.Name, 1) = "~" Then blnSave = False
-                ' If save flag set, save the property
-                If blnSave Then
-                    Dim dProp As Dictionary
-                    Set dProp = New Dictionary
-                    dProp.CompareMode = TextCompare
-
-                    ' NOTE: we are not setting the DDL because we have no way of determining
-                    ' whether a property is a DDL or not. For an .accdb file format, it will
-                    ' always be false. For an .mdb file with ULS enabled, it might matter.
-                    ' Additional programming would be needed to handle such properties but
-                    ' we are not expending the extra effort for this extreme edge case.
-                    ' Also note that DDL and Inherited are two unrelated properties. In
-                    ' practice, we shouldn't include any inherited properties but I do not
-                    ' believe any container/document properties can be inherited. Again,
-                    ' an edge case not worth expending efforts.
-                    dProp.Add "Type", prp.Type
-                    dProp.Add "Value", prp.Value
-
-                    dDoc.Add prp.Name, dProp
+            Next doc
+        Else
+            ' Fast path: directly access the Description property on each document,
+            ' skipping the inner property enumeration loop entirely.
+            For Each doc In cont.Documents
+                If Left(doc.Name, 1) <> "~" Then
+                    On Error Resume Next
+                    Set prp = doc.Properties("Description")
+                    If Err.Number = 0 Then
+                        Set dDoc = New Dictionary
+                        Set dProp = New Dictionary
+                        dProp.CompareMode = TextCompare
+                        dProp.Add "Type", prp.Type
+                        dProp.Add "Value", prp.Value
+                        dDoc.Add "Description", dProp
+                        dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
+                    End If
+                    Err.Clear
+                    On Error GoTo 0
                 End If
-            Next prp
-            If dDoc.Count > 0 Then dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
-        Next doc
+            Next doc
+        End If
         If dCont.Count > 0 Then m_dItems.Add cont.Name, SortDictionaryByKeys(dCont)
     Next cont
 
@@ -304,7 +329,7 @@ Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
     ' Go through target dictionary, removing properties that don't exist
     ' in the master dictionary. (Note that this is only checking the
     ' properties we are actually interested in tracking.)
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     For Each varCont In dTarget.Keys
         Set dCont = dTarget(varCont)
         For Each varDoc In dCont.Keys
@@ -360,7 +385,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' Check index hash of properties to determine if they have been changed.
         If Not blnModifiedOnly Or IDbComponent_IsModified Then
             Set m_dItems = GetDictionary
-            Set dbs = CurrentDb
+            Set dbs = SharedDb
 
             ' Loop through all the containers, documents, and properties.
             For Each varCont In m_dItems.Keys

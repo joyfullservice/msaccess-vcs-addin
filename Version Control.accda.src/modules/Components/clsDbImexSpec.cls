@@ -74,7 +74,7 @@ Private Sub IDbComponent_Import(strFile As String)
         ' Create IMEX tables if needed
         VerifyImexTables
         Set dSpec = dFile("Items")
-        Set dbs = CurrentDb
+        Set dbs = SharedDb
 
         ' Add header record
         Set rst = dbs.OpenRecordset("MSysIMEXSpecs")
@@ -177,7 +177,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' This table may not (yet) exist.
         If TableExists("MSysIMEXSpecs") Then
             ' Look up specs from table
-            Set dbs = CurrentDb
+            Set dbs = SharedDb
             Set rst = dbs.OpenRecordset("MSysIMEXSpecs", dbOpenSnapshot, dbReadOnly)
             With rst
                 Do While Not .EOF
@@ -235,7 +235,7 @@ Private Function GetDictionary() As Dictionary
 
     Set dSpec = New Dictionary
     Set dCols = New Dictionary
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
 
     ' Make sure we have an object specified
     If Me.ID = 0 Then Exit Function
@@ -300,8 +300,8 @@ Private Sub DeleteSpecByName(strName As String)
     lngID = Nz(DLookup("SpecID", "MSysIMEXSpecs", "SpecName=""" & DblQ(strName) & """"))
     If lngID > 0 Then
         ' Remove related records
-        CurrentDb.Execute "delete from MSysIMEXColumns where SpecID=" & lngID, dbFailOnError
-        CurrentDb.Execute "delete from MSysIMEXSpecs where SpecID=" & lngID, dbFailOnError
+        SharedDb.Execute "delete from MSysIMEXColumns where SpecID=" & lngID, dbFailOnError
+        SharedDb.Execute "delete from MSysIMEXSpecs where SpecID=" & lngID, dbFailOnError
     End If
 
 End Sub

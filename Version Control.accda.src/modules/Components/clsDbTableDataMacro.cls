@@ -148,7 +148,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         Set m_Items(blnModifiedOnly) = New Dictionary
-        Set dbs = CurrentDb
+        Set dbs = SharedDb
         For Each tdf In dbs.TableDefs
             ' Skip system, temp, and linked tables
             If Left$(tdf.Name, 4) <> "MSys" Then

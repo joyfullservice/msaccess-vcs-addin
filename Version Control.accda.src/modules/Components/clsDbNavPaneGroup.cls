@@ -160,7 +160,7 @@ Private Sub ClearExistingNavGroups()
     strSql = dbs.QueryDefs("qryNavPaneGroups").SQL
 
     ' Look up list of custom categories
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot)
 
     With rst
@@ -249,7 +249,7 @@ Private Function GetDictionary(Optional blnUseCache As Boolean) As Dictionary
     strSql = dbs.QueryDefs("qryNavPaneGroups").SQL
 
     ' Open query in the current db
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     Set rst = dbs.OpenRecordset(strSql)
     Set m_dItems = New Dictionary
     Set colCategories = New Collection
@@ -343,7 +343,7 @@ Private Function LoadRecord(strTable As String, dCols As Dictionary) As Long
     Dim rst As DAO.Recordset
     Dim fld As DAO.Field
 
-    Set dbs = CurrentDb
+    Set dbs = SharedDb
     Set rst = dbs.OpenRecordset(strTable)
     With rst
         .AddNew
