@@ -70,6 +70,10 @@ Public Sub UpgradeSourceFiles()
         ClearFilesByExtension strBase & "reports", "bas"
         ClearFilesByExtension strBase & "queries", "bas"
         ClearFilesByExtension strBase & "macros", "bas"
+
+        ' Migrate document properties and hidden attributes from singleton files
+        ' into per-object companion .json files
+        MigrateMetadataToCompanionFiles
     End If
 
     ' Clear any print settings files if not using this option
@@ -179,6 +183,246 @@ Public Sub RevertFileExtensions()
         VCSIndex.MigrateIndexExtension "Macros", "macro", "bas"
         Log.Add T("Reverted {0} source files to legacy extensions", var0:=lngCount)
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MigrateMetadataToCompanionFiles
+' Author    : Adam Waller
+' Date      : 3/12/2026
+' Purpose   : Migrates document properties from documents.json and hidden attributes
+'           : from hidden-attributes.json into per-object companion .json files.
+'           : Rewrites documents.json with only "Databases" container entries, and
+'           : deletes hidden-attributes.json. This is a one-time migration that runs
+'           : during UpgradeSourceFiles when ExportFormatVersion >= EFV_5_0_0.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MigrateMetadataToCompanionFiles()
+
+    Dim strBase As String
+    Dim strDocFile As String
+    Dim strHiddenFile As String
+    Dim dDocFile As Dictionary
+    Dim dDocItems As Dictionary
+    Dim dHiddenFile As Dictionary
+    Dim dHiddenItems As Dictionary
+    Dim dDbOnly As Dictionary
+    Dim varCont As Variant
+    Dim varDoc As Variant
+    Dim strFolder As String
+    Dim strJsonFile As String
+    Dim dFile As Dictionary
+    Dim dItems As Dictionary
+    Dim lngCount As Long
+
+    strBase = Options.GetExportFolder
+
+    ' --- Migrate documents.json ---
+    strDocFile = strBase & "documents.json"
+    If FSO.FileExists(strDocFile) Then
+        Set dDocFile = ReadJsonFile(strDocFile)
+        If Not dDocFile Is Nothing Then
+            If dDocFile.Exists("Items") Then
+                Set dDocItems = dDocFile("Items")
+                Set dDbOnly = New Dictionary
+
+                Dim dCont As Dictionary
+                For Each varCont In dDocItems.Keys
+                    If varCont = "Databases" Then
+                        ' Keep Databases container in the file
+                        dDbOnly.Add varCont, dDocItems(varCont)
+                    Else
+                        ' Migrate non-Databases entries to companion files
+                        Set dCont = dDocItems(varCont)
+                        For Each varDoc In dCont.Keys
+                            ' Resolve folder: "Tables" container needs per-object lookup
+                            If varCont = "Tables" Then
+                                strFolder = ResolveFolderForTablesContainer(CStr(varDoc), strBase)
+                            Else
+                                strFolder = GetFolderForContainer(CStr(varCont), strBase)
+                            End If
+                            If Len(strFolder) > 0 Then
+                                strJsonFile = strFolder & GetSafeFileName(CStr(varDoc)) & ".json"
+                                MergeMetadataIntoFile strJsonFile, "Properties", dCont(varDoc)
+                                lngCount = lngCount + 1
+                            End If
+                        Next varDoc
+                    End If
+                Next varCont
+
+                ' Rewrite documents.json with only Databases entries
+                If dDbOnly.Count > 0 Then
+                    WriteFile BuildJsonFile("clsDbDocument", dDbOnly, _
+                        "Database Documents Properties (DAO)"), strDocFile
+                Else
+                    DeleteFile strDocFile
+                End If
+            End If
+        End If
+    End If
+
+    ' --- Migrate hidden-attributes.json ---
+    strHiddenFile = strBase & "hidden-attributes.json"
+    If FSO.FileExists(strHiddenFile) Then
+        Set dHiddenFile = ReadJsonFile(strHiddenFile)
+        If Not dHiddenFile Is Nothing Then
+            If dHiddenFile.Exists("Items") Then
+                Set dHiddenItems = dHiddenFile("Items")
+                Dim colHiddenItems As Object
+                For Each varCont In dHiddenItems.Keys
+                    Set colHiddenItems = dHiddenItems(varCont)
+                    For Each varDoc In colHiddenItems
+                        ' Resolve folder: "Tables" container needs per-object lookup
+                        If varCont = "Tables" Then
+                            strFolder = ResolveFolderForTablesContainer(CStr(varDoc), strBase)
+                        Else
+                            strFolder = GetFolderForContainer(CStr(varCont), strBase)
+                        End If
+                        If Len(strFolder) > 0 Then
+                            strJsonFile = strFolder & GetSafeFileName(CStr(varDoc)) & ".json"
+                            MergeHiddenIntoFile strJsonFile
+                            lngCount = lngCount + 1
+                        End If
+                    Next varDoc
+                Next varCont
+            End If
+        End If
+        DeleteFile strHiddenFile
+    End If
+
+    If lngCount > 0 Then
+        Log.Add T("Migrated {0} metadata entries to companion .json files", var0:=lngCount)
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFolderForContainer
+' Author    : Adam Waller
+' Date      : 3/12/2026
+' Purpose   : Maps a DAO container name to its source file folder path.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetFolderForContainer(strContainerName As String, strBase As String) As String
+    Select Case strContainerName
+        Case "Forms"
+            GetFolderForContainer = strBase & "forms" & PathSep
+        Case "Reports"
+            GetFolderForContainer = strBase & "reports" & PathSep
+        Case "Scripts"
+            GetFolderForContainer = strBase & "macros" & PathSep
+        Case "Modules"
+            GetFolderForContainer = strBase & "modules" & PathSep
+        Case "Tables"
+            ' Both queries and tables live in the "Tables" DAO container.
+            ' During migration we check for existing source files to determine the folder.
+            ' Tables -> tbldefs/, Queries -> queries/
+            ' This ambiguity is resolved per-object in MigrateMetadataToCompanionFiles.
+            GetFolderForContainer = vbNullString
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveFolderForTablesContainer
+' Author    : Adam Waller
+' Date      : 3/12/2026
+' Purpose   : For objects in the "Tables" DAO container, determines whether the object
+'           : is a query (queries/ folder) or table (tbldefs/ folder) by checking for
+'           : existing source files.
+'---------------------------------------------------------------------------------------
+'
+Private Function ResolveFolderForTablesContainer(strObjectName As String, strBase As String) As String
+
+    Dim strSafe As String
+
+    strSafe = GetSafeFileName(strObjectName)
+
+    ' Check queries folder first (qdef, bas)
+    If FSO.FileExists(strBase & "queries" & PathSep & strSafe & ".qdef") Or _
+       FSO.FileExists(strBase & "queries" & PathSep & strSafe & ".bas") Then
+        ResolveFolderForTablesContainer = strBase & "queries" & PathSep
+    ' Then check tbldefs folder (xml, json)
+    ElseIf FSO.FileExists(strBase & "tbldefs" & PathSep & strSafe & ".xml") Or _
+           FSO.FileExists(strBase & "tbldefs" & PathSep & strSafe & ".json") Then
+        ResolveFolderForTablesContainer = strBase & "tbldefs" & PathSep
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeMetadataIntoFile
+' Author    : Adam Waller
+' Date      : 3/12/2026
+' Purpose   : Merges a Properties dictionary into an existing or new companion .json file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MergeMetadataIntoFile(strJsonFile As String, strKey As String, dValue As Object)
+
+    Dim dFile As Dictionary
+    Dim dItems As Dictionary
+    Dim strObjectName As String
+
+    ' Read existing file or create new structure
+    If FSO.FileExists(strJsonFile) Then
+        Set dFile = ReadJsonFile(strJsonFile)
+    End If
+    If dFile Is Nothing Then Set dFile = New Dictionary
+    If dFile.Exists("Items") Then
+        Set dItems = dFile("Items")
+    Else
+        Set dItems = New Dictionary
+        Set dFile("Items") = dItems
+    End If
+
+    ' Add or replace the key
+    If dItems.Exists(strKey) Then dItems.Remove strKey
+    dItems.Add strKey, dValue
+
+    ' Write the file
+    strObjectName = FSO.GetBaseName(strJsonFile)
+    VerifyPath strJsonFile
+    WriteFile BuildJsonFile(vbNullString, dItems, strObjectName & " Metadata"), strJsonFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeHiddenIntoFile
+' Author    : Adam Waller
+' Date      : 3/12/2026
+' Purpose   : Adds "Hidden": true to a companion .json file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MergeHiddenIntoFile(strJsonFile As String)
+
+    Dim dFile As Dictionary
+    Dim dItems As Dictionary
+    Dim strObjectName As String
+
+    ' Read existing file or create new structure
+    If FSO.FileExists(strJsonFile) Then
+        Set dFile = ReadJsonFile(strJsonFile)
+    End If
+    If dFile Is Nothing Then Set dFile = New Dictionary
+    If dFile.Exists("Items") Then
+        Set dItems = dFile("Items")
+    Else
+        Set dItems = New Dictionary
+        Set dFile("Items") = dItems
+    End If
+
+    ' Add Hidden flag
+    If dItems.Exists("Hidden") Then dItems.Remove "Hidden"
+    dItems.Add "Hidden", True
+
+    ' Write the file
+    strObjectName = FSO.GetBaseName(strJsonFile)
+    VerifyPath strJsonFile
+    WriteFile BuildJsonFile(vbNullString, dItems, strObjectName & " Metadata"), strJsonFile
 
 End Sub
 

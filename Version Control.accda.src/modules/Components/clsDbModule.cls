@@ -52,6 +52,12 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Export as sanitized UTF-8 file
     ExportCodeModule m_Module.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
 
+    ' Export object metadata (doc properties + hidden attribute) into companion .json
+    If strAlternatePath = vbNullString Then
+        ExportObjectMetadata FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep _
+            & GetSafeFileName(m_Module.Name) & ".json", "Modules", m_Module.Name, acModule
+    End If
+
     ' Determine the actual export folder (may include @Folder subfolder)
     strExportFolder = FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep
 
@@ -66,12 +72,15 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
         strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & strExt
         If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
+        strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & ".json"
+        If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
     End If
 
     ' Update the index with the current VBA hash. (Note, this will not show
     ' changes to the hidden VBE properties that might have been added.)
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
-        GetFileHash(IDbComponent_SourceFile), GetCodeModuleHash(edbModule, m_Module.Name)
+        GetFileHash(IDbComponent_SourceFile), GetCodeModuleHash(edbModule, m_Module.Name), _
+        strMetaHash:=GetMetadataHash("Modules", m_Module.Name, acModule)
 
 End Sub
 
@@ -131,6 +140,9 @@ Private Sub IDbComponent_Import(strFile As String)
             "Ensure 'Attribute VB_Name = {0}' is found at the start of the file. " & _
             "Filenames (before prefix) must match the 'Attribute VB_Name' value." _
             , var0:=strName), FunctionName
+
+    ' Apply object metadata (doc properties + hidden attribute) from companion .json
+    ImportObjectMetadata SwapExtension(strFile, "json"), "Modules", strName, acModule
 
     ' Save hash, update the index, and remove the temp file
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
@@ -284,6 +296,7 @@ End Sub
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
     VerifyPath strToFolder
     MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
 End Sub
 
 
@@ -352,6 +365,12 @@ Public Function IDbComponent_IsModified() As Boolean
     ' NOTE: This will not detect changes to hidden VBE attributes
     IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
 
+    ' Check metadata (Description/Hidden) which don't update DateModified
+    If Not IDbComponent_IsModified Then
+        IDbComponent_IsModified = VCSIndex.Item(Me).MetaHash <> _
+            GetMetadataHash("Modules", m_Module.Name, acModule)
+    End If
+
 End Function
 
 
@@ -405,6 +424,7 @@ Private Property Get IDbComponent_FileExtensions() As Collection
     Set IDbComponent_FileExtensions = New Collection
     IDbComponent_FileExtensions.Add "bas"
     IDbComponent_FileExtensions.Add "cls"
+    IDbComponent_FileExtensions.Add "json"
 End Property
 
 

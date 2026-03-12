@@ -125,6 +125,12 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Additional processing when exporting to source folder
     If strAlternatePath = vbNullString Then
 
+        ' Export object metadata (doc properties + hidden attribute) into companion .json.
+        ' For linked tables this merges into the primary .json; for local tables a new
+        ' companion .json is created alongside the .xml file.
+        ExportObjectMetadata IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".json", _
+            "Tables", m_Table.Name, acTable
+
         ' Remove any alternate source file in case we have switched formats
         RemoveAlternateFormatSourceFile
 
@@ -140,7 +146,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     End If
 
     ' Update index
-    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash, _
+        strMetaHash:=GetMetadataHash("Tables", m_Table.Name, acTable)
 
 End Sub
 
@@ -200,6 +207,14 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Update index
     strName = GetObjectNameFromFileName(strFile)
     Set m_Table = CurrentData.AllTables(strName)
+
+    ' Apply object metadata (doc properties + hidden attribute) from companion .json.
+    ' For linked tables, the metadata is in the primary .json file itself.
+    ' For local tables (.xml import), check for a companion .json.
+    Dim strJsonFile As String
+    strJsonFile = IDbComponent_BaseFolder & GetSafeFileName(strName) & ".json"
+    ImportObjectMetadata strJsonFile, "Tables", strName, acTable
+
     VCSIndex.Update Me, eatImport, GetFileHash(strFile)
 
 End Sub
@@ -707,6 +722,7 @@ End Function
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
     MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
     MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".sql", strToFolder
+    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
 End Sub
 
 
@@ -771,6 +787,12 @@ End Function
 '
 Public Function IDbComponent_IsModified() As Boolean
     IDbComponent_IsModified = (DateTruncToSeconds(m_Table.DateModified) <> VCSIndex.Item(Me).ObjectDate)
+
+    ' Check metadata (Description/Hidden) which don't update DateModified
+    If Not IDbComponent_IsModified Then
+        IDbComponent_IsModified = VCSIndex.Item(Me).MetaHash <> _
+            GetMetadataHash("Tables", m_Table.Name, acTable)
+    End If
 End Function
 
 

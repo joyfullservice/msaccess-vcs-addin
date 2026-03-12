@@ -302,6 +302,6 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function SharedDb() As DAO.Database
-    If this.Dbs Is Nothing Then Set this.Dbs = CurrentDb
-    Set SharedDb = this.Dbs
+    If this.dbs Is Nothing Then Set this.dbs = CurrentDb
+    Set SharedDb = this.dbs
 End Function

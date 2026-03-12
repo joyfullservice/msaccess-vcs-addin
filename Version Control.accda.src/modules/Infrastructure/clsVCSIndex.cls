@@ -194,7 +194,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, _
-    strFileHash As String, Optional strOtherHash As String, Optional dteDateTime As Date) As Dictionary
+    strFileHash As String, Optional strOtherHash As String, _
+    Optional dteDateTime As Date, Optional strMetaHash As String) As Dictionary
 
     Dim dItem As Dictionary
     Dim strSection As String
@@ -229,6 +230,13 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
             If .Exists("OtherHash") Then .Remove "OtherHash"
         Else
             .Item("OtherHash") = strOtherHash
+        End If
+
+        ' Metadata hash (Detects changes to Description/Hidden that don't update DateModified)
+        If strMetaHash = vbNullString Then
+            If .Exists("MetaHash") Then .Remove "MetaHash"
+        Else
+            .Item("MetaHash") = strMetaHash
         End If
 
         ' Add timestamp, defaulting to now
@@ -427,6 +435,7 @@ Private Function LoadItem(cItem As IDbComponent, strSourceFile As String, strSec
             .FilePropertiesHash = dNZ(dItem, "FilePropertiesHash")
             .FileHash = dNZ(dItem, "FileHash")
             .OtherHash = dNZ(dItem, "OtherHash")
+            .MetaHash = dNZ(dItem, "MetaHash")
             If dItem.Exists("ObjectDate") Then .ObjectDate = dItem("ObjectDate")
         End With
     End With

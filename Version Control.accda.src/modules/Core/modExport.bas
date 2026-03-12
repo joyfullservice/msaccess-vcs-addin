@@ -885,5 +885,3 @@ Public Sub RemoveThemeZipFiles()
         If FSO.FolderExists(strFolder) Then ClearFilesByExtension strFolder, "zip"
     End If
 End Sub
-
-

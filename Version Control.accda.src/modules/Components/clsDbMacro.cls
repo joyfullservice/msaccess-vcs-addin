@@ -39,7 +39,15 @@ Implements IDbComponent
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strHash As String
     strHash = SaveComponentAsText(acMacro, m_Macro.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
-    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
+
+    ' Export object metadata (doc properties + hidden attribute) into companion .json
+    If strAlternatePath = vbNullString Then
+        ExportObjectMetadata IDbComponent_BaseFolder & GetSafeFileName(m_Macro.Name) & ".json", _
+            "Scripts", m_Macro.Name, acMacro
+    End If
+
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash, _
+        strMetaHash:=GetMetadataHash("Scripts", m_Macro.Name, acMacro)
 End Sub
 
 
@@ -62,6 +70,10 @@ Private Sub IDbComponent_Import(strFile As String)
     blnImportCheck = LoadComponentFromText(acMacro, strName, strFile)
     If Not blnImportCheck Or Operation.ErrorLevel = eelCritical Then Exit Sub
     Set m_Macro = CurrentProject.AllMacros(strName)
+
+    ' Apply object metadata (doc properties + hidden attribute) from companion .json
+    ImportObjectMetadata SwapExtension(strFile, "json"), "Scripts", strName, acMacro
+
     VCSIndex.Update Me, eatImport, GetFileHash(strFile)
 
 End Sub
@@ -94,6 +106,7 @@ End Sub
 '
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
     MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
+    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
 End Sub
 
 
@@ -154,6 +167,12 @@ End Function
 '
 Public Function IDbComponent_IsModified() As Boolean
     IDbComponent_IsModified = (DateTruncToSeconds(m_Macro.DateModified) <> VCSIndex.Item(Me).ObjectDate)
+
+    ' Check metadata (Description/Hidden) which don't update DateModified
+    If Not IDbComponent_IsModified Then
+        IDbComponent_IsModified = VCSIndex.Item(Me).MetaHash <> _
+            GetMetadataHash("Scripts", m_Macro.Name, acMacro)
+    End If
 End Function
 
 
@@ -210,6 +229,7 @@ Private Property Get IDbComponent_FileExtensions() As Collection
     Else
         IDbComponent_FileExtensions.Add "bas"
     End If
+    IDbComponent_FileExtensions.Add "json"
 End Property
 
 

@@ -82,8 +82,15 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         End If
     End If
 
+    ' Export object metadata (doc properties + hidden attribute) into companion .json
+    If strAlternatePath = vbNullString Then
+        ExportObjectMetadata IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".json", _
+            "Tables", m_Query.Name, acQuery
+    End If
+
     ' Update the index
-    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash
+    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash, _
+        strMetaHash:=GetMetadataHash("Tables", m_Query.Name, acQuery)
 
 End Sub
 
@@ -152,6 +159,10 @@ Private Sub IDbComponent_Import(strFile As String)
     End If
 
     Set m_Query = CurrentData.AllQueries(strQueryName)
+
+    ' Apply object metadata (doc properties + hidden attribute) from companion .json
+    ImportObjectMetadata SwapExtension(strFile, "json"), "Tables", strQueryName, acQuery
+
     VCSIndex.Update Me, eatImport, GetFileHash(strFile)
 
     ' Check option to import exact query from SQL, unless it was already
@@ -204,6 +215,7 @@ End Sub
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
     MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
     MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".sql", strToFolder
+    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
 End Sub
 
 
@@ -264,6 +276,12 @@ End Function
 '
 Public Function IDbComponent_IsModified() As Boolean
     IDbComponent_IsModified = (DateTruncToSeconds(m_Query.DateModified) <> VCSIndex.Item(Me).ObjectDate)
+
+    ' Check metadata (Description/Hidden) which don't update DateModified
+    If Not IDbComponent_IsModified Then
+        IDbComponent_IsModified = VCSIndex.Item(Me).MetaHash <> _
+            GetMetadataHash("Tables", m_Query.Name, acQuery)
+    End If
 End Function
 
 
@@ -321,6 +339,7 @@ Private Property Get IDbComponent_FileExtensions() As Collection
         IDbComponent_FileExtensions.Add "bas"
     End If
     IDbComponent_FileExtensions.Add "sql"
+    IDbComponent_FileExtensions.Add "json"
 End Property
 
 

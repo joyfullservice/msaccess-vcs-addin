@@ -44,6 +44,11 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     strHash = SaveComponentAsText(acForm, m_Form.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
 
+    ' Export object metadata (doc properties + hidden attribute) into companion .json
+    If strAlternatePath = vbNullString Then
+        ExportObjectMetadata SwapExtension(IDbComponent_SourceFile, "json"), "Forms", m_Form.Name, acForm
+    End If
+
     ' Clean up old files at base folder if @Folder moved them to a subfolder
     strExportFolder = FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep
     If StrComp(strExportFolder, IDbComponent_BaseFolder, vbTextCompare) <> 0 Then
@@ -54,7 +59,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     End If
 
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
-        strHash, GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
+        strHash, GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name), _
+        strMetaHash:=GetMetadataHash("Forms", m_Form.Name, acForm)
 
 End Sub
 
@@ -90,6 +96,10 @@ Private Sub IDbComponent_Import(strFile As String)
     blnImportCheck = LoadComponentFromText(acForm, strName, strFile)
     If Not blnImportCheck Or Operation.ErrorLevel = eelCritical Then Exit Sub
     Set m_Form = CurrentProject.AllForms(strName)
+
+    ' Apply object metadata (doc properties + hidden attribute) from companion .json
+    ImportObjectMetadata SwapExtension(strFile, "json"), "Forms", strName, acForm
+
     VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
 
     ' Restore main form if staged
@@ -213,6 +223,12 @@ Public Function IDbComponent_IsModified() As Boolean
 
         ' Date is okay, check hash
         IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
+    End If
+
+    ' Check metadata (Description/Hidden) which don't update DateModified
+    If Not IDbComponent_IsModified Then
+        IDbComponent_IsModified = VCSIndex.Item(Me).MetaHash <> _
+            GetMetadataHash("Forms", m_Form.Name, acForm)
     End If
 
 End Function

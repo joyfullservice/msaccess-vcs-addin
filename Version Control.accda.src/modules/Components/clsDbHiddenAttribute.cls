@@ -220,12 +220,19 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
     Set m_dItems = New Dictionary
     Set dbs = SharedDb
 
+    ' When EFV >= 5.0.0, hidden attributes are stored in per-object companion .json
+    ' files and written by each component's ExportObjectMetadata call. No scan needed.
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        ' Return empty dictionary -- hidden attributes handled by companion files
+        Set GetDictionary = m_dItems
+        Exit Function
+    End If
+
     ' Errors should not typically occur
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    ' Loop through all the containers, documents, and check hidden property
+    ' Legacy path: Loop through all the containers, documents, and check hidden property
     For Each cont In dbs.Containers
-        Set dCont = New Dictionary
         Set dCont = New Dictionary
         Set colItems = New Collection
         contType = GetObjectTypeFromContainer(cont)

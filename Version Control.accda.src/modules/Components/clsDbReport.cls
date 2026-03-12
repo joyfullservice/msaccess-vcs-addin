@@ -44,6 +44,11 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     strHash = SaveComponentAsText(acReport, m_Report.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
 
+    ' Export object metadata (doc properties + hidden attribute) into companion .json
+    If strAlternatePath = vbNullString Then
+        ExportObjectMetadata SwapExtension(IDbComponent_SourceFile, "json"), "Reports", m_Report.Name, acReport
+    End If
+
     ' Clean up old files at base folder if @Folder moved them to a subfolder
     strExportFolder = FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep
     If StrComp(strExportFolder, IDbComponent_BaseFolder, vbTextCompare) <> 0 Then
@@ -54,7 +59,8 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     End If
 
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
-        strHash, GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
+        strHash, GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name), _
+        strMetaHash:=GetMetadataHash("Reports", m_Report.Name, acReport)
 
 End Sub
 
@@ -78,6 +84,10 @@ Private Sub IDbComponent_Import(strFile As String)
     blnImportCheck = LoadComponentFromText(acReport, strName, strFile)
     If Not blnImportCheck Or Operation.ErrorLevel = eelCritical Then Exit Sub
     Set m_Report = CurrentProject.AllReports(strName)
+
+    ' Apply object metadata (doc properties + hidden attribute) from companion .json
+    ImportObjectMetadata SwapExtension(strFile, "json"), "Reports", strName, acReport
+
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), GetCodeModuleHash(IDbComponent_ComponentType, strName)
 
 End Sub
@@ -182,6 +192,12 @@ Public Function IDbComponent_IsModified() As Boolean
 
         ' Date is okay, check hash
         IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
+    End If
+
+    ' Check metadata (Description/Hidden) which don't update DateModified
+    If Not IDbComponent_IsModified Then
+        IDbComponent_IsModified = VCSIndex.Item(Me).MetaHash <> _
+            GetMetadataHash("Reports", m_Report.Name, acReport)
     End If
 
 End Function

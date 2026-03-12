@@ -219,90 +219,100 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
 
     Dim dProp As Dictionary
 
-    ' Loop through all the containers, documents, and properties.
-    For Each cont In dbs.Containers
+    ' When EFV >= 5.0.0, non-Databases containers are handled by per-object
+    ' companion .json files. Only scan the "Databases" container here.
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+
+        ' Databases container only: full property iteration with blacklist approach.
         Set dCont = New Dictionary
-        If cont.Name = "Databases" Then
-            ' Databases container: full property iteration with blacklist approach.
-            ' Only a few documents here (SummaryInfo, UserDefined, MSysDB).
-            For Each doc In cont.Documents
-                Set dDoc = New Dictionary
-                For Each prp In doc.Properties
-                    blnSave = False
-                    Select Case doc.Name
-                        Case "SummaryInfo", "UserDefined"
-                            ' Keep most of this information (Blacklist approach)
-                            Select Case prp.Name
-                                Case "AllPermissions", "Container", "DateCreated", "LastUpdated", _
-                                    "Name", "Owner", "GUID", "Permissions", "UserName" ' Ignore these
-                                Case Else
-                                    blnSave = True
-                            End Select
-                        Case "MSysDB"
-                            ' Skip database properties, since we are using another class to track those.
-                        Case Else
-                            ' No other documents expected here, but just in case
-                            blnSave = True
-                    End Select
-                    ' Don't save properties on temporary items
-                    If Left(doc.Name, 1) = "~" Then blnSave = False
-                    If blnSave Then
-                        Set dProp = New Dictionary
-                        dProp.CompareMode = TextCompare
-                        dProp.Add "Type", prp.Type
-                        dProp.Add "Value", prp.Value
-                        dDoc.Add prp.Name, dProp
-                    End If
-                Next prp
-                If dDoc.Count > 0 Then dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
-            Next doc
-        ElseIf Options.ExportFormatVersion >= EFV_5_0_0 _
-           And Options.SaveAllDocumentProperties Then
-            ' Deep scan: full property iteration with blacklist of standard DAO properties.
-            ' Captures Description AND any custom properties added by add-ins or Access features.
-            For Each doc In cont.Documents
-                If Left(doc.Name, 1) <> "~" Then
+        Set cont = dbs.Containers("Databases")
+        For Each doc In cont.Documents
+            Set dDoc = New Dictionary
+            For Each prp In doc.Properties
+                blnSave = False
+                Select Case doc.Name
+                    Case "SummaryInfo", "UserDefined"
+                        Select Case prp.Name
+                            Case "AllPermissions", "Container", "DateCreated", "LastUpdated", _
+                                "Name", "Owner", "GUID", "Permissions", "UserName"
+                            Case Else
+                                blnSave = True
+                        End Select
+                    Case "MSysDB"
+                        ' Skip database properties handled by another class.
+                    Case Else
+                        blnSave = True
+                End Select
+                If Left(doc.Name, 1) = "~" Then blnSave = False
+                If blnSave Then
+                    Set dProp = New Dictionary
+                    dProp.CompareMode = TextCompare
+                    dProp.Add "Type", prp.Type
+                    dProp.Add "Value", prp.Value
+                    dDoc.Add prp.Name, dProp
+                End If
+            Next prp
+            If dDoc.Count > 0 Then dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
+        Next doc
+        If dCont.Count > 0 Then m_dItems.Add cont.Name, SortDictionaryByKeys(dCont)
+
+    Else
+
+        ' Legacy path: scan ALL containers for pre-5.0 export format.
+        For Each cont In dbs.Containers
+            Set dCont = New Dictionary
+            If cont.Name = "Databases" Then
+                For Each doc In cont.Documents
                     Set dDoc = New Dictionary
                     For Each prp In doc.Properties
-                        Select Case prp.Name
-                            Case "AllPermissions", "Container", "DateCreated", _
-                                 "LastUpdated", "Name", "Owner", "GUID", _
-                                 "Permissions", "UserName"
-                                ' Skip standard DAO properties
+                        blnSave = False
+                        Select Case doc.Name
+                            Case "SummaryInfo", "UserDefined"
+                                Select Case prp.Name
+                                    Case "AllPermissions", "Container", "DateCreated", "LastUpdated", _
+                                        "Name", "Owner", "GUID", "Permissions", "UserName"
+                                    Case Else
+                                        blnSave = True
+                                End Select
+                            Case "MSysDB"
                             Case Else
-                                Set dProp = New Dictionary
-                                dProp.CompareMode = TextCompare
-                                dProp.Add "Type", prp.Type
-                                dProp.Add "Value", prp.Value
-                                dDoc.Add prp.Name, dProp
+                                blnSave = True
                         End Select
+                        If Left(doc.Name, 1) = "~" Then blnSave = False
+                        If blnSave Then
+                            Set dProp = New Dictionary
+                            dProp.CompareMode = TextCompare
+                            dProp.Add "Type", prp.Type
+                            dProp.Add "Value", prp.Value
+                            dDoc.Add prp.Name, dProp
+                        End If
                     Next prp
                     If dDoc.Count > 0 Then dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
-                End If
-            Next doc
-        Else
-            ' Fast path: directly access the Description property on each document,
-            ' skipping the inner property enumeration loop entirely.
-            For Each doc In cont.Documents
-                If Left(doc.Name, 1) <> "~" Then
-                    On Error Resume Next
-                    Set prp = doc.Properties("Description")
-                    If Err.Number = 0 Then
-                        Set dDoc = New Dictionary
-                        Set dProp = New Dictionary
-                        dProp.CompareMode = TextCompare
-                        dProp.Add "Type", prp.Type
-                        dProp.Add "Value", prp.Value
-                        dDoc.Add "Description", dProp
-                        dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
+                Next doc
+            Else
+                ' Fast path: directly access the Description property on each document.
+                For Each doc In cont.Documents
+                    If Left(doc.Name, 1) <> "~" Then
+                        On Error Resume Next
+                        Set prp = doc.Properties("Description")
+                        If Err.Number = 0 Then
+                            Set dDoc = New Dictionary
+                            Set dProp = New Dictionary
+                            dProp.CompareMode = TextCompare
+                            dProp.Add "Type", prp.Type
+                            dProp.Add "Value", prp.Value
+                            dDoc.Add "Description", dProp
+                            dCont.Add doc.Name, SortDictionaryByKeys(dDoc)
+                        End If
+                        Err.Clear
+                        On Error GoTo 0
                     End If
-                    Err.Clear
-                    On Error GoTo 0
-                End If
-            Next doc
-        End If
-        If dCont.Count > 0 Then m_dItems.Add cont.Name, SortDictionaryByKeys(dCont)
-    Next cont
+                Next doc
+            End If
+            If dCont.Count > 0 Then m_dItems.Add cont.Name, SortDictionaryByKeys(dCont)
+        Next cont
+
+    End If
 
     ' Return assembled dictionary
     Set GetDictionary = m_dItems
