@@ -57,6 +57,7 @@ Public Function HandleRibbonCommand(strCommand As String, Optional strArgument A
     ' commands while the current command is running.
     Static IsRunning As Boolean
 
+    LogUnhandledErrors
     On Error GoTo ErrHandler
 
     If IsRunning Then
@@ -296,6 +297,7 @@ Public Function API(strMethod As String, _
     Dim strLibName As String
     Dim strRunCmd As String
 
+    LogUnhandledErrors
     On Error GoTo ErrHandler
 
     If IsRunning Then
@@ -388,6 +390,7 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
     Dim dResult As Dictionary
     Dim lngTimeoutMs As Long
 
+    LogUnhandledErrors
     On Error GoTo ErrHandler
 
     If IsRunning Then

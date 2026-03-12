@@ -388,6 +388,7 @@ Public Function GetMetadataHash(strContainerName As String, _
 
     Set dbs = SharedDb
 
+    LogUnhandledErrors
     On Error Resume Next
     Set doc = dbs.Containers(strContainerName).Documents(strObjectName)
     If Err.Number = 0 Then
@@ -483,6 +484,7 @@ Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As Strin
             ModuleName & ".ExportObjectMetadata"
     Else
         ' Fast path: only check for Description property
+        LogUnhandledErrors
         On Error Resume Next
         Set doc = dbs.Containers(strContainerName).Documents(strObjectName)
         If Err.Number = 0 Then
@@ -508,6 +510,7 @@ Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As Strin
     End If
 
     ' Check hidden attribute
+    LogUnhandledErrors
     On Error Resume Next
     blnHidden = Application.GetHiddenAttribute(intObjType, strObjectName)
     If Err.Number <> 0 Then blnHidden = False

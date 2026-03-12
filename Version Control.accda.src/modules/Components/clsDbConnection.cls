@@ -147,6 +147,7 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
             ' 2. Sometimes the querydef is simply unusable and will always throw errors when
             '    trying to read the property. We should just skip over them and hope for the best.
             Dim strQdfConnect As String
+            LogUnhandledErrors
             On Error Resume Next
             strQdfConnect = qdf.Connect
             If Err.Number Then

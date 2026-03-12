@@ -203,6 +203,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub HandleExportCallback(UpperBound As Long, ObjectDataArray() As ObjectData)
+    LogUnhandledErrors
     On Error GoTo ErrHandler
 
     Dim dAccessObjects As Dictionary

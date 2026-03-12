@@ -58,6 +58,7 @@ End Sub
 '
 Public Sub LoadFromText(ObjectType As AcObjectType, ObjectName As String, FileName As String)
 
+    LogUnhandledErrors
     On Error GoTo ErrHandler
 
     If this.IsInitialized = False Then

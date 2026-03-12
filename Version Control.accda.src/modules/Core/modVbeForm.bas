@@ -62,6 +62,7 @@ End Function
 
 Private Function IsSerializableProperty(ByVal Context As Object, ByVal Property As VBIDE.Property) As Boolean
     Dim tp As VbVarType
+    LogUnhandledErrors
     On Error Resume Next
     tp = VarType(Property.Value)
     On Error GoTo 0
@@ -110,6 +111,7 @@ Private Function ControlExistsInSubElements(ByVal Controls As MSForms.Controls, 
                 Exit Function
             End If
         End If
+        LogUnhandledErrors
         On Error Resume Next
         ControlExistsInSubElements = ControlExistsInSubElements(o.Controls, Name, Depth + 1)
         On Error GoTo 0
@@ -143,6 +145,7 @@ Private Sub AddProperty(dic As Dictionary, o As Object, strName As Variant)
         Case Else
             ' Standard property.
             ' Use CallByName on object to get value if the property exists
+            LogUnhandledErrors
             On Error Resume Next
             dic.Add strName, CallByName(o, strName, VbGet)
             If Err Then Err.Clear

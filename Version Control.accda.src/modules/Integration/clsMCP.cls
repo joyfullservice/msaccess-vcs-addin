@@ -40,6 +40,7 @@ Private this As udtThis
 '
 Public Sub RegisterCallback(strCallbackInfo As String)
 
+    LogUnhandledErrors
     On Error GoTo ErrHandler
 
     Dim dCallback As Dictionary
@@ -114,6 +115,7 @@ Public Sub PostCallback(strType As String, _
         Exit Sub
     End If
 
+    LogUnhandledErrors
     On Error Resume Next  ' Don't let callback failures break the operation
 
     Dim http As Object
@@ -198,6 +200,7 @@ Public Function CheckCancelled() As Boolean
     End If
     this.LastCancelCheck = dblNow
 
+    LogUnhandledErrors
     On Error Resume Next  ' Don't let cancellation check failures break the operation
 
     ' Build cancel-status URL from callback URL

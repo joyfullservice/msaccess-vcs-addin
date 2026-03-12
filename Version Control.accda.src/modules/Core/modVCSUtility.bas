@@ -292,6 +292,7 @@ Public Sub ShiftOpenDatabase(strPath As String, Optional blnExclusive As Boolean
         RestoreMainForm
     End If
 
+    LogUnhandledErrors
     On Error GoTo Error_Handler
 
     Dim abytCodesSrc(0 To 255) As Byte
@@ -462,6 +463,7 @@ Public Function ImportCommandBars(strSourceDatabasePath As String, strCommandBar
         ' application will not actually delete it from its original database so even if we delete some
         ' another database's command bar, it won't actually remove it from that database and it'll be
         ' restored next time it is opened.
+        LogUnhandledErrors
         On Error Resume Next
         Do
             .CommandBars(strCommandBarNameToVerify).Delete
@@ -474,6 +476,7 @@ Public Function ImportCommandBars(strSourceDatabasePath As String, strCommandBar
         .WizHook.WizCopyCmdbars strSourceDatabasePath
 
         ' Verify we have the command bar imported.
+        LogUnhandledErrors
         On Error Resume Next
         ' Application.CommandBars is the union of all loaded databases' command bars; just because we can find a
         ' command bar with same name does not mean the database has the command bar loaded into the binary file.

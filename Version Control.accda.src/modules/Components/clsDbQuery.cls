@@ -53,6 +53,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             Perf.OperationStart "Save Query SQL"
             Set dbs = SharedDb
             strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
+            LogUnhandledErrors
             On Error Resume Next
             strSql = dbs.QueryDefs(m_Query.Name).SQL
             If Catch(3258) Then

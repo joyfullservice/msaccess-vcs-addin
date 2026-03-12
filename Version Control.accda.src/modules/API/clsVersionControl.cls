@@ -602,6 +602,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IsVBACompiled() As Boolean
+    LogUnhandledErrors
     On Error Resume Next
     ' Application.IsCompiled returns True if project is compiled, False if not
     IsVBACompiled = Application.IsCompiled
@@ -619,6 +620,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function CompileVBA(Optional blnSuppressWarnings As Boolean = False) As Boolean
+    LogUnhandledErrors
     On Error GoTo ErrHandler
 
     Dim blnCompiledAfter As Boolean
@@ -636,6 +638,7 @@ Public Function CompileVBA(Optional blnSuppressWarnings As Boolean = False) As B
     DoEvents
 
     ' Check if compilation succeeded by checking IsCompiled
+    LogUnhandledErrors
     On Error Resume Next
     blnCompiledAfter = Application.IsCompiled
     On Error GoTo ErrHandler
@@ -652,6 +655,7 @@ Public Function CompileVBA(Optional blnSuppressWarnings As Boolean = False) As B
 ErrHandler:
     ' Always restore warnings if we suppressed them, even on error
     If blnSuppressWarnings Then
+        LogUnhandledErrors
         On Error Resume Next
         DoCmd.SetWarnings True
         On Error GoTo 0

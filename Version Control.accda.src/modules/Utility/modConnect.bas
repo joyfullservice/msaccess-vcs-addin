@@ -200,6 +200,7 @@ Public Function CacheConnection(strConnect As String) As Boolean
         qdf.SQL = "SELECT 1;"
         qdf.Connect = strConnect
 
+        LogUnhandledErrors
         On Error Resume Next
         qdf.OpenRecordset
         If Err.Number Then

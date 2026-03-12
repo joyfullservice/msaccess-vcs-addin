@@ -155,6 +155,7 @@ Public Sub ApplyTo(frmObject As Form)
                 ' Check for associated control
                 ' (It is easier to go from the object to the label, but not
                 '  all labels may have objects, so we loop through other controls
+                LogUnhandledErrors
                 On Error Resume Next
                 For Each ctl2 In frmObject.Controls
                     strName = vbNullString

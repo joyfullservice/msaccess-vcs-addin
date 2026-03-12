@@ -233,6 +233,7 @@ Private Sub AddFromGuid(proj As VBIDE.VBProject, strName As String, strGuid As S
 
     ' Try to add the GUID with the specific version requested
     ' We might encounter a reference that is not available in this version
+    LogUnhandledErrors
     On Error GoTo ErrHandlerWithVersion
     Perf.OperationStart "Add GUID References"
     proj.References.AddFromGuid strGuid, lngMajor, lngMinor
@@ -245,6 +246,7 @@ Private Sub AddFromGuid(proj As VBIDE.VBProject, strName As String, strGuid As S
 ErrHandlerWithVersion:
     ' The version specified may not be available, try to add with version 0.0
     ' We might still encounter a reference that is still not available
+    LogUnhandledErrors
     On Error GoTo ErrHandler
     proj.References.AddFromGuid strGuid, 0, 0
 

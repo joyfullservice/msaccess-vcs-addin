@@ -140,6 +140,7 @@ End Sub
 '
 Private Sub HandleAPIAsyncOperation(strMethod As String, strArgs As String, strCallbackInfo As String)
 
+    LogUnhandledErrors
     On Error GoTo ErrHandler
 
     Dim strArg1 As String

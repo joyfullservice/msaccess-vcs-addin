@@ -73,6 +73,7 @@ Private Function NGHash(pData As LongPtr, lenData As Long, Optional HashingAlgor
     'Allowed algorithms:  https://docs.microsoft.com/en-us/windows/desktop/SecCNG/cng-algorithm-identifiers. Note: only hash algorithms, check OS support
     'Error messages not implemented
     '
+    LogUnhandledErrors
     On Error GoTo VBErrHandler
     Dim errorMessage As String
 
@@ -372,6 +373,7 @@ Public Function GetSimpleHash(strText As String) As String
     Dim bteHash() As Byte
     Dim strHash As String
 
+    LogUnhandledErrors
     On Error Resume Next
 
     ' Create objects

@@ -362,6 +362,7 @@ Private Function CloseAllFormsReports() As Boolean
     ' Get count of opened objects
     intOpened = Forms.Count + Reports.Count
     If intOpened > 0 Then
+        LogUnhandledErrors
         On Error GoTo ErrorHandler
         ' Loop through forms
         For intItem = Forms.Count - 1 To 0 Step -1
@@ -867,6 +868,7 @@ Public Function GetAvailableConnectionCount()
 
     Set colDbs = New Collection
 
+    LogUnhandledErrors
     On Error Resume Next
     For intCnt = 1 To 300
         Set dbs = CurrentDb

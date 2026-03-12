@@ -649,6 +649,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
 
         ' FIXME: Hackish, need to figure a clean way of communicating types instead of encoding the key
         Dim lngObjectType As Access.AcObjectType
+        LogUnhandledErrors
         On Error Resume Next
         lngObjectType = CLng(Split(varKey, "|")(0))
         On Error GoTo 0
