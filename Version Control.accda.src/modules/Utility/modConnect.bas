@@ -313,10 +313,13 @@ Public Sub CacheBackEndConnections()
         End If
     Next tdf
 
-    ' Log the number of cached connections
+    ' Log the cached connections
     If m_dBackEndConnections.Count > 0 Then
         Log.Add T("Caching {0} back-end database connection(s)", _
             var0:=m_dBackEndConnections.Count), Options.ShowDebug
+        For Each varKey In m_dBackEndConnections.Keys
+            Log.Add "  " & CStr(varKey), Options.ShowDebug
+        Next varKey
     End If
 
     ' Log a single warning per unavailable back-end
