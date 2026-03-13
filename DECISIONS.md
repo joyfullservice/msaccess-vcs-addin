@@ -81,6 +81,30 @@ contradictory guidance.
 
 ---
 
+## 2026-03-13 — @Folder annotation caching: Static per-instance vs modObjects-level cache
+
+**Trigger**: After implementing `@Folder` annotation support (EFV 5.0.0), export logs from `C:\Repos\db-sec` showed "Clear Orphaned Files" consistently at 5-6 seconds on fast saves, even with zero modified objects. Root cause: `GetFolderAnnotation` reads the entire VBE code module via `cmpItem.CodeModule.Lines(1, 999999)` on every call, and `SourceFile` (which calls `GetFolderAnnotation`) was accessed multiple times per object per export — up to ~1,558 VBE COM calls for db-sec's 779 VBA-backed objects.
+
+**Options explored**:
+
+- **Approach A — modObjects-level Dictionary cache**: Add a `FolderAnnotations As Dictionary` to `udtObjects` in `modObjects.bas`, keyed by VBE component name. Provides cross-instance caching within a session. Initially planned, but analysis showed minimal benefit: Phase 1 (`GetAllFromDB`) has all unique keys (zero cache hits); Phase 2 (`ClearOrphanedSourceFiles`) is eliminated by the `varKey` fix; Phase 3 (export loop) reuses the same class instances (handled by instance-level caching). `ReleaseObjects` clears the cache between operations, preventing cross-operation persistence. Adds UDT member, accessor function, and cleanup code for ~12-90ms savings. Rejected.
+- **Approach B — `Static` in `SourceFile` + `varKey` fix + Perf instrumentation**: Three small, self-contained changes: (1) `Static strCached` in each component's `SourceFile` Property Get caches the path for the lifetime of the instance; (2) `ClearOrphanedSourceFiles` uses `varKey` (the dictionary key, already the SourceFile path) instead of re-accessing `cItem.SourceFile`; (3) `Perf.OperationStart/End` around the VBE COM read in `GetFolderAnnotation` for measurement. Chosen.
+- **Approach C — Batch-read all @Folder annotations in one pass**: Pre-scan all VBE components at the start of export, building a complete annotation map. Most efficient for VBE reads, but requires a new infrastructure function, changes the call pattern, and is premature without Perf data showing the ~779 reads are actually a bottleneck. Deferred pending Perf data.
+
+**Decision**: Applied Approach B. The `Static` in `SourceFile` prevents repeated `GetFolderAnnotation` calls on the same instance (Export alone accesses `SourceFile` 4-6 times per object). The `varKey` fix eliminates ~779 redundant calls in `ClearOrphanedSourceFiles`. The Perf instrumentation will show the actual cost of the remaining ~779 VBE reads in `GetAllFromDB`, informing whether Approach A or C is worth revisiting.
+
+**What this rules out**: A modObjects-level cache is not needed for the current workflow because dual-populate (`4f7f9c8`) shares class instances across export phases. If a future change introduces code paths that create separate instances for the same VBE component (breaking the shared-instance assumption), revisit the modObjects cache. If Perf data shows the ~779 VBE reads in `GetAllFromDB` are a significant bottleneck (>3 seconds), consider batch-reading annotations (Approach C).
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Core/modVbeUtility.bas` — Perf instrumentation in `GetFolderAnnotation`
+- `Version Control.accda.src/modules/Core/modOrphaned.bas` — `varKey` fix in `ClearOrphanedSourceFiles`
+- `Version Control.accda.src/modules/Components/clsDbForm.cls` — `Static` cache in `SourceFile`
+- `Version Control.accda.src/modules/Components/clsDbReport.cls` — `Static` cache in `SourceFile`
+- `Version Control.accda.src/modules/Components/clsDbModule.cls` — `Static` cache in `SourceFile`
+- `Version Control.accda.src/modules/Components/clsDbVbeForm.cls` — `Static` cache in `SourceFile`
+
+---
+
 ## 2026-03-12 — Single-loop dual-populate for component cache slots
 
 **Trigger**: During fast-save export, each `IDbComponent` class's `GetAllFromDB` was called twice per category: first with `blnModifiedOnly=True` (scan for changes), then with `blnModifiedOnly=False` (orphan detection via `ClearOrphanedSourceFiles`). Each call independently iterated the full Access collection and instantiated new `clsDb*` objects. Performance logs from `C:\Repos\db-sec` (~412 forms, ~3694 queries, ~392 tables) showed "Clear Orphaned Files" consistently taking 5.2-6.0 seconds — pure waste from re-enumerating objects already visited during the scan phase. Combined with "Scan DB Objects" (6.2-28.3s), these two passes consumed 34-54% of total fast-save runtime.

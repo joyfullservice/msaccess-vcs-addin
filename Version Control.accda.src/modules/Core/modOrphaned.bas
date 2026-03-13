@@ -48,8 +48,7 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent)
     Perf.OperationStart "Clear Orphaned Files"
     Set dItems = cType.GetAllFromDB(False)
     For Each varKey In dItems.Keys
-        Set cItem = dItems(varKey)
-        dBaseNames.Add FSO.GetBaseName(cItem.SourceFile), vbNullString
+        dBaseNames.Add FSO.GetBaseName(varKey), vbNullString
         If cType.SingleFile Then Exit For
     Next varKey
 

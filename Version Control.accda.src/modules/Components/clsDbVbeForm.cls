@@ -381,15 +381,21 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    Static strCached As String
+    If Len(strCached) > 0 Then
+        IDbComponent_SourceFile = strCached
+        Exit Property
+    End If
     If m_Form Is Nothing Then Exit Property
     If Options.ExportFormatVersion >= EFV_5_0_0 Then
-        IDbComponent_SourceFile = IDbComponent_BaseFolder _
+        strCached = IDbComponent_BaseFolder _
             & GetFolderAnnotation(Me.Parent) _
             & GetSafeFileName(m_Form.Name) & ".json"
     Else
-        IDbComponent_SourceFile = IDbComponent_BaseFolder _
+        strCached = IDbComponent_BaseFolder _
             & GetSafeFileName(m_Form.Name) & ".json"
     End If
+    IDbComponent_SourceFile = strCached
 End Property
 
 

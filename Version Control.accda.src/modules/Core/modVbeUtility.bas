@@ -84,6 +84,8 @@ Public Function GetFolderAnnotation(cComponent As IDbComponent) As String
         Case Else:      strVBEName = cComponent.Name
     End Select
 
+    Perf.OperationStart "Get @Folder Annotation"
+
     ' Attempt to locate the component in the VBE
     Set cmpItem = CurrentVBProject.VBComponents(strVBEName)
     If cmpItem Is Nothing Then GoTo CleanUp
@@ -97,7 +99,7 @@ Public Function GetFolderAnnotation(cComponent As IDbComponent) As String
 
     ' Look for '@Folder preceded by a line break and single quote (comment line)
     lngPos = InStr(1, strUpper, vbCrLf & TAG)
-    If lngPos = 0 Then Exit Function
+    If lngPos = 0 Then GoTo CleanUp
     lngPos = lngPos + 2 ' Advance past vbCrLf to the quote character
 
     ' Warn if a second annotation exists
@@ -144,10 +146,8 @@ Public Function GetFolderAnnotation(cComponent As IDbComponent) As String
 
     CatchAny eelError, "Error reading @Folder annotation for " & strVBEName, ModuleName & ".GetFolderAnnotation"
 
-    Exit Function
-
 CleanUp:
-    ' Clear any errors that may cause an early exit
+    Perf.OperationEnd
     If Err Then Err.Clear
 
 
