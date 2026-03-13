@@ -455,7 +455,7 @@ Private Property Get IDbComponent_SourceFile() As String
     If m_Module Is Nothing Then Exit Property
     If Options.ExportFormatVersion >= EFV_5_0_0 Then
         IDbComponent_SourceFile = IDbComponent_BaseFolder _
-            & GetFolderAnnotation(m_Module.Name) _
+            & GetFolderAnnotation(Me.Parent) _
             & GetSafeFileName(m_Module.Name) & GetExtension
     Else
         IDbComponent_SourceFile = IDbComponent_BaseFolder _

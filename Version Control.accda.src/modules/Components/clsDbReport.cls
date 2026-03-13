@@ -287,7 +287,7 @@ Private Property Get IDbComponent_SourceFile() As String
     If m_Report Is Nothing Then Exit Property
     If Options.ExportFormatVersion >= EFV_5_0_0 Then
         IDbComponent_SourceFile = IDbComponent_BaseFolder _
-            & GetFolderAnnotation(m_Report.Name, "Report_") _
+            & GetFolderAnnotation(Me.Parent) _
             & GetSafeFileName(m_Report.Name) & ".report"
     Else
         IDbComponent_SourceFile = IDbComponent_BaseFolder _

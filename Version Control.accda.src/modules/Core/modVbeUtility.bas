@@ -58,13 +58,16 @@ End Sub
 '           : in a VBE code module. Dots are converted to path separators.
 '           : Returns empty string if no annotation found or component has no code.
 '           : Example: '@Folder("Core.Utility") returns "Core\Utility\"
+'           : When the folder already exists on disk, the returned path uses the
+'           : actual disk casing rather than the annotation casing.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFolderAnnotation(strComponentName As String, Optional strPrefix As String) As String
+Public Function GetFolderAnnotation(cComponent As IDbComponent) As String
 
     Dim cmpItem As VBComponent
     Dim strCode As String
     Dim strUpper As String
+    Dim strVBEName As String
     Dim lngPos As Long
     Dim lngStart As Long
     Dim lngEnd As Long
@@ -74,8 +77,15 @@ Public Function GetFolderAnnotation(strComponentName As String, Optional strPref
     LogUnhandledErrors
     On Error Resume Next
 
+    ' Determine VBE component name from the database component type
+    Select Case cComponent.ComponentType
+        Case edbForm:   strVBEName = "Form_" & cComponent.Name
+        Case edbReport: strVBEName = "Report_" & cComponent.Name
+        Case Else:      strVBEName = cComponent.Name
+    End Select
+
     ' Attempt to locate the component in the VBE
-    Set cmpItem = CurrentVBProject.VBComponents(strPrefix & strComponentName)
+    Set cmpItem = CurrentVBProject.VBComponents(strVBEName)
     If cmpItem Is Nothing Then GoTo CleanUp
     If cmpItem.CodeModule Is Nothing Then GoTo CleanUp
     If cmpItem.CodeModule.CountOfLines = 0 Then GoTo CleanUp
@@ -93,7 +103,7 @@ Public Function GetFolderAnnotation(strComponentName As String, Optional strPref
     ' Warn if a second annotation exists
     If InStr(lngPos + Len(TAG), strUpper, vbCrLf & TAG) > 0 Then
         Log.Add T("WARNING: Multiple @Folder annotations found in {0}. Using first annotation.", _
-            var0:=strPrefix & strComponentName), Options.ShowDebug
+            var0:=strVBEName), Options.ShowDebug
     End If
 
     ' Extract the folder path between the double-quote delimiters
@@ -105,7 +115,27 @@ Public Function GetFolderAnnotation(strComponentName As String, Optional strPref
         End If
     End If
 
-    CatchAny eelError, "Error reading @Folder annotation for " & strPrefix & strComponentName, ModuleName & ".GetFolderAnnotation"
+    ' Resolve annotation folder casing to match actual disk folders
+    If Len(GetFolderAnnotation) > 0 Then
+        Dim varParts As Variant
+        Dim strResolved As String
+        Dim strCheckPath As String
+        Dim lngPart As Long
+        varParts = Split(Left$(GetFolderAnnotation, Len(GetFolderAnnotation) - 1), PathSep)
+        strCheckPath = StripSlash(cComponent.BaseFolder)
+        For lngPart = LBound(varParts) To UBound(varParts)
+            strCheckPath = strCheckPath & PathSep & varParts(lngPart)
+            If FSO.FolderExists(strCheckPath) Then
+                strResolved = strResolved & FSO.GetFolder(strCheckPath).Name & PathSep
+                strCheckPath = FSO.GetFolder(strCheckPath).Path
+            Else
+                strResolved = strResolved & varParts(lngPart) & PathSep
+            End If
+        Next lngPart
+        GetFolderAnnotation = strResolved
+    End If
+
+    CatchAny eelError, "Error reading @Folder annotation for " & strVBEName, ModuleName & ".GetFolderAnnotation"
 
     Exit Function
 
