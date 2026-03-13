@@ -135,17 +135,20 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim spec As ImportExportSpecification
     Dim cSpec As IDbComponent
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
         For Each spec In CurrentProject.ImportExportSpecifications
             Set cSpec = New clsDbSavedSpec
             Set cSpec.DbObject = spec
-            blnAdd = True
-            If blnModifiedOnly Then blnAdd = cSpec.IsModified
-            If blnAdd Then m_Items(blnModifiedOnly).Add cSpec.SourceFile, cSpec
+            If blnNeedAll Then m_Items(False).Add cSpec.SourceFile, cSpec
+            If blnModifiedOnly Then
+                If cSpec.IsModified Then m_Items(True).Add cSpec.SourceFile, cSpec
+            End If
         Next spec
     End If
 

@@ -334,12 +334,15 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim dCurrent As Dictionary
     Dim dSaved As Dictionary
     Dim dFile  As Dictionary
+    Dim blnNeedAll As Boolean
     Dim blnAdd As Boolean
     Dim strKey As String
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
 
         ' If returning modified properties only, compare with source file
         If blnModifiedOnly Then
@@ -359,10 +362,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         For Each prp In SharedDb.Properties
             Set cProp = New clsDbProperty
             Set cProp.DbObject = prp
-            blnAdd = True
             strKey = prp.Name
-            ' Compare with last exported properties when returning modified only
+            If blnNeedAll Then m_Items(False).Add IDbComponent_SourceFile & ":" & strKey, cProp
             If blnModifiedOnly Then
+                blnAdd = True
+                ' Compare with last exported properties when returning modified only
                 If dCurrent.Exists(strKey) Then
                     If dSaved.Exists(strKey) Then
                         If dSaved(strKey)("Type") = dCurrent(strKey)("Type") And _
@@ -375,8 +379,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     ' This property is filtered out from the export
                     blnAdd = False
                 End If
+                If blnAdd Then m_Items(True).Add IDbComponent_SourceFile & ":" & strKey, cProp
             End If
-            If blnAdd Then m_Items(blnModifiedOnly).Add IDbComponent_SourceFile & ":" & strKey, cProp
         Next prp
     End If
 

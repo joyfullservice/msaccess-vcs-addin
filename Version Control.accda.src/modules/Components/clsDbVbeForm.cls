@@ -230,18 +230,21 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim frm As VBComponent
     Dim cForm As IDbComponent
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
         For Each frm In CurrentVBProject.VBComponents
             If frm.Type = vbext_ct_MSForm Then
                 Set cForm = New clsDbVbeForm
                 Set cForm.DbObject = frm
-                blnAdd = True
-                If blnModifiedOnly Then blnAdd = cForm.IsModified
-                If blnAdd Then m_Items(blnModifiedOnly).Add cForm.SourceFile, cForm
+                If blnNeedAll Then m_Items(False).Add cForm.SourceFile, cForm
+                If blnModifiedOnly Then
+                    If cForm.IsModified Then m_Items(True).Add cForm.SourceFile, cForm
+                End If
             End If
         Next frm
     End If

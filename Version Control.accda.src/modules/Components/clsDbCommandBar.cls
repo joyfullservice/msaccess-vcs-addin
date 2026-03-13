@@ -544,7 +544,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim cCmdBar As IDbComponent
     Dim bar As CommandBar
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -555,7 +555,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' so the application could have additional command bars loaded via add-in or other processes
         ' that are not actually a part of the database itself. The data is there in the internal
         ' table but not human readable.
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
         For Each bar In Application.CommandBars
             If bar.BuiltIn Then
                 ' Skip
@@ -564,9 +566,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             Else
                 Set cCmdBar = New clsDbCommandBar
                 Set cCmdBar.DbObject = bar
-                blnAdd = True
-                If blnModifiedOnly Then blnAdd = cCmdBar.IsModified
-                If blnAdd Then m_Items(blnModifiedOnly).Add cCmdBar.SourceFile, cCmdBar
+                If blnNeedAll Then m_Items(False).Add cCmdBar.SourceFile, cCmdBar
+                If blnModifiedOnly Then
+                    If cCmdBar.IsModified Then m_Items(True).Add cCmdBar.SourceFile, cCmdBar
+                End If
             End If
         Next bar
 

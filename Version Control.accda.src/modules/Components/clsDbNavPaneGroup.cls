@@ -390,15 +390,21 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim dCategory As Dictionary
     Dim varGroup As Variant
     Dim strKey As String
+    Dim blnNeedAll As Boolean
+    Dim blnAddModified As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
 
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then
+            Set m_Items(True) = New Dictionary
+            blnAddModified = IDbComponent_IsModified
+        End If
         Set m_dItems = GetDictionary
 
-        ' Only need to iterate through the groups if we need to get a count.
-        If Not blnModifiedOnly Or IDbComponent_IsModified Then
+        If blnNeedAll Or blnAddModified Then
 
             ' Loop through dictionary to build count of custom groups
             ' (Not counting individual objects within groups)
@@ -409,8 +415,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         For Each varGroup In dCategory("Groups")
                             Set cGroup = New clsDbNavPaneGroup
                             strKey = varCategory("Name") & ":" & varGroup("Name")
-                            If Not m_Items(blnModifiedOnly).Exists(strKey) Then
-                                m_Items(blnModifiedOnly).Add strKey, cGroup
+                            If Not m_Items(False).Exists(strKey) Then
+                                If blnNeedAll Then m_Items(False).Add strKey, cGroup
+                                If blnAddModified Then m_Items(True).Add strKey, cGroup
                             End If
                         Next varGroup
                     End If

@@ -311,11 +311,13 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim strSql As String
     Dim strKey As String
     Dim dItems As Dictionary
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
 
         ' Use dictionary to make sure we don't add duplicate records if we have
         ' both a folder and a theme file for the same theme.
@@ -334,9 +336,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         ' Load theme details so we can check modified status
                         Set cTheme = New clsDbTheme
                         Set cTheme.DbObject = rst    ' Reference to OLE object recordset2
-                        blnAdd = True
-                        If blnModifiedOnly Then blnAdd = cTheme.IsModified
-                        If blnAdd Then m_Items(blnModifiedOnly).Add cTheme.SourceFile, cTheme
+                        If blnNeedAll Then m_Items(False).Add cTheme.SourceFile, cTheme
+                        If blnModifiedOnly Then
+                            If cTheme.IsModified Then m_Items(True).Add cTheme.SourceFile, cTheme
+                        End If
                         dItems.Add strKey, strKey
                     End If
                     .MoveNext

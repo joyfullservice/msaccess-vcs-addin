@@ -92,17 +92,20 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim sproc As AccessObject
     Dim cSproc As IDbComponent
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
         For Each sproc In CurrentData.AllStoredProcedures
             Set cSproc = New clsAdpProcedure
             Set cSproc.DbObject = sproc
-            blnAdd = True
-            If blnModifiedOnly Then blnAdd = cSproc.IsModified
-            If blnAdd Then m_Items(blnModifiedOnly).Add cSproc.SourceFile, cSproc
+            If blnNeedAll Then m_Items(False).Add cSproc.SourceFile, cSproc
+            If blnModifiedOnly Then
+                If cSproc.IsModified Then m_Items(True).Add cSproc.SourceFile, cSproc
+            End If
         Next sproc
     End If
 

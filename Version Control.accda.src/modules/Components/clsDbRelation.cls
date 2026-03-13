@@ -164,7 +164,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim rel As Relation
     Dim cRelation As IDbComponent
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -174,7 +174,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' goes out of scope. (Make sure we release this on termination)
         If m_Dbs Is Nothing Then Set m_Dbs = SharedDb
 
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
         For Each rel In m_Dbs.Relations
             ' Navigation pane groups are handled separately
             If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
@@ -182,9 +184,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 Or IsInherited(rel)) Then
                 Set cRelation = New clsDbRelation
                 Set cRelation.DbObject = rel
-                blnAdd = True
-                If blnModifiedOnly Then blnAdd = cRelation.IsModified
-                If blnAdd Then m_Items(blnModifiedOnly).Add cRelation.SourceFile, cRelation
+                If blnNeedAll Then m_Items(False).Add cRelation.SourceFile, cRelation
+                If blnModifiedOnly Then
+                    If cRelation.IsModified Then m_Items(True).Add cRelation.SourceFile, cRelation
+                End If
             End If
         Next rel
     End If

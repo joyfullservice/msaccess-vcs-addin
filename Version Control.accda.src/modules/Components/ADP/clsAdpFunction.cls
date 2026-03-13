@@ -92,17 +92,20 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim fn As AccessObject
     Dim cFn As IDbComponent
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
         For Each fn In CurrentData.AllFunctions
             Set cFn = New clsAdpFunction
             Set cFn.DbObject = fn
-            blnAdd = True
-            If blnModifiedOnly Then blnAdd = cFn.IsModified
-            If blnAdd Then m_Items(blnModifiedOnly).Add cFn.SourceFile, cFn
+            If blnNeedAll Then m_Items(False).Add cFn.SourceFile, cFn
+            If blnModifiedOnly Then
+                If cFn.IsModified Then m_Items(True).Add cFn.SourceFile, cFn
+            End If
         Next fn
     End If
 

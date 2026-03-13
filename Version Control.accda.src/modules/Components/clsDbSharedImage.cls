@@ -439,11 +439,13 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cImg As IDbComponent
     Dim rst As DAO.Recordset
     Dim strSql As String
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
 
         ' This system table should exist, but just in case...
         If TableExists("MSysResources") Then
@@ -460,14 +462,12 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     Set cImg = New clsDbSharedImage
                     ' Also sets reference to OLE object recordset2
                     Set cImg.DbObject = rst
-                    blnAdd = True
-                    If blnModifiedOnly Then blnAdd = cImg.IsModified
-                    If blnAdd Then
-                        If m_Items(blnModifiedOnly).Exists(cImg.SourceFile) Then
-                            ' This is a duplicate image. We won't add it to the list but we need to issue a warning in log.
-                            Log.Error eelWarning, "Duplicate record found for '" & cImg.Name & "' at ID " & rst.Fields("ID").Value & ". This record will not be exported as this is likely an error and not available for use via Access.", ModuleName(Me) & ".GetAllFromDB"
-                        Else
-                            m_Items(blnModifiedOnly).Add cImg.SourceFile, cImg
+                    If m_Items(False).Exists(cImg.SourceFile) Then
+                        Log.Error eelWarning, "Duplicate record found for '" & cImg.Name & "' at ID " & rst.Fields("ID").Value & ". This record will not be exported as this is likely an error and not available for use via Access.", ModuleName(Me) & ".GetAllFromDB"
+                    Else
+                        If blnNeedAll Then m_Items(False).Add cImg.SourceFile, cImg
+                        If blnModifiedOnly Then
+                            If cImg.IsModified Then m_Items(True).Add cImg.SourceFile, cImg
                         End If
                     End If
                     .MoveNext

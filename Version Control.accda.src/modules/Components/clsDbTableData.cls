@@ -480,11 +480,13 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim tbl As AccessObject
     Dim cTable As clsDbTableData
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
 
         ' No need to go any further if we don't have any saved tables defined
         If Options.TablesToExportData.Count > 0 Then
@@ -497,9 +499,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         Set cTable = New clsDbTableData
                         cTable.Format = .GetTableExportFormat(CStr(.TablesToExportData(tbl.Name)("Format")))
                         Set cTable.Parent.DbObject = tbl
-                        blnAdd = True
-                        If blnModifiedOnly Then blnAdd = cTable.IDbComponent_IsModified
-                        If blnAdd Then m_Items(blnModifiedOnly).Add cTable.Parent.SourceFile, cTable
+                        If blnNeedAll Then m_Items(False).Add cTable.Parent.SourceFile, cTable
+                        If blnModifiedOnly Then
+                            If cTable.IDbComponent_IsModified Then m_Items(True).Add cTable.Parent.SourceFile, cTable
+                        End If
                     End If
                 Next tbl
             End With

@@ -169,19 +169,22 @@ End Sub
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
 
     Dim cProj As IDbComponent
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         ' Load class details
         Set m_Project = CurrentProject
         Set m_dItems = GetDictionary
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
         Set cProj = New clsDbProject
         Set cProj.DbObject = m_Project
-        blnAdd = True
-        If blnModifiedOnly Then blnAdd = cProj.IsModified
-        If blnAdd Then m_Items(blnModifiedOnly).Add cProj.SourceFile, cProj
+        If blnNeedAll Then m_Items(False).Add cProj.SourceFile, cProj
+        If blnModifiedOnly Then
+            If cProj.IsModified Then m_Items(True).Add cProj.SourceFile, cProj
+        End If
     End If
 
     ' Return cached collection

@@ -121,17 +121,20 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim oMac As AccessObject
     Dim cMac As IDbComponent
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
         For Each oMac In CurrentProject.AllMacros
             Set cMac = New clsDbMacro
             Set cMac.DbObject = oMac
-            blnAdd = True
-            If blnModifiedOnly Then blnAdd = cMac.IsModified
-            If blnAdd Then m_Items(blnModifiedOnly).Add cMac.SourceFile, cMac
+            If blnNeedAll Then m_Items(False).Add cMac.SourceFile, cMac
+            If blnModifiedOnly Then
+                If cMac.IsModified Then m_Items(True).Add cMac.SourceFile, cMac
+            End If
         Next oMac
     End If
 

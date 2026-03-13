@@ -312,18 +312,21 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim oMod As AccessObject
     Dim cModule As IDbComponent
     Dim proj As VBProject
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
         Set proj = CurrentVBProject
         For Each oMod In CurrentProject.AllModules
             Set cModule = New clsDbModule
             Set cModule.DbObject = oMod
-            blnAdd = True
-            If blnModifiedOnly Then blnAdd = cModule.IsModified
-            If blnAdd Then m_Items(blnModifiedOnly).Add cModule.SourceFile, cModule
+            If blnNeedAll Then m_Items(False).Add cModule.SourceFile, cModule
+            If blnModifiedOnly Then
+                If cModule.IsModified Then m_Items(True).Add cModule.SourceFile, cModule
+            End If
         Next oMod
     End If
 

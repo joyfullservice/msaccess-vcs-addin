@@ -151,15 +151,21 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim varCont As Variant
     Dim varDoc As Variant
     Dim strKey As String
+    Dim blnNeedAll As Boolean
+    Dim blnAddModified As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
 
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then
+            Set m_Items(True) = New Dictionary
+            blnAddModified = IDbComponent_IsModified
+        End If
         Set m_dItems = GetDictionary
 
-        ' Return no objects if we match the hash from the cache
-        If (Not blnModifiedOnly) Or IDbComponent_IsModified Then
+        If blnNeedAll Or blnAddModified Then
 
             ' Loop through all the containers, documents, and check hidden property
             Set dbs = SharedDb
@@ -169,7 +175,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     Set cDoc = New clsDbHiddenAttribute
                     Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc)
                     strKey = cDoc.SourceFile & ":" & varCont & ":" & varDoc
-                    m_Items(blnModifiedOnly).Add strKey, cDoc
+                    If blnNeedAll Then m_Items(False).Add strKey, cDoc
+                    If blnAddModified Then m_Items(True).Add strKey, cDoc
                 Next varDoc
             Next varCont
         End If

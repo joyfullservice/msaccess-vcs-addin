@@ -166,13 +166,15 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     Dim strName As String
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
 
         ' Set up new collection
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
 
         ' This table may not (yet) exist.
         If TableExists("MSysIMEXSpecs") Then
@@ -188,9 +190,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     Set cSpec = New clsDbImexSpec
                     cSpec.Name = strName
                     cSpec.ID = Nz(!SpecID, 0)
-                    blnAdd = True
-                    If blnModifiedOnly Then blnAdd = cSpec.IDbComponent_IsModified
-                    If blnAdd Then m_Items(blnModifiedOnly).Add cSpec.Parent.SourceFile, cSpec
+                    If blnNeedAll Then m_Items(False).Add cSpec.Parent.SourceFile, cSpec
+                    If blnModifiedOnly Then
+                        If cSpec.IDbComponent_IsModified Then m_Items(True).Add cSpec.Parent.SourceFile, cSpec
+                    End If
                     .MoveNext
                 Loop
                 .Close

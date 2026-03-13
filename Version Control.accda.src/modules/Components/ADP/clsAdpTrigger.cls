@@ -99,13 +99,14 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cComponent As IDbComponent
     Dim rst As ADODB.Recordset
     Dim strSql As String
-    Dim blnAdd As Boolean
+    Dim blnNeedAll As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
 
-        ' Use parameter options if provided.
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then Set m_Items(True) = New Dictionary
 
         ' Build list of triggers in database (from sysobjects)
         strSql = "SELECT [name],object_name(parent_object_id) AS parent_name, schema_name([schema_id]) AS [schema_name], modify_date FROM sys.objects WHERE type='TR'"
@@ -121,10 +122,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     .SqlModifyDate = Nz(rst!modify_date)
                 End With
                 Set cComponent = cTrigger
-                ' Compare modified date with index
-                blnAdd = True
-                If blnModifiedOnly Then blnAdd = cComponent.IsModified
-                If blnAdd Then m_Items(blnModifiedOnly).Add cComponent.SourceFile, cComponent
+                If blnNeedAll Then m_Items(False).Add cComponent.SourceFile, cComponent
+                If blnModifiedOnly Then
+                    If cComponent.IsModified Then m_Items(True).Add cComponent.SourceFile, cComponent
+                End If
                 .MoveNext
             Loop
             .Close

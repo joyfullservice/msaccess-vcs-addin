@@ -81,6 +81,36 @@ contradictory guidance.
 
 ---
 
+## 2026-03-12 — Single-loop dual-populate for component cache slots
+
+**Trigger**: During fast-save export, each `IDbComponent` class's `GetAllFromDB` was called twice per category: first with `blnModifiedOnly=True` (scan for changes), then with `blnModifiedOnly=False` (orphan detection via `ClearOrphanedSourceFiles`). Each call independently iterated the full Access collection and instantiated new `clsDb*` objects. Performance logs from `C:\Repos\db-sec` (~412 forms, ~3694 queries, ~392 tables) showed "Clear Orphaned Files" consistently taking 5.2-6.0 seconds — pure waste from re-enumerating objects already visited during the scan phase. Combined with "Scan DB Objects" (6.2-28.3s), these two passes consumed 34-54% of total fast-save runtime.
+
+**Options explored**:
+
+- **Approach A — Single-loop dual-populate**: When `GetAllFromDB(True)` iterates the collection, always populate `m_Items(False)` (all items) alongside `m_Items(True)` (modified items). The subsequent `GetAllFromDB(False)` call from `ClearOrphanedSourceFiles` hits the warm cache. A `blnNeedAll` flag prevents resetting `m_Items(False)` if it was already populated. Chosen.
+- **Approach B — Lazy IsModified flag on instances**: Replace two-slot cache with a single dictionary of all items; cache `IsModified` results per instance and filter on demand. Conceptually clean, but filtering creates a new dictionary each time unless cached — reintroducing two-slot complexity. More invasive with no benefit over Approach A. Rejected.
+- **Approach C — Lightweight orphan detection (no full instantiation)**: `ClearOrphanedSourceFiles` only needs base names, not full component instances. A new interface method could return just names. Initially dismissed as over-engineered, but db-sec logs proved orphan detection IS a bottleneck (5-6s consistently). However, Approach A eliminates the cost entirely without requiring interface changes, making Approach C unnecessary. Rejected.
+
+**Decision**: Applied the single-loop dual-populate pattern to all 29 component classes implementing `IDbComponent`. Three implementation variants based on how each class determines modification:
+
+1. **Per-item IsModified** (20 classes including all ADP classes): Single loop always adds to `m_Items(False)`, conditionally calls `IsModified` and adds to `m_Items(True)` only when `blnModifiedOnly=True`. Replaces `blnAdd` flag with `blnNeedAll` flag.
+2. **Class-level IsModified** (7 classes: `clsDbConnection`, `clsDbDocument`, `clsDbNavPaneGroup`, `clsDbHiddenAttribute`, `clsDbProjProperty`, `clsDbVbeReference`): Uses `blnNeedAll` + `blnAddModified = IDbComponent_IsModified`. Iterates when either flag is set; adds to each slot based on its flag.
+3. **Per-item with custom comparison** (2 classes: `clsDbProperty` with saved-vs-current dictionary comparison, `clsDbSharedImage` with duplicate detection against `m_Items(False)`): Retains specific filtering logic within the `blnModifiedOnly` branch.
+
+Single-object classes (`clsDbProject`, `clsDbVbeProject`) also received the transform for consistency.
+
+**What this rules out**: The `blnAdd` pattern (`blnAdd = True; If blnModifiedOnly Then blnAdd = ...; If blnAdd Then m_Items(blnModifiedOnly).Add ...`) is retired across all component classes. Future component classes should use the `blnNeedAll` single-loop pattern. The two-slot `m_Items(True To False)` declaration is unchanged — both slots still exist, but they are now populated in one pass instead of two. If a future calling pattern needs `GetAllFromDB(False)` first and then `GetAllFromDB(True)`, the `blnNeedAll` guard handles it correctly (iterates to build `m_Items(True)` from the existing objects without re-adding to `m_Items(False)`).
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/clsDbForm.cls` — canonical example of per-item pattern
+- `Version Control.accda.src/modules/Components/clsDbDocument.cls` — canonical example of class-level pattern
+- `Version Control.accda.src/modules/Components/clsDbProperty.cls` — custom comparison pattern
+- `Version Control.accda.src/modules/Components/clsDbSharedImage.cls` — duplicate detection pattern
+- 25 additional component classes in `Components/` and `Components/ADP/` — same mechanical transform
+
+---
+
 ## 2026-03-12 — SharedDb: shared CurrentDb reference across component classes
 
 **Trigger**: Export of `sec.accdb` (~6,870 objects, ~567 with descriptions) took ~47s on fast save. Benchmarking revealed the bottleneck was **cold DAO property value reads** in `clsDbDocument.GetDictionary`: iterating Container/Document objects and reading `Description` values took ~18s due to physical disk I/O in the JET engine loading scattered property-value pages. Multiple component classes each called `Set dbs = CurrentDb` independently, and each new `CurrentDb` reference starts with a cold JET page cache (per-reference caching). This meant duplicate cold I/O penalties when multiple components accessed the same data.

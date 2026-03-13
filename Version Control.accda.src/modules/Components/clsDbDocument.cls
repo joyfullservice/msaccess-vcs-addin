@@ -386,14 +386,20 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim varDoc As Variant
     Dim varProp As Variant
     Dim strKey As String
+    Dim blnNeedAll As Boolean
+    Dim blnAddModified As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
 
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then
+            Set m_Items(True) = New Dictionary
+            blnAddModified = IDbComponent_IsModified
+        End If
 
-        ' Check index hash of properties to determine if they have been changed.
-        If Not blnModifiedOnly Or IDbComponent_IsModified Then
+        If blnNeedAll Or blnAddModified Then
             Set m_dItems = GetDictionary
             Set dbs = SharedDb
 
@@ -407,7 +413,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         Set cDoc = New clsDbDocument
                         Set cDoc.DbObject = dbs.Containers(varCont).Documents(varDoc).Properties(varProp)
                         strKey = cDoc.SourceFile & ":" & varCont & ":" & varDoc & ":" & varProp
-                        m_Items(blnModifiedOnly).Add strKey, cDoc
+                        If blnNeedAll Then m_Items(False).Add strKey, cDoc
+                        If blnAddModified Then m_Items(True).Add strKey, cDoc
                     Next varProp
                 Next varDoc
                 If m_dItems.Exists(varCont) Then

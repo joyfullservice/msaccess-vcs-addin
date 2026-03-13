@@ -248,17 +248,23 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
 
     Dim prp As AccessObjectProperty
     Dim cProp As IDbComponent
+    Dim blnNeedAll As Boolean
+    Dim blnAddModified As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
-        If Not blnModifiedOnly Or IDbComponent_IsModified Then
-            ' Return all the properties, since we don't know which ones
-            ' were modified.
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then
+            Set m_Items(True) = New Dictionary
+            blnAddModified = IDbComponent_IsModified
+        End If
+        If blnNeedAll Or blnAddModified Then
             For Each prp In CurrentProject.Properties
                 Set cProp = New clsDbProjProperty
                 Set cProp.DbObject = prp
-                m_Items(blnModifiedOnly).Add cProp.SourceFile & ":" & prp.Name, cProp
+                If blnNeedAll Then m_Items(False).Add cProp.SourceFile & ":" & prp.Name, cProp
+                If blnAddModified Then m_Items(True).Add cProp.SourceFile & ":" & prp.Name, cProp
             Next prp
         End If
     End If

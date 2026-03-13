@@ -330,17 +330,24 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim dNames As Dictionary
     Dim dItems As Dictionary
     Dim strName As String
+    Dim blnNeedAll As Boolean
+    Dim blnAddModified As Boolean
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then
+            Set m_Items(True) = New Dictionary
+            blnAddModified = IDbComponent_IsModified
+        End If
         Set dNames = New Dictionary
         Set dItems = GetDictionary
 
         ' This is where references work a little differently than most other objects.
         ' If ANY changes are detected in ANY of the references, the whole list of
         ' references will be returned as changed.
-        If (Not blnModifiedOnly) Or IDbComponent_IsModified Then
+        If blnNeedAll Or blnAddModified Then
             For Each ref In CurrentVBProject.References
                 If Not ref.BuiltIn Then
                     If ref.IsBroken Then
@@ -356,7 +363,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                         If Not dNames.Exists(ref.Name) Then
                             Set cRef = New clsDbVbeReference
                             Set cRef.DbObject = ref
-                            m_Items(blnModifiedOnly).Add cRef.SourceFile & ":" & ref.Name, cRef
+                            If blnNeedAll Then m_Items(False).Add cRef.SourceFile & ":" & ref.Name, cRef
+                            If blnAddModified Then m_Items(True).Add cRef.SourceFile & ":" & ref.Name, cRef
                             ' Don't attempt add two references with the same name, such as
                             ' circular references to nested library database files.
                             dNames.Add ref.Name, ref.Name

@@ -244,17 +244,24 @@ End Sub
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
 
     Dim varKey As Variant
+    Dim blnNeedAll As Boolean
+    Dim blnAddModified As Boolean
 
     ' Build a dictionary of component class objects if not already cached.
     If m_Items(blnModifiedOnly) Is Nothing Then
-        Set m_Items(blnModifiedOnly) = New Dictionary
-        If Not blnModifiedOnly Or IDbComponent_IsModified Then
-            ' Return all the items since we are not concerned about which ones changed.
+        blnNeedAll = (m_Items(False) Is Nothing)
+        If blnNeedAll Then Set m_Items(False) = New Dictionary
+        If blnModifiedOnly Then
+            Set m_Items(True) = New Dictionary
+            blnAddModified = IDbComponent_IsModified
+        End If
+        If blnNeedAll Or blnAddModified Then
             For Each varKey In GetDictionary.Keys
                 ' Since we are only processing one of these instances, we can
                 ' just reference the existing instance and avoid rescanning the
                 ' tables and queries.
-                m_Items(blnModifiedOnly).Add varKey, Me
+                If blnNeedAll Then m_Items(False).Add varKey, Me
+                If blnAddModified Then m_Items(True).Add varKey, Me
             Next varKey
         End If
     End If
