@@ -106,12 +106,19 @@ Public Function GetFolderAnnotation(cComponent As IDbComponent) As String
             var0:=strVBEName), Options.ShowDebug
     End If
 
-    ' Extract the folder path between the double-quote delimiters
+    ' Extract the folder path between the double-quote delimiters,
+    ' sanitizing each segment to prevent illegal filesystem characters.
     lngStart = InStr(lngPos, strCode, """")
     If lngStart > 0 Then
         lngEnd = InStr(lngStart + 1, strCode, """")
         If lngEnd > lngStart + 1 Then
-            GetFolderAnnotation = Replace(Mid$(strCode, lngStart + 1, lngEnd - lngStart - 1), ".", PathSep) & PathSep
+            Dim varSegments As Variant
+            Dim lngSeg As Long
+            varSegments = Split(Mid$(strCode, lngStart + 1, lngEnd - lngStart - 1), ".")
+            For lngSeg = LBound(varSegments) To UBound(varSegments)
+                varSegments(lngSeg) = GetSafeFileName(CStr(varSegments(lngSeg)))
+            Next lngSeg
+            GetFolderAnnotation = Join(varSegments, PathSep) & PathSep
         End If
     End If
 
