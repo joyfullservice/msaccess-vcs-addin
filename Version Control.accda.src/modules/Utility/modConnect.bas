@@ -258,6 +258,7 @@ Public Sub CacheBackEndConnections()
     Dim tdf As DAO.TableDef
     Dim strConnect As String
     Dim strPath As String
+    Dim strPwd As String
     Dim dbBackEnd As DAO.Database
     Dim varKey As Variant
 
@@ -274,10 +275,11 @@ Public Sub CacheBackEndConnections()
     Set dbs = CurrentDb
     For Each tdf In dbs.TableDefs
 
-        ' Only process Access back-end linked tables (;DATABASE=...)
+        ' Only process Access back-end linked tables (;DATABASE=... or MS Access;...)
         strConnect = tdf.Connect
         If Len(strConnect) > 0 Then
-            If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 Then
+            If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 _
+                Or InStr(1, strConnect, "MS Access;", vbTextCompare) = 1 Then
 
                 ' Extract the back-end file path
                 strPath = GetConnectPath(strConnect)
@@ -290,9 +292,14 @@ Public Sub CacheBackEndConnections()
                             m_dUnavailableBackEnds(UCase$(strPath)) + 1
                     Else
                         ' Open the back-end database in shared, read-only mode
+                        strPwd = GetConnectPart(strConnect, "PWD")
                         LogUnhandledErrors
                         On Error Resume Next
-                        Set dbBackEnd = DBEngine.OpenDatabase(strPath, False, True)
+                        If Len(strPwd) > 0 Then
+                            Set dbBackEnd = DBEngine.OpenDatabase(strPath, False, True, ";PWD=" & strPwd)
+                        Else
+                            Set dbBackEnd = DBEngine.OpenDatabase(strPath, False, True)
+                        End If
                         If Err.Number = 0 Then
                             m_dBackEndConnections.Add strPath, dbBackEnd
                         Else
@@ -428,7 +435,8 @@ Public Function TestBackEndConnection(strConnect As String) As Boolean
 
     ' Only test non-Access connections; Access back-ends are proactively
     ' tested in CacheBackEndConnections via DBEngine.OpenDatabase.
-    If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 Then
+    If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 _
+        Or InStr(1, strConnect, "MS Access;", vbTextCompare) = 1 Then
         ' Access back-end: check against the cached connections dictionary
         Dim strPath As String
         strPath = GetConnectPath(strConnect)
@@ -475,7 +483,8 @@ Private Function GetBackEndKey(strConnect As String) As String
 
     If Len(strConnect) = 0 Then Exit Function
 
-    If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 Then
+    If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 _
+        Or InStr(1, strConnect, "MS Access;", vbTextCompare) = 1 Then
         ' Access back-end: use the file path as the key
         GetBackEndKey = UCase$(GetConnectPath(strConnect))
 
