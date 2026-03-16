@@ -106,7 +106,7 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
     Dim colIndents As Collection
     Dim strIndent As String
     Dim blnAddedNewline As Boolean
-    Dim intInlineCount As Integer
+    Dim lngInlineCount As Long
     Dim blnInlineIndented As Boolean
     Dim blnClauseLimit As Boolean
     Dim lngToken As Long
@@ -210,14 +210,14 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
 
             ' Break to new line if we reach 30 characters
             If strTokenValue = "," Then
-                If intInlineCount >= 30 Then
-                    intInlineCount = 0
+                If lngInlineCount >= 30 Then
+                    lngInlineCount = 0
                     blnNewline = True
                 End If
             End If
 
             ' Keep count of characters within parentheses
-            intInlineCount = intInlineCount + Len(strTokenValue)
+            lngInlineCount = lngInlineCount + Len(strTokenValue)
         End If
 
         ' Opening parentheses increase the block indent level and start a new line
@@ -246,7 +246,7 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
                 ' Reached closing parentheses, able to inline it
                 If strNextValue = ")" Then
                     blnInlineParentheses = True
-                    intInlineCount = 0
+                    lngInlineCount = 0
                     blnInlineIndented = False
                     Exit Do
                 End If
@@ -931,9 +931,9 @@ End Function
 '
 Private Function GetNextWords(intCount As Integer, Optional ByRef lngEndPos As Long) As String
 
-    Dim lngChar As Integer
+    Dim lngChar As Long
     Dim lngStart As Long
-    Dim intFoundWords As Integer
+    Dim lngFoundWords As Long
     Dim lngBoundary As Long
 
     ' Cache word lookup so we can avoid repeated calls when checking the same word(s)
@@ -962,12 +962,12 @@ Private Function GetNextWords(intCount As Integer, Optional ByRef lngEndPos As L
                     ' Found whitespace
                     If lngStart > 0 Then
                         ' Complete any previous word
-                        If intFoundWords > 0 Then .Add " "
-                        intFoundWords = intFoundWords + 1
+                        If lngFoundWords > 0 Then .Add " "
+                        lngFoundWords = lngFoundWords + 1
                         .Add Mid$(m_strSql, lngStart, lngChar - lngStart)
                         lngEndPos = lngChar
                         lngStart = 0
-                        If intFoundWords >= intCount Then Exit For
+                        If lngFoundWords >= intCount Then Exit For
                     End If
 
                 Case Else
@@ -975,7 +975,7 @@ Private Function GetNextWords(intCount As Integer, Optional ByRef lngEndPos As L
                     If lngStart = 0 Then lngStart = lngChar
                     ' Exit if we reached the boundary
                     If lngChar = lngBoundary - 1 Then
-                        If intFoundWords > 0 Then .Add " "
+                        If lngFoundWords > 0 Then .Add " "
                         .Add Mid$(m_strSql, lngStart, (lngChar - lngStart) + 1)
                         lngEndPos = lngChar + 1
                         Exit For
@@ -1236,17 +1236,17 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetPreviousTokenID(lngCurrentToken As Long, Optional intExceptType As eTokenTypes) As Long
-    Dim intToken As Integer
-    For intToken = lngCurrentToken - 1 To 1 Step -1
-        If intToken = 0 Then
+    Dim lngToken As Long
+    For lngToken = lngCurrentToken - 1 To 1 Step -1
+        If lngToken = 0 Then
             ' Could not find a matching token, or no previous token
             GetPreviousTokenID = 0
         End If
-        If m_colTokens(intToken)(0) <> intExceptType Then
-            GetPreviousTokenID = intToken
+        If m_colTokens(lngToken)(0) <> intExceptType Then
+            GetPreviousTokenID = lngToken
             Exit For
         End If
-    Next intToken
+    Next lngToken
 End Function
 
 
@@ -1258,19 +1258,19 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetNextTokenID(lngCurrentToken As Long, Optional intExceptType As eTokenTypes) As Long
-    Dim intToken As Integer
+    Dim lngToken As Long
 
     If lngCurrentToken + 1 > m_colTokens.Count Then
         GetNextTokenID = lngCurrentToken + 1
         Exit Function
     End If
 
-    For intToken = lngCurrentToken + 1 To m_colTokens.Count
-        If m_colTokens(intToken)(0) <> intExceptType Then
-            GetNextTokenID = intToken
+    For lngToken = lngCurrentToken + 1 To m_colTokens.Count
+        If m_colTokens(lngToken)(0) <> intExceptType Then
+            GetNextTokenID = lngToken
             Exit For
         End If
-    Next intToken
+    Next lngToken
 End Function
 
 
@@ -1720,11 +1720,11 @@ End Function
 ' Purpose   : Verify a token type and value based on index position.
 '---------------------------------------------------------------------------------------
 '
-Private Function VerifyToken(intIndex As Integer, intType As eTokenTypes, strValue As String) As Boolean
+Private Function VerifyToken(lngIndex As Long, intType As eTokenTypes, strValue As String) As Boolean
     If m_colTokens Is Nothing Then Exit Function
-    If intIndex > m_colTokens.Count Then Exit Function
-    If m_colTokens(intIndex)(0) = intType Then
-        VerifyToken = (m_colTokens(intIndex)(1) = strValue)
+    If lngIndex > m_colTokens.Count Then Exit Function
+    If m_colTokens(lngIndex)(0) = intType Then
+        VerifyToken = (m_colTokens(lngIndex)(1) = strValue)
     End If
 End Function
 
@@ -1738,26 +1738,26 @@ End Function
 '
 Private Function BuildTestFromTokens()
 
-    Dim intToken As Integer
+    Dim lngToken As Long
     Dim strType As String
     Dim strValue As String
     Dim varLines As Variant
-    Dim intLine As Integer
+    Dim lngLine As Long
 
     Debug.Print vbCrLf & vbCrLf & "    ' Verify tokens"
     Debug.Print "    Debug.Assert m_colTokens.Count = " & m_colTokens.Count
 
     ' Loop through tokens
-    For intToken = 1 To m_colTokens.Count
+    For lngToken = 1 To m_colTokens.Count
 
         ' Get type and value
-        strType = TypeEnumToString(m_colTokens(intToken)(0))
-        strValue = Replace(m_colTokens(intToken)(1), """", """""")
+        strType = TypeEnumToString(m_colTokens(lngToken)(0))
+        strValue = Replace(m_colTokens(lngToken)(1), """", """""")
 
         ' Print test to debug window
-        Debug.Print "    Debug.Assert VerifyToken(" & intToken & ", " & strType & ", """ & strValue & """)"
+        Debug.Print "    Debug.Assert VerifyToken(" & lngToken & ", " & strType & ", """ & strValue & """)"
 
-    Next intToken
+    Next lngToken
 
     ' Output formatted SQL
     varLines = Split(FormatSQL, vbCrLf)
@@ -1766,9 +1766,9 @@ Private Function BuildTestFromTokens()
     Debug.Print "        .AppendOnAdd = vbCrLf"
 
     ' Loop through lines, outputting SQL with line breaks
-    For intLine = 0 To UBound(varLines)
-        Debug.Print "        .Add """ & Replace(varLines(intLine), """", """""") & """"
-    Next intLine
+    For lngLine = 0 To UBound(varLines)
+        Debug.Print "        .Add """ & Replace(varLines(lngLine), """", """""") & """"
+    Next lngLine
     Debug.Print "        .Remove 2"
     Debug.Print "        strActual = .GetStr"
     Debug.Print "    End With"
