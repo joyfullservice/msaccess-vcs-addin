@@ -443,6 +443,8 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                             ' Not just an empty value (See issue #337)
                             If Len(strLine) > 20 Then
                                 blnIsPassThroughQuery = True
+                                ' Check for env substitution of connection strings
+                                SubstituteEnvConnect lngLine, varLines
                             End If
                         End If
                     End If
@@ -1055,6 +1057,120 @@ Private Function SanitizeXML() As String
 
     ' Log any errors
     CatchAny eelError, "Error sanitizing XML for " & Nz2(FSO.GetFileName(this.strFilePath), Me.ObjectName), ModuleName(Me) & ".SanitizeXML"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SubstituteEnvConnect
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Replace a pass-through query Connect value with an env: reference if
+'           : applicable. Handles multi-line dbMemo values where long connection
+'           : strings wrap across continuation lines (indented, starting with ").
+'---------------------------------------------------------------------------------------
+'
+Private Sub SubstituteEnvConnect(lngLine As Long, ByRef varLines As Variant)
+
+    Dim strFullConnect As String
+    Dim strEnvKey As String
+    Dim lngNext As Long
+    Dim strFragment As String
+
+    ' Extract the quoted value from the first line
+    ' Format: dbMemo "Connect" ="value"
+    strFullConnect = ExtractQuotedDbMemo(CStr(varLines(lngLine)))
+
+    ' Collect continuation lines (indented, starting with ")
+    lngNext = lngLine + 1
+    Do While lngNext <= UBound(varLines)
+        strFragment = CStr(varLines(lngNext))
+        ' Continuation lines are indented and start with "
+        If Len(strFragment) > 0 And Left$(LTrim$(strFragment), 1) = """" Then
+            If Len(strFragment) <> Len(LTrim$(strFragment)) Then
+                strFullConnect = strFullConnect & ExtractQuotedFragment(strFragment)
+                lngNext = lngNext + 1
+            Else
+                Exit Do
+            End If
+        Else
+            Exit Do
+        End If
+    Loop
+
+    ' Check if env substitution applies
+    strEnvKey = ShouldUseEnvForConnection(strFullConnect)
+    If Len(strEnvKey) = 0 Then Exit Sub
+
+    ' Save the full (unsanitized) connection string to the .env file
+    SaveConnectionToEnv strEnvKey, strFullConnect, _
+        Nz2(Me.ObjectName, "query") & " (pass-through query)"
+
+    ' Replace the first line with the env reference
+    varLines(lngLine) = "dbMemo ""Connect"" =""env:" & strEnvKey & """"
+
+    ' Skip all continuation lines that were part of the original value
+    Dim lngSkipLine As Long
+    For lngSkipLine = lngLine + 1 To lngNext - 1
+        SkipLine lngSkipLine
+    Next lngSkipLine
+
+    this.blnOutputModified = True
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractQuotedDbMemo
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Extract the quoted value from a dbMemo line.
+'           : Input:  dbMemo "Connect" ="ODBC;DRIVER={SQL Server}"
+'           : Output: ODBC;DRIVER={SQL Server}
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractQuotedDbMemo(strLine As String) As String
+
+    Dim lngStart As Long
+    Dim lngEnd As Long
+
+    ' Find =" which starts the value
+    lngStart = InStr(1, strLine, "=""")
+    If lngStart > 0 Then
+        lngStart = lngStart + 2
+        ' Find the closing quote
+        lngEnd = InStrRev(strLine, """")
+        If lngEnd > lngStart Then
+            ExtractQuotedDbMemo = Mid$(strLine, lngStart, lngEnd - lngStart)
+        End If
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractQuotedFragment
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Extract the quoted content from a continuation line.
+'           : Input:     ";UID=user;PWD=password;DATABASE=mydb"
+'           : Output: ;UID=user;PWD=password;DATABASE=mydb
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractQuotedFragment(strLine As String) As String
+
+    Dim strTrimmed As String
+    Dim lngStart As Long
+    Dim lngEnd As Long
+
+    strTrimmed = LTrim$(strLine)
+    If Left$(strTrimmed, 1) = """" Then
+        lngStart = 2
+        lngEnd = InStrRev(strTrimmed, """")
+        If lngEnd > lngStart Then
+            ExtractQuotedFragment = Mid$(strTrimmed, lngStart, lngEnd - lngStart)
+        End If
+    End If
 
 End Function
 

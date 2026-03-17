@@ -51,6 +51,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     ' Close any previous cached connections
     CloseCachedConnections
     CloseBackEndConnections
+    ClearEnvCache
 
     ' The type of build will be used in various messages and log entries.
     strType = IIf(blnFullBuild, T("Build"), T("Merge"))
@@ -472,6 +473,7 @@ CleanUp:
     ' Close cached connections
     CloseCachedConnections
     CloseBackEndConnections
+    ClearEnvCache
 
     ' Add performance data to log file and save file.
     Perf.EndTiming

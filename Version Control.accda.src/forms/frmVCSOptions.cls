@@ -726,6 +726,15 @@ Private Sub Form_Load()
         Next intSanitizeLevel
     End With
 
+    ' Load .env connection string options
+    Dim intEnvLevel As eUseEnvConnections
+    With Me.cboUseEnvForConnections
+        .RowSource = vbNullString
+        For intEnvLevel = uecAuto To eUseEnvConnections.[_Last] - 1
+            .AddItem intEnvLevel & ";" & Options.GetUseEnvConnectionsName(intEnvLevel)
+        Next intEnvLevel
+    End With
+
     ' Load export format version options
     Dim lngFormat As eExportFormatVersion
     With Me.cboExportFormatVersion

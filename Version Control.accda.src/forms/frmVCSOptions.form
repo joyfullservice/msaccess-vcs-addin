@@ -15,7 +15,7 @@ Begin Form
     GridY =24
     Width =10080
     DatasheetFontHeight =11
-    ItemSuffix =314
+    ItemSuffix =316
     Left =1000
     Top =1000
     Right =50000
@@ -1308,7 +1308,7 @@ Begin Form
                                     Top =4560
                                     Width =1980
                                     Height =315
-                                    TabIndex =14
+                                    TabIndex =5
                                     Name ="cboExportFormatVersion"
                                     RowSourceType ="Value List"
                                     ColumnWidths ="0"
@@ -1341,7 +1341,7 @@ Begin Form
                                     OverlapFlags =247
                                     Left =5340
                                     Top =2935
-                                    TabIndex =5
+                                    TabIndex =6
                                     Name ="chkSavePrintVars"
 
                                     LayoutCachedLeft =5340
@@ -1371,7 +1371,7 @@ Begin Form
                                     OverlapFlags =247
                                     Left =5340
                                     Top =3360
-                                    TabIndex =6
+                                    TabIndex =7
                                     Name ="chkSaveQuerySQL"
 
                                     LayoutCachedLeft =5340
@@ -1401,7 +1401,7 @@ Begin Form
                                     OverlapFlags =247
                                     Left =5340
                                     Top =3780
-                                    TabIndex =7
+                                    TabIndex =8
                                     Name ="chkSaveTableSQL"
 
                                     LayoutCachedLeft =5340
@@ -1431,7 +1431,7 @@ Begin Form
                                     OverlapFlags =247
                                     Left =5340
                                     Top =4200
-                                    TabIndex =8
+                                    TabIndex =9
                                     Name ="chkFormatSQL"
 
                                     LayoutCachedLeft =5340
@@ -1461,7 +1461,7 @@ Begin Form
                                     OverlapFlags =247
                                     Left =5340
                                     Top =4620
-                                    TabIndex =9
+                                    TabIndex =10
                                     Name ="chkSplitLayoutFromVBA"
 
                                     LayoutCachedLeft =5340
@@ -1488,13 +1488,13 @@ Begin Form
                                     End
                                 End
                                 Begin TextBox
-                                    OverlapFlags =247
+                                    OverlapFlags =255
                                     IMESentenceMode =3
                                     Left =3540
                                     Top =5100
                                     Width =2700
                                     Height =315
-                                    TabIndex =10
+                                    TabIndex =11
                                     Name ="txtRunBeforeExport"
 
                                     LayoutCachedLeft =3540
@@ -1527,7 +1527,7 @@ Begin Form
                                     Top =5520
                                     Width =2700
                                     Height =315
-                                    TabIndex =11
+                                    TabIndex =12
                                     Name ="txtRunAfterExport"
 
                                     LayoutCachedLeft =3540
@@ -1559,7 +1559,7 @@ Begin Form
                                     Left =7140
                                     Top =5640
                                     Width =2160
-                                    TabIndex =12
+                                    TabIndex =13
                                     Name ="cmdExplainOptions"
                                     Caption ="Explain options..."
                                     HyperlinkAddress ="https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Documentation#options"
@@ -1632,7 +1632,7 @@ Begin Form
                                     Width =1140
                                     Height =240
                                     FontSize =10
-                                    TabIndex =13
+                                    TabIndex =14
                                     Name ="cmdPrintSettingsOptions"
                                     Caption ="Options..."
                                     OnClick ="[Event Procedure]"
@@ -1680,6 +1680,42 @@ Begin Form
                                     LayoutCachedTop =2400
                                     LayoutCachedWidth =9120
                                     LayoutCachedHeight =2640
+                                End
+                                Begin ComboBox
+                                    RowSourceTypeInt =1
+                                    OverlapFlags =247
+                                    IMESentenceMode =3
+                                    ColumnCount =2
+                                    Left =7680
+                                    Top =4980
+                                    Height =315
+                                    TabIndex =15
+                                    Name ="cboUseEnvForConnections"
+                                    RowSourceType ="Value List"
+                                    ColumnWidths ="0"
+
+                                    LayoutCachedLeft =7680
+                                    LayoutCachedTop =4980
+                                    LayoutCachedWidth =9120
+                                    LayoutCachedHeight =5295
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =247
+                                            Left =4380
+                                            Top =4980
+                                            Width =3000
+                                            Height =315
+                                            ForeColor =5324600
+                                            Name ="Label315"
+                                            Caption ="Use .env For Connection Strings"
+                                            LayoutCachedLeft =4380
+                                            LayoutCachedTop =4980
+                                            LayoutCachedWidth =7380
+                                            LayoutCachedHeight =5295
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
                                 End
                             End
                         End

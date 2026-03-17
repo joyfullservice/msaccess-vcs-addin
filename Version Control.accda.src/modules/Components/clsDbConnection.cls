@@ -65,6 +65,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim dConnections As Dictionary
     Dim varConnect As Variant
+    Dim strConnect As String
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -75,12 +76,15 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Prime Access' internal cache. If the connection string is incomplete, it will
     ' pop open a dialog from the driver for the user to then fill in.
     For Each varConnect In dConnections
-        ' We only need to process the sanitized connection strings, rather than possible
-        ' connection strings which help reduce number of logins user may need to
-        ' complete.
         Dim x As Variant
         For Each x In dConnections(varConnect)
-            CacheConnection CStr(x)
+            ' Resolve env references before caching
+            strConnect = CStr(x)
+            If IsEnvReference(strConnect) Then
+                strConnect = ResolveEnvConnection(strConnect)
+                If Len(strConnect) = 0 Then strConnect = CStr(x)
+            End If
+            CacheConnection strConnect
         Next
     Next
 
@@ -100,8 +104,53 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetSource() As String
-    GetSource = BuildJsonFile(TypeName(Me), GetDictionary, _
+
+    Dim dOriginal As Dictionary
+    Dim dExport As Dictionary
+    Dim dInner As Dictionary
+    Dim dNewInner As Dictionary
+    Dim varOuterKey As Variant
+    Dim varInnerKey As Variant
+    Dim strEnvKey As String
+
+    Set dOriginal = GetDictionary
+    Set dExport = New Dictionary
+
+    ' Apply env substitution to connection strings if applicable
+    For Each varOuterKey In dOriginal.Keys
+        Set dInner = dOriginal(CStr(varOuterKey))
+        Set dNewInner = New Dictionary
+        dNewInner.CompareMode = TextCompare
+
+        For Each varInnerKey In dInner.Keys
+            strEnvKey = ShouldUseEnvForConnection(CStr(varInnerKey))
+            If Len(strEnvKey) Then
+                SaveConnectionToEnv strEnvKey, CStr(varInnerKey), _
+                    CStr(dInner(varInnerKey)) & " (db connection)"
+                If Not dNewInner.Exists("env:" & strEnvKey) Then
+                    dNewInner.Add "env:" & strEnvKey, dInner(varInnerKey)
+                End If
+            Else
+                dNewInner.Add CStr(varInnerKey), dInner(varInnerKey)
+            End If
+        Next varInnerKey
+
+        ' Use env ref for outer key too if applicable
+        strEnvKey = ShouldUseEnvForConnection(CStr(varOuterKey))
+        If Len(strEnvKey) Then
+            SaveConnectionToEnv strEnvKey, CStr(varOuterKey), _
+                "db connection (sanitized)"
+            If Not dExport.Exists("env:" & strEnvKey) Then
+                Set dExport("env:" & strEnvKey) = dNewInner
+            End If
+        Else
+            Set dExport(CStr(varOuterKey)) = dNewInner
+        End If
+    Next varOuterKey
+
+    GetSource = BuildJsonFile(TypeName(Me), dExport, _
         "Database connections used within the project used to prime Access' internal cache during import.")
+
 End Function
 
 

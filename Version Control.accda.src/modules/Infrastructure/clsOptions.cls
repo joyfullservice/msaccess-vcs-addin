@@ -55,6 +55,7 @@ Public BreakOnError As Boolean
 Public PreserveRubberDuckID As Boolean
 Public MaxLogFiles As Long              ' Default: 20 (per operation type), 0 = keep all
 Public SaveAllDocumentProperties As Boolean
+Public UseEnvForConnections As eUseEnvConnections
 Public ExportFormatVersion As Long      ' Packed integer from eExportFormatVersion enum
 
 ' Enum to compare loaded version to installed version.
@@ -105,6 +106,7 @@ Public Sub LoadDefaults()
         .UseShortHash = True
         .MaxLogFiles = 20
         .SaveAllDocumentProperties = False
+        .UseEnvForConnections = uecAuto
         .ExportFormatVersion = LATEST_EXPORT_FORMAT
 
         ' Table data export
@@ -734,6 +736,12 @@ Public Function GetCategoryHashes() As Dictionary
                 AddToCat dCats, "Tables", varKey, dOptions("Options")
                 AddToCat dCats, "Table Data Macros", varKey, dOptions("Options")
 
+            ' --- Connections (Tables, Queries, DB Connections) ---
+            Case "UseEnvForConnections"
+                AddToCat dCats, "Tables", varKey, dOptions("Options")
+                AddToCat dCats, "Queries", varKey, dOptions("Options")
+                AddToCat dCats, "DB Connections", varKey, dOptions("Options")
+
             ' --- Doc Properties ---
             Case "SaveAllDocumentProperties"
                 AddToCat dCats, "Doc Properties", varKey, dOptions("Options")
@@ -841,6 +849,23 @@ End Function
 ' Purpose   : Return the name used to read and write to the JSON options files.
 '---------------------------------------------------------------------------------------
 '
+'---------------------------------------------------------------------------------------
+' Procedure : GetUseEnvConnectionsName
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Return the display name for the UseEnvForConnections option value.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetUseEnvConnectionsName(intLevel As eUseEnvConnections) As String
+    Select Case intLevel
+        Case uecAuto:       GetUseEnvConnectionsName = "Auto"
+        Case uecAlways:     GetUseEnvConnectionsName = "Always"
+        Case uecNever:      GetUseEnvConnectionsName = "Never"
+        Case Else:          GetUseEnvConnectionsName = vbNullString
+    End Select
+End Function
+
+
 Public Function GetTableExportFormatName(intFormat As eTableDataExportFormat) As String
     Select Case intFormat
         Case etdTabDelimited:   GetTableExportFormatName = "Tab Delimited"
@@ -920,6 +945,7 @@ Private Sub Class_Initialize()
         .Add "PreserveRubberDuckID"
         .Add "MaxLogFiles"
         .Add "SaveAllDocumentProperties"
+        .Add "UseEnvForConnections"
         .Add "ExportFormatVersion"
     End With
 

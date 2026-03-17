@@ -11,9 +11,12 @@ Option Explicit
 '@Folder("Utility")
 
 Private Const ModuleName = "modConnect"
+Private Const ENV_KEY_PREFIX As String = "conn_"
 Private m_dCachedConnections As Dictionary
 Private m_dBackEndConnections As Dictionary
 Private m_dUnavailableBackEnds As Dictionary
+Private m_cEnvCache As clsDotEnv
+Private m_dEnvKeysWritten As Dictionary
 
 
 '---------------------------------------------------------------------------------------
@@ -520,7 +523,7 @@ End Function
 '           : returns "mysvr".
 '---------------------------------------------------------------------------------------
 '
-Private Function GetConnectPart(strConnect As String, strPart As String) As String
+Public Function GetConnectPart(strConnect As String, strPart As String) As String
 
     Dim lngStart As Long
     Dim lngEnd As Long
@@ -537,3 +540,349 @@ Private Function GetConnectPart(strConnect As String, strPart As String) As Stri
     End If
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetConnectionEnvKey
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Generate a deterministic .env key for a connection string by hashing
+'           : the non-sensitive parts (everything except UID and PWD).
+'           : Returns "conn_" followed by a 7-character SHA-256 hash.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetConnectionEnvKey(strConnect As String) As String
+
+    Dim varParts As Variant
+    Dim lngPart As Long
+    Dim strPart As String
+
+    If Len(strConnect) = 0 Then Exit Function
+
+    ' Build a string from the connection parts, excluding UID and PWD
+    varParts = Split(strConnect, ";")
+    With New clsConcat
+        .AppendOnAdd = ";"
+        For lngPart = 0 To UBound(varParts)
+            strPart = CStr(varParts(lngPart))
+            If Not StartsWith(strPart, "UID=", vbTextCompare) _
+                And Not StartsWith(strPart, "PWD=", vbTextCompare) Then
+                .Add strPart
+            End If
+        Next lngPart
+        .Remove 1
+        GetConnectionEnvKey = ENV_KEY_PREFIX & GetSimpleHash(.GetStr)
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ShouldUseEnvForConnection
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Determines whether a connection string should be stored in the .env file.
+'           : Checks the UseEnvForConnections option and export format version.
+'           : Returns the env key if substitution should happen, or empty string if not.
+'---------------------------------------------------------------------------------------
+'
+Public Function ShouldUseEnvForConnection(strConnect As String) As String
+
+    ' Must be on export format v5+
+    If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Function
+
+    Select Case Options.UseEnvForConnections
+        Case uecNever
+            Exit Function
+
+        Case uecAlways
+            If Len(strConnect) > 0 Then
+                ShouldUseEnvForConnection = GetConnectionEnvKey(strConnect)
+            End If
+
+        Case uecAuto
+            ' Only use .env when credentials are detected
+            If HasCredentials(strConnect) Then
+                ShouldUseEnvForConnection = GetConnectionEnvKey(strConnect)
+            End If
+
+    End Select
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasCredentials
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Returns True if the connection string contains UID= or PWD= patterns.
+'---------------------------------------------------------------------------------------
+'
+Private Function HasCredentials(strConnect As String) As Boolean
+    HasCredentials = (InStr(1, strConnect, "PWD=", vbTextCompare) > 0) _
+        Or (InStr(1, strConnect, "UID=", vbTextCompare) > 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveConnectionToEnv
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Save a connection string to the root .env file using the specified key.
+'           : Adds a comment with the source object name when creating a new entry.
+'           : Tracks written keys for unused entry detection.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveConnectionToEnv(strKey As String, strConnect As String, strSourceObject As String)
+
+    Dim cEnv As clsDotEnv
+    Dim strFile As String
+    Dim strCommentKey As String
+    Dim blnNewFile As Boolean
+
+    strFile = GetEnvFilePath
+    Set cEnv = GetEnvCache(True)
+
+    ' Track this key as written during the current export
+    If m_dEnvKeysWritten Is Nothing Then Set m_dEnvKeysWritten = New Dictionary
+    If Not m_dEnvKeysWritten.Exists(strKey) Then
+        m_dEnvKeysWritten.Add strKey, strSourceObject
+    End If
+
+    ' Check if this is a brand new file (no existing entries)
+    blnNewFile = (cEnv.Lines.Count = 0)
+
+    If blnNewFile Then
+        ' Add header comments for new files
+        cEnv.Lines.Add "COMMENT_H1", "# Connection strings for linked tables and pass-through queries."
+        cEnv.Lines.Add "COMMENT_H2", "# This file should be excluded from version control (.gitignore)."
+        cEnv.Lines.Add "COMMENT_H3", "# Each developer maintains their own copy with their credentials."
+        cEnv.Lines.Add "COMMENT_H4", ""
+    End If
+
+    ' Add comment and value for new entries
+    If Not cEnv.Lines.Exists(strKey) Then
+        strCommentKey = "COMMENT_" & Format(cEnv.Lines.Count, "###")
+        cEnv.Lines.Add strCommentKey, "# " & strSourceObject
+    End If
+
+    ' Set or update the value
+    cEnv.SetVar strKey, strConnect
+
+    ' Save the file
+    cEnv.SaveToFile strFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveEnvConnection
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Given a string like "env:conn_a3f72b1", look up the key in the .env file
+'           : and return the full connection string. Returns empty string with a warning
+'           : if the key is not found.
+'---------------------------------------------------------------------------------------
+'
+Public Function ResolveEnvConnection(strRef As String) As String
+
+    Dim strKey As String
+    Dim strValue As String
+    Dim cEnv As clsDotEnv
+
+    If Not IsEnvReference(strRef) Then Exit Function
+
+    ' Extract the key from the "env:" prefix
+    strKey = Mid$(strRef, 5)
+
+    Set cEnv = GetEnvCache(False)
+    strValue = cEnv.GetVar(strKey, False)
+
+    If Len(strValue) > 0 Then
+        ResolveEnvConnection = strValue
+    Else
+        Log.Error eelWarning, T("Connection key not found in .env file: {0}", _
+            var0:=strKey), ModuleName & ".ResolveEnvConnection"
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsEnvReference
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Returns True if the string is an env: reference to a .env file entry.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsEnvReference(strConnect As String) As Boolean
+    IsEnvReference = StartsWith(strConnect, "env:", vbTextCompare)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveEnvReferencesInText
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Find and replace all env:conn_HASH patterns in text content.
+'           : Used to resolve .env references in .qdef files before LoadFromText.
+'---------------------------------------------------------------------------------------
+'
+Public Function ResolveEnvReferencesInText(strContent As String) As String
+
+    Dim lngPos As Long
+    Dim lngEnd As Long
+    Dim strRef As String
+    Dim strResolved As String
+
+    ResolveEnvReferencesInText = strContent
+
+    ' Find all occurrences of "env:conn_" and resolve them
+    lngPos = InStr(1, ResolveEnvReferencesInText, "env:" & ENV_KEY_PREFIX, vbTextCompare)
+    Do While lngPos > 0
+        ' Find the end of the reference (next quote or semicolon or end of line)
+        lngEnd = lngPos + 5 + Len(ENV_KEY_PREFIX)
+        Do While lngEnd <= Len(ResolveEnvReferencesInText)
+            Select Case Mid$(ResolveEnvReferencesInText, lngEnd, 1)
+                Case """", ";", vbCr, vbLf
+                    Exit Do
+                Case Else
+                    lngEnd = lngEnd + 1
+            End Select
+        Loop
+
+        ' Extract and resolve the reference
+        strRef = Mid$(ResolveEnvReferencesInText, lngPos, lngEnd - lngPos)
+        strResolved = ResolveEnvConnection(strRef)
+
+        If Len(strResolved) > 0 Then
+            ResolveEnvReferencesInText = Left$(ResolveEnvReferencesInText, lngPos - 1) & _
+                strResolved & Mid$(ResolveEnvReferencesInText, lngEnd)
+            ' Advance past the resolved string
+            lngPos = lngPos + Len(strResolved)
+        Else
+            ' Could not resolve; leave as-is and move past it
+            lngPos = lngEnd
+        End If
+
+        ' Find next occurrence
+        lngPos = InStr(lngPos, ResolveEnvReferencesInText, "env:" & ENV_KEY_PREFIX, vbTextCompare)
+    Loop
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetEnvFilePath
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Return the full path to the root .env file in the export folder.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetEnvFilePath() As String
+    GetEnvFilePath = Options.GetExportFolder & ".env"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetEnvCache
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Return a cached clsDotEnv instance to avoid re-reading the .env file
+'           : for every table/query during an export or import operation.
+'           : Set blnForWrite to True during export to allow creating a new file.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetEnvCache(blnForWrite As Boolean) As clsDotEnv
+
+    Dim strFile As String
+
+    If m_cEnvCache Is Nothing Then
+        Set m_cEnvCache = New clsDotEnv
+        strFile = GetEnvFilePath
+        If FSO.FileExists(strFile) Then
+            m_cEnvCache.LoadFromFile strFile
+        End If
+    End If
+
+    Set GetEnvCache = m_cEnvCache
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearEnvCache
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Clear the cached .env instance after an export or import is complete.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearEnvCache()
+    Set m_cEnvCache = Nothing
+    Set m_dEnvKeysWritten = Nothing
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogUnusedEnvEntries
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : After a full export, compare written keys against existing .env entries
+'           : and log any unused conn_* key names to the log file (not console).
+'---------------------------------------------------------------------------------------
+'
+Public Sub LogUnusedEnvEntries()
+
+    Dim cEnv As clsDotEnv
+    Dim varKey As Variant
+    Dim strKey As String
+    Dim lngCount As Long
+
+    If m_dEnvKeysWritten Is Nothing Then Exit Sub
+
+    Set cEnv = GetEnvCache(False)
+
+    For Each varKey In cEnv.Lines.Keys
+        strKey = CStr(varKey)
+        If StartsWith(strKey, ENV_KEY_PREFIX, vbTextCompare) Then
+            If Not m_dEnvKeysWritten.Exists(strKey) Then
+                If lngCount = 0 Then
+                    Log.Add T("Unused connection entries in .env file:"), False
+                End If
+                Log.Add "  " & strKey, False
+                lngCount = lngCount + 1
+            End If
+        End If
+    Next varKey
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckGitignoreForEnv
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Check if .env appears in the .gitignore file. Warns the user if the
+'           : project appears to be in a git repo but .env is not excluded.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CheckGitignoreForEnv()
+
+    Dim strPath As String
+    Dim strContent As String
+
+    ' Only check when a .env file exists
+    If Not FSO.FileExists(GetEnvFilePath) Then Exit Sub
+
+    strPath = BuildPath2(FSO.GetParentFolderName(StripSlash(Options.GetExportFolder)), ".gitignore")
+    If FSO.FileExists(strPath) Then
+        strContent = ReadFile(strPath)
+        If Len(strContent) Then
+            If InStr(1, strContent, ".env", vbTextCompare) = 0 Then
+                Log.Add T("WARNING: .env files should be excluded from version control. " & _
+                    "Please add .env to your .gitignore file."), False
+            End If
+        End If
+    End If
+
+End Sub

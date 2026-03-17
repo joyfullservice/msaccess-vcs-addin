@@ -97,10 +97,19 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         Set dbs = SharedDb
         Set tdf = dbs.TableDefs(m_Table.Name)
 
+        Dim strConnect As String
+        Dim strEnvKey As String
+
         Set dItem = New Dictionary
         With dItem
             .Add "Name", m_Table.Name
-            .Add "Connect", SanitizeConnectionString(tdf.Connect)
+            strConnect = SanitizeConnectionString(tdf.Connect)
+            strEnvKey = ShouldUseEnvForConnection(tdf.Connect)
+            If Len(strEnvKey) Then
+                SaveConnectionToEnv strEnvKey, strConnect, m_Table.Name & " (linked table)"
+                strConnect = "env:" & strEnvKey
+            End If
+            .Add "Connect", strConnect
             .Add "SourceTableName", tdf.SourceTableName
             .Add "Attributes", tdf.Attributes
             ' indexes (Find primary key)
@@ -604,7 +613,16 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
         Set dItem = dTable("Items")
         Set dbs = SharedDb
         Set tdf = dbs.CreateTableDef(dItem("Name"))
-        strConnect = GetFullConnect(dItem("Connect"))
+        strConnect = dItem("Connect")
+        If IsEnvReference(strConnect) Then
+            strConnect = ResolveEnvConnection(strConnect)
+            If Len(strConnect) = 0 Then
+                Log.Error eelWarning, T("Connection key not found in .env: {0}. " & _
+                    "Linked table may have an incomplete connection.", _
+                    var0:=dItem("Connect")), ModuleName(Me) & ".ImportLinkedTable"
+            End If
+        End If
+        strConnect = GetFullConnect(strConnect)
         With tdf
             .Connect = strConnect
             .SourceTableName = dItem("SourceTableName")

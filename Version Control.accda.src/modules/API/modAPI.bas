@@ -41,6 +41,14 @@ Public Enum eSanitizeLevel
     [_Last]         ' Placeholder for the end of the list.
 End Enum
 
+' Controls whether connection strings with credentials are stored in a .env file.
+Public Enum eUseEnvConnections
+    uecAuto = 0     ' Only use .env when credentials (UID/PWD) are detected.
+    uecAlways = 1   ' Always store connection strings in .env file.
+    uecNever = 2    ' Leave all connection strings in source files.
+    [_Last]
+End Enum
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : HandleRibbonCommand

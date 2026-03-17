@@ -362,6 +362,10 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         CatchAny eelError, T("Error running {0}", var0:=Options.RunAfterExport), ModuleName & ".ExportSource", True, True
     End If
 
+    ' Log any unused .env connection entries (full export only)
+    If blnFullExport Then LogUnusedEnvEntries
+    CheckGitignoreForEnv
+
     ' Show final output and save log
     Log.Spacer
     Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
@@ -370,6 +374,7 @@ CleanUp:
 
     ' Run any cleanup routines
     CloseBackEndConnections
+    ClearEnvCache
     VCSIndex.ClearTempExportFolder
     RemoveThemeZipFiles
 
@@ -525,6 +530,7 @@ CleanUp:
 
     ' Run any cleanup routines
     CloseBackEndConnections
+    ClearEnvCache
     VCSIndex.ClearTempExportFolder
 
     ' Add performance data to log file and save file
@@ -731,9 +737,10 @@ CleanUp:
 
     ' Run any cleanup routines
     CloseBackEndConnections
+    ClearEnvCache
     VCSIndex.ClearTempExportFolder
 
-    ' Add performance data to log file and save file
+    ' Add performance data to log file and save log
     Perf.EndTiming
     With Log
         .Add vbNewLine & Perf.GetReports, False

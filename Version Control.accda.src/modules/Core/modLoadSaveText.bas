@@ -217,6 +217,15 @@ RetryImport:
 
             End With
 
+        Case acQuery
+            ' Resolve any env: references in pass-through query connection strings
+            strContent = ReadFile(strFile)
+            If InStr(1, strContent, "env:conn_", vbTextCompare) > 0 Then
+                strContent = ResolveEnvReferencesInText(strContent)
+                strSourceFile = GetTempFile
+                WriteFile strContent, strSourceFile
+            End If
+
     End Select
 
     ' Check UCS-2-LE requirement for the current database.

@@ -81,6 +81,43 @@ contradictory guidance.
 
 ---
 
+## 2026-03-17 — Secure connection string storage via .env file references
+
+**Trigger**: Exported source files contained plaintext passwords in linked table connection strings, pass-through query definitions, and `db-connection.json`. When committed to version control, credentials were exposed to anyone with repository access (GitHub issue #670, #476).
+
+**Options explored**:
+- **Hash the full connection string as the .env key**: User's initial proposal. Brute-forceable — an attacker with the hash and knowledge of the server/driver could try password combinations to reproduce the hash. Rejected.
+- **Hash with salt**: Adds security but makes keys non-deterministic across machines — different developers would generate different keys for the same connection, breaking shared source files. Rejected.
+- **Hash only non-sensitive parts (DRIVER, SERVER, DATABASE, DSN)**: Deterministic across machines (same connection = same key regardless of credentials). Immune to brute-force since the hashed components are already visible in source files. Keys remain stable when passwords change. Chosen.
+- **Descriptive prefix for keys** (`sql_myserver_mydb` vs `conn_a3f72b1`): Considered human-readable prefixes derived from connection components. Compact hash is more uniform, avoids special character issues, and the auto-generated comment above each entry provides the human context. Chose `conn_` prefix with 7-char SHA-256 hash.
+
+**Decision**: Connection strings with credentials are replaced by `env:conn_<hash>` references in exported source files. The full connection string is stored in `{ExportFolder}/.env`, which is excluded from version control. Key design choices:
+
+- **Three-mode option** (`UseEnvForConnections`): `Auto` (default, only when UID/PWD detected), `Always` (all connection strings), `Never` (disabled). Enum uses `uec` prefix per project convention.
+- **Gated behind `EFV_5_0_0`**: No new export format version needed since v5 hasn't shipped.
+- **Scope**: Linked tables (JSON), pass-through queries (.qdef via `clsSourceParser`), `db-connection.json`. Forms/reports deferred — investigation showed they don't directly embed connection strings.
+- **Auto-population**: First export auto-creates `.env` with header comments explaining multi-developer workflow, and adds a descriptive comment above each entry (`# tblCustomers (linked table)`).
+- **No auto-pruning**: `.env` is user-managed. Unused `conn_*` entry names are logged to the log file (not console) during full export so users can clean up manually.
+- **Import resilience**: Missing `.env` keys log a warning; Access prompts for credentials at runtime.
+- **Multi-line dbMemo handling**: Pass-through query connection strings can span multiple continuation lines in SaveAsText format. `clsSourceParser.SubstituteEnvConnect` collects all quoted fragments before substitution.
+- **Cached .env reader**: Module-level `clsDotEnv` instance in `modConnect.bas` avoids re-reading the file for every table/query during a single operation.
+
+**What this rules out**: Connection strings in source files are no longer guaranteed to be complete when `UseEnvForConnections` is not `Never`. Build/import workflows require a `.env` file with correct credentials. The `.env` file format follows standard `KEY=VALUE` conventions compatible with Docker, Node.js, and other ecosystems. If forms/reports are later found to embed connection strings directly (not via linked tables or named queries), `clsSourceParser` would need additional patterns. The `conn_` key prefix is reserved — `.env` entries with other prefixes (e.g., from external schema databases) are unaffected.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/API/modAPI.bas` — `eUseEnvConnections` enum
+- `Version Control.accda.src/modules/Infrastructure/clsOptions.cls` — `UseEnvForConnections` property, `GetUseEnvConnectionsName`, category hash classification
+- `Version Control.accda.src/modules/Utility/modConnect.bas` — `GetConnectionEnvKey`, `ShouldUseEnvForConnection`, `SaveConnectionToEnv`, `ResolveEnvConnection`, `IsEnvReference`, `ResolveEnvReferencesInText`, `LogUnusedEnvEntries`, `CheckGitignoreForEnv`, `ClearEnvCache`, `GetEnvFilePath`, cached `clsDotEnv`
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` — env substitution on export, resolution on import
+- `Version Control.accda.src/modules/Core/clsSourceParser.cls` — `SubstituteEnvConnect`, multi-line dbMemo handling
+- `Version Control.accda.src/modules/Core/modLoadSaveText.bas` — `acQuery` case resolving env refs before `LoadFromText`
+- `Version Control.accda.src/modules/Components/clsDbConnection.cls` — env refs in `GetSource`/`IDbComponent_Import`
+- `Version Control.accda.src/modules/Core/modExport.bas` — `LogUnusedEnvEntries`, `CheckGitignoreForEnv`, `ClearEnvCache` calls
+- `Version Control.accda.src/modules/Core/modBuild.bas` — `ClearEnvCache` calls
+- `Version Control.accda.src/forms/frmVCSOptions.cls` — combo box population for `cboUseEnvForConnections`
+
+---
+
 ## 2026-03-13 — @Folder annotation caching: Static per-instance vs modObjects-level cache
 
 **Trigger**: After implementing `@Folder` annotation support (EFV 5.0.0), export logs from `C:\Repos\db-sec` showed "Clear Orphaned Files" consistently at 5-6 seconds on fast saves, even with zero modified objects. Root cause: `GetFolderAnnotation` reads the entire VBE code module via `cmpItem.CodeModule.Lines(1, 999999)` on every call, and `SourceFile` (which calls `GetFolderAnnotation`) was accessed multiple times per object per export — up to ~1,558 VBE COM calls for db-sec's 779 VBA-backed objects.
