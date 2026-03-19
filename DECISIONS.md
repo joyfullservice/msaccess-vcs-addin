@@ -81,6 +81,29 @@ contradictory guidance.
 
 ---
 
+## 2026-03-18 — Standardize Letter Casing ribbon command with user feedback and template creation
+
+**Trigger**: The `StandardizeLetterCasing` feature (Mike Wolfe's technique, integrated in the add-in) ran silently during export and build with no way for a user to invoke it on demand. Users who didn't already have a `clsStandardLetterCasing` module in their project had no discoverability path to the feature.
+
+**Options explored**:
+- **Boolean return from StandardizeLetterCasing**: Function returns True (found) / False (not found). Simple, but doesn't tell the user whether corrections were actually made or casing was already consistent. Rejected.
+- **Long return with sentinel (-1 = not found, 0 = no corrections, 1+ = count)**: Single return value conveys both status and count. Existing callers that ignore the return value are unaffected (VBA ignores function return values when called as a Sub). Chosen.
+- **Separate ByRef parameter for count**: Cleaner separation of concerns but more complex call site and requires all callers to pass a variable even if they don't care. Rejected.
+
+**Decision**: Changed `StandardizeLetterCasing` from `Sub` to `Function ... As Long` returning -1 (module not found), 0 (already consistent), or the correction count. Added a `lngCorrections` counter incremented at both `cm.ReplaceLine` call sites (Dim lines and API declares). The ribbon command in `clsVersionControl` uses a `Select Case` on the return value to show three distinct `MsgBox2` messages. When the module is not found, the user is prompted (Yes/No) to create a starter template. If they accept, `CreateLetterCasingTemplate` creates the class module via `CurrentVBProject.VBComponents.Add(vbext_ct_ClassModule)`, inserts a header and example Dim lines via `CodeModule.InsertLines`, shows a confirmation message, and opens the module in the VBE with `DoCmd.OpenModule`. No second prompt before opening — the user just opted in, so navigating directly is the natural next step.
+
+The ribbon button (`btnStandardizeLetterCasing`) is placed in the Advanced Tools menu before Reload Ribbon, using the `ChangeCaseDialogClassic` imageMso icon. Wiring is automatic via the existing `CallByName VCS, Mid(strCommand, 4)` routing in `modAPI.HandleRibbonCommand`.
+
+**What this rules out**: The `-1` sentinel means future callers must not use negative counts for other purposes. If more granular status is needed (e.g., distinguishing "module exists but empty" from "module exists with rules"), the return value scheme would need rethinking — but the current three states cover all practical scenarios. The template content is hardcoded in `CreateLetterCasingTemplate`; if the canonical template format changes, this code must be updated manually.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Core/modLetterCasing.bas` — `Sub` → `Function As Long`, counter, sentinel return
+- `Version Control.accda.src/modules/API/clsVersionControl.cls` — `StandardizeLetterCasing` with `Select Case` feedback, `CreateLetterCasingTemplate` private helper
+- `Version Control.accda.src/modules/Install/modRibbonStrings.bas` — label and description for `btnStandardizeLetterCasing`
+- `Ribbon/Ribbon.xml` — button definition in `mnuAdvancedTools` menu
+
+---
+
 ## 2026-03-17 — Secure connection string storage via .env file references
 
 **Trigger**: Exported source files contained plaintext passwords in linked table connection strings, pass-through query definitions, and `db-connection.json`. When committed to version control, credentials were exposed to anyone with repository access (GitHub issue #670, #476).

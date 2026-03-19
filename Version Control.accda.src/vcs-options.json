@@ -66,6 +66,7 @@
     "PreserveRubberDuckID": false,
     "MaxLogFiles": 20,
     "SaveAllDocumentProperties": false,
+    "UseEnvForConnections": 0,
     "ExportFormatVersion": "5.0.0"
   }
 }

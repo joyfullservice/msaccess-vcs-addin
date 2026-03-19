@@ -15,9 +15,12 @@ Option Explicit
 '  5/23/25  : Add "PtrSafe" to avoid compile errors in 64-bit VBA.
 ' 10/29/25  : Implement in VCS Add-In (Adam Waller)
 ' ----------------------------------------------------------------
-Sub StandardizeLetterCasing()
+Function StandardizeLetterCasing() As Long
 
     Const StandardLetterCasingModuleName As String = "clsStandardLetterCasing"
+
+    ' Default to -1 (module not found)
+    StandardizeLetterCasing = -1
 
     'Get the Standard Letter Casing class module
     Dim Comp As VBIDE.VBComponent
@@ -26,15 +29,13 @@ Sub StandardizeLetterCasing()
         Set cm = Comp.CodeModule
         If cm.Name = StandardLetterCasingModuleName Then Exit For
     Next Comp
-    If cm Is Nothing Then Exit Sub
-    If cm.Name <> StandardLetterCasingModuleName Then
-        'Debug.Print "Could not find '" & StandardLetterCasingModuleName & "' code module"
-        Exit Sub
-    End If
+    If cm Is Nothing Then Exit Function
+    If cm.Name <> StandardLetterCasingModuleName Then Exit Function
 
     'Loop through each line of code and replace the identifier name with its
     '   canonical form in the trailing comment if casing is different
     Dim i As Long
+    Dim lngCorrections As Long
     For i = 1 To cm.CountOfLines
         Dim LineOfCode As String
         LineOfCode = Trim$(cm.Lines(i, 1))
@@ -50,6 +51,7 @@ Sub StandardizeLetterCasing()
 
                 If CasingDiffers Then
                     cm.ReplaceLine i, "Dim " & CanonicalCasing & " '" & CanonicalCasing
+                    lngCorrections = lngCorrections + 1
                 End If
             Else
                 Debug.Print "Identifier mismatch on line " & i & " of " & _
@@ -70,6 +72,7 @@ Sub StandardizeLetterCasing()
                 If CasingDiffers Then
                     cm.ReplaceLine i, "Private Declare PtrSafe Function zzz_" & Replace(CanonicalCasing, ".", "_") & _
                                       " Lib """ & CanonicalCasing & """ '" & CanonicalCasing
+                    lngCorrections = lngCorrections + 1
                 End If
             Else
                 Debug.Print "Identifier mismatch on line " & i & " of " & _
@@ -79,4 +82,6 @@ Sub StandardizeLetterCasing()
         End If
     Next i
 
-End Sub
+    StandardizeLetterCasing = lngCorrections
+
+End Function

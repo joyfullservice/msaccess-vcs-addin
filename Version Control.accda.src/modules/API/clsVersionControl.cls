@@ -524,6 +524,89 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : StandardizeLetterCasing
+' Author    : Adam Waller
+' Date      : 3/18/2026
+' Purpose   : Apply standard letter casing rules to VBA identifiers.
+'           : Requires a clsStandardLetterCasing module in the current project.
+'           : If the module is not found, offers to create a starter template.
+'---------------------------------------------------------------------------------------
+'
+Public Sub StandardizeLetterCasing()
+
+    Dim lngResult As Long
+
+    If Not Operation.Begin(eotOther) Then Exit Sub
+
+    lngResult = modLetterCasing.StandardizeLetterCasing
+
+    Select Case lngResult
+        Case Is > 0
+            MsgBox2 T("Letter Casing Standardized"), _
+                T("{0} correction(s) applied to VBA identifiers.", var0:=lngResult), _
+                , vbInformation
+        Case 0
+            MsgBox2 T("Letter Casing Consistent"), _
+                T("All VBA identifiers already match the standard letter casing rules."), _
+                , vbInformation
+        Case -1
+            If vbYes = MsgBox2(T("Module Not Found"), _
+                T("The clsStandardLetterCasing class module was not found in the current project."), _
+                T("Would you like to create a starter template?"), _
+                vbYesNo + vbQuestion) Then
+                CreateLetterCasingTemplate
+            End If
+    End Select
+
+    Operation.Finish
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CreateLetterCasingTemplate
+' Author    : Adam Waller
+' Date      : 3/18/2026
+' Purpose   : Create a starter clsStandardLetterCasing module in the current project
+'           : and open it in the VBE for editing.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CreateLetterCasingTemplate()
+
+    Dim cmp As VBIDE.VBComponent
+    Dim strCode As String
+
+    Set cmp = CurrentVBProject.VBComponents.Add(vbext_ct_ClassModule)
+    cmp.Name = "clsStandardLetterCasing"
+
+    strCode = "'---------------------------------------------------------------------------------------" & vbCrLf & _
+              "' Module    : clsStandardLetterCasing" & vbCrLf & _
+              "' Purpose   : Enforce consistent letter casing for VBA identifiers." & vbCrLf & _
+              "'           : Add one Dim line per identifier: Dim IdentifierName 'IdentifierName" & vbCrLf & _
+              "'           : The comment holds the canonical casing. Run Standardize Letter Casing" & vbCrLf & _
+              "'           : from the ribbon to apply, or it runs automatically on export and build." & vbCrLf & _
+              "'           : See: https://nolongerset.com/standardizelettercasing/" & vbCrLf & _
+              "'---------------------------------------------------------------------------------------" & vbCrLf & _
+              "Option Compare Database" & vbCrLf & _
+              "Option Explicit" & vbCrLf & _
+              vbCrLf & _
+              "' Add identifiers below (one per line):" & vbCrLf & _
+              "Dim i 'i" & vbCrLf & _
+              "Dim strSql 'strSql"
+
+    cmp.CodeModule.InsertLines 1, strCode
+
+    MsgBox2 T("Template Created"), _
+        T("The clsStandardLetterCasing class module has been added to your project."), _
+        T("Add Dim lines for identifiers whose casing you want to standardize, then run this command again."), _
+        vbInformation
+
+    DoCmd.OpenModule "clsStandardLetterCasing"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Version
 ' Author    : Adam Waller
 ' Date      : 1/13/2021

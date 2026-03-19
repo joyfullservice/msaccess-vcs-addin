@@ -46,6 +46,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strHash As String
     Dim strContent As String
     Dim strConnect As String
+    Dim strEnvKey As String
 
     ' For linked tables, check if the back-end is already known to be unavailable
     strConnect = SharedDb.TableDefs(m_Table.Name).Connect
@@ -96,10 +97,6 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         ' Linked table - Save as JSON
         Set dbs = SharedDb
         Set tdf = dbs.TableDefs(m_Table.Name)
-
-        Dim strConnect As String
-        Dim strEnvKey As String
-
         Set dItem = New Dictionary
         With dItem
             .Add "Name", m_Table.Name

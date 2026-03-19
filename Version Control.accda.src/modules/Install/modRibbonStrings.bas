@@ -93,6 +93,9 @@ Public Function GetRibbonStrings() As Dictionary
             AddCtl "btnActivateHook", "Activate Hook", _
                 strDescription:="Enable Access Application hook to report saving of objects and enabling automatic export on save."
 
+            AddCtl "btnStandardizeLetterCasing", "Standardize Letter Casing", _
+                strDescription:="Apply standard letter casing rules to VBA identifiers in the current database"
+
             AddCtl "btnReloadRibbon", "Reload Ribbon", _
                 strDescription:="Refresh the add-in ribbon menu to reflect changes in XML source"
 
