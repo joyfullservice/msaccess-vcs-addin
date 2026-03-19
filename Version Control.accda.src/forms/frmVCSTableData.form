@@ -55,6 +55,12 @@ Begin Form
             GridlineThemeColorIndex =1
             GridlineShade =65.0
         End
+        Begin Line
+            BorderLineStyle =0
+            BorderThemeColorIndex =0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
         Begin TextBox
             AddColon = NotDefault
             FELineBreak = NotDefault
@@ -110,7 +116,7 @@ Begin Form
                     Top =900
                     Width =2625
                     Height =360
-                    ColumnWidth =22995
+                    ColumnWidth =8220
                     ColumnOrder =1
                     TabIndex =1
                     LeftMargin =44

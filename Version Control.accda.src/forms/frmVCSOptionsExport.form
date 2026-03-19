@@ -1,0 +1,1413 @@
+﻿Version =20
+VersionRequired =20
+Begin Form
+    RecordSelectors = NotDefault
+    NavigationButtons = NotDefault
+    DividingLines = NotDefault
+    AllowDesignChanges = NotDefault
+    DefaultView =0
+    PictureAlignment =2
+    DatasheetGridlinesBehavior =3
+    GridX =24
+    GridY =24
+    Width =6480
+    DatasheetFontHeight =11
+    ItemSuffix =14
+    Right =50000
+    Bottom =50000
+    RecSrcDt = Begin
+        0x587d60025082e640
+    End
+    DatasheetFontName ="Calibri"
+    OnLoad ="[Event Procedure]"
+    AllowDatasheetView =0
+    FilterOnLoad =0
+    ShowPageMargins =0
+    DisplayOnSharePointSite =1
+    DatasheetAlternateBackColor =15921906
+    DatasheetGridlinesColor12 =0
+    FitToScreen =1
+    DatasheetBackThemeColorIndex =1
+    BorderThemeColorIndex =3
+    ThemeFontIndex =1
+    ForeThemeColorIndex =0
+    AlternateBackThemeColorIndex =1
+    AlternateBackShade =95.0
+    Begin
+        Begin Label
+            BackStyle =0
+            FontSize =11
+            FontName ="Calibri"
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =0
+            BorderTint =50.0
+            ForeThemeColorIndex =0
+            ForeTint =60.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Line
+            BorderLineStyle =0
+            BorderThemeColorIndex =0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin CommandButton
+            FontSize =11
+            FontWeight =400
+            FontName ="Calibri"
+            ForeThemeColorIndex =0
+            ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+            UseTheme =1
+            Shape =1
+            Gradient =12
+            BackThemeColorIndex =4
+            BackTint =60.0
+            BorderLineStyle =0
+            BorderThemeColorIndex =4
+            BorderTint =60.0
+            ThemeFontIndex =1
+            HoverThemeColorIndex =4
+            HoverTint =40.0
+            PressedThemeColorIndex =4
+            PressedShade =75.0
+            HoverForeThemeColorIndex =0
+            HoverForeTint =75.0
+            PressedForeThemeColorIndex =0
+            PressedForeTint =75.0
+        End
+        Begin CheckBox
+            BorderLineStyle =0
+            LabelX =230
+            LabelY =-30
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin TextBox
+            AddColon = NotDefault
+            FELineBreak = NotDefault
+            BorderLineStyle =0
+            LabelX =-1800
+            FontSize =11
+            FontName ="Calibri"
+            AsianLineBreak =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ThemeFontIndex =1
+            ForeThemeColorIndex =0
+            ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin ComboBox
+            AddColon = NotDefault
+            BorderLineStyle =0
+            LabelX =-1800
+            FontSize =11
+            FontName ="Calibri"
+            AllowValueListEdits =1
+            InheritValueList =1
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ForeThemeColorIndex =2
+            ForeShade =50.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Section
+            Height =18300
+            BackColor =15130848
+            Name ="Detail"
+            AlternateBackColor =15130848
+            Begin
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =1620
+                    Width =6420
+                    Name ="Line0"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =1620
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =1620
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =1260
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label1"
+                    Caption ="Source Files"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =1260
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =1560
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CommandButton
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =60
+                    Top =180
+                    Width =480
+                    Height =480
+                    Name ="cmdIcon"
+                    Caption ="Command2"
+                    ImageData = Begin
+                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000505050ff505050ff00000000505050ff505050ff ,
+                        0x00000000505050ff505050ff0000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000505050ff505050ff00000000505050ff505050ff ,
+                        0x00000000505050ff505050ff0000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000072727248 ,
+                        0x727272ff727272541c75e3261c75e3ff1c75e326000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727248727272f6 ,
+                        0x727272ff727272ff1c75e3ff000000001c75e3ff00000000000000001c75e326 ,
+                        0x1c75e3ff1c75e32600000000000000000000000072727248727272f6727272ff ,
+                        0x727272fc727272541c75e3261c75e3ff1c75e32600000000000000001c75e3ff ,
+                        0x000000001c75e3ff000000000000000072727248727272f6727272ff727272fc ,
+                        0x727272540000000000000000000000000000000000000000000000001c75e326 ,
+                        0x1c75e3ff1c75e3260000000072727248727272f6727272ff727272fc72727254 ,
+                        0x000000000000000000000000000000001c75e3261c75e3ff1c75e32600000000 ,
+                        0x000000000000000072727248727272f6727272ff727272fc7272725400000000 ,
+                        0x000000000000000000000000000000001c75e3ff000000001c75e3ff00000000 ,
+                        0x0000000072727248727272f6727272ff727272f9727272540000000000000000 ,
+                        0x000000000000000000000000000000001c75e3261c75e3ff1c75e32600000000 ,
+                        0x72727248727272f6727272ff727272f972727254000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000072727248 ,
+                        0x727272f6ffffffff727272f97272725400000000000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727248727272f6 ,
+                        0xffffffff727272f9727272540000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000000000000000000000000000727272ff727272ff ,
+                        0x727272f972727254000000000000000000000000000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727254727272ff ,
+                        0x7272725400000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000
+                    End
+                    BackStyle =0
+
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =180
+                    LayoutCachedWidth =540
+                    LayoutCachedHeight =660
+                    Gradient =0
+                    BorderWidth =1
+                    BorderThemeColorIndex =1
+                    BorderTint =100.0
+                    BorderShade =65.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =720
+                    Top =240
+                    Width =5700
+                    Height =720
+                    FontSize =14
+                    ForeColor =5324600
+                    Name ="Label3"
+                    Caption ="Configure how database objects are exported to source files"
+                    LayoutCachedLeft =720
+                    LayoutCachedTop =240
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =960
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =3900
+                    Width =6420
+                    Name ="Line4"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =3900
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =3900
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =3540
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label5"
+                    Caption ="Hooks"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =3540
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =3840
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =2400
+                    TabIndex =2
+                    Name ="chkUseFastSave"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =2400
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =2640
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =2340
+                            Width =3420
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label25"
+                            Caption ="Use Fast Save"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =2340
+                            LayoutCachedWidth =4140
+                            LayoutCachedHeight =2655
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =2880
+                    TabIndex =3
+                    Name ="chkSplitLayoutFromVBA"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =2880
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =3120
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =2820
+                            Width =3540
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label251"
+                            Caption ="Split Layout from VBA"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =2820
+                            LayoutCachedWidth =4260
+                            LayoutCachedHeight =3135
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin ComboBox
+                    LimitToList = NotDefault
+                    RowSourceTypeInt =1
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    ColumnCount =2
+                    Left =2160
+                    Top =1860
+                    Width =1980
+                    Height =315
+                    TabIndex =1
+                    Name ="cboExportFormatVersion"
+                    RowSourceType ="Value List"
+                    ColumnWidths ="0"
+                    AllowValueListEdits =0
+
+                    LayoutCachedLeft =2160
+                    LayoutCachedTop =1860
+                    LayoutCachedWidth =4140
+                    LayoutCachedHeight =2175
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =1860
+                            Width =1560
+                            Height =305
+                            ForeColor =5324600
+                            Name ="lblExportFormatVersion"
+                            Caption ="Export Format"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =1860
+                            LayoutCachedWidth =1980
+                            LayoutCachedHeight =2165
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin TextBox
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    Left =2940
+                    Top =4200
+                    Width =2700
+                    Height =315
+                    TabIndex =4
+                    Name ="txtRunBeforeExport"
+
+                    LayoutCachedLeft =2940
+                    LayoutCachedTop =4200
+                    LayoutCachedWidth =5640
+                    LayoutCachedHeight =4515
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =4200
+                            Width =2460
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label44"
+                            Caption ="Run Sub Before Export:"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =4200
+                            LayoutCachedWidth =2880
+                            LayoutCachedHeight =4515
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin TextBox
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    Left =2940
+                    Top =4680
+                    Width =2700
+                    Height =315
+                    TabIndex =5
+                    Name ="txtRunAfterExport"
+
+                    LayoutCachedLeft =2940
+                    LayoutCachedTop =4680
+                    LayoutCachedWidth =5640
+                    LayoutCachedHeight =4995
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =4680
+                            Width =2460
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label48"
+                            Caption ="Run Sub After Export:"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =4680
+                            LayoutCachedWidth =2880
+                            LayoutCachedHeight =4995
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =7680
+                    Width =6420
+                    Name ="Line6"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =7680
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =7680
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =7320
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label7"
+                    Caption ="Content"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =7320
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =7620
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =5760
+                    Width =6420
+                    Name ="Line8"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =5760
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =5760
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =5400
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label9"
+                    Caption ="Sanitization"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =5400
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =5700
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =11580
+                    Width =6420
+                    Name ="Line10"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =11580
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =11580
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =11220
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label11"
+                    Caption ="Printer Settings Detail"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =11220
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =11520
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =9900
+                    TabIndex =12
+                    Name ="chkExtractThemeFiles"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =9900
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =10140
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =9840
+                            Width =3420
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label112"
+                            Caption ="Extract Theme Files"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =9840
+                            LayoutCachedWidth =4140
+                            LayoutCachedHeight =10155
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =9415
+                    TabIndex =11
+                    Name ="chkSavePrintVars"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =9415
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =9655
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =9360
+                            Width =2400
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label27"
+                            Caption ="Save Printer Settings"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =9360
+                            LayoutCachedWidth =3120
+                            LayoutCachedHeight =9675
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =7980
+                    TabIndex =8
+                    Name ="chkSaveQuerySQL"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =7980
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =8220
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =7920
+                            Width =3540
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label29"
+                            Caption ="Save Query SQL"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =7920
+                            LayoutCachedWidth =4260
+                            LayoutCachedHeight =8235
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =8940
+                    TabIndex =10
+                    Name ="chkSaveTableSQL"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =8940
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =9180
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =8880
+                            Width =3540
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label38"
+                            Caption ="Save Table SQL"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =8880
+                            LayoutCachedWidth =4260
+                            LayoutCachedHeight =9195
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =8460
+                    TabIndex =9
+                    Name ="chkFormatSQL"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =8460
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =8700
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =8400
+                            Width =3540
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label249"
+                            Caption ="Format SQL"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =8400
+                            LayoutCachedWidth =4260
+                            LayoutCachedHeight =8715
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin ComboBox
+                    LimitToList = NotDefault
+                    RowSourceTypeInt =1
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    ColumnCount =2
+                    Left =3720
+                    Top =10440
+                    Height =315
+                    TabIndex =13
+                    Name ="cboUseEnvForConnections"
+                    RowSourceType ="Value List"
+                    ColumnWidths ="0"
+
+                    LayoutCachedLeft =3720
+                    LayoutCachedTop =10440
+                    LayoutCachedWidth =5160
+                    LayoutCachedHeight =10755
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =10440
+                            Width =3000
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label315"
+                            Caption ="Use .env For Connection Strings"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =10440
+                            LayoutCachedWidth =3420
+                            LayoutCachedHeight =10755
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin ComboBox
+                    LimitToList = NotDefault
+                    RowSourceTypeInt =1
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    ColumnCount =2
+                    Left =2160
+                    Top =6060
+                    Width =1980
+                    Height =315
+                    TabIndex =6
+                    Name ="cboSanitizeLevel"
+                    RowSourceType ="Value List"
+                    ColumnWidths ="0"
+                    AllowValueListEdits =0
+
+                    LayoutCachedLeft =2160
+                    LayoutCachedTop =6060
+                    LayoutCachedWidth =4140
+                    LayoutCachedHeight =6375
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =6060
+                            Width =1560
+                            Height =305
+                            ForeColor =5324600
+                            Name ="Label235"
+                            Caption ="Sanitize Level"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =6060
+                            LayoutCachedWidth =1980
+                            LayoutCachedHeight =6365
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin ComboBox
+                    LimitToList = NotDefault
+                    RowSourceTypeInt =1
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    ColumnCount =2
+                    Left =2160
+                    Top =6540
+                    Width =1980
+                    Height =315
+                    TabIndex =7
+                    Name ="cboSanitizeColors"
+                    RowSourceType ="Value List"
+                    ColumnWidths ="0"
+                    AllowValueListEdits =0
+
+                    LayoutCachedLeft =2160
+                    LayoutCachedTop =6540
+                    LayoutCachedWidth =4140
+                    LayoutCachedHeight =6855
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =6540
+                            Width =1560
+                            Height =305
+                            ForeColor =5324600
+                            Name ="Label233"
+                            Caption ="Sanitize Colors"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =6540
+                            LayoutCachedWidth =1980
+                            LayoutCachedHeight =6845
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =11875
+                    TabIndex =14
+                    Name ="chkOrientation"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =11875
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =12115
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =11820
+                            Width =1920
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label115"
+                            Caption ="Page Orientation"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =11820
+                            LayoutCachedWidth =2640
+                            LayoutCachedHeight =12135
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =12355
+                    TabIndex =15
+                    Name ="chkPaperSize"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =12355
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =12595
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =12300
+                            Width =1920
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label117"
+                            Caption ="Paper Size"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =12300
+                            LayoutCachedWidth =2640
+                            LayoutCachedHeight =12615
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =420
+                    Top =12840
+                    Width =5580
+                    Height =825
+                    ForeColor =5324600
+                    Name ="Label126"
+                    Caption ="Select any additional settings that you would like saved to version control and "
+                        "used when building a database from source files."
+                    HorizontalAnchor =2
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =12840
+                    LayoutCachedWidth =6000
+                    LayoutCachedHeight =13665
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =360
+                    Top =13915
+                    TabIndex =16
+                    Name ="chkDuplex"
+
+                    LayoutCachedLeft =360
+                    LayoutCachedTop =13915
+                    LayoutCachedWidth =620
+                    LayoutCachedHeight =14155
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =660
+                            Top =13860
+                            Width =1440
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label130"
+                            Caption ="Duplex"
+                            LayoutCachedLeft =660
+                            LayoutCachedTop =13860
+                            LayoutCachedWidth =2100
+                            LayoutCachedHeight =14175
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =2940
+                    Top =13915
+                    TabIndex =17
+                    Name ="chkPrintQuality"
+
+                    LayoutCachedLeft =2940
+                    LayoutCachedTop =13915
+                    LayoutCachedWidth =3200
+                    LayoutCachedHeight =14155
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =3240
+                            Top =13860
+                            Width =1620
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label128"
+                            Caption ="Print Quality"
+                            LayoutCachedLeft =3240
+                            LayoutCachedTop =13860
+                            LayoutCachedWidth =4860
+                            LayoutCachedHeight =14175
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =360
+                    Top =14395
+                    TabIndex =18
+                    Name ="chkCollate"
+
+                    LayoutCachedLeft =360
+                    LayoutCachedTop =14395
+                    LayoutCachedWidth =620
+                    LayoutCachedHeight =14635
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =660
+                            Top =14340
+                            Width =1440
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label134"
+                            Caption ="Collate"
+                            LayoutCachedLeft =660
+                            LayoutCachedTop =14340
+                            LayoutCachedWidth =2100
+                            LayoutCachedHeight =14655
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =2940
+                    Top =14395
+                    TabIndex =19
+                    Name ="chkResolution"
+
+                    LayoutCachedLeft =2940
+                    LayoutCachedTop =14395
+                    LayoutCachedWidth =3200
+                    LayoutCachedHeight =14635
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =3240
+                            Top =14340
+                            Width =1440
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label132"
+                            Caption ="Resolution"
+                            LayoutCachedLeft =3240
+                            LayoutCachedTop =14340
+                            LayoutCachedWidth =4680
+                            LayoutCachedHeight =14655
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =360
+                    Top =14875
+                    TabIndex =20
+                    Name ="chkColor"
+
+                    LayoutCachedLeft =360
+                    LayoutCachedTop =14875
+                    LayoutCachedWidth =620
+                    LayoutCachedHeight =15115
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =660
+                            Top =14820
+                            Width =1440
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label144"
+                            Caption ="Color or B/W"
+                            LayoutCachedLeft =660
+                            LayoutCachedTop =14820
+                            LayoutCachedWidth =2100
+                            LayoutCachedHeight =15135
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =2940
+                    Top =14875
+                    TabIndex =21
+                    Name ="chkCopies"
+
+                    LayoutCachedLeft =2940
+                    LayoutCachedTop =14875
+                    LayoutCachedWidth =3200
+                    LayoutCachedHeight =15115
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =3240
+                            Top =14820
+                            Width =1800
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label123"
+                            Caption ="Number of Copies"
+                            LayoutCachedLeft =3240
+                            LayoutCachedTop =14820
+                            LayoutCachedWidth =5040
+                            LayoutCachedHeight =15135
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =360
+                    Top =15355
+                    TabIndex =22
+                    Name ="chkDefaultSource"
+
+                    LayoutCachedLeft =360
+                    LayoutCachedTop =15355
+                    LayoutCachedWidth =620
+                    LayoutCachedHeight =15595
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =660
+                            Top =15300
+                            Width =1440
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label125"
+                            Caption ="Paper Tray"
+                            LayoutCachedLeft =660
+                            LayoutCachedTop =15300
+                            LayoutCachedWidth =2100
+                            LayoutCachedHeight =15615
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =360
+                    Top =15835
+                    TabIndex =24
+                    Name ="chkFormName"
+
+                    LayoutCachedLeft =360
+                    LayoutCachedTop =15835
+                    LayoutCachedWidth =620
+                    LayoutCachedHeight =16075
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =660
+                            Top =15780
+                            Width =1440
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label142"
+                            Caption ="Form Name"
+                            LayoutCachedLeft =660
+                            LayoutCachedTop =15780
+                            LayoutCachedWidth =2100
+                            LayoutCachedHeight =16095
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =360
+                    Top =16315
+                    TabIndex =26
+                    Name ="chkMediaType"
+
+                    LayoutCachedLeft =360
+                    LayoutCachedTop =16315
+                    LayoutCachedWidth =620
+                    LayoutCachedHeight =16555
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =660
+                            Top =16260
+                            Width =1440
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label154"
+                            Caption ="Media Type"
+                            LayoutCachedLeft =660
+                            LayoutCachedTop =16260
+                            LayoutCachedWidth =2100
+                            LayoutCachedHeight =16575
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =360
+                    Top =16795
+                    TabIndex =28
+                    Name ="chkDisplayFrequency"
+
+                    LayoutCachedLeft =360
+                    LayoutCachedTop =16795
+                    LayoutCachedWidth =620
+                    LayoutCachedHeight =17035
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =660
+                            Top =16740
+                            Width =1440
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label148"
+                            Caption ="Display Freq."
+                            LayoutCachedLeft =660
+                            LayoutCachedTop =16740
+                            LayoutCachedWidth =2100
+                            LayoutCachedHeight =17055
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =360
+                    Top =17275
+                    TabIndex =30
+                    Name ="chkDisplayFlags"
+
+                    LayoutCachedLeft =360
+                    LayoutCachedTop =17275
+                    LayoutCachedWidth =620
+                    LayoutCachedHeight =17515
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =660
+                            Top =17220
+                            Width =1440
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label146"
+                            Caption ="Display Flags"
+                            LayoutCachedLeft =660
+                            LayoutCachedTop =17220
+                            LayoutCachedWidth =2100
+                            LayoutCachedHeight =17535
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =360
+                    Top =17755
+                    TabIndex =32
+                    Name ="chkICMMethod"
+
+                    LayoutCachedLeft =360
+                    LayoutCachedTop =17755
+                    LayoutCachedWidth =620
+                    LayoutCachedHeight =17995
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =660
+                            Top =17700
+                            Width =1440
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label150"
+                            Caption ="ICM Method"
+                            LayoutCachedLeft =660
+                            LayoutCachedTop =17700
+                            LayoutCachedWidth =2100
+                            LayoutCachedHeight =18015
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =2940
+                    Top =15355
+                    TabIndex =23
+                    Name ="chkScale"
+
+                    LayoutCachedLeft =2940
+                    LayoutCachedTop =15355
+                    LayoutCachedWidth =3200
+                    LayoutCachedHeight =15595
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =3240
+                            Top =15300
+                            Width =2220
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label121"
+                            Caption ="Print Scale"
+                            LayoutCachedLeft =3240
+                            LayoutCachedTop =15300
+                            LayoutCachedWidth =5460
+                            LayoutCachedHeight =15615
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =2940
+                    Top =17755
+                    TabIndex =33
+                    Name ="chkICMIntent"
+
+                    LayoutCachedLeft =2940
+                    LayoutCachedTop =17755
+                    LayoutCachedWidth =3200
+                    LayoutCachedHeight =17995
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =3240
+                            Top =17700
+                            Width =1440
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label152"
+                            Caption ="ICM Intent"
+                            LayoutCachedLeft =3240
+                            LayoutCachedTop =17700
+                            LayoutCachedWidth =4680
+                            LayoutCachedHeight =18015
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =2940
+                    Top =15835
+                    TabIndex =25
+                    Name ="chkPaperLength"
+
+                    LayoutCachedLeft =2940
+                    LayoutCachedTop =15835
+                    LayoutCachedWidth =3200
+                    LayoutCachedHeight =16075
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =3240
+                            Top =15780
+                            Width =2220
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label119"
+                            Caption ="Custom Length"
+                            LayoutCachedLeft =3240
+                            LayoutCachedTop =15780
+                            LayoutCachedWidth =5460
+                            LayoutCachedHeight =16095
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =2940
+                    Top =16795
+                    TabIndex =29
+                    Name ="chkDitherType"
+
+                    LayoutCachedLeft =2940
+                    LayoutCachedTop =16795
+                    LayoutCachedWidth =3200
+                    LayoutCachedHeight =17035
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =3240
+                            Top =16740
+                            Width =1440
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label156"
+                            Caption ="Dither Type"
+                            LayoutCachedLeft =3240
+                            LayoutCachedTop =16740
+                            LayoutCachedWidth =4680
+                            LayoutCachedHeight =17055
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =2940
+                    Top =16315
+                    TabIndex =27
+                    Name ="chkPaperWidth"
+
+                    LayoutCachedLeft =2940
+                    LayoutCachedTop =16315
+                    LayoutCachedWidth =3200
+                    LayoutCachedHeight =16555
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =3240
+                            Top =16260
+                            Width =2220
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label158"
+                            Caption ="Custom Width"
+                            LayoutCachedLeft =3240
+                            LayoutCachedTop =16260
+                            LayoutCachedWidth =5460
+                            LayoutCachedHeight =16575
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =2940
+                    Top =17275
+                    TabIndex =31
+                    Name ="chkTTOption"
+
+                    LayoutCachedLeft =2940
+                    LayoutCachedTop =17275
+                    LayoutCachedWidth =3200
+                    LayoutCachedHeight =17515
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =3240
+                            Top =17220
+                            Width =1725
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label140"
+                            Caption ="TT Font Handling"
+                            LayoutCachedLeft =3240
+                            LayoutCachedTop =17220
+                            LayoutCachedWidth =4965
+                            LayoutCachedHeight =17535
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+            End
+        End
+    End
+End
+CodeBehindForm
+' See "frmVCSOptionsExport.cls"

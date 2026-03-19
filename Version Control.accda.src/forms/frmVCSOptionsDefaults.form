@@ -1,0 +1,922 @@
+﻿Version =20
+VersionRequired =20
+Begin Form
+    RecordSelectors = NotDefault
+    NavigationButtons = NotDefault
+    DividingLines = NotDefault
+    AllowDesignChanges = NotDefault
+    DefaultView =0
+    PictureAlignment =2
+    DatasheetGridlinesBehavior =3
+    GridX =24
+    GridY =24
+    Width =6480
+    DatasheetFontHeight =11
+    ItemSuffix =9
+    Right =50000
+    Bottom =50000
+    RecSrcDt = Begin
+        0x587d60025082e640
+    End
+    DatasheetFontName ="Calibri"
+    OnLoad ="[Event Procedure]"
+    AllowDatasheetView =0
+    FilterOnLoad =0
+    ShowPageMargins =0
+    DisplayOnSharePointSite =1
+    DatasheetAlternateBackColor =15921906
+    DatasheetGridlinesColor12 =0
+    FitToScreen =1
+    DatasheetBackThemeColorIndex =1
+    BorderThemeColorIndex =3
+    ThemeFontIndex =1
+    ForeThemeColorIndex =0
+    AlternateBackThemeColorIndex =1
+    AlternateBackShade =95.0
+    Begin
+        Begin Label
+            BackStyle =0
+            FontSize =11
+            FontName ="Calibri"
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =0
+            BorderTint =50.0
+            ForeThemeColorIndex =0
+            ForeTint =60.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Line
+            BorderLineStyle =0
+            BorderThemeColorIndex =0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin CommandButton
+            FontSize =11
+            FontWeight =400
+            FontName ="Calibri"
+            ForeThemeColorIndex =0
+            ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+            UseTheme =1
+            Shape =1
+            Gradient =12
+            BackThemeColorIndex =4
+            BackTint =60.0
+            BorderLineStyle =0
+            BorderThemeColorIndex =4
+            BorderTint =60.0
+            ThemeFontIndex =1
+            HoverThemeColorIndex =4
+            HoverTint =40.0
+            PressedThemeColorIndex =4
+            PressedShade =75.0
+            HoverForeThemeColorIndex =0
+            HoverForeTint =75.0
+            PressedForeThemeColorIndex =0
+            PressedForeTint =75.0
+        End
+        Begin CheckBox
+            BorderLineStyle =0
+            LabelX =230
+            LabelY =-30
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin TextBox
+            AddColon = NotDefault
+            FELineBreak = NotDefault
+            BorderLineStyle =0
+            LabelX =-1800
+            FontSize =11
+            FontName ="Calibri"
+            AsianLineBreak =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ThemeFontIndex =1
+            ForeThemeColorIndex =0
+            ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin ComboBox
+            AddColon = NotDefault
+            BorderLineStyle =0
+            LabelX =-1800
+            FontSize =11
+            FontName ="Calibri"
+            AllowValueListEdits =1
+            InheritValueList =1
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ForeThemeColorIndex =2
+            ForeShade =50.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Section
+            Height =12240
+            BackColor =15130848
+            Name ="Detail"
+            AlternateBackColor =15130848
+            Begin
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =1440
+                    Width =6420
+                    Name ="Line0"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =1440
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =1440
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =1080
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label1"
+                    Caption ="Project Defaults"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =1080
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =1380
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CommandButton
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =60
+                    Top =180
+                    Width =480
+                    Height =480
+                    Name ="cmdIcon"
+                    Caption ="Command2"
+                    ImageData = Begin
+                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000505050ff505050ff00000000505050ff505050ff ,
+                        0x00000000505050ff505050ff0000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000505050ff505050ff00000000505050ff505050ff ,
+                        0x00000000505050ff505050ff0000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000072727248 ,
+                        0x727272ff727272541c75e3261c75e3ff1c75e326000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727248727272f6 ,
+                        0x727272ff727272ff1c75e3ff000000001c75e3ff00000000000000001c75e326 ,
+                        0x1c75e3ff1c75e32600000000000000000000000072727248727272f6727272ff ,
+                        0x727272fc727272541c75e3261c75e3ff1c75e32600000000000000001c75e3ff ,
+                        0x000000001c75e3ff000000000000000072727248727272f6727272ff727272fc ,
+                        0x727272540000000000000000000000000000000000000000000000001c75e326 ,
+                        0x1c75e3ff1c75e3260000000072727248727272f6727272ff727272fc72727254 ,
+                        0x000000000000000000000000000000001c75e3261c75e3ff1c75e32600000000 ,
+                        0x000000000000000072727248727272f6727272ff727272fc7272725400000000 ,
+                        0x000000000000000000000000000000001c75e3ff000000001c75e3ff00000000 ,
+                        0x0000000072727248727272f6727272ff727272f9727272540000000000000000 ,
+                        0x000000000000000000000000000000001c75e3261c75e3ff1c75e32600000000 ,
+                        0x72727248727272f6727272ff727272f972727254000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000072727248 ,
+                        0x727272f6ffffffff727272f97272725400000000000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727248727272f6 ,
+                        0xffffffff727272f9727272540000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000000000000000000000000000727272ff727272ff ,
+                        0x727272f972727254000000000000000000000000000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727254727272ff ,
+                        0x7272725400000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000
+                    End
+                    BackStyle =0
+
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =180
+                    LayoutCachedWidth =540
+                    LayoutCachedHeight =660
+                    Gradient =0
+                    BorderWidth =1
+                    BorderThemeColorIndex =1
+                    BorderTint =100.0
+                    BorderShade =65.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =720
+                    Top =240
+                    Width =5520
+                    Height =420
+                    FontSize =14
+                    ForeColor =5324600
+                    Name ="Label3"
+                    Caption ="Option defaults and installation settings"
+                    LayoutCachedLeft =720
+                    LayoutCachedTop =240
+                    LayoutCachedWidth =6240
+                    LayoutCachedHeight =660
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =8520
+                    Width =6420
+                    Name ="Line4"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =8520
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =8520
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =8160
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label5"
+                    Caption ="Install Settings"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =8160
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =8460
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CommandButton
+                    OverlapFlags =85
+                    Left =420
+                    Top =1740
+                    Width =2160
+                    Height =420
+                    TabIndex =1
+                    Name ="cmdSaveAsDefault"
+                    Caption =" Save as Default"
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    ImageData = Begin
+                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000d0687050c06860ffb05850ffa05050ffa05050ff ,
+                        0xa05050ff904850ff904840ff904840ff804040ff803840ff803840ff703840ff ,
+                        0x703830ff0000000000000000d06870fff09090ffe08080ffb04820ff403020ff ,
+                        0xc0b8b0ffc0b8b0ffd0c0c0ffd0c8c0ff505050ffa04030ffa04030ffa03830ff ,
+                        0x703840ff0000000000000000d07070ffff98a0fff08880ffe08080ff705850ff ,
+                        0x404030ff907870fff0e0e0fff0e8e0ff908070ffa04030ffa04040ffa04030ff ,
+                        0x803840ff0000000000000000d07870ffffa0a0fff09090fff08880ff705850ff ,
+                        0x000000ff404030fff0d8d0fff0e0d0ff807860ffb04840ffb04840ffa04040ff ,
+                        0x804040ff0000000000000000d07880ffffa8b0ffffa0a0fff09090ff705850ff ,
+                        0x705850ff705850ff705850ff706050ff806860ffc05850ffb05050ffb04840ff ,
+                        0x804040ff0000000000000000e08080ffffb0b0ffffb0b0ffffa0a0fff09090ff ,
+                        0xf08880ffe08080ffe07880ffd07070ffd06870ffc06060ffc05850ffb05050ff ,
+                        0x904840ff0000000000000000e08890ffffb8c0ffffb8b0ffd06060ffc06050ff ,
+                        0xc05850ffc05040ffb05030ffb04830ffa04020ffa03810ffc06060ffc05850ff ,
+                        0x904840ff0000000000000000e09090ffffc0c0ffd06860ffffffffffffffffff ,
+                        0xfff8f0fff0f0f0fff0e8e0fff0d8d0ffe0d0c0ffe0c8c0ffa03810ffc06060ff ,
+                        0x904850ff0000000000000000e098a0ffffc0c0ffd07070ffffffffffffffffff ,
+                        0xfffffffffff8f0fff0f0f0fff0e8e0fff0d8d0ffe0d0c0ffa04020ffd06860ff ,
+                        0xa05050ff0000000000000000f0a0a0ffffc0c0ffe07870ffffffffffffffffff ,
+                        0xfffffffffffffffffff8f0fff0f0f0fff0e8e0fff0d8d0ffb04830ffd07070ff ,
+                        0xa05050ff0000000000000000f0a8a0ffffc0c0ffe08080ffffffffffffffffff ,
+                        0xfffffffffffffffffffffffffff8f0fff0f0f0fff0e8e0ffb05030ffe07880ff ,
+                        0xa05050ff0000000000000000f0b0b0ffffc0c0fff08890ffffffffffffffffff ,
+                        0xfffffffffffffffffffffffffffffffffff8f0fff0f0f0ffc05040ff603030ff ,
+                        0xb05850ff0000000000000000f0b0b0ffffc0c0ffff9090ffffffffffffffffff ,
+                        0xfffffffffffffffffffffffffffffffffffffffffff8f0ffc05850ffb05860ff ,
+                        0xb05860ff0000000000000000f0b8b0fff0b8b0fff0b0b0fff0b0b0fff0a8b0ff ,
+                        0xf0a0a0ffe098a0ffe09090ffe09090ffe08890ffe08080ffd07880ffd07870ff ,
+                        0xd07070ff00000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000
+                    End
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =1740
+                    LayoutCachedWidth =2580
+                    LayoutCachedHeight =2160
+                    PictureCaptionArrangement =5
+                    BackColor =14262935
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverColor =15321539
+                    HoverThemeColorIndex =-1
+                    HoverTint =100.0
+                    PressedColor =13072231
+                    PressedThemeColorIndex =-1
+                    PressedShade =100.0
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =2280
+                            Width =5040
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label53"
+                            Caption ="Save these settings as default for new projects."
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =2280
+                            LayoutCachedWidth =5460
+                            LayoutCachedHeight =2595
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CommandButton
+                    OverlapFlags =85
+                    Left =420
+                    Top =2880
+                    Width =2160
+                    Height =420
+                    TabIndex =2
+                    Name ="cmdRestoreDefaults"
+                    Caption =" Restore Defaults"
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    ImageData = Begin
+                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000f0906060d0784080b0583010000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000e0785040f08850ffd07040ffa05830500000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000f0906020d0704060f08050ffd07050f0a050300000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x00000000000000000000000000000000c06840d0f08850ffc078508000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0xf0c0b01000000000000000000000000090482040e07840ffe08860ffe0a08000 ,
+                        0x00000000000000000000000000000000d07040ffd07040ffc06840ffb06030ff ,
+                        0xb05830ff905030ff0000000000000000b0603020c06840ffe08050ffd0886080 ,
+                        0x00000000000000000000000000000000d07850ffe07030fff08050fff09870ff ,
+                        0xe09060fff0a08040000000000000000080402000c06840ffe07840f0e09870c0 ,
+                        0x00000000000000000000000000000000d08050ffe08050fff09060fff0a070ff ,
+                        0x904830b0b0603040000000000000000080402000c06840ffd07040f0e09870d0 ,
+                        0x00000000000000000000000000000000d08860ffe09060fff09870fff08850f0 ,
+                        0xb06040ffb06040ffb060307000000000b0805020a05830f0d07840f0e09070d0 ,
+                        0x000000000000000000000000e0b09010c08060ffd09870e0d0886090d09070ff ,
+                        0xd08050ffc07040ffc06840ffb06030c0b07040e0a06040ffe08050ffd0a080e0 ,
+                        0x00000000000000000000000000000000c08860ffd0a0804000000000d08860c0 ,
+                        0xd08860ffd08050f0c06840ffb06840ffb06030f0e07840f0e0a080f0d09880e0 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0xf0a880c0e09880ffe09870f0e09070f0e09070e0e0a080f0e0a890f0f0b8a020 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x00000000f0b89060f0b090c0f0b8a0e0f0c0a0c0f0c0a090f0c0b02000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000
+                    End
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =2880
+                    LayoutCachedWidth =2580
+                    LayoutCachedHeight =3300
+                    PictureCaptionArrangement =5
+                    BackColor =14262935
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverColor =15321539
+                    HoverThemeColorIndex =-1
+                    HoverTint =100.0
+                    PressedColor =13072231
+                    PressedThemeColorIndex =-1
+                    PressedShade =100.0
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =3420
+                            Width =5040
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label57"
+                            Caption ="Apply system defaults to this project."
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =3420
+                            LayoutCachedWidth =5460
+                            LayoutCachedHeight =3735
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CommandButton
+                    OverlapFlags =85
+                    Left =420
+                    Top =4020
+                    Width =2160
+                    Height =420
+                    TabIndex =3
+                    Name ="cmdClearDefaults"
+                    Caption =" Clear Defaults"
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    ImageData = Begin
+                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000b0989070605040e0403020ff ,
+                        0x403020ff403020ff503830ff503830ff504030e0604830806050401000000000 ,
+                        0x0000000000000000000000000000000070585000a08880d0e0c8b0f0fff0d0ff ,
+                        0xffffe0fffff0d0ffffe8c0ffffd8a0fff0d0b0ff604830e06048302000000000 ,
+                        0x0000000000000000000000000000000090807040a08880fffffffffffff8ffff ,
+                        0xfff8f0fffff0e0fffff0d0ffffe8c0ffffe0c0ff806850ff6048307000000000 ,
+                        0x00000000000000000000000000000000a0888070b0a8a0f0f0f8e0ff70b860ff ,
+                        0x006000ff004800ff004800ff309040fff0d8b0ffb09070ff604030b000000000 ,
+                        0x00000000000000000000000000000000a08880b0e0d8d0f0d0f0d0ff209820ff ,
+                        0xe0d0d0ffffffffffb0c090ff107020ffc0c890ffe0b8a0ff504030e060504000 ,
+                        0x000000000000000000000000a0908010a08880f0f0f0f0fff0f8f0ff80d880ff ,
+                        0x209820ffffffffff308030ff107010ffffe0c0fff0d0b0ff604830ff60484010 ,
+                        0x000000000000000000000000a0908050b09890ffffffffffffffffffffffffff ,
+                        0x20c020ff006800ff006010ffc0e0a0fffff0d0ffffe0b0ff706050ff60483040 ,
+                        0x000000000000000000000000a08880b0c0b0b0ffffffffffffffffffffffffff ,
+                        0xe0ffd0ff10b010ff90d890fffffff0fffff0d0ffffe8c0ffa08870ff504030a0 ,
+                        0x000000000000000000000000a08880f0e0d0d0ffffffffffffffffffffffffff ,
+                        0xfffffffffffffffffffffffffff8e0fffff0e0fffff0d0ffd0b090ff504030d0 ,
+                        0x0000000000000000a0908000a08880fff0f0f0fffff8ffffffffffffffffffff ,
+                        0xfffffffffffffffffffffffffff8f0fffff0e0fffff0e0fff0d0b0ff504030f0 ,
+                        0x0000000000000000a0908010a08880f0a08880ffa09080ff908880ffa09080ff ,
+                        0xa09080ffa09080ffa09080ffa09080ffa08880ffa08880ff706050ff504030ff ,
+                        0x70584000000000009078600090786090806860e0807060ffb0a090ffe0d8d0ff ,
+                        0xf0f0f0fffff8f0fffffffffffffffffff0f0f0ffd0c8c0ffe0d0d0ff504030c0 ,
+                        0x50383000000000000000000090786010807060c0907860d0c0c0c0fff0f0f0ff ,
+                        0xfff8ffffffffffffffffffffffffffffe0e0e0ffd0c0c0ff705840c050383010 ,
+                        0x0000000000000000000000000000000090787010807860b0908070f0907870ff ,
+                        0x908070ff907870ff907870ff807060ff705840ff504030d05038301000000000 ,
+                        0x000000000000000000000000000000000000000090807000a0888000a0888010 ,
+                        0xa088800000000000000000000000000000000000503830000000000000000000 ,
+                        0x0000000000000000
+                    End
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =4020
+                    LayoutCachedWidth =2580
+                    LayoutCachedHeight =4440
+                    PictureCaptionArrangement =5
+                    BackColor =14262935
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverColor =15321539
+                    HoverThemeColorIndex =-1
+                    HoverTint =100.0
+                    PressedColor =13072231
+                    PressedThemeColorIndex =-1
+                    PressedShade =100.0
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =4560
+                            Width =5040
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label59"
+                            Caption ="Reset all default settings to original values."
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =4560
+                            LayoutCachedWidth =5460
+                            LayoutCachedHeight =4875
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CommandButton
+                    OverlapFlags =85
+                    Left =420
+                    Top =5760
+                    Width =2160
+                    Height =420
+                    TabIndex =9
+                    Name ="cmdOpenInstallFolder"
+                    Caption ="Open Install Folder"
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    ImageData = Begin
+                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x000000000000000082c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2ea600000000082c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaa50000000082c2eaff9ed0efff82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eae40000000082c2eaffd3e9f8ff82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2ea2a82c2eafffcfeffff8ec8ecff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2ea6982c2eaffffffffffc1e1f5ff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2eaae82c2eafffffffffff3f9fdff85c3eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2eaea82c2eaffffffffffffffffffcde7f7ff85c3eaff82c2eaff ,
+                        0x82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2eab482c2eaffffffffffffffffffffffffffffffffffffffffff ,
+                        0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff82c2eaff ,
+                        0x000000000000000082c2eaffd6ebf8ffffffffffffffffffffffffffffffffff ,
+                        0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff82c2eaff ,
+                        0x000000000000000082c2ea6383c2eafb82c2eaff82c2eaff82c2eaff82c2eaff ,
+                        0x82c2eaff82c2eaffa7d4f0fbfefeffffffffffffffffffffffffffff82c2eaff ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000082c2ea098bc7ecccb4daf2f9ffffffffffffffffffffffff82c2eaff ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x000000000000000082c2ea0f86c4ebd782c2eaff82c2eaff82c2eaff90c9ecb3 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000
+                    End
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =5760
+                    LayoutCachedWidth =2580
+                    LayoutCachedHeight =6180
+                    PictureCaptionArrangement =5
+                    BackColor =14262935
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverColor =15321539
+                    HoverThemeColorIndex =-1
+                    HoverTint =100.0
+                    PressedColor =13072231
+                    PressedThemeColorIndex =-1
+                    PressedShade =100.0
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =6300
+                            Width =5040
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label241"
+                            Caption ="Open VCS add-In Install Folder."
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =6300
+                            LayoutCachedWidth =5460
+                            LayoutCachedHeight =6615
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CommandButton
+                    OverlapFlags =85
+                    Left =420
+                    Top =6960
+                    Width =2160
+                    Height =420
+                    TabIndex =10
+                    Name ="cmdUninstall"
+                    Caption =" Uninstall"
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    ImageData = Begin
+                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000003255d6273255d68d ,
+                        0x3255d6cf3255d6ff3255d6ff3255d6cf3255d68d3255d6270000000000000000 ,
+                        0x00000000000000000000000000000000000000003255d6723255d6f63255d6ff ,
+                        0x3255d6ff3255d6ff3255d6ff3255d6ff3255d6ff3255d6f63255d67200000000 ,
+                        0x0000000000000000000000003255d6063255d6b73255d6ff3255d6ff3255d6ff ,
+                        0x3255d6ff3255d6ff3255d6ff3255d6ff3255d6ff3255d6ff3255d6ff3255d6b7 ,
+                        0x3255d60600000000000000003255d6933255d6ff3255d6ff3759d7f94d6bdbe5 ,
+                        0x3255d6ff3255d6ff3255d6ff3255d6ff4d6bdbe53759d7f93255d6ff3255d6ff ,
+                        0x3255d690000000003255d62d3255d6fc3255d6ff3c5ed8f4eef1fccefcfcfee5 ,
+                        0x4a69dbe73255d6ff3255d6ff4a69dbe7fcfcfee5eef1fcce3c5ed8f43255d6ff ,
+                        0x3255d6fc3255d62d3255d6933255d6ff3255d6ff3457d6fce4e9fac8ffffffff ,
+                        0xfafbfee04766dae94766dae9fafbfee0ffffffffe4e9fac83759d7f93255d6ff ,
+                        0x3255d6ff3255d6903255d6db3255d6ff3255d6ff3255d6ff3759d7f9e8ecfaca ,
+                        0xfffffffff9fafedcf8f9fedaffffffffe8ecfaca3759d7f93255d6ff3255d6ff ,
+                        0x3255d6ff3255d6d53255d6f93255d6ff3255d6ff3255d6ff3255d6ff395bd7f6 ,
+                        0xeceffbcdffffffffffffffffeceffbcd395bd7f63255d6ff3255d6ff3255d6ff ,
+                        0x3255d6ff3255d6f33255d6f93255d6ff3255d6ff3255d6ff3255d6ff395bd7f6 ,
+                        0xf2f4fcd3fffffffffffffffff2f4fcd33c5ed8f43255d6ff3255d6ff3255d6ff ,
+                        0x3255d6ff3255d6f03255d6d83255d6ff3255d6ff3255d6ff395bd7f6eff2fcd0 ,
+                        0xfffffffff5f6fdd4f5f6fdd4ffffffffeff2fcd0395bd7f63255d6ff3255d6ff ,
+                        0x3255d6ff3255d6d53255d6903255d6ff3255d6ff3759d7f9ebeefbcbffffffff ,
+                        0xf8f9feda4162d9ee4162d9eef8f9fedaffffffffebeefbcb3759d7f93255d6ff ,
+                        0x3255d6ff3255d68d3255d62d3255d6fc3255d6ff395bd7f6ebeefbcbf9fafede ,
+                        0x4464daec3255d6ff3255d6ff4464daecf9fafedeebeefbcb395bd7f63255d6ff ,
+                        0x3255d6fc3255d62a000000003255d6903255d6ff3255d6ff3759d7f94766dae9 ,
+                        0x3255d6ff3255d6ff3255d6ff3255d6ff4766dae93759d7f93255d6ff3255d6ff ,
+                        0x3255d68d00000000000000003255d6063255d6b73255d6ff3255d6ff3255d6ff ,
+                        0x3255d6ff3255d6ff3255d6ff3255d6ff3255d6ff3255d6ff3255d6ff3255d6b7 ,
+                        0x3255d606000000000000000000000000000000003255d6723255d6f63255d6ff ,
+                        0x3255d6ff3255d6ff3255d6ff3255d6ff3255d6ff3255d6f63255d67200000000 ,
+                        0x0000000000000000000000000000000000000000000000003255d6273255d68d ,
+                        0x3255d6cc3255d6fc3255d6fc3255d6cc3255d68d3255d6270000000000000000 ,
+                        0x0000000000000000
+                    End
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =6960
+                    LayoutCachedWidth =2580
+                    LayoutCachedHeight =7380
+                    PictureCaptionArrangement =5
+                    BackColor =14262935
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverColor =15321539
+                    HoverThemeColorIndex =-1
+                    HoverTint =100.0
+                    PressedColor =13072231
+                    PressedThemeColorIndex =-1
+                    PressedShade =100.0
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =7500
+                            Width =4500
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label108"
+                            Caption ="Uninstall this add-in"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =7500
+                            LayoutCachedWidth =4920
+                            LayoutCachedHeight =7815
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    Enabled = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =420
+                    Top =10170
+                    TabIndex =5
+                    Name ="chkTrustAddInFolder"
+                    DefaultValue ="True"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =10170
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =10410
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =10140
+                            Width =4980
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label34"
+                            Caption ="Trust Add-In Folder"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =10140
+                            LayoutCachedWidth =5700
+                            LayoutCachedHeight =10455
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    Enabled = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =420
+                    Top =11250
+                    TabIndex =7
+                    Name ="chkOpenAfterInstall"
+                    DefaultValue ="False"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =11250
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =11490
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =705
+                            Top =11220
+                            Width =5115
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label36"
+                            Caption ="Open add-in after installing to trust the add-in file"
+                            LayoutCachedLeft =705
+                            LayoutCachedTop =11220
+                            LayoutCachedWidth =5820
+                            LayoutCachedHeight =11535
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    Enabled = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =420
+                    Top =10710
+                    TabIndex =6
+                    Name ="chkUseRibbonAddIn"
+                    DefaultValue ="True"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =10710
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =10950
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =705
+                            Top =10680
+                            Width =4395
+                            Height =300
+                            ForeColor =5324600
+                            Name ="Label40"
+                            Caption ="Use Ribbon Addin"
+                            LayoutCachedLeft =705
+                            LayoutCachedTop =10680
+                            LayoutCachedWidth =5100
+                            LayoutCachedHeight =10980
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin TextBox
+                    Enabled = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    Left =420
+                    Top =9540
+                    Width =5760
+                    Height =315
+                    TabIndex =4
+                    Name ="txtInstallFolder"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =9540
+                    LayoutCachedWidth =6180
+                    LayoutCachedHeight =9855
+                    BackShade =95.0
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =9180
+                            Width =1485
+                            Height =300
+                            ForeColor =5324600
+                            Name ="Label63"
+                            Caption ="Install Folder:   "
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =9180
+                            LayoutCachedWidth =1905
+                            LayoutCachedHeight =9480
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    Enabled = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =420
+                    Top =11790
+                    TabIndex =8
+                    Name ="chkUseCompiledAddIn"
+                    DefaultValue ="False"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =11790
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =12030
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =705
+                            Top =11760
+                            Width =4935
+                            Height =285
+                            ForeColor =5324600
+                            Name ="Label68"
+                            Caption ="Create compiled version"
+                            LayoutCachedLeft =705
+                            LayoutCachedTop =11760
+                            LayoutCachedWidth =5640
+                            LayoutCachedHeight =12045
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =420
+                    Top =8700
+                    Width =5310
+                    Height =360
+                    ForeColor =5324600
+                    Name ="Label6"
+                    Caption ="Reinstall the add-in to change these settings"
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =8700
+                    LayoutCachedWidth =5730
+                    LayoutCachedHeight =9060
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =5520
+                    Width =6420
+                    Name ="Line7"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =5520
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =5520
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =5160
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label8"
+                    Caption ="Installation"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =5160
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =5460
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+            End
+        End
+    End
+End
+CodeBehindForm
+' See "frmVCSOptionsDefaults.cls"

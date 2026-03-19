@@ -81,6 +81,58 @@ contradictory guidance.
 
 ---
 
+## 2026-03-19 — Options form redesign: tabbed interface → left-nav with subform-per-section
+
+**Trigger**: The existing options form used a tabbed interface (`pagGeneral`, `pagExport`, etc.) with some pages hidden. This constrained screen real estate, made it difficult to add descriptive text alongside options, and required users to discover hidden pages. A left-navigation + scrollable detail section is the standard pattern in modern applications.
+
+**Options explored**:
+- **Single scrollable form with show/hide frames**: One subform containing all options, with frames toggled visible/hidden based on navigation selection. Simplest code, but Access has no way to limit scrolling to only the visible section — the user would scroll past large hidden gaps. Rejected.
+- **Subform-per-section with dynamic SourceObject**: Each section is a separate form loaded into a single subform control on the main form. True scroll containment per section, independent layout, and modular code. Higher initial cost (8 subforms + interface), but better long-term maintainability. Chosen.
+
+**Decision**: Main form (`frmVCSOptions`) holds a private `m_Options As clsOptions` working copy, an option group (`fraNav`) with toggle buttons (`tglGeneral`, `tglExport`, etc.), and a subform control (`subOptionsDetail`). Navigation derives the target form name by stripping the `tgl` prefix from the selected toggle button's name (translation-safe — not dependent on display text). `IOptionsSection` interface enforces `LoadOptions`/`SaveOptions` on all 8 section forms. Each subform's `Form_Load` calls `LoadOptions`; `SaveCurrentSubform` calls `SaveOptions` via the interface before switching sections. Changes are committed only on "Save & Close" (`Set Options = m_Options` + `Options.SaveOptionsForProject`); Cancel discards `m_Options` by closing.
+
+The subform control's `SourceObject` is left blank at design time. The main form's `Form_Load` initializes `m_Options` first, then sets `SourceObject` via `fraNav_AfterUpdate`, avoiding the chicken-and-egg problem where a subform's `Form_Load` fires before `m_Options` is ready.
+
+Registry-based settings (Diff Tool, Open Repository) use deferred save via public properties on the main form (`DiffTool`, `OpenRepository`). The General subform reads/writes these properties; the main form commits them to the registry in `cmdSaveAndClose_Click`. This keeps registry settings consistent with the deferred-save pattern of `clsOptions` properties.
+
+External database schemas use a shared dictionary bridge: `frmVCSOptionsDatabases.LoadOptions` clones schemas into `Form_frmVCSOptions.DatabaseSchemas` and points its private `m_dSchemas` at the same object. This allows `frmVCSDatabase` (the add/edit popup) to write directly to the dictionary that `RefreshSchemaList` reads from.
+
+**Sections**: General (export folder, tools, language), Export (source files, sanitization, content, printer settings, hooks), Tables & Data (table data export selection), External Databases (schema connections), Build (build/merge behavior, hooks), Translation (contribute, path, sync), Defaults (project defaults, read-only install settings), Advanced (debugging, hashing, export tweaks, logging).
+
+**What this rules out**: The tabbed interface pattern is retired for the options form. All new options must be added to the appropriate section subform's `LoadOptions`/`SaveOptions` and the corresponding form layout. Adding a new section requires: (1) create `frmVCSOptionsXxx.cls` implementing `IOptionsSection`, (2) create `frmVCSOptionsXxx.form`, (3) add `tglXxx` toggle button to `fraNav` on the main form. The toggle button naming convention (`tgl` prefix mapping to `frmVCSOptions` + suffix) is load-bearing — changing it breaks navigation.
+
+**Relevant files**:
+- `Version Control.accda.src/forms/frmVCSOptions.cls` — main form orchestrator
+- `Version Control.accda.src/modules/Interfaces/IOptionsSection.cls` — LoadOptions/SaveOptions interface
+- `Version Control.accda.src/forms/frmVCSOptionsGeneral.cls` — General section
+- `Version Control.accda.src/forms/frmVCSOptionsExport.cls` — Export section
+- `Version Control.accda.src/forms/frmVCSOptionsTableData.cls` — Tables & Data section
+- `Version Control.accda.src/forms/frmVCSOptionsDatabases.cls` — External Databases section
+- `Version Control.accda.src/forms/frmVCSOptionsBuild.cls` — Build section
+- `Version Control.accda.src/forms/frmVCSOptionsTranslation.cls` — Translation section
+- `Version Control.accda.src/forms/frmVCSOptionsDefaults.cls` — Defaults section
+- `Version Control.accda.src/forms/frmVCSOptionsAdvanced.cls` — Advanced section
+
+---
+
+## 2026-03-19 — Install settings displayed as read-only on options form
+
+**Trigger**: The Defaults section of the new options form displays installation settings (install folder, trust folder, use ribbon, compile accde, open after install). These are registry values set during the `InstallVCSAddin` process. The question was whether to make them editable from the options form.
+
+**Options explored**:
+- **Editable with deferred registry save**: Let users change values, save to registry on "Save & Close." Problem: the settings only take effect during installation (file copy, COM registration, trust location setup). Saving registry values without applying them would mislead users into thinking the change took effect. Rejected.
+- **Editable with immediate apply (trigger reinstall)**: Apply changes by invoking `InstallVCSAddin`. Problem: the add-in cannot reinstall itself while loaded — it would require a VBScript worker process to close Access, copy files, and reopen. Over-engineered for a rarely-needed operation. Rejected.
+- **Read-only display with guidance to reinstall**: Show current values as locked/disabled controls with a label explaining these are set during installation. Users see their current configuration without confusion. The dedicated `frmVCSInstall` form handles changes through the proper install flow. Chosen.
+
+**Decision**: Controls are displayed read-only (locked/disabled at the form layout level). `SaveOptions` is intentionally empty — these settings are not part of the deferred-save flow. If reinstalling from the options form becomes a frequent user need, a VBScript-based reinstall mechanism could be added, but this is deferred until there's evidence of demand.
+
+**What this rules out**: Install settings cannot be changed from the options form. The `frmVCSInstall` form remains the only supported path for changing install configuration. If a future version adds a "Reinstall" button, it would need to handle the add-in-loaded constraint (likely via an external VBScript worker that closes Access, copies files, and reopens).
+
+**Relevant files**:
+- `Version Control.accda.src/forms/frmVCSOptionsDefaults.cls` — read-only load, empty SaveOptions
+
+---
+
 ## 2026-03-18 — Standardize Letter Casing ribbon command with user feedback and template creation
 
 **Trigger**: The `StandardizeLetterCasing` feature (Mike Wolfe's technique, integrated in the add-in) ran silently during export and build with no way for a user to invoke it on demand. Users who didn't already have a `clsStandardLetterCasing` module in their project had no discoverability path to the feature.
