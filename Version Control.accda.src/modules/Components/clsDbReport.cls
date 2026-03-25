@@ -49,6 +49,11 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         ExportObjectMetadata SwapExtension(IDbComponent_SourceFile, "json"), "Reports", m_Report.Name, acReport
     End If
 
+    ' Generate layout SVG if enabled
+    If strAlternatePath = vbNullString Then
+        TryExportLayoutSvg IDbComponent_SourceFile, acReport
+    End If
+
     ' Clean up old files at base folder if @Folder moved them to a subfolder
     strExportFolder = FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep
     If StrComp(strExportFolder, IDbComponent_BaseFolder, vbTextCompare) <> 0 Then
@@ -56,6 +61,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         If FSO.FileExists(IDbComponent_BaseFolder & strSafeName & ".report") Then DeleteFile IDbComponent_BaseFolder & strSafeName & ".report"
         If FSO.FileExists(IDbComponent_BaseFolder & strSafeName & ".json") Then DeleteFile IDbComponent_BaseFolder & strSafeName & ".json"
         If FSO.FileExists(IDbComponent_BaseFolder & strSafeName & ".cls") Then DeleteFile IDbComponent_BaseFolder & strSafeName & ".cls"
+        If FSO.FileExists(IDbComponent_BaseFolder & strSafeName & ".svg") Then DeleteFile IDbComponent_BaseFolder & strSafeName & ".svg"
     End If
 
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _

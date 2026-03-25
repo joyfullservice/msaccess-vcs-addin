@@ -57,6 +57,9 @@ Public MaxLogFiles As Long              ' Default: 20 (per operation type), 0 = 
 Public SaveAllDocumentProperties As Boolean
 Public UseEnvForConnections As eUseEnvConnections
 Public ExportFormatVersion As Long      ' Packed integer from eExportFormatVersion enum
+Public ExportLayoutSvg As Boolean
+Public LayoutSvgImageEmbed As String    ' "None", "Small", "Medium", "All"
+Public LayoutSvgScaleMode As String     ' "Universal", "Screenshot"
 
 ' Enum to compare loaded version to installed version.
 Public Enum eVersionCompare
@@ -108,6 +111,9 @@ Public Sub LoadDefaults()
         .SaveAllDocumentProperties = False
         .UseEnvForConnections = uecAuto
         .ExportFormatVersion = LATEST_EXPORT_FORMAT
+        .ExportLayoutSvg = False
+        .LayoutSvgImageEmbed = "Small"
+        .LayoutSvgScaleMode = "Universal"
 
         ' Table data export
         Set .TablesToExportData = New Dictionary
@@ -707,7 +713,8 @@ Public Function GetCategoryHashes() As Dictionary
 
             ' --- Forms and Reports ---
             Case "SavePrintVars", "ExportPrintSettings", _
-                 "SplitLayoutFromVBA", "SanitizeColors"
+                 "SplitLayoutFromVBA", "SanitizeColors", _
+                 "ExportLayoutSvg", "LayoutSvgImageEmbed", "LayoutSvgScaleMode"
                 AddToCat dCats, "Forms", varKey, dOptions("Options")
                 AddToCat dCats, "Reports", varKey, dOptions("Options")
 
@@ -947,6 +954,9 @@ Private Sub Class_Initialize()
         .Add "SaveAllDocumentProperties"
         .Add "UseEnvForConnections"
         .Add "ExportFormatVersion"
+        .Add "ExportLayoutSvg"
+        .Add "LayoutSvgImageEmbed"
+        .Add "LayoutSvgScaleMode"
     End With
 
     ' Load default values

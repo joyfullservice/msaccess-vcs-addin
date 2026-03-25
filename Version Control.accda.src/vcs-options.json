@@ -67,6 +67,9 @@
     "MaxLogFiles": 20,
     "SaveAllDocumentProperties": false,
     "UseEnvForConnections": 0,
-    "ExportFormatVersion": "5.0.0"
+    "ExportFormatVersion": "5.0.0",
+    "ExportLayoutSvg": false,
+    "LayoutSvgImageEmbed": "Small",
+    "LayoutSvgScaleMode": "Universal"
   }
 }

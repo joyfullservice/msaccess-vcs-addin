@@ -81,6 +81,70 @@ contradictory guidance.
 
 ---
 
+## 2026-03-19 — Layout SVG: subform, tab control, and hidden control rendering strategies
+
+**Trigger**: When generating SVG from form source files, three control types require non-obvious rendering decisions because they involve content that may not be visible, may live in separate source files, or may vary at runtime. Each choice affects what an AI agent can "see" in the SVG and how closely the SVG matches a screenshot.
+
+**Options explored**:
+
+*Subforms:*
+- **Embed subform SVG inline**: Would give agents a complete picture in one file, but subform source objects are often swapped at runtime, and embedding creates coupling between independently versioned files. A change to the subform would require regenerating the parent SVG.
+- **Render as labeled placeholder box** (chosen): Dashed border with `[Subform: Name]` label. Each subform generates its own independent `.svg` alongside its own `.form` file. Agents can cross-reference by name. This matches the existing component model where subforms are independent `IDbComponent` objects.
+- **Link via SVG `<use>` or `<image>` reference**: Would allow lazy composition but adds fragile path dependencies and complicates standalone viewing.
+
+*Tab controls:*
+- **Render all pages stacked vertically**: Would show all content but produces an SVG that doesn't match any real visual state of the form — confusing for screenshot comparison and spatially misleading since controls on different pages occupy the same coordinates.
+- **Generate multiple SVGs per form** (one per tab page): Comprehensive but multiplies output files, complicates the file naming convention, and doesn't reflect what a user actually sees.
+- **Render only the first visible/default page** (chosen): Matches the most common runtime state. Controls on other pages are omitted. This is the simplest approach and produces an SVG that corresponds to what a user sees when opening the form. If hidden-page content becomes important, a future option could render all pages as separate SVGs.
+
+*Hidden controls (Visible = NotDefault):*
+- **Omit entirely**: Cleanest SVG but loses structural information — an agent wouldn't know the control exists, which matters for layout analysis (e.g., controls that toggle visibility at runtime still occupy design-time space).
+- **Render at reduced opacity** (chosen, opacity 0.3): Preserves positional information while visually distinguishing hidden controls. Agents can see where hidden controls sit relative to visible ones. A future option could toggle between omit/transparent/full rendering.
+- **Render normally with a metadata attribute**: Would require agents to parse SVG attributes rather than relying on visual inspection, which defeats the purpose of a visual representation.
+
+**Decision**: Subforms as independent placeholders, first tab page only, hidden controls at 30% opacity. All three choices prioritize a clean visual that matches the default runtime appearance while preserving enough structural information for layout analysis.
+
+**What this rules out**: Agents cannot see controls on non-default tab pages or the actual content of subforms from the parent SVG alone. Revisit if agents frequently need cross-page or cross-subform layout analysis — the most likely extension would be an option to render all tab pages as separate named SVG groups or files.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Core/clsFormLayoutSvgWriter.cls` — `RenderTabControl` (first page only), `RenderSubform` (placeholder), `RenderControl` (opacity check)
+
+---
+
+## 2026-03-19 — Form/report layout SVG export from SaveAsText source files
+
+**Trigger**: AI agents can perform major code refactors but struggle with Access form layout design because `.form` files are hard to reason about structurally. An SVG representation of the layout — generated deterministically from exported source files — gives agents a visual artifact they can interpret, enabling them to identify and suggest layout improvements. Future work will pair this with an MCP server to apply layout changes via VBA scripts in design view.
+
+**Options explored**:
+- **MSXML2.DOMDocument60 for SVG output**: DOM provides structural correctness guarantees but has per-element COM overhead. Since SVG generation is write-only (no querying or transforming), DOM's overhead provides no benefit. Not chosen.
+- **clsConcat (paged Mid$ buffer)**: O(n) string assembly, already proven fast in the codebase. Chosen for SVG output with a small `EscapeXml()` helper for text content.
+- **Single monolithic class vs pipeline of specialized classes**: A pipeline (parser → theme resolver → SVG writer) was chosen for separation of concerns and independent testability. Each class has a clear responsibility and can be extended without touching the others.
+- **Call site in SaveComponentAsText (DRY) vs component Export methods (contextual clarity)**: Hybrid chosen — shared implementation in `modFormLayoutSvg.TryExportLayoutSvg`, called from `clsDbForm.IDbComponent_Export` and `clsDbReport.IDbComponent_Export` after `SaveComponentAsText` returns.
+- **Theme color extraction via ExtractFromZip**: Initial implementation used the existing `ExtractFromZip` function, which has a broken exit condition when the destination folder is non-empty (it polls for 60 seconds until timeout). Replaced with a targeted `Shell.Application.CopyHere` of just the `theme` folder, polling for the specific output file with 0.1s intervals and a 10s timeout. Extracted files are cached in a stable temp folder keyed by theme name, so subsequent exports skip extraction entirely.
+
+**Decision**: Four new VBA classes (`clsLayoutNode`, `clsFormLayoutParser`, `clsFormLayoutThemeColors`, `clsFormLayoutSvgWriter`) plus an orchestrator module (`modFormLayoutSvg`). Gated by `Options.ExportLayoutSvg` (default False). SVG is indented for version-control-friendly diffs. Coordinates use twips-to-CSS-px at 96 DPI ("Universal" mode). `LAYOUT_SVG_GENERATOR_VERSION` constant enables cache invalidation when the generator changes.
+
+Key learnings from initial testing:
+- SaveAsText nests sections and controls inside anonymous `Begin`/`End` ("Defaults") blocks — tree traversal must recurse through these to find sections and their child controls.
+- Control-associated labels (e.g. checkbox labels) are children of the parent control node, not siblings at the section level — rendering must descend into control children after drawing the control itself.
+- `Dir$` is unsafe with Unicode paths in this project; all file/folder iteration must use FSO (`Folder.SubFolders`, `Folder.Files`).
+- Disabling the option cleans up existing `.svg` files on next export rather than leaving stale artifacts.
+
+**What this rules out**: SVG generation is purely from exported text files — it does not open the `.accdb` at runtime, so it cannot capture runtime-only visual state (conditional formatting, VBA-driven visibility). Revisit if screenshot-based validation shows major gaps that can only be resolved with runtime data. The `"Screenshot"` scale mode option is stubbed but not yet differentiated from `"Universal"`.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Core/clsLayoutNode.cls` — tree node with ControlType, Props dictionary, Children collection
+- `Version Control.accda.src/modules/Core/clsFormLayoutParser.cls` — line scanner producing node tree from `.form`/`.report` files
+- `Version Control.accda.src/modules/Core/clsFormLayoutThemeColors.cls` — resolves theme color indices to RGB hex via `.thmx` extraction and HSL tint/shade math
+- `Version Control.accda.src/modules/Core/clsFormLayoutSvgWriter.cls` — depth-first tree walk emitting SVG via clsConcat
+- `Version Control.accda.src/modules/Core/modFormLayoutSvg.bas` — orchestrator: TryExportLayoutSvg, theme cache management
+- `Version Control.accda.src/modules/Infrastructure/clsOptions.cls` — ExportLayoutSvg, LayoutSvgImageEmbed, LayoutSvgScaleMode options
+- `Version Control.accda.src/modules/Infrastructure/modConstants.bas` — LAYOUT_SVG_GENERATOR_VERSION constant
+- `Version Control.accda.src/modules/Components/clsDbForm.cls` — SVG call site and .svg cleanup
+- `Version Control.accda.src/modules/Components/clsDbReport.cls` — SVG call site and .svg cleanup
+
+---
+
 ## 2026-03-19 — Options form redesign: tabbed interface → left-nav with subform-per-section
 
 **Trigger**: The existing options form used a tabbed interface (`pagGeneral`, `pagExport`, etc.) with some pages hidden. This constrained screen real estate, made it difficult to add descriptive text alongside options, and required users to discover hidden pages. A left-navigation + scrollable detail section is the standard pattern in modern applications.

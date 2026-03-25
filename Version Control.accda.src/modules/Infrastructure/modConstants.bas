@@ -197,6 +197,10 @@ End Enum
 
 Public Const LATEST_EXPORT_FORMAT As Long = eExportFormatVersion.[_Last]
 
+' Bump this whenever the SVG layout generator output changes
+' to force regeneration of cached SVG files.
+Public Const LAYOUT_SVG_GENERATOR_VERSION As Long = 1
+
 ' Used for ImportCommandBars function; negative/zero result should be treated as an error.
 Public Enum eImportCommandBarsResult
     eicImportedNotVerified = -1
