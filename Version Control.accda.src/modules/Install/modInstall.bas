@@ -49,7 +49,7 @@ Private this As udtInstallSettings
 Public Function AutoRun() As Boolean
 
     ' See if the we are opening the file from the installed location.
-    If CodeProject.FullName = GetAddInFileName Then
+    If CodeProject.FullName = GetInstalledAddInFileName Then
 
         ' Opening the file from add-in location, which would normally be unusual unless we are trying to remove
         ' legacy registry entries, or to trust the file after install.
@@ -97,6 +97,15 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
     Dim strDest As String
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Verify the add-in file has the required name
+    If StrComp(FSO.GetBaseName(CodeProject.Name), ADDIN_BASENAME, vbTextCompare) <> 0 Then
+        MsgBox2 T("Unable to Install"), _
+            T("The add-in file must be named ""{0}.accda"" to install correctly.", _
+                var0:=ADDIN_BASENAME), _
+            T("Please rename the file and try again."), vbExclamation
+        Exit Sub
+    End If
 
     ' Load install settings from registry, then update with parameter values
     GetInstallSettings
@@ -297,7 +306,7 @@ Private Function UpdateAddInFile(ByVal blnCreateCompiledVersion As Boolean) As B
             "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
             "Is the Version Control Add-in loaded in another instance of Microsoft Access?" & vbCrLf & _
             "Please check to be sure that the following file is not in use:" & _
-            vbCrLf & GetAddInFileName, vbExclamation
+            vbCrLf & GetInstalledAddInFileName, vbExclamation
         Err.Clear
     Else
         ' Copied file with no errors.
@@ -390,7 +399,20 @@ End Sub
 '
 Public Function GetAddInFileName(Optional blnAsMde As Boolean = False) As String
     GetAddInFileName = FSO.BuildPath(GetInstallSettings.strInstallFolder, _
-        FSO.GetBaseName(CodeProject.Name) & IIf(blnAsMde, ".accde", ".accda"))
+        ADDIN_BASENAME & IIf(blnAsMde, ".accde", ".accda"))
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetInstalledAddInFileName
+' Author    : Adam Waller
+' Date      : 3/27/2026
+' Purpose   : Returns the full path to the installed add-in file, using the correct
+'           : extension (.accda or .accde) based on the persisted install setting.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetInstalledAddInFileName() As String
+    GetInstalledAddInFileName = GetAddInFileName(GetInstallSettings.blnUseCompiledAddIn)
 End Function
 
 
@@ -455,7 +477,7 @@ Private Sub RegisterMenuItem(ByVal strName As String, Optional ByVal strFunction
     strPath = GetAddinRegPath & strName & "\"
     With New IWshRuntimeLibrary.WshShell
         .RegWrite strPath & "Expression", strFunction, "REG_SZ"
-        .RegWrite strPath & "Library", GetAddInFileName, "REG_SZ"
+        .RegWrite strPath & "Library", GetInstalledAddInFileName, "REG_SZ"
         .RegWrite strPath & "Version", 3, "REG_DWORD"
     End With
 
@@ -497,7 +519,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub RelaunchAsAdmin()
-    ShellEx FSO.BuildPath(SysCmd(acSysCmdAccessDir), "msaccess.exe"), """" & GetAddInFileName & """", "runas"
+    ShellEx FSO.BuildPath(SysCmd(acSysCmdAccessDir), "msaccess.exe"), """" & GetInstalledAddInFileName & """", "runas"
 End Sub
 
 
@@ -612,7 +634,7 @@ Private Sub RunUpgrades()
     If InstalledVersion < "3.3.0" Then
 
         ' Check for install in AddIns folder (before we used the dedicated install folder)
-        strOldPath = BuildPath2(Environ$("AppData"), "Microsoft", "AddIns", CodeProject.Name)
+        strOldPath = BuildPath2(Environ$("AppData"), "Microsoft", "AddIns", ADDIN_BASENAME & ".accda")
 
         ' Remove add-in from legacy location
         If FSO.FileExists(strOldPath) Then DeleteFile strOldPath
@@ -643,7 +665,7 @@ Private Sub RunUpgrades()
     End If
 
     ' Use standardized options folder (5/7/2021)
-    strOldPath = FSO.BuildPath(CodeProject.Path, FSO.GetBaseName(CodeProject.Name)) & ".json"
+    strOldPath = FSO.BuildPath(CodeProject.Path, ADDIN_BASENAME) & ".json"
     strNewPath = FSO.BuildPath(CodeProject.Path, "vcs-options.json")
     If FSO.FileExists(strOldPath) Then
         If FSO.FileExists(strNewPath) Then

@@ -17,6 +17,10 @@ Option Explicit
 ' VBE Project Name for this Add-In
 Public Const PROJECT_NAME As String = "MSAccessVCS"
 
+' Base filename (without extension) for the installed add-in.
+' The COM ribbon DLL and worker scripts depend on this exact name.
+Public Const ADDIN_BASENAME As String = "Version Control"
+
 ' Read/write chunks of text, rather than the whole thing at once for massive
 ' performance gains when reading large files.
 ' See https://docs.microsoft.com/is-is/sql/ado/reference/ado-api/readtext-method

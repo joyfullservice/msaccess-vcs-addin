@@ -81,6 +81,25 @@ contradictory guidance.
 
 ---
 
+## 2026-03-27 — Enforce canonical add-in filename and fix .accde path bugs
+
+**Trigger**: Issue #693 reported that renaming `Version Control.accda` to a different filename causes error 2517 at runtime. Investigation revealed two problems: (1) `GetAddInFileName` dynamically derived the installed filename from `CodeProject.Name`, so a renamed file would install under the wrong name and break the COM ribbon DLL's hardcoded `Application.Run` calls; (2) several comparison and loading spots always assumed the `.accda` extension, silently failing when the compiled `.accde` version was installed.
+
+**Options explored**:
+- **Make the ribbon DLL discover the .accda name dynamically** (e.g., from a registry key or by scanning the install folder). Would support arbitrary filenames, but adds complexity for no compelling use case — users who want to test different versions can build/install from different branches.
+- **Keep `GetAddInFileName` dynamic but add runtime validation**. Would catch the mismatch later. Rejected because the root issue is that the filename is a contract between three components (VBA add-in, COM ribbon DLL, worker scripts), and allowing divergence invites breakage.
+- **Replace dynamic derivation with a constant, block renamed files at install time (chosen)**. New `ADDIN_BASENAME` constant in `modConstants.bas`. `GetAddInFileName` uses it instead of `CodeProject.Name`. Installer checks the filename up front and shows a clear error. Simple, explicit, and aligns all components on the same name.
+- **For the .accde bug: change `GetAddInFileName`'s default to respect `blnUseCompiledAddIn`**. Would fix comparisons but break `UpdateAddInFile`, which uses explicit `.accda`/`.accde` paths for cleanup during install transitions.
+- **Add `GetInstalledAddInFileName` helper (chosen)**. Delegates to `GetAddInFileName(GetInstallSettings.blnUseCompiledAddIn)`. Non-install callers use this; install logic continues using `GetAddInFileName` with explicit extension control. Clean separation.
+
+**Decision**: `ADDIN_BASENAME` constant enforces the canonical name. `GetInstalledAddInFileName` returns the correct `.accda`/`.accde` path based on persisted install settings. All comparison/loading spots (`AutoRun`, `GetAddInProject`, `LoadVCSAddIn`, `RegisterMenuItem`, `RelaunchAsAdmin`, `Run_UninstallAddin`, `frmVCSInstall`, `frmVCSOptionsTranslation`) use the new helper. `clsWorker.GetAddInVBProject` compares by base name only (no extension) since it runs in VBScript without access to VBA constants. The add-in filename is now a fixed contract — renaming it requires changing one constant plus rebuilding the twinBASIC ribbon DLL.
+
+**What this rules out**: The add-in filename can no longer be set dynamically by renaming the `.accda` file. If the project ever renames the add-in (e.g., from "Version Control" to "MSAccessVCS" for v5), only the `ADDIN_BASENAME` constant and the ribbon DLL's `strAddInLib` need updating. A `RunUpgrades` migration step would handle the transition for existing installs. The naming discussion is open but deferred — v5 would be the appropriate time.
+
+**Relevant files**: `modConstants.bas` (new `ADDIN_BASENAME`), `modInstall.bas` (install guard, `GetAddInFileName` rewrite, `GetInstalledAddInFileName`, 7 caller updates, `RunUpgrades` legacy path fix), `modVbeUtility.bas` (`GetAddInProject`, `LoadVCSAddIn`), `modAPI.bas` (`GetRunCmdAddInFullLibName` rewrite, example functions), `clsWorker.cls` (`GetAddInVBProject`, `Run_UninstallAddin`), `frmVCSInstall.cls`, `frmVCSOptionsTranslation.cls`.
+
+---
+
 ## 2026-03-19 — Layout SVG: subform, tab control, and hidden control rendering strategies
 
 **Trigger**: When generating SVG from form source files, three control types require non-obvious rendering decisions because they involve content that may not be visible, may live in separate source files, or may vary at runtime. Each choice affects what an AI agent can "see" in the SVG and how closely the SVG matches a screenshot.

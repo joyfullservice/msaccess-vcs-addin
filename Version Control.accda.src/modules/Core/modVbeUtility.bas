@@ -292,7 +292,7 @@ End Sub
 Public Function GetAddInProject() As VBProject
     Dim oProj As VBProject
     For Each oProj In VBE.VBProjects
-        If StrComp(oProj.FileName, GetAddInFileName, vbTextCompare) = 0 Then
+        If StrComp(oProj.FileName, GetInstalledAddInFileName, vbTextCompare) = 0 Then
             Set GetAddInProject = oProj
             Exit For
         End If
@@ -314,6 +314,6 @@ Public Sub LoadVCSAddIn()
     ' but will not actually call the function. Ignore the error of function not found.
     LogUnhandledErrors
     On Error Resume Next
-    Application.Run GetAddInFileName & "!DummyFunction"
+    Application.Run GetInstalledAddInFileName & "!DummyFunction"
     If Err Then Err.Clear
 End Sub

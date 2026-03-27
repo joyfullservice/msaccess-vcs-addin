@@ -130,7 +130,7 @@ Private Sub cmdSyncTranslations_Click()
     With Translation
         DoCmd.Hourglass True
 
-        If CodeProject.FullName = GetAddInFileName Then
+        If CodeProject.FullName = GetInstalledAddInFileName Then
             If .StringCount > 200 Then .ExportTemplate
         End If
 

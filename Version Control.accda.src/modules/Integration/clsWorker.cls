@@ -42,7 +42,7 @@ Private WScript As Object
 '---------------------------------------------------------------------------------------
 '
 Public Function Run_UninstallAddin()
-    CallWorker PROJECT_NAME, 10, "Uninstall", """" & GetAddInFileName & """"
+    CallWorker PROJECT_NAME, 10, "Uninstall", """" & GetInstalledAddInFileName & """"
 End Function
 
 
@@ -519,7 +519,7 @@ Function GetAddInVBProject(objApp)
 
     ' Search for project with matching filename.
     For Each objProj In objApp.VBE.VBProjects
-        If StrComp(objFSO.GetFileName(objProj.FileName), "Version Control.accda", vbTextCompare) = 0 Then
+        If StrComp(objFSO.GetBaseName(objProj.FileName), "Version Control", vbTextCompare) = 0 Then
             ' Check for different file path
             If StrComp(objProj.FileName, strUncPath, vbTextCompare) <> 0 Then
                 Set GetAddInVBProject = objProj

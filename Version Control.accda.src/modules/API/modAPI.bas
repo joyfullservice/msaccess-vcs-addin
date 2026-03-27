@@ -238,13 +238,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function GetRunCmdAddInFullLibName() As String
-
-   Const cstrAddInFileExtension As String = ".accda"
-   Dim strAddInFileName As String
-
-   strAddInFileName = GetAddInFileName
-   GetRunCmdAddInFullLibName = Left(strAddInFileName, Len(strAddInFileName) - Len(cstrAddInFileExtension))
-
+    GetRunCmdAddInFullLibName = FSO.BuildPath( _
+        GetInstallSettings.strInstallFolder, ADDIN_BASENAME)
 End Function
 
 
@@ -260,7 +255,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function ExampleLoadAddInAndRunExport()
-    Application.Run Environ$("AppData") & "\MSAccessVCS\Version Control" & _
+    Application.Run Environ$("AppData") & "\" & PROJECT_NAME & "\" & ADDIN_BASENAME & _
         ".HandleRibbonCommand", "btnExport"
 End Function
 
@@ -277,7 +272,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function ExampleBuildFromSource(Optional strSourcePath As String)
-    Application.Run Environ$("AppData") & "\MSAccessVCS\Version Control" & _
+    Application.Run Environ$("AppData") & "\" & PROJECT_NAME & "\" & ADDIN_BASENAME & _
         ".HandleRibbonCommand", "btnBuild", strSourcePath
 End Function
 
