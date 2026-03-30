@@ -106,7 +106,9 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Apply object metadata (doc properties + hidden attribute) from companion .json
     ImportObjectMetadata SwapExtension(strFile, "json"), "Forms", strName, acForm
 
-    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
+        GetCodeModuleHash(IDbComponent_ComponentType, strName), _
+        strMetaHash:=GetMetadataHash("Forms", strName, acForm)
 
     ' Restore main form if staged
     If blnStage Then RestoreMainForm

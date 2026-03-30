@@ -164,8 +164,6 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Apply object metadata (doc properties + hidden attribute) from companion .json
     ImportObjectMetadata SwapExtension(strFile, "json"), "Tables", strQueryName, acQuery
 
-    VCSIndex.Update Me, eatImport, GetFileHash(strFile)
-
     ' Check option to import exact query from SQL, unless it was already
     ' imported as a new query from above.
     If Options.ForceImportOriginalQuerySQL And (blnRecreated = False) Then
@@ -184,6 +182,11 @@ Private Sub IDbComponent_Import(strFile As String)
             Log.Add "  Couldn't get original SQL query for " & strQueryName
         End If
     End If
+
+    ' Update index after all modifications (including ForceImportOriginalQuerySQL)
+    ' so that ObjectDate reflects the final DateModified.
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
+        strMetaHash:=GetMetadataHash("Tables", strQueryName, acQuery)
 
 End Sub
 

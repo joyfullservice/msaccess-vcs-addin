@@ -1056,7 +1056,8 @@ Public Sub InitializeForms(dContainers As Dictionary)
                 ' Update the index, since the save date may have changed, but reuse the code hash
                 ' since we just calculated it after importing the form.
                 With VCSIndex.Item(frm)
-                    VCSIndex.Update frm, eatImport, .FileHash, .OtherHash
+                    VCSIndex.Update frm, eatImport, .FileHash, .OtherHash, _
+                        strMetaHash:=.MetaHash
                 End With
 
                 ' For merge operations, we might be also exporting after initializing

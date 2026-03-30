@@ -221,7 +221,8 @@ Private Sub IDbComponent_Import(strFile As String)
     strJsonFile = IDbComponent_BaseFolder & GetSafeFileName(strName) & ".json"
     ImportObjectMetadata strJsonFile, "Tables", strName, acTable
 
-    VCSIndex.Update Me, eatImport, GetFileHash(strFile)
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
+        strMetaHash:=GetMetadataHash("Tables", strName, acTable)
 
 End Sub
 

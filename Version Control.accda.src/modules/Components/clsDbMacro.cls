@@ -74,7 +74,8 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Apply object metadata (doc properties + hidden attribute) from companion .json
     ImportObjectMetadata SwapExtension(strFile, "json"), "Scripts", strName, acMacro
 
-    VCSIndex.Update Me, eatImport, GetFileHash(strFile)
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
+        strMetaHash:=GetMetadataHash("Scripts", strName, acMacro)
 
 End Sub
 
