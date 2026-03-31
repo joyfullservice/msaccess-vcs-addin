@@ -62,6 +62,21 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Check error handling mode after loading project options
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
+    ' Display heading early so the user sees output before heavy I/O
+    With Log
+        .Spacer
+        .Add T("Beginning Export of Source Files"), False
+        .Add CurrentProject.Name
+        .Add T("VCS Version {0}", var0:=GetVCSVersion)
+        .Add T("Export Format: {0}", var0:=ExportFormatToVersion(Options.ExportFormatVersion))
+        .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
+        .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
+        If Len(Operation.SourceName) > 0 Then .Add T("Source: {0}", var0:=Operation.SourceName), False
+        .Add Now
+        If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
+        .Flush
+    End With
+
     ' Determine which categories need full re-export due to options changes
     Dim dCurrentHashes As Dictionary
     Dim dStoredHashes As Dictionary
@@ -96,29 +111,15 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Global change affects all categories
     If blnGlobalChanged Then blnFullExport = True
 
-    ' Display heading
-    With Log
-        .Spacer
-        .Add T("Beginning Export of Source Files"), False
-        .Add CurrentProject.Name
-        .Add T("VCS Version {0}", var0:=GetVCSVersion)
-        .Add T("Export Format: {0}", var0:=ExportFormatToVersion(Options.ExportFormatVersion))
-        .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
-        .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
-        ' Log operation source (file only, not console)
-        If Len(Operation.SourceName) > 0 Then .Add T("Source: {0}", var0:=Operation.SourceName), False
-        If blnFullExport Then
-            .Add T("Performing Full Export")
-        ElseIf dStaleCategories.Count > 0 Then
-            .Add T("Using Fast Save (re-exporting {0} changed categories)", _
-                var0:=dStaleCategories.Count)
-        Else
-            .Add T("Using Fast Save")
-        End If
-        .Add Now
-        ' Save the log file path
-        If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
-    End With
+    ' Log export mode after determining category changes
+    If blnFullExport Then
+        Log.Add T("Performing Full Export")
+    ElseIf dStaleCategories.Count > 0 Then
+        Log.Add T("Using Fast Save (re-exporting {0} changed categories)", _
+            var0:=dStaleCategories.Count)
+    Else
+        Log.Add T("Using Fast Save")
+    End If
 
     ' Check VBE project access
     If CurrentVBProject.Protection = vbext_pp_locked Then

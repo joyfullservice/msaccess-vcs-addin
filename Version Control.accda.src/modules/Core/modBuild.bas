@@ -143,6 +143,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     LogUnhandledErrors FunctionName
     On Error Resume Next
 
+    ' Start log and performance timers before merge prep so those messages are preserved
+    Log.Clear
+    Log.SourcePath = strSourceFolder
+    Log.Active = True
+    Perf.StartTiming
+
     ' Build original file name for database
     If blnFullBuild Then
         ' Use alternate path if provided, otherwise extract the original database path from the source files.
@@ -176,12 +182,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     ' Reset the LoadFromText state because the path may be now different
     ' so any cached list of error files may be invalid.
     modLoadFromText.Reset
-
-    ' Start log and performance timers
-    Log.Clear
-    Log.SourcePath = strSourceFolder
-    Log.Active = True
-    Perf.StartTiming
 
     ' Launch the GUI form
     DoCmd.OpenForm "frmVCSMain"
