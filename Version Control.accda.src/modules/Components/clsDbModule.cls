@@ -58,28 +58,33 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             & GetSafeFileName(m_Module.Name) & ".json", "Modules", m_Module.Name, acModule
     End If
 
-    ' Determine the actual export folder (may include @Folder subfolder)
-    strExportFolder = FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep
+    ' Clean up stale files only during normal exports (not alternate/temp exports)
+    If strAlternatePath = vbNullString Then
 
-    ' Remove any file with the same name but alternate extension in the export folder
-    strExt = IIf(GetExtension = ".bas", ".cls", ".bas")
-    strAlternateFile = strExportFolder & GetSafeFileName(m_Module.Name) & strExt
-    If FSO.FileExists(strAlternateFile) Then DeleteFile strAlternateFile
+        ' Determine the actual export folder (may include @Folder subfolder)
+        strExportFolder = FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep
 
-    ' Clean up old file at base folder if @Folder moved it to a subfolder
-    If StrComp(strExportFolder, IDbComponent_BaseFolder, vbTextCompare) <> 0 Then
-        strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & GetExtension
-        If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
-        strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & strExt
-        If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
-        strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & ".json"
-        If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
+        ' Remove any file with the same name but alternate extension in the export folder
+        strExt = IIf(GetExtension = ".bas", ".cls", ".bas")
+        strAlternateFile = strExportFolder & GetSafeFileName(m_Module.Name) & strExt
+        If FSO.FileExists(strAlternateFile) Then DeleteFile strAlternateFile
+
+        ' Clean up old file at base folder if @Folder moved it to a subfolder
+        If StrComp(strExportFolder, IDbComponent_BaseFolder, vbTextCompare) <> 0 Then
+            strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & GetExtension
+            If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
+            strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & strExt
+            If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
+            strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & ".json"
+            If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
+        End If
+
     End If
 
     ' Update the index with the current VBA hash. (Note, this will not show
     ' changes to the hidden VBE properties that might have been added.)
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
-        GetFileHash(IDbComponent_SourceFile), GetCodeModuleHash(edbModule, m_Module.Name), _
+        GetFileHash(Nz2(strAlternatePath, IDbComponent_SourceFile)), GetCodeModuleHash(edbModule, m_Module.Name), _
         strMetaHash:=GetMetadataHash("Modules", m_Module.Name, acModule)
 
 End Sub

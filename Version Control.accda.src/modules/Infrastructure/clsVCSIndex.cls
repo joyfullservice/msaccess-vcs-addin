@@ -257,12 +257,15 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
             .Item("ObjectDate") = dteObjectDate
         End If
 
-        ' Save timestamp of exported source file.
-        dteDateTime = GetSourceModifiedDate(cItem, cItem.SourceFile)
-        .Item("SourceModified") = ZNDate(dteDateTime)
-
-        ' Save hash of file properties
-        .Item("FilePropertiesHash") = GetSourceFilesPropertyHash(cItem)
+        ' Save timestamp and property hash of exported source file.
+        ' (Skip for alternate exports -- the canonical source file may not
+        '  exist yet, and these values are recomputed when the alt entry
+        '  is promoted via UpdateFromAltExport.)
+        If intAction <> eatAltExport Then
+            dteDateTime = GetSourceModifiedDate(cItem, cItem.SourceFile)
+            .Item("SourceModified") = ZNDate(dteDateTime)
+            .Item("FilePropertiesHash") = GetSourceFilesPropertyHash(cItem)
+        End If
 
     End With
 
