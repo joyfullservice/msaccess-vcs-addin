@@ -463,6 +463,20 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     ' Log any errors after build/merge
     CatchAny eelError, T("Error running {0}", var0:=CallByName(Options, "RunAfter" & strType, VbGet)), FunctionName, True, True
 
+    ' If the database ended up in exclusive mode (common after import operations),
+    ' reopen it in shared mode so other clients can access it immediately.
+    If DatabaseFileOpen Then
+        If IsFileOpenExclusive(CurrentProject.FullName) Then
+            Log.Add T("Reopening database in shared mode...")
+            Perf.OperationStart "Reopen DB (shared mode)"
+            StageMainForm
+            CloseCurrentDatabase2
+            ShiftOpenDatabase strPath
+            RestoreMainForm
+            Perf.OperationEnd
+        End If
+    End If
+
     ' Show final output and save log
     Log.Spacer
     Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
