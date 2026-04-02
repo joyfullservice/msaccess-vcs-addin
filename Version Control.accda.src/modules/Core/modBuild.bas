@@ -463,10 +463,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     ' Log any errors after build/merge
     CatchAny eelError, T("Error running {0}", var0:=CallByName(Options, "RunAfter" & strType, VbGet)), FunctionName, True, True
 
-    ' If the database ended up in exclusive mode (common after import operations),
-    ' reopen it in shared mode so other clients can access it immediately.
+    ' If the database is not accessible to other clients (common after import
+    ' operations that modify the schema), reopen it in shared mode.
+    ' Uses an out-of-process worker to detect the engine-level lock state
+    ' that an in-process check cannot see.
     If DatabaseFileOpen Then
-        If IsFileOpenExclusive(CurrentProject.FullName) Then
+        If Not Worker.IsDatabaseAccessible Then
             Log.Add T("Reopening database in shared mode...")
             Perf.OperationStart "Reopen DB (shared mode)"
             StageMainForm

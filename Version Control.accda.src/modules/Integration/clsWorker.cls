@@ -30,6 +30,9 @@ Option Explicit
 ' Worker Job queue of jobs in progress
 Public Queue As Dictionary
 
+' Last result returned by a worker callback
+Private m_varLastResult As Variant
+
 ' Generic placeholder objects so we can compile the VBScript in the VBA IDE
 Private WScript As Object
 
@@ -43,6 +46,24 @@ Private WScript As Object
 '
 Public Function Run_UninstallAddin()
     CallWorker PROJECT_NAME, 10, "Uninstall", """" & GetInstalledAddInFileName & """"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsDatabaseAccessible
+' Author    : Adam Waller
+' Date      : 4/2/2026
+' Purpose   : Check if the database file is accessible to external clients by running
+'           : an out-of-process DAO connection test via the worker script. This detects
+'           : the JET/ACE engine-level lock state (error 3734) that an in-process check
+'           : cannot detect.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsDatabaseAccessible() As Boolean
+    m_varLastResult = Empty
+    CallWorker "DbAccessCheck", 10, "CheckDatabaseAccessible"
+    Me.WaitForQueue 10, "CheckDatabaseAccessible", 0.1
+    IsDatabaseAccessible = CBool(m_varLastResult)
 End Function
 
 
@@ -369,11 +390,8 @@ Public Function ReturnWorker(strKey As String, varParams As Variant)
         Set cJob = Me.Queue(strKey)
     End If
 
-    ' Special processing for some actions
-    Select Case cJob.Action
-        Case Else
-            ' No special processing
-    End Select
+    ' Store the return value so the caller can read it after WaitForQueue
+    m_varLastResult = varParams
 
     ' Log and remove from job queue
     With cJob
@@ -443,6 +461,9 @@ Sub Main()
             ' (This must be done after closing Access)
             ' Args: Access application instance, add-in path
             UninstallAddIn objApp, WScript.Arguments(3)
+
+        Case "CheckDatabaseAccessible"
+            varReturn = CheckDatabaseAccessible(WScript.Arguments(0))
 
         Case Else
             MsgBox "Unknown Action: " & WScript.Arguments(1), vbExclamation
@@ -612,4 +633,31 @@ Function UninstallAddIn(objApp, strAddInFile)
         WScript.Quit
     End If
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckDatabaseAccessible
+' Author    : Adam Waller
+' Date      : 4/2/2026
+' Purpose   : Test whether the database file can be opened by an external client.
+'           : Uses a separate DAO engine instance (out-of-process) to detect the
+'           : JET/ACE engine-level lock state (error 3734) that blocks connections
+'           : after build/merge operations involving schema changes.
+'---------------------------------------------------------------------------------------
+'
+Function CheckDatabaseAccessible(strPath)
+    Dim objEngine
+    Dim objDb
+    On Error Resume Next
+    Set objEngine = CreateObject("DAO.DBEngine.120")
+    Set objDb = objEngine.OpenDatabase(strPath, False, True)
+    If Err.Number = 0 Then
+        objDb.Close
+        Set objDb = Nothing
+        CheckDatabaseAccessible = True
+    Else
+        CheckDatabaseAccessible = False
+    End If
+    Set objEngine = Nothing
 End Function

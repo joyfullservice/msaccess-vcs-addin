@@ -81,6 +81,26 @@ contradictory guidance.
 
 ---
 
+## 2026-04-02 — Out-of-process worker probe for post-build database lock
+
+**Trigger**: After a build or merge, external clients (MCP tools, ODBC connections) receive JET/ACE error 3734: "The database has been placed in a state by user 'Admin' on machine '...' that prevents it from being opened or locked." The database is unusable to other clients until manually closed and reopened in Access. This blocks automated workflows that query the database immediately after a build.
+
+**Options explored**:
+- **Win32 file lock check (`IsFileOpenExclusive` via `CreateFileW`)**: Tried first. The OS-level file is not exclusively locked — the issue is an engine-internal state flag set during DDL/schema operations (importing forms, tables, queries). This check always reported the file as accessible even when external clients were blocked. Removed.
+- **In-process DAO probe (`DBEngine.OpenDatabase` from the add-in)**: Tried second. The same JET/ACE engine instance allows intra-process connections even when blocking external clients. Confirmed by running an identical DAO test from Excel VBA (out-of-process), which correctly detected the block while the in-process check passed. Removed from `modDatabase.bas`.
+- **Always close/reopen unconditionally**: Simple and guaranteed to work, but pays the time cost (several seconds) on every build/merge even when the database is already accessible.
+- **Out-of-process worker probe via `clsWorker` VBScript**: Launches the existing worker script infrastructure, which runs as a separate process with its own `DAO.DBEngine.120` instance. Accurately detects the engine-level lock state. Only triggers the close/reopen when actually needed.
+
+**Decision**: Use the out-of-process worker probe. Added a `CheckDatabaseAccessible` action to the worker script that creates an independent `DAO.DBEngine.120` via `CreateObject` and attempts `OpenDatabase(path, False, True)`. The add-in calls `Worker.IsDatabaseAccessible` which launches the worker, waits for the callback via `WaitForQueue`, and reads the result from `m_varLastResult`. If inaccessible, the existing `StageMainForm`/`CloseCurrentDatabase2`/`ShiftOpenDatabase`/`RestoreMainForm` pattern reopens the database in shared mode. The trade-off is a brief VBScript launch overhead (~1s) on every build/merge to run the probe, but this avoids the heavier close/reopen cycle when it isn't needed.
+
+**What this rules out**: In-process detection of this engine-level lock state — the JET/ACE engine does not expose the DDL state flag to same-process callers. Any future attempt to detect this condition must use an out-of-process mechanism. If the worker script infrastructure is ever removed, this check would need to fall back to always closing/reopening unconditionally.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Integration/clsWorker.cls` — `IsDatabaseAccessible` method (add-in side), `CheckDatabaseAccessible` function (worker script side), `m_varLastResult` for callback return values, updated `ReturnWorker` to store results
+- `Version Control.accda.src/modules/Core/modBuild.bas` — post-build/merge reopen block uses `Worker.IsDatabaseAccessible`
+
+---
+
 ## 2026-03-27 — Enforce canonical add-in filename and fix .accde path bugs
 
 **Trigger**: Issue #693 reported that renaming `Version Control.accda` to a different filename causes error 2517 at runtime. Investigation revealed two problems: (1) `GetAddInFileName` dynamically derived the installed filename from `CodeProject.Name`, so a renamed file would install under the wrong name and break the COM ribbon DLL's hardcoded `Application.Run` calls; (2) several comparison and loading spots always assumed the `.accda` extension, silently failing when the compiled `.accde` version was installed.
