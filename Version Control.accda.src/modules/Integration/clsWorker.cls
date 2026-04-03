@@ -137,9 +137,11 @@ Public Sub WaitForQueue(dblTimeout As Double, Optional strAction As String = "Al
         ' Pause for the poll interval
         dblPollStart = Perf.MicroTimer
         Do While dblPollStart + sngPollSeconds > Perf.MicroTimer
-            ' Normally we don't want to stay on a constant loop
-            ' of doevents, but in this case it is necessary to allow
-            ' the worker callbacks to process.
+            ' A tight DoEvents loop is required here. The worker
+            ' VBScript makes many individual COM calls back into
+            ' Access (property access, VBE iteration, etc.), each
+            ' needing message pump dispatch. Sleep would add ~100ms
+            ' latency per round-trip, compounding to seconds of delay.
             DoEvents
         Loop
         DoEvents

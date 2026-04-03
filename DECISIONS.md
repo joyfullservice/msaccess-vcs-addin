@@ -81,6 +81,49 @@ contradictory guidance.
 
 ---
 
+## 2026-04-03 — Worker WaitForQueue must use tight DoEvents loop, not Sleep
+
+**Trigger**: The `DoEvents` polling loop in `clsWorker.WaitForQueue` spins
+thousands of iterations per second, raising concerns about CPU churn and
+reentrancy. Adding `Sleep 100` (kernel32) between `DoEvents` calls seemed
+like a safe way to yield CPU while still allowing queued COM callbacks to be
+dispatched on the next `DoEvents`.
+
+**Options explored**:
+- **Sleep 100ms between DoEvents calls**: Tested in practice. Reduced CPU
+  usage but increased `Wait for Job Queue` time from ~0.8s to 5.3s (6–7x
+  slower). The root cause: the worker VBScript makes many individual COM
+  calls back into Access during execution (property access on `objApp.VBE`,
+  iterating `VBProjects`, `GetObject`, etc.), not just one final callback.
+  Each COM call is marshaled through the STA message queue and blocks until
+  Access processes it via `DoEvents`. With `Sleep 100` between pumps, every
+  round-trip adds ~100ms latency. With 40–50 round-trips, this compounds to
+  4–5 seconds of added wait time.
+- **`MsgWaitForMultipleObjects` API**: Would yield CPU like `Sleep` but wake
+  on incoming messages. Complex to wire up and would need careful testing
+  with VBA's message pump. Not attempted — tight `DoEvents` loop is already
+  fast enough for the sub-second operations involved.
+- **Tight `DoEvents` loop (original design)**: Keeps the message pump
+  responsive to all inbound COM calls with near-zero latency. Higher CPU
+  usage but the total wait is typically under 1 second, so the window of
+  elevated CPU is brief.
+
+**Decision**: Keep the tight `DoEvents` loop. The worker VBScript's many
+COM round-trips into the host application make any message pump delay
+multiplicative. Updated the loop comment to document this constraint so
+future contributors don't re-attempt the Sleep approach.
+
+**What this rules out**: Adding `Sleep` or any blocking wait inside the
+`WaitForQueue` polling loop. This could be revisited if the worker script
+were restructured to batch COM calls or minimize round-trips (e.g.,
+collecting all needed data in a single `objApp.Run` call and doing work
+locally in VBScript). That would reduce the number of COM calls that need
+pump dispatch.
+
+**Relevant files**: `Version Control.accda.src/modules/Integration/clsWorker.cls`
+
+---
+
 ## 2026-04-02 — Out-of-process worker probe for post-build database lock
 
 **Trigger**: After a build or merge, external clients (MCP tools, ODBC connections) receive JET/ACE error 3734: "The database has been placed in a state by user 'Admin' on machine '...' that prevents it from being opened or locked." The database is unusable to other clients until manually closed and reopened in Access. This blocks automated workflows that query the database immediately after a build.
