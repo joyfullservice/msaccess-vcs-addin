@@ -19,12 +19,18 @@ Option Explicit
 ' Purpose   : Unlike the Application method, this WizHook version does not stop all
 '           : running code. This allows you to automate the closing of the current
 '           : database while still continuing the add-in code.
+'           : If the database is still open after the first close (e.g. exclusive mode
+'           : after a build), a second close is attempted automatically.
 '---------------------------------------------------------------------------------------
 '
 Public Sub CloseCurrentDatabase2()
     CheckKey
     WizHook.CloseCurrentDatabase
     DoEvents
+    If DatabaseFileOpen Then
+        WizHook.CloseCurrentDatabase
+        DoEvents
+    End If
 End Sub
 
 

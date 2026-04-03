@@ -40,6 +40,23 @@ Private this As udtObjects
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ReleaseDbReferences
+' Author    : Adam Waller
+' Date      : 4/3/2026
+' Purpose   : Release references bound to the current database (e.g. cached CurrentDb)
+'           : without tearing down infrastructure singletons (Log, Perf, Operation) that
+'           : must survive a close/reopen cycle. Stale DAO handles left alive across a
+'           : WizHook.CloseCurrentDatabase + ShiftOpenDatabase cause Error 5 and nav pane
+'           : issues on the next operation. Singletons cleared here are lazily re-created
+'           : on next access.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReleaseDbReferences()
+    Set this.dbs = Nothing
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ReleaseObjects
 ' Author    : Adam Waller
 ' Date      : 3/28/2022

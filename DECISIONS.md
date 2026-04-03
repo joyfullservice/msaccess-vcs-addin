@@ -81,6 +81,50 @@ contradictory guidance.
 
 ---
 
+## 2026-04-03 — CloseCurrentDatabase2 retries internally; ReleaseDbReferences for shared mode reopen
+
+**Trigger**: After the shared mode reopen at the end of a build, the
+navigation pane was missing and consecutive build operations triggered
+VBA errors. Diagnostic logging revealed `DatabaseFileOpen=True` after a
+single `CloseCurrentDatabase2`, indicating the database was not fully
+closing (same pattern as the full build's exclusive-mode close).
+
+**Options explored**:
+
+- **Caller-side retry** (initially chosen, then improved): Each call site
+  checks `If DatabaseFileOpen Then CloseCurrentDatabase2` after the first
+  call. This worked but was error-prone — forgetting the check at any call
+  site would leave the database open. The full build and shared mode
+  reopen both had this pattern, but merge reopen, theme reopen, and
+  `ShiftOpenDatabase` did not.
+
+- **Full `ReleaseObjects` teardown**: Clear all singletons before close.
+  Too aggressive: destroys `Log`, `Perf`, `Options` and other state
+  needed for the remainder of the build.
+
+- **Internal retry in `CloseCurrentDatabase2`** (chosen): Move the
+  `If DatabaseFileOpen Then` retry into the function itself. All call
+  sites benefit automatically with no code duplication.
+
+**Decision**: `CloseCurrentDatabase2` in `modWizHook.bas` now checks
+`DatabaseFileOpen` after the first close and retries if needed. Removed
+redundant retry checks from `modBuild.bas` (full build and shared mode
+reopen blocks). Also added `ReleaseDbReferences` to `modObjects.bas`
+(clears only `this.dbs`) called before the shared mode reopen close to
+prevent stale cached `CurrentDb` references.
+
+**What this rules out**: The consecutive-build VBA errors are a separate
+issue (template command bar lifecycle, see entry above) and not caused by
+dangling `SharedDb` references. `ReleaseDbReferences` is narrowly scoped
+to database-bound singletons; expanding it to clear FSO or other
+non-database singletons is unnecessary.
+
+**Relevant files**: `Version Control.accda.src/modules/Utility/modWizHook.bas`,
+`Version Control.accda.src/modules/Infrastructure/modObjects.bas`,
+`Version Control.accda.src/modules/Core/modBuild.bas`
+
+---
+
 ## 2026-04-03 — Worker WaitForQueue must use tight DoEvents loop, not Sleep
 
 **Trigger**: The `DoEvents` polling loop in `clsWorker.WaitForQueue` spins

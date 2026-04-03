@@ -116,9 +116,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             ' Attempt to close the current database after staging the main form
             If IsLoaded(acForm, "frmVCSMain") Then StageMainForm
             CloseCurrentDatabase2
-            ' If the database file was open in exclusive mode (such as after a build)
-            ' we might have to call this function a second time to actually close the file.
-            If DatabaseFileOpen Then CloseCurrentDatabase2
             ' If the database is still open, then we have a problem that we can't resolve here.
             If DatabaseFileOpen Then
                 MsgBox2 T("Unable to Close Database"), _
@@ -470,7 +467,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     If DatabaseFileOpen Then
         If Not Worker.IsDatabaseAccessible Then
             Log.Add T("Reopening database in shared mode...")
+            Log.Flush
             Perf.OperationStart "Reopen DB (shared mode)"
+            ReleaseDbReferences
             StageMainForm
             CloseCurrentDatabase2
             ShiftOpenDatabase strPath
