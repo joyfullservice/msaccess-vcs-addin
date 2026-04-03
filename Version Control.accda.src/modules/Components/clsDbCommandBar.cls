@@ -760,17 +760,20 @@ End Property
 '
 Private Sub Class_Initialize()
 
-    ' Note that in some cases the template may not be immediately available, such as
-    ' when building the add-in from source multiple times, which can call the
-    ' CloseCurrentDatabase2 a second time to close a database currently open in
-    ' exclusive mode. The template is loaded through an AfterBuild hook at the
-    ' completion of the build, so this doesn't present a problem for the add-in.
+    ' The template may not be available when building the add-in from source
+    ' multiple times in one session. AfterBuild's ImportCommandBarsTemplate
+    ' deletes all instances from Application.CommandBars before reimporting,
+    ' removing the add-in's library copy permanently for the session.
+    ' The template is restored on the next Access restart.
     LogUnhandledErrors
     On Error Resume Next
 
     ' We assume the add-in file already has the template command bar included. If it doesn't, then
     ' we will have problem importing Access' custom built-in buttons.
     Set m_TemplateCommandBar = Application.CommandBars(strTemplateCommandBarName)
+    If CatchAny(eelNoError, vbNullString) Then
+        Log.Add "  Template command bar not available (expected during consecutive add-in builds)", False
+    End If
 
     ' Set up property name lists
 

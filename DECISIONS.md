@@ -81,6 +81,65 @@ contradictory guidance.
 
 ---
 
+## 2026-04-03 — Template command bar unavailability is expected during consecutive add-in builds
+
+**Trigger**: Running two consecutive "Build from Source" operations on the
+add-in itself caused `Error 5: Invalid procedure call or argument` on the
+second build. The error originated in `clsDbCommandBar.Class_Initialize`
+at `Set m_TemplateCommandBar = Application.CommandBars(strTemplateCommandBarName)`.
+The existing `On Error Resume Next` suppressed the runtime failure but
+never cleared `Err`, so `LogUnhandledErrors` surfaced it later as an
+unhandled error from an unknown source.
+
+**Options explored**:
+
+- **Restore the add-in's template after `ImportCommandBarsTemplate`**:
+  After importing the template into the newly-built database, call
+  `WizCopyCmdbars CodeProject.FullName` to reload the add-in's bars.
+  Rejected: `WizCopyCmdbars` always imports into the *current* database,
+  not the library database. The restored bar would still be associated
+  with the current database and lost when it closes on the next build.
+  This just repeats the delete/reimport cycle without fixing the root cause.
+
+- **Try `WizCopyCmdbars` without pre-deleting**: Skip the delete loop and
+  attempt import first; only delete-and-retry if it fails. Speculative:
+  the existing comment says `WizCopyCmdbars` won't import when the name
+  exists, and there's no API to distinguish which database owns a bar in
+  `Application.CommandBars`, so selective deletion isn't possible.
+
+- **On-demand recovery in `BuildControls`**: When the template is actually
+  needed (custom built-in controls), attempt to reload from
+  `CodeProject.FullName`. Would work within a single build but imports
+  the add-in's bars into the user's database as a side effect. Also only
+  needed for custom built-in controls, which the add-in itself doesn't use.
+
+- **Consumer-side resilience** (chosen): Clear the error with `CatchAny`
+  and log a diagnostic message. The original developer already anticipated
+  this scenario (comment on lines 763-767) and used `On Error Resume Next`
+  — the only bug was the missing error clear.
+
+**Decision**: Catch and clear the expected error in `Class_Initialize`
+using `CatchAny(eelNoError, vbNullString)` with a log-only diagnostic
+message. The template command bar is only needed for importing custom
+built-in controls, which the add-in itself doesn't use. Normal database
+projects are unaffected because the add-in's template persists in
+`Application.CommandBars` until `ImportCommandBarsTemplate` runs (an
+add-in-specific `AfterBuild` hook that deletes all instances before
+reimporting via `WizCopyCmdbars`).
+
+**What this rules out**: This does not fix the underlying limitation that
+`ImportCommandBarsTemplate` permanently removes the add-in's template
+from `Application.CommandBars` for the rest of the session. If a user
+database with custom built-in command bar controls is built immediately
+after building the add-in (without restarting Access), those controls
+would fail to import. Revisit if that scenario is reported, or if Access
+exposes an API to reload a library database's command bars without
+closing/reopening it.
+
+**Relevant files**: `Version Control.accda.src/modules/Components/clsDbCommandBar.cls`
+
+---
+
 ## 2026-04-03 — CloseCurrentDatabase2 retries internally; ReleaseDbReferences for shared mode reopen
 
 **Trigger**: After the shared mode reopen at the end of a build, the
