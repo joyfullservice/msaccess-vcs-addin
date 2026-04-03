@@ -396,7 +396,7 @@ Public Function ReturnWorker(strKey As String, varParams As Variant)
     ' Log and remove from job queue
     With cJob
         Log.Add "Worker job " & .Action & " (" & .KeyHash & ") completed in " & _
-            Round(Perf.MicroTimer - .Start, 2) & " seconds."
+            Round(Perf.MicroTimer - .Start, 2) & " seconds.", False
     End With
     Set cJob = Nothing
     Me.Queue.Remove strKey
