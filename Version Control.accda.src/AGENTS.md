@@ -15,86 +15,13 @@ This folder contains **exported source files from a Microsoft Access database**.
 
 ## Critical Rules for AI Agents
 
-### 1. PRESERVE UTF-8 BOM ENCODING (Most Important)
+### 1. UTF-8 BOM Encoding
 
-**ALL text files** in this exported database use **UTF-8 with BOM** encoding (bytes `EF BB BF` at file start). This includes:
-- `.bas` and `.cls` files (VBA modules and classes)
-- `.form`, `.report`, `.qdef`, `.macro` files (Access SaveAsText format)
-- `.sql` files (query SQL)
-- `.json` files (configuration and metadata)
-- `.xml` files (table definitions, etc.)
-- `.txt` files (table data exports)
-- Any other text-based source files
+All text files in this exported database use **UTF-8 with BOM** encoding (bytes `EF BB BF` at file start). This is enforced by `.editorconfig` and is mandatory for successful import into Access.
 
-This encoding is **mandatory** for successful import. **Encoding errors cause import failures with no clear error message.**
+### 2. CRLF Line Endings
 
-**You MUST:**
-- Preserve UTF-8 BOM encoding on ALL text files you edit
-- Be aware that many editing tools and file operations may strip the BOM
-- Verify encoding after edits if you suspect it may have been changed
-
-**You MUST NOT:**
-- Remove the BOM from any file
-- Change encoding to UTF-8 without BOM, ASCII, ANSI, or any other encoding
-- Add BOM to files that don't have one (check first)
-- Assume editing tools preserve encoding - they often don't
-
-**Verification and Restoration:**
-If you need to verify or restore BOM encoding on any file:
-
-```powershell
-# Check if file has BOM
-$file = "path\to\file.ext"
-$bytes = [System.IO.File]::ReadAllBytes($file)
-$hasBOM = ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
-Write-Host "BOM present: $hasBOM"
-
-# Restore BOM if missing
-if (-not $hasBOM) {
-    $bom = [byte[]](0xEF, 0xBB, 0xBF)
-    $newBytes = $bom + $bytes
-    [System.IO.File]::WriteAllBytes($file, $newBytes)
-    Write-Host "BOM restored"
-}
-```
-
-**Note:** The add-in's export process automatically ensures all files have UTF-8 BOM. The risk occurs when files are edited outside of Access. Always verify encoding if you're unsure.
-
-### 2. PRESERVE CRLF LINE ENDINGS
-
-**ALL text files** in this exported database use **CRLF** (`\r\n`, hex `0D 0A`) line endings. This applies to every file type listed in the BOM section above.
-
-This is **mandatory** for successful import. **Access `LoadFromText` expects CRLF line endings. LF-only files can cause import failures or corrupt database objects with no clear error message.**
-
-**You MUST:**
-- Preserve CRLF line endings on ALL text files you edit
-- Be aware that many editing tools and file-write operations silently convert CRLF to LF
-- Verify line endings after edits, especially after bulk operations or file rewrites
-
-**You MUST NOT:**
-- Convert line endings to LF (Unix-style)
-- Use tools or write modes that normalize line endings to LF
-- Assume editing tools preserve CRLF - they often don't
-
-**Verification and Restoration:**
-If you need to verify or restore CRLF line endings on any file:
-
-```powershell
-# Check if file uses CRLF
-$file = "path\to\file.ext"
-$content = [System.IO.File]::ReadAllText($file)
-$hasCRLF = $content -match "`r`n"
-Write-Host "CRLF present: $hasCRLF"
-
-# Restore CRLF if file uses LF only
-if (-not $hasCRLF) {
-    $content = $content -replace "`n", "`r`n"
-    [System.IO.File]::WriteAllText($file, $content)
-    Write-Host "CRLF restored"
-}
-```
-
-**Note:** The `.gitattributes` file in this repository enforces `eol=crlf` for source file types, which helps when checking out files via Git. However, direct file edits by tools can still introduce LF-only line endings regardless of Git settings.
+All text files use **CRLF** (`\r\n`) line endings. This is enforced by `.editorconfig` and `.gitattributes`, and is mandatory for Access `LoadFromText` import.
 
 ### 3. Preserve VBA File Structure
 
@@ -383,7 +310,6 @@ Public Function CalculateTotal(dblPrice As Double, intQty As Integer) As Double
     CalculateTotal = dblPrice * intQty
 End Function
 ```
-3. Save with UTF-8 BOM encoding
 
 ### Modifying a SQL Query
 
@@ -398,8 +324,7 @@ WHERE Active = True
 ORDER BY CustomerName;
 ```
 2. Set `"ForceImportOriginalQuerySQL": true` in `vcs-options.json`
-3. Save with UTF-8 BOM encoding
-4. User rebuilds from source
+3. User rebuilds from source
 
 **Note:** Importing from `.sql` loses query designer properties (field descriptions, text formats, etc.)
 
@@ -408,21 +333,17 @@ ORDER BY CustomerName;
 If "Split Layout from VBA" is enabled:
 1. Open `forms/FormName.cls`
 2. Find and modify the relevant procedure
-3. Save with UTF-8 BOM encoding
 
 If code is embedded in the layout file (`.form` or legacy `.bas`):
 1. Open `forms/FormName.form` (or `FormName.bas` in older projects)
 2. Find the `CodeBehindForm` section near the end
 3. Modify code in that section
-4. Save with UTF-8 BOM encoding
 
 ### Bulk Find and Replace
 
 When making changes across multiple files:
-1. Use an editor that preserves UTF-8 BOM (VS Code, Notepad++, etc.)
-2. Search within the appropriate folder (`modules/`, `forms/`, etc.)
-3. Verify encoding is preserved after save
-4. Test by having the user perform a merge build in Access
+1. Search within the appropriate folder (`modules/`, `forms/`, etc.)
+2. Test by having the user perform a merge build in Access
 
 ---
 
@@ -506,7 +427,7 @@ Operation logs are stored in the `logs/` subfolder with timestamped filenames:
 ### Import Fails or Objects Corrupted After Edit (Line Endings)
 
 **Most likely cause:** Line endings changed from CRLF to LF
-**Solution:** Verify file contains `\r\n` (hex `0D 0A`) line endings, not just `\n`. Restore CRLF using the script in Rule 2 above, or revert the file from Git.
+**Solution:** Verify file contains `\r\n` (hex `0D 0A`) line endings, not just `\n`. Revert the file from Git or re-save with CRLF line endings.
 
 ### "Object not found" After Import
 

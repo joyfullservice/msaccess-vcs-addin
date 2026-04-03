@@ -12,40 +12,7 @@ alwaysApply: false
 
 # VBA Source File Rules
 
-When editing VBA source files (`.bas`, `.cls`) or Access SaveAsText files (`.form`, `.report`, `.qdef`, `.macro`), follow these critical rules:
-
-## Encoding
-
-- **ALWAYS preserve UTF-8 with BOM encoding** (bytes `EF BB BF` at file start)
-- Encoding errors cause import failures with no clear error message
-
-## REQUIRED: Restore BOM After Every Edit
-
-The StrReplace tool strips the UTF-8 BOM from files. **After EVERY edit to a `.bas` or `.cls` file**, run this PowerShell command to restore the BOM:
-
-```powershell
-$f="path\to\file.bas"; $b=[System.IO.File]::ReadAllBytes($f); if($b[0]-ne0xEF-or$b[1]-ne0xBB-or$b[2]-ne0xBF){[System.IO.File]::WriteAllBytes($f,[byte[]](0xEF,0xBB,0xBF)+$b); "BOM restored: $f"}else{"BOM OK: $f"}
-```
-
-Replace `path\to\file.bas` with the actual file path that was edited.
-
-## REQUIRED: Preserve CRLF Line Endings
-
-All source files in this project use **CRLF** (`\r\n`) line endings. Editing tools (including file-write operations) may silently convert CRLF to LF. **After EVERY edit**, verify and restore CRLF if needed:
-
-```powershell
-$f="path\to\file.bas"; $c=[System.IO.File]::ReadAllText($f); if($c -match "`r`n"){"CRLF OK: $f"}else{$c=$c-replace"`n","`r`n"; [System.IO.File]::WriteAllText($f,$c); "CRLF restored: $f"}
-```
-
-LF-only files cause Access `LoadFromText` import failures or corrupt objects.
-
-## Editing Safely
-
-To reduce risk of BOM or CRLF corruption:
-
-- **Use the smallest possible `old_string`** - include only enough context to uniquely identify the edit location
-- **Never replace entire procedures** when only a few lines change
-- **Break large changes into multiple small edits**
+When editing VBA source files (`.bas`, `.cls`) or Access SaveAsText files (`.form`, `.report`, `.qdef`, `.macro`), follow these rules:
 
 ## File Structure - Do NOT Modify
 
