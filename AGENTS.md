@@ -219,6 +219,34 @@ End Sub
 - `CatchAny()` - Log error if one exists, optionally clear it
 - `Catch()` - Check for specific error numbers
 
+### Understanding `LogUnhandledErrors` in Log Files
+
+VBA's `On Error` statements silently clear the current `Err` object. To avoid losing error information, `LogUnhandledErrors` is called *just before* an `On Error` directive to capture any leftover error before it gets wiped. `DebugMode(True)` calls `LogUnhandledErrors` internally, so the same behavior applies at the top of functions that use the `DebugMode` pattern.
+
+**The error did NOT originate where it was logged.** When you see a log entry like:
+
+```
+ERROR: Unhandled error, likely before `On Error` directive
+```
+
+This entry means the exact origin is not known — `LogUnhandledErrors` detected a leftover error but has no information about which function raised it. The error came from whatever code ran immediately *before* the `LogUnhandledErrors` call. To find the real source, look at the surrounding log context (the operation in progress, the objects being processed) and find the `LogUnhandledErrors` call site in the source code, then look at what executed before it.
+
+Some call sites pass a `CallingFunction` parameter, which narrows the search to a specific function (e.g., `Source: modBuild.Build.Unknown.LogUnhandledErrors`). Even then, the error did not originate in that function — it came from code that ran before the call. For example:
+
+```vba
+Public Sub Build()
+    ' ... earlier code calls helper functions ...
+    SomeHelperFunction   ' <-- If this raises an error internally and doesn't handle it,
+                         '     the error persists in the Err object after it returns.
+
+    LogUnhandledErrors   ' <-- Catches the leftover error from SomeHelperFunction
+    On Error Resume Next ' <-- Would have silently cleared it without the line above
+    ' ... more code ...
+End Sub
+```
+
+In this example, the actual source of the error is `SomeHelperFunction`, not `Build`.
+
 ### Option Statements
 
 Always include at the top of modules:
