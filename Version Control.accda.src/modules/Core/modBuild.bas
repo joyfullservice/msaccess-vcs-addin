@@ -483,6 +483,40 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
     blnSuccess = True
 
+    ' Show warning/error summary if any issues occurred
+    If Log.WarningCount > 0 Or Log.ErrorCount > 0 Then
+        Dim dMissing As Dictionary
+        Dim varEnvKey As Variant
+        Dim strColor As String
+        strColor = IIf(Log.ErrorCount > 0, "red", "#CC7700")
+        Log.Add vbNullString
+        Log.Spacer
+        If Log.WarningCount > 0 And Log.ErrorCount > 0 Then
+            Log.Add T("{0} warning(s), {1} error(s)", _
+                var0:=Log.WarningCount, var1:=Log.ErrorCount), , , strColor, True
+        ElseIf Log.WarningCount > 0 Then
+            Log.Add T("{0} warning(s)", var0:=Log.WarningCount), , , strColor, True
+        Else
+            Log.Add T("{0} error(s)", var0:=Log.ErrorCount), , , strColor, True
+        End If
+        ' List missing .env keys if any
+        Set dMissing = GetMissingEnvKeys
+        If dMissing.Count > 0 Then
+            Log.Add vbNullString
+            With New clsConcat
+                .AppendOnAdd = ", "
+                For Each varEnvKey In dMissing.Keys
+                    .Add CStr(varEnvKey)
+                Next varEnvKey
+                .Remove 2
+                Log.Add T("Missing .env keys: {0}", var0:=.GetStr), , , strColor
+            End With
+            Log.Add T("Ensure these keys are defined in: {0}", _
+                var0:=GetEnvFilePath), , , strColor
+        End If
+        Log.Spacer
+    End If
+
 CleanUp:
 
     ' Close cached connections

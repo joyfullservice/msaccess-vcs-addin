@@ -29,6 +29,7 @@ Private m_blnProgressActive As Boolean
 Private m_sngLastUpdate As Single
 Private m_sngLastMCPProgress As Single  ' Throttle MCP progress updates
 Private m_OperationId As String ' Timestamp with milliseconds: "20260126_153042_847"
+Private m_lngErrCount(eelNoError To eelCritical) As Long
 
 
 '---------------------------------------------------------------------------------------
@@ -40,6 +41,30 @@ Private m_OperationId As String ' Timestamp with milliseconds: "20260126_153042_
 '
 Public Property Get OperationId() As String
     OperationId = m_OperationId
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WarningCount
+' Author    : Adam Waller
+' Date      : 04/09/2026
+' Purpose   : Return the number of warnings logged during this operation.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get WarningCount() As Long
+    WarningCount = m_lngErrCount(eelWarning)
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ErrorCount
+' Author    : Adam Waller
+' Date      : 04/09/2026
+' Purpose   : Return the number of errors (eelError + eelCritical) logged.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get ErrorCount() As Long
+    ErrorCount = m_lngErrCount(eelError) + m_lngErrCount(eelCritical)
 End Property
 
 
@@ -190,6 +215,7 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
     Dim strPrefix As String
     Dim strDisplay As String
 
+    m_lngErrCount(eLevel) = m_lngErrCount(eLevel) + 1
     Select Case eLevel
         Case eelWarning:    strPrefix = "WARNING: "
         Case eelError:      strPrefix = "ERROR: "
@@ -373,6 +399,7 @@ Private Sub Class_Initialize()
     Set m_Log = New clsConcat
     m_blnProgressActive = False
     m_sngLastUpdate = 0
+    Erase m_lngErrCount
     Me.PadLength = 30
     Me.Active = False
     ' Generate timestamp-based operation ID with millisecond precision

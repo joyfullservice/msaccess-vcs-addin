@@ -656,9 +656,11 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
         If IsEnvReference(strConnect) Then
             strConnect = ResolveEnvConnection(strConnect)
             If Len(strConnect) = 0 Then
-                Log.Error eelWarning, T("Connection key not found in .env: {0}. " & _
-                    "Linked table may have an incomplete connection.", _
-                    var0:=dItem("Connect")), ModuleName(Me) & ".ImportLinkedTable"
+                ' The resolver already logged a warning on first occurrence.
+                ' Skip the doomed TableDefs.Append to avoid a guaranteed error 3264.
+                Log.Add "  " & T("Skipped {0} (missing .env key)", _
+                    var0:=dItem("Name")), Options.ShowDebug
+                Exit Function
             End If
         End If
         strConnect = GetFullConnect(strConnect)

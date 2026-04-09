@@ -17,6 +17,7 @@ Private m_dBackEndConnections As Dictionary
 Private m_dUnavailableBackEnds As Dictionary
 Private m_cEnvCache As clsDotEnv
 Private m_dEnvKeysWritten As Dictionary
+Private m_dMissingEnvKeys As Dictionary
 
 
 '---------------------------------------------------------------------------------------
@@ -770,8 +771,15 @@ Public Function ResolveEnvConnection(strRef As String) As String
     If Len(strValue) > 0 Then
         ResolveEnvConnection = strValue
     Else
-        Log.Error eelWarning, T("Connection key not found in .env file: {0}", _
-            var0:=strKey), ModuleName & ".ResolveEnvConnection"
+        ' Track missing keys and only warn on first occurrence
+        If m_dMissingEnvKeys Is Nothing Then Set m_dMissingEnvKeys = New Dictionary
+        If Not m_dMissingEnvKeys.Exists(strKey) Then
+            m_dMissingEnvKeys.Add strKey, 1
+            Log.Error eelWarning, T("Connection key not found in .env file: {0}", _
+                var0:=strKey), ModuleName & ".ResolveEnvConnection"
+        Else
+            m_dMissingEnvKeys(strKey) = m_dMissingEnvKeys(strKey) + 1
+        End If
     End If
 
 End Function
@@ -1026,7 +1034,25 @@ End Function
 Public Sub ClearEnvCache()
     Set m_cEnvCache = Nothing
     Set m_dEnvKeysWritten = Nothing
+    Set m_dMissingEnvKeys = Nothing
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetMissingEnvKeys
+' Author    : Adam Waller
+' Date      : 04/09/2026
+' Purpose   : Return dictionary of .env keys that were referenced but not found.
+'           : Keys are the key names, values are the number of times each was requested.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetMissingEnvKeys() As Dictionary
+    If m_dMissingEnvKeys Is Nothing Then
+        Set GetMissingEnvKeys = New Dictionary
+    Else
+        Set GetMissingEnvKeys = m_dMissingEnvKeys
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
