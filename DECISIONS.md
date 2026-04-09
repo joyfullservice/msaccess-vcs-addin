@@ -81,6 +81,114 @@ contradictory guidance.
 
 ---
 
+## 2026-04-09 — Filter auto-determined linked table properties at Standard sanitize level
+
+**Trigger**: After implementing LvProp parsing, the exported JSON contained
+significant noise from properties that Access auto-determines when linking a
+table: `UnicodeCompression` (set per column type — True for nvarchar, False
+for varchar/memo), `AppendOnly` (always False), and `TextFormat` (always 0 =
+plain text). These appeared on nearly every text field but were never manually
+customized.
+
+**Options explored**:
+- **Always include**: Safe but verbose. Every text field gets 1-3 extra
+  properties that convey no user intent. Makes diffs noisy.
+- **Always skip**: Cleanest output but removes information even when a user
+  explicitly chose a non-default setting (rare but possible).
+- **Skip at Standard sanitize level or above**: Matches the existing pattern
+  for form/report sanitization. Users who set sanitize level below Standard
+  retain full fidelity.
+
+**Decision**: Gate these filters on `m_intSanitizeLevel >= eslStandard`.
+`ParseLvProp` now accepts the sanitize level as a parameter. The three
+properties are skipped only when at their default values (UnicodeCompression
+is always skipped since its value is fully determined by the back-end column
+type and cannot be predicted without schema knowledge). A block comment
+explains the rationale so the filter can be revisited if a real use case for
+preserving these emerges.
+
+**What this rules out**: Users at Standard (the default) will not see these
+properties in JSON. If someone discovers a scenario where manually overriding
+UnicodeCompression on a linked table is meaningful, the filter should be
+changed to skip only at the default value rather than unconditionally. Revisit
+if bug reports mention missing UnicodeCompression after round-trip.
+
+**Relevant files**:
+- `modules/Utility/clsLvPropParser.cls` — `ShouldSkipFieldProperty`, new
+  `m_intSanitizeLevel` member, `ParseLvProp` signature change
+- `modules/Components/clsDbTableDef.cls` — passes `Options.SanitizeLevel`
+
+---
+
+## 2026-04-09 — Parse LvProp binary blob for linked table property export
+
+**Trigger**: Issue #691 — linked table JSON files were missing front-end
+display properties (column widths, lookup combos, captions, descriptions,
+custom properties). The initial DAO property iteration approach worked but
+was extremely slow: ~14ms per property read due to COM overhead, producing
+2.65s+ per table and 15-28 minute exports for databases with 350+ linked
+tables. ExportXML was tested but did not capture lookup/display properties
+for linked tables.
+
+**Options explored**:
+- **DAO property iteration with blacklist filtering**: Worked correctly but
+  inherently slow (~14ms per `.Value` access). Each property read triggers
+  COM overhead and, for Access-linked tables, a round-trip to the back-end
+  that causes a visible screen flash. Fails when back-end is offline.
+  Implemented first, then abandoned.
+- **DAO whitelist/direct-access**: Only read known properties by name.
+  Benchmarks showed it was not reliably faster due to cold-cache effects on
+  first `.Value` access. Loses unknown/custom properties.
+- **Application.ExportXML**: Tested with `acExportAllTableAndFieldProperties`.
+  Does not capture DisplayControl, RowSource, or other lookup properties for
+  linked tables. Also fails when back-end is offline. Eliminated.
+- **LvProp binary blob parsing**: The `LvProp` column in `MSysObjects` stores
+  all locally-overridden properties in a binary TLV format. Sub-millisecond
+  SQL read, works offline, captures everything including custom properties.
+  Requires reverse-engineering an undocumented binary format.
+- **Optional toggle (`SaveLinkedFieldProperties`)**: Added as a stopgap for
+  the DAO approach to let users skip the slow export. Removed after LvProp
+  eliminated the performance concern.
+
+**Decision**: Read `LvProp` blob via SQL for export (sub-millisecond), parse
+with `clsLvPropParser` (pure VBA byte math, no API calls). Write properties
+via `SetDAOProperty` on import (safe, documented API). This asymmetry is
+intentional: the undocumented blob format is safe to read but risky to write.
+
+Key properties of the LvProp blob:
+- Header: `MR2\0` magic + 4-byte dictionary size
+- Dictionary section: property name table (2-byte len + UTF-16LE entries)
+- Data section: field blocks (flag=1) and table block (flag=0)
+- Each entry: `[2:size][1:flags][1:type][2:nameIndex][2:valLen][value]`
+- ODBC-linked tables store ALL display/lookup properties locally
+- Access-linked tables store only overrides (layout, custom); lookup defs
+  are inherited from the back-end
+
+The `SaveLinkedFieldProperties` option was removed since performance is no
+longer a concern. The feature is always-on, gated only by
+`ExportFormatVersion >= EFV_5_0_0`.
+
+**What this rules out**: Any future change to the LvProp binary format by
+Microsoft would break the parser. This is low risk — the format has been
+stable across Access 2007-2021+. If it changes, the parser will fail
+gracefully (MR2 magic check) and produce empty property sets rather than
+corrupt data. Writing LvProp directly is explicitly ruled out in favor of
+the DAO import path.
+
+**Relevant files**:
+- `modules/Utility/clsLvPropParser.cls` — new binary parser class
+- `modules/Components/clsDbTableDef.cls` — export uses parser, import
+  unchanged (DAO `SetDAOProperty`)
+- `modules/Utility/modDatabase.bas` — `LongToSingle` helper + UDTs for
+  IEEE float conversion (BackTint/BackShade properties)
+- `modules/Infrastructure/clsOptions.cls` — `SaveLinkedFieldProperties`
+  removed
+- `forms/frmVCSOptionsAdvanced.cls` and `.form` — checkbox removed
+- `vcs-options.json` — option entry removed
+- `Issues/691.md` (msaccess-vcs-mgmt repo) — updated with LvProp findings
+
+---
+
 ## 2026-04-03 — Template command bar unavailability is expected during consecutive add-in builds
 
 **Trigger**: Running two consecutive "Build from Source" operations on the

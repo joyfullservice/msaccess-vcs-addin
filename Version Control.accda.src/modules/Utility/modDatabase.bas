@@ -13,6 +13,15 @@ Option Explicit
 
 Private Const ModuleName As String = "modDatabase"
 
+' UDTs for reinterpreting a Long bit pattern as IEEE 754 Single (used by LongToSingle)
+Private Type typLong
+    Value As Long
+End Type
+
+Private Type typSingle
+    Value As Single
+End Type
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ProjectPath
@@ -899,4 +908,22 @@ End Function
 '
 Public Function IsMDE() As Boolean
     IsMDE = (GetDBProperty("MDE") = "T")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LongToSingle
+' Author    : Adam Waller
+' Date      : 3/23/2026
+' Purpose   : Reinterprets the raw 4-byte bit pattern of a Long as an IEEE 754
+'           : Single-precision float. Used by clsLvPropParser to decode Single-type
+'           : properties (e.g. BackTint=100.0 stored as 0x42C80000) from the LvProp blob.
+'---------------------------------------------------------------------------------------
+'
+Public Function LongToSingle(lngVal As Long) As Single
+    Dim typLng As typLong
+    Dim typSng As typSingle
+    typLng.Value = lngVal
+    LSet typSng = typLng
+    LongToSingle = typSng.Value
 End Function

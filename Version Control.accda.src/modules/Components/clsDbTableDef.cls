@@ -42,7 +42,12 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim dbs As Database
     Dim tdf As DAO.TableDef
     Dim idx As DAO.Index
+    Dim fld As DAO.Field
     Dim dItem As Dictionary
+    Dim rst As DAO.Recordset
+    Dim bteLvProp() As Byte
+    Dim parser As clsLvPropParser
+    Dim dProps As Dictionary
     Dim strHash As String
     Dim strContent As String
     Dim strConnect As String
@@ -120,6 +125,36 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                 Next idx
             End If
         End With
+
+        ' Export front-end display properties by reading the LvProp binary blob
+        ' from MSysObjects. This is sub-millisecond, works offline, and captures
+        ' all locally-stored properties (column widths, lookup combos, formatting,
+        ' datasheet colors, custom properties, etc.)
+        If Options.ExportFormatVersion >= EFV_5_0_0 Then
+            Perf.OperationStart "Export Linked Props"
+            Set rst = dbs.OpenRecordset( _
+                "SELECT LvProp FROM MSysObjects WHERE Name=""" & tdf.Name & """", _
+                dbOpenSnapshot)
+            If Not rst.EOF Then
+                If Not IsNull(rst!LvProp) Then
+                    bteLvProp = rst!LvProp
+                    Set parser = New clsLvPropParser
+                    Set dProps = parser.ParseLvProp(bteLvProp, Options.SanitizeLevel)
+                    If dProps.Exists("FieldProperties") Then
+                        If dProps("FieldProperties").Count > 0 Then
+                            dItem.Add "FieldProperties", dProps("FieldProperties")
+                        End If
+                    End If
+                    If dProps.Exists("TableProperties") Then
+                        If dProps("TableProperties").Count > 0 Then
+                            dItem.Add "TableProperties", SortDictionaryByKeys(dProps("TableProperties"))
+                        End If
+                    End If
+                End If
+            End If
+            rst.Close
+            Perf.OperationEnd
+        End If
 
         ' Write export file.
         strContent = BuildJsonFile(TypeName(Me), dItem, "Linked Table")
@@ -599,6 +634,12 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
     Dim tdf As DAO.TableDef
     Dim strSql As String
     Dim strConnect As String
+    Dim dFieldsImport As Dictionary
+    Dim dFieldPropsImport As Dictionary
+    Dim dTablePropsImport As Dictionary
+    Dim dProp As Dictionary
+    Dim varField As Variant
+    Dim varPropName As Variant
 
     LogUnhandledErrors
     On Error Resume Next
@@ -658,6 +699,37 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
                     dbs.TableDefs.Refresh
                 End If
             End If
+
+            ' Restore front-end display properties for fields
+            If dItem.Exists("FieldProperties") Then
+                Perf.OperationStart "Import Linked Field Props"
+                Set dFieldsImport = dItem("FieldProperties")
+                For Each varField In dFieldsImport.Keys
+                    Set dFieldPropsImport = dFieldsImport(varField)
+                    For Each varPropName In dFieldPropsImport.Keys
+                        If TypeOf dFieldPropsImport(varPropName) Is Dictionary Then
+                            Set dProp = dFieldPropsImport(varPropName)
+                            SetDAOProperty tdf.Fields(CStr(varField)), _
+                                dProp("Type"), CStr(varPropName), dProp("Value")
+                        End If
+                    Next varPropName
+                Next varField
+                Perf.OperationEnd
+            End If
+
+            ' Restore front-end display properties for the table
+            If dItem.Exists("TableProperties") Then
+                Perf.OperationStart "Import Linked Table Props"
+                Set dTablePropsImport = dItem("TableProperties")
+                For Each varPropName In dTablePropsImport.Keys
+                    If TypeOf dTablePropsImport(varPropName) Is Dictionary Then
+                        Set dProp = dTablePropsImport(varPropName)
+                        SetDAOProperty tdf, dProp("Type"), CStr(varPropName), dProp("Value")
+                    End If
+                Next varPropName
+                Perf.OperationEnd
+            End If
+
             ImportLinkedTable = (Err.Number = 0)
         End If
     End If

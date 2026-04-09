@@ -268,25 +268,25 @@ End Function
 '           : to make the function as performant as possible.
 '---------------------------------------------------------------------------------------
 '
-Public Function DictionaryEqual(dOne As Dictionary, dTwo As Dictionary) As Boolean
+Public Function DictionaryEqual(dSource As Dictionary, dCompare As Dictionary) As Boolean
 
-    Dim strOne As String
-    Dim strTwo As String
+    Dim strSource As String
+    Dim strCompare As String
     Dim blnEqual As Boolean
 
     Perf.OperationStart "Compare Dictionary"
-    If dOne Is Nothing And dTwo Is Nothing Then
+    If dSource Is Nothing And dCompare Is Nothing Then
         ' Neither object set.
         blnEqual = True
-    ElseIf Not dOne Is Nothing And Not dTwo Is Nothing Then
+    ElseIf Not dSource Is Nothing And Not dCompare Is Nothing Then
         ' Both are objects. Check count property.
-        If dOne.Count = dTwo.Count Then
-            strOne = ConvertToJson(dOne)
-            strTwo = ConvertToJson(dTwo)
+        If dSource.Count = dCompare.Count Then
+            strSource = ConvertToJson(dSource)
+            strCompare = ConvertToJson(dCompare)
             ' Compare string length
-            If Len(strOne) = Len(strTwo) Then
+            If Len(strSource) = Len(strCompare) Then
                 ' Perform a binary (case-sensitive) comparison of strings.
-                blnEqual = (StrComp(strOne, strTwo, vbBinaryCompare) = 0)
+                blnEqual = (StrComp(strSource, strCompare, vbBinaryCompare) = 0)
             End If
         End If
     End If
