@@ -479,16 +479,22 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     End If
 
     ' Show final output and save log
+    Dim dMissing As Dictionary
+    Dim varEnvKey As Variant
+    Dim strColor As String
+    If Log.ErrorCount > 0 Then
+        strColor = "red"
+    ElseIf Log.WarningCount > 0 Then
+        strColor = "#CC7700"
+    Else
+        strColor = "green"
+    End If
     Log.Spacer
-    Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
+    Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, strColor, True
     blnSuccess = True
 
     ' Show warning/error summary if any issues occurred
     If Log.WarningCount > 0 Or Log.ErrorCount > 0 Then
-        Dim dMissing As Dictionary
-        Dim varEnvKey As Variant
-        Dim strColor As String
-        strColor = IIf(Log.ErrorCount > 0, "red", "#CC7700")
         Log.Add vbNullString
         Log.Spacer
         If Log.WarningCount > 0 And Log.ErrorCount > 0 Then
