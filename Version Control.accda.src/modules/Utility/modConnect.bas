@@ -546,33 +546,87 @@ End Function
 ' Procedure : GetConnectionEnvKey
 ' Author    : Adam Waller
 ' Date      : 03/17/2026
-' Purpose   : Generate a deterministic .env key for a connection string by hashing
-'           : the non-sensitive parts (everything except UID and PWD).
-'           : Returns "conn_" followed by a 7-character SHA-256 hash.
+' Purpose   : Generate a deterministic, readable .env key for a connection string
+'           : based on the database identity (DATABASE= value or DSN= value).
+'           : Volatile parts (SERVER=, DRIVER=, credentials) are excluded so the
+'           : key is stable across environments. Auto-generated keys are lowercase.
+'           : Falls back to a hash when no identity can be extracted.
 '---------------------------------------------------------------------------------------
 '
 Public Function GetConnectionEnvKey(strConnect As String) As String
 
+    Dim strIdentity As String
+    Dim strDbName As String
     Dim varParts As Variant
     Dim lngPart As Long
     Dim strPart As String
 
     If Len(strConnect) = 0 Then Exit Function
 
-    ' Build a string from the connection parts, excluding UID and PWD
-    varParts = Split(strConnect, ";")
-    With New clsConcat
-        .AppendOnAdd = ";"
-        For lngPart = 0 To UBound(varParts)
-            strPart = CStr(varParts(lngPart))
-            If Not StartsWith(strPart, "UID=", vbTextCompare) _
-                And Not StartsWith(strPart, "PWD=", vbTextCompare) Then
-                .Add strPart
-            End If
-        Next lngPart
-        .Remove 1
-        GetConnectionEnvKey = ENV_KEY_PREFIX & GetSimpleHash(.GetStr)
-    End With
+    ' Extract database identity based on connection type
+    strDbName = GetConnectPart(strConnect, "DATABASE")
+    If Len(strDbName) > 0 Then
+        If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 _
+            Or InStr(1, strConnect, "MS Access;", vbTextCompare) = 1 Then
+            ' Access back-end: use filename without extension
+            strIdentity = FSO.GetBaseName(strDbName)
+        Else
+            ' ODBC or other: use DATABASE name directly
+            strIdentity = strDbName
+        End If
+    Else
+        ' No DATABASE=; try DSN=
+        strIdentity = GetConnectPart(strConnect, "DSN")
+    End If
+
+    If Len(strIdentity) > 0 Then
+        ' Readable key from database identity (sanitized to lowercase)
+        GetConnectionEnvKey = ENV_KEY_PREFIX & SanitizeKeyName(strIdentity)
+    Else
+        ' Fallback: hash the connection string excluding credentials
+        varParts = Split(strConnect, ";")
+        With New clsConcat
+            .AppendOnAdd = ";"
+            For lngPart = 0 To UBound(varParts)
+                strPart = CStr(varParts(lngPart))
+                If Not StartsWith(strPart, "UID=", vbTextCompare) _
+                    And Not StartsWith(strPart, "PWD=", vbTextCompare) Then
+                    .Add strPart
+                End If
+            Next lngPart
+            .Remove 1
+            GetConnectionEnvKey = ENV_KEY_PREFIX & GetSimpleHash(.GetStr)
+        End With
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SanitizeKeyName
+' Author    : Adam Waller
+' Date      : 04/09/2026
+' Purpose   : Replace non-alphanumeric characters (except underscore) with underscores
+'           : to produce a valid .env key name.
+'---------------------------------------------------------------------------------------
+'
+Private Function SanitizeKeyName(strName As String) As String
+
+    Dim lngPos As Long
+    Dim strChar As String
+
+    SanitizeKeyName = LCase$(strName)
+    For lngPos = 1 To Len(SanitizeKeyName)
+        strChar = Mid$(SanitizeKeyName, lngPos, 1)
+        Select Case True
+            Case (strChar >= "a" And strChar <= "z"), _
+                 (strChar >= "0" And strChar <= "9"), _
+                 (strChar = "_")
+                ' Keep lowercase alphanumeric and underscore
+            Case Else
+                Mid$(SanitizeKeyName, lngPos, 1) = "_"
+        End Select
+    Next lngPos
 
 End Function
 
@@ -582,15 +636,26 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 03/17/2026
 ' Purpose   : Determines whether a connection string should be stored in the .env file.
-'           : Checks the UseEnvForConnections option and export format version.
+'           : First checks for user-defined named connections (Tier 2), then falls back
+'           : to auto-generated keys (Tier 1) based on the UseEnvForConnections option.
 '           : Returns the env key if substitution should happen, or empty string if not.
 '---------------------------------------------------------------------------------------
 '
 Public Function ShouldUseEnvForConnection(strConnect As String) As String
 
+    Dim strNamedKey As String
+
     ' Must be on export format v5+
     If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Function
 
+    ' Tier 2: Check user-defined named connections first
+    strNamedKey = FindNamedConnectionKey(strConnect)
+    If Len(strNamedKey) > 0 Then
+        ShouldUseEnvForConnection = strNamedKey
+        Exit Function
+    End If
+
+    ' Tier 1: Auto-generated keys
     Select Case Options.UseEnvForConnections
         Case uecNever
             Exit Function
@@ -640,14 +705,18 @@ Public Sub SaveConnectionToEnv(strKey As String, strConnect As String, strSource
     Dim strCommentKey As String
     Dim blnNewFile As Boolean
 
-    strFile = GetEnvFilePath
-    Set cEnv = GetEnvCache(True)
-
     ' Track this key as written during the current export
     If m_dEnvKeysWritten Is Nothing Then Set m_dEnvKeysWritten = New Dictionary
     If Not m_dEnvKeysWritten.Exists(strKey) Then
         m_dEnvKeysWritten.Add strKey, strSourceObject
     End If
+
+    ' For named connections (Tier 2), don't overwrite the user's .env value.
+    ' The key is tracked above for unused-entry detection.
+    If IsDefinedConnectionName(strKey) Then Exit Sub
+
+    strFile = GetEnvFilePath
+    Set cEnv = GetEnvCache(True)
 
     ' Check if this is a brand new file (no existing entries)
     blnNewFile = (cEnv.Lines.Count = 0)
@@ -679,7 +748,7 @@ End Sub
 ' Procedure : ResolveEnvConnection
 ' Author    : Adam Waller
 ' Date      : 03/17/2026
-' Purpose   : Given a string like "env:conn_a3f72b1", look up the key in the .env file
+' Purpose   : Given a string like "env:conn_appdb", look up the key in the .env file
 '           : and return the full connection string. Returns empty string with a warning
 '           : if the key is not found.
 '---------------------------------------------------------------------------------------
@@ -724,7 +793,7 @@ End Function
 ' Procedure : ResolveEnvReferencesInText
 ' Author    : Adam Waller
 ' Date      : 03/17/2026
-' Purpose   : Find and replace all env:conn_HASH patterns in text content.
+' Purpose   : Find and replace all env:conn_* patterns in text content.
 '           : Used to resolve .env references in .qdef files before LoadFromText.
 '---------------------------------------------------------------------------------------
 '
@@ -768,6 +837,143 @@ Public Function ResolveEnvReferencesInText(strContent As String) As String
         ' Find next occurrence
         lngPos = InStr(lngPos, ResolveEnvReferencesInText, "env:" & ENV_KEY_PREFIX, vbTextCompare)
     Loop
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindNamedConnectionKey
+' Author    : Adam Waller
+' Date      : 04/09/2026
+' Purpose   : Check if a connection string matches any user-defined named connection
+'           : from EnvConnectionNames in vcs-options.json. Compares the raw connection
+'           : against the expanded .env values using order-independent parameter matching.
+'           : Returns the named key if matched, or empty string if not.
+'---------------------------------------------------------------------------------------
+'
+Public Function FindNamedConnectionKey(strConnect As String) As String
+
+    Dim colNames As Collection
+    Dim varName As Variant
+    Dim strName As String
+    Dim strEnvValue As String
+    Dim cEnv As clsDotEnv
+
+    Set colNames = Options.EnvConnectionNames
+    If colNames Is Nothing Then Exit Function
+    If colNames.Count = 0 Then Exit Function
+
+    Set cEnv = GetEnvCache(True)
+
+    For Each varName In colNames
+        strName = CStr(varName)
+        strEnvValue = cEnv.GetVar(strName, False)
+        If Len(strEnvValue) > 0 Then
+            ' Expand relative paths so both sides are comparable
+            If ConnectionParamsMatch(strConnect, GetFullConnect(strEnvValue)) Then
+                FindNamedConnectionKey = strName
+                Exit Function
+            End If
+        End If
+    Next varName
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsDefinedConnectionName
+' Author    : Adam Waller
+' Date      : 04/09/2026
+' Purpose   : Returns True if the key is one of the user-defined named connections
+'           : from EnvConnectionNames in vcs-options.json.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsDefinedConnectionName(strKey As String) As Boolean
+
+    Dim colNames As Collection
+    Dim varName As Variant
+
+    Set colNames = Options.EnvConnectionNames
+    If colNames Is Nothing Then Exit Function
+
+    For Each varName In colNames
+        If StrComp(CStr(varName), strKey, vbTextCompare) = 0 Then
+            IsDefinedConnectionName = True
+            Exit Function
+        End If
+    Next varName
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ConnectionParamsMatch
+' Author    : Adam Waller
+' Date      : 04/09/2026
+' Purpose   : Compare two connection strings by their parameter values, ignoring
+'           : parameter order. Both keys and values are compared case-insensitively.
+'---------------------------------------------------------------------------------------
+'
+Private Function ConnectionParamsMatch(strConnect1 As String, strConnect2 As String) As Boolean
+
+    Dim d1 As Dictionary
+    Dim d2 As Dictionary
+    Dim varKey As Variant
+
+    Set d1 = ParseConnectionParams(strConnect1)
+    Set d2 = ParseConnectionParams(strConnect2)
+
+    If d1.Count <> d2.Count Then Exit Function
+
+    For Each varKey In d1.Keys
+        If Not d2.Exists(CStr(varKey)) Then Exit Function
+        If StrComp(CStr(d1(varKey)), CStr(d2(varKey)), vbTextCompare) <> 0 Then Exit Function
+    Next varKey
+
+    ConnectionParamsMatch = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ParseConnectionParams
+' Author    : Adam Waller
+' Date      : 04/09/2026
+' Purpose   : Parse a semicolon-delimited connection string into a dictionary of
+'           : parameter name/value pairs. Prefix segments without "=" (like "ODBC")
+'           : are stored as keys with empty values.
+'---------------------------------------------------------------------------------------
+'
+Private Function ParseConnectionParams(strConnect As String) As Dictionary
+
+    Dim dParams As Dictionary
+    Dim varParts As Variant
+    Dim lngPart As Long
+    Dim strPart As String
+    Dim lngEq As Long
+
+    Set dParams = New Dictionary
+    dParams.CompareMode = TextCompare
+
+    If Len(strConnect) = 0 Then
+        Set ParseConnectionParams = dParams
+        Exit Function
+    End If
+
+    varParts = Split(strConnect, ";")
+    For lngPart = 0 To UBound(varParts)
+        strPart = Trim$(CStr(varParts(lngPart)))
+        If Len(strPart) > 0 Then
+            lngEq = InStr(1, strPart, "=")
+            If lngEq > 0 Then
+                dParams(Left$(strPart, lngEq - 1)) = Mid$(strPart, lngEq + 1)
+            Else
+                dParams(strPart) = vbNullString
+            End If
+        End If
+    Next lngPart
+
+    Set ParseConnectionParams = dParams
 
 End Function
 

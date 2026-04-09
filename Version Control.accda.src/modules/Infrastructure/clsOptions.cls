@@ -56,6 +56,7 @@ Public PreserveRubberDuckID As Boolean
 Public MaxLogFiles As Long              ' Default: 20 (per operation type), 0 = keep all
 Public SaveAllDocumentProperties As Boolean
 Public UseEnvForConnections As eUseEnvConnections
+Public EnvConnectionNames As Collection ' User-defined named connection keys for .env
 Public ExportFormatVersion As Long      ' Packed integer from eExportFormatVersion enum
 Public ExportLayoutSvg As Boolean
 Public LayoutSvgImageEmbed As String    ' "None", "Small", "Medium", "All"
@@ -110,6 +111,7 @@ Public Sub LoadDefaults()
         .MaxLogFiles = 20
         .SaveAllDocumentProperties = False
         .UseEnvForConnections = uecAuto
+        Set .EnvConnectionNames = New Collection
         .ExportFormatVersion = LATEST_EXPORT_FORMAT
         .ExportLayoutSvg = False
         .LayoutSvgImageEmbed = "Small"
@@ -278,6 +280,10 @@ Public Sub LoadOptionsFromFile(strFile As String)
                             Set Me.TablesToExportData = CloneDictionary(dOptions(strKey), ecmTextCompare)
                         Case "SchemaExports"
                             Set Me.SchemaExports = CloneDictionary(dOptions(strKey), ecmTextCompare)
+                        Case "EnvConnectionNames"
+                            If IsObject(dOptions(strKey)) Then
+                                Set Me.EnvConnectionNames = dOptions(strKey)
+                            End If
                         Case "ExportFormatVersion"
                             Me.ExportFormatVersion = VersionToExportFormat(CStr(dOptions(strKey)))
                         Case Else
@@ -650,6 +656,11 @@ Private Function SerializeOptions() As Dictionary
         Select Case CStr(varOption)
             Case "ExportFormatVersion"
                 dOptions.Add CStr(varOption), ExportFormatToVersion(Me.ExportFormatVersion)
+            Case "EnvConnectionNames"
+                ' Only serialize when entries are defined
+                If Me.EnvConnectionNames.Count > 0 Then
+                    dOptions.Add CStr(varOption), Me.EnvConnectionNames
+                End If
             Case Else
                 dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
         End Select
@@ -744,7 +755,7 @@ Public Function GetCategoryHashes() As Dictionary
                 AddToCat dCats, "Table Data Macros", varKey, dOptions("Options")
 
             ' --- Connections (Tables, Queries, DB Connections) ---
-            Case "UseEnvForConnections"
+            Case "UseEnvForConnections", "EnvConnectionNames"
                 AddToCat dCats, "Tables", varKey, dOptions("Options")
                 AddToCat dCats, "Queries", varKey, dOptions("Options")
                 AddToCat dCats, "DB Connections", varKey, dOptions("Options")
@@ -953,6 +964,7 @@ Private Sub Class_Initialize()
         .Add "MaxLogFiles"
         .Add "SaveAllDocumentProperties"
         .Add "UseEnvForConnections"
+        .Add "EnvConnectionNames"
         .Add "ExportFormatVersion"
         .Add "ExportLayoutSvg"
         .Add "LayoutSvgImageEmbed"

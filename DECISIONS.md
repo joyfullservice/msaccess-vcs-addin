@@ -81,6 +81,37 @@ contradictory guidance.
 
 ---
 
+## 2026-04-09 — Stable, readable .env connection keys with named connection overrides
+
+**Trigger**: Auto-generated `.env` keys for linked table connection strings used a hash of the full connection string (`conn_<hash>`). When developers worked across environments (e.g., local SQL dev vs. production server), different SERVER=, DRIVER=, or credential values produced different hashes — breaking the key mapping. Source files exported on one machine wouldn't resolve on another because the `env:conn_<hash>` reference pointed to a key that didn't exist in the other developer's `.env`.
+
+**Options explored**:
+- **Hash of full connection string (original)**: Simple and unique. Failed across environments because volatile parts (SERVER=, DRIVER=, UID=, PWD=) changed the hash. This was the behavior being replaced.
+- **Hash of stable parts only**: Strip volatile parts before hashing. Still produces opaque keys. Considered but rejected in favor of readable keys.
+- **Readable key from database identity**: Use the DATABASE= value (for ODBC) or the Access filename (for linked `.accdb`/`.mdb`) or DSN= as the key basis. Produces `conn_myappdb` instead of `conn_a3f72b1`. Chosen as the Tier 1 default — human-readable, stable across environments, and only falls back to hash when no identity can be extracted.
+- **Include server/driver in key**: Would make keys environment-specific again. Rejected — the whole point is cross-environment stability.
+- **User-configurable key composition**: Let users pick which parts (driver, server, database, table) form the key. Overcomplicated for minimal benefit. Rejected in favor of Tier 2 named connections.
+
+**Decision**: Two-tier approach for `.env` connection key generation, implemented within the existing (unreleased) `EFV_5_0_0` gate:
+
+**Tier 1 — Auto-generated readable keys** (`GetConnectionEnvKey`): Extract the database identity from the connection string — `DATABASE=` value for ODBC, `FSO.GetBaseName` for Access file paths, or `DSN=` as fallback. Run through `SanitizeKeyName` (lowercase, replace non-alphanumeric with underscores). Result: `conn_myappdb`. Falls back to `conn_<hash>` only when no identity is extractable.
+
+**Tier 2 — User-defined named connections** (`EnvConnectionNames` in `vcs-options.json`): Users list key names (e.g., `["conn_production", "conn_warehouse"]`) in the shared options file. The actual connection strings live in each developer's `.env`. On export, `FindNamedConnectionKey` compares the live table's connection string against each named key's `.env` value using order-independent, case-insensitive parameter matching (`ConnectionParamsMatch`). Named connections are checked first in `ShouldUseEnvForConnection` and `SaveConnectionToEnv` tracks them but does not overwrite user-maintained `.env` values.
+
+Key design choices:
+- Auto-generated keys are always lowercase. User-defined keys preserve the user's original casing.
+- `SanitizeKeyName` lowercases first, then replaces non-`[a-z0-9_]` characters with underscores.
+- `ParseConnectionParams` splits connection strings into dictionaries with `TextCompare` for case-insensitive key lookup.
+- No new export format version — changes are within the unreleased `EFV_5_0_0`.
+
+**What this rules out**: Connection keys based on server name or driver version are intentionally excluded — the key must be the same regardless of where the database is hosted. If two different databases on the same server have the same DATABASE= name, they'll get the same auto-generated key and Tier 2 named connections must be used to disambiguate. Revisit if users report frequent collisions with common database names.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/modConnect.bas` — `GetConnectionEnvKey` (rewritten), `SanitizeKeyName` (new), `ShouldUseEnvForConnection` (updated for Tier 2), `SaveConnectionToEnv` (updated to skip named connections), `FindNamedConnectionKey` (new), `IsDefinedConnectionName` (new), `ConnectionParamsMatch` (new), `ParseConnectionParams` (new)
+- `Version Control.accda.src/modules/Infrastructure/clsOptions.cls` — `EnvConnectionNames` property (new Collection), serialization, loading, category hash
+
+---
+
 ## 2026-04-09 — Filter auto-determined linked table properties at Standard sanitize level
 
 **Trigger**: After implementing LvProp parsing, the exported JSON contained
@@ -514,6 +545,8 @@ The ribbon button (`btnStandardizeLetterCasing`) is placed in the Advanced Tools
 ---
 
 ## 2026-03-17 — Secure connection string storage via .env file references
+
+> **⚠ Partially superseded** (2026-04-09): The key generation algorithm (`GetConnectionEnvKey`) was rewritten to produce readable, environment-stable keys instead of hashes. A second tier of user-defined named connections was added. See "Stable, readable .env connection keys with named connection overrides" above.
 
 **Trigger**: Exported source files contained plaintext passwords in linked table connection strings, pass-through query definitions, and `db-connection.json`. When committed to version control, credentials were exposed to anyone with repository access (GitHub issue #670, #476).
 
