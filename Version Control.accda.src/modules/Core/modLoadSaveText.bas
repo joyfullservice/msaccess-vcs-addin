@@ -441,6 +441,7 @@ Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As Strin
     Dim dItems As Dictionary
     Dim dProps As Dictionary
     Dim dProp As Dictionary
+    Dim dHeader As Dictionary
     Dim doc As DAO.Document
     Dim prp As DAO.Property
     Dim dbs As Database
@@ -452,7 +453,9 @@ Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As Strin
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    ' Read existing .json file content (may contain print settings, etc.)
+    ' Read existing .json file content (may contain linked table data, print settings, etc.)
+    ' We modify the existing dictionary in-place so that all existing content (Info header,
+    ' Items keys like Connect/SourceTableName, etc.) is preserved automatically.
     If FSO.FileExists(strJsonFile) Then
         Set dFile = ReadJsonFile(strJsonFile)
     End If
@@ -533,9 +536,18 @@ Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As Strin
 
     ' Determine if the file has any remaining content worth keeping
     If blnHasMetadata Or HasNonMetadataKeys(dItems) Then
-        ' Write/update the companion .json file
-        WriteFile BuildJsonFile(vbNullString, dItems, _
-            strObjectName & " Metadata"), strJsonFile
+        ' Ensure the file has an Info header (needed for new companion files;
+        ' existing files like linked tables already have one and it is preserved)
+        If Not dFile.Exists("Info") Then
+            Set dHeader = New Dictionary
+            dHeader.Add "Class", vbNullString
+            dHeader.Add "Description", strObjectName & " Metadata"
+            ' Build new dictionary with Info before Items for correct JSON key order
+            Set dFile = New Dictionary
+            dFile.Add "Info", dHeader
+            dFile.Add "Items", dItems
+        End If
+        WriteFile ConvertToJson(dFile, JSON_WHITESPACE), strJsonFile
     Else
         ' No metadata and no other content -- remove the file
         If FSO.FileExists(strJsonFile) Then DeleteFile strJsonFile
