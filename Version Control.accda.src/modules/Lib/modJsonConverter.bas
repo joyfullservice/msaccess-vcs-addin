@@ -232,7 +232,7 @@ Public Function ConvertToJson(ByVal JsonValue As Variant, Optional ByVal Whitesp
     Dim json_Indentation As String
     Dim json_InnerIndentation As String
 
-    Perf.OperationStart "Convert to JSON"
+    If json_CurrentIndentation = 0 Then Perf.OperationStart "Convert to JSON"
 
     json_LBound = -1
     json_UBound = -1
@@ -477,7 +477,7 @@ Public Function ConvertToJson(ByVal JsonValue As Variant, Optional ByVal Whitesp
         On Error GoTo 0
     End Select
 
-    Perf.OperationEnd
+    If json_CurrentIndentation = 0 Then Perf.OperationEnd
 
 End Function
 
