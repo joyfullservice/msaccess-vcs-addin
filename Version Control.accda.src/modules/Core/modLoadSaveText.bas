@@ -423,49 +423,30 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ExportObjectMetadata
+' Procedure : CollectObjectMetadata
 ' Author    : Adam Waller
-' Date      : 3/12/2026
-' Purpose   : Reads document properties and hidden attribute for a single database
-'           : object and writes/updates the "Properties" and "Hidden" keys in the
-'           : companion .json file. Merges with any existing content (print settings,
-'           : linked table data) rather than replacing the whole file.
-'           : Removes the "Properties"/"Hidden" keys when empty, and deletes the
-'           : .json file entirely if no content remains.
+' Date      : 4/10/2026
+' Purpose   : Reads document properties and hidden attribute from the database object
+'           : and adds "Properties" and/or "Hidden" keys to the provided Items dictionary.
+'           : Any existing Properties/Hidden keys are removed first.
+'           : This is the shared logic used by both ExportObjectMetadata (file-based path)
+'           : and inline callers like clsDbTableDef that build their dictionary in memory.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As String, _
-                                strObjectName As String, intObjType As AcObjectType)
+Public Sub CollectObjectMetadata(dItems As Dictionary, strContainerName As String, _
+                                 strObjectName As String, intObjType As AcObjectType)
 
-    Dim dFile As Dictionary
-    Dim dItems As Dictionary
     Dim dProps As Dictionary
     Dim dProp As Dictionary
-    Dim dHeader As Dictionary
     Dim doc As DAO.Document
     Dim prp As DAO.Property
     Dim dbs As Database
     Dim blnHidden As Boolean
-    Dim blnHasMetadata As Boolean
 
     ' Gate behind export format version
     If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Sub
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-
-    ' Read existing .json file content (may contain linked table data, print settings, etc.)
-    ' We modify the existing dictionary in-place so that all existing content (Info header,
-    ' Items keys like Connect/SourceTableName, etc.) is preserved automatically.
-    If FSO.FileExists(strJsonFile) Then
-        Set dFile = ReadJsonFile(strJsonFile)
-    End If
-    If dFile Is Nothing Then Set dFile = New Dictionary
-    If dFile.Exists("Items") Then
-        Set dItems = dFile("Items")
-    Else
-        Set dItems = New Dictionary
-        Set dFile("Items") = dItems
-    End If
 
     ' Remove any existing metadata keys before rebuilding
     If dItems.Exists("Properties") Then dItems.Remove "Properties"
@@ -493,7 +474,7 @@ Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As Strin
             End Select
         Next prp
         CatchAny eelError, "Error reading document properties for " & strObjectName, _
-            ModuleName & ".ExportObjectMetadata"
+            ModuleName & ".CollectObjectMetadata"
     Else
         ' Fast path: only check for Description property
         LogUnhandledErrors
@@ -518,7 +499,6 @@ Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As Strin
     ' Add Properties section if any properties were found
     If dProps.Count > 0 Then
         dItems.Add "Properties", SortDictionaryByKeys(dProps)
-        blnHasMetadata = True
     End If
 
     ' Check hidden attribute
@@ -531,11 +511,54 @@ Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As Strin
 
     If blnHidden Then
         dItems.Add "Hidden", True
-        blnHasMetadata = True
     End If
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportObjectMetadata
+' Author    : Adam Waller
+' Date      : 3/12/2026
+' Purpose   : Reads document properties and hidden attribute for a single database
+'           : object and writes/updates the "Properties" and "Hidden" keys in the
+'           : companion .json file. Merges with any existing content (print settings,
+'           : linked table data) rather than replacing the whole file.
+'           : Removes the "Properties"/"Hidden" keys when empty, and deletes the
+'           : .json file entirely if no content remains.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As String, _
+                                strObjectName As String, intObjType As AcObjectType)
+
+    Dim dFile As Dictionary
+    Dim dItems As Dictionary
+    Dim dHeader As Dictionary
+
+    ' Gate behind export format version
+    If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Sub
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Read existing .json file content (may contain linked table data, print settings, etc.)
+    ' We modify the existing dictionary in-place so that all existing content (Info header,
+    ' Items keys like Connect/SourceTableName, etc.) is preserved automatically.
+    If FSO.FileExists(strJsonFile) Then
+        Set dFile = ReadJsonFile(strJsonFile)
+    End If
+    If dFile Is Nothing Then Set dFile = New Dictionary
+    If dFile.Exists("Items") Then
+        Set dItems = dFile("Items")
+    Else
+        Set dItems = New Dictionary
+        Set dFile("Items") = dItems
+    End If
+
+    ' Collect metadata into the Items dictionary
+    CollectObjectMetadata dItems, strContainerName, strObjectName, intObjType
+
     ' Determine if the file has any remaining content worth keeping
-    If blnHasMetadata Or HasNonMetadataKeys(dItems) Then
+    If dItems.Exists("Properties") Or dItems.Exists("Hidden") Or HasNonMetadataKeys(dItems) Then
         ' Ensure the file has an Info header (needed for new companion files;
         ' existing files like linked tables already have one and it is preserved)
         If Not dFile.Exists("Info") Then

@@ -156,6 +156,13 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             Perf.OperationEnd
         End If
 
+        ' Collect object metadata (doc properties + hidden attribute) directly into
+        ' the dictionary before serializing. This avoids the write-read-merge-rewrite
+        ' cycle that ExportObjectMetadata would otherwise perform for linked tables.
+        If strAlternatePath = vbNullString Then
+            CollectObjectMetadata dItem, "Tables", m_Table.Name, acTable
+        End If
+
         ' Write export file.
         strContent = BuildJsonFile(TypeName(Me), dItem, "Linked Table")
         strHash = GetStringHash(strContent, True)
@@ -166,11 +173,12 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Additional processing when exporting to source folder
     If strAlternatePath = vbNullString Then
 
-        ' Export object metadata (doc properties + hidden attribute) into companion .json.
-        ' For linked tables this merges into the primary .json; for local tables a new
-        ' companion .json is created alongside the .xml file.
-        ExportObjectMetadata IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".json", _
-            "Tables", m_Table.Name, acTable
+        ' Export object metadata for local tables into a companion .json file.
+        ' Linked tables already have metadata included in their primary .json above.
+        If Not IsLinkedTable Then
+            ExportObjectMetadata IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".json", _
+                "Tables", m_Table.Name, acTable
+        End If
 
         ' Remove any alternate source file in case we have switched formats
         RemoveAlternateFormatSourceFile
