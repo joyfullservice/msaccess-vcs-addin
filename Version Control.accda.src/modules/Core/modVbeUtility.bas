@@ -267,6 +267,26 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MinimizeVBEWindow
+' Author    : Adam Waller
+' Date      : 4/9/2026
+' Purpose   : Minimize the VBE main window if it is currently visible. This prevents
+'           : the VBE from stealing focus during builds and exports when VBA components
+'           : are imported. The window is left minimized so the user can restore it
+'           : from the taskbar after the operation completes.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MinimizeVBEWindow()
+    LogUnhandledErrors
+    On Error Resume Next
+    If VBE.MainWindow.Visible Then
+        VBE.MainWindow.WindowState = vbext_ws_Minimize
+    End If
+    If Err Then Err.Clear
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : PreloadVBE
 ' Author    : Adam Waller
 ' Date      : 5/25/2020

@@ -184,6 +184,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     DoCmd.OpenForm "frmVCSMain"
     Form_frmVCSMain.StartBuild blnFullBuild
 
+    ' Minimize the VBE window to prevent it from stealing focus
+    ' when VBA components are imported during the build.
+    MinimizeVBEWindow
+
     ' Display the build header.
     DoCmd.Hourglass True
     With Log
