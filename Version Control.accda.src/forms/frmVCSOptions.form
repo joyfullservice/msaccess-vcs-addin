@@ -835,6 +835,42 @@ Begin Form
                             PressedForeTint =75.0
                             Overlaps =1
                         End
+                        Begin ToggleButton
+                            OverlapFlags =87
+                            Left =480
+                            Top =5400
+                            Width =2187
+                            Height =450
+                            FontSize =11
+                            FontWeight =400
+                            TabIndex =8
+                            OptionValue =9
+                            Name ="tglMCP"
+                            Caption ="MCP"
+
+                            LayoutCachedLeft =480
+                            LayoutCachedTop =5400
+                            LayoutCachedWidth =2667
+                            LayoutCachedHeight =5850
+                            Shape =1
+                            Bevel =0
+                            BackColor =13155516
+                            BackThemeColorIndex =-1
+                            BackTint =100.0
+                            OldBorderStyle =1
+                            BorderColor =13155516
+                            BorderThemeColorIndex =-1
+                            BorderTint =100.0
+                            HoverColor =14406611
+                            HoverThemeColorIndex =-1
+                            HoverTint =100.0
+                            PressedColor =15130848
+                            PressedThemeColorIndex =-1
+                            PressedShade =100.0
+                            PressedForeThemeColorIndex =0
+                            PressedForeTint =75.0
+                            Overlaps =1
+                        End
                     End
                 End
                 Begin Subform

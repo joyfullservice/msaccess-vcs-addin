@@ -70,6 +70,10 @@
     "ExportFormatVersion": "5.0.0",
     "ExportLayoutSvg": false,
     "LayoutSvgImageEmbed": "Small",
-    "LayoutSvgScaleMode": "Universal"
+    "LayoutSvgScaleMode": "Universal",
+    "McpAllowRunVBA": false,
+    "McpAllowExecuteSQL": true,
+    "McpAllowCallVBA": true,
+    "McpAllowImport": true
   }
 }

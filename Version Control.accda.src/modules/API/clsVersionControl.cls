@@ -958,13 +958,13 @@ End Function
 '           : Public method for external API access (e.g., via MCP tools).
 '---------------------------------------------------------------------------------------
 '
-Public Function ExecuteSQL(strSQL As String, Optional lngMaxRows As Long = 100) As String
+Public Function ExecuteSQL(strSql As String, Optional lngMaxRows As Long = 100) As String
 
     Dim dResult As Dictionary
     Dim dRows As Collection
     Dim dRow As Dictionary
-    Dim rs As DAO.Recordset
-    Dim db As DAO.Database
+    Dim rst As DAO.Recordset
+    Dim dbs As DAO.Database
     Dim lngRow As Long
     Dim lngField As Long
 
@@ -983,7 +983,7 @@ Public Function ExecuteSQL(strSQL As String, Optional lngMaxRows As Long = 100) 
 
     ' Validate: only SELECT statements allowed
     Dim strTrimmed As String
-    strTrimmed = Trim$(strSQL)
+    strTrimmed = Trim$(strSql)
     If LCase$(Left$(strTrimmed, 7)) <> "select " And LCase$(Left$(strTrimmed, 7)) <> "select" & vbTab Then
         dResult.Add "success", False
         dResult.Add "error", "Only SELECT statements are allowed. Received: " & Left$(strTrimmed, 50)
@@ -992,32 +992,32 @@ Public Function ExecuteSQL(strSQL As String, Optional lngMaxRows As Long = 100) 
     End If
 
     ' Execute query
-    Set db = CurrentDb
-    Set rs = db.OpenRecordset(strSQL, dbOpenSnapshot, dbReadOnly)
+    Set dbs = CurrentDb
+    Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
 
     Set dRows = New Collection
-    Do While Not rs.EOF And lngRow < lngMaxRows
+    Do While Not rst.EOF And lngRow < lngMaxRows
         Set dRow = New Dictionary
-        For lngField = 0 To rs.Fields.Count - 1
-            If IsNull(rs.Fields(lngField).Value) Then
-                dRow.Add rs.Fields(lngField).Name, Null
+        For lngField = 0 To rst.Fields.Count - 1
+            If IsNull(rst.Fields(lngField).Value) Then
+                dRow.Add rst.Fields(lngField).Name, Null
             Else
-                dRow.Add rs.Fields(lngField).Name, rs.Fields(lngField).Value
+                dRow.Add rst.Fields(lngField).Name, rst.Fields(lngField).Value
             End If
         Next lngField
         dRows.Add dRow
         lngRow = lngRow + 1
-        rs.MoveNext
+        rst.MoveNext
     Loop
 
     dResult.Add "success", True
     dResult.Add "rows", dRows
     dResult.Add "rowCount", lngRow
-    dResult.Add "truncated", (Not rs.EOF)
+    dResult.Add "truncated", (Not rst.EOF)
 
-    rs.Close
-    Set rs = Nothing
-    Set db = Nothing
+    rst.Close
+    Set rst = Nothing
+    Set dbs = Nothing
 
     ExecuteSQL = ConvertToJson(dResult)
     Exit Function
