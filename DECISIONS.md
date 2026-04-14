@@ -81,6 +81,60 @@ contradictory guidance.
 
 ---
 
+## 2026-04-14 — SQL reconstruction fidelity: JOIN chain ordering and UNION handling
+
+**Trigger**: After implementing the MSysQueries-based export (see "Deterministic query export with performance optimization" below), round-trip testing against real databases (MSysQueriesExamples, db-analysis-tools/sec) revealed that the reconstructed SQL differed from the COM `QueryDefs.SQL` property in JOIN nesting order and failed entirely for UNION queries.
+
+**Options explored**:
+
+- **Simple sequential JOIN emission (original)**: Emit joins in MSysQueries row order. Produced valid SQL but with different nesting than Access's own output. Differences in nesting can affect query plan and caused `.sql` vs `.com.sql` mismatches, making fidelity verification impossible.
+- **Graph-based JOIN chain with DFS traversal** (chosen): Treat joins as a directed graph (leftTable → rightTable). Find the root table (appears only as leftTable, never as rightTable). DFS from root with deterministic sorting (INNER before LEFT/RIGHT, then alphabetical by rightTable) produces the same nesting order as Access's COM property. Handles star joins (multiple joins from same hub), self-joins (via aliases), and Cartesian products (no joins → comma-separated table list).
+- **RIGHT JOIN normalization**: RIGHT JOINs are temporarily flipped to LEFT JOINs during graph traversal (so the hub table becomes the graph root), then restored to RIGHT JOIN syntax during emission. This avoids special-casing RIGHT JOINs in the graph algorithm.
+
+**Decision**: `BuildJoinChain` uses DFS from the root table with `InsertJoinSorted` for deterministic child ordering. `ConsolidateJoins` merges multi-condition ON clauses (Access stores each condition as a separate Attribute 7 row) before traversal. For UNION queries, each segment is identified by its Attribute 5 `Name2` identifier (e.g. `X7YZ_____1`, `X7YZ_____2`); the SQL for each segment is reconstructed independently and joined with `UNION` or `UNION ALL` based on the Attribute 3 flag. A `.com.sql` debug artifact (the COM `QueryDefs.SQL` property, formatted identically) is exported alongside the `.sql` file when `ShowDebug` is on, enabling systematic diff-based fidelity verification.
+
+**What this rules out**: The reconstructed SQL must match Access's COM `QueryDefs.SQL` output in structure (not just semantics). Any future changes to `BuildJoinChain` or `ReconstructSQL` should be validated by re-exporting with `ShowDebug` and diffing `.sql` vs `.com.sql` across test databases. If Access changes its internal JOIN ordering algorithm, `BuildJoinChain` will need to be updated to match.
+
+**Relevant files**: `clsQueryComposer.cls` (`BuildJoinChain`, `BuildFromClause`, `ConsolidateJoins`, `DFSTraverse`, `InsertJoinSorted`), `clsDbQuery.cls` (`.com.sql` debug export block in `ExportNewFormat`).
+
+---
+
+## 2026-04-14 — Round-trip import with Design View / SQL View fallback
+
+**Trigger**: Building databases from source with the new `.sql` + `.json` format revealed that some queries failed to import in Design View format (e.g. complex join topologies, non-equi-joins, subqueries). Additionally, alternate-path exports (used for merge conflict detection) were still using legacy `SaveAsText`, creating format mismatches.
+
+**Options explored**:
+
+- **Always import as SQL View**: Simple and reliable, but loses Design View layout (table positions, window dimensions) for queries that were saved in Design View. Users lose the visual layout they had before export.
+- **Always import as Design View**: Fails for SQL-only query types (UNION, DDL, pass-through) and for queries with complex syntax that the designer cannot represent.
+- **Attempt Design View, fall back to SQL View** (chosen): When layout data exists in the `.json` and `IsDesignerCompatible` returns True, generate a Design View `.qdef` and attempt `LoadFromText`. If import fails, regenerate as SQL View `.qdef` and retry. Log a warning so the user knows layout was lost. This preserves layout for the majority of queries while never failing outright.
+
+**Decision**: `ImportNewFormat` attempts Design View first when conditions are met, then falls back to SQL View on failure. Three debug artifacts support post-mortem analysis when `ShowDebug` is on: `.tmp` (the generated `.qdef` that was actually imported), `.failed.tmp` (the Design View `.qdef` that failed, preserved only when fallback occurs), and `.qdf` (native `SaveAsText` output for comparison). Alternate-path exports now route through `ExportNewFormat` when format version >= 5.0, producing `.sql` + `.json` instead of legacy `.qdef`. The `VBA Dim As New` anti-pattern (which caused "key already exists" errors in the column property loop because VBA scopes `Dim` to the procedure, not the block) was replaced with explicit `Set = New Dictionary` at the top of each loop iteration throughout all new code.
+
+**What this rules out**: Queries imported via SQL View fallback lose their Design View layout permanently — the next export will have no `DesignLayout` in the `.json`. This is acceptable because the SQL itself is preserved faithfully. If a future Access update improves the designer's tolerance for complex SQL, the `IsDesignerCompatible` check could be relaxed to attempt Design View for more query types. The `ForceImportOriginalQuerySQL` option is only relevant to legacy `.qdef` imports and has no effect on the new format.
+
+**Relevant files**: `clsDbQuery.cls` (`ImportNewFormat`, `IDbComponent_Export`), `clsQueryComposer.cls` (`IsDesignerCompatible`, `GenerateQdef`).
+
+---
+
+## 2026-04-14 — Column metadata and property serialization strategy
+
+**Trigger**: The `.json` companion file needed a strategy for storing column-level metadata (AggregateType, ColumnWidth, ColumnHidden, Caption, etc.) parsed from the `MSysObjects.LvProp` binary blob. The format had to be deterministic for version control, compact for readability, and round-trippable back to `.qdef` format on import.
+
+**Options explored**:
+
+- **Store all properties with explicit type tags**: Every property gets a `{"Type": "dbLong", "Value": 123}` wrapper. Consistent but verbose — the majority of column properties are well-known types that don't need explicit tagging.
+- **Store all properties as bare values**: Compact but loses type information for custom or unusual properties. On import, the code would have to guess the DAO data type, risking incorrect `.qdef` generation.
+- **Known properties bare, unknown properties typed** (chosen): Properties with well-known names (`AggregateType`, `ColumnWidth`, `ColumnHidden`, `ColumnOrder`, `Caption`, `Description`, `TextAlign`, `DisplayControl`, `ResultType`, `CurrencyLCID`, `ShowDatePicker`, `IMEMode`, `IMESentenceMode`) are stored as bare values since their DAO types can be inferred from the name. Unknown or custom properties include an explicit type tag (e.g. `{"Type": "dbText", "Value": "..."}`). This keeps the common case compact while preserving full fidelity for edge cases.
+
+**Decision**: `IsKnownColumnProperty` maps property names to the bare-value path; everything else goes through `DaoTypeToQdefPrefix` for explicit typing. `AggregateType = -1` is always emitted as a sentinel default (Access requires this property on every column in Design View `.qdef` files, even when no aggregation is used). Column metadata is sorted alphabetically by field name (`SortDictionaryByKeys`) for deterministic JSON output. The `clsLvPropParser` class (originally written for linked table LvProp blobs) was verified to work unchanged on query LvProp blobs — both use the same MR2 binary format with table-level and field-level property sections.
+
+**What this rules out**: Adding a new known column property requires updating `IsKnownColumnProperty` in `clsDbQuery.cls` (and the corresponding import logic in `clsQueryComposer.GenerateQdef`). If a property name is ambiguous (same name, different types in different contexts), it must use the typed format. The alphabetical sort of columns means field rename operations will change the key ordering in the `.json`, producing a larger diff than strictly necessary — but this is acceptable for determinism.
+
+**Relevant files**: `clsDbQuery.cls` (`IsKnownColumnProperty`, `DaoTypeToQdefPrefix`, column metadata loop in `ExportNewFormat`), `clsLvPropParser.cls` (shared MR2 parser), `clsQueryComposer.cls` (`GenerateQdef` column property emission).
+
+---
+
 ## 2026-04-14 — Relax merge build gate to accept full export as baseline
 
 **Trigger**: Merge builds were gated on `VCSIndex.FullBuildDate <> 0`, requiring a full build from source before merge was available. After index refactoring, full exports now populate the same per-component hashes (`FileHash`, `OtherHash`, `MetaHash`, `FilePropertiesHash`) that merge relies on. The `FullBuildDate` gate blocked a natural workflow: export from an existing database, pull source changes from Git, then merge those changes back in.

@@ -138,7 +138,7 @@ Starting with export format version 5.0.0, forms, reports, queries, and macros u
 |-------------|---------------|------------------|
 | Forms       | `.form`       | `.bas`           |
 | Reports     | `.report`     | `.bas`           |
-| Queries     | `.qdef`       | `.bas`           |
+| Queries     | `.sql` + `.json` | `.qdef`, `.bas`  |
 | Macros      | `.macro`      | `.bas`           |
 
 VBA modules continue to use `.bas` and `.cls` (unchanged).
@@ -201,45 +201,18 @@ Attribute VB_Name = "Form_frmMyForm"
 
 ## Query Files
 
-### Important: Which File Is Used for Import?
+### Source Format: `.sql` + `.json`
 
-**By default, the `.qdef` (or legacy `.bas`) file is used for import, NOT the `.sql` file.**
+Each query is exported as two files:
 
-The `.sql` file exists for easier reading and cleaner diffs, but the add-in imports from the `.qdef`/`.bas` file unless the option `ForceImportOriginalQuerySQL` is enabled in `vcs-options.json`.
+- **`.sql`** — The SQL statement, formatted for readability. This is the **sole source of truth** for the query's SQL text.
+- **`.json`** — Companion metadata: query properties, column metadata, design layout, description, and hidden status.
 
-**Why not always use `.sql`?** The `.qdef`/`.bas` file preserves query designer properties (like field descriptions, text format settings, column widths) that are lost when importing from pure SQL.
+On import, the add-in reads `.sql` + `.json` and generates a temporary `.qdef` on-the-fly for `LoadFromText`. If the SQL is designer-compatible and layout data exists in the `.json`, the query is imported in Design View format (preserving table positions and designer layout). Otherwise, it uses SQL View format.
 
-### Query Definition (`.qdef`)
+### `.sql` File
 
-The `.qdef` file uses Access's `SaveAsText` format. There are **two different formats** depending on how the query was last saved:
-
-**Format 1: Saved from SQL View (simpler)**
-```
-Operation =1
-Option =0
-dbMemo "SQL" ="SELECT CustomerID, CustomerName FROM tblCustomers WHERE Active = True"
-```
-
-**Format 2: Saved from Query Designer (complex)**
-```
-Operation =1
-Option =0
-Begin InputTables
-    Name ="tblCustomers"
-End
-Begin OutputColumns
-    Expression ="CustomerID"
-    Name ="CustomerID"
-    ...
-End
-dbMemo "SQL" ="SELECT tblCustomers.CustomerID..."
-```
-
-**Warning:** The `.qdef` format is largely undocumented and easy to corrupt. Modifications are risky.
-
-### SQL File (`.sql`)
-
-Contains just the SQL statement, formatted for readability:
+Contains the Access SQL statement, formatted for readability:
 
 ```sql
 SELECT
@@ -251,23 +224,28 @@ WHERE Active = True
 ORDER BY CustomerName;
 ```
 
-### Recommended Approaches for Query Changes
+**Safe to modify.** Changes to the `.sql` file are the primary way to edit query logic. On import, the SQL is decomposed and translated into the appropriate format automatically.
 
-**Option 1: Provide SQL to user (safest)**
-- Show the user the desired SQL changes
-- Let them make the modification directly in Access
-- Have them re-export to update source files
+### `.json` File
 
-**Option 2: Edit `.sql` and enable import option**
-1. Modify the `.sql` file with your changes
-2. Set `"ForceImportOriginalQuerySQL": true` in `vcs-options.json`
-3. User rebuilds from source
-4. **Caveat:** Query designer properties (descriptions, text formats) will be lost
+Contains metadata that cannot be expressed in SQL:
 
-**Option 3: Edit `.qdef` directly (risky)**
-- Only attempt for simple changes to the `dbMemo "SQL"` line
-- Do not modify the structural elements (InputTables, OutputColumns, etc.)
-- Test thoroughly after import
+- **`QueryType`**: Integer (0=Select, 16=Crosstab, 32=Delete, 48=Update, 64=Append)
+- **`Connect`**: Connection string for pass-through queries (may use `env:` reference)
+- **`Properties`**: Query properties from the LvProp binary blob (only non-default values)
+- **`Columns`**: Column metadata sorted alphabetically for deterministic output
+- **`DesignLayout`**: Design View layout (table positions, window dimensions). Only present for queries last saved in Design View.
+- **`Properties`** / **`Hidden`**: Document metadata (Description, Hidden attribute)
+
+### Legacy Format (Backward Compatible)
+
+Legacy `.qdef` and `.bas` files are still supported for import. On the next export, they are automatically replaced with `.sql` + `.json` format.
+
+### Recommended Approach for Query Changes
+
+Edit the `.sql` file directly. The companion `.json` preserves design layout and properties automatically. On import, the add-in generates the correct `.qdef` and calls `LoadFromText`.
+
+If the SQL becomes incompatible with Design View (e.g., UNION, subqueries), the layout data from `.json` is ignored and the query is imported as SQL View with a log warning.
 
 ---
 
@@ -280,7 +258,7 @@ ORDER BY CustomerName;
 | `.bas` (modules) | VBA code (after any `Attribute` and `Option` lines) |
 | `.cls` (modules) | VBA code, member attribute descriptions |
 | `.cls` (form/report code) | Event handlers and procedures |
-| `.sql` (queries) | SQL text (but see Query Files section for import caveats) |
+| `.sql` (queries) | SQL text (source of truth for query logic) |
 | `.form` / `.report` / `.bas` (forms/reports) | Simple property values with great care |
 | `.json` (most) | Configuration values (maintain valid JSON) |
 
@@ -313,20 +291,16 @@ End Function
 
 ### Modifying a SQL Query
 
-**Recommended approach:** Provide the user with the desired SQL and let them make the change in Access, then re-export.
+Edit the `.sql` file directly in `queries/`:
 
-**Alternative (if user enables SQL import):**
-1. Edit the `.sql` file in `queries/`:
 ```sql
-SELECT CustomerID, CustomerName, Email, Phone  -- Added Phone
+SELECT CustomerID, CustomerName, Email, Phone
 FROM tblCustomers
 WHERE Active = True
 ORDER BY CustomerName;
 ```
-2. Set `"ForceImportOriginalQuerySQL": true` in `vcs-options.json`
-3. User rebuilds from source
 
-**Note:** Importing from `.sql` loses query designer properties (field descriptions, text formats, etc.)
+The companion `.json` preserves design layout and properties. On import, the add-in generates the appropriate `.qdef` format automatically. Design View layout is preserved when the SQL remains designer-compatible.
 
 ### Fixing a Bug in Form Code
 
@@ -404,7 +378,7 @@ Operation logs are stored in the `logs/` subfolder with timestamped filenames:
 | `forms/` | Access forms | `.form` (or `.bas`), `.cls`, `.json` |
 | `reports/` | Access reports | `.report` (or `.bas`), `.cls`, `.json` |
 | `modules/` | VBA modules | `.bas`, `.cls` |
-| `queries/` | Queries | `.qdef` (or `.bas`), `.sql` |
+| `queries/` | Queries | `.sql`, `.json` (legacy: `.qdef`, `.bas`) |
 | `macros/` | Access macros | `.macro` (or `.bas`) |
 | `tables/` | Table data (if exported) | `.txt`, `.xml` |
 | `tbldefs/` | Table definitions | `.sql`, `.xml`, `.json` |

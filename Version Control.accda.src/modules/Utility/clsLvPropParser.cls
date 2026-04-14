@@ -457,7 +457,7 @@ Private Function ShouldSkipTableProperty(strName As String, bteType As Byte, var
             Exit Function
     End Select
 
-    ' Skip table properties at their default values
+    ' Skip table/query properties at their default values
     Select Case strName
         Case "Orientation":     ShouldSkipTableProperty = (varValue = 0)
         Case "DefaultView":     ShouldSkipTableProperty = (varValue = 2)
@@ -476,6 +476,13 @@ Private Function ShouldSkipTableProperty(strName As String, bteType As Byte, var
         Case "ThemeFontIndex", "AlternateBackThemeColorIndex", _
              "DatasheetGridlinesThemeColorIndex", "DatasheetForeThemeColorIndex"
             ShouldSkipTableProperty = (varValue = -1)
+        ' Query-specific defaults
+        Case "ODBCTimeout":     ShouldSkipTableProperty = (varValue = 60)
+        Case "MaxRecords":      ShouldSkipTableProperty = (varValue = 0)
+        Case "RecordsetType":   ShouldSkipTableProperty = (varValue = 0)
+        Case "UseTransaction":  ShouldSkipTableProperty = IsDefaultBool(varValue, True)
+        Case "RecordLocks":     ShouldSkipTableProperty = (varValue = 0)
+        Case "RowHeight":       ShouldSkipTableProperty = (varValue = 65535)
     End Select
 
 End Function

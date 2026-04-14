@@ -612,6 +612,9 @@ Public Sub ImportObjectMetadata(strJsonFile As String, strContainerName As Strin
 
     ' Apply document properties
     If dItems.Exists("Properties") Then
+        Perf.OperationStart "Refresh Documents"
+        dbs.Containers(strContainerName).Documents.Refresh
+        Perf.OperationEnd
         Set dProps = dItems("Properties")
         For Each varProp In dProps.Keys
             If TypeOf dProps(varProp) Is Dictionary Then
