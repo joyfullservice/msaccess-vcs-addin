@@ -70,7 +70,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim lngCategoryID As Long
     Dim intObject As Integer
     Dim dObject As Dictionary
-    Dim lngObjectID As Long
+    Dim lngObjectId As Long
     Dim lngLinkID As Long
 
     ' Only import files with the correct extension.
@@ -118,14 +118,14 @@ Private Sub IDbComponent_Import(strFile As String)
                     If lngGroupID = 0 Then lngGroupID = LoadRecord("MSysNavPaneGroups", dGroup)
                     For intObject = 1 To dGroup("Objects").Count
                         Set dObject = dGroup("Objects")(intObject)
-                        lngObjectID = Nz(DLookup("Id", "MSysObjects", "Name=""" & dObject("Name") & """ AND Type=" & dObject("Type")), 0)
-                        If lngObjectID <> 0 Then
-                            dObject.Add "ObjectID", lngObjectID
+                        lngObjectId = Nz(DLookup("Id", "MSysObjects", "Name=""" & dObject("Name") & """ AND Type=" & dObject("Type")), 0)
+                        If lngObjectId <> 0 Then
+                            dObject.Add "ObjectID", lngObjectId
                             dObject.Add "GroupID", lngGroupID
                             ' Change name to the name defined in this group. (Could be different from the object name)
                             dObject("Name") = dObject("NameInGroup")
                             ' Should not already be a link, but just in case...
-                            lngLinkID = Nz(DLookup("Id", "MSysNavPaneGroupToObjects", "ObjectID=" & lngObjectID & " AND GroupID = " & lngGroupID), 0)
+                            lngLinkID = Nz(DLookup("Id", "MSysNavPaneGroupToObjects", "ObjectID=" & lngObjectId & " AND GroupID = " & lngGroupID), 0)
                             If lngLinkID = 0 Then lngLinkID = LoadRecord("MSysNavPaneGroupToObjects", dObject)
                         End If
                     Next intObject

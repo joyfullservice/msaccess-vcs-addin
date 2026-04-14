@@ -782,7 +782,7 @@ Begin Form
                     OverlapFlags =95
                     Left =225
                     Top =1200
-                    Width =6750
+                    Width =6755
                     Height =3480
                     FontSize =8
                     TabIndex =3
@@ -790,7 +790,7 @@ Begin Form
 
                     LayoutCachedLeft =225
                     LayoutCachedTop =1200
-                    LayoutCachedWidth =6975
+                    LayoutCachedWidth =6980
                     LayoutCachedHeight =4680
                     BackColor =15130848
                     BackThemeColorIndex =-1
@@ -814,16 +814,16 @@ Begin Form
                     Begin
                         Begin Page
                             OverlapFlags =87
-                            Left =300
-                            Top =1590
-                            Width =6600
-                            Height =3015
+                            Left =280
+                            Top =1530
+                            Width =6650
+                            Height =3100
                             Name ="Page40"
                             Caption ="Basic Install"
-                            LayoutCachedLeft =300
-                            LayoutCachedTop =1590
-                            LayoutCachedWidth =6900
-                            LayoutCachedHeight =4605
+                            LayoutCachedLeft =280
+                            LayoutCachedTop =1530
+                            LayoutCachedWidth =6930
+                            LayoutCachedHeight =4630
                             Begin
                                 Begin Label
                                     OverlapFlags =215
@@ -906,16 +906,16 @@ Begin Form
                         End
                         Begin Page
                             OverlapFlags =215
-                            Left =300
-                            Top =1590
-                            Width =6600
-                            Height =3015
+                            Left =280
+                            Top =1530
+                            Width =6650
+                            Height =3100
                             Name ="Page41"
                             Caption ="Advanced Install"
-                            LayoutCachedLeft =300
-                            LayoutCachedTop =1590
-                            LayoutCachedWidth =6900
-                            LayoutCachedHeight =4605
+                            LayoutCachedLeft =280
+                            LayoutCachedTop =1530
+                            LayoutCachedWidth =6930
+                            LayoutCachedHeight =4630
                             Begin
                                 Begin CheckBox
                                     TabStop = NotDefault

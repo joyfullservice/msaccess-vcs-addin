@@ -81,6 +81,108 @@ contradictory guidance.
 
 ---
 
+## 2026-04-14 — Architectural principle: all external automation goes through the public API
+
+**Trigger**: Adding 7 new methods to `clsVersionControl` for MCP tool support raised the question of where the boundary sits between the add-in's internal logic and what external consumers can reach. The MCP server, PowerShell scripts, and other VBA projects all need to call add-in functionality — should they use different entry points?
+
+**Options explored**:
+- **Let external tools call internal modules directly** (e.g., `Application.Run("Version Control.modExport.ExportSingleObject", ...)`). Gives maximum flexibility but exposes internal structure. Refactoring internal modules would break external callers. Internal functions often take object parameters (`AccessObject`, `IDbComponent`) that can't cross the COM boundary.
+- **Separate API layer for MCP vs. ribbon vs. other callers**. Each consumer gets its own entry point optimized for its needs. Duplicates logic and creates divergent behavior.
+- **Single public API on `clsVersionControl`, all consumers equal (chosen)**. Every external capability is a public method on `clsVersionControl`, callable via the `API()` dispatcher in `modAPI.bas` using `CallByName`. The MCP server, PowerShell, other VBA projects, and the ribbon all use the same methods. Internal modules remain `Option Private Module` and can be refactored freely.
+
+**Decision**: All new external capabilities (`ExportObject`, `ImportObject`, `ExecuteSQL`, `RunVBA`, `GetOption`, `SetOption`, `GetLogContent`) are public methods on `clsVersionControl`. They accept only string/numeric parameters (COM-boundary safe) and return JSON strings for structured results. The `API()` function in `modAPI.bas` dispatches via `CallByName`, so new methods are automatically callable without modifying the dispatcher. `APIAsync` routes them through the sync `Case Else` branch since single-object operations don't need async/callback infrastructure.
+
+**What this rules out**: No external tool can call internal functions like `ExportSingleObject` or `LoadSingleObject` directly — they must go through the public API wrappers that handle parameter resolution (string → `AccessObject`) and result serialization (errors → JSON). If a future capability requires passing objects across the COM boundary, it cannot use this pattern and would need a different approach (e.g., serializing the object identity as a string, which is what `ExportObject` already does with type + name).
+
+**Relevant files**: `clsVersionControl.cls` (all public methods), `modAPI.bas` (`API()`, `APIAsync()`).
+
+---
+
+## 2026-04-14 — GetOption/SetOption: open dynamic dispatch via CallByName
+
+**Trigger**: Agents need to read and write add-in options at runtime (e.g., `ShowDebug`, `McpAllowRunVBA`, `FormatSQL`) to control behavior during a session without modifying `vcs-options.json`. The question was how to expose option access through the API.
+
+**Options explored**:
+- **Switch statement whitelist**. `GetOption` maps known option names to specific property reads. Safe — only explicitly listed options are accessible. But requires updating the switch every time an option is added, and the add-in already has 30+ options with more planned.
+- **Dictionary-based property bag**. Store options in a `Dictionary` instead of typed public properties. Makes dynamic access trivial but loses compile-time type safety, IntelliSense, and the established `clsOptions` pattern.
+- **`CallByName` dynamic dispatch (chosen)**. `GetOption` calls `CallByName(Options, strName, VbGet)` and `SetOption` calls `CallByName(Options, strName, VbLet, varValue)`. Any public property on `clsOptions` is automatically accessible. Zero maintenance when adding new options.
+
+**Decision**: `GetOption(strName)` and `SetOption(strName, varValue)` use `CallByName` for fully dynamic property access. Changes via `SetOption` are session-level — they take effect immediately but are not persisted to `vcs-options.json` until the user (or agent) explicitly saves. This lets agents freely adjust behavior (e.g., `ShowDebug`, `MaxLogFiles`) without risking permanent changes to project configuration.
+
+**What this rules out**: There is no per-property access control. Every public property on `clsOptions` is readable and writable via the API, including the MCP security options themselves. An agent can call `SetOption("McpAllowRunVBA", True)` to enable `RunVBA` for the session, even if the persisted setting is False. This is acceptable because: (1) the change is session-level and doesn't persist, (2) the user has already opted into MCP access by configuring the server, and (3) adding a property-level ACL would require maintaining a second list of "allowed" properties alongside `m_colOptions`. If a property is ever added that should be truly non-modifiable via API (e.g., a licensing key), it should be implemented as a private property with a read-only public wrapper, which `CallByName` on `VbLet` would fail to set.
+
+**Relevant files**: `clsVersionControl.cls` (`GetOption`, `SetOption`), `clsOptions.cls` (all public properties).
+
+---
+
+## 2026-04-14 — ExecuteSQL: add-in as a data access layer
+
+**Trigger**: Agents frequently need to inspect database contents — `MSysObjects` for object inventory, `MSysQueries` for raw query definitions, table data for validation. The `db-inspector-mcp` server can do this via a separate ODBC/COM connection, but that requires a second MCP configured and opens a second connection to the same `.accdb` file, risking file-locking conflicts. Usage logs showed 67% of db-inspector calls were just SELECT queries.
+
+**Options explored**:
+- **Keep data access in db-inspector-mcp only**. Clean separation of concerns, but requires both MCPs configured for the common case. Two connections to the same file can conflict.
+- **Add ODBC/pyodbc query execution in the VCS MCP server (Python-side)**. Avoids VBA roundtrip but creates a second database connection from Python. Would need to handle Access SQL dialect quirks in Python.
+- **Route through the add-in's existing DAO connection (chosen)**. `ExecuteSQL` on `clsVersionControl` uses `CurrentDb.OpenRecordset` — the same connection the add-in already holds. No file-locking conflict. Access SQL handled natively. Results serialized as JSON with field names and values.
+
+**Decision**: `ExecuteSQL(strSQL, lngMaxRows)` opens a read-only snapshot recordset, iterates rows up to the limit, serializes each row as a `Dictionary` (field name → value), collects into a `Collection`, and returns the whole result as JSON via `ConvertToJson`. Non-SELECT statements are rejected by checking the first token. The `McpAllowExecuteSQL` option (default: True) gates access. This expands the add-in's scope from "export/import engine" to "export/import engine + data inspection" — the first time the API returns raw query results rather than operating on database objects.
+
+**What this rules out**: No write operations through `ExecuteSQL` — only SELECT. Agents needing INSERT/UPDATE/DELETE must use `RunVBA` or `CallVBA` with appropriate VBA code (gated by separate permissions). The SQL validation is intentionally simple (prefix check for `SELECT`) rather than parsing the full statement. A sufficiently creative agent could construct a SELECT with side effects (e.g., calling a VBA function from a query expression), but this is no different from the existing `RunVBA` risk and is gated by `McpAllowExecuteSQL`.
+
+**Relevant files**: `clsVersionControl.cls` (`ExecuteSQL`), `clsOptions.cls` (`McpAllowExecuteSQL`).
+
+---
+
+## 2026-04-14 — Per-object API for MCP-driven development
+
+**Trigger**: The VCS add-in's public API only supported whole-database operations (Export, Build, MergeBuild). AI agents using the MCP server had no way to export or import a single named object, which forced a full database export/import cycle for every iteration during development. Testing the query export refactoring against a ~3K query corpus required a tighter loop.
+
+**Options explored**:
+- **Add object_types filter to bulk export**. Would let agents export "just queries" but not a single named query. Still exports hundreds or thousands of objects per call. Not granular enough for the edit-import-compile-test loop.
+- **Expose `ExportSingleObject` directly via Application.Run**. Not possible — it takes an `AccessObject` parameter, which can't be passed through `Application.Run` (only strings and numbers cross the COM boundary).
+- **New `ExportObject`/`ImportObject` methods on clsVersionControl (chosen)**. Accept type string + name string, resolve to `AccessObject` or `IDbComponent` internally, delegate to existing `ExportSingleObject`/`LoadSingleObject`. Returns structured JSON with success/error status and log path. Works through the existing `API()` dispatcher via `CallByName`.
+
+**Decision**: Added `ExportObject(strObjectType, strObjectName)` and `ImportObject(strObjectType, strObjectName)` to `clsVersionControl`. Both accept string parameters ("query", "form", "report", "module", "table", "macro") and return JSON results. They use the synchronous `API()` path since single-object operations are fast. The existing `APIAsync` `Case Else` branch routes them correctly without modification. A private `FindSourceFile` helper resolves source files for objects not yet in the database (new objects being imported for the first time).
+
+**What this rules out**: These methods don't support bulk filtering (e.g., "all queries matching a pattern"). That would require a different approach — likely iterating through `GetAllFromDB` with a filter. For now, bulk operations use the existing `Export`/`MergeBuild` commands. If per-object operations prove too slow for large batches, the agent can fall back to bulk export and read the results from disk.
+
+**Relevant files**: `clsVersionControl.cls` (`ExportObject`, `ImportObject`, `FindSourceFile`).
+
+---
+
+## 2026-04-14 — RunVBA: agent-generated code execution in temporary modules
+
+**Trigger**: Agents testing VBA code (e.g., `clsQueryComposer` pipeline stages) needed a way to execute arbitrary VBA snippets and get results back without manually creating modules. The closed-loop debugging pattern — write code, run it, read result, iterate — required an API endpoint for ad-hoc VBA execution.
+
+**Options explored**:
+- **`Application.Eval` for expression evaluation**. Only handles single-line expressions, not multi-line statements. Can't declare variables, call methods with side effects, or build complex inspection logic.
+- **Python-side VBE manipulation via COM**. The MCP server (Python) creates the temp module, compiles, runs, and cleans up using the VBE COM object model. Gives the Python layer full control but duplicates logic better handled in VBA, creates tight coupling to VBE internals, and can't leverage the add-in's error handling patterns.
+- **Add-in manages the full lifecycle (chosen)**. A `RunVBA` method on `clsVersionControl` creates a temp module, wraps agent code in a function with error capture, compiles, executes, retrieves errors via accessor functions, removes the module, and returns JSON. The Python MCP layer just passes the code string through.
+
+**Decision**: `RunVBA(strCode)` creates a temp standard module with three generated functions: `_MCP_TempFunction` (wraps agent code with `On Error Resume Next`), `_MCP_GetErrNum` and `_MCP_GetErrDesc` (return captured error info via module-level variables). The error capture via accessor functions avoids the fragile alternative of embedding JSON string construction inside generated VBA code. Gated by `McpAllowRunVBA` option (default: False) — arbitrary code execution requires explicit user opt-in.
+
+**What this rules out**: The agent's code runs with `On Error Resume Next` — it cannot use its own `On Error GoTo` handlers. If agent code needs structured error handling, it should use `CatchAny` or return error info through the function return value. The temp module is always removed, even on errors, so agent code cannot persist state between `RunVBA` calls (use `SetOption` or database tables for that).
+
+**Relevant files**: `clsVersionControl.cls` (`RunVBA`), `clsOptions.cls` (`McpAllowRunVBA`).
+
+---
+
+## 2026-04-14 — MCP security options in clsOptions
+
+**Trigger**: The new MCP tools (`RunVBA`, `ExecuteSQL`, `CallVBA`, `ImportObject`) have different risk profiles. Executing arbitrary agent-generated VBA code is fundamentally different from reading an option value. Users need granular control over what agents can do via MCP tools, and those controls should be discoverable in the existing options UI, not hidden in environment variables.
+
+**Options explored**:
+- **Environment variables only** (e.g., `ACCESS_VCS_ALLOW_VBA_EXEC=true`). Easy for CI/dev scenarios but invisible to users. Doesn't travel with the project. No UI discoverability.
+- **Per-tool parameters** (e.g., `vcs_run_vba(db, code, allow=True)`). Agents would have to pass permission flags on every call, which is noisy and easily forgotten. Also pushes the security decision to the agent rather than the user.
+- **Properties on `clsOptions` with defaults, serialized in `vcs-options.json` (chosen)**. Follows the same pattern as every other VCS option. Lives in the project's options file, visible in the options form. Environment variables can override for development scenarios.
+
+**Decision**: Four boolean properties added to `clsOptions`: `McpAllowRunVBA` (default: False), `McpAllowExecuteSQL` (default: True), `McpAllowCallVBA` (default: True), `McpAllowImport` (default: True). Defaults follow least-privilege: read-like operations are on by default; arbitrary code execution is off. Properties are registered in `m_colOptions` for JSON serialization and excluded from `GetCategoryHashes` (they don't affect export output). The UI sub-form (`frmVCSOptionsMCP`) is deferred — the options are fully functional via `GetOption`/`SetOption` API.
+
+**What this rules out**: Security is per-project, not per-session or per-agent. An agent connecting to a database with `McpAllowRunVBA = False` cannot escalate by setting it via `SetOption` because the check happens before the option can be changed in the same call. However, an agent *can* call `SetOption("McpAllowRunVBA", True)` to enable it for a session if `SetOption` itself isn't gated. This is acceptable because `SetOption` changes are session-level (not persisted) and the user has already opted into MCP tool access by configuring the MCP server.
+
+**Relevant files**: `clsOptions.cls` (properties, defaults, `LoadDefaults`, `m_colOptions`, `GetCategoryHashes`).
+
+---
+
 ## 2026-04-14 — SQL reconstruction fidelity: JOIN chain ordering and UNION handling
 
 **Trigger**: After implementing the MSysQueries-based export (see "Deterministic query export with performance optimization" below), round-trip testing against real databases (MSysQueriesExamples, db-analysis-tools/sec) revealed that the reconstructed SQL differed from the COM `QueryDefs.SQL` property in JOIN nesting order and failed entirely for UNION queries.

@@ -607,6 +607,551 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ExportObject
+' Author    : Adam Waller
+' Date      : 4/14/2026
+' Purpose   : Export a single named object by type and name.
+'           : Accepts string type names ("query", "form", "report", "module", "table",
+'           : "macro") and resolves to the AccessObject internally.
+'           : Returns JSON: {"success":true/false, "filePath":"...", "error":"..."}
+'           : Public method for external API access (e.g., via MCP tools).
+'---------------------------------------------------------------------------------------
+'
+Public Function ExportObject(strObjectType As String, strObjectName As String) As String
+
+    Dim objItem As AccessObject
+    Dim lngType As AcObjectType
+    Dim dResult As Dictionary
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    Set dResult = New Dictionary
+
+    ' Resolve type string to AcObjectType
+    Select Case LCase$(strObjectType)
+        Case "query":   lngType = acQuery
+        Case "form":    lngType = acForm
+        Case "report":  lngType = acReport
+        Case "module":  lngType = acModule
+        Case "table":   lngType = acTable
+        Case "macro":   lngType = acMacro
+        Case Else
+            dResult.Add "success", False
+            dResult.Add "error", "Unknown object type: " & strObjectType & ". Use query, form, report, module, table, or macro."
+            ExportObject = ConvertToJson(dResult)
+            Exit Function
+    End Select
+
+    ' Get the AccessObject reference
+    On Error Resume Next
+    Select Case lngType
+        Case acQuery:   Set objItem = CurrentData.AllQueries(strObjectName)
+        Case acForm:    Set objItem = CurrentProject.AllForms(strObjectName)
+        Case acReport:  Set objItem = CurrentProject.AllReports(strObjectName)
+        Case acModule:  Set objItem = CurrentProject.AllModules(strObjectName)
+        Case acTable:   Set objItem = CurrentData.AllTables(strObjectName)
+        Case acMacro:   Set objItem = CurrentProject.AllMacros(strObjectName)
+    End Select
+    On Error GoTo ErrHandler
+
+    If objItem Is Nothing Then
+        dResult.Add "success", False
+        dResult.Add "error", "Object not found: " & strObjectType & " '" & strObjectName & "'"
+        ExportObject = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    ' Begin operation and delegate to ExportSingleObject
+    If Not Operation.Begin(eotExport) Then
+        dResult.Add "success", False
+        dResult.Add "error", "Could not begin export operation (another operation may be running)"
+        ExportObject = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    modExport.ExportSingleObject objItem
+    Set objItem = Nothing
+
+    dResult.Add "success", (Operation.ErrorLevel < eelError)
+    If Operation.ErrorLevel >= eelError Then
+        dResult.Add "error", "Export completed with errors. Check the log for details."
+    End If
+    dResult.Add "logPath", Log.LogFilePath
+
+    Operation.Finish
+    ExportObject = ConvertToJson(dResult)
+    Exit Function
+
+ErrHandler:
+    Set dResult = New Dictionary
+    dResult.Add "success", False
+    dResult.Add "error", Err.Description
+    dResult.Add "errorNumber", CLng(Err.Number)
+    ExportObject = ConvertToJson(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportObject
+' Author    : Adam Waller
+' Date      : 4/14/2026
+' Purpose   : Import (load) a single named object from source files.
+'           : Accepts string type names ("query", "form", "report", "module", "table",
+'           : "macro") and resolves to the IDbComponent internally.
+'           : Returns JSON: {"success":true/false, "error":"..."}
+'           : Public method for external API access (e.g., via MCP tools).
+'---------------------------------------------------------------------------------------
+'
+Public Function ImportObject(strObjectType As String, strObjectName As String) As String
+
+    Dim cComponent As IDbComponent
+    Dim strSourceFile As String
+    Dim dResult As Dictionary
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    Set dResult = New Dictionary
+
+    ' Create the appropriate component class
+    Select Case LCase$(strObjectType)
+        Case "query":   Set cComponent = New clsDbQuery
+        Case "form":    Set cComponent = New clsDbForm
+        Case "report":  Set cComponent = New clsDbReport
+        Case "module":  Set cComponent = New clsDbModule
+        Case "table":   Set cComponent = New clsDbTableDef
+        Case "macro":   Set cComponent = New clsDbMacro
+        Case Else
+            dResult.Add "success", False
+            dResult.Add "error", "Unknown object type: " & strObjectType & ". Use query, form, report, module, table, or macro."
+            ImportObject = ConvertToJson(dResult)
+            Exit Function
+    End Select
+
+    ' Try to resolve the object in the database to set up the component
+    Dim objItem As AccessObject
+    On Error Resume Next
+    Select Case LCase$(strObjectType)
+        Case "query":   Set objItem = CurrentData.AllQueries(strObjectName)
+        Case "form":    Set objItem = CurrentProject.AllForms(strObjectName)
+        Case "report":  Set objItem = CurrentProject.AllReports(strObjectName)
+        Case "module":  Set objItem = CurrentProject.AllModules(strObjectName)
+        Case "table":   Set objItem = CurrentData.AllTables(strObjectName)
+        Case "macro":   Set objItem = CurrentProject.AllMacros(strObjectName)
+    End Select
+    On Error GoTo ErrHandler
+
+    ' Set the database object reference (may be Nothing for new objects)
+    If Not objItem Is Nothing Then
+        Set cComponent.DbObject = objItem
+        strSourceFile = cComponent.SourceFile
+        Set objItem = Nothing
+    End If
+
+    ' If we couldn't get the source file from the component, try to find it
+    If Len(strSourceFile) = 0 Then
+        strSourceFile = FindSourceFile(cComponent, strObjectName)
+    End If
+
+    If Len(strSourceFile) = 0 Or Not FSO.FileExists(strSourceFile) Then
+        dResult.Add "success", False
+        dResult.Add "error", "Source file not found for " & strObjectType & " '" & strObjectName & "'"
+        If Len(strSourceFile) > 0 Then dResult.Add "expectedPath", strSourceFile
+        ImportObject = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    ' Begin operation and delegate to LoadSingleObject
+    If Not Operation.Begin(eotMerge) Then
+        dResult.Add "success", False
+        dResult.Add "error", "Could not begin import operation (another operation may be running)"
+        ImportObject = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+    Form_frmVCSMain.StartBuild False
+    LoadSingleObject cComponent, strObjectName, strSourceFile
+    Form_frmVCSMain.FinishBuild False
+
+    dResult.Add "success", (Operation.ErrorLevel < eelError)
+    If Operation.ErrorLevel >= eelError Then
+        dResult.Add "error", "Import completed with errors. Check the log for details."
+    End If
+    dResult.Add "logPath", Log.LogFilePath
+
+    Operation.Finish
+    ImportObject = ConvertToJson(dResult)
+    Exit Function
+
+ErrHandler:
+    Set dResult = New Dictionary
+    dResult.Add "success", False
+    dResult.Add "error", Err.Description
+    dResult.Add "errorNumber", CLng(Err.Number)
+    ImportObject = ConvertToJson(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindSourceFile
+' Author    : Adam Waller
+' Date      : 4/14/2026
+' Purpose   : Find the source file for a named object when the component doesn't
+'           : already have a database object reference set.
+'---------------------------------------------------------------------------------------
+'
+Private Function FindSourceFile(cComponent As IDbComponent, strObjectName As String) As String
+
+    Dim strFolder As String
+    Dim strFile As String
+
+    ' Get the base folder for this component type
+    strFolder = cComponent.BaseFolder
+
+    ' Try common extensions used for this type of component
+    Dim varExt As Variant
+    Dim aExtensions As Variant
+
+    Select Case TypeName(cComponent)
+        Case "clsDbQuery":      aExtensions = Array(".sql", ".qdef", ".bas")
+        Case "clsDbForm":       aExtensions = Array(".form", ".cls", ".bas")
+        Case "clsDbReport":     aExtensions = Array(".report", ".cls", ".bas")
+        Case "clsDbModule":     aExtensions = Array(".bas", ".cls")
+        Case "clsDbTableDef":   aExtensions = Array(".xml", ".sql")
+        Case "clsDbMacro":      aExtensions = Array(".macro", ".bas")
+        Case Else:              aExtensions = Array(".bas", ".cls", ".xml", ".sql")
+    End Select
+
+    For Each varExt In aExtensions
+        strFile = strFolder & strObjectName & CStr(varExt)
+        If FSO.FileExists(strFile) Then
+            FindSourceFile = strFile
+            Exit Function
+        End If
+    Next varExt
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunVBA
+' Author    : Adam Waller
+' Date      : 4/14/2026
+' Purpose   : Execute agent-generated VBA code in a temporary module.
+'           : Creates a temp module, wraps code in a function with error handling,
+'           : compiles to validate, executes, captures result, cleans up.
+'           : Returns JSON: {"success":true/false, "result":"...", "error":"...",
+'           :   "compileError":"..."}
+'           : Gated by McpAllowRunVBA option.
+'---------------------------------------------------------------------------------------
+'
+Public Function RunVBA(strCode As String) As String
+
+    Dim dResult As Dictionary
+    Dim cmp As VBIDE.VBComponent
+    Dim strModuleName As String
+    Dim strWrapper As String
+    Dim varReturn As Variant
+    Dim blnModuleCreated As Boolean
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    Set dResult = New Dictionary
+    strModuleName = "_MCP_Temp_" & Format$(Timer * 100, "0")
+
+    ' Check permission
+    If Not Options.McpAllowRunVBA Then
+        dResult.Add "success", False
+        dResult.Add "error", "RunVBA is disabled. Enable McpAllowRunVBA in VCS Options > MCP to allow agent-generated code execution."
+        RunVBA = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    ' Build the wrapper function with error number/description stored in module-level vars
+    strWrapper = "Private m_ErrNum As Long" & vbCrLf & _
+                 "Private m_ErrDesc As String" & vbCrLf & vbCrLf & _
+                 "Public Function _MCP_TempFunction() As Variant" & vbCrLf & _
+                 "    On Error Resume Next" & vbCrLf & _
+                 "    " & Replace(strCode, vbLf, vbCrLf & "    ") & vbCrLf & _
+                 "    m_ErrNum = Err.Number" & vbCrLf & _
+                 "    m_ErrDesc = Err.Description" & vbCrLf & _
+                 "End Function" & vbCrLf & vbCrLf & _
+                 "Public Function _MCP_GetErrNum() As Long" & vbCrLf & _
+                 "    _MCP_GetErrNum = m_ErrNum" & vbCrLf & _
+                 "End Function" & vbCrLf & vbCrLf & _
+                 "Public Function _MCP_GetErrDesc() As String" & vbCrLf & _
+                 "    _MCP_GetErrDesc = m_ErrDesc" & vbCrLf & _
+                 "End Function"
+
+    ' Create temp module in the current database
+    Set cmp = CurrentVBProject.VBComponents.Add(vbext_ct_StdModule)
+    cmp.Name = strModuleName
+    blnModuleCreated = True
+    cmp.CodeModule.InsertLines 1, "Option Compare Database" & vbCrLf & "Option Explicit" & vbCrLf & vbCrLf & strWrapper
+
+    ' Compile the project to validate the code
+    On Error Resume Next
+    DoCmd.RunCommand acCmdCompileAllModules
+    DoEvents
+
+    If Not Application.IsCompiled Then
+        dResult.Add "success", False
+        dResult.Add "compileError", "VBA compilation failed. The agent code contains syntax or reference errors."
+        GoTo CleanUp
+    End If
+    On Error GoTo ErrHandler
+
+    ' Execute the wrapper function
+    varReturn = Application.Run(strModuleName & "._MCP_TempFunction")
+
+    ' Check for runtime errors captured by the wrapper
+    Dim lngErrNum As Long
+    Dim strErrDesc As String
+    lngErrNum = Application.Run(strModuleName & "._MCP_GetErrNum")
+    If lngErrNum <> 0 Then
+        strErrDesc = Application.Run(strModuleName & "._MCP_GetErrDesc")
+        dResult.Add "success", False
+        dResult.Add "error", strErrDesc
+        dResult.Add "errorNumber", lngErrNum
+    Else
+        dResult.Add "success", True
+        If Not IsEmpty(varReturn) And Not IsNull(varReturn) Then
+            dResult.Add "result", CStr(varReturn)
+        Else
+            dResult.Add "result", vbNullString
+        End If
+    End If
+
+CleanUp:
+    ' Always remove the temp module
+    If blnModuleCreated Then
+        On Error Resume Next
+        CurrentVBProject.VBComponents.Remove cmp
+        On Error GoTo 0
+    End If
+
+    RunVBA = ConvertToJson(dResult)
+    Exit Function
+
+ErrHandler:
+    Set dResult = New Dictionary
+    dResult.Add "success", False
+    dResult.Add "error", Err.Description
+    dResult.Add "errorNumber", CLng(Err.Number)
+    GoTo CleanUp
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExecuteSQL
+' Author    : Adam Waller
+' Date      : 4/14/2026
+' Purpose   : Execute a read-only SELECT query via CurrentDb.OpenRecordset.
+'           : Returns JSON rows (field names + values), capped at lngMaxRows.
+'           : Rejects non-SELECT statements.
+'           : Public method for external API access (e.g., via MCP tools).
+'---------------------------------------------------------------------------------------
+'
+Public Function ExecuteSQL(strSQL As String, Optional lngMaxRows As Long = 100) As String
+
+    Dim dResult As Dictionary
+    Dim dRows As Collection
+    Dim dRow As Dictionary
+    Dim rs As DAO.Recordset
+    Dim db As DAO.Database
+    Dim lngRow As Long
+    Dim lngField As Long
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    Set dResult = New Dictionary
+
+    ' Check permission
+    If Not Options.McpAllowExecuteSQL Then
+        dResult.Add "success", False
+        dResult.Add "error", "ExecuteSQL is disabled. Enable McpAllowExecuteSQL in VCS Options > MCP."
+        ExecuteSQL = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    ' Validate: only SELECT statements allowed
+    Dim strTrimmed As String
+    strTrimmed = Trim$(strSQL)
+    If LCase$(Left$(strTrimmed, 7)) <> "select " And LCase$(Left$(strTrimmed, 7)) <> "select" & vbTab Then
+        dResult.Add "success", False
+        dResult.Add "error", "Only SELECT statements are allowed. Received: " & Left$(strTrimmed, 50)
+        ExecuteSQL = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    ' Execute query
+    Set db = CurrentDb
+    Set rs = db.OpenRecordset(strSQL, dbOpenSnapshot, dbReadOnly)
+
+    Set dRows = New Collection
+    Do While Not rs.EOF And lngRow < lngMaxRows
+        Set dRow = New Dictionary
+        For lngField = 0 To rs.Fields.Count - 1
+            If IsNull(rs.Fields(lngField).Value) Then
+                dRow.Add rs.Fields(lngField).Name, Null
+            Else
+                dRow.Add rs.Fields(lngField).Name, rs.Fields(lngField).Value
+            End If
+        Next lngField
+        dRows.Add dRow
+        lngRow = lngRow + 1
+        rs.MoveNext
+    Loop
+
+    dResult.Add "success", True
+    dResult.Add "rows", dRows
+    dResult.Add "rowCount", lngRow
+    dResult.Add "truncated", (Not rs.EOF)
+
+    rs.Close
+    Set rs = Nothing
+    Set db = Nothing
+
+    ExecuteSQL = ConvertToJson(dResult)
+    Exit Function
+
+ErrHandler:
+    Set dResult = New Dictionary
+    dResult.Add "success", False
+    dResult.Add "error", Err.Description
+    dResult.Add "errorNumber", CLng(Err.Number)
+    ExecuteSQL = ConvertToJson(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetOption
+' Author    : Adam Waller
+' Date      : 4/14/2026
+' Purpose   : Return the current value of any clsOptions property by name.
+'           : Uses CallByName for dynamic property access.
+'           : Public method for external API access (e.g., via MCP tools).
+'---------------------------------------------------------------------------------------
+'
+Public Function GetOption(strName As String) As Variant
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    GetOption = CallByName(Options, strName, VbGet)
+    Exit Function
+
+ErrHandler:
+    ' Return error info as JSON string when property doesn't exist
+    Dim dResult As Dictionary
+    Set dResult = New Dictionary
+    dResult.Add "success", False
+    dResult.Add "error", "Could not read option '" & strName & "': " & Err.Description
+    GetOption = ConvertToJson(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetOption
+' Author    : Adam Waller
+' Date      : 4/14/2026
+' Purpose   : Set a clsOptions property by name (session-level, not persisted).
+'           : Uses CallByName for dynamic property access.
+'           : Public method for external API access (e.g., via MCP tools).
+'---------------------------------------------------------------------------------------
+'
+Public Function SetOption(strName As String, varValue As Variant) As String
+
+    Dim dResult As Dictionary
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    Set dResult = New Dictionary
+
+    CallByName Options, strName, VbLet, varValue
+
+    dResult.Add "success", True
+    dResult.Add "option", strName
+    dResult.Add "value", varValue
+    SetOption = ConvertToJson(dResult)
+    Exit Function
+
+ErrHandler:
+    Set dResult = New Dictionary
+    dResult.Add "success", False
+    dResult.Add "error", "Could not set option '" & strName & "': " & Err.Description
+    SetOption = ConvertToJson(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetLogContent
+' Author    : Adam Waller
+' Date      : 4/14/2026
+' Purpose   : Read the most recent log file matching the base name (e.g., "Export").
+'           : Returns the log file content as a string.
+'           : Public method for external API access (e.g., via MCP tools).
+'---------------------------------------------------------------------------------------
+'
+Public Function GetLogContent(Optional strBaseName As String = "Export") As String
+
+    Dim strFolder As String
+    Dim strPath As String
+    Dim oFolder As Object
+    Dim oFile As Object
+    Dim strNewest As String
+    Dim dResult As Dictionary
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    Set dResult = New Dictionary
+
+    ' Look in the logs subfolder
+    strFolder = FSO.BuildPath(Options.GetExportFolder, "logs")
+
+    If FSO.FolderExists(strFolder) Then
+        Set oFolder = FSO.GetFolder(strFolder)
+        For Each oFile In oFolder.Files
+            If oFile.Name Like strBaseName & "_*.log" Then
+                If oFile.Path > strNewest Then strNewest = oFile.Path
+            End If
+        Next oFile
+    End If
+
+    If Len(strNewest) > 0 Then
+        dResult.Add "success", True
+        dResult.Add "logPath", strNewest
+        dResult.Add "content", ReadFile(strNewest)
+    Else
+        dResult.Add "success", False
+        dResult.Add "error", "No log files found matching '" & strBaseName & "_*.log' in " & strFolder
+    End If
+
+    GetLogContent = ConvertToJson(dResult)
+    Exit Function
+
+ErrHandler:
+    Set dResult = New Dictionary
+    dResult.Add "success", False
+    dResult.Add "error", Err.Description
+    GetLogContent = ConvertToJson(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Version
 ' Author    : Adam Waller
 ' Date      : 1/13/2021

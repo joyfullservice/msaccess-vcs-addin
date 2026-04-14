@@ -62,6 +62,12 @@ Public ExportLayoutSvg As Boolean
 Public LayoutSvgImageEmbed As String    ' "None", "Small", "Medium", "All"
 Public LayoutSvgScaleMode As String     ' "Universal", "Screenshot"
 
+' MCP security options (control what agents can do via MCP tools)
+Public McpAllowRunVBA As Boolean        ' Allow vcs_run_vba temp module execution (default: False)
+Public McpAllowExecuteSQL As Boolean    ' Allow vcs_execute_sql read-only queries (default: True)
+Public McpAllowCallVBA As Boolean       ' Allow vcs_call_vba to call existing functions (default: True)
+Public McpAllowImport As Boolean        ' Allow vcs_import_object to load from source (default: True)
+
 ' Enum to compare loaded version to installed version.
 Public Enum eVersionCompare
     evcUnknown
@@ -116,6 +122,12 @@ Public Sub LoadDefaults()
         .ExportLayoutSvg = False
         .LayoutSvgImageEmbed = "Small"
         .LayoutSvgScaleMode = "Universal"
+
+        ' MCP security defaults (least-privilege: RunVBA off, others on)
+        .McpAllowRunVBA = False
+        .McpAllowExecuteSQL = True
+        .McpAllowCallVBA = True
+        .McpAllowImport = True
 
         ' Table data export
         Set .TablesToExportData = New Dictionary
@@ -777,7 +789,9 @@ Public Function GetCategoryHashes() As Dictionary
                  "RunBeforeMerge", "RunAfterMerge", _
                  "ShowVCSLegacy", "BreakOnError", "MaxLogFiles", _
                  "HashAlgorithm", "UseShortHash", "SchemaExports", _
-                 "TablesToExportData"
+                 "TablesToExportData", _
+                 "McpAllowRunVBA", "McpAllowExecuteSQL", _
+                 "McpAllowCallVBA", "McpAllowImport"
                 ' Not included in hash
 
             Case Else
@@ -969,6 +983,10 @@ Private Sub Class_Initialize()
         .Add "ExportLayoutSvg"
         .Add "LayoutSvgImageEmbed"
         .Add "LayoutSvgScaleMode"
+        .Add "McpAllowRunVBA"
+        .Add "McpAllowExecuteSQL"
+        .Add "McpAllowCallVBA"
+        .Add "McpAllowImport"
     End With
 
     ' Load default values
