@@ -81,6 +81,23 @@ contradictory guidance.
 
 ---
 
+## 2026-04-14 — Relax merge build gate to accept full export as baseline
+
+**Trigger**: Merge builds were gated on `VCSIndex.FullBuildDate <> 0`, requiring a full build from source before merge was available. After index refactoring, full exports now populate the same per-component hashes (`FileHash`, `OtherHash`, `MetaHash`, `FilePropertiesHash`) that merge relies on. The `FullBuildDate` gate blocked a natural workflow: export from an existing database, pull source changes from Git, then merge those changes back in.
+
+**Options explored**:
+- **Keep the full-build-only gate**: Safe but overly restrictive. Forces users to do a throwaway full build before they can merge, even when they already have a working database with a complete index from export.
+- **Remove the gate entirely (check only for non-empty index)**: Too permissive. A user who has never run the add-in would have no index at all, and merge would process every file as "modified" without proper dependency resolution.
+- **Accept either `FullBuildDate` or `FullExportDate`**: Chosen. Both operations produce a complete index baseline. A full export from the existing database means the index and database are already in sync — exactly the state needed for merge to work correctly.
+
+**Decision**: Changed the gate condition from `VCSIndex.FullBuildDate = 0` to `VCSIndex.FullBuildDate = 0 And VCSIndex.FullExportDate = 0`. The merge engine itself (`GetModifiedSourceFiles`) never checked `FullBuildDate` — it only needs index entries with `FilePropertiesHash` to diff against. This was purely a UI/API gate that no longer reflected a technical requirement.
+
+**What this rules out**: The assumption that merge requires a prior full build is no longer valid. Future code should not re-introduce a `FullBuildDate`-only check. If a new component type is added that requires special handling on first import (like table data), it should be handled in the merge path's category filtering, not by gating on build history. Revisit if a scenario is found where export-generated index entries are insufficient for accurate merge detection.
+
+**Relevant files**: `Version Control.accda.src/forms/frmVCSMain.cls` (gate condition and comment), `Version Control.accda.src/modules/API/clsVersionControl.cls` (user-facing message, added `T()` wrapping).
+
+---
+
 ## 2026-04-09 — Stable, readable .env connection keys with named connection overrides
 
 **Trigger**: Auto-generated `.env` keys for linked table connection strings used a hash of the full connection string (`conn_<hash>`). When developers worked across environments (e.g., local SQL dev vs. production server), different SERVER=, DRIVER=, or credential values produced different hashes — breaking the key mapping. Source files exported on one machine wouldn't resolve on another because the `env:conn_<hash>` reference pointed to a key that didn't exist in the other developer's `.env`.
@@ -1278,5 +1295,59 @@ Changes made: (1) Removed "Encoding", "REQUIRED: Restore BOM After Every Edit", 
 - `Version Control.accda.src/AGENTS.md` — condensed Rules 1-2, removed Common Tasks encoding steps
 - `.cursor/rules/project-guide.mdc` — removed BOM reminder line
 - `.editorconfig` — added explanatory comments
+
+---
+
+## 2026-04-10 — Deterministic query export with performance optimization
+
+**Trigger**: Query exports using `Application.SaveAsText` were non-deterministic (WHERE clause ordering, column metadata ordering varied between exports) causing VCS noise, and slow (~30 minutes for 2,800 queries due to per-query COM calls).
+
+**Options explored**:
+
+- **Keep `SaveAsText` and post-process for determinism**: Sanitize the output to normalize ordering. Rejected because it doesn't solve the performance problem (SaveAsText is the bottleneck) and the sanitization is fragile given the undocumented format.
+- **Read `QueryDefs(name).SQL` directly**: Avoids SaveAsText but is still a slow per-query COM call. Doesn't capture design layout, column metadata, or properties without additional COM calls. Rejected.
+- **Read MSysQueries + MSysObjects system tables directly** (chosen): Single SQL queries can bulk-read all query data. `MSysQueries` contains the decomposed query structure (one row per clause). `MSysObjects.LvProp` stores properties and column metadata in the same MR2 binary format already parsed for linked tables. `MSysObjects.LvExtra` stores Design View layout. Both blobs are sub-millisecond to read per query. SQL is reconstructed deterministically from the decomposed structure.
+
+**Decision**: Replace `SaveAsText` + `QueryDefs.SQL` with direct reads from `MSysQueries` and `MSysObjects` system tables. Export produces `.sql` (source of truth for SQL text) + `.json` (metadata: properties, columns, design layout, description, hidden). The `.qdef` file is no longer exported.
+
+**Architecture**:
+
+- `clsQueryComposer`: Bidirectional SQL/structure translation class. `ReconstructSQL()` builds SQL from MSysQueries rows on export. `DecomposeSQL()` parses SQL back into structure on import. `GenerateQdef()` emits Design View or SQL View `.qdef` text for `LoadFromText`.
+- `clsLvExtraParser`: Parses the LvExtra binary blob (magic `0x99 0x99 0xCE 0xAC`, window/pane RECTs, table positions as null-terminated UTF-16LE strings). Format reverse-engineered from live data.
+- `clsLvPropParser`: Existing class, verified to work on query LvProp blobs (same MR2 format as linked tables).
+- Import flow: `.sql` → `DecomposeSQL()` → check `IsDesignerCompatible()` → generate Design View `.qdef` (with layout from `.json`) or SQL View `.qdef` → `LoadFromText` → apply metadata from `.json`. Falls back to SQL View if Design View import fails.
+- Backward compatibility: Legacy `.qdef`/`.bas` files are still accepted for import. `GetFileList` searches for `.sql` first, then `.qdef`/`.bas`. Legacy files are cleaned up on next export.
+
+**LvExtra binary format** (reverse-engineered):
+
+| Offset | Size | Content |
+|--------|------|---------|
+| 0-3 | 4 | Magic: `99 99 CE AC` |
+| 4-15 | 12 | Padding: `0xAA` × 12 |
+| 16-31 | 16 | Window RECT (Left, Top, Right, Bottom as Longs) |
+| 32-35 | 4 | State (Long) |
+| 36-51 | 16 | Designer pane RECT |
+| 52-59 | 8 | Grid origin (Left, Top) |
+| 60-63 | 4 | ColumnsShown (Long) |
+| 64-67 | 4 | Table count (Long) |
+| 68+ | var | Per table: 5 Longs (L,T,R,B,scrollTop) + 2 null-term UTF-16LE names |
+
+**MSysQueries findings** (vs isladogs documentation):
+
+- Attribute 6 (field references): Expression column, not Name1
+- Attribute 11 (ORDER BY): Expression column, not Name2
+- Undocumented columns: `Order` (Binary, 510 bytes), `LvExtra` (Long, always NULL)
+- `MSysObjects.LvExtra IS NOT NULL` reliably indicates Design View save
+
+**What this rules out**: `SaveAsText` is no longer used for query export (still used for forms, reports, macros). The `SaveQuerySQL` option and `ForceImportOriginalQuerySQL` option are superseded by the new format. The decomposed query structure is never stored in files — it exists only transiently during composition/decomposition. Future changes to Access SQL dialect (new keywords, syntax) may require updates to `clsQueryComposer`.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` — new: bidirectional SQL/structure/qdef translation
+- `Version Control.accda.src/modules/Utility/clsLvExtraParser.cls` — new: LvExtra binary parser
+- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — rewritten: Export reads system tables, Import generates .qdef on-the-fly
+- `Version Control.accda.src/modules/Utility/clsLvPropParser.cls` — verified: works for query LvProp blobs as-is
+- `Version Control.accda.src/AGENTS.md` — updated: Query Files section for .sql + .json format
+- `docs/how-access-stores-queries.md` — corrections to MSysQueries attribute documentation
 
 ---

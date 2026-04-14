@@ -170,9 +170,9 @@ Public Sub MergeBuild()
             .chkFullBuild = False
             .cmdBuild_Click
         Else
-            MsgBox2 "Merge Build Not Available", _
-                "A full build must be performed before you can merge from source.", _
-                "Please perform a full build of this database first.", vbInformation
+            MsgBox2 T("Merge Build Not Available"), _
+                T("A full build or full export must be performed before you can merge from source."), _
+                T("Please perform a full build or full export of this database first."), vbInformation
         End If
     End With
 End Sub
