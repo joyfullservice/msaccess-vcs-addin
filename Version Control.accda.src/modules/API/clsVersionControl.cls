@@ -699,6 +699,9 @@ Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strOb
             Set VCSIndex = Nothing
             Set Options = Nothing
             Options.LoadProjectOptions
+            If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+                Options.LoadOptionOverrides
+            End If
             Log.Clear
             Log.SourcePath = Options.GetExportFolder
             Log.Active = True
@@ -926,18 +929,13 @@ Public Function ImportObject(ByVal strObjectType As String, Optional ByVal strOb
         Exit Function
     End If
 
-    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
-    Form_frmVCSMain.StartBuild False
     LoadSingleObject cComponent, strObjectName, strSourceFile
-    Form_frmVCSMain.FinishBuild False
 
     dResult.Add "success", (Operation.ErrorLevel < eelError)
     If Operation.ErrorLevel >= eelError Then
         dResult.Add "error", "Import completed with errors. Check the log for details."
     End If
     dResult.Add "logPath", Log.LogFilePath
-
-    Operation.Finish
     ImportObject = ConvertToJson(dResult)
     Exit Function
 
@@ -1219,9 +1217,10 @@ End Function
 ' Procedure : SetOption
 ' Author    : Adam Waller
 ' Date      : 4/14/2026
-' Purpose   : Set a clsOptions property by name (session-level, not persisted).
-'           : Uses CallByName for dynamic property access.
-'           : Public method for external API access (e.g., via MCP tools).
+' Purpose   : Set a clsOptions property by name. The change is applied immediately
+'           : in memory AND persisted to a session-scoped override file in the mcp/
+'           : subfolder so it survives Options reloads across operations.
+'           : The user's vcs-options.json is never modified.
 '---------------------------------------------------------------------------------------
 '
 Public Function SetOption(ByVal strName As String, ByVal varValue As Variant) As String
@@ -1233,7 +1232,11 @@ Public Function SetOption(ByVal strName As String, ByVal varValue As Variant) As
 
     Set dResult = New Dictionary
 
+    ' Apply to current in-memory options
     CallByName Options, strName, VbLet, varValue
+
+    ' Persist to session override file so the change survives Options reload
+    SaveOptionOverride strName, varValue
 
     dResult.Add "success", True
     dResult.Add "option", strName
@@ -1246,6 +1249,160 @@ ErrHandler:
     dResult.Add "success", False
     dResult.Add "error", "Could not set option '" & strName & "': " & Err.Description
     SetOption = ConvertToJson(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveOptionOverride
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : Write an option override to the session-specific file in the mcp/
+'           : subfolder. Creates the subfolder and file if they don't exist.
+'           : Uses the SessionId from modObjects (set via RegisterSession) or
+'           : falls back to "default" for non-session API callers.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SaveOptionOverride(strName As String, varValue As Variant)
+
+    Dim strFolder As String
+    Dim strFile As String
+    Dim strSessionId As String
+    Dim dFile As Dictionary
+    Dim dInfo As Dictionary
+    Dim dOptions As Dictionary
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' Determine session ID
+    strSessionId = modObjects.SessionId
+    If Len(strSessionId) = 0 Then strSessionId = "default"
+
+    ' Build file path
+    strFolder = Options.GetExportFolder & "mcp" & PathSep
+    strFile = strFolder & "options-" & strSessionId & ".json"
+
+    ' Create mcp subfolder if needed
+    If Not FSO.FolderExists(strFolder) Then
+        VerifyPath strFolder & "placeholder"
+    End If
+
+    ' Read existing file or create new dictionary
+    If FSO.FileExists(strFile) Then
+        Set dFile = ReadJsonFile(strFile)
+    End If
+    If dFile Is Nothing Then Set dFile = New Dictionary
+
+    ' Update Info section
+    If Not dFile.Exists("Info") Then
+        Set dInfo = New Dictionary
+        dInfo.Add "SessionId", strSessionId
+        dInfo.Add "Source", IIf(Operation.Source = eosMCPTool, "MCP", "API")
+        dInfo.Add "Created", Format$(Now, "yyyy-mm-dd hh:nn:ss")
+        dInfo.Add "Modified", Format$(Now, "yyyy-mm-dd hh:nn:ss")
+        dFile.Add "Info", dInfo
+    Else
+        dFile("Info")("Modified") = Format$(Now, "yyyy-mm-dd hh:nn:ss")
+    End If
+
+    ' Update Options section
+    If Not dFile.Exists("Options") Then
+        Set dOptions = New Dictionary
+        dFile.Add "Options", dOptions
+    End If
+    If dFile("Options").Exists(strName) Then
+        dFile("Options")(strName) = varValue
+    Else
+        dFile("Options").Add strName, varValue
+    End If
+
+    ' Write file
+    WriteFile ConvertToJson(dFile, 4), strFile
+
+    CatchAny eelWarning, "Writing option override for " & strName, ModuleName(Me) & ".SaveOptionOverride"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RegisterSession
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : Register an MCP/API session identifier used to scope option overrides.
+'           : The session ID determines the override filename (options-{id}.json in mcp/).
+'           : Called by the MCP server at startup; idempotent.
+'---------------------------------------------------------------------------------------
+'
+Public Function RegisterSession(ByVal strSessionId As String) As String
+
+    Dim dResult As Dictionary
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    modObjects.SessionId = strSessionId
+
+    Set dResult = New Dictionary
+    dResult.Add "success", True
+    dResult.Add "session_id", strSessionId
+    RegisterSession = ConvertToJson(dResult)
+    Exit Function
+
+ErrHandler:
+    Set dResult = New Dictionary
+    dResult.Add "success", False
+    dResult.Add "error", "Could not register session: " & Err.Description
+    RegisterSession = ConvertToJson(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EndSession
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : End an MCP/API session by deleting its override file and reloading
+'           : options without those overrides. If strSessionId is empty, uses the
+'           : currently registered session.
+'---------------------------------------------------------------------------------------
+'
+Public Function EndSession(Optional ByVal strSessionId As String) As String
+
+    Dim dResult As Dictionary
+    Dim strFile As String
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    If Len(strSessionId) = 0 Then strSessionId = modObjects.SessionId
+    If Len(strSessionId) = 0 Then strSessionId = "default"
+
+    ' Delete the session's override file
+    strFile = Options.GetExportFolder & "mcp" & PathSep & "options-" & strSessionId & ".json"
+    If FSO.FileExists(strFile) Then DeleteFile strFile
+
+    ' Clear session ID if it matches
+    If StrComp(strSessionId, modObjects.SessionId, vbTextCompare) = 0 Then
+        modObjects.SessionId = vbNullString
+    End If
+
+    ' Reload options without this session's overrides
+    Set Options = Nothing
+    Options.LoadProjectOptions
+
+    Set dResult = New Dictionary
+    dResult.Add "success", True
+    dResult.Add "session_id", strSessionId
+    dResult.Add "overrides_cleared", True
+    EndSession = ConvertToJson(dResult)
+    Exit Function
+
+ErrHandler:
+    Set dResult = New Dictionary
+    dResult.Add "success", False
+    dResult.Add "error", "Could not end session: " & Err.Description
+    EndSession = ConvertToJson(dResult)
 
 End Function
 

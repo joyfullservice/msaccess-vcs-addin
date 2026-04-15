@@ -135,6 +135,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     ' Temporarily override the export folder to always read files from the specified source folder.
     ' (This is needed if the source folder is renamed, or when building to an alternate file.)
     Options.ExportFolder = strSourceFolder
+    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+        Options.LoadOptionOverrides
+    End If
 
     ' Update VBA debug mode after loading options
     LogUnhandledErrors FunctionName
@@ -575,9 +578,9 @@ CleanUp:
     ' Wait to finish the build till after we have saved the index.
     Operation.Finish
 
-    ' Show MessageBox if not using GUI for build.
-    If Forms.Count = 0 And blnSuccess Then
-        ' Show message box when build is complete.
+    ' Show MessageBox if not using GUI for build (skip for API/MCP operations).
+    If Forms.Count = 0 And blnSuccess _
+        And Operation.Source = eosUserInterface Then
         MsgBox2 T("Build Complete for '{0}'", var0:=CurrentProject.Name), _
             T("Note that some settings may not take effect until this database is reopened."), _
             T("A backup of the previous build was saved as '{0}'.", var0:=FSO.GetFileName(strBackup)), vbInformation
@@ -624,6 +627,9 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
+    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+        Options.LoadOptionOverrides
+    End If
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
@@ -794,6 +800,9 @@ Public Sub MergeAllSource()
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
+    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+        Options.LoadOptionOverrides
+    End If
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True

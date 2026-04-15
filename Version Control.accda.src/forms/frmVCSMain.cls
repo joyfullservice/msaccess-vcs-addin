@@ -111,8 +111,10 @@ Private Function GetSourceFolder() As String
                     "* (A backup of this database will be created before importing any source files.)")
             End If
             strMsg(2) = T("Click 'No' to select another project, or 'Cancel' to go back to the previous screen.")
-            If Not chkFullBuild And Not Me.Visible Then
-                ' Skip confirmation for merge build initiated from Ribbon
+            If (Not chkFullBuild And Not Me.Visible) _
+                Or Operation.Source = eosExternalAPI _
+                Or Operation.Source = eosMCPTool Then
+                ' Skip confirmation for non-interactive operations
                 intChoice = vbYes
             Else
                 ' Require user confirmation for full builds, or if main form is visible.
@@ -214,8 +216,12 @@ Public Sub FinishBuild(blnFullBuild As Boolean _
     cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
     Me.strLastLogFilePath = Log.LogFilePath
 
-    ' Close form if running in silent mode (such as when running automated builds)
-    If InteractionMode = eimSilent Then AutoClose 0
+    ' Close form if running in silent mode or when initiated by API/MCP
+    If InteractionMode = eimSilent _
+        Or Operation.Source = eosExternalAPI _
+        Or Operation.Source = eosMCPTool Then
+        AutoClose 0
+    End If
 
 End Sub
 

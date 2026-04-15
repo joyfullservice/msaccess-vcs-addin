@@ -17,6 +17,9 @@ logs/
 # be comitted to version control.
 vcs-index.json
 
+# MCP/API session option overrides (transient, per-developer)
+mcp/
+
 # Ignore any dotenv files (used for external database connections)
 *.env
 

@@ -16,6 +16,10 @@ Private Const ModuleName = "modObjects"
 ' Manage outside "this" since we will use the operation class to release the other objects.
 Private m_Operation As clsOperation
 
+' Session ID for MCP/API option overrides. Stored outside the UDT so it survives
+' ReleaseObjects teardown. Set via RegisterSession API, used by SaveOptionOverride.
+Private m_strSessionId As String
+
 ' Use a private type to manage instances of object classes
 Private Type udtObjects
     Perf As clsPerformance
@@ -306,6 +310,24 @@ Public Function MCP() As clsMCP
     If this.MCP Is Nothing Then Set this.MCP = New clsMCP
     Set MCP = this.MCP
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SessionId
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : Session identifier for MCP/API option overrides. Set by RegisterSession
+'           : and used by SaveOptionOverride to determine the override filename.
+'           : Stored as a module-level variable (not in udtObjects) so it survives
+'           : ReleaseObjects teardown between operations.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SessionId() As String
+    SessionId = m_strSessionId
+End Property
+Public Property Let SessionId(strValue As String)
+    m_strSessionId = strValue
+End Property
 
 
 '---------------------------------------------------------------------------------------

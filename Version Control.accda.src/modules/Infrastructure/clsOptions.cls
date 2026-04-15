@@ -19,6 +19,9 @@ Option Explicit
 Private Const cstrOptionsFilename As String = "vcs-options.json"
 Private Const cstrSourcePathProperty As String = "VCS Source Path"
 Private Const cstrBuildPathProperty As String = "VCS Build Path"
+Private Const cstrOverridesSubfolder As String = "mcp"
+Private Const cstrOverridesPrefix As String = "options-"
+Private Const STALE_OVERRIDE_DAYS As Long = 30
 
 ' Options
 Public ExportFolder As String
@@ -1100,6 +1103,123 @@ Private Property Let SavedSourcePath(strPath As String)
     End If
 
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadOptionOverrides
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : Scan the mcp/ subfolder for session override files and merge their
+'           : options on top of the current project options. Only called when
+'           : Operation.Source indicates an API/MCP caller. Stale files (>30 days)
+'           : are cleaned up automatically.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadOptionOverrides()
+
+    Dim strFolder As String
+    Dim dFiles As Dictionary
+    Dim varFile As Variant
+
+    strFolder = Me.GetExportFolder & cstrOverridesSubfolder & PathSep
+    If Not FSO.FolderExists(strFolder) Then Exit Sub
+
+    Set dFiles = GetFileList(strFolder, cstrOverridesPrefix & "*.json")
+    If dFiles.Count = 0 Then Exit Sub
+
+    ' Clean up stale files first
+    CleanupStaleOverrides strFolder, dFiles
+
+    ' Merge remaining override files
+    For Each varFile In dFiles.Keys
+        MergeOverrideFile strFolder & varFile
+    Next varFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeOverrideFile
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : Read a single override JSON file and apply its Options entries to the
+'           : current clsOptions instance via CallByName. Unknown keys are skipped
+'           : with a log warning.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MergeOverrideFile(strFile As String)
+
+    Dim dFile As Dictionary
+    Dim dOptions As Dictionary
+    Dim varKey As Variant
+    Dim lngApplied As Long
+
+    Set dFile = ReadJsonFile(strFile)
+    If dFile Is Nothing Then Exit Sub
+    If Not dFile.Exists("Options") Then Exit Sub
+
+    Set dOptions = dFile("Options")
+    For Each varKey In dOptions.Keys
+        LogUnhandledErrors
+        On Error Resume Next
+        CallByName Me, CStr(varKey), VbLet, dOptions(varKey)
+        If Err.Number <> 0 Then
+            Log.Add T("Skipping unknown option override: {0}", var0:=CStr(varKey)), False
+            Err.Clear
+        Else
+            lngApplied = lngApplied + 1
+        End If
+        On Error GoTo 0
+    Next varKey
+
+    If lngApplied > 0 Then
+        Log.Add T("Applied {0} option override(s) from {1}", _
+            var0:=lngApplied, var1:=FSO.GetFileName(strFile)), False
+        ' Re-apply BreakOnError to the error handling module
+        ConfigureErrorHandling Me.BreakOnError
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CleanupStaleOverrides
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : Delete override files whose Info.Modified timestamp is older than
+'           : STALE_OVERRIDE_DAYS. Removes items from dFiles so the caller skips them.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CleanupStaleOverrides(strFolder As String, dFiles As Dictionary)
+
+    Dim varFile As Variant
+    Dim dFile As Dictionary
+    Dim dtModified As Date
+    Dim colToRemove As Collection
+
+    Set colToRemove = New Collection
+
+    For Each varFile In dFiles.Keys
+        Set dFile = ReadJsonFile(strFolder & varFile)
+        If Not dFile Is Nothing Then
+            If dFile.Exists("Info") Then
+                If dFile("Info").Exists("Modified") Then
+                    dtModified = CDate(dFile("Info")("Modified"))
+                    If DateDiff("d", dtModified, Now) > STALE_OVERRIDE_DAYS Then
+                        DeleteFile strFolder & varFile
+                        colToRemove.Add varFile
+                    End If
+                End If
+            End If
+        End If
+    Next varFile
+
+    ' Remove cleaned-up files from the dictionary
+    For Each varFile In colToRemove
+        dFiles.Remove varFile
+    Next varFile
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------

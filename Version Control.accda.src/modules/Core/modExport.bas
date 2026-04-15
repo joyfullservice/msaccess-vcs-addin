@@ -54,6 +54,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
+    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+        Options.LoadOptionOverrides
+    End If
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
@@ -440,6 +443,9 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
+    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+        Options.LoadOptionOverrides
+    End If
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
@@ -621,6 +627,9 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     Set VCSIndex = Nothing
     Set Options = Nothing
     Options.LoadProjectOptions
+    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+        Options.LoadOptionOverrides
+    End If
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True

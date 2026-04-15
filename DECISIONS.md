@@ -81,6 +81,26 @@ contradictory guidance.
 
 ---
 
+## 2026-04-15 — Skip/auto-close UI for API and MCP-initiated operations
+
+**Trigger**: When the MCP server calls `ImportObject` to merge a single component from source, `frmVCSMain` opens, becomes visible, and stays open — adding unnecessary overhead and requiring manual dismissal. Full builds and exports initiated by an agent also leave the form open after completion. The build confirmation dialog (`vbDefaultButton3` = Cancel) could block API callers entirely.
+
+**Options explored**:
+- **Set `InteractionMode = eimSilent` from MCP/API layer**: Leverages existing silent mode infrastructure. Rejected because (a) silent mode also suppresses `MsgBox2` dialogs with default button values, and the build confirmation dialog defaults to Cancel — which would cause API-initiated full builds to cancel themselves; (b) managing `InteractionMode` state across sync and async (timer-based) operations adds complexity; (c) the semantic of "silent" is about dialog suppression, not form visibility.
+- **Add a new `ShowUI` / `Headless` flag**: Would work but adds new state to manage. Rejected because `Operation.Source` already distinguishes callers (`eosUserInterface`, `eosExternalAPI`, `eosMCPTool`) and is set reliably before any operation runs.
+- **Use `Operation.Source` to control UI behavior**: Reuses existing infrastructure with no new state. Each UI decision point checks whether the caller is interactive. Chosen for simplicity and consistency.
+
+**Decision**: Use `Operation.Source` checks at four specific points: (1) `ImportObject` skips `frmVCSMain` entirely for single-object imports — `LoadSingleObject` doesn't depend on the form; (2) `FinishBuild` auto-closes the form when source is API/MCP; (3) build confirmation dialog is skipped for API/MCP; (4) "Build Complete" MsgBox is suppressed for non-UI callers. Full builds/exports still show the form for progress visibility but auto-close on completion.
+
+**What this rules out**: API/MCP callers cannot keep the form open after an operation to let the user review the log. If that's needed in the future, it would require a new parameter (e.g., `blnKeepOpen`) on the API methods. The `InteractionMode` mechanism remains available for other uses (e.g., truly silent batch processing from VBA scripts) and is unaffected by this change.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/API/clsVersionControl.cls` — `ImportObject`: removed form open/close and redundant `Operation.Finish`
+- `Version Control.accda.src/forms/frmVCSMain.cls` — `FinishBuild`: auto-close for API/MCP; `GetSourceFolder`: skip confirmation dialog for API/MCP
+- `Version Control.accda.src/modules/Core/modBuild.bas` — `Build`: suppress "Build Complete" MsgBox for API/MCP
+
+---
+
 ## 2026-04-15 — Use ByVal on clsVersionControl public API parameters for CallByName compatibility
 
 **Trigger**: Calling `API("ExportObject", "query", "qryTest")` via `Application.Run` failed with a type mismatch. The `API` function receives arguments as `Variant` and forwards them through `CallByName`. VBA's default `ByRef` parameter passing requires an exact type match at the call site — a `Variant` cannot bind to a `ByRef String` parameter. The COM dispatch layer used by `CallByName` cannot coerce the type in-place.
@@ -1523,5 +1543,31 @@ Changes made: (1) Removed "Encoding", "REQUIRED: Restore BOM After Every Edit", 
 - `Version Control.accda.src/modules/Utility/clsLvPropParser.cls` — verified: works for query LvProp blobs as-is
 - `Version Control.accda.src/AGENTS.md` — updated: Query Files section for .sql + .json format
 - `docs/how-access-stores-queries.md` — corrections to MSysQueries attribute documentation
+
+---
+
+## 2026-04-15 — Session-scoped option overrides for MCP/API callers
+
+**Trigger**: When the MCP agent sets an option (e.g., `BreakOnError = True`) via `SetOption`, the change was silently discarded because every operation entry point resets `Options` and reloads from `vcs-options.json`. The agent's overrides never survived past the first subsequent operation.
+
+**Options explored**:
+- **Edit `vcs-options.json` directly** — corrupts user config on failure, race conditions, violates thin-wrapper principle.
+- **In-memory overrides dictionary** — lost on Access restart; invisible; complex `ReleaseObjects` coordination.
+- **Pass options as operation parameters** — changes VBA API signatures, awkward across COM. Deferred as a possible future enhancement.
+- **Skip reload when called via API** — agent operates with stale options for everything, not just its overrides.
+- **Single shared override file** — no session isolation; stale overrides bleed into interactive use.
+- **Session-scoped override files in `mcp/` subfolder (chosen)** — each MCP/API session gets its own override file. Files are `.gitignored`. The user's `vcs-options.json` is never touched.
+
+**Decision**: `SetOption` now persists overrides to `mcp/options-{session_id}.json` alongside `vcs-options.json`. After every `LoadProjectOptions` call, if `Operation.Source` is `eosMCPTool` or `eosExternalAPI`, `LoadOptionOverrides` scans the `mcp/` subfolder and merges matching override files on top. Interactive ribbon operations never see them. Stale files are auto-cleaned after 30 days. The MCP server generates a random session ID at startup, registers it via `RegisterSession`, and calls `EndSession` on shutdown to delete the override file.
+
+**What this rules out**: Overrides do not persist across MCP server restarts (the server generates a new session ID each time). If two agents concurrently interact with the same database, their override files may both be loaded — this is an accepted tradeoff. If the MCP spec adds persistent session IDs (SEP-1364), we can adopt them as the session component without changing the file-based mechanism.
+
+**Relevant files**:
+- `clsOptions.cls` — `LoadOptionOverrides`, `MergeOverrideFile`, `CleanupStaleOverrides`
+- `clsVersionControl.cls` — `SetOption` (updated), `SaveOptionOverride`, `RegisterSession`, `EndSession`
+- `modObjects.bas` — `SessionId` property (survives `ReleaseObjects`)
+- `modExport.bas`, `modBuild.bas` — `LoadOptionOverrides` calls gated on `Operation.Source`
+- `main.py` — session ID generation, `atexit` cleanup
+- `tools.py` — `vcs_set_option` registers session, `vcs_end_session` tool added
 
 ---
