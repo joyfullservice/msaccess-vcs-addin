@@ -143,7 +143,7 @@ End Sub
 ' Purpose   : Initiate a full build from source
 '---------------------------------------------------------------------------------------
 '
-Public Sub Build(Optional strSourceFolder As String)
+Public Sub Build(Optional ByVal strSourceFolder As String)
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     With Form_frmVCSMain
         ' Make sure we are doing a full build.
@@ -618,7 +618,7 @@ End Sub
 '           : Public method for external API access (e.g., via MCP tools).
 '---------------------------------------------------------------------------------------
 '
-Public Function ExportObject(strObjectType As String, Optional strObjectName As String) As String
+Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strObjectName As String) As String
 
     Dim intComponentType As eDatabaseComponentType
     Dim objItem As AccessObject
@@ -813,7 +813,7 @@ End Function
 '           : Public method for external API access (e.g., via MCP tools).
 '---------------------------------------------------------------------------------------
 '
-Public Function ImportObject(strObjectType As String, Optional strObjectName As String) As String
+Public Function ImportObject(ByVal strObjectType As String, Optional ByVal strObjectName As String) As String
 
     Dim intComponentType As eDatabaseComponentType
     Dim cComponent As IDbComponent
@@ -1004,7 +1004,7 @@ End Function
 '           : Gated by McpAllowRunVBA option.
 '---------------------------------------------------------------------------------------
 '
-Public Function RunVBA(strCode As String) As String
+Public Function RunVBA(ByVal strCode As String) As String
 
     Dim dResult As Dictionary
     Dim cmp As VBIDE.VBComponent
@@ -1113,7 +1113,7 @@ End Function
 '           : Public method for external API access (e.g., via MCP tools).
 '---------------------------------------------------------------------------------------
 '
-Public Function ExecuteSQL(strSql As String, Optional lngMaxRows As Long = 100) As String
+Public Function ExecuteSQL(ByVal strSql As String, Optional ByVal lngMaxRows As Long = 100) As String
 
     Dim dResult As Dictionary
     Dim dRows As Collection
@@ -1196,7 +1196,7 @@ End Function
 '           : Public method for external API access (e.g., via MCP tools).
 '---------------------------------------------------------------------------------------
 '
-Public Function GetOption(strName As String) As Variant
+Public Function GetOption(ByVal strName As String) As Variant
 
     LogUnhandledErrors
     On Error GoTo ErrHandler
@@ -1224,7 +1224,7 @@ End Function
 '           : Public method for external API access (e.g., via MCP tools).
 '---------------------------------------------------------------------------------------
 '
-Public Function SetOption(strName As String, varValue As Variant) As String
+Public Function SetOption(ByVal strName As String, ByVal varValue As Variant) As String
 
     Dim dResult As Dictionary
 
@@ -1259,7 +1259,7 @@ End Function
 '           : Public method for external API access (e.g., via MCP tools).
 '---------------------------------------------------------------------------------------
 '
-Public Function GetLogContent(Optional strBaseName As String = "Export") As String
+Public Function GetLogContent(Optional ByVal strBaseName As String = "Export") As String
 
     Dim strFolder As String
     Dim strPath As String
@@ -1402,7 +1402,7 @@ End Function
 '           : Public method for external API access (e.g., via API function).
 '---------------------------------------------------------------------------------------
 '
-Public Function CompileVBA(Optional blnSuppressWarnings As Boolean = False) As Boolean
+Public Function CompileVBA(Optional ByVal blnSuppressWarnings As Boolean = False) As Boolean
     LogUnhandledErrors
     On Error GoTo ErrHandler
 

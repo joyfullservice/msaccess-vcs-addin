@@ -81,6 +81,24 @@ contradictory guidance.
 
 ---
 
+## 2026-04-15 — Use ByVal on clsVersionControl public API parameters for CallByName compatibility
+
+**Trigger**: Calling `API("ExportObject", "query", "qryTest")` via `Application.Run` failed with a type mismatch. The `API` function receives arguments as `Variant` and forwards them through `CallByName`. VBA's default `ByRef` parameter passing requires an exact type match at the call site — a `Variant` cannot bind to a `ByRef String` parameter. The COM dispatch layer used by `CallByName` cannot coerce the type in-place.
+
+**Options explored**:
+- **Change method parameters to `Variant`**: Works, but loses type safety and makes the API less self-documenting. Callers inspecting the method signature can no longer see what type is expected.
+- **Coerce arguments in `API()` with `CStr()`/`CLng()`**: Doesn't generalize — `API` is a generic dispatcher and different methods expect different types (String, Long, Boolean). Would require a mapping of method names to parameter types.
+- **Replace `CallByName` with a `Select Case` dispatch**: Gives full control over coercion per method, but creates a maintenance burden — every new method on `clsVersionControl` requires a new `Case` branch.
+- **Add `ByVal` to method parameters**: When a parameter is `ByVal`, VBA creates a local copy and performs implicit type coercion (Variant → String, etc.) automatically. No changes needed to the `API` function or `CallByName` call sites.
+
+**Decision**: Add `ByVal` to all typed parameters on `clsVersionControl` public methods that are callable through `CallByName`. This is semantically correct (none of these methods modify their input parameters), backward compatible (existing direct callers are unaffected), and requires no changes to the dispatch infrastructure.
+
+**What this rules out**: Methods on `clsVersionControl` that need to modify caller variables via `ByRef` would not work through the `CallByName` path. This is not a practical constraint — the API methods are input-only by design. If a future method genuinely needed `ByRef` semantics, it would need a different dispatch mechanism.
+
+**Relevant files**: `Version Control.accda.src/modules/API/clsVersionControl.cls` — 9 methods updated, 12 parameters changed to `ByVal`.
+
+---
+
 ## 2026-04-14 — Architectural principle: all external automation goes through the public API
 
 **Trigger**: Adding 7 new methods to `clsVersionControl` for MCP tool support raised the question of where the boundary sits between the add-in's internal logic and what external consumers can reach. The MCP server, PowerShell scripts, and other VBA projects all need to call add-in functionality — should they use different entry points?
